@@ -34,6 +34,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\DemoDataService;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -58,6 +59,17 @@ class SetupController extends Controller {
 	 *
 	 * @var int
 	 */
+	/**
+	 * App-config key recording that the demo-data step was DEALT WITH.
+	 *
+	 * Not "objects exist": an operator who declines has finished the step, and
+	 * re-offering the import every visit would make "no thanks" impossible to
+	 * express — and would leave the wizard open over every page.
+	 *
+	 * @var string
+	 */
+	private const DEMO_DECIDED_KEY = 'demo_data_decided';
+
 	private const SETUP_VERSION = 1;
 
 	/**
@@ -98,6 +110,7 @@ class SetupController extends Controller {
 		private readonly IClientService $clientService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
+		private readonly DemoDataService $demoDataService,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -125,6 +138,10 @@ class SetupController extends Controller {
 	 */
 	public function status(): JSONResponse {
 		$llmTested = $this->config(key: 'setup_llm_tested') === '1';
+		$demoDecided = $this->appConfig->getValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, '') !== '';
+		// `completed` stays the REQUIRED step alone. Demo data is optional, so
+		// it must not gate the app — it only needs to be reportable, so the
+		// wizard can stop asking once it has an answer.
 		$completed = $llmTested;
 
 		if ($completed === true) {
@@ -136,6 +153,12 @@ class SetupController extends Controller {
 				'version' => self::SETUP_VERSION,
 				'completed' => $completed,
 				'steps' => [
+					// DEALT WITH, not "objects exist" — see DEMO_DECIDED_KEY.
+					// A step the wizard can never mark done keeps the dialog
+					// open over every page, which since nextcloud-vue 2.21 is
+					// enough on its own: an OUTSTANDING OPTIONAL step opens the
+					// wizard (nextcloud-vue#806).
+					'demo-data' => ['done' => $demoDecided],
 					'test-llm' => ['done' => $llmTested],
 				],
 			]
@@ -198,12 +221,60 @@ class SetupController extends Controller {
 			return $this->testLlm();
 		}
 
+		if ($actionId === 'install-demo-data') {
+			return $this->installDemoData();
+		}
+
+		// DECLINING IS AN ANSWER. Without this the wizard re-offers the import
+		// on every visit, so "no thanks" is not expressible and the step never
+		// closes — which is also what keeps the dialog over the page.
+		if ($actionId === 'skip-demo-data') {
+			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
+			return new JSONResponse(data: ['success' => true, 'message' => 'Demo data skipped.']);
+		}
+
 		return new JSONResponse(
 			data: ['success' => false, 'message' => 'Unknown setup action: ' . $actionId],
 			statusCode: Http::STATUS_NOT_FOUND,
 		);
 
 	}//end runAction()
+
+	/**
+	 * Import the shipped demo dataset.
+	 *
+	 * Reports the FAILURE, rather than a quiet success: an operator who asked
+	 * for demo data and got none must be told, and `DemoDataService::install()`
+	 * throws instead of returning an empty result for exactly that reason.
+	 *
+	 * @return JSONResponse `{ success, message }`.
+	 *
+	 * @spec exclude First-time-setup action dispatch; no behavioural spec.
+	 */
+	private function installDemoData(): JSONResponse {
+		try {
+			$imported = $this->demoDataService->install();
+		} catch (\Throwable $e) {
+			$this->logger->error(
+				'Hermiq setup install-demo-data failed: ' . $e->getMessage(),
+				['app' => Application::APP_ID, 'exception' => $e]
+			);
+			return new JSONResponse(
+				data: ['success' => false, 'message' => 'Could not import the demo data: ' . $e->getMessage()],
+				statusCode: Http::STATUS_INTERNAL_SERVER_ERROR,
+			);
+		}
+
+		$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'installed');
+
+		return new JSONResponse(
+			data: [
+				'success' => true,
+				'message' => 'Imported ' . $imported['objects'] . ' demo object(s).',
+			]
+		);
+
+	}//end installDemoData()
 
 	/**
 	 * Probe the configured LLM endpoint (Ollama /api/tags), record the first
