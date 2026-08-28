@@ -15,6 +15,46 @@
 	},
 	"paths": {},
 	"components": {
+		"registers": {
+			"hermiq": {
+				"slug": "hermiq",
+				"title": "Hermiq",
+				"version": "0.29.0",
+				"description": "Schedule autonomous AI agents in Nextcloud",
+				"schemas": [
+					"agent",
+					"agentaifeature",
+					"agentbudget",
+					"agentcompliancecontrol",
+					"agentcontrolframework",
+					"agentflow",
+					"agentflowrun",
+					"agentsession",
+					"agentsessionturn",
+					"agentskill",
+					"agentskilldraft",
+					"agentskillsource",
+					"agenttemplate",
+					"agentwebhook",
+					"approval",
+					"context",
+					"conversation",
+					"courserecommendation",
+					"evaldataset",
+					"evalrun",
+					"feedback",
+					"guardrailpolicy",
+					"incident",
+					"memory",
+					"message",
+					"modelpolicy",
+					"schedule",
+					"tenantcontrol",
+					"toolAccessRequest",
+					"userprofile"
+				]
+			}
+		},
 		"schemas": {
 			"Schedule": {
 				"slug": "schedule",

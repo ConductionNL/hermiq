@@ -1,5 +1,7 @@
 {
     "translations": {
+        "Demo data (optional)": "Demovoorbeelddata (optioneel)",
+        "Load a small example dataset of agents, skills and conversations, so the lists and detail pages show a working product straight away. The data is obviously sample data, it is safe to run more than once, and it can be removed afterwards. Skip this on a production install.": "Laad een kleine voorbeeldset met agents, skills en gesprekken, zodat de lijsten en detailpagina's meteen een werkend product laten zien. De data is duidelijk voorbeelddata, veilig om meerdere keren uit te voeren en achteraf te verwijderen. Sla dit over op een productie-installatie.",
         "%n step": [
             "%n stap",
             "%n stappen"
