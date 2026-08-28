@@ -1495,7 +1495,7 @@
 				"action": "install-demo-data",
 				"title": "Demo data (optional)",
 				"required": false,
-				"body": "Load a small example dataset \u2014 agents, skills, conversations \u2014 so the lists and detail pages show a working product straight away. The data is obviously sample data, it is safe to run more than once, and it can be removed afterwards. Skip this on a production install."
+				"body": "Load a small example dataset of agents, skills and conversations, so the lists and detail pages show a working product straight away. The data is obviously sample data, it is safe to run more than once, and it can be removed afterwards. Skip this on a production install."
 			},
 			{
 				"id": "llm-endpoint",
