@@ -1304,7 +1304,10 @@ OC.L10N.register(
         "On this instance — private, slower": "On this instance — private, slower",
         "Silence before the microphone closes (ms)": "Silence before the microphone closes (ms)",
         "Spoken replies (text to speech)": "Spoken replies (text to speech)",
-        "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.": "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor."
+        "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.": "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.",
+        "Where the automation lives": "Where the automation lives",
+        "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.": "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.",
+        "Open Flows in the menu": "Open Flows in the menu"
     },
     "nplurals=2; plural=(n != 1);"
 )
