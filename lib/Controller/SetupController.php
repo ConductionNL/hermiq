@@ -104,6 +104,7 @@ class SetupController extends Controller {
 	 * @param IClientService $clientService Nextcloud HTTP client factory.
 	 * @param IAppConfig $appConfig App-config reader/writer.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param DemoDataService $demoDataService Imports the shipped demo dataset (ADR-111 rule 4).
 	 */
 	public function __construct(
 		IRequest $request,

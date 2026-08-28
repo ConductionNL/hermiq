@@ -36,6 +36,8 @@ use RuntimeException;
 
 /**
  * Imports the shipped demo dataset on request.
+ *
+ * @spec openspec/specs/configuration-initialization/spec.md#req-init-002-import-configuration-on-install-upgrade
  */
 class DemoDataService {
 	/**
