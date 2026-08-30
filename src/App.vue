@@ -38,7 +38,7 @@
 			  `pages[].sidebarComponent` in the manifest and resolved by CnAppRoot
 			  itself (nc-vue #528). This slot only has to handle the object sidebar.
 			-->
-			<template #sidebar>
+			<template #sidebar="{ pageSidebarComponent }">
 				<CnObjectSidebar
 					v-if="objectSidebarState.active"
 					:title="objectSidebarState.title"
@@ -51,6 +51,10 @@
 					:tabs="objectSidebarState.tabs"
 					:open="objectSidebarState.open"
 					@update:open="objectSidebarState.open = $event" />
+				<!-- The manifest page's own sidebar (pages[].sidebarComponent). Passed in
+				     as a slot prop because filling this slot suppresses CnAppRoot's
+				     fallback, which is what hid the flow sidebar. -->
+				<component :is="pageSidebarComponent" v-if="pageSidebarComponent" />
 			</template>
 			<!--
 			  user-settings slot: NcAppSettingsSection children rendered inside
