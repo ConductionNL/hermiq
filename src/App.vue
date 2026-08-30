@@ -54,9 +54,7 @@
 				<!-- The manifest page's own sidebar (pages[].sidebarComponent). Passed in
 				     as a slot prop because filling this slot suppresses CnAppRoot's
 				     fallback, which is what hid the flow sidebar. -->
-				<component
-					:is="pageSidebarComponent"
-					v-if="pageSidebarComponent" />
+				<component :is="pageSidebarComponent" v-if="pageSidebarComponent" />
 			</template>
 			<!--
 			  user-settings slot: NcAppSettingsSection children rendered inside
