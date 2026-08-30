@@ -389,17 +389,23 @@ test.describe('hermiq regression: dashboard + agents', () => {
 	 * so it died on its first line and never reached an assertion. Fixing the
 	 * selector let it run, and it fails at `View` with `Received: 1`.
 	 *
-	 * The reason is that the index is no longer a manifest-driven `type:"index"`
-	 * page whose `config` turns the built-ins off — `FlowIndex` is now a
-	 * hand-written `type:"custom"` component (`src/views/FlowIndex.vue`) that
-	 * renders `<CnIndexPage>` with `row-click-to-view` and NO row-action config at
-	 * all, so nc-vue's defaults apply and View is back. The deliberate
-	 * one-action decision did not survive the rewrite.
+	 * The cause has MOVED, and the test still cannot pass — so it stays fixme.
 	 *
-	 * Left failing-as-written rather than relaxed to green: whether to restore
-	 * the decision in `FlowIndex.vue` or retire it is a product call, and an
-	 * assertion quietly rewritten to match current behaviour is how the decision
-	 * would be lost a second time.
+	 * It used to fail because `FlowIndex` was a hand-written `type:"custom"`
+	 * component that rendered `<CnIndexPage>` with no row-action config, so
+	 * nc-vue's defaults applied and View came back. That component is gone: the
+	 * page is a `type:"index"` over the named `flows` source again.
+	 *
+	 * It still fails, for a different and narrower reason. The named source DOES
+	 * declare exactly one row action (Edit), but `CnIndexPage` does not read
+	 * `rowActions` from a source at all, and the `actions` prop it would map onto
+	 * MERGES with the built-ins rather than replacing them. So a source cannot
+	 * currently express "these actions and no others" — see
+	 * `ConductionNL/nextcloud-vue`.
+	 *
+	 * Left failing-as-written rather than relaxed to green: an assertion quietly
+	 * rewritten to match current behaviour is how the decision would be lost a
+	 * second time. Re-check this once a named source can suppress the built-ins.
 	 */
 	test.fixme('offers exactly one row action, Edit, which opens the flow builder', async ({
 		page,
@@ -434,28 +440,19 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		).toBeVisible()
 	})
 
-	// REMOVED: `graph-editor-vocabulary` — it asserted the dialect the engine
-	// does not speak, and every selector it used had already been deleted.
+	// REMOVED: `graph-editor-vocabulary` — it asserted a flow dialect that no
+	// longer exists, using selectors that had already been deleted.
 	//
-	// It read `nodes[].type` from the flow document and required each NODE to
-	// carry a catalogue step type, with a per-node config pane. That is exactly
-	// backwards: in OpenRegister's engine a node is a Petri-net PLACE carrying no
-	// `type`/`config`, the EDGE is the transition that carries the step, and
-	// `FlowDefinitionBuilder::extractPlaces()` throws on a node that carries one.
-	// A palette putting catalogue step types onto nodes is what made every flow
-	// authored through the old builder unrunnable — so this test pinned the
-	// defect in place rather than guarding against it.
+	// Worth recording WHY, because the reasoning left here in its place was
+	// itself wrong by the time it was written. It said a node is a Petri-net
+	// PLACE carrying no `type`/`config` and the EDGE carries the step. That was
+	// true once; `or-flow-action-nodes` INVERTED it. A node is now the action —
+	// it holds the step type and its config, and it is the thing that runs —
+	// while an edge is sequence: `from`, `to`, and an optional title.
 	//
-	// It could not have caught anything either way: `.graph-builder__node-type`,
-	// `.graph-builder__node`, `.graph-sidebar__palette-item` and the
-	// `graph-node-pane` testid do not exist anywhere in `src/` (the live names are
-	// `flow-builder__*` and the `flow-step-pane` testid), and it entered through
-	// `[data-testid-page-id="GraphIndex"]`, a page id the manifest no longer
-	// declares — measured `element(s) not found`, not a soft miss.
-	//
-	// The coverage lives in `tests/e2e/flow-builder-dialect.spec.ts`, added by
-	// f7214a09 for this purpose: 'names every place instead of rendering a dash'
-	// (labels), 'draws exactly one box per place' (the nested-chrome check), and
-	// 'configures the step, not the place' (the pane + palette, in the dialect
-	// the engine actually dispatches).
+	// So two successive comments here each described the model as it had just
+	// stopped being. That is the hazard of an app restating a shared engine's
+	// semantics: the app's copy drifts and nothing fails. This app no longer has
+	// an editor of its own to describe, so both the description and the coverage
+	// belong to `@conduction/nextcloud-vue`.
 })

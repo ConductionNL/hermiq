@@ -6,10 +6,12 @@
  *
  * ## Why this exists
  *
- * `flow-builder-dialect.spec.ts` is 12 tests about the builder: ports are dots
- * not bars, a branch port carries its branch, the sidebar closes, the canvas
- * zooms, `/graphs` still routes. Every one of them can pass while no flow on
- * the instance is capable of running — and on 2026-08-11 every one of them DID,
+ * The builder specs that used to sit beside this one — 12 tests about ports,
+ * branch carrying, the sidebar and zoom — are gone with the forked builder they
+ * described; that rendering is the shared canvas's, and nc-vue's to prove. They
+ * are worth remembering for WHY this file is separate: every one of them could
+ * pass while no flow on the instance was capable of running, and on 2026-08-11
+ * every one of them DID,
  * for about a hundred minutes, while openregister's `vendor/` was empty and the
  * engine died on `MarkingStoreInterface not found` in all 24 runs it attempted.
  * Nothing in the suite noticed, because nothing in the suite executed a flow.
@@ -424,8 +426,11 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		})
 		await dismissOnboarding(page)
 
+		// The toolbar is the shared canvas's now (`cn-flow-detail__toolbar`), not
+		// the app's old `.flow-builder__verbs`. The assertion below is unchanged
+		// and is the point of this test: a save must not rewrite node types.
 		const save = page
-			.locator('.flow-builder__verbs')
+			.locator('.cn-flow-detail__toolbar')
 			.getByRole('button', { name: 'Save' })
 		await expect(save).toBeEnabled({ timeout: 30_000 })
 		await save.click()

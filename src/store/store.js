@@ -70,9 +70,14 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 //
 // This store used to exist over a `hermiq/agentflow` schema, which made a
 // SECOND copy of every flow: the objects the editor read, and the native rows
-// the engine ran. Nothing kept them in step. The graph editor now goes to
-// `src/api/flows.js` — OpenRegister's own flow endpoints — so what an author
-// sees and what a trigger runs are the same record.
+// the engine ran. Nothing kept them in step.
+//
+// The app no longer holds a flow client of its own either. The flow pages are
+// the shared `index` and `flow` page types, which read OpenRegister's flow
+// endpoints through nc-vue's `useFlowStore`, so what an author sees and what a
+// trigger runs are the same record — and the rule quoted above is satisfied by
+// the frontend as well as the backend. Hermiq extends the engine the supported
+// way: `lib/Flow/*Node.php`, registered on `RegisterFlowNodesEvent`.
 
 /**
  * Canonical OpenRegister object store for the 'agentskill' schema
