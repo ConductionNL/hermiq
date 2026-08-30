@@ -27,34 +27,33 @@ declare(strict_types=1);
 namespace OCA\Talk\Chat;
 
 use DateTime;
-use OCA\Talk\Model\Participant;
+use OCA\Talk\Participant;
 use OCA\Talk\Room;
 
 /**
  * Minimal stub of the spreed chat manager.
  */
-class ChatManager
-{
-    /**
-     * Post a message to a room.
-     *
-     * @param Room             $chat             The target room.
-     * @param Participant|null $participant      The actor's participant, or null.
-     * @param string           $actorType        The actor type (e.g. 'users').
-     * @param string           $actorId          The actor id (owner UID).
-     * @param string           $message          The message body.
-     * @param DateTime         $creationDateTime The creation time.
-     *
-     * @return void
-     */
-    public function sendMessage(
-        Room $chat,
-        ?Participant $participant,
-        string $actorType,
-        string $actorId,
-        string $message,
-        DateTime $creationDateTime
-    ): void {
+class ChatManager {
+	/**
+	 * Post a message to a room.
+	 *
+	 * @param Room $chat The target room.
+	 * @param Participant|null $participant The actor's participant, or null.
+	 * @param string $actorType The actor type (e.g. 'users').
+	 * @param string $actorId The actor id (owner UID).
+	 * @param string $message The message body.
+	 * @param DateTime $creationDateTime The creation time.
+	 *
+	 * @return void
+	 */
+	public function sendMessage(
+		Room $chat,
+		?Participant $participant,
+		string $actorType,
+		string $actorId,
+		string $message,
+		DateTime $creationDateTime,
+	): void {
 
-    }//end sendMessage()
+	}//end sendMessage()
 }//end class

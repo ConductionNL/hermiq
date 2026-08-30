@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>hermiq-llm-runner</id>
+    <name>hermiq-llm-runner</name>
+    <summary>Hardened LLM-CLI-runner sidecar that runs vendor LLM CLIs for Hermiq</summary>
+    <description><![CDATA[hermiq-llm-runner — optional, hardened LLM-CLI transport ExApp
+
+A network-isolated AppAPI Docker sidecar that runs the actual vendor LLM CLIs
+(the `claude` CLI, plus the OpenAI and — when a CLI is supplied — Grok CLIs)
+and executes a single LLM turn on request. It is the "cli" execution-mode
+backend for Hermiq's chat providers: Hermiq POSTs a fully-assembled turn
+(system prompt + message history + tool schema) to this ExApp's `POST /run`
+endpoint, the runner shells out to the matching CLI in non-interactive/print
+mode with the provider credential injected via the process ENVIRONMENT only,
+and returns the model's text / tool-call requests / usage.
+
+Tool execution stays in Hermiq's governed engine — this runner is only the LLM
+transport. Guardrails, per-tool approval, redaction, evals, model-policy, and
+budgets all remain on Hermiq's side.
+
+Hardening: runs NON-ROOT; egress restricted to the provider API hosts only
+(api.anthropic.com, api.openai.com, api.x.ai) with no general internet; NO
+mounts of Nextcloud user data or the host filesystem; credentials injected
+per-call from a 0600 env-file, never on the command line, never persisted.
+The `/run` endpoint requires the AppAPI shared secret — only Hermiq can call
+it. See exapp/llm-runner/README.md for the full hardening model and deployment.
+    ]]></description>
+    <version>0.1.0</version>
+    <licence>EUPL-1.2</licence>
+    <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
+    <category>tools</category>
+    <category>integration</category>
+    <website>https://github.com/ConductionNL/hermiq</website>
+    <bugs>https://github.com/ConductionNL/hermiq/issues</bugs>
+    <repository>https://github.com/ConductionNL/hermiq</repository>
+
+    <dependencies>
+        <nextcloud min-version="32" max-version="34"/>
+    </dependencies>
+
+    <external-app>
+        <docker-install>
+            <registry>ghcr.io</registry>
+            <image>conductionnl/hermiq-llm-runner</image>
+            <image-tag>latest</image-tag>
+        </docker-install>
+
+        <!--
+          The runner exposes exactly one work route. AppAPI proxies signed
+          server-to-server requests from Hermiq (PHP) to this route; the ExApp
+          validates the AppAPI shared secret (APP_SECRET, minted by Nextcloud at
+          registration) on every call before invoking any CLI. access_level
+          ADMIN keeps the route off the browser-facing surface — only trusted
+          server-side callers (Hermiq via AppAPI) reach it.
+        -->
+        <routes>
+            <route>
+                <url>run</url>
+                <verb>POST</verb>
+                <access_level>ADMIN</access_level>
+                <headers_to_exclude>[]</headers_to_exclude>
+            </route>
+            <route>
+                <url>heartbeat</url>
+                <verb>GET</verb>
+                <access_level>PUBLIC</access_level>
+                <headers_to_exclude>[]</headers_to_exclude>
+            </route>
+        </routes>
+
+        <environment-variables>
+            <variable>
+                <name>RUNNER_PORT</name>
+                <display-name>Runner HTTP port</display-name>
+                <description>Port the runner listens on inside the container. AppAPI sets APP_PORT; defaults to 9000.</description>
+            </variable>
+            <variable>
+                <name>RUNNER_TIMEOUT_MS</name>
+                <display-name>Per-turn CLI timeout (ms)</display-name>
+                <description>Hard wall-clock budget for a single CLI invocation. Default: 120000.</description>
+            </variable>
+            <variable>
+                <name>RUNNER_GROK_BIN</name>
+                <display-name>Grok CLI binary</display-name>
+                <description>Path/name of a Grok CLI the deployer supplies (xAI ships no verified official npm CLI). Leave unset to disable the grok provider.</description>
+            </variable>
+        </environment-variables>
+    </external-app>
+</info>

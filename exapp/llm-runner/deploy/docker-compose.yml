@@ -1,0 +1,129 @@
+# hermiq-llm-runner — hardened deployment (governed egress).
+#
+# THIS IS A MIGRATION. Earlier revisions offered two interchangeable options and
+# recommended Option A (an in-container iptables jail with a STATIC host
+# allowlist). The governed posture below replaces it and is now the REQUIRED
+# one. Operators running Option A must migrate; see egress-allowlist.md.
+#
+# Why the change: the iptables jail carried its own copy of the allowlist. That
+# is a SECOND policy — it drifts from the one the agent's `webFetch` tool obeys,
+# and it cannot express "may THIS run reach that host?" because iptables has no
+# idea what a run is. Here the container gets NO default route at all, and the
+# only way out is a proxy that asks Hermiq's PDP about every single connection.
+# `WebResearchEgressGuard` stays the one policy source for both layers.
+#
+# The two layers are complementary, not redundant:
+#   - the per-agent MCP grant governs what the AGENT is authorized to do;
+#   - this network backstop governs what the CONTAINER can reach — including
+#     traffic the agent never asked for (a CLI auto-update check, a built-in web
+#     fetch a future flag fails to disable, a compromised dependency).
+#
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+
+services:
+  # -------------------------------------------------------------------------
+  # The runner. No NET_ADMIN, no root, no default route.
+  # -------------------------------------------------------------------------
+  hermiq-llm-runner:
+    image: ghcr.io/conductionnl/hermiq-llm-runner:latest
+    # The image's own unprivileged CMD — no entrypoint override and no
+    # capabilities: with no route to the internet there is no jail to install,
+    # so the container needs no privilege to enforce one.
+    cap_drop:
+      - ALL
+    read_only: true
+    # ⚠️ `exec` IS LOAD-BEARING, and the default is `noexec`.
+    #
+    # Docker mounts a tmpfs `rw,nosuid,nodev,noexec` unless told otherwise, and
+    # the scratch tree is not merely storage — it is EXECUTED from, twice:
+    #
+    #   1. `stage.js` writes the `GIT_ASKPASS` helper into the scratch dir and
+    #      git EXECUTES it to obtain the credential;
+    #   2. the stage's command child is a script in the CLONED tree, spawned
+    #      with the clone as its cwd.
+    #
+    # Both live under `os.tmpdir()`, i.e. here. Measured 2026-08-02 on the same
+    # image, the only difference being these options:
+    #
+    #   noexec: `fatal: cannot exec '/tmp/.../askpass.sh': Permission denied`
+    #           then `could not read Username ...: terminal prompts disabled`,
+    #           and the command child fails `EACCES`;
+    #   exec:   git reaches the forge with the credential, and the command child
+    #           runs.
+    #
+    # So the posture as previously written dropped the credential on the floor
+    # and could not run a gate suite at all — while every `docker inspect`
+    # assertion about it still passed. `size` is set for the same reason the
+    # options are: the default 64M cannot hold a repository clone.
+    tmpfs:
+      - /tmp:rw,exec,nosuid,nodev,size=2g
+      - /app/scratch:rw,exec,nosuid,nodev,size=256m
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      APP_ID: hermiq-llm-runner
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET to the value Nextcloud minted at registration}
+      RUNNER_PORT: "9000"
+      # The proxy's authority. The runner builds a PER-RUN URL from this plus the
+      # run token Hermiq sends with the turn, and puts it in the CLI's
+      # environment — never argv. Without this the runner injects no proxy env
+      # and, on this network, the CLI simply has no way out.
+      EGRESS_PROXY_AUTHORITY: "egress-proxy:3128"
+    # NO volumes: the runner mounts no Nextcloud user data and no host paths.
+    networks:
+      # `jailed` ONLY. Docker installs no default gateway on an internal
+      # network, so there is no route to the internet to leak through — the
+      # proxy is reachable by name and nothing else is reachable at all.
+      - jailed
+    ports:
+      - "127.0.0.1:9000:9000"
+    depends_on:
+      - egress-proxy
+    # `always`, not `unless-stopped`. This container is the execution plane for
+    # every `hermiq.workload-step`: when it is down the whole pipeline is down,
+    # and it is down SILENTLY — the steps do not fail loudly, they simply never
+    # run. Measured 2026-08-02: the runner sat Exited(255) for 13 hours with
+    # nothing noticing. `unless-stopped` would not restart it after an operator
+    # (or a script) had stopped it once, which is exactly the state nobody is
+    # watching for. The `nextcloud` container it serves uses `always` too.
+    restart: always
+
+  # -------------------------------------------------------------------------
+  # The governed egress proxy (PEP). The ONLY component on both networks, and
+  # therefore the only path from the runner to anywhere.
+  # -------------------------------------------------------------------------
+  egress-proxy:
+    build: ./egress-proxy
+    image: ghcr.io/conductionnl/hermiq-egress-proxy:latest
+    cap_drop:
+      - ALL
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PROXY_PORT: "3128"
+      # Hermiq's PDP. Must be the CONTAINER-reachable origin (the AppAPI
+      # daemon's nextcloud_url), NOT the browser URL — `linkToRouteAbsolute()`
+      # returns the latter, and inside a container `localhost` is the container.
+      EGRESS_PDP_URL: ${EGRESS_PDP_URL:?set to e.g. http://nextcloud/apps/hermiq/api/egress/authorize}
+      # A slow PDP DENIES. This bounds how long a caller waits to be told "no".
+      EGRESS_PDP_TIMEOUT_MS: "5000"
+    networks:
+      # Both sides: `jailed` to accept the runner's CONNECTs, `egress` to reach
+      # the PDP and the allowed provider hosts. This dual attachment is the
+      # entire reason the runner cannot reach the internet directly.
+      - jailed
+      - egress
+    # `always` for the same reason, and one more: the proxy is the runner's ONLY
+    # route out (`jailed` is internal, so there is no gateway). A runner that
+    # came back while the proxy stayed down would be alive, healthy, and unable
+    # to reach a single provider — the most confusing failure of the two.
+    restart: always
+
+networks:
+  jailed:
+    # internal: true ⇒ Docker installs NO gateway. This single line is what makes
+    # the proxy the only route out; everything else here is defence in depth.
+    internal: true
+  egress: {}

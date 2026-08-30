@@ -25,28 +25,27 @@ namespace OC\Hooks;
 /**
  * Minimal Emitter stub for standalone unit runs.
  */
-interface Emitter
-{
+interface Emitter {
 
-    /**
-     * Register a listener.
-     *
-     * @param string   $scope    The emitting scope.
-     * @param string   $method   The emitting method.
-     * @param callable $callback The listener callback.
-     *
-     * @return void
-     */
-    public function listen(string $scope, string $method, callable $callback): void;
+	/**
+	 * Register a listener.
+	 *
+	 * @param string $scope The emitting scope.
+	 * @param string $method The emitting method.
+	 * @param callable $callback The listener callback.
+	 *
+	 * @return void
+	 */
+	public function listen(string $scope, string $method, callable $callback): void;
 
-    /**
-     * Remove a listener.
-     *
-     * @param string|null   $scope    The scope, or null for all.
-     * @param string|null   $method   The method, or null for all.
-     * @param callable|null $callback The callback, or null for all.
-     *
-     * @return void
-     */
-    public function removeListener(?string $scope=null, ?string $method=null, ?callable $callback=null): void;
+	/**
+	 * Remove a listener.
+	 *
+	 * @param string|null $scope The scope, or null for all.
+	 * @param string|null $method The method, or null for all.
+	 * @param callable|null $callback The callback, or null for all.
+	 *
+	 * @return void
+	 */
+	public function removeListener(?string $scope = null, ?string $method = null, ?callable $callback = null): void;
 }//end interface

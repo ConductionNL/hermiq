@@ -26,79 +26,74 @@ use OCP\IGroupManager;
 use OCP\IUserSession;
 
 if (class_exists(AbstractToolHandler::class) === false) {
-    /**
-     * Stub abstract base class for tool handlers.
-     *
-     * Provides standardised requireWriteRole() and requireAdminUser() helpers
-     * used across Conduction app MCP tool providers.
-     */
-    abstract class AbstractToolHandler
-    {
+	/**
+	 * Stub abstract base class for tool handlers.
+	 *
+	 * Provides standardised requireWriteRole() and requireAdminUser() helpers
+	 * used across Conduction app MCP tool providers.
+	 */
+	abstract class AbstractToolHandler {
 
-        /**
-         * The user session.
-         *
-         * @var IUserSession
-         */
-        protected IUserSession $userSession;
+		/**
+		 * The user session.
+		 *
+		 * @var IUserSession
+		 */
+		protected IUserSession $userSession;
 
-        /**
-         * The group manager.
-         *
-         * @var IGroupManager
-         */
-        protected IGroupManager $groupManager;
+		/**
+		 * The group manager.
+		 *
+		 * @var IGroupManager
+		 */
+		protected IGroupManager $groupManager;
 
-        /**
-         * Assert that there is an authenticated user with write-role access.
-         *
-         * @return array<string,mixed>|null Error envelope or null when authorised.
-         */
-        protected function requireWriteRole(): ?array
-        {
-            $user = $this->userSession->getUser();
-            if ($user === null) {
-                return [
-                    'error' => [
-                        'code'    => 'not_authenticated',
-                        'message' => 'You must be signed in to perform this action.',
-                    ],
-                ];
-            }
+		/**
+		 * Assert that there is an authenticated user with write-role access.
+		 *
+		 * @return array<string,mixed>|null Error envelope or null when authorised.
+		 */
+		protected function requireWriteRole(): ?array {
+			$user = $this->userSession->getUser();
+			if ($user === null) {
+				return [
+					'error' => [
+						'code' => 'not_authenticated',
+						'message' => 'You must be signed in to perform this action.',
+					],
+				];
+			}
 
-            return null;
+			return null;
+		}//end requireWriteRole()
 
-        }//end requireWriteRole()
+		/**
+		 * Assert that there is an authenticated admin user.
+		 *
+		 * @return array<string,mixed>|null Error envelope or null when authorised.
+		 */
+		protected function requireAdminUser(): ?array {
+			$user = $this->userSession->getUser();
+			if ($user === null) {
+				return [
+					'error' => [
+						'code' => 'not_authenticated',
+						'message' => 'You must be signed in to perform this action.',
+					],
+				];
+			}
 
-        /**
-         * Assert that there is an authenticated admin user.
-         *
-         * @return array<string,mixed>|null Error envelope or null when authorised.
-         */
-        protected function requireAdminUser(): ?array
-        {
-            $user = $this->userSession->getUser();
-            if ($user === null) {
-                return [
-                    'error' => [
-                        'code'    => 'not_authenticated',
-                        'message' => 'You must be signed in to perform this action.',
-                    ],
-                ];
-            }
+			if ($this->groupManager->isAdmin($user->getUID()) === false) {
+				return [
+					'error' => [
+						'code' => 'forbidden',
+						'message' => 'Admin access required.',
+					],
+				];
+			}
 
-            if ($this->groupManager->isAdmin($user->getUID()) === false) {
-                return [
-                    'error' => [
-                        'code'    => 'forbidden',
-                        'message' => 'Admin access required.',
-                    ],
-                ];
-            }
+			return null;
+		}//end requireAdminUser()
 
-            return null;
-
-        }//end requireAdminUser()
-
-    }//end class
+	}//end class
 }//end if

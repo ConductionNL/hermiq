@@ -1,63 +1,63 @@
 {
-	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
-	"version": "0.2.0",
+	"$schema": "https://github.com/ConductionNL/nextcloud-vue/raw/main/src/schemas/app-manifest-v2.schema.json",
+	"version": "0.7.0",
 	"dependencies": [
 		"openregister"
 	],
 	"menu": [
 		{
+			"id": "Chat",
+			"label": "Chat",
+			"icon": "MessageTextOutline",
+			"route": "Chat",
+			"order": 8
+		},
+		{
 			"id": "AgentCatalog",
 			"label": "Agents",
-			"icon": "icon-category-integration",
+			"icon": "Creation",
 			"route": "AgentCatalog",
 			"order": 10
 		},
 		{
 			"id": "ApprovalInbox",
 			"label": "Approvals",
-			"icon": "icon-checkmark",
+			"icon": "Check",
 			"route": "ApprovalInbox",
 			"order": 15
 		},
 		{
+			"id": "Store",
+			"label": "Store",
+			"icon": "StoreOutline",
+			"route": "Store",
+			"order": 11
+		},
+		{
 			"id": "AgentMemory",
 			"label": "Memory",
-			"icon": "icon-category-monitoring",
+			"icon": "Brain",
 			"route": "AgentMemory",
 			"order": 17
 		},
 		{
 			"id": "SkillsCatalog",
 			"label": "Skills",
-			"icon": "icon-category-customization",
+			"icon": "SchoolOutline",
 			"route": "SkillsCatalog",
 			"order": 18
 		},
 		{
-			"id": "RunAnalytics",
-			"label": "Analytics",
-			"icon": "icon-category-monitoring",
-			"route": "RunAnalytics",
-			"order": 19
-		},
-		{
 			"id": "Dashboard",
 			"label": "Dashboard",
-			"icon": "icon-category-dashboard",
+			"icon": "ViewDashboardOutline",
 			"route": "Dashboard",
-			"order": 20
-		},
-		{
-			"id": "Examples",
-			"label": "Examples",
-			"icon": "icon-files",
-			"route": "Examples",
-			"order": 30
+			"order": 5
 		},
 		{
 			"id": "Documentation",
 			"label": "Documentation",
-			"icon": "icon-info",
+			"icon": "BookOpenVariantOutline",
 			"href": "https://www.conduction.nl/academy",
 			"section": "footer",
 			"order": 90
@@ -65,7 +65,7 @@
 		{
 			"id": "FeaturesRoadmapMenu",
 			"label": "Features & roadmap",
-			"icon": "icon-toggle",
+			"icon": "MapMarkerPath",
 			"route": "FeaturesRoadmap",
 			"section": "footer",
 			"order": 100
@@ -73,27 +73,443 @@
 		{
 			"id": "TenantOps",
 			"label": "Tenant ops",
-			"icon": "icon-category-security",
+			"icon": "ShieldOutline",
 			"route": "TenantOps",
+			"section": "settings",
+			"order": 40
+		},
+		{
+			"id": "EvalDatasets",
+			"label": "Evaluations",
+			"icon": "ChartLine",
+			"route": "EvalDatasets",
+			"order": 101
+		},
+		{
+			"id": "McpTools",
+			"label": "MCP tools",
+			"icon": "Connection",
+			"route": "McpTools",
+			"order": 21
+		},
+		{
+			"id": "GuardrailPolicy",
+			"label": "Guardrail policy",
+			"icon": "ShieldOutline",
+			"route": "GuardrailPolicy",
+			"section": "settings",
+			"order": 10
+		},
+		{
+			"id": "AlgorithmRegister",
+			"label": "Algorithm register",
+			"icon": "OfficeBuilding",
+			"route": "AlgorithmRegister",
+			"section": "settings",
 			"order": 20
+		},
+		{
+			"id": "Compliance",
+			"label": "Compliance",
+			"icon": "Check",
+			"route": "Compliance",
+			"section": "settings",
+			"order": 30
+		},
+		{
+			"id": "FlowIndex",
+			"label": "Flows",
+			"icon": "Sitemap",
+			"route": "FlowIndex",
+			"section": "settings",
+			"order": 96
+		},
+		{
+			"id": "AiOversightMenu",
+			"label": "AI oversight",
+			"icon": "ShieldCheckOutline",
+			"route": "AiOversight",
+			"section": "settings",
+			"order": 97
 		}
 	],
 	"pages": [
 		{
-			"id": "AgentCatalog",
-			"route": "/",
+			"id": "Chat",
+			"route": "/chat",
 			"type": "custom",
-			"component": "AgentCatalog",
+			"component": "Chat",
+			"title": "Chat",
+			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a conversation archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
+		},
+		{
+			"id": "AgentCatalog",
+			"route": "/agents",
+			"type": "index",
 			"title": "Agents",
-			"_note": "Custom page: the agent catalog needs bespoke behaviour (OpenRegister agents resource + schedule-attached/last-run derivation + create modal) that the built-in index page type cannot express. Standard nav page — not a dashboard."
+			"config": {
+				"register": "hermiq",
+				"schema": "agent",
+				"_note": "manifest-driven-pages: converted from type:custom — the read path was already createObjectStore agent/hermiq, read-equivalent to the generic objects endpoint (design.md Decision 5). The former Schedule/Last-run derived columns are dropped, not faked — they require a reverse-FK join (Schedule.agentId -> Agent) OpenRegister's calculation engine does not support (design.md Decision 9); the same status is one click away on AgentDetail's run-operations/run-history widgets.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "model",
+						"label": "Model"
+					}
+				],
+				"rowRoute": "AgentDetail",
+				"headerActions": [
+					{
+						"id": "browse-templates",
+						"label": "Browse templates",
+						"icon": "Package",
+						"handler": "navigate",
+						"route": "Store"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "AgentFormModal"
+			}
 		},
 		{
 			"id": "AgentDetail",
 			"route": "/agents/:id",
-			"type": "custom",
-			"component": "AgentDetail",
+			"type": "detail",
 			"title": "Agent",
-			"_note": "Custom page: agent detail combines the agents resource, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
+			"config": {
+				"register": "hermiq",
+				"schema": "agent",
+				"_note": "manifest-driven-pages: converted from one opaque type:custom AgentDetail.vue (1570 lines) to a type:detail widget grid (ADR-062: every widget fills its gridHeight exactly, no inner scrollbars, no reserved voids). Six of seven content widgets stay type:custom — Hermiq's AI-governance interactions (dry-run/replay, run-trace observability, tool-catalogue editing, webhook lifecycle) are inherently bespoke, unlike procest/pipelinq's plain-data domain objects (design.md Decision 3). tools is excluded from the data widget and edited only via the Edit-agent header action's existing NcSelect-over-live-catalogue editor (design.md Decision 1). Header actions use config.headerActions: verified at HEAD that CnDetailPage renders config.headerActions via CnActionButtons, while the schema's top-level page.actions[] typed-action array is not yet wired into CnDetailPage's render path — this change follows HEAD over the original REQ-008 wording (flagged for the reviewer). agent-detail-redesign (2026-07-31): the page was overflowing its own grid — the four KPIs were one custom widget crammed into gridHeight 2, so its cards spilled into Skills, while agent-core/skills/run-history reserved 3-10x the height their content used. The KPIs are now four type:stat tiles across the top, agent-scoped by params.agentId = @objectId (the endpoint engine resolves that token on a detail page), which is the SAME four numbers with each one sized to a tile. Every gridHeight below was set from the widget's rendered content height measured in a browser at 12 columns (80px/row), verified against BOTH a 1-field agent and a 23-field one, and re-measured until no widget's scrollHeight exceeded its cell. Four widgets could not be sized at all until their content was bounded, because their content is a variable-length list and no fixed gridHeight can hold one: the instance-wide tool catalogue (~100 rows = 6,600px here), the invocation audit trail, the run history, and the memory entries. Each now scrolls inside its own region with a sticky header (ToolGrantEditor also gained a filter — 100 unfiltered rows behind a scrollbar is not a way to find one tool). ADR-062's 'a widget fills its gridHeight exactly' can only be honoured by an unbounded list if the list scrolls internally. agent-core is the one deliberate exception to measured sizing: it is sized for the 9 fields it DECLARES (5 rows at columns:2, 61px/row measured, + 93px chrome = 398px -> h5) rather than the 154px it currently renders, because it currently renders only 'name' — hermiq's agent schema (36 properties) and openbuild's agent schema (6 properties) share the slug 'agent', GET /api/schemas/agent resolves to openbuild's, and 'name' is their only common property. That is an OpenRegister slug-resolution bug (no register-scoped lookup exists: ?register= is ignored and the nested route 404s), not a layout one, so the cell is sized for the correct content instead of baking the bug into the geometry. AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolve the current agent id (and, for version history, the owner-only rollback gate) from the route when opened via open-modal, since open-modal action props are static JSON, not resolved against @objectId at HEAD. agent-detail-redesign (2026-08-04): NONE of the geometry above was reaching the screen. Hermiq never shipped gridstack's stylesheet — nc-vue imports it as a side-effect import from an aliased package and webpack tree-shakes those away (the same trap the explicit css/index.css import in src/main.js already worked around, one level up). GridStack >= 11 sets left/top INLINE but takes `position:absolute` on items and `position:relative` on the container from that stylesheet, so every widget on every grid page fell into normal flow: correct widths, no horizontal placement, all 11 cells stacked in one column down the left third of the viewport. Verified in-browser before the fix: gs-x=\"3\" carried `left: calc(3 * var(--gs-column-width))` resolving to 25% while `position` computed to `static`, and all 11 items reported left=371px. procest (gridstack 10, same renderer) positioned correctly, which is what localised it to hermiq. Fixed by an explicit `import 'gridstack/dist/gridstack.min.css'` in src/main.js. THEN the layout was recomposed to procest CaseDetail's shape: an 8-column main column (Configuration, Run operations, Memory) beside a persistent 4-column rail (the four KPI stat tiles stacked, then Skills, then Eval baseline), both closing exactly at row 16, with tool-governance and run-history full-width below. 33 rows -> 28, zero unfilled cells, and zero widgets whose scrollHeight exceeds their cell (re-measured in-browser). tool-governance halved from gridHeight 14 to 8 because its two surfaces are now TABBED inside the widget rather than stacked; its chrome title is off (showTitle:false) and the widget draws its own heading, because with the chrome title on it is a SIBLING of the widget root inside a display:block grid item, so height:100% resolved against the full box and ignored it — a permanent 6px overflow no gridHeight could remove.",
+				"widgets": [
+					{
+						"id": "agent-core",
+						"type": "data",
+						"title": "Configuration",
+						"icon": "Cog",
+						"content": {
+							"_note": "content.title, not just the widget's top-level title: `data` is an ownsTitle widget type, so CnDetailPage's widgetDisplayTitle deliberately returns content.title for it and ignores the chrome title (otherwise a seeded title permanently shadows a user's edit and can never be changed). With the title only at the top level this card rendered the generic default header 'Data' instead of 'Configuration'.",
+							"title": "Configuration",
+							"columns": 2,
+							"include": [
+								"name",
+								"description",
+								"type",
+								"provider",
+								"model",
+								"prompt",
+								"temperature",
+								"maxTokens",
+								"active"
+							]
+						}
+					},
+					{
+						"id": "agent-kpi-total-runs",
+						"type": "stat",
+						"title": "Total runs",
+						"content": {
+							"label": "Total runs",
+							"caption": "recorded",
+							"icon": "Timeline",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": {
+									"agentId": "@objectId"
+								}
+							},
+							"valueField": "totalRuns"
+						}
+					},
+					{
+						"id": "agent-kpi-success-rate",
+						"type": "stat",
+						"title": "Success rate",
+						"content": {
+							"label": "Success rate",
+							"caption": "completed",
+							"icon": "CheckCircleOutline",
+							"format": {
+								"style": "decimal",
+								"decimals": 0,
+								"suffix": "%"
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": {
+									"agentId": "@objectId"
+								}
+							},
+							"valueField": "successRate",
+							"variantWhen": [
+								{
+									"op": "gte",
+									"value": 90,
+									"variant": "success"
+								},
+								{
+									"op": "lt",
+									"value": 60,
+									"variant": "warning"
+								}
+							]
+						}
+					},
+					{
+						"id": "agent-kpi-avg-latency",
+						"type": "stat",
+						"title": "Avg latency",
+						"content": {
+							"label": "Avg latency",
+							"caption": "per run",
+							"icon": "Gauge",
+							"format": {
+								"style": "decimal",
+								"decimals": 1,
+								"suffix": " s"
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": {
+									"agentId": "@objectId"
+								}
+							},
+							"valueField": "latency.avgSeconds"
+						}
+					},
+					{
+						"id": "agent-kpi-tokens",
+						"type": "stat",
+						"title": "Tokens",
+						"content": {
+							"label": "Tokens",
+							"icon": "ChartBar",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": {
+									"agentId": "@objectId"
+								}
+							},
+							"valueField": "tokens.total"
+						}
+					},
+					{
+						"id": "agent-skills",
+						"type": "custom",
+						"title": "Skills",
+						"icon": "Package",
+						"_note": "skillInstalls attach/detach against the tenant Skill catalogue — the reverse of an object-list FK-child-collection shape (design.md Decision 3). Resolved via page.slots.widget-agent-skills -> agent-skills."
+					},
+					{
+						"id": "agent-tool-governance",
+						"type": "custom",
+						"title": "Tool grants",
+						"icon": "ShieldCheckOutline",
+						"_note": "The (cluster, subject, verb) grant matrix over the ADR-063 derived catalogue, clustered by owning app and rowed by schema. Resolved via page.slots.widget-agent-tool-governance -> agent-tool-governance."
+					},
+					{
+						"id": "agent-tool-activity",
+						"type": "custom",
+						"title": "Tool activity",
+						"icon": "History",
+						"_note": "The EU AI Act art.12/14 tool-invocation audit table. Split out of agent-tool-governance, where it was the second tab: 'what MAY this agent do' and 'what HAS it done' are read at different times by different people, and a tab hides whichever one you are not looking at. Resolved via page.slots.widget-agent-tool-activity -> agent-tool-activity."
+					},
+					{
+						"id": "agent-run-operations",
+						"type": "custom",
+						"title": "Run operations",
+						"icon": "RocketLaunch",
+						"_note": "Schedule attach/edit, Dry run, Run now, cost estimate, budget status and the webhook trigger all read/write the SAME schedule object and share previewResult/runError state — the manifest grid has no cross-widget state channel, so they stay one widget (design.md Decision 3). Resolved via page.slots.widget-agent-run-operations -> agent-run-operations."
+					},
+					{
+						"id": "agent-memory",
+						"type": "custom",
+						"title": "Memory",
+						"icon": "DatabaseOutline",
+						"_note": "Wraps the existing AgentMemoryPanel.vue unchanged (char-budget bar, consolidation nudge, entries) — a bespoke surface over a non-OR-collection endpoint (design.md Decision 3, task 2). Resolved via page.slots.widget-agent-memory -> agent-memory."
+					},
+					{
+						"id": "agent-run-history",
+						"type": "custom",
+						"title": "Run history",
+						"icon": "History",
+						"_note": "Per-row trace expand-and-cache, a dead_letter-only Re-run, and a Replay dry-run + diff preview — object-list's static columns/rowRoute shape has no per-row expand or conditional actions (design.md Decision 2/3). Resolved via page.slots.widget-agent-run-history -> agent-run-history."
+					},
+					{
+						"id": "agent-eval-baseline",
+						"type": "custom",
+						"title": "Eval baseline mode",
+						"icon": "ClipboardCheckOutline",
+						"_note": "skill-evals: the data widget holding Agent.evalBaselineMode — edited here, with the register property's consequence-explaining description (joint vs per-skill, 2x vs (N+1)x cost) surfaced as an info affordance exactly where the value is changed (spec scenario). Resolved via page.slots.widget-agent-eval-baseline -> agent-eval-baseline."
+					}
+				],
+				"layout": [
+					{
+						"id": "5",
+						"widgetId": "agent-core",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 8,
+						"gridHeight": 5,
+						"showTitle": true
+					},
+					{
+						"id": "1",
+						"widgetId": "agent-kpi-total-runs",
+						"gridX": 8,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "2",
+						"widgetId": "agent-kpi-success-rate",
+						"gridX": 8,
+						"gridY": 2,
+						"gridWidth": 4,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "3",
+						"widgetId": "agent-kpi-avg-latency",
+						"gridX": 8,
+						"gridY": 4,
+						"gridWidth": 4,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "4",
+						"widgetId": "agent-kpi-tokens",
+						"gridX": 8,
+						"gridY": 6,
+						"gridWidth": 4,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "7",
+						"widgetId": "agent-run-operations",
+						"gridX": 0,
+						"gridY": 5,
+						"gridWidth": 8,
+						"gridHeight": 6,
+						"showTitle": true
+					},
+					{
+						"id": "6",
+						"widgetId": "agent-skills",
+						"gridX": 8,
+						"gridY": 8,
+						"gridWidth": 4,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "8",
+						"widgetId": "agent-memory",
+						"gridX": 0,
+						"gridY": 11,
+						"gridWidth": 8,
+						"gridHeight": 5,
+						"showTitle": true
+					},
+					{
+						"id": "11",
+						"widgetId": "agent-eval-baseline",
+						"gridX": 8,
+						"gridY": 12,
+						"gridWidth": 4,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "9",
+						"widgetId": "agent-tool-governance",
+						"gridX": 0,
+						"gridY": 16,
+						"gridWidth": 12,
+						"gridHeight": 8,
+						"showTitle": false
+					},
+					{
+						"id": "11",
+						"widgetId": "agent-tool-activity",
+						"gridX": 0,
+						"gridY": 24,
+						"gridWidth": 12,
+						"gridHeight": 5,
+						"showTitle": false
+					},
+					{
+						"id": "10",
+						"widgetId": "agent-run-history",
+						"gridX": 0,
+						"gridY": 29,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": true
+					}
+				],
+				"headerActions": [
+					{
+						"id": "edit-agent",
+						"label": "Edit agent",
+						"type": "open-modal",
+						"target": "agent-form",
+						"icon": "Pencil",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "version-history",
+						"label": "Version history",
+						"type": "open-modal",
+						"target": "agent-version-history",
+						"icon": "History",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "view-factsheet",
+						"label": "View compliance factsheet",
+						"type": "open-modal",
+						"target": "agent-factsheet",
+						"icon": "ShieldCheckOutline",
+						"props": {
+							"show": true
+						}
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-agent-skills": "agent-skills",
+				"widget-agent-tool-governance": "agent-tool-governance",
+				"widget-agent-tool-activity": "agent-tool-activity",
+				"widget-agent-run-operations": "agent-run-operations",
+				"widget-agent-memory": "agent-memory",
+				"widget-agent-run-history": "agent-run-history",
+				"widget-agent-eval-baseline": "agent-eval-baseline"
+			}
 		},
 		{
 			"id": "ApprovalInbox",
@@ -109,208 +525,540 @@
 			"type": "custom",
 			"component": "AgentMemory",
 			"title": "Memory",
-			"_note": "Custom page: agent memory combines the OpenRegister agents resource (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+			"_note": "Custom page: agent memory combines the createObjectStore agent collection (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "SkillsCatalog",
 			"route": "/skills",
-			"type": "custom",
-			"component": "SkillsCatalog",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentskill",
+				"_note": "Converted from type:custom to the default index layout. The agentskills.io import/export + install-onto-agent actions are NOT dropped — they move to the skill-row-actions widget behind their existing guarded endpoints (same pattern as agent-template-row-actions). skill-maturity adds the maturityLevel dots column (consumer cell widget 'maturity-dots', App.vue cellWidgets) and the rowRoute onto the SkillDetail scorecard page.",
+				"rowRoute": "SkillDetail",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "maturityLevel",
+						"label": "Maturity",
+						"widget": "maturity-dots"
+					},
+					{
+						"key": "state",
+						"label": "State"
+					},
+					{
+						"key": "source",
+						"label": "Source"
+					}
+				]
+			},
 			"title": "Skills",
-			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+			"slots": {
+				"row-actions": "skill-row-actions",
+				"form-dialog": "SkillFormModal"
+			}
 		},
 		{
-			"id": "RunAnalytics",
-			"route": "/analytics",
-			"type": "custom",
-			"component": "RunAnalytics",
-			"title": "Analytics",
-			"_note": "Custom page: run analytics aggregates the OpenRegister run AuditTrail (success rate, latency, status breakdown, per-agent) tenant-scoped with an agent filter — a computed read surface not expressible via the built-in index/dashboard page types. Standard nav page."
+			"id": "SkillDetail",
+			"route": "/skills/:id",
+			"type": "detail",
+			"title": "Skill",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentskill",
+				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD. skill-evals adds the skill-eval-evidence card (l5 pass rate + mode-labelled delta + trend + Run paired eval). skill-learnings adds the read-only skill-learnings card (rendered learnings.md + l6 activity strip; no edit affordance — no new write channel).",
+				"widgets": [
+					{
+						"id": "skill-provenance",
+						"type": "custom",
+						"title": "Origin & review status",
+						"icon": "ShieldCheckOutline",
+						"_note": "skill-install-idempotency: where the skill came from, when it was last refreshed from there, why it is quarantined, and whether local learnings are ahead of the source. Resolved via page.slots.widget-skill-provenance -> skill-provenance."
+					},
+					{
+						"id": "skill-maturity-scorecard",
+						"type": "custom",
+						"title": "Maturity scorecard",
+						"icon": "Gauge",
+						"_note": "Per-level L1–L7 scorecard + Qualify + Attest-L4. Resolved via page.slots.widget-skill-maturity-scorecard -> skill-maturity-scorecard."
+					},
+					{
+						"id": "skill-eval-evidence",
+						"type": "custom",
+						"title": "Eval evidence",
+						"icon": "ClipboardCheckOutline",
+						"_note": "skill-evals: the L5 eval-evidence card (pass rate, baseline delta with attribution-mode label, trend, last validated, honest empty state) + owner-guarded Run paired eval. Resolved via page.slots.widget-skill-eval-evidence -> skill-eval-evidence."
+					},
+					{
+						"id": "skill-learnings",
+						"type": "custom",
+						"title": "Learnings",
+						"icon": "School",
+						"_note": "skill-learnings: read-only Learnings card — files['learnings.md'] rendered as sanitised markdown + the levelEvidence.l6 activity strip (candidate count, learnings count, last capture/promotion); honest empty state; deliberately NO editing surface. Resolved via page.slots.widget-skill-learnings -> skill-learnings."
+					},
+					{
+						"id": "skill-draft-review",
+						"type": "custom",
+						"title": "Improvement draft",
+						"icon": "FileSign",
+						"_note": "skill-self-improvement: the draft review surface — side-by-side diff of proposed vs active, driving learnings entries, scan verdict, eval delta or the verbatim no-eval-evidence flag, and the action-gated Accept / Edit-then-accept / Reject (skill.review-draft, deciding via the linked Approval). Resolved via page.slots.widget-skill-draft-review -> skill-draft-review."
+					},
+					{
+						"id": "skill-version-history",
+						"type": "custom",
+						"title": "Versions",
+						"icon": "History",
+						"_note": "skill-self-improvement: AuditTrail-backed version history with per-version diff, explicit rollback-as-new-version, the 'published copy is behind' badge (client-side publishedAt < lastAcceptedVersionAt — the catalog row badge in skill-row-actions does the same comparison) with the never-automatic Republish, and the advisory post-acceptance rollback suggestion. Resolved via page.slots.widget-skill-version-history -> skill-version-history."
+					}
+				],
+				"layout": [
+					{
+						"id": "provenance",
+						"widgetId": "skill-provenance",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 4
+					},
+					{
+						"id": "1",
+						"widgetId": "skill-maturity-scorecard",
+						"gridX": 0,
+						"gridY": 4,
+						"gridWidth": 12,
+						"gridHeight": 6
+					},
+					{
+						"id": "2",
+						"widgetId": "skill-eval-evidence",
+						"gridX": 0,
+						"gridY": 10,
+						"gridWidth": 12,
+						"gridHeight": 5
+					},
+					{
+						"id": "3",
+						"widgetId": "skill-learnings",
+						"gridX": 0,
+						"gridY": 15,
+						"gridWidth": 12,
+						"gridHeight": 6
+					},
+					{
+						"id": "4",
+						"widgetId": "skill-draft-review",
+						"gridX": 0,
+						"gridY": 21,
+						"gridWidth": 12,
+						"gridHeight": 7
+					},
+					{
+						"id": "5",
+						"widgetId": "skill-version-history",
+						"gridX": 0,
+						"gridY": 28,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-skill-maturity-scorecard": "skill-maturity-scorecard",
+				"widget-skill-eval-evidence": "skill-eval-evidence",
+				"widget-skill-learnings": "skill-learnings",
+				"widget-skill-draft-review": "skill-draft-review",
+				"widget-skill-version-history": "skill-version-history",
+				"widget-skill-provenance": "skill-provenance"
+			}
+		},
+		{
+			"id": "Store",
+			"route": "/store",
+			"type": "index",
+			"title": "Store",
+			"config": {
+				"register": "hermiq",
+				"schema": "agenttemplate",
+				"_note": "hermiq-github-store: the retired AgentTemplateGallery page, renamed 'Store' and repointed from /agent-templates to /store — the underlying local list is UNCHANGED (register:hermiq schema:agenttemplate, same agent-template-row-actions row actions), so agent-template browse/approve/export/instantiate/publish-to-GitHub behaviour is regression-safe. What changes is the below-header agent-template-github-store widget: it now discovers BOTH agent templates AND skills (per-kind filter) — an installed skill is not an agenttemplate row, so it does not appear in THIS table; it surfaces on the separate /skills page instead (design.md Decision 4 — /skills stays separate). Originally converted from type:custom — AgentTemplateController::list() is a bare findAll(['limit'=>200]) with no extra scoping beyond OpenRegister's own RBAC, read-equivalent to the generic objects endpoint (design.md Decision 5). Write actions (Use this template / Approve / Export) stay behind their existing guarded endpoints via the agent-template-row-actions widget — Approve is NEVER a declarative object-op, since it gates through ActionAuthService::requireAction('agenttemplate.approve-quarantined') server-side, a check the generic OR object-patch path does not express (design.md Decision 6).",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "category",
+						"label": "Category"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "state",
+						"label": "State"
+					}
+				],
+				"headerActions": [
+					{
+						"id": "import-template",
+						"label": "Import template",
+						"type": "open-modal",
+						"target": "template-import",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true
+						}
+					}
+				]
+			},
+			"slots": {
+				"below-header": "agent-template-github-store",
+				"row-actions": "agent-template-row-actions"
+			}
 		},
 		{
 			"id": "Dashboard",
-			"route": "/dashboard",
+			"route": "/",
 			"type": "dashboard",
 			"title": "Dashboard",
 			"config": {
+				"description": "Run metrics across your agents: success rate, latency and token usage.",
+				"headerActions": [
+					{
+						"id": "new-agent",
+						"type": "open-form",
+						"label": "New agent",
+						"icon": "Plus",
+						"register": "hermiq",
+						"schema": "agent",
+						"onSuccessRoute": "AgentDetail"
+					},
+					{
+						"id": "browse-templates",
+						"label": "Browse templates",
+						"icon": "Package",
+						"handler": "navigate",
+						"route": "Store"
+					},
+					{
+						"id": "dashboard-refresh",
+						"type": "refresh",
+						"label": "Refresh"
+					}
+				],
 				"widgets": [
 					{
-						"id": "open-examples",
-						"title": "Open examples",
-						"type": "stats-block",
-						"iconClass": "icon-files",
-						"dataSource": {
-							"register": "hermiq",
-							"schema": "example",
-							"aggregate": "count"
-						},
-						"props": {
-							"countLabel": "examples",
-							"variant": "primary"
+						"id": "kpi-total-runs",
+						"type": "stat",
+						"title": "Total runs",
+						"content": {
+							"label": "Total runs",
+							"caption": "recorded",
+							"icon": "Timeline",
+							"route": {
+								"name": "AgentCatalog"
+							},
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
+							"valueField": "totalRuns"
 						}
 					},
 					{
-						"id": "in-progress",
-						"title": "In progress",
-						"type": "stats-block",
-						"iconClass": "icon-loading",
-						"dataSource": {
-							"register": "hermiq",
-							"schema": "example",
-							"aggregate": "count"
-						},
-						"props": {
-							"countLabel": "examples",
-							"variant": "warning"
+						"id": "kpi-success-rate",
+						"type": "stat",
+						"title": "Success rate",
+						"content": {
+							"label": "Success rate",
+							"caption": "completed",
+							"icon": "CheckCircleOutline",
+							"format": {
+								"style": "decimal",
+								"decimals": 0,
+								"suffix": "%"
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
+							"valueField": "successRate",
+							"variantWhen": [
+								{
+									"op": "gte",
+									"value": 90,
+									"variant": "success"
+								},
+								{
+									"op": "lt",
+									"value": 60,
+									"variant": "warning"
+								}
+							]
 						}
 					},
 					{
-						"id": "closed",
-						"title": "Closed",
-						"type": "stats-block",
-						"iconClass": "icon-checkmark",
-						"dataSource": {
-							"register": "hermiq",
-							"schema": "example",
-							"aggregate": "count"
-						},
-						"props": {
-							"countLabel": "examples",
-							"variant": "success"
+						"id": "kpi-avg-latency",
+						"type": "stat",
+						"title": "Avg latency",
+						"content": {
+							"label": "Avg latency",
+							"caption": "per run",
+							"icon": "Gauge",
+							"format": {
+								"style": "decimal",
+								"decimals": 1,
+								"suffix": " s"
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
+							"valueField": "latency.avgSeconds"
+						}
+					},
+					{
+						"id": "kpi-tokens",
+						"type": "stat",
+						"title": "Tokens",
+						"content": {
+							"label": "Tokens",
+							"icon": "ChartBar",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
+							"valueField": "tokens.total"
+						}
+					},
+					{
+						"id": "running-flows",
+						"type": "flow-runs",
+						"title": "Running flows",
+						"content": {
+							"limit": 6,
+							"pollSeconds": 15,
+							"rowRoute": "FlowDetail",
+							"emptyText": "No flows are running"
+						}
+					},
+					{
+						"id": "analytics-breakdown",
+						"type": "custom",
+						"title": "Breakdown"
+					},
+					{
+						"id": "quota-schedules",
+						"type": "stat",
+						"title": "Schedules quota",
+						"content": {
+							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (TenantOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
+							"label": "Schedules",
+							"icon": "Calendar",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/tenant-ops/quota"
+							},
+							"valueField": "schedules.count",
+							"limitField": "schedules.limit"
+						}
+					},
+					{
+						"id": "quota-agents",
+						"type": "stat",
+						"title": "Agents quota",
+						"content": {
+							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (TenantOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
+							"label": "Agents in use",
+							"icon": "AccountGroup",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/tenant-ops/quota"
+							},
+							"valueField": "agents.count",
+							"limitField": "agents.limit"
+						}
+					},
+					{
+						"id": "runs-by-agent",
+						"type": "chart",
+						"title": "Runs by agent",
+						"content": {
+							"chartKind": "bar",
+							"_note": "statusBreakdown is a DYNAMIC-KEYED MAP ({status: count}), which fits neither of the chart's two endpointSource mapping modes (array-of-points or parallel arrays) — it stays on the existing custom 'analytics-breakdown' widget beside this one. perAgent IS an array of points, so it maps declaratively. `name` is enriched server-side in AnalyticsService: the raw aggregate carries only agentId, and a chart labelled with UUIDs is not readable.",
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"responsePath": "perAgent",
+								"labelsPath": "name",
+								"series": [
+									{
+										"name": "Runs",
+										"path": "runs"
+									},
+									{
+										"name": "Successful",
+										"path": "success"
+									}
+								]
+							},
+							"emptyText": "No runs recorded yet"
+						}
+					},
+					{
+						"id": "recent-agents",
+						"type": "object-table",
+						"title": "Agents",
+						"content": {
+							"source": {
+								"register": "hermiq",
+								"schema": "agent",
+								"order": {
+									"updated": "desc"
+								},
+								"limit": 7
+							},
+							"columns": [
+								{
+									"key": "name",
+									"cellClass": "cn-cell--strong"
+								},
+								{
+									"key": "model",
+									"cellClass": "cn-cell--muted cn-cell--end"
+								}
+							],
+							"rowRoute": "AgentDetail",
+							"viewAllRoute": {
+								"name": "AgentCatalog"
+							},
+							"viewAllLabel": "View all",
+							"hideHeader": true,
+							"borderless": true,
+							"emptyText": "No agents yet"
 						}
 					}
 				],
 				"layout": [
 					{
-						"id": 1,
-						"widgetId": "open-examples",
+						"id": "1",
+						"widgetId": "kpi-total-runs",
 						"gridX": 0,
 						"gridY": 0,
 						"gridWidth": 3,
-						"gridHeight": 1
+						"gridHeight": 2,
+						"showTitle": false
 					},
 					{
-						"id": 2,
-						"widgetId": "in-progress",
+						"id": "2",
+						"widgetId": "kpi-success-rate",
 						"gridX": 3,
 						"gridY": 0,
 						"gridWidth": 3,
-						"gridHeight": 1
+						"gridHeight": 2,
+						"showTitle": false
 					},
 					{
-						"id": 3,
-						"widgetId": "closed",
+						"id": "3",
+						"widgetId": "kpi-avg-latency",
 						"gridX": 6,
 						"gridY": 0,
 						"gridWidth": 3,
-						"gridHeight": 1
-					}
-				]
-			},
-			"widgets": []
-		},
-		{
-			"id": "Examples",
-			"route": "/examples",
-			"type": "index",
-			"title": "Examples",
-			"config": {
-				"register": "hermiq",
-				"schema": "example",
-				"columns": [
-					"title",
-					"status",
-					"updatedAt"
-				],
-				"sidebar": {
-					"enabled": true,
-					"showMetadata": true
-				}
-			},
-			"widgets": [
-				{
-					"widgetKey": "object-table",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 12,
-					"gridHeight": 6
-				}
-			]
-		},
-		{
-			"id": "ExampleDetail",
-			"route": "/examples/:id",
-			"type": "detail",
-			"title": "Example",
-			"config": {
-				"register": "hermiq",
-				"schema": "example",
-				"sidebar": true
-			},
-			"widgets": [
-				{
-					"widgetKey": "object-data",
-					"slot": "sidebar",
-					"tabGroup": "data",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 1,
-					"gridHeight": 1
-				},
-				{
-					"widgetKey": "audit-trail",
-					"slot": "sidebar",
-					"tabGroup": "audit",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 1,
-					"gridHeight": 1
-				}
-			]
-		},
-		{
-			"id": "Settings",
-			"route": "/settings",
-			"type": "settings",
-			"title": "Settings",
-			"config": {
-				"saveEndpoint": "/index.php/apps/hermiq/api/settings",
-				"sections": [
+						"gridHeight": 2,
+						"showTitle": false
+					},
 					{
-						"title": "Version",
-						"widgets": [
-							{
-								"type": "version-info",
-								"props": {
-									"appName": "Hermiq",
-									"showUpdateButton": false,
-									"isUpToDate": true,
-									"title": "Version Information",
-									"description": "Information about the current installation."
-								}
-							}
-						]
+						"id": "4",
+						"widgetId": "kpi-tokens",
+						"gridX": 9,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "6",
+						"widgetId": "analytics-breakdown",
+						"borderless": false,
+						"gridX": 0,
+						"gridY": 2,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": false
+					},
+					{
+						"id": "9",
+						"widgetId": "runs-by-agent",
+						"gridX": 6,
+						"gridY": 2,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "5",
+						"widgetId": "running-flows",
+						"gridX": 0,
+						"gridY": 6,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "10",
+						"widgetId": "recent-agents",
+						"gridX": 6,
+						"gridY": 6,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "7",
+						"widgetId": "quota-schedules",
+						"borderless": false,
+						"gridX": 0,
+						"gridY": 10,
+						"gridWidth": 6,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "8",
+						"widgetId": "quota-agents",
+						"borderless": false,
+						"gridX": 6,
+						"gridY": 10,
+						"gridWidth": 6,
+						"gridHeight": 2,
+						"showTitle": false
 					}
 				]
 			},
-			"widgets": [
-				{
-					"widgetKey": "version-info",
-					"slot": "section:version",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 12,
-					"gridHeight": 1,
-					"props": {
-						"appName": "Hermiq",
-						"showUpdateButton": false,
-						"isUpToDate": true,
-						"title": "Version Information",
-						"description": "Information about the current installation."
-					}
-				}
-			]
+			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance. Each KPI is its OWN type:'stat' tile (procest Dashboard shape) rather than one custom widget drawing four cards inside a card — a dashboard tile is already a card, so a widget that draws its own is a well inside a well. The four stat tiles read the SAME /api/analytics endpoint and useEndpointSource dedupes them to ONE request per render pass. The two quota tiles are type:'stat' as of 2026-08-13 — see their own _note. They were custom for two reasons and both are now gone: CnStatWidget could not express a count-against-limit until it gained `limitField` (nc-vue 2.2.0-vue3.18), and the widget carried a `can_manage_killswitch` display gate. THAT GATE IS DELIBERATELY NOT REPRODUCED: CnDashboardPage does not filter widgets by `permission` (verified at HEAD — the key exists in the manifest schema for menu entries, and the dashboard never reads it), so declaring one would be a gate that does not gate. The gate was display-only in any case: GET /api/tenant-ops/quota is #[NoAdminRequired], so the numbers were already reachable by any authenticated caller and hiding the tile never protected them. The visible change is that a non-manager now SEES the two tiles. 'running-flows' is the shared nc-vue flow-runs widget over OpenRegister's one flow engine — no hermiq code behind it. dashboard-redesign (2026-08-04): the grid did not close — the bottom row was two gridWidth-3 quota tiles, leaving 6 of 12 columns empty as a visibly ragged edge — and the page carried none of the affordances procest's Dashboard has. Now 12 rows with ZERO unfilled cells: 4 KPI tiles, then analytics-breakdown beside a new 'runs-by-agent' bar chart, then running-flows beside a new 'recent-agents' object-table, then the two quota tiles re-spanned to 6 each. Added config.headerActions (New agent / Browse templates / Refresh) and a drilldown `route` on the total-runs tile, both straight off the procest shape. The chart reads perAgent via endpointSource's array-of-points mode; statusBreakdown CANNOT be charted declaratively (it is a dynamic-keyed map, which fits neither endpointSource mapping mode) and deliberately stays on the existing custom widget beside it. AnalyticsService now enriches perAgent with `name` — the aggregate carried only agentId, and a chart labelled with UUIDs is unreadable; AnalyticsBreakdownWidget prefers that same server-side name over its client-side store lookup, which only ever resolved agents the session had already fetched. This instance has zero runs, so the chart was verified by a positive control: the endpoint was intercepted with a synthetic perAgent payload and the chart rendered 6 bars across 3 name-labelled categories with a Runs/Successful legend.",
+			"slots": {
+				"widget-analytics-breakdown": "analytics-breakdown"
+			}
 		},
 		{
 			"id": "FeaturesRoadmap",
@@ -328,6 +1076,577 @@
 			"component": "TenantOps",
 			"title": "Tenant ops",
 			"_note": "Custom page: per-org quota usage + EU AI Act audit export (download) over OpenRegister objects/AuditTrail, capability-gated to org owners/admins — not expressible via the built-in index/dashboard page types. Standard nav page."
+		},
+		{
+			"id": "EvalDatasets",
+			"route": "/evals",
+			"type": "index",
+			"title": "Evaluations",
+			"config": {
+				"register": "hermiq",
+				"schema": "evaldataset",
+				"_note": "manifest-driven-pages: converted from type:custom (design.md Decision 8) — the outer list is a flat type:index (name/description only; no per-row run controls) since the old nested card-with-embedded-runs-and-picker shape does not fit a one-row-per-object index. Per-dataset run management moves to the new EvalDatasetDetail page's eval-run-panel widget.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
+				],
+				"rowRoute": "EvalDatasetDetail",
+				"headerActions": [
+					{
+						"id": "new-dataset",
+						"label": "New dataset",
+						"type": "open-modal",
+						"target": "EvalDatasetFormModal",
+						"icon": "Plus",
+						"props": {
+							"show": true
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "EvalDatasetDetail",
+			"route": "/evals/:id",
+			"type": "detail",
+			"title": "Evaluation dataset",
+			"config": {
+				"register": "hermiq",
+				"schema": "evaldataset",
+				"_note": "manifest-driven-pages (design.md Decision 8): hosts the per-dataset agent-picker + Run + run history as one custom eval-run-panel widget — 'Run' has no OR-object equivalent (the one bespoke src/api/evals.js action; every other eval path is object CRUD). skill-evals adds the skill-link-panel widget (plain skillRefs object writes) and the paired-baseline toggle + with/without rendering inside eval-run-panel.",
+				"widgets": [
+					{
+						"id": "skill-link-panel",
+						"type": "custom",
+						"title": "Linked skills",
+						"icon": "LinkVariant",
+						"_note": "skill-evals: link/unlink skills onto this dataset's skillRefs (generic object writes; picker over visible active skills). Resolved via page.slots.widget-skill-link-panel -> skill-link-panel."
+					},
+					{
+						"id": "eval-run-panel",
+						"type": "custom",
+						"title": "Run",
+						"icon": "RocketLaunch",
+						"_note": "Agent-picker + Run (+ paired-baseline toggle with the mode-dependent cost note) + this dataset's run history incl. with/without paired rendering. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "skill-link-panel",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 4
+					},
+					{
+						"id": "2",
+						"widgetId": "eval-run-panel",
+						"gridX": 0,
+						"gridY": 4,
+						"gridWidth": 12,
+						"gridHeight": 7
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-skill-link-panel": "skill-link-panel",
+				"widget-eval-run-panel": "eval-run-panel"
+			}
+		},
+		{
+			"id": "GuardrailPolicy",
+			"route": "/guardrail-policy",
+			"type": "custom",
+			"component": "GuardrailPolicySettings",
+			"_note": "Settings-section page: a per-organisation policy FORM (GuardrailPolicy has no name/title property — inputFilters/outputFilters/toolPolicy/enabled only), so the built-in index page type has no meaningful columns to list. Reached from the nav settings foldout (section:settings).",
+			"title": "Guardrail policy"
+		},
+		{
+			"id": "AlgorithmRegister",
+			"route": "/algorithm-register",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentaifeature",
+				"_note": "Settings-section page: high-risk AI features eligible for Dutch Algoritmeregister publication. Read path is a plain findAll over agentaifeature, so the built-in index type is read-equivalent.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "riskCategory",
+						"label": "Risk category"
+					},
+					{
+						"key": "lifecycle",
+						"label": "Lifecycle"
+					},
+					{
+						"key": "dpoAckBy",
+						"label": "DPO acknowledged by"
+					}
+				]
+			},
+			"title": "Algorithm register"
+		},
+		{
+			"id": "Compliance",
+			"route": "/compliance",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentcompliancecontrol",
+				"_note": "Settings-section page: compliance controls per framework. EU AI Act audit export / retention / incidents are folded in here (moved off tenant-ops).",
+				"columns": [
+					{
+						"key": "controlId",
+						"label": "Control"
+					},
+					{
+						"key": "title",
+						"label": "Title"
+					},
+					{
+						"key": "frameworkSlug",
+						"label": "Framework"
+					},
+					{
+						"key": "evidenceSource",
+						"label": "Evidence source"
+					}
+				]
+			},
+			"title": "Compliance",
+			"slots": {
+				"below-header": "compliance-operations"
+			}
+		},
+		{
+			"id": "McpTools",
+			"route": "/mcp-tools",
+			"type": "custom",
+			"component": "McpTools",
+			"_note": "Custom page rendering the standard nc-vue list UI (CnDataTable): MCP tools are resolved live from OpenRegister's tool registry, NOT a hermiq schema, so type:index (which requires register+schema) cannot express it.",
+			"title": "MCP tools"
+		},
+		{
+			"id": "FlowIndex",
+			"route": "/flows",
+			"type": "index",
+			"title": "Flows",
+			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift.",
+			"config": {
+				"entitySource": "flows",
+				"app": "hermiq"
+			}
+		},
+		{
+			"id": "FlowIndexLegacyRedirect",
+			"route": "/graphs",
+			"type": "index",
+			"title": "Flows",
+			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies. The manifest has no redirect field, so the old path is declared as a second page onto the same page type rather than left to 404. Remove once the old links have aged out.",
+			"config": {
+				"entitySource": "flows",
+				"app": "hermiq"
+			}
+		},
+		{
+			"id": "FlowDetail",
+			"route": "/flows/:id",
+			"type": "flow",
+			"title": "Flow",
+			"_note": "The shared `flow` page type: CnFlowEditorPage over CnFlowDetail, the same canvas every other app uses. This was a custom page over FlowBuilder.vue, a parallel editor with its own store and API client - which flow-storage/spec.md forbids outright (\"No other app SHALL own a flow store, a flow controller, or a flow execution service\"). Controls are the shared CnFlowSidebar so the canvas keeps full width.",
+			"sidebarComponent": "CnFlowSidebar",
+			"config": {
+				"app": "hermiq"
+			}
+		},
+		{
+			"id": "FlowDetailLegacyRedirect",
+			"route": "/graphs/:id",
+			"type": "flow",
+			"title": "Flow",
+			"_note": "Legacy path - see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
+			"sidebarComponent": "CnFlowSidebar",
+			"config": {
+				"app": "hermiq"
+			}
+		},
+		{
+			"id": "AiOversight",
+			"route": "/ai-oversight",
+			"type": "dashboard",
+			"title": "AI oversight",
+			"_note": "EU AI Act Art. 14 evidence for AI suggestions that were NOT gated: what the model proposed and what the human did with it. Deliberately a SEPARATE surface from /approvals — that one is an inbox of pending decisions somebody must act on, this one is a closed record nobody can act on, and mixing an actionable queue with an audit log makes both harder to read. Both are Approval objects (sourceType=advisory) so the Art. 14 trail stays in ONE register. A dashboard rather than an index page because the manifest schema allows a fixed filter only on a widget data source, and this surface must never show the gating variants.",
+			"config": {
+				"description": "Recorded human decisions on AI suggestions (EU AI Act Art. 14)",
+				"widgets": [
+					{
+						"id": "aio-accepted",
+						"title": "Accepted",
+						"type": "stats-block",
+						"props": {
+							"countLabel": "decisions",
+							"variant": "success"
+						},
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "approval",
+							"filters": {
+								"sourceType": "advisory",
+								"status": "approved"
+							}
+						}
+					},
+					{
+						"id": "aio-overridden",
+						"title": "Overridden",
+						"type": "stats-block",
+						"props": {
+							"countLabel": "decisions",
+							"variant": "warning"
+						},
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "approval",
+							"filters": {
+								"sourceType": "advisory",
+								"status": "overridden"
+							}
+						}
+					},
+					{
+						"id": "aio-rejected",
+						"title": "Rejected",
+						"type": "stats-block",
+						"props": {
+							"countLabel": "decisions",
+							"variant": "error"
+						},
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "approval",
+							"filters": {
+								"sourceType": "advisory",
+								"status": "denied"
+							}
+						}
+					},
+					{
+						"id": "aio-log",
+						"title": "Oversight log",
+						"type": "object-table",
+						"content": {
+							"source": {
+								"register": "hermiq",
+								"schema": "approval",
+								"filter": {
+									"sourceType": "advisory"
+								},
+								"order": {
+									"decidedAt": "desc"
+								},
+								"limit": 50
+							},
+							"columns": [
+								{
+									"key": "decidedAt",
+									"label": "Decided at"
+								},
+								{
+									"key": "advisoryContext.originApp",
+									"label": "App"
+								},
+								{
+									"key": "advisoryContext.suggestionType",
+									"label": "Suggestion"
+								},
+								{
+									"key": "advisoryContext.model",
+									"label": "Model"
+								},
+								{
+									"key": "status",
+									"label": "Human decision",
+									"cellClass": "cn-cell--strong"
+								},
+								{
+									"key": "decidedBy",
+									"label": "By"
+								}
+							],
+							"rowRoute": "AiOversightDetail",
+							"emptyText": "No AI oversight decisions recorded yet"
+						}
+					}
+				],
+				"layout": [
+					{
+						"id": 1,
+						"widgetId": "aio-accepted",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 3
+					},
+					{
+						"id": 2,
+						"widgetId": "aio-overridden",
+						"gridX": 4,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 3
+					},
+					{
+						"id": 3,
+						"widgetId": "aio-rejected",
+						"gridX": 8,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 3
+					},
+					{
+						"id": 4,
+						"widgetId": "aio-log",
+						"gridX": 0,
+						"gridY": 3,
+						"gridWidth": 12,
+						"gridHeight": 9
+					}
+				]
+			}
+		},
+		{
+			"id": "AiOversightDetail",
+			"route": "/ai-oversight/:id",
+			"type": "detail",
+			"title": "AI oversight decision",
+			"config": {
+				"register": "hermiq",
+				"schema": "approval",
+				"_note": "IMMUTABLE record of one human decision on an AI suggestion. No lifecycleActions and no edit/delete: an advisory Approval is terminal at creation and an oversight entry that can be changed is not evidence. One Data widget carries the whole record including advisoryContext; register-level history is a sidebar tab.",
+				"widgets": [
+					{
+						"id": "aio-data",
+						"type": "data",
+						"title": "Decision",
+						"icon": "ShieldCheckOutline",
+						"content": {
+							"columns": 2
+						}
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "aio-data",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 8,
+						"showTitle": false
+					}
+				],
+				"sidebar": {
+					"enabled": true,
+					"showMetadata": true,
+					"tabs": [
+						{
+							"id": "audit",
+							"label": "History",
+							"icon": "History",
+							"widgets": [
+								{
+									"type": "audit"
+								}
+							]
+						}
+					]
+				}
+			}
 		}
-	]
+	],
+	"setup": {
+		"enabled": true,
+		"version": 1,
+		"completionConfigKey": "setup_completed_version",
+		"steps": [
+			{
+				"id": "welcome",
+				"type": "info",
+				"title": "Welcome to Hermiq",
+				"body": "Hermiq runs autonomous agents against a local LLM. Point it at your Ollama host and test the connection once. Agents can't run without a reachable model."
+			},
+			{
+				"id": "demo-data",
+				"type": "run-action",
+				"action": "install-demo-data",
+				"title": "Demo data (optional)",
+				"required": false,
+				"body": "Load a small example dataset of agents, skills and conversations, so the lists and detail pages show a working product straight away. The data is obviously sample data, it is safe to run more than once, and it can be removed afterwards. Skip this on a production install."
+			},
+			{
+				"id": "llm-endpoint",
+				"type": "config-fields",
+				"title": "LLM endpoint",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"llmendpoint": {
+							"type": "string",
+							"title": "LLM endpoint (Ollama)",
+							"default": "http://host.docker.internal:11434"
+						}
+					}
+				}
+			},
+			{
+				"id": "test-llm",
+				"type": "run-action",
+				"title": "Test connection",
+				"action": "test-llm",
+				"body": "Probe the endpoint and confirm Hermiq can reach your models. The first model discovered becomes the default."
+			},
+			{
+				"id": "done",
+				"type": "summary",
+				"title": "All set",
+				"healthCheck": true
+			}
+		]
+	},
+	"walkthrough": {
+		"enabled": true,
+		"version": 1,
+		"completionConfigKey": "walkthrough_completed_version",
+		"tours": [
+			{
+				"id": "hermiq:getting-started",
+				"title": "Getting started",
+				"trigger": "first-visit",
+				"minAppVersion": "0.1.38",
+				"steps": [
+					{
+						"id": "welcome",
+						"sinceVersion": "0.1.38",
+						"placement": "center",
+						"title": "Welcome to Hermiq",
+						"body": "Let's take a quick tour. Hermiq lets you build autonomous AI agents, give them skills and tools, and run them on a schedule.",
+						"target": {
+							"kind": "page",
+							"ref": "Dashboard"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
+					},
+					{
+						"id": "go-agents",
+						"sinceVersion": "0.1.38",
+						"placement": "right",
+						"body": "Agents are the heart of Hermiq. Open Agents to see them and define your own.",
+						"task": "Click Agents in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "AgentCatalog"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "AgentCatalog"
+						}
+					},
+					{
+						"id": "agents-intro",
+						"sinceVersion": "0.1.38",
+						"placement": "center",
+						"allowManualNext": true,
+						"title": "Your agent catalog",
+						"body": "This is where your agents live. Use New to create one: give it a prompt, pick a model, and add optional tools and skills.",
+						"target": {
+							"kind": "page",
+							"ref": "AgentCatalog"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
+					},
+					{
+						"id": "go-skills",
+						"sinceVersion": "0.1.38",
+						"placement": "right",
+						"body": "Skills give agents new abilities. Browse the Skills catalog to see what you can add.",
+						"task": "Click Skills in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "SkillsCatalog"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "SkillsCatalog"
+						}
+					},
+					{
+						"id": "go-mcp",
+						"sinceVersion": "0.1.38",
+						"placement": "right",
+						"body": "MCP tools, Compliance, Guardrail policy, and the Algorithm register all live in Settings now. Open Settings to explore them.",
+						"task": "Click Settings in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "Settings"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "Settings"
+						}
+					},
+					{
+						"id": "see-flows",
+						"sinceVersion": "0.7.0",
+						"placement": "right",
+						"optional": true,
+						"allowManualNext": true,
+						"title": "Where the automation lives",
+						"body": "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.",
+						"task": "Open Flows in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "FlowIndex"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "FlowIndex"
+						}
+					},
+					{
+						"id": "done",
+						"sinceVersion": "0.1.38",
+						"placement": "center",
+						"title": "That's the tour",
+						"body": "Settings re-runs this walkthrough or the setup wizard whenever you want. The documentation covers what the tour did not.",
+						"task": "Open the documentation to keep going",
+						"target": {
+							"kind": "nav-item",
+							"ref": "Documentation"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
+					}
+				]
+			}
+		]
+	}
 }

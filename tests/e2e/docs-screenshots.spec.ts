@@ -31,15 +31,31 @@ import { test, type Page } from '@playwright/test'
 import * as path from 'path'
 import * as fs from 'fs'
 
-const SHOT_ROOT = path.resolve(__dirname, '..', '..', 'docs', 'static', 'screenshots', 'tutorials')
+const SHOT_ROOT = path.resolve(
+	__dirname,
+	'..',
+	'..',
+	'docs',
+	'static',
+	'screenshots',
+	'tutorials',
+)
 
 /**
  * Save a screenshot under
  * `docs/static/screenshots/tutorials/<track>/<file>`.
  * Lives under `static/` so Docusaurus copies the PNG into the build
  * root — markdown image refs use `/screenshots/...` (root-absolute).
+ *
+ * @param page The Playwright page to capture.
+ * @param track The tutorial track subdirectory (user or admin).
+ * @param file The PNG file name to write.
  */
-async function shoot(page: Page, track: 'user' | 'admin', file: string): Promise<void> {
+async function shoot(
+	page: Page,
+	track: 'user' | 'admin',
+	file: string,
+): Promise<void> {
 	const dir = path.join(SHOT_ROOT, track)
 	if (!fs.existsSync(dir)) {
 		fs.mkdirSync(dir, { recursive: true })
@@ -58,8 +74,35 @@ async function shoot(page: Page, track: 'user' | 'admin', file: string): Promise
 // rather than killing the suite.
 test.describe.configure({ mode: 'default' })
 
+const NC_USER = process.env.NC_USER || 'admin'
+const NC_PASS = process.env.NC_PASS || 'admin'
+
+/**
+ * Log the configured user in through Nextcloud's real login form.
+ *
+ * Idempotent — when a session already exists the form is absent and we
+ * return without acting. Without this the whole capture suite silently
+ * "passed" while every PNG was a screenshot of the LOGIN page.
+ *
+ * @param page The Playwright page.
+ */
+async function login(page: Page): Promise<void> {
+	await page.goto('/login', { waitUntil: 'domcontentloaded' })
+	const userField = page.locator('#user')
+	if ((await userField.count()) === 0) {
+		return
+	}
+	await userField.fill(NC_USER)
+	await page.locator('#password').fill(NC_PASS)
+	await page.locator('button[type="submit"], input[type="submit"]').first().click()
+	// Nextcloud holds persistent long-poll connections, so 'networkidle'
+	// never fires; the login field detaching is the "logged in" signal.
+	await page.locator('#user').waitFor({ state: 'hidden', timeout: 30_000 })
+}
+
 test.beforeEach(async ({ page }) => {
 	page.setViewportSize({ width: 1280, height: 800 })
+	await login(page)
 	await page.goto('/apps/hermiq/')
 })
 
@@ -82,8 +125,15 @@ test.describe('docs: user track', () => {
 
 test.describe('docs: admin track', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/settings/admin/hermiq')
-		await page.waitForLoadState('networkidle')
+		await page.goto('/settings/admin/hermiq', { waitUntil: 'domcontentloaded' })
+		// Nextcloud holds persistent long-poll connections, so 'networkidle'
+		// NEVER fires and would burn the whole test timeout (same trap the
+		// login helper above documents). Wait for a rendered settings
+		// section instead.
+		await page
+			.locator('.settings-section, #app-content, #content-vue')
+			.first()
+			.waitFor({ state: 'visible', timeout: 30_000 })
 	})
 
 	test('AN admin-settings', async ({ page }) => {

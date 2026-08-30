@@ -30,6 +30,11 @@
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.7.0"
   },
+  "_overridesNote": "js-yaml: pulls the Docusaurus toolchain onto the patched 4.3.1 (CVE fix); @11ty/gray-matter already accepts ^4.1.0, so no v3 copy is needed. serialize-javascript: copy-webpack-plugin and css-minimizer-webpack-plugin pin ^6, whose whole line is vulnerable and unpatched — 7.x keeps the same serialize() surface and both are build-time only. NOT overridden: image-size (latest 2.0.2 IS the vulnerable version; no upstream patch exists) and sockjs's uuid@8.3.2 (webpack-dev-server only, never in the built site — forcing it three majors to 11.x is a worse risk than a dev-server DoS).",
+  "overrides": {
+    "js-yaml": "^4.3.1",
+    "serialize-javascript": "^7.1.0"
+  },
   "browserslist": {
     "production": [
       ">0.5%",

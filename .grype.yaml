@@ -1,0 +1,33 @@
+# Grype ignore list for the shared SBOM CVE gate (ConductionNL/.github quality.yml).
+# Replaces the workflow's built-in default list, so the two default entries are
+# carried over here.
+#
+# EVERY entry below is the same false-positive class the shared workflow already
+# documents: the merged CycloneDX SBOM strips the npm scope from component names,
+# and Grype then matches the BARE name ("compat-data", "helper-plugin-utils", ...)
+# against malware advisories for typosquatting packages of that bare name. The
+# packages actually installed are the scoped originals (@babel/compat-data@7.29.7,
+# @jridgewell/gen-mapping, ...), which are not affected. Verified per advisory:
+# each GHSA below is a "Malware in <bare-name>" advisory for an unscoped package
+# hermiq does not depend on.
+ignore:
+  # Defaults from the shared workflow (kept because this file replaces them):
+  # @jridgewell/gen-mapping / @babel/helper-validator-identifier lookalikes.
+  - vulnerability: GHSA-8rmg-jf7p-4p22
+  - vulnerability: GHSA-pvjq-589m-3mc8
+  # "Malware in compat-data" — actual dep is @babel/compat-data.
+  - vulnerability: GHSA-cgjh-9737-qgh8
+  # "Malware in helper-annotate-as-pure" — actual dep is @babel/helper-annotate-as-pure.
+  - vulnerability: GHSA-568c-g26p-pcv9
+  # "Malware in helper-compilation-targets" — actual dep is @babel/helper-compilation-targets.
+  - vulnerability: GHSA-5q99-w445-77fw
+  # "Malware in helper-member-expression-to-functions" — actual dep is @babel/helper-member-expression-to-functions.
+  - vulnerability: GHSA-ww79-8f7v-6227
+  # "Malware in helper-plugin-utils" — actual dep is @babel/helper-plugin-utils.
+  - vulnerability: GHSA-9c4c-p6x7-6v8v
+  # "Malware in plugin-bugfix-v8-spread-parameters-in-optional-chaining" — actual dep is the @babel plugin.
+  - vulnerability: GHSA-pp5q-5wmm-4hr2
+  # "Malware in plugin-transform-typeof-symbol" — actual dep is @babel/plugin-transform-typeof-symbol.
+  - vulnerability: GHSA-3rhh-9j6r-68h4
+  # "Malware in preset-modules" — actual dep is @babel/preset-modules (0.1.6-no-external-plugins).
+  - vulnerability: GHSA-23gm-4mrr-r6pg

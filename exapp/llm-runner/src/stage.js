@@ -1,0 +1,980 @@
+/**
+ * Stage workload for the hermiq-llm-runner ExApp.
+ *
+ * The runner's other half. `runner.js` executes one LLM turn; this executes one
+ * piece of work that needs a FILESYSTEM — clone a ref, run a command over it,
+ * return what the command said.
+ *
+ * WHY THIS LIVES HERE RATHER THAN ANYWHERE ELSE
+ * --------------------------------------------
+ * hydra's builder, reviewer and security stages need a checked-out tree, a
+ * `composer install` and a `node_modules`. The flow plane cannot give them one:
+ * a governed agent turn runs with `--disallowedTools Bash,Read,Write,Edit,…` by
+ * design, because the whole point of that transport is that the model reaches
+ * the world only through governed tools.
+ *
+ * The alternatives all assume access the operator does not have. This product
+ * is for people who have a Kubernetes environment with Nextcloud on it and know
+ * how neither works — they did not install Nextcloud, did not set up the
+ * cluster, and cannot reach either. So there is no host to run a container on,
+ * no cluster credential to create a Job with, and no reason to assume a forge
+ * account with CI minutes. What they have is Nextcloud, and this ExApp is the
+ * one place inside it that already has a filesystem and a toolchain.
+ *
+ * THE SAME RULES AS THE LLM TURN, FOR THE SAME REASONS
+ * ---------------------------------------------------
+ *   - The forge token is injected via the child ENVIRONMENT only, and reaches
+ *     git through `GIT_ASKPASS`. It is never on argv (the process table is
+ *     world-readable), never written to a file that outlives the run, and never
+ *     logged. `-c http.extraHeader=…` would have been shorter and puts the
+ *     credential straight onto the process table.
+ *   - The work happens in a throwaway scratch dir, removed on every exit path.
+ *   - Egress is whatever the container already allows. In the hardened
+ *     deployment that is the CONNECT proxy alone, which asks Hermiq's PDP about
+ *     every connection — so "may this run clone that repo" is a policy decision
+ *     in the same place every other egress decision is made. The workload
+ *     fences itself; nothing here opens a hole.
+ *
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * @copyright 2026 Conduction B.V.
+ */
+
+'use strict'
+
+const { spawn } = require('child_process')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
+
+const { assertPushAllowed, PushRefused } = require('./pushGuard')
+const { selectCredentialEnv } = require('./runner')
+
+const DEFAULT_STAGE_TIMEOUT_MS = Number(
+	process.env.RUNNER_STAGE_TIMEOUT_MS || String(30 * 60 * 1000),
+)
+const MAX_OUTPUT_BYTES = Number(
+	process.env.RUNNER_MAX_OUTPUT_BYTES || String(8 * 1024 * 1024),
+)
+
+/**
+ * The governed egress proxy's authority (`host:port`), e.g. `egress-proxy:3128`.
+ *
+ * Mirrors `runner.js`. A stage reaches the network for exactly the same reason a
+ * turn does and must be governed the same way — see {@link buildEgressProxyEnv}.
+ *
+ * @type {string}
+ */
+const EGRESS_PROXY_AUTHORITY = (process.env.EGRESS_PROXY_AUTHORITY || '').trim()
+
+/**
+ * Identity used for the commit a push phase creates.
+ *
+ * A commit with no author fails `git commit`, and a commit authored as whoever
+ * the container happens to be is unattributable. Overridable so a deployment can
+ * name the persona rather than the transport.
+ *
+ * @type {{name: string, email: string}}
+ */
+const STAGE_COMMITTER = {
+	name: process.env.RUNNER_STAGE_COMMIT_NAME || 'hermiq stage',
+	email: process.env.RUNNER_STAGE_COMMIT_EMAIL || 'noreply@conduction.nl',
+}
+
+/**
+ * Build the PER-RUN proxy environment for a stage's git operations.
+ *
+ * ⚠️ This closes a real asymmetry. `runner.js` has built a per-run proxy URL for
+ * LLM turns since the governed-egress change, but the stage path only ever
+ * PASSED THROUGH whatever `HTTPS_PROXY` the container's own environment carried.
+ * Under the governed posture that is not a smaller fence, it is no route at all:
+ * the proxy takes the run token from `Proxy-Authorization` and denies a
+ * token-less CONNECT with `no_run_token` before it ever asks the PDP. So a stage
+ * behind the proxy could not clone anything, and the failure surfaced as a plain
+ * `git clone` error rather than as a policy refusal.
+ *
+ * Returns an empty object when either half is missing, so an ungoverned
+ * deployment keeps its existing behaviour (the container env is still carried
+ * through by the caller) instead of losing its route.
+ *
+ * @param {string} runToken The per-run token minted by Hermiq.
+ * @returns {object} Proxy env vars, or `{}` when there is nothing to point at.
+ */
+function buildEgressProxyEnv(runToken) {
+	if (
+		EGRESS_PROXY_AUTHORITY === ''
+		|| typeof runToken !== 'string'
+		|| runToken === ''
+	) {
+		return {}
+	}
+
+	// Basic-auth userinfo is how every HTTP client and git itself forward proxy
+	// credentials, and it keeps the token off argv.
+	const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`
+
+	return {
+		HTTPS_PROXY: url,
+		https_proxy: url,
+		HTTP_PROXY: url,
+		http_proxy: url,
+	}
+}
+
+/**
+ * Commands a stage is allowed to run.
+ *
+ * An ALLOWLIST rather than a free command string, because the caller of this
+ * endpoint is a flow — authored data. A flow that could name any command would
+ * make authoring a flow equivalent to remote code execution inside the ExApp,
+ * which is a considerably larger grant than "hydra may run its own gates".
+ *
+ * Entries are matched against the FIRST token only; the rest of the argv is
+ * passed through, so `--scope-to-diff --base origin/development` works without
+ * the allowlist having to know about flags.
+ *
+ * @type {Array<string>}
+ */
+const ALLOWED_COMMANDS = (
+	process.env.RUNNER_STAGE_COMMANDS || 'scripts/run-hydra-gates.sh,claude'
+)
+	.split(',')
+	.map((s) => s.trim())
+	.filter((s) => s !== '')
+
+/**
+ * Which credential env keys each allowed command may receive.
+ *
+ * A stage's command gets a vendor credential ONLY if it is named here, and only
+ * the keys listed against it. An unlisted command — including every command an
+ * operator adds to `RUNNER_STAGE_COMMANDS` — receives nothing, which is the safe
+ * default and the reason this is an allowlist rather than a flag.
+ *
+ * 🔑 WHY `claude` IS ON IT, and what that grants. `claude` is in this image and
+ * `api.anthropic.com` is already an allowed host, because `/run` has run
+ * `claude -p` as the anthropic provider's CLI since it shipped. What `/stage`
+ * adds is a REPOSITORY: the same CLI, in a tree that has been cloned, so it can
+ * read and edit the code it is reasoning about instead of being handed excerpts
+ * in a prompt.
+ *
+ * That is a real grant and it is worth naming plainly: a flow that can invoke
+ * this can send arbitrary prompts to a model on this credential's billing, and
+ * can edit files in the scratch checkout. It cannot push them — the push phase
+ * is separate, runs after the command, and holds the forge token the command
+ * child is explicitly denied (see `commandEnv` below).
+ *
+ * ⚠️ `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` are both listed because
+ * the catalogue has both shapes: a Claude Max subscription token (`anthropic-cli`,
+ * inject-only) and an API key (`anthropic`). The runner does not choose between
+ * them; it forwards whichever the caller resolved and drops anything else.
+ *
+ * @type {Object<string, Array<string>>}
+ */
+const STAGE_CREDENTIAL_KEYS = {
+	claude: ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
+}
+
+/**
+ * Remove a scratch tree, best effort.
+ *
+ * @param {string} dir The directory.
+ * @returns {void}
+ */
+function cleanup(dir) {
+	try {
+		fs.rmSync(dir, { recursive: true, force: true })
+	} catch (err) {
+		// A scratch dir that will not delete must not mask the stage's own
+		// result — the caller needs the verdict far more than it needs this.
+	}
+}
+
+/**
+ * Write the askpass helper that feeds git the token from the environment.
+ *
+ * git asks an external program for credentials rather than taking them on the
+ * command line. The program prints the secret; the secret itself stays in the
+ * child's environment, which is the same posture the vendor CLIs get.
+ *
+ * @param {string} scratch The scratch dir.
+ * @returns {string} Path to the helper.
+ */
+function writeAskpass(scratch) {
+	const helper = path.join(scratch, 'askpass.sh')
+	fs.writeFileSync(helper, '#!/bin/sh\nexec printf %s "$GIT_FORGE_TOKEN"\n', {
+		mode: 0o700,
+	})
+	fs.chmodSync(helper, 0o700)
+
+	return helper
+}
+
+/**
+ * The tail of a child's output, for an error message.
+ *
+ * git puts the reason on its LAST lines and progress on everything before, so
+ * the tail is the informative end. Bounded because this travels into a flow
+ * run's failure text.
+ *
+ * @param {string} output The collected output.
+ * @param {number} [lines] How many trailing lines to keep.
+ * @returns {string} A single-line excerpt.
+ */
+function lastLines(output, lines = 3) {
+	return String(output || '')
+		.split('\n')
+		.map((line) => line.replace(/\r.*$/, '').trim())
+		.filter((line) => line !== '')
+		.slice(-lines)
+		.join(' | ')
+		.slice(0, 400)
+}
+
+/**
+ * Clone a repository at a ref into a directory.
+ *
+ * Shared by the target tree and the tool tree so both get the same treatment —
+ * notably the remote-only-ref fallback, which is the kind of thing that gets
+ * fixed in one caller and not the other.
+ *
+ * @param {object} args `{url, ref, into, scratch, env, deadline, label}`.
+ * @returns {Promise<void>} Resolves when the tree is checked out.
+ */
+async function cloneAt({ url, ref, into, scratch, env, deadline, label }) {
+	// NOT a shallow clone. The gates diff against a base, and with no history
+	// `--scope-to-diff` sees an empty change set and reports zero failures —
+	// indistinguishable from a clean run. Depth is the one economy not worth
+	// making.
+	const clone = await spawnCollect('git', ['clone', '--no-tags', url, into], {
+		cwd: scratch,
+		env,
+		timeoutMs: deadline,
+	})
+
+	if (clone.code !== 0) {
+		// Carry git's OWN words. `clone failed (exit 128)` names the one thing
+		// the caller already knows and withholds the only thing that identifies
+		// the cause — a missing credential, a blocked host and a bad ref all
+		// exit 128 and are indistinguishable without this.
+		//
+		// Bounded, and the token is never in this output: it reaches git
+		// through GIT_ASKPASS, so git echoes a username at most.
+		throw new Error(
+			`${label} clone failed (exit ${clone.code}): ${lastLines(clone.output)}`,
+		)
+	}
+
+	if (ref === 'HEAD') {
+		return
+	}
+
+	// A branch name that exists only on the remote does NOT resolve for
+	// `--detach`: after a clone, `development` is `origin/development` and only
+	// the default branch has a local head. Measured — the first version of this
+	// failed `checkout --detach development` on a repo whose default branch is
+	// `main`, with an error that read exactly like a bad ref.
+	//
+	// A sha or tag resolves directly, so try the ref as given first and fall
+	// back to the remote-tracking name rather than assuming either.
+	let checkout = await spawnCollect('git', ['checkout', '--detach', ref], {
+		cwd: into,
+		env,
+		timeoutMs: deadline,
+	})
+
+	if (checkout.code !== 0) {
+		checkout = await spawnCollect(
+			'git',
+			['checkout', '--detach', `origin/${ref}`],
+			{
+				cwd: into,
+				env,
+				timeoutMs: deadline,
+			},
+		)
+	}
+
+	if (checkout.code !== 0) {
+		throw new Error(
+			`${label} checkout of "${ref}" failed (exit ${checkout.code}) — tried "${ref}" `
+				+ `and "origin/${ref}": ${lastLines(checkout.output)}`,
+		)
+	}
+}
+
+/**
+ * Extract a base64 tool archive and return the directory to resolve commands in.
+ *
+ * A forge tarball wraps everything in a single `owner-repo-sha/` directory, so
+ * `--strip-components=1` is what makes `scripts/run-hydra-gates.sh` mean the
+ * same thing whether the tool arrived as an archive or a clone. Without it every
+ * caller would have to know the sha, which is exactly the coupling the stage
+ * exists to remove.
+ *
+ * @param {object} args `{base64, scratch, env, deadline}`.
+ * @returns {Promise<string>} The extracted tool root.
+ */
+async function extractToolArchive({ base64, scratch, env, deadline }) {
+	const root = path.join(scratch, 'tool')
+	const archive = path.join(scratch, 'tool.tar.gz')
+
+	fs.mkdirSync(root, { recursive: true })
+	fs.writeFileSync(archive, Buffer.from(base64, 'base64'), { mode: 0o600 })
+
+	const extracted = await spawnCollect(
+		'tar',
+		['-xzf', archive, '-C', root, '--strip-components=1'],
+		{ cwd: scratch, env, timeoutMs: deadline },
+	)
+
+	// The archive is removed whether or not extraction worked. It is the
+	// largest thing in the scratch tree and there is no reason to keep it once
+	// its contents are on disk.
+	try {
+		fs.rmSync(archive, { force: true })
+	} catch (err) {
+		// Non-fatal: the whole scratch tree is removed on the way out anyway.
+	}
+
+	if (extracted.code !== 0) {
+		throw new Error(
+			`tool archive could not be extracted (exit ${extracted.code}): ${lastLines(extracted.output)}`,
+		)
+	}
+
+	return root
+}
+
+/**
+ * Read back files the command produced, before the scratch tree is removed.
+ *
+ * Each path is resolved INSIDE the clone and refused if it escapes — a caller
+ * able to name `../../etc/passwd` would turn a stage result into an arbitrary
+ * file read, and the caller here is authored flow config.
+ *
+ * A missing file is recorded as null rather than omitted. "The reviewer wrote no
+ * findings" and "the key is absent because something went wrong" are different
+ * facts, and a consumer that cannot tell them apart will read the second as the
+ * first — which is the failure this whole endpoint keeps being bitten by.
+ *
+ * @param {object} args `{paths, workdir}`.
+ * @returns {object} A map of path to contents, or null where absent.
+ */
+function readCollected({ paths, workdir }) {
+	const isList = Array.isArray(paths)
+	const isMap = paths !== null && typeof paths === 'object' && isList === false
+	if (
+		(isList === false && isMap === false)
+		|| (isList === true && paths.length === 0)
+	) {
+		return {}
+	}
+
+	const root = path.resolve(workdir)
+	const out = {}
+
+	// An ARRAY keys each file by its own path; an OBJECT keys it by an ALIAS.
+	//
+	// The alias form exists because a flow addresses data with a dotted path,
+	// and a file path is not one: `files.reviews/latest.json.code_review` is
+	// unresolvable — the key contains both dots and slashes, so every traversal
+	// splits it in the wrong places. Collecting a file a flow then cannot reach
+	// is the whole feature failing quietly at the last step.
+	//
+	// So `collect: {findings: "reviews/latest.json"}` yields `files.findings`,
+	// which a flow can walk.
+	const entries =
+		Array.isArray(paths) === true
+			? paths.map((p) => [String(p), String(p)])
+			: Object.entries(paths).map(([alias, p]) => [String(alias), String(p)])
+
+	for (const [name, requested] of entries) {
+		const resolved = path.resolve(root, requested)
+
+		// `startsWith(root + sep)` and not `startsWith(root)`: the latter admits
+		// a sibling directory whose name merely begins with the same characters.
+		if (resolved.startsWith(root + path.sep) === false) {
+			throw new Error(`collect path escapes the clone: ${name}`)
+		}
+
+		try {
+			const raw = fs.readFileSync(resolved, 'utf8').slice(0, MAX_OUTPUT_BYTES)
+
+			// A `.json` file is PARSED, because the consumer is a flow and a
+			// flow cannot address into a string. hydra's reviewer writes
+			// `{code_review: {findings: [...]}}`; handing that back as text
+			// means the one thing anybody wants to do with it — iterate the
+			// findings and file an issue each — is impossible without a node
+			// that parses JSON, which does not exist.
+			//
+			// Unparseable JSON stays TEXT rather than becoming null: the file
+			// was found and has contents, and reporting "absent" for "present
+			// but malformed" is the same conflation this function's null
+			// handling exists to avoid. The consumer can then see what it
+			// actually got.
+			out[name] = raw
+			if (requested.endsWith('.json') === true) {
+				try {
+					out[name] = JSON.parse(raw)
+				} catch (err) {
+					// Intentionally keeps the text. See above.
+				}
+			}
+		} catch (err) {
+			out[name] = null
+		}
+	}
+
+	return out
+}
+
+/**
+ * Whether a command is one this runner will execute.
+ *
+ * @param {Array<string>} argv The command and its arguments.
+ * @returns {boolean} True when allowed.
+ */
+function isAllowedCommand(argv) {
+	if (!Array.isArray(argv) || argv.length === 0) {
+		return false
+	}
+
+	return ALLOWED_COMMANDS.includes(String(argv[0]))
+}
+
+/**
+ * Spawn one child in a directory and collect its output.
+ *
+ * @param {string} bin The binary.
+ * @param {Array<string>} args Its arguments.
+ * @param {object} opts `{cwd, env, timeoutMs}`.
+ * @returns {Promise<{code: number, output: string}>} Exit code and combined output.
+ */
+function spawnCollect(bin, args, { cwd, env, timeoutMs }) {
+	return new Promise((resolve, reject) => {
+		let child
+		try {
+			child = spawn(bin, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] })
+		} catch (err) {
+			reject(new Error(`failed to spawn ${bin}: ${err.message}`))
+			return
+		}
+
+		let output = ''
+		let bytes = 0
+		let timedOut = false
+
+		const collect = (chunk) => {
+			bytes += chunk.length
+			if (bytes <= MAX_OUTPUT_BYTES) {
+				output += chunk.toString('utf8')
+			}
+		}
+
+		child.stdout.on('data', collect)
+		child.stderr.on('data', collect)
+
+		const timer = setTimeout(() => {
+			timedOut = true
+			child.kill('SIGKILL')
+		}, timeoutMs)
+
+		child.on('error', (err) => {
+			clearTimeout(timer)
+			reject(new Error(`${bin} process error: ${err.message}`))
+		})
+
+		child.on('close', (code) => {
+			clearTimeout(timer)
+			if (timedOut) {
+				reject(new Error(`${bin} timed out after ${timeoutMs}ms`))
+				return
+			}
+
+			resolve({ code: code === null ? -1 : code, output })
+		})
+	})
+}
+
+/**
+ * The repository-relative paths a stage changed, INCLUDING untracked files.
+ *
+ * `git diff --name-only` alone is the wrong question: a builder that adds a new
+ * file leaves it untracked, so a diff-only read of the change set reports
+ * nothing and the gate below waves through a change it never saw. That is the
+ * exact shape of "a fence only ever observed not-blocking" — it would pass every
+ * test written against modified files and let a brand-new
+ * `.github/workflows/pwn.yml` straight past.
+ *
+ * `git status --porcelain=v1 -z --untracked-files=all` answers it in one call:
+ * every tracked modification and every untracked file, NUL-separated so a path
+ * containing a newline or a quote cannot forge a record boundary.
+ *
+ * @param {object} args `{workdir, env, deadline}`.
+ * @returns {Promise<Array<string>>} Changed paths, repository-relative.
+ */
+async function changedFiles({ workdir, env, deadline }) {
+	const status = await spawnCollect(
+		'git',
+		['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+		{ cwd: workdir, env, timeoutMs: deadline },
+	)
+
+	if (status.code !== 0) {
+		// Fail CLOSED: an unreadable change set must never be treated as an
+		// empty one. An empty change set passes every rule in pushGuard.
+		throw new PushRefused(
+			'diff_unreadable',
+			`push refused: the change set could not be read (git status exit ${status.code}): `
+				+ `${lastLines(status.output)}`,
+		)
+	}
+
+	const files = []
+	for (const record of status.output.split('\0')) {
+		if (record === '') {
+			continue
+		}
+
+		// `XY <path>` — two status columns, a space, then the path. A rename is
+		// `R  <new>\0<old>`, so the record following an `R`/`C` is a bare path
+		// with no status columns; it is picked up by the length guard below and
+		// recorded too, which is what we want (both halves of a rename are
+		// changes).
+		if (record.length > 3 && /^[ MADRCU?!]{2} /.test(record) === true) {
+			files.push(record.slice(3))
+			continue
+		}
+
+		files.push(record)
+	}
+
+	return files
+}
+
+/**
+ * Commit the working tree and push it to a validated branch.
+ *
+ * THE CREDENTIAL IS USED HERE AND NOWHERE ELSE. The command child ran without
+ * `GIT_FORGE_TOKEN` and without `GIT_ASKPASS` (see `runStage()`), so this is the
+ * only place a push can happen at all — which is what makes the assertions above
+ * it fences rather than suggestions.
+ *
+ * The refspec is built here from the VALIDATED branch name, never taken from the
+ * caller as a string. `git push origin <refspec>` with a caller-supplied refspec
+ * would let `feature/1/x:refs/heads/main` clear a branch check that only looked
+ * at the left-hand side.
+ *
+ * @param {object} args Push arguments.
+ * @returns {Promise<{pushed: boolean, branch: string, commit: string, files: Array<string>}>} Outcome.
+ */
+async function performPush({ workdir, push, repo, env, deadline }) {
+	const branch = String(push.branch || '')
+	const files = await changedFiles({ workdir, env, deadline })
+
+	// EVERY fence, before anything touches the network. A refusal here throws a
+	// PushRefused, which `runStage()` surfaces as a stage failure — never as a
+	// stage that "completed" without pushing, which a caller would read as
+	// success.
+	assertPushAllowed({
+		pushUrl: repo,
+		allowedUrl: push.allowedRepo || repo,
+		branch,
+		issue: push.issue,
+		files,
+		scope: push.scope,
+	})
+
+	if (files.length === 0) {
+		// Nothing to push is NOT a failure — a builder that found the work
+		// already done is a legitimate outcome — but it must be reported as
+		// what it is rather than as a push that happened.
+		return { pushed: false, branch, commit: '', files: [] }
+	}
+
+	const message = String(
+		push.message || `chore: stage changes for issue ${push.issue}`,
+	)
+
+	// `--all -- .` from the repository root: the command's own cwd is the clone,
+	// but a pathspec-less `add` run from a subdirectory would miss siblings.
+	const add = await spawnCollect('git', ['add', '--all', '--', '.'], {
+		cwd: workdir,
+		env,
+		timeoutMs: deadline,
+	})
+	if (add.code !== 0) {
+		throw new PushRefused(
+			'commit_failed',
+			`git add failed (exit ${add.code}): ${lastLines(add.output)}`,
+		)
+	}
+
+	// Identity via `-c`, not `git config`: it configures nothing that outlives
+	// the scratch tree. `--no-verify` because hooks in the clone are repository
+	// content — i.e. hostile input — and running them would execute code the
+	// change set just brought in.
+	const commit = await spawnCollect(
+		'git',
+		[
+			'-c',
+			`user.name=${STAGE_COMMITTER.name}`,
+			'-c',
+			`user.email=${STAGE_COMMITTER.email}`,
+			'commit',
+			'--no-verify',
+			'-m',
+			message,
+		],
+		{ cwd: workdir, env, timeoutMs: deadline },
+	)
+	if (commit.code !== 0) {
+		throw new PushRefused(
+			'commit_failed',
+			`git commit failed (exit ${commit.code}): ${lastLines(commit.output)}`,
+		)
+	}
+
+	// The refspec is BUILT from the validated branch, never taken as a string.
+	// `origin` is the clone URL the credential was minted for; naming it here
+	// rather than re-splicing a URL keeps the destination the one that was
+	// checked.
+	const pushed = await spawnCollect(
+		'git',
+		['push', '--no-verify', 'origin', `HEAD:refs/heads/${branch}`],
+		{ cwd: workdir, env, timeoutMs: deadline },
+	)
+	if (pushed.code !== 0) {
+		throw new PushRefused(
+			'push_rejected',
+			`git push failed (exit ${pushed.code}): ${lastLines(pushed.output)}`,
+		)
+	}
+
+	const rev = await spawnCollect('git', ['rev-parse', 'HEAD'], {
+		cwd: workdir,
+		env,
+		timeoutMs: deadline,
+	})
+
+	return {
+		pushed: true,
+		branch,
+		commit: rev.code === 0 ? rev.output.trim().split('\n').pop() : '',
+		files,
+	}
+}
+
+/**
+ * Run one stage: clone a ref, execute a command over it, return the result.
+ *
+ * The result carries the command's EXIT CODE and its full output rather than a
+ * pass/fail verdict, deliberately. hydra's gate runner uses its exit code as a
+ * failure COUNT and prints a summary line only after every gate has been
+ * reached — so "did it pass" is a question about the output, and only the caller
+ * knows which line to look for. Deciding it here would bake one consumer's
+ * convention into the transport.
+ *
+ * @param {object} args Stage arguments.
+ * @param {string} args.repo Clone URL of the tree the command runs OVER.
+ * @param {string} args.ref The ref to check out.
+ * @param {Array<string>} args.command The command and arguments.
+ * @param {string} [args.toolRepo] Clone URL of the tree the COMMAND comes from, when it is
+ *                                 not the target — hydra's gate runner is the case this
+ *                                 exists for. Omit and the command comes from the target.
+ * @param {string} [args.toolRef] Ref for the tool tree; its default branch when omitted.
+ * @param {Array<string>} [args.collect] Paths inside the clone to read back after the command,
+ *                                       returned as `files`. The scratch tree is deleted on the
+ *                                       way out, so anything the command wrote is otherwise lost.
+ * @param {string} [args.toolTarball] The tool tree as a base64 `.tar.gz`, for a PRIVATE tool
+ *                                    tree whose credential must not leave OpenRegister. The
+ *                                    broker fetches it server-side; only bytes arrive here.
+ *                                    Takes precedence over `toolRepo`.
+ * @param {string} [args.forgeToken] Token for the clones. Reaches git via GIT_ASKPASS only.
+ * @param {string} [args.forgeUser] Username half of the clone URL. Not a secret.
+ * @param {number} [args.timeoutMs] Overall ceiling.
+ * @param {object} [args.env] Extra non-secret env for the command.
+ * @param {string} [args.runToken] The per-run token minted by Hermiq. Used to build the
+ *                                 PER-RUN proxy URL so the governed egress proxy can ask
+ *                                 the PDP "may THIS run reach that host?". Without it a
+ *                                 stage behind the proxy is denied `no_run_token`.
+ * @param {object} [args.push] Declares that this stage may WRITE. `{branch, issue, scope,
+ *                             allowedRepo, message}`. Its presence changes the security
+ *                             posture of the whole stage: the command runs WITHOUT the
+ *                             credential, and the runner performs the push itself after
+ *                             every fence in `pushGuard` has passed.
+ * @returns {Promise<{exitCode: number, output: string, ref: string}>} The result.
+ */
+async function runStage({
+	repo,
+	ref,
+	command,
+	toolRepo,
+	toolRef,
+	toolTarball,
+	collect,
+	forgeToken,
+	forgeUser,
+	timeoutMs,
+	env,
+	runToken,
+	push,
+	credentialEnv,
+}) {
+	if (typeof repo !== 'string' || repo === '') {
+		throw new Error('a stage needs a repo')
+	}
+
+	if (typeof ref !== 'string' || ref === '') {
+		throw new Error('a stage needs a ref')
+	}
+
+	if (!isAllowedCommand(command)) {
+		// Naming the offending command is safe (it is not a secret) and is the
+		// only way an author can tell this apart from a crash.
+		throw new Error(
+			`command not allowed: ${Array.isArray(command) ? command[0] : String(command)}. `
+				+ `Allowed: ${ALLOWED_COMMANDS.join(', ')}`,
+		)
+	}
+
+	const deadline =
+		Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_STAGE_TIMEOUT_MS
+	const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'hydra-stage-'))
+	const workdir = path.join(scratch, 'repo')
+
+	try {
+		const childEnv = {
+			PATH: process.env.PATH,
+			HOME: scratch,
+			// Never prompt. Without this a missing credential HANGS until the
+			// timeout instead of failing in a way the caller can read.
+			GIT_TERMINAL_PROMPT: '0',
+			...(env && typeof env === 'object' ? env : {}),
+		}
+
+		// Carry the proxy vars through: in the hardened deployment they are the
+		// container's ONLY route out, and a clone without them simply cannot
+		// reach the forge.
+		for (const name of [
+			'HTTPS_PROXY',
+			'HTTP_PROXY',
+			'https_proxy',
+			'http_proxy',
+		]) {
+			if (process.env[name]) {
+				childEnv[name] = process.env[name]
+			}
+		}
+
+		// The PER-RUN proxy URL is assigned AFTER the passthrough, so a static
+		// `HTTPS_PROXY` in the container's own environment can never shadow the
+		// run-scoped one. Sending a stage out through a proxy with no run
+		// identity is precisely what the PDP refuses (`no_run_token`), and
+		// silently preferring the identity-less URL would turn a governed
+		// deployment into an ungoverned one.
+		Object.assign(childEnv, buildEgressProxyEnv(runToken))
+
+		if (typeof forgeToken === 'string' && forgeToken !== '') {
+			childEnv.GIT_FORGE_TOKEN = forgeToken
+			childEnv.GIT_ASKPASS = writeAskpass(scratch)
+		}
+
+		const cloneUrl =
+			typeof forgeUser === 'string' && forgeUser !== ''
+				? repo.replace('://', `://${forgeUser}@`)
+				: repo
+
+		await cloneAt({
+			url: cloneUrl,
+			ref,
+			into: workdir,
+			scratch,
+			env: childEnv,
+			deadline,
+			label: 'repo',
+		})
+
+		// THE TOOL TREE — why a stage may need TWO clones.
+		//
+		// hydra's gate runner takes the tree it gates as an argument and
+		// resolves its own 20 python helpers relative to `BASH_SOURCE`, i.e.
+		// out of hydra's `scripts/lib`. So gating an app needs hydra's scripts
+		// AND the app's tree at once, and a stage that clones one repo and runs
+		// a command from inside it can express only half of that.
+		//
+		// Measured against `run-hydra-gates.sh`: `APP_DIR` defaults to `pwd`,
+		// so cloning the tool tree separately and running its command with the
+		// TARGET as the working directory gates the target with the tool's
+		// helpers — no argument juggling, and the default does the right thing.
+		//
+		// Without this the only workable arrangement is every target repo
+		// vendoring a copy of the gate runner, which is 3,599 lines duplicated
+		// per app and guaranteed to drift.
+		let commandRoot = workdir
+
+		// THE TOOL TREE AS AN ARCHIVE — how a PRIVATE tool tree gets here
+		// without its credential ever leaving OpenRegister.
+		//
+		// The broker holds a host-locked proxy credential: `resolveInjectable()`
+		// returns null for it by design, so no token can be handed to this
+		// container for `git clone`. But the broker CAN fetch, and
+		// `GET /repos/*/tarball/*` is already covered by its existing
+		// `GET /repos/*` rule — so OpenRegister fetches the archive server-side
+		// and passes the BYTES.
+		//
+		// The objection to a tarball is that it has no git history, so
+		// `--scope-to-diff` would diff against nothing and report zero failures.
+		// That objection is about the TARGET, and it does not apply here: the
+		// tool tree is scripts. The target is cloned normally, with its full
+		// history, and needs no credential because the repositories being gated
+		// are public. Splitting the two is what makes the credential question
+		// go away rather than get traded off.
+		if (typeof toolTarball === 'string' && toolTarball !== '') {
+			commandRoot = await extractToolArchive({
+				base64: toolTarball,
+				scratch,
+				env: childEnv,
+				deadline,
+			})
+		} else if (typeof toolRepo === 'string' && toolRepo !== '') {
+			commandRoot = path.join(scratch, 'tool')
+			const toolUrl =
+				typeof forgeUser === 'string' && forgeUser !== ''
+					? toolRepo.replace('://', `://${forgeUser}@`)
+					: toolRepo
+
+			await cloneAt({
+				url: toolUrl,
+				ref:
+					typeof toolRef === 'string' && toolRef !== '' ? toolRef : 'HEAD',
+				into: commandRoot,
+				scratch,
+				env: childEnv,
+				deadline,
+				label: 'tool repo',
+			})
+		}
+
+		const [bin, ...rest] = command
+
+		// ────────────────────────────────────────────────────────────────────
+		// THE COMMAND DOES NOT GET THE CREDENTIAL WHEN THIS STAGE MAY PUSH.
+		//
+		// This is the single line that makes every rule in `pushGuard` a fence
+		// rather than a suggestion. A builder stage runs a model with a shell in
+		// a writable tree; if that child's environment carried `GIT_FORGE_TOKEN`
+		// and `GIT_ASKPASS`, the model could run `git push` itself and no
+		// runner-side check could observe it, let alone refuse it. The gates
+		// would be decoration around a hole, and — worse — they would pass every
+		// test, because a test drives the guard functions directly.
+		//
+		// So the credential is used for the CLONE (above) and for the PUSH
+		// (below), both performed by the runner, and is withheld from the one
+		// process that reads hostile input.
+		//
+		// Withheld only when a push is declared, deliberately: a read-only
+		// gating stage has needed the token in its command env since the
+		// workload plane shipped, and silently removing it would break the
+		// running pipeline to harden a path that pipeline does not take.
+		// ────────────────────────────────────────────────────────────────────
+		const wantsPush = push !== null && typeof push === 'object'
+		const commandEnv = { ...childEnv }
+		if (wantsPush === true) {
+			delete commandEnv.GIT_FORGE_TOKEN
+			delete commandEnv.GIT_ASKPASS
+		}
+
+		// A VENDOR CREDENTIAL, SCOPED TO THE COMMAND THAT NEEDS IT.
+		//
+		// `/run` has had this channel since the anthropic provider shipped —
+		// `selectCredentialEnv()` filters a caller-supplied map down to the keys
+		// that provider declares, and drops the rest silently. `/stage` had no
+		// equivalent, so a stage could clone a repository but never call a model:
+		// the two halves of an agent existed in separate endpoints.
+		//
+		// 🔑 THE ALLOWLIST IS PER COMMAND, not per stage. A gates run has no
+		// business holding a model token, and `STAGE_CREDENTIAL_KEYS` says so by
+		// keying on the command's own binary — an unlisted command gets `[]` and
+		// nothing is merged. That is the same reasoning as `ALLOWED_COMMANDS`
+		// above: a flow is authored data, so what it can reach is decided here
+		// and not by what it asks for.
+		//
+		// Reusing `selectCredentialEnv()` rather than filtering inline is
+		// deliberate: it is the reviewed filter, and a second copy is a second
+		// place for the drop-unknown-keys rule to be forgotten.
+		Object.assign(
+			commandEnv,
+			selectCredentialEnv(
+				{ credentialKeys: STAGE_CREDENTIAL_KEYS[path.basename(bin)] || [] },
+				credentialEnv,
+			),
+		)
+
+		// The command is resolved inside the TOOL tree when there is one, and
+		// runs with the TARGET as its working directory. A bare name (`sh`)
+		// stays a PATH lookup — only a repo-relative path is rebased, which is
+		// what the allowlist admits anyway.
+		const executable =
+			bin.includes('/') === true ? path.join(commandRoot, bin) : bin
+		const result = await spawnCollect(executable, rest, {
+			cwd: workdir,
+			env: commandEnv,
+			timeoutMs: deadline,
+		})
+
+		// THE PUSH PHASE — after the command, before the scratch tree goes.
+		//
+		// A refusal THROWS. It must not come back as a 200 carrying
+		// `pushed: false`, because a caller that reads only the status would
+		// record a refused push as a completed stage — the exact conflation
+		// (`ran and failed` vs `could not run`) the rest of this file is
+		// written to avoid.
+		let pushResult = null
+		if (wantsPush === true) {
+			pushResult = await performPush({
+				workdir,
+				push,
+				repo,
+				env: childEnv,
+				deadline,
+			})
+		}
+
+		// FILES THE COMMAND PRODUCED, read back before the scratch tree goes.
+		//
+		// This is the half of "the workload has a filesystem, the flow does
+		// not" that was missing. hydra's reviewer writes its findings to a JSON
+		// file and `create_finding_issues` reads them back — but that file lives
+		// in the clone, which is deleted moments later, so a flow could never
+		// see it. Without this the pipeline can RUN a review and still have no
+		// way to act on what it found.
+		//
+		// Paths are resolved inside the clone and refused if they escape it: a
+		// caller that could name `../../etc/passwd` would turn a stage result
+		// into an arbitrary file read.
+		return {
+			exitCode: result.code,
+			output: result.output,
+			ref,
+			files: readCollected({ paths: collect, workdir }),
+			// Absent (not `false`, not `{}`) when no push was asked for, so a
+			// consumer can tell "this stage does not push" from "this stage
+			// pushed nothing".
+			...(pushResult === null ? {} : { push: pushResult }),
+		}
+	} finally {
+		// The token lives in the child env and the askpass helper lives in the
+		// scratch dir; removing the tree is what stops the second outliving the
+		// run.
+		cleanup(scratch)
+	}
+}
+
+module.exports = {
+	runStage,
+	isAllowedCommand,
+	ALLOWED_COMMANDS,
+	STAGE_CREDENTIAL_KEYS,
+	buildEgressProxyEnv,
+	changedFiles,
+}

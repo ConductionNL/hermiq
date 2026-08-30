@@ -7,8 +7,29 @@
  * (into quarantine), approve a quarantined skill (the review gate), and publish a skill to
  * an external hub via OpenConnector. All reads/writes run in the caller's session context
  * through SkillMarketplaceService → OpenRegister ObjectService, so OR's native RBAC denies
- * cross-tenant access. `@NoAdminRequired` opens the routes to any authenticated user;
- * tenancy is the guard.
+ * cross-tenant access.
+ *
+ * Security (ADR-005 Rule 3 / OWASP A01): `@NoAdminRequired` opens the routes to any
+ * authenticated user, so the two privileged mutations are NOT open to every caller — each
+ * gates on ActionAuthService::requireAction() (ADR-023), mirroring AiFeatureController.
+ * `approve()` requires `skill.approve-quarantined`; when the caller passes `force=true` it
+ * additionally requires the stricter `skill.override-scan-verdict` (a caller who can approve
+ * a clean scan cannot necessarily override a dangerous one). `publish()` requires
+ * `skill.publish-hub`. All three actions seed to admin-only; an admin may broaden them via
+ * the action matrix. A refused caller gets 403; an unauthenticated caller 401.
+ * `installFromSource()` only ever produces `quarantined` output (never `active`), so it
+ * remains open to any authenticated tenant member.
+ *
+ * hermiq-github-store adds `githubPublish()` on this SAME controller — the new PRIMARY
+ * publish path (a `topic:hermiq-skill` GitHub repo in agentskills.io format via the
+ * generalised `GitHubTemplatePushService`), gated by the SAME `skill.publish-hub` action as
+ * the existing OpenConnector `publish()` (both are "publish this skill externally"
+ * mutations — design.md does not introduce a distinct action for the GitHub path).
+ * Tenant-scoped via `SkillService::exportSkill()` (404, never 403, for an out-of-visibility
+ * skill) exactly as `AgentTemplateController::publishGithub()` scopes template publish. On
+ * success, stamps `githubOwner`/`githubRepo`/`publishedAt` via
+ * `SkillService::stampGithubPublish()` — provenance only, never round-tripped through the
+ * exported package.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -22,180 +43,343 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
+use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
  * Tenant-scoped skills-marketplace endpoints (install-from-source / approve / publish).
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (marketplace service, action auth, skill service, GitHub push, user session,
+ *   logger) plus the HTTP response/exception types every endpoint returns.
  */
-class SkillMarketplaceController extends Controller
-{
-    /**
-     * Constructor.
-     *
-     * @param IRequest                $request                 The request object.
-     * @param SkillMarketplaceService $skillMarketplaceService The marketplace service.
-     * @param IUserSession            $userSession             Resolves the requesting user.
-     * @param LoggerInterface         $logger                  PSR-3 logger.
-     *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-4-1
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly SkillMarketplaceService $skillMarketplaceService,
-        private readonly IUserSession $userSession,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+class SkillMarketplaceController extends Controller {
+	/**
+	 * Safe GitHub owner/repo pattern (hermiq-github-store), validated before any
+	 * path interpolation on the publish endpoint — mirrors
+	 * `AgentTemplateController::OWNER_REPO_PATTERN` exactly.
+	 *
+	 * @var string
+	 */
+	private const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
 
-    /**
-     * Install a skill from an external source into quarantine.
-     *
-     * @return JSONResponse The quarantined skill, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-4-1
-     */
-    public function installFromSource(): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param SkillMarketplaceService $marketplaceService The marketplace service.
+	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param IUserSession $userSession Resolves the requesting user.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param SkillService $skillService Export + provenance stamp (hermiq-github-store).
+	 * @param GitHubTemplatePushService $pushService GitHub publish (hermiq-github-store).
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly SkillMarketplaceService $marketplaceService,
+		private readonly ActionAuthService $actionAuth,
+		private readonly IUserSession $userSession,
+		private readonly LoggerInterface $logger,
+		private readonly SkillService $skillService,
+		private readonly GitHubTemplatePushService $pushService,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-        $package = (string) $this->request->getParam('package', '');
-        $source  = (string) $this->request->getParam('source', 'hub');
-        if (trim($package) === '') {
-            return new JSONResponse(['error' => 'A non-empty package is required'], Http::STATUS_BAD_REQUEST);
-        }
+	/**
+	 * Install a skill from an external source into quarantine.
+	 *
+	 * @return JSONResponse The quarantined skill, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+	 */
+	public function installFromSource(): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        if (in_array($source, ['org', 'hub'], true) === false) {
-            $source = 'hub';
-        }
+		$package = (string)$this->request->getParam('package', '');
+		$source = (string)$this->request->getParam('source', 'hub');
+		if (trim($package) === '') {
+			return new JSONResponse(['error' => 'A non-empty package is required'], Http::STATUS_BAD_REQUEST);
+		}
 
-        try {
-            $skill = $this->skillMarketplaceService->installFromSource(package: $package, source: $source, createdBy: $user->getUID());
-            return new JSONResponse($this->shape(object: $skill));
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq install-from-source failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		// Skill-package-multifile: auxiliary files are OPTIONAL — omitting them reproduces
+		// the pre-change contract byte-for-byte. A non-array is a client error; an
+		// individual entry with an unsafe path is dropped by the serialiser rather than
+		// failing the request, so one bad path cannot deny a legitimate install.
+		$auxFiles = $this->request->getParam('files', []);
+		if (is_array($auxFiles) === false) {
+			return new JSONResponse(['error' => 'files must be an array'], Http::STATUS_BAD_REQUEST);
+		}
 
-    }//end installFromSource()
+		// Hermiq-skill-conversational-authoring: 'local' is the honest provenance for a
+		// skill authored inside this instance (the chat "Save as skill" seam) — an
+		// already-valid `source` enum value, no schema change. installFromSource() still
+		// ALWAYS lands the skill `quarantined` regardless of source.
+		if (in_array($source, ['local', 'org', 'hub'], true) === false) {
+			$source = 'hub';
+		}
 
-    /**
-     * Approve a quarantined skill (the review gate → active).
-     *
-     * @param string $id The Skill UUID.
-     *
-     * @return JSONResponse The updated skill, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-4-1
-     */
-    public function approve(string $id): JSONResponse
-    {
-        if ($this->userSession->getUser() === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+		try {
+			$skill = $this->marketplaceService->installFromSource(
+				package: $package,
+				source: $source,
+				createdBy: $user->getUID(),
+				auxFiles: $auxFiles
+			);
+			return new JSONResponse($this->shape(object: $skill));
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq install-from-source failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        try {
-            $force = (bool) $this->request->getParam('force', false);
-            $skill = $this->skillMarketplaceService->approveQuarantined(skillId: $id, force: $force);
-            if ($skill === null) {
-                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
-            }
+	}//end installFromSource()
 
-            $shaped = $this->shape(object: $skill);
+	/**
+	 * Approve a quarantined skill (the review gate → active; action-auth-gated).
+	 *
+	 * @param string $id The Skill UUID.
+	 *
+	 * @return JSONResponse The updated skill, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-approving-a-quarantined-skill-requires-action-authorization
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
+	 */
+	public function approve(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-            // A non-forced approve leaves the skill quarantined ONLY when the content scanner
-            // blocked it (a dangerous verdict). Signal 409 so the UI can present the findings
-            // (from the recorded scanReport, and always the quarantineReason) and offer an
-            // explicit override. State-based detection is robust even if the store drops the
-            // scanReport object.
-            if (($shaped['state'] ?? '') === 'quarantined' && $force === false) {
-                return new JSONResponse(
-                    [
-                        'error'            => 'Approval blocked: content scan flagged dangerous patterns.',
-                        'scanReport'       => ($shaped['scanReport'] ?? []),
-                        'quarantineReason' => ($shaped['quarantineReason'] ?? ''),
-                        'skill'            => $shaped,
-                    ],
-                    Http::STATUS_CONFLICT
-                );
-            }
+		$force = (bool)$this->request->getParam('force', false);
 
-            return new JSONResponse($shaped);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq skill approve failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Approve failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }//end try
+		try {
+			$this->actionAuth->requireAction(user: $user, action: 'skill.approve-quarantined');
+			if ($force === true) {
+				// A caller who can approve a clean scan cannot necessarily override a
+				// dangerous verdict — gate BEFORE calling the service with force: true.
+				$this->actionAuth->requireAction(user: $user, action: 'skill.override-scan-verdict');
+			}
+		} catch (OCSForbiddenException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		}
 
-    }//end approve()
+		try {
+			$skill = $this->marketplaceService->approveQuarantined(skillId: $id, force: $force);
+			if ($skill === null) {
+				return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+			}
 
-    /**
-     * Publish a skill to an external hub via OpenConnector (structured error when unavailable).
-     *
-     * @param string $id The Skill UUID.
-     *
-     * @return JSONResponse The publish result, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-4-1
-     */
-    public function publish(string $id): JSONResponse
-    {
-        if ($this->userSession->getUser() === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+			$shaped = $this->shape(object: $skill);
 
-        $hubId = (string) $this->request->getParam('hubId', 'default');
+			// A non-forced approve leaves the skill quarantined ONLY when the content scanner
+			// blocked it (a dangerous verdict). Signal 409 so the UI can present the findings
+			// (from the recorded scanReport, and always the quarantineReason) and offer an
+			// explicit override. State-based detection is robust even if the store drops the
+			// scanReport object.
+			if (($shaped['state'] ?? '') === 'quarantined' && $force === false) {
+				return new JSONResponse(
+					[
+						'error' => 'Approval blocked: content scan flagged dangerous patterns.',
+						'scanReport' => ($shaped['scanReport'] ?? []),
+						'quarantineReason' => ($shaped['quarantineReason'] ?? ''),
+						'skill' => $shaped,
+					],
+					Http::STATUS_CONFLICT
+				);
+			}
 
-        try {
-            return new JSONResponse($this->skillMarketplaceService->publishToHub(skillId: $id, hubId: $hubId));
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq skill publish failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+			return new JSONResponse($shaped);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq skill approve failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Approve failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
 
-    }//end publish()
+	}//end approve()
 
-    /**
-     * Shape a Skill ObjectEntity into a UUID + payload response map.
-     *
-     * @param ObjectEntity $object The skill object.
-     *
-     * @return array<string, mixed> The response payload.
-     */
-    private function shape(ObjectEntity $object): array
-    {
-        $data         = $object->getObject();
-        $data['uuid'] = (string) $object->getUuid();
-        return $data;
+	/**
+	 * Publish a skill to an external hub via OpenConnector (action-auth-gated; structured
+	 * error when the hub is unavailable).
+	 *
+	 * @param string $id The Skill UUID.
+	 *
+	 * @return JSONResponse The publish result, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-publishing-a-skill-to-a-hub-requires-action-authorization
+	 */
+	public function publish(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-    }//end shape()
+		try {
+			$this->actionAuth->requireAction(user: $user, action: 'skill.publish-hub');
+		} catch (OCSForbiddenException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		}
+
+		$hubId = (string)$this->request->getParam('hubId', 'default');
+
+		try {
+			return new JSONResponse($this->marketplaceService->publishToHub(skillId: $id, hubId: $hubId));
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq skill publish failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end publish()
+
+	/**
+	 * Publish a skill to a NEW GitHub repository tagged `topic:hermiq-skill`, built
+	 * from `SkillSerializer::toPackage()` output via `SkillService::exportSkill()`
+	 * (hermiq-github-store — the new PRIMARY publish path; OpenConnector's
+	 * `publish()` above remains the secondary route). Gated by the SAME
+	 * `skill.publish-hub` action as `publish()` — both are "publish this skill
+	 * externally" mutations. Tenant-scoped: resolves the skill through the same
+	 * `SkillService::exportSkill()` path `export()` already uses, so a caller
+	 * cannot publish a skill outside their organisation's visibility. On success,
+	 * records `githubOwner`/`githubRepo`/`publishedAt` on the skill — provenance
+	 * only, never round-tripped through the exported package.
+	 *
+	 * @param string $id The Skill UUID.
+	 *
+	 * @return JSONResponse 201 with `{repoUrl, commitSha}`; 400/401/404/422/503 on failure.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential spec-mandated guards
+	 *   (auth, action auth, repo pattern, visibility, credential, tenant-scoped 404,
+	 *   broker availability) each add a branch on one linear publish path.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+	 *   early-return guards multiply paths without nested logic.
+	 */
+	public function githubPublish(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->actionAuth->requireAction(user: $user, action: 'skill.publish-hub');
+		} catch (OCSForbiddenException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		}
+
+		$owner = (string)($this->request->getParam('owner') ?? '');
+		$repo = (string)($this->request->getParam('repo') ?? '');
+		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
+		$credentialId = (string)($this->request->getParam('credentialId') ?? '');
+
+		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+		}
+
+		if (in_array($visibility, ['public', 'private'], true) === false) {
+			$visibility = 'private';
+		}
+
+		if ($credentialId === '') {
+			return new JSONResponse(['error' => 'A broker credentialId is required to publish'], Http::STATUS_UNPROCESSABLE_ENTITY);
+		}
+
+		// Tenant-scoped read: a skill outside the caller's organisation's visibility
+		// is 404, identical to export()'s existing behaviour (never a 403 that would
+		// confirm existence) — mirrors AgentTemplateController::publishGithub().
+		$package = $this->skillService->exportSkill(skillId: $id);
+		if ($package === null) {
+			return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		if ($this->pushService->isBrokerAvailable() === false) {
+			return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
+		}
+
+		try {
+			$result = $this->pushService->push(
+				package: $package,
+				owner: $owner,
+				repo: $repo,
+				visibility: $visibility,
+				credentialId: $credentialId,
+				actingUserId: $user->getUID(),
+				kind: GitHubTemplatePushService::KIND_SKILL,
+				// Publish-time file SELECTION (skills-marketplace delta): learnings.md
+				// ships, learning-candidates.md is stripped — same selection as republish.
+				auxFiles: ($this->skillService->publishFileSelection(skillId: $id) ?? [])
+			);
+		} catch (RuntimeException $e) {
+			$this->logger->warning('Hermiq skill github publish refused: ' . $e->getMessage());
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq skill github publish failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
+
+		$this->skillService->stampGithubPublish(
+			skillId: $id,
+			owner: $owner,
+			repo: $repo,
+			publishedAt: (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c')
+		);
+
+		return new JSONResponse($result, Http::STATUS_CREATED);
+	}//end githubPublish()
+
+	/**
+	 * Shape a Skill ObjectEntity into a UUID + payload response map.
+	 *
+	 * @param ObjectEntity $object The skill object.
+	 *
+	 * @return array<string, mixed> The response payload.
+	 */
+	private function shape(ObjectEntity $object): array {
+		$data = $object->getObject();
+		$data['uuid'] = (string)$object->getUuid();
+		return $data;
+	}//end shape()
 }//end class

@@ -24,26 +24,23 @@ declare(strict_types=1);
 
 namespace OCA\Talk\Service;
 
-use OCA\Talk\Model\Participant;
+use OCA\Talk\Participant;
 use OCA\Talk\Room;
 
 /**
  * Minimal stub of the spreed participant service.
  */
-class ParticipantService
-{
-    /**
-     * Resolve a participant for the given user in the room.
-     *
-     * @param Room        $room      The room.
-     * @param string|null $userId    The user.
-     * @param mixed       $sessionId Unused in the stub.
-     *
-     * @return Participant The participant.
-     */
-    public function getParticipant(Room $room, ?string $userId, $sessionId=null): Participant
-    {
-        return new Participant();
-
-    }//end getParticipant()
+class ParticipantService {
+	/**
+	 * Resolve a participant for the given user in the room.
+	 *
+	 * @param Room $room The room.
+	 * @param string|null $userId The user.
+	 * @param mixed $sessionId Unused in the stub.
+	 *
+	 * @return Participant The participant.
+	 */
+	public function getParticipant(Room $room, ?string $userId, $sessionId = null): Participant {
+		return new Participant();
+	}//end getParticipant()
 }//end class

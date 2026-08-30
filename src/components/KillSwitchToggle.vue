@@ -18,31 +18,44 @@
 <template>
 	<div v-if="canManage && organisations.length > 0" class="kill-switch">
 		<div class="kill-switch__head">
-			<AlertOctagon :size="20" :class="engaged ? 'kill-switch__icon--on' : 'kill-switch__icon--off'" />
-			<span class="kill-switch__label">{{ t('hermiq', 'Emergency stop') }}</span>
+			<AlertOctagon
+				:size="20"
+				:class="
+					engaged ? 'kill-switch__icon--on' : 'kill-switch__icon--off'
+				" />
+			<span class="kill-switch__label">{{
+				t('hermiq', 'Emergency stop')
+			}}</span>
 		</div>
 
 		<div v-if="organisations.length > 1" class="kill-switch__org">
 			<NcSelect
 				v-model="orgOption"
-				:input-label="t('hermiq', 'Organisation')"
+				:inputLabel="t('hermiq', 'Organisation')"
 				:options="orgOptions"
 				:clearable="false"
 				label="label"
-				track-by="value" />
+				trackBy="value" />
 		</div>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Kill-switch error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Kill-switch error')">
 			{{ error }}
 		</NcNoteCard>
 
 		<div class="kill-switch__row">
 			<NcCheckboxRadioSwitch
-				:checked="engaged"
+				:modelValue="engaged"
 				:disabled="loading || saving"
 				type="switch"
-				@update:checked="onToggle">
-				{{ engaged ? t('hermiq', 'All runs halted for this organisation') : t('hermiq', 'Halt all runs for this organisation') }}
+				@update:modelValue="onToggle">
+				{{
+					engaged
+						? t('hermiq', 'All runs halted for this organisation')
+						: t('hermiq', 'Halt all runs for this organisation')
+				}}
 			</NcCheckboxRadioSwitch>
 			<NcLoadingIcon v-if="loading || saving" :size="20" />
 		</div>
@@ -54,8 +67,13 @@
 </template>
 
 <script>
-import { NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
+import {
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+} from '@nextcloud/vue'
 import AlertOctagon from 'vue-material-design-icons/AlertOctagon.vue'
 import { getKillSwitch, toggleKillSwitch } from '../api/approvals.js'
 
@@ -91,6 +109,7 @@ export default {
 		 * The manageable organisations as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		orgOptions() {
 			return this.organisations.map((org) => ({
@@ -103,9 +122,20 @@ export default {
 		 * Two-way bridge between the selected org id and the NcSelect option object.
 		 */
 		orgOption: {
+			/**
+			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+			 */
 			get() {
-				return this.orgOptions.find((option) => option.value === this.selectedOrg) || this.orgOptions[0]
+				return (
+					this.orgOptions.find(
+						(option) => option.value === this.selectedOrg,
+					) || this.orgOptions[0]
+				)
 			},
+
+			/**
+			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+			 */
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
 				this.load()
@@ -113,6 +143,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 */
 	created() {
 		if (this.canManage && this.organisations.length > 0) {
 			this.selectedOrg = this.organisations[0].id
@@ -125,6 +158,7 @@ export default {
 		 * Read the current kill-switch state for the selected organisation.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		async load() {
 			if (!this.selectedOrg) {
@@ -137,7 +171,10 @@ export default {
 				this.engaged = state?.engaged === true
 				this.reason = state?.reason || ''
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
@@ -148,6 +185,7 @@ export default {
 		 *
 		 * @param {boolean} next The requested engaged state.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		async onToggle(next) {
 			if (!this.selectedOrg) {
@@ -160,7 +198,10 @@ export default {
 				this.engaged = state?.engaged === true
 				this.reason = state?.reason || ''
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 				// Reflect the server's actual state on failure.
 				await this.load()
 			} finally {

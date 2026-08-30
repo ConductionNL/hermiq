@@ -2,7 +2,7 @@
 
 ### Requirement: A single TimedJob polls due schedules
 
-The system MUST register exactly one `Hermiq\Cron\ScheduleTask` extending
+The system MUST register exactly one `Hermiq\BackgroundJob\ScheduleTask` extending
 `OCP\BackgroundJob\TimedJob` (OCP interface: `OCP\BackgroundJob\TimedJob`,
 `OCP\BackgroundJob\IJob`). On each tick it MUST delegate to
 `Hermiq\Service\ScheduleService::run()`, which finds all `Schedule` objects that are

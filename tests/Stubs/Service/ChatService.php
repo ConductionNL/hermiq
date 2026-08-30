@@ -24,31 +24,30 @@ namespace OCA\OpenRegister\Service;
 /**
  * Minimal ChatService stub for standalone unit runs.
  */
-class ChatService
-{
+class ChatService {
 
-    /**
-     * Process a chat message against a conversation's bound agent.
-     *
-     * @param int    $conversationId The conversation id.
-     * @param string $userId         The acting user id.
-     * @param string $userMessage    The prompt/message.
-     * @param array  $selectedViews  Optional view filters.
-     * @param array  $selectedTools  Optional tool UUIDs.
-     * @param array  $ragSettings    Optional RAG overrides.
-     * @param array  $context        Optional CnAiContext snapshot.
-     *
-     * @return array<string,mixed>
-     */
-    public function processMessage(
-        int $conversationId,
-        string $userId,
-        string $userMessage,
-        array $selectedViews=[],
-        array $selectedTools=[],
-        array $ragSettings=[],
-        array $context=[]
-    ): array {
-        return ['message' => ''];
-    }//end processMessage()
+	/**
+	 * Process a chat message against a conversation's bound agent.
+	 *
+	 * @param int $conversationId The conversation id.
+	 * @param string $userId The acting user id.
+	 * @param string $userMessage The prompt/message.
+	 * @param array $selectedViews Optional view filters.
+	 * @param array $selectedTools Optional tool UUIDs.
+	 * @param array $ragSettings Optional RAG overrides.
+	 * @param array $context Optional CnAiContext snapshot.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function processMessage(
+		int $conversationId,
+		string $userId,
+		string $userMessage,
+		array $selectedViews = [],
+		array $selectedTools = [],
+		array $ragSettings = [],
+		array $context = [],
+	): array {
+		return ['message' => ''];
+	}//end processMessage()
 }//end class

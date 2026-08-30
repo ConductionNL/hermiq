@@ -12,25 +12,36 @@ is governed, auditable and multi-tenant.
 
 ## What is this?
 
-Hermiq is built on ConductionNL conventions — a manifest-first Vue 2
-frontend rendered by CnAppRoot, an OpenRegister data layer, a Dashboard
-widget, an admin settings panel, an AI Chat Companion tool provider, and
-the full PHP + frontend quality pipeline. It ships:
+Hermiq is an agent engine built on ConductionNL conventions — a
+manifest-first Vue 2 frontend rendered by CnAppRoot, an OpenRegister data
+layer, and the full PHP + frontend quality pipeline. It ships:
 
-- **A manifest-driven UI** — pages, navigation, and dependencies are
-  declared in `src/manifest.json`; the shell (CnAppRoot) reads the
-  manifest at boot and renders index / detail / dashboard / settings
-  pages without per-page Vue files.
-- **A Dashboard widget** — a working `ExampleWidget` (PHP `IWidget`
-  class + webpack entry + `NcDashboardWidget` renderer) you copy and
-  rename.
-- **Admin settings** — a settings panel wired through
-  `NcAppSettingsDialog`, backed by an OpenRegister settings register.
-- **An MCP tool provider** — `ExampleToolProvider` exposes the app's
-  capabilities to the in-app AI Chat Companion over MCP.
-- **OpenRegister integration** — `manifest.dependencies` lists
+- **Agents** — define an agent with a prompt, a model, MCP tools and
+  installable skills, and manage them from the Agents catalog and
+  detail page.
+- **Scheduling, delivered to Talk** — attach a schedule to an agent
+  (daily, hourly, or flow-triggered) and its output is delivered to a
+  Nextcloud Talk conversation, falling back to a notification when Talk
+  isn't installed.
+- **Chat, sessions and memory** — a live streaming chat thread per
+  agent, a full conversation-session history, and consolidating memory
+  so long-running agents stay within their context budget.
+- **Skills marketplace** — import and export agentskills.io skill
+  packages and install them onto an agent.
+- **MCP tools** — a catalogue of Model Context Protocol tools available
+  to agents.
+- **Human approval gate** — a reviewer inbox that gates sensitive agent
+  actions behind an approve/deny step, with an org-level kill switch.
+- **Run analytics** — KPIs and a per-agent run/status breakdown.
+- **AI feature governance** — a DPO-gated enable/disable register for
+  AI features (EU AI Act).
+- **Multi-tenant ops** — per-org quota usage and an audit export for
+  tenant admins.
+- **OpenRegister integration** — every agent, run, memory and skill is
+  stored as an OpenRegister object, so it is governed, audited and
+  multi-tenant by construction. `manifest.dependencies` lists
   `openregister`, so the dependency-check phase ensures it is installed
-  before the UI mounts. Remove the entry if your app does not need it.
+  before the UI mounts.
 - **The quality pipeline** — PHPCS, PHPMD, Psalm, PHPStan, ESLint,
   Stylelint, plus manifest/register/JSON-strict validators.
 - **This documentation site** — Docusaurus on `@conduction/docusaurus-preset`,
@@ -43,7 +54,7 @@ Clone the repo and build:
 
 ```bash
 cd /var/www/html/custom_apps
-git clone https://codeberg.org/Conduction/hermiq.git hermiq
+git clone https://github.com/ConductionNL/hermiq.git hermiq
 cd hermiq
 npm install && npm run build
 php occ app:enable hermiq
@@ -56,6 +67,10 @@ php occ app:enable hermiq
   the app for the first time.
 - Setting things up? See the **[Admin guide](/docs/category/admin-guide)** —
   manage the app's settings.
+- Need to know where Hermiq stands on EU/Dutch AI law? See **[Rules &
+  regulations](/docs/category/rules--regulations)**.
+- Want to see your organisation's coverage? See the **[Compliance
+  dashboard](/docs/compliance-dashboard)**.
 
 Free and open source under the EUPL-1.2 license. For support, contact
 support@conduction.nl.
