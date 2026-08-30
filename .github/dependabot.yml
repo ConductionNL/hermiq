@@ -4,10 +4,49 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    target-branch: "development"
     open-pull-requests-limit: 10
+    # typescript 7.x is held back deliberately, not out of caution.
+    # typescript-eslint hard-throws on TS >= 7 ("typescript-eslint does not
+    # support TS 7.0.", a `versionMajor >= 7` guard in its dist/index.js), and
+    # every published version up to and including the 8.68.1-alpha canaries
+    # still peers `typescript: ">=4.8.4 <6.1.0"`. There is no version of
+    # typescript-eslint that can lint this app under TS 7, so a TS 7 bump takes
+    # `npm run lint` from exit 0 to exit 2 with no code change that can fix it.
+    # Lift this the moment typescript-eslint ships TS >= 7.1 support:
+    # https://github.com/typescript-eslint/typescript-eslint/issues/10940
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     cooldown:
       default-days: 1
       include:
         - "*"
       exclude:
         - "@conduction/*"
+
+  # Composer had NO entry at all, so PHP dependencies were updated with no
+  # cooldown whatsoever — the window in which a compromised release is still
+  # published is exactly the window an instant update walks into. `npm` above
+  # has had one for a while; composer was simply never added, which is not a
+  # decision anyone made.
+  #
+  # Two days rather than one: that is the floor gate-93 enforces, and the npm
+  # entry's single day predates it.
+  #
+  # Our own packages are excluded from the wait on purpose. A cooldown protects
+  # against a compromised upstream release; `conduction/*` comes from this
+  # fleet's own CI, and delaying it would only slow the loop between a fix
+  # being released here and arriving here.
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "development"
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 2
+      include:
+        - "*"
+      exclude:
+        - "conduction/*"
