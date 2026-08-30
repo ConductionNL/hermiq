@@ -30,60 +30,65 @@ use OCP\Settings\IIconSection;
 
 /**
  * Defines the Hermiq section in the Nextcloud admin settings.
+ *
+ * @spec exclude Trivial IIconSection scaffolding — four static accessors; no behavioural spec.
  */
-class SettingsSection implements IIconSection
-{
-    /**
-     * Constructor for SettingsSection.
-     *
-     * @param IL10N         $l            The localization service
-     * @param IURLGenerator $urlGenerator The URL generator service
-     *
-     * @return void
-     */
-    public function __construct(
-        private readonly IL10N $l,
-        private readonly IURLGenerator $urlGenerator,
-    ) {
-    }//end __construct()
+class SettingsSection implements IIconSection {
+	/**
+	 * Constructor for SettingsSection.
+	 *
+	 * @param IL10N $l The localization service
+	 * @param IURLGenerator $urlGenerator The URL generator service
+	 *
+	 * @return void
+	 */
+	public function __construct(
+		private readonly IL10N $l,
+		private readonly IURLGenerator $urlGenerator,
+	) {
+	}//end __construct()
 
-    /**
-     * Get the section identifier.
-     *
-     * @return string
-     */
-    public function getID(): string
-    {
-        return 'hermiq';
-    }//end getID()
+	/**
+	 * Get the section identifier.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial IIconSection accessor; no behavioural spec.
+	 */
+	public function getID(): string {
+		return 'hermiq';
+	}//end getID()
 
-    /**
-     * Get the display name of this section.
-     *
-     * @return string
-     */
-    public function getName(): string
-    {
-        return $this->l->t('Hermiq');
-    }//end getName()
+	/**
+	 * Get the display name of this section.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial IIconSection accessor; no behavioural spec.
+	 */
+	public function getName(): string {
+		return $this->l->t('Hermiq');
+	}//end getName()
 
-    /**
-     * Get the priority for ordering this section.
-     *
-     * @return int
-     */
-    public function getPriority(): int
-    {
-        return 75;
-    }//end getPriority()
+	/**
+	 * Get the priority for ordering this section.
+	 *
+	 * @return int
+	 *
+	 * @spec exclude Trivial IIconSection accessor; no behavioural spec.
+	 */
+	public function getPriority(): int {
+		return 75;
+	}//end getPriority()
 
-    /**
-     * Get the icon path for this section.
-     *
-     * @return string
-     */
-    public function getIcon(): string
-    {
-        return $this->urlGenerator->imagePath(appName: 'hermiq', file: 'app-dark.svg');
-    }//end getIcon()
+	/**
+	 * Get the icon path for this section.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial IIconSection accessor; no behavioural spec.
+	 */
+	public function getIcon(): string {
+		return $this->urlGenerator->imagePath(appName: 'hermiq', file: 'app-dark.svg');
+	}//end getIcon()
 }//end class

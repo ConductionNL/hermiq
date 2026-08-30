@@ -1,7 +1,7 @@
 publiccodeYmlVersion: "0.3"
 
 name: "Hermiq"
-url: "https://codeberg.org/Conduction/hermiq"
+url: "https://github.com/ConductionNL/hermiq"
 softwareVersion: "0.1.2"
 releaseDate: "2026-01-01"
 softwareType: "addon"

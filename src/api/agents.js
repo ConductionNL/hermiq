@@ -1,31 +1,48 @@
 // SPDX-License-Identifier: EUPL-1.2
 // Copyright (C) 2026 Conduction B.V.
 //
-// Plain (non-Pinia) API helper for the agent-management-ui surfaces that do NOT
-// map onto the createObjectStore object path:
+// Plain (non-Pinia) API helper for the agent-adjacent surfaces that do NOT
+// map onto the createObjectStore object path.
 //
-//   - OpenRegister agents are a first-class OR resource (their own
-//     AgentsController + AgentMapper, RBAC-filtered), served at
-//     /apps/openregister/api/agents — NOT the generic
-//     /apps/openregister/api/objects/{register}/{schema} path, so they cannot be
-//     read through createObjectStore. We hit the resource directly.
-//   - Run now + run history are thin Hermiq endpoints.
+// HISTORY (agent-engine-port task 5.2): this file used to carry
+// listAgents()/createAgent()/updateAgent() as a documented createObjectStore
+// bypass ("OpenRegister agents are a first-class OR resource served at
+// /apps/openregister/api/agents ... so they cannot be read through
+// createObjectStore"). Since agent-engine-schemas declared `Agent` as a plain
+// OR object in the hermiq register, that rationale is void: agent CRUD now
+// goes through `useAgentStore` (src/store/store.js) against the generic
+// objects path, same as every other Hermiq schema object.
 //
-// This is deliberately a set of stateless functions (no defineStore) — the hard
-// rule is "no custom Pinia stores"; schedule CRUD still goes through the
-// createObjectStore in src/store/store.js. axios from @nextcloud/axios adds the
+// GROUND-TRUTH ADAPTATION (pre-approved, mirrored in src/store/store.js):
+// design.md names `/apps/hermiq/api/objects/hermiq/agent` as the
+// createObjectStore path, but nc-vue's createObjectStore default baseUrl is
+// `/apps/openregister/api/objects` and every existing hermiq schema object
+// (schedule, example) uses that default — "same as every other Hermiq schema
+// object" wins; no hermiq-side objects proxy is added (it would trip gate-17
+// redundant-controller).
+//
+// What legitimately stays here (stateless helpers, not object reads):
+//   - listTools() — the agent-configuration tool catalogue, served by
+//     Hermiq's facade-backed endpoint /apps/hermiq/api/agents/tools
+//     (agent-engine-port; backed by OR's public ToolRegistryFacade, gate-27).
+//   - Run now + run history + run trace (run-trace-observability), plus
+//     dry-run + replay (run-replay-and-dry-run) — thin Hermiq schedule
+//     endpoints.
+//
+// This is deliberately a set of stateless functions (no defineStore) — the
+// hard rule is "no custom Pinia stores". axios from @nextcloud/axios adds the
 // CSRF requesttoken automatically.
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 
-/** OpenRegister agents resource base path. */
-const AGENTS_BASE = '/apps/openregister/api/agents'
+/** Hermiq agents resource base path (tools catalogue only — CRUD is useAgentStore). */
+const AGENTS_BASE = '/apps/hermiq/api/agents'
 /** Hermiq schedule action/read base path. */
 const HERMIQ_SCHEDULES_BASE = '/apps/hermiq/api/schedules'
 
 /**
- * Normalise the various OpenRegister/Hermiq list envelopes to a plain array.
+ * Normalise the various Hermiq/OpenRegister list envelopes to a plain array.
  * Handles `{ results: [] }`, `{ data: { results: [] } }`, and a bare array.
  *
  * @param {object} data The response body.
@@ -45,46 +62,27 @@ function toList(data) {
 }
 
 /**
- * List the agents the current user may see (RBAC-filtered server-side).
- *
- * @return {Promise<Array<object>>} The agent objects.
- */
-export async function listAgents() {
-	const response = await axios.get(generateUrl(AGENTS_BASE))
-	return toList(response.data)
-}
-
-/**
  * List the tools available for agent configuration (from every registered app).
  *
- * @return {Promise<Array<object>>} The tool metadata objects.
+ * Served by Hermiq's /api/agents/tools endpoint (agent-engine-port), which is
+ * backed by OR's public ToolRegistryFacade — not an object read, hence a
+ * bespoke helper rather than a store call. The envelope may be an array of
+ * descriptors or a map keyed by tool id (`{"opencatalogi.cms": {name, …}}`,
+ * OR's historical shape), so normalise both and inject the key as `id` (the
+ * identifier agents reference a tool by).
+ *
+ * @return {Promise<Array<object>>} The tool metadata objects (each with an `id`).
  */
 export async function listTools() {
 	const response = await axios.get(generateUrl(`${AGENTS_BASE}/tools`))
-	return toList(response.data)
-}
-
-/**
- * Create an agent in OpenRegister.
- *
- * @param {object} payload The agent fields (name, provider, model, prompt, tools).
- * @return {Promise<object>} The created agent.
- */
-export async function createAgent(payload) {
-	const response = await axios.post(generateUrl(AGENTS_BASE), payload)
-	return response.data
-}
-
-/**
- * Update an existing agent in OpenRegister.
- *
- * @param {number|string} id The agent's numeric id.
- * @param {object} payload The agent fields to persist.
- * @return {Promise<object>} The updated agent.
- */
-export async function updateAgent(id, payload) {
-	const response = await axios.put(generateUrl(`${AGENTS_BASE}/${id}`), payload)
-	return response.data
+	const results = response.data?.results ?? response.data
+	if (Array.isArray(results)) {
+		return results
+	}
+	if (results && typeof results === 'object') {
+		return Object.entries(results).map(([id, tool]) => ({ id, ...tool }))
+	}
+	return []
 }
 
 /**
@@ -95,7 +93,9 @@ export async function updateAgent(id, payload) {
  * @return {Promise<object>} The run outcome ({ status, error, nextRun }).
  */
 export async function runScheduleNow(scheduleId) {
-	const response = await axios.post(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/run`))
+	const response = await axios.post(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/run`),
+	)
 	return response.data
 }
 
@@ -106,6 +106,117 @@ export async function runScheduleNow(scheduleId) {
  * @return {Promise<Array<object>>} The run records, newest-first.
  */
 export async function listRuns(scheduleId) {
-	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs`))
+	const response = await axios.get(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs`),
+	)
 	return toList(response.data)
+}
+
+/**
+ * Read one run's full, ordered step timeline (run-trace-observability).
+ *
+ * Owner-scoped, identical guard to listRuns() — a non-owner gets a 404 the
+ * axios call surfaces as a rejected promise.
+ *
+ * @param {string} scheduleId The Schedule object UUID.
+ * @param {string} runId The run's AuditTrail entry UUID.
+ * @return {Promise<object>} The run's trace (id, status, steps, toolStepsAvailable, ...).
+ */
+export async function getRunTrace(scheduleId, runId) {
+	const response = await axios.get(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/trace`),
+	)
+	return response.data
+}
+
+/**
+ * Preview a schedule's agent run as a dry-run: the SAME prompt/model/tools a
+ * real run would use, but with every side-effecting tool call neutralised
+ * into a recorded `would-have-called` step instead of actually invoked
+ * (run-replay-and-dry-run). Owner-scoped, identical guard to runScheduleNow().
+ *
+ * A blocked governance gate (kill-switch/budget/approval) surfaces as a 409;
+ * the in-app agent engine being off (`hermiq.engine.enabled=false`, the
+ * default) surfaces as a 422 with an actionable message — both reach the
+ * caller as a rejected axios promise carrying `error.response.data.error`.
+ *
+ * @param {string} scheduleId The Schedule object UUID.
+ * @return {Promise<object>} The dry-run outcome ({ scheduleId, dryRun, status, error, steps, summary }).
+ */
+export async function dryRunSchedule(scheduleId) {
+	const response = await axios.post(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/dry-run`),
+	)
+	return response.data
+}
+
+/**
+ * Replay a past run's exact recorded prompt as a fresh dry-run and diff the
+ * outcome against what actually happened (run-replay-and-dry-run). Always
+ * executes as a dry-run — no side-effecting tool from the replay is ever
+ * actually invoked. Same gate/engine-flag error shapes as dryRunSchedule().
+ *
+ * @param {string} scheduleId The Schedule object UUID.
+ * @param {string} runId The run's AuditTrail entry UUID to replay.
+ * @return {Promise<object>} { scheduleId, replayOf, original, replay, diff }.
+ */
+export async function replayRun(scheduleId, runId) {
+	const response = await axios.post(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/replay`),
+	)
+	return response.data
+}
+
+/**
+ * List an agent's version history, newest-first (agent-versioning).
+ *
+ * Read-only over OpenRegister's AuditTrail — no new storage. Owner/invited-scoped,
+ * mirroring listRuns()'s owner guard (a non-owner without access gets a rejected
+ * promise from the 404 the server returns).
+ *
+ * @param {string} agentId The Agent UUID.
+ * @return {Promise<Array<object>>} The versions (id, timestamp, user, action,
+ * changedFields), newest-first.
+ */
+export async function listAgentVersions(agentId) {
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/versions`),
+	)
+	return toList(response.data)
+}
+
+/**
+ * Diff two of an agent's versions across the fixed versioned-config field set
+ * (agent-versioning).
+ *
+ * @param {string} agentId The Agent UUID.
+ * @param {string} fromId The "old" version's id.
+ * @param {string} toId The "new" version's id.
+ * @return {Promise<object>} A map of changed field -> { old, new }.
+ */
+export async function diffAgentVersions(agentId, fromId, toId) {
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/versions/diff`),
+		{
+			params: { from: fromId, to: toId },
+		},
+	)
+	return response.data?.results ?? {}
+}
+
+/**
+ * Roll an agent back to a previous version's config values (agent-versioning).
+ *
+ * Owner-only server-side; creates a brand-new version equal in content to the
+ * target — history is never mutated.
+ *
+ * @param {string} agentId The Agent UUID.
+ * @param {string} versionId The target version's id.
+ * @return {Promise<object>} The updated agent.
+ */
+export async function rollbackAgentVersion(agentId, versionId) {
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/versions/${versionId}/rollback`),
+	)
+	return response.data
 }

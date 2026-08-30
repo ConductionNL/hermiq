@@ -40,219 +40,205 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
-class ApprovalControllerTest extends TestCase
-{
+class ApprovalControllerTest extends TestCase {
 
-    /**
-     * Build an approval ObjectEntity with the given status.
-     *
-     * @param string $status The approval status.
-     *
-     * @return ObjectEntity
-     */
-    private function approval(string $status='pending'): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('appr-1');
-        $entity->setObject(['status' => $status, 'scheduleId' => 'sched-1', 'reviewer' => 'bob', 'reviewerType' => 'user']);
-        return $entity;
+	/**
+	 * Build an approval ObjectEntity with the given status.
+	 *
+	 * @param string $status The approval status.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function approval(string $status = 'pending'): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('appr-1');
+		$entity->setObject(['status' => $status, 'scheduleId' => 'sched-1', 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		return $entity;
+	}//end approval()
 
-    }//end approval()
+	/**
+	 * A session with the given (or no) user.
+	 *
+	 * @param string|null $uid The UID, or null for unauthenticated.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(?string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		if ($uid === null) {
+			$session->method('getUser')->willReturn(null);
+			return $session;
+		}
 
-    /**
-     * A session with the given (or no) user.
-     *
-     * @param string|null $uid The UID, or null for unauthenticated.
-     *
-     * @return IUserSession
-     */
-    private function session(?string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        if ($uid === null) {
-            $session->method('getUser')->willReturn(null);
-            return $session;
-        }
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+	/**
+	 * Build the controller with the given collaborators.
+	 *
+	 * @param ApprovalService $approvalService The approval service.
+	 * @param IUserSession $session The user session.
+	 *
+	 * @return ApprovalController
+	 */
+	private function controller(ApprovalService $approvalService, IUserSession $session): ApprovalController {
+		return new ApprovalController(
+			$this->createMock(IRequest::class),
+			$approvalService,
+			$session,
+			$this->createMock(LoggerInterface::class)
+		);
 
-    }//end session()
+	}//end controller()
 
-    /**
-     * Build the controller with the given collaborators.
-     *
-     * @param ApprovalService $approvalService The approval service.
-     * @param IUserSession    $session         The user session.
-     *
-     * @return ApprovalController
-     */
-    private function controller(ApprovalService $approvalService, IUserSession $session): ApprovalController
-    {
-        return new ApprovalController(
-            $this->createMock(IRequest::class),
-            $approvalService,
-            $session,
-            $this->createMock(LoggerInterface::class)
-        );
+	/**
+	 * The inbox returns the reviewer's pending approvals.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 */
+	public function testIndexReturnsReviewerPending(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('listPendingForReviewer')->willReturn([['id' => 'appr-1']]);
 
-    }//end controller()
+		$response = $this->controller($service, $this->session('bob'))->index();
 
-    /**
-     * The inbox returns the reviewer's pending approvals.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
-     */
-    public function testIndexReturnsReviewerPending(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('listPendingForReviewer')->willReturn([['id' => 'appr-1']]);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(1, $response->getData()['total']);
 
-        $response = $this->controller($service, $this->session('bob'))->index();
+	}//end testIndexReturnsReviewerPending()
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame(1, $response->getData()['total']);
+	/**
+	 * An unauthenticated caller gets 401.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 */
+	public function testUnauthenticatedIsRejected(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$response = $this->controller($service, $this->session(null))->approve('appr-1');
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
-    }//end testIndexReturnsReviewerPending()
+	}//end testUnauthenticatedIsRejected()
 
-    /**
-     * An unauthenticated caller gets 401.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
-     */
-    public function testUnauthenticatedIsRejected(): void
-    {
-        $service  = $this->createMock(ApprovalService::class);
-        $response = $this->controller($service, $this->session(null))->approve('appr-1');
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+	/**
+	 * The reviewer approves: the service runs the schedule and 200 is returned.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+	 */
+	public function testReviewerApproves(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$service->method('isReviewer')->willReturn(true);
+		$service->expects($this->once())->method('approve')->willReturn(['status' => 'approved', 'ran' => true]);
 
-    }//end testUnauthenticatedIsRejected()
+		$response = $this->controller($service, $this->session('bob'))->approve('appr-1');
 
-    /**
-     * The reviewer approves: the service runs the schedule and 200 is returned.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
-     */
-    public function testReviewerApproves(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('loadApproval')->willReturn($this->approval('pending'));
-        $service->method('isReviewer')->willReturn(true);
-        $service->expects($this->once())->method('approve')->willReturn(['status' => 'approved', 'ran' => true]);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('approved', $response->getData()['status']);
+		$this->assertTrue($response->getData()['ran']);
 
-        $response = $this->controller($service, $this->session('bob'))->approve('appr-1');
+	}//end testReviewerApproves()
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame('approved', $response->getData()['status']);
-        $this->assertTrue($response->getData()['ran']);
+	/**
+	 * A non-reviewer is refused with 404 and never reaches approve().
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+	 */
+	public function testNonReviewerRefused(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$service->method('isReviewer')->willReturn(false);
+		$service->expects($this->never())->method('approve');
 
-    }//end testReviewerApproves()
+		$response = $this->controller($service, $this->session('mallory'))->approve('appr-1');
 
-    /**
-     * A non-reviewer is refused with 404 and never reaches approve().
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
-     */
-    public function testNonReviewerRefused(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('loadApproval')->willReturn($this->approval('pending'));
-        $service->method('isReviewer')->willReturn(false);
-        $service->expects($this->never())->method('approve');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $response = $this->controller($service, $this->session('mallory'))->approve('appr-1');
+	}//end testNonReviewerRefused()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	/**
+	 * A missing approval is 404 and never reaches approve().
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+	 */
+	public function testMissingApprovalIsNotFound(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn(null);
+		$service->expects($this->never())->method('approve');
 
-    }//end testNonReviewerRefused()
+		$response = $this->controller($service, $this->session('bob'))->approve('appr-1');
 
-    /**
-     * A missing approval is 404 and never reaches approve().
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
-     */
-    public function testMissingApprovalIsNotFound(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('loadApproval')->willReturn(null);
-        $service->expects($this->never())->method('approve');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $response = $this->controller($service, $this->session('bob'))->approve('appr-1');
+	}//end testMissingApprovalIsNotFound()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	/**
+	 * An already-decided approval yields 409 and never re-runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+	 */
+	public function testAlreadyDecidedIsConflict(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('approved'));
+		$service->method('isReviewer')->willReturn(true);
+		$service->expects($this->never())->method('approve');
 
-    }//end testMissingApprovalIsNotFound()
+		$response = $this->controller($service, $this->session('bob'))->approve('appr-1');
 
-    /**
-     * An already-decided approval yields 409 and never re-runs.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
-     */
-    public function testAlreadyDecidedIsConflict(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('loadApproval')->willReturn($this->approval('approved'));
-        $service->method('isReviewer')->willReturn(true);
-        $service->expects($this->never())->method('approve');
+		$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
 
-        $response = $this->controller($service, $this->session('bob'))->approve('appr-1');
+	}//end testAlreadyDecidedIsConflict()
 
-        $this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
+	/**
+	 * The reviewer denies: the service records the denial and 200 is returned.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
+	 */
+	public function testReviewerDenies(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$service->method('isReviewer')->willReturn(true);
+		$service->expects($this->once())->method('deny');
 
-    }//end testAlreadyDecidedIsConflict()
+		$response = $this->controller($service, $this->session('bob'))->deny('appr-1');
 
-    /**
-     * The reviewer denies: the service records the denial and 200 is returned.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
-     */
-    public function testReviewerDenies(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('loadApproval')->willReturn($this->approval('pending'));
-        $service->method('isReviewer')->willReturn(true);
-        $service->expects($this->once())->method('deny');
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('denied', $response->getData()['status']);
 
-        $response = $this->controller($service, $this->session('bob'))->deny('appr-1');
+	}//end testReviewerDenies()
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame('denied', $response->getData()['status']);
+	/**
+	 * A non-reviewer cannot deny (404, never reaches deny()).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
+	 */
+	public function testNonReviewerCannotDeny(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$service->method('isReviewer')->willReturn(false);
+		$service->expects($this->never())->method('deny');
 
-    }//end testReviewerDenies()
+		$response = $this->controller($service, $this->session('mallory'))->deny('appr-1');
 
-    /**
-     * A non-reviewer cannot deny (404, never reaches deny()).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
-     */
-    public function testNonReviewerCannotDeny(): void
-    {
-        $service = $this->createMock(ApprovalService::class);
-        $service->method('loadApproval')->willReturn($this->approval('pending'));
-        $service->method('isReviewer')->willReturn(false);
-        $service->expects($this->never())->method('deny');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $response = $this->controller($service, $this->session('mallory'))->deny('appr-1');
-
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
-
-    }//end testNonReviewerCannotDeny()
+	}//end testNonReviewerCannotDeny()
 }//end class

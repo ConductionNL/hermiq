@@ -1,0 +1,25 @@
+{
+    "description": "Fixed documented prompt set for the agent-engine-port parity harness (task 7.1). Both agents (AGENT_UUID_OR / AGENT_UUID_HERMIQ) must be configured with the SAME system prompt, model, and tool whitelist for these prompts to be comparable. Prompts are deliberately generic — no register-specific vocabulary — so the set is reusable on any instance.",
+    "prompts": [
+        {
+            "id": "no-tool-chat",
+            "prompt": "Reply in one short sentence: what is the capital of France?",
+            "note": "Plain chat turn. Expected structural outcome: zero tool calls on both paths, user -> assistant persistence."
+        },
+        {
+            "id": "tool-call",
+            "prompt": "Use one of your available tools to look something up, then tell me in one sentence what the tool returned.",
+            "note": "Should trigger at least one call on a whitelisted tool. The tool-call-sequence check compares tool ids and argument key sets in order; argument values are logged, not asserted."
+        },
+        {
+            "id": "tool-search",
+            "prompt": "Search the data available to you for the term 'test' and report how many results you found.",
+            "note": "A directed tool invocation with a concrete argument, exercising argument-shape comparison."
+        },
+        {
+            "id": "rag-context",
+            "prompt": "Using only the documents and objects available to you as context, summarise in two sentences what this workspace is about.",
+            "note": "RAG-flavored: exercises the source count/shape checks (send-sources, persisted-assistant-sources)."
+        }
+    ]
+}

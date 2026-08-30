@@ -13,11 +13,7 @@
   @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="small"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="small" :name="heading" @close="$emit('close')">
 		<div class="approval-deny">
 			<h2 class="approval-deny__title">
 				{{ heading }}
@@ -27,12 +23,15 @@
 				{{ scheduleName }}
 			</p>
 
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not deny approval')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not deny approval')">
 				{{ error }}
 			</NcNoteCard>
 
 			<NcTextArea
-				:value.sync="reason"
+				v-model="reason"
 				:label="t('hermiq', 'Reason (optional)')"
 				:placeholder="t('hermiq', 'Why is this run being denied?')"
 				resize="vertical" />
@@ -41,10 +40,7 @@
 				<NcButton :disabled="saving" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
-				<NcButton
-					type="error"
-					:disabled="saving"
-					@click="confirm">
+				<NcButton type="error" :disabled="saving" @click="confirm">
 					<template v-if="saving" #icon>
 						<NcLoadingIcon :size="20" />
 					</template>
@@ -56,7 +52,13 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcTextArea } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcTextArea,
+} from '@nextcloud/vue'
 import { denyApproval } from '../api/approvals.js'
 
 export default {
@@ -76,6 +78,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The pending approval being denied, or null. */
 		approval: {
 			type: Object,
@@ -98,6 +101,7 @@ export default {
 		 * Modal heading.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		heading() {
 			return this.t('hermiq', 'Deny approval')
@@ -107,13 +111,21 @@ export default {
 		 * The gated schedule's name, for context.
 		 *
 		 * @return {string} The schedule name, or an empty string.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		scheduleName() {
-			return (this.approval && this.approval.scheduleName) || (this.approval && this.approval.prompt) || ''
+			return (
+				(this.approval && this.approval.scheduleName)
+				|| (this.approval && this.approval.prompt)
+				|| ''
+			)
 		},
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 */
 		show(open) {
 			if (open) {
 				this.reason = ''
@@ -127,6 +139,7 @@ export default {
 		 * Deny the approval via the guarded endpoint and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		async confirm() {
 			if (!this.approval || !this.approval.id) {
@@ -139,7 +152,10 @@ export default {
 				this.$emit('denied', this.approval.id)
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.saving = false
 			}

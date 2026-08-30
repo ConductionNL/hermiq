@@ -28,7 +28,10 @@
 			<KillSwitchToggle />
 		</div>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load approvals')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Could not load approvals')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -39,7 +42,9 @@
 		<NcEmptyContent
 			v-else-if="approvals.length === 0"
 			:name="t('hermiq', 'No approvals waiting')"
-			:description="t('hermiq', 'Runs that need your approval will appear here.')">
+			:description="
+				t('hermiq', 'Runs that need your approval will appear here.')
+			">
 			<template #icon>
 				<CheckDecagram :size="20" />
 			</template>
@@ -61,7 +66,9 @@
 						{{ t('hermiq', 'Requested') }}
 					</th>
 					<th scope="col">
-						<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
+						<span class="hidden-visually">{{
+							t('hermiq', 'Actions')
+						}}</span>
 					</th>
 				</tr>
 			</thead>
@@ -109,11 +116,10 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
-import { approveApproval, listPendingApprovals } from '../api/approvals.js'
-import { listAgents } from '../api/agents.js'
-import { useScheduleStore } from '../store/store.js'
-import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
+import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
+import { approveApproval, listPendingApprovals } from '../api/approvals.js'
+import { useAgentStore, useScheduleStore } from '../store/store.js'
 
 export default {
 	name: 'ApprovalInbox',
@@ -141,9 +147,14 @@ export default {
 		}
 	},
 
+	/**
+	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+	 */
 	created() {
 		this.store = useScheduleStore()
 		this.store.registerObjectType('schedule', 'schedule', 'hermiq')
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.load()
 	},
 
@@ -152,6 +163,7 @@ export default {
 		 * Load pending approvals plus the schedule + agent name lookups in parallel.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async load() {
 			this.loading = true
@@ -160,13 +172,18 @@ export default {
 				const [approvals, schedules, agents] = await Promise.all([
 					listPendingApprovals(),
 					this.store.fetchCollection('schedule'),
-					listAgents(),
+					this.agentStore.fetchCollection('agent'),
 				])
 				this.approvals = Array.isArray(approvals) ? approvals : []
-				this.scheduleMap = this.byUuid(Array.isArray(schedules) ? schedules : [])
+				this.scheduleMap = this.byUuid(
+					Array.isArray(schedules) ? schedules : [],
+				)
 				this.agentMap = this.byUuid(Array.isArray(agents) ? agents : [])
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
@@ -177,6 +194,7 @@ export default {
 		 *
 		 * @param {Array<object>} items The objects to index.
 		 * @return {object} A uuid → object map.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		byUuid(items) {
 			const map = {}
@@ -194,6 +212,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The schedule name (falls back to the id).
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		scheduleName(approval) {
 			const schedule = this.scheduleMap[String(approval.scheduleId)]
@@ -205,6 +224,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The agent name (falls back to the id).
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		agentName(approval) {
 			const agent = this.agentMap[String(approval.agentId)]
@@ -216,6 +236,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -233,6 +254,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async approve(approval) {
 			this.actioningId = approval.id
@@ -241,7 +263,10 @@ export default {
 				await approveApproval(approval.id)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.actioningId = ''
 			}
@@ -252,6 +277,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {void}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		openDeny(approval) {
 			this.denyTarget = approval
@@ -262,6 +288,7 @@ export default {
 		 * Reload after a decision (deny) clears a row.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async onDecided() {
 			await this.load()
@@ -333,6 +360,6 @@ export default {
 	width: 1px;
 	height: 1px;
 	overflow: hidden;
-	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
 }
 </style>

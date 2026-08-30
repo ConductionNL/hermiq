@@ -25,79 +25,72 @@ namespace OCA\OpenRegister\Db;
 /**
  * Minimal Conversation stub for standalone unit runs.
  */
-class Conversation
-{
+class Conversation {
 
-    /**
-     * Conversation id.
-     *
-     * @var int|null
-     */
-    private ?int $id = null;
+	/**
+	 * Conversation id.
+	 *
+	 * @var int|null
+	 */
+	private ?int $id = null;
 
-    /**
-     * Get the conversation id.
-     *
-     * @return int|null
-     */
-    public function getId(): ?int
-    {
-        return $this->id;
-    }//end getId()
+	/**
+	 * Get the conversation id.
+	 *
+	 * @return int|null
+	 */
+	public function getId(): ?int {
+		return $this->id;
+	}//end getId()
 
-    /**
-     * Set the conversation id.
-     *
-     * @param int|null $id The id.
-     *
-     * @return void
-     */
-    public function setId(?int $id): void
-    {
-        $this->id = $id;
-    }//end setId()
+	/**
+	 * Set the conversation id.
+	 *
+	 * @param int|null $id The id.
+	 *
+	 * @return void
+	 */
+	public function setId(?int $id): void {
+		$this->id = $id;
+	}//end setId()
 
-    /**
-     * Set the user id.
-     *
-     * @param string|null $userId The user id.
-     *
-     * @return void
-     */
-    public function setUserId(?string $userId): void
-    {
-    }//end setUserId()
+	/**
+	 * Set the user id.
+	 *
+	 * @param string|null $userId The user id.
+	 *
+	 * @return void
+	 */
+	public function setUserId(?string $userId): void {
+	}//end setUserId()
 
-    /**
-     * Set the owner.
-     *
-     * @param string|null $owner The owner.
-     *
-     * @return void
-     */
-    public function setOwner(?string $owner): void
-    {
-    }//end setOwner()
+	/**
+	 * Set the owner.
+	 *
+	 * @param string|null $owner The owner.
+	 *
+	 * @return void
+	 */
+	public function setOwner(?string $owner): void {
+	}//end setOwner()
 
-    /**
-     * Set the bound agent id.
-     *
-     * @param int|null $agentId The agent id.
-     *
-     * @return void
-     */
-    public function setAgentId(?int $agentId): void
-    {
-    }//end setAgentId()
+	/**
+	 * Set the bound agent id.
+	 *
+	 * @param int|null $agentId The agent id.
+	 *
+	 * @return void
+	 */
+	public function setAgentId(?int $agentId): void {
+	}//end setAgentId()
 
-    /**
-     * Set the conversation title.
-     *
-     * @param string|null $title The title.
-     *
-     * @return void
-     */
-    public function setTitle(?string $title): void
-    {
-    }//end setTitle()
+	/**
+	 * Set the conversation title.
+	 *
+	 * @param string|null $title The title.
+	 *
+	 * @return void
+	 */
+	public function setTitle(?string $title): void {
+	}//end setTitle()
 }//end class

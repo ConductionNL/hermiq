@@ -8,10 +8,29 @@
 //   node tests/registry.spec.js
 //
 // Exit codes:
-//   0 — registry has all five kinds represented and each entry has the
+//   0 — registry has all required kinds represented and each entry has the
 //       required metadata for its kind.
-//   1 — one or more kinds are missing, or an entry is missing required
-//       metadata.
+//   1 — one or more required kinds are missing, or an entry is missing
+//       required metadata.
+//
+// kind: "widget" is deliberately NOT required (hydra ADR-049, Decision 5):
+// the scaffold ships ZERO custom widgets — dashboard lists and KPI cards are
+// built-in manifest widgets (object-table / stats-block). When a consumer
+// app does add a kind: "widget" entry, it MUST carry a `_note` justifying
+// why no built-in widget fits (mirrors hydra gate 29,
+// hydra-gate-custom-widget-ratchet).
+//
+// kind: "modal" and kind: "cell-renderer" are likewise NOT required as of
+// remove-scaffold-leftovers: the scaffold's demo `example-modal` /
+// `status-badge` entries were removed as dead code tied to the deleted
+// `example` schema. Hermiq's real modals (AgentFormModal, ScheduleFormModal,
+// LlmProviderModal, WebhookSecretDialog, …) are directly embedded in their
+// owning `type: "custom"` page components (ADR-004 modal-isolation only
+// requires a modal live in its own src/modals/ file, imported by its parent —
+// it does NOT require registry-mediated `open-modal` action wiring), and no
+// schema currently needs a custom cell-renderer over the built-in object
+// table. A future manifest action of type "open-modal", or a schema needing
+// bespoke cell rendering, would re-populate these kinds.
 //
 // This is a Node CJS script (no transpilation), consistent with the existing
 // validate-manifest.js / validate-register.js pattern. It uses the
@@ -28,7 +47,10 @@ const vm = require('vm')
 const REPO_ROOT = path.resolve(__dirname, '..')
 const REGISTRY_PATH = path.join(REPO_ROOT, 'src', 'registry.js')
 
-const REQUIRED_KINDS = ['widget', 'modal', 'page', 'form-field', 'cell-renderer']
+// All kinds the registry may carry. kind: "widget", "modal" and
+// "cell-renderer" are valid but NOT required — see the header comment above.
+const VALID_KINDS = ['widget', 'modal', 'page', 'form-field', 'cell-renderer']
+const REQUIRED_KINDS = ['page', 'form-field']
 
 // Required metadata fields per kind (mirrors CnAppRoot registry validation).
 const KIND_REQUIRED_META = {
@@ -60,6 +82,34 @@ function parseRegistry(srcPath) {
 	//      import Foo from './foo.vue'
 	//    Becomes:
 	//      const Foo = { __vueStub: true }
+	//    NAMED imports first — `import { A, B as C } from 'x'`. The default-import
+	//    pattern below matches `import Foo from`, where `\w+` cannot match `{ ... }`,
+	//    so a named import survived the rewrite intact and `vm.runInNewContext`
+	//    rejected the WHOLE file with "Cannot use import statement outside a
+	//    module" — a parse error that names neither the import nor the line.
+	//
+	//    There were none until the registry began importing a shared component
+	//    (CnFlowSidebar) from @conduction/nextcloud-vue rather than declaring its
+	//    own. The stub is the same: this spec reads the registry's METADATA, and
+	//    never calls a component.
+	src = src.replace(
+		/import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/g,
+		(_, names) => {
+			return names
+				.split(',')
+				.map((n) =>
+					n
+						.trim()
+						.split(/\s+as\s+/)
+						.pop()
+						.trim(),
+				)
+				.filter(Boolean)
+				.map((n) => `const ${n} = { __vueStub: true }`)
+				.join('; ')
+		},
+	)
+
 	src = src.replace(/import\s+(\w+)\s+from\s+['"][^'"]+['"]/g, (_, name) => {
 		return `const ${name} = { __vueStub: true }`
 	})
@@ -115,8 +165,10 @@ function main() {
 			continue
 		}
 
-		if (!REQUIRED_KINDS.includes(kind)) {
-			errors.push(`entry "${key}": unknown kind "${kind}" (must be one of: ${REQUIRED_KINDS.join(', ')})`)
+		if (!VALID_KINDS.includes(kind)) {
+			errors.push(
+				`entry "${key}": unknown kind "${kind}" (must be one of: ${VALID_KINDS.join(', ')})`,
+			)
 			continue
 		}
 
@@ -125,41 +177,75 @@ function main() {
 		// Validate component is present (but we only check it's set, since the
 		// value is a stubbed Vue object during this parse step)
 		if (!entry.component) {
-			errors.push(`entry "${key}" (kind=${kind}): missing required "component" field`)
+			errors.push(
+				`entry "${key}" (kind=${kind}): missing required "component" field`,
+			)
 		}
 
 		// Validate kind-specific required metadata fields
 		const requiredMeta = KIND_REQUIRED_META[kind] || []
 		for (const field of requiredMeta) {
 			if (entry[field] === undefined) {
-				errors.push(`entry "${key}" (kind=${kind}): missing required metadata field "${field}"`)
+				errors.push(
+					`entry "${key}" (kind=${kind}): missing required metadata field "${field}"`,
+				)
 			}
 		}
 
 		// Extra: form-field appliesTo must have format or property
-		if (kind === 'form-field' && entry.appliesTo && typeof entry.appliesTo === 'object') {
+		if (
+			kind === 'form-field'
+			&& entry.appliesTo
+			&& typeof entry.appliesTo === 'object'
+		) {
 			if (!entry.appliesTo.format && !entry.appliesTo.property) {
-				errors.push(`entry "${key}" (kind=form-field): appliesTo must have "format" or "property"`)
+				errors.push(
+					`entry "${key}" (kind=form-field): appliesTo must have "format" or "property"`,
+				)
 			}
 		}
 
 		// Extra: cell-renderer appliesTo must have schema AND property
-		if (kind === 'cell-renderer' && entry.appliesTo && typeof entry.appliesTo === 'object') {
+		if (
+			kind === 'cell-renderer'
+			&& entry.appliesTo
+			&& typeof entry.appliesTo === 'object'
+		) {
 			if (!entry.appliesTo.schema || !entry.appliesTo.property) {
-				errors.push(`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`)
+				errors.push(
+					`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`,
+				)
 			}
+		}
+
+		// Extra: widget entries need a _note justifying why no built-in widget
+		// fits (ADR-049 built-in-first rule; mirrors hydra gate 29)
+		if (
+			kind === 'widget'
+			&& (typeof entry._note !== 'string' || entry._note.trim().length === 0)
+		) {
+			errors.push(
+				`entry "${key}" (kind=widget): missing "_note" — custom widgets require a justification why no built-in widget (object-table, stats-block, …) fits (hydra ADR-049)`,
+			)
 		}
 	}
 
-	// Check all five kinds are represented
+	// Check all required kinds are represented (widget is deliberately optional)
 	for (const kind of REQUIRED_KINDS) {
 		if (!foundKinds.has(kind)) {
-			errors.push(`missing kind: no entry with kind="${kind}" found in registry`)
+			errors.push(
+				`missing kind: no entry with kind="${kind}" found in registry`,
+			)
 		}
 	}
 
 	if (errors.length === 0) {
-		console.log(`[registry.spec] all five kinds present: ${[...foundKinds].sort().join(', ')}`)
+		console.log(
+			`[registry.spec] required kinds present: ${[...foundKinds].sort().join(', ')}`,
+		)
+		console.log(
+			`[registry.spec] custom kind="widget" entries: ${entries.filter(([, e]) => e && e.kind === 'widget').length} (scaffold target: 0 — ADR-049)`,
+		)
 		console.log('[registry.spec] registry validation: PASS (0 errors)')
 		process.exit(0)
 	}

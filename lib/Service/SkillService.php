@@ -31,177 +31,517 @@ namespace OCA\Hermiq\Service;
 
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Reads and writes agent skills (Skill objects) via OpenRegister.
  *
  * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
  */
-class SkillService
-{
+class SkillService {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * Schema slug for skill objects (namespaced to avoid a cross-app slug collision).
-     *
-     * @var string
-     */
-    private const SKILL_SCHEMA = 'agentskill';
+	/**
+	 * Schema slug for skill objects (namespaced to avoid a cross-app slug collision).
+	 *
+	 * @var string
+	 */
+	private const SKILL_SCHEMA = 'agentskill';
 
-    /**
-     * Constructor.
-     *
-     * @param ObjectService   $objectService   OpenRegister object read/write (single write-path).
-     * @param SkillSerializer $skillSerializer The agentskills.io (de)serialiser.
-     */
-    public function __construct(
-        private readonly ObjectService $objectService,
-        private readonly SkillSerializer $skillSerializer,
-    ) {
-    }//end __construct()
+	/**
+	 * Schema slug for agent objects (agent-capability-profile: installOnAgent() keeps
+	 * Agent.skillInstalls in sync with Skill.installedOn).
+	 *
+	 * @var string
+	 */
+	private const AGENT_SCHEMA = 'agent';
 
-    /**
-     * Import an agentskills.io package into a new Skill object.
-     *
-     * @param string $package   The agentskills.io package string.
-     * @param string $createdBy The importing user id.
-     *
-     * @return ObjectEntity The persisted Skill object.
-     *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
-     */
-    public function importSkill(string $package, string $createdBy): ObjectEntity
-    {
-        $parsed = $this->skillSerializer->fromPackage(package: $package);
+	/**
+	 * Constructor.
+	 *
+	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
+	 * @param SkillSerializer $skillSerializer The agentskills.io (de)serialiser.
+	 * @param SkillMaturityService $maturityService Computed-maturity write guard (skill-maturity).
+	 * @param LoggerInterface $logger Logger (best-effort agent-side sync warnings).
+	 */
+	public function __construct(
+		private readonly ObjectService $objectService,
+		private readonly SkillSerializer $skillSerializer,
+		private readonly SkillMaturityService $maturityService,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-        $name = $parsed['name'];
-        if ($name === '') {
-            $name = 'Untitled skill';
-        }
+	/**
+	 * Import an agentskills.io package into a new Skill object.
+	 *
+	 * @param string $package The agentskills.io package string.
+	 * @param string $createdBy The importing user id.
+	 * @param array $auxFiles Auxiliary `{name, content}` files travelling with the
+	 *                        package. Unsafe paths are dropped by the serialiser
+	 *                        rather than failing the import.
+	 *
+	 * @return ObjectEntity The persisted Skill object.
+	 *
+	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 */
+	public function importSkill(string $package, string $createdBy, array $auxFiles = []): ObjectEntity {
+		$parsed = $this->skillSerializer->fromPackageFiles(
+			files: $this->skillSerializer->toDirectoryMap(package: $package, auxFiles: $auxFiles)
+		);
 
-        return $this->objectService->saveObject(
-            object: [
-                'name'        => $name,
-                'description' => $parsed['description'],
-                'frontmatter' => $parsed['frontmatter'],
-                'body'        => $parsed['body'],
-                'files'       => [],
-                'state'       => 'active',
-                'createdBy'   => $createdBy,
-                'installedOn' => [],
-            ],
-            register: self::REGISTER_SLUG,
-            schema: self::SKILL_SCHEMA
-        );
+		$name = $parsed['name'];
+		if ($name === '') {
+			$name = 'Untitled skill';
+		}
 
-    }//end importSkill()
+		return $this->objectService->saveObject(
+			object: [
+				'name' => $name,
+				'description' => $parsed['description'],
+				'frontmatter' => $parsed['frontmatter'],
+				'body' => $parsed['body'],
+				'files' => $parsed['files'],
+				'state' => 'active',
+				'createdBy' => $createdBy,
+				'installedOn' => [],
+			],
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA
+		);
 
-    /**
-     * Export a Skill back to an agentskills.io package string.
-     *
-     * @param string $skillId The Skill UUID.
-     *
-     * @return string|null The package string, or null when the skill is not found.
-     *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
-     */
-    public function exportSkill(string $skillId): ?string
-    {
-        $skill = $this->getSkill(skillId: $skillId);
-        if ($skill === null) {
-            return null;
-        }
+	}//end importSkill()
 
-        return $this->skillSerializer->toPackage(skill: $skill->getObject());
+	/**
+	 * Export a Skill back to an agentskills.io package string.
+	 *
+	 * @param string $skillId The Skill UUID.
+	 *
+	 * @return string|null The package string, or null when the skill is not found.
+	 *
+	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 */
+	public function exportSkill(string $skillId): ?string {
+		$skill = $this->getSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
 
-    }//end exportSkill()
+		return $this->skillSerializer->toPackage(skill: $this->applyPublishFileSelection(data: $skill->getObject()));
+	}//end exportSkill()
 
-    /**
-     * List the skills visible in the caller's tenant.
-     *
-     * @return array<int, ObjectEntity> The Skill objects.
-     *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
-     */
-    public function listSkills(): array
-    {
-        $objects = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::SKILL_SCHEMA)
-            ->findAll(config: ['limit' => 200]);
+	/**
+	 * The publish-time FILE SELECTION (skill-self-improvement / skills-marketplace
+	 * delta): the exported/committed package ships `files['learnings.md']` (a skill's
+	 * vetted experience travels with it — ADR-068 §3) but STRIPS
+	 * `files['learning-candidates.md']` — unvetted observations never leave the
+	 * instance. This is selection, not serialization: `SkillSerializer`'s
+	 * byte-for-byte round-trip of the files it does emit is untouched. Both publish
+	 * routes (GitHub primary AND the OpenConnector `publishToHub` secondary) export
+	 * through this one selection.
+	 *
+	 * @param string $skillId The Skill UUID.
+	 *
+	 * @return array<int, array{name: string, content: string}>|null The selected
+	 *                                                               files, or null when the skill is not found (tenant-scoped, 404 shape).
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+	 */
+	public function publishFileSelection(string $skillId): ?array {
+		$skill = $this->getSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
 
-        $out = [];
-        foreach ($objects as $object) {
-            if ($object instanceof ObjectEntity) {
-                $out[] = $object;
-            }
-        }
+		$selected = $this->applyPublishFileSelection(data: $skill->getObject());
+		$files = ($selected['files'] ?? []);
+		if (is_array($files) === false) {
+			return [];
+		}
 
-        return $out;
+		$out = [];
+		foreach ($files as $file) {
+			if (is_array($file) === false) {
+				continue;
+			}
 
-    }//end listSkills()
+			$name = (string)($file['name'] ?? '');
+			if ($name === '') {
+				continue;
+			}
 
-    /**
-     * Get a Skill by UUID (tenant-scoped), or null.
-     *
-     * @param string $skillId The Skill UUID.
-     *
-     * @return ObjectEntity|null The Skill object, or null.
-     *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
-     */
-    public function getSkill(string $skillId): ?ObjectEntity
-    {
-        // Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
-        return $this->objectService->find(
-            id: $skillId,
-            register: self::REGISTER_SLUG,
-            schema: self::SKILL_SCHEMA
-        );
+			$out[] = [
+				'name' => $name,
+				'content' => (string)($file['content'] ?? ''),
+			];
+		}
 
-    }//end getSkill()
+		return $out;
+	}//end publishFileSelection()
 
-    /**
-     * Install a skill onto an agent — append the agent uuid to installedOn (idempotent).
-     *
-     * @param string $skillId The Skill UUID.
-     * @param string $agentId The agent UUID.
-     *
-     * @return ObjectEntity|null The updated Skill object, or null when not found.
-     *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-2
-     */
-    public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity
-    {
-        $skill = $this->getSkill(skillId: $skillId);
-        if ($skill === null) {
-            return null;
-        }
+	/**
+	 * Apply the export file selection to a skill payload: drop
+	 * `learning-candidates.md`, keep everything else (including `learnings.md`)
+	 * byte-identical. Never touches the stored object.
+	 *
+	 * @param array<string, mixed> $data The skill payload.
+	 *
+	 * @return array<string, mixed> The payload with the selection applied.
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+	 */
+	private function applyPublishFileSelection(array $data): array {
+		$files = ($data['files'] ?? []);
+		if (is_array($files) === false) {
+			return $data;
+		}
 
-        $data      = $skill->getObject();
-        $installed = ($data['installedOn'] ?? []);
-        if (is_array($installed) === false) {
-            $installed = [];
-        }
+		$data['files'] = array_values(
+			array_filter(
+				$files,
+				static function ($file): bool {
+					if (is_array($file) === false) {
+						return false;
+					}
 
-        if (in_array($agentId, $installed, true) === false) {
-            $installed[] = $agentId;
-        }
+					return (string)($file['name'] ?? '') !== SkillLearningsCaptureService::CANDIDATES_FILE;
+				}
+			)
+		);
 
-        $data['installedOn'] = array_values($installed);
+		return $data;
+	}//end applyPublishFileSelection()
 
-        return $this->objectService->saveObject(
-            object: $data,
-            register: self::REGISTER_SLUG,
-            schema: self::SKILL_SCHEMA,
-            uuid: (string) $skill->getUuid()
-        );
+	/**
+	 * Stamp GitHub publish provenance onto a Skill — `githubOwner`/`githubRepo`/
+	 * `publishedAt` only (hermiq-github-store). Provenance-only: never
+	 * round-tripped through the exported agentskills.io package
+	 * (`SkillSerializer::toPackage()` never emits these fields), mirroring
+	 * `AgentTemplateService::update()`'s stamp in `AgentTemplateController::
+	 * publishGithub()`.
+	 *
+	 * @param string $skillId The Skill UUID.
+	 * @param string $owner The GitHub owner the skill was published to.
+	 * @param string $repo The GitHub repository name.
+	 * @param string $publishedAt ISO-8601 publish timestamp.
+	 *
+	 * @return ObjectEntity|null The updated Skill, or null when not found.
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+	 */
+	public function stampGithubPublish(string $skillId, string $owner, string $repo, string $publishedAt): ?ObjectEntity {
+		$skill = $this->getSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
 
-    }//end installOnAgent()
+		$data = $skill->getObject();
+		$data['githubOwner'] = $owner;
+		$data['githubRepo'] = $repo;
+		$data['publishedAt'] = $publishedAt;
+
+		return $this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)$skill->getUuid()
+		);
+
+	}//end stampGithubPublish()
+
+	/**
+	 * Update a Skill from a client-supplied payload — the skill "merge" write path
+	 * (skill-maturity): the incoming payload is guarded by
+	 * `SkillMaturityService::preserveComputedFields()`, so client-supplied
+	 * `maturityLevel` and `levelEvidence.l1`–`l4` + `l6` are silently overwritten by
+	 * the STORED values (only qualify/attest write l1–l4; only the skill-learnings
+	 * capture/promotion subsystem writes l6), while `targetLevel` and every
+	 * ordinary field stay freely editable. Runs in the caller's session context, so
+	 * OpenRegister's native RBAC still authorizes the write itself.
+	 *
+	 * @param string $skillId The Skill UUID.
+	 * @param array<string, mixed> $data The client-supplied skill payload.
+	 *
+	 * @return ObjectEntity|null The updated Skill, or null when not found.
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+	 */
+	public function updateSkill(string $skillId, array $data): ?ObjectEntity {
+		$skill = $this->getSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
+
+		$guarded = $this->maturityService->preserveComputedFields(
+			incoming: $data,
+			stored: $skill->getObject()
+		);
+
+		// Strip read-path envelope keys a client payload may echo back.
+		unset($guarded['id'], $guarded['uuid'], $guarded['@self']);
+
+		return $this->objectService->saveObject(
+			object: $guarded,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)$skill->getUuid()
+		);
+
+	}//end updateSkill()
+
+	/**
+	 * List the skills visible in the caller's tenant.
+	 *
+	 * @return array<int, ObjectEntity> The Skill objects.
+	 *
+	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 */
+	public function listSkills(): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SKILL_SCHEMA)
+			->findAll(config: ['limit' => 200]);
+
+		$out = [];
+		foreach ($objects as $object) {
+			if ($object instanceof ObjectEntity) {
+				$out[] = $object;
+			}
+		}
+
+		return $out;
+	}//end listSkills()
+
+	/**
+	 * Get a Skill by UUID (tenant-scoped), or null.
+	 *
+	 * @param string $skillId The Skill UUID.
+	 *
+	 * @return ObjectEntity|null The Skill object, or null.
+	 *
+	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 */
+	public function getSkill(string $skillId): ?ObjectEntity {
+		// Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
+		return $this->objectService->find(
+			id: $skillId,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA
+		);
+
+	}//end getSkill()
+
+	/**
+	 * Install a skill onto an agent — append the agent uuid to installedOn (idempotent),
+	 * and keep the agent's own `skillInstalls` allowlist in sync (agent-capability-profile:
+	 * a genuine bidirectional join, not a second source of truth — this is the ONLY write
+	 * path for both directions).
+	 *
+	 * @param string $skillId The Skill UUID.
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return ObjectEntity|null The updated Skill object, or null when not found.
+	 *
+	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
+	 */
+	public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity {
+		$skill = $this->getSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
+
+		$data = $skill->getObject();
+		$installed = ($data['installedOn'] ?? []);
+		if (is_array($installed) === false) {
+			$installed = [];
+		}
+
+		if (in_array($agentId, $installed, true) === false) {
+			$installed[] = $agentId;
+		}
+
+		$data['installedOn'] = array_values($installed);
+
+		$updated = $this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)$skill->getUuid()
+		);
+
+		$this->syncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
+
+		return $updated;
+	}//end installOnAgent()
+
+	/**
+	 * Append a skill uuid to the target agent's `skillInstalls` (idempotent,
+	 * best-effort). A missing/unreadable agent does not fail the skill-side install —
+	 * `Skill.installedOn` remains the authoritative "installed somewhere" record;
+	 * `Agent.skillInstalls` is a convenience forward-ref for a future run loop.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $skillId The Skill UUID to record.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
+	 */
+	private function syncAgentSkillInstalls(string $agentId, string $skillId): void {
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA
+			);
+			if ($agent === null) {
+				return;
+			}
+
+			$data = $agent->getObject();
+			$installed = ($data['skillInstalls'] ?? []);
+			if (is_array($installed) === false) {
+				$installed = [];
+			}
+
+			if (in_array($skillId, $installed, true) === true) {
+				// Already in sync — no write needed.
+				return;
+			}
+
+			$installed[] = $skillId;
+			$data['skillInstalls'] = array_values($installed);
+
+			$this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				uuid: (string)$agent->getUuid()
+			);
+		} catch (Throwable $e) {
+			// Best-effort: Skill.installedOn (already saved above) remains the
+			// authoritative "installed somewhere" record regardless of this outcome.
+			$this->logger->warning(
+				sprintf(
+					'Hermiq could not sync skillInstalls onto agent %s for skill %s: %s',
+					$agentId,
+					$skillId,
+					$e->getMessage()
+				),
+				['exception' => $e]
+			);
+		}//end try
+
+	}//end syncAgentSkillInstalls()
+
+	/**
+	 * Detach a skill from an agent — remove the agent uuid from installedOn (idempotent),
+	 * and keep the agent's own `skillInstalls` allowlist in sync (the mirror of
+	 * installOnAgent: a genuine bidirectional join, the ONLY write path for both
+	 * directions).
+	 *
+	 * @param string $skillId The Skill UUID.
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return ObjectEntity|null The updated Skill object, or null when not found.
+	 *
+	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 */
+	public function uninstallFromAgent(string $skillId, string $agentId): ?ObjectEntity {
+		$skill = $this->getSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
+
+		$data = $skill->getObject();
+		$installed = ($data['installedOn'] ?? []);
+		if (is_array($installed) === false) {
+			$installed = [];
+		}
+
+		$data['installedOn'] = array_values(
+			array_filter($installed, static fn ($id): bool => $id !== $agentId)
+		);
+
+		$updated = $this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)$skill->getUuid()
+		);
+
+		$this->desyncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
+
+		return $updated;
+	}//end uninstallFromAgent()
+
+	/**
+	 * Remove a skill uuid from the target agent's `skillInstalls` (idempotent,
+	 * best-effort). The mirror of syncAgentSkillInstalls: a missing/unreadable agent
+	 * does not fail the skill-side detach — `Skill.installedOn` remains the authoritative
+	 * "installed somewhere" record.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $skillId The Skill UUID to remove.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 */
+	private function desyncAgentSkillInstalls(string $agentId, string $skillId): void {
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA
+			);
+			if ($agent === null) {
+				return;
+			}
+
+			$data = $agent->getObject();
+			$installed = ($data['skillInstalls'] ?? []);
+			if (is_array($installed) === false) {
+				$installed = [];
+			}
+
+			if (in_array($skillId, $installed, true) === false) {
+				// Already in sync — no write needed.
+				return;
+			}
+
+			$data['skillInstalls'] = array_values(
+				array_filter($installed, static fn ($id): bool => $id !== $skillId)
+			);
+
+			$this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				uuid: (string)$agent->getUuid()
+			);
+		} catch (Throwable $e) {
+			// Best-effort: Skill.installedOn (already saved above) remains the
+			// authoritative "installed somewhere" record regardless of this outcome.
+			$this->logger->warning(
+				sprintf(
+					'Hermiq could not desync skillInstalls on agent %s for skill %s: %s',
+					$agentId,
+					$skillId,
+					$e->getMessage()
+				),
+				['exception' => $e]
+			);
+		}//end try
+
+	}//end desyncAgentSkillInstalls()
 }//end class

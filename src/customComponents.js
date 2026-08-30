@@ -24,33 +24,29 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
-import CustomExample from './views/CustomExample.vue'
-import AgentCatalog from './views/AgentCatalog.vue'
-import AgentDetail from './views/AgentDetail.vue'
-import ApprovalInbox from './views/ApprovalInbox.vue'
+import AgentFormModal from './modals/AgentFormModal.vue'
+// Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
+// SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
+// CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
+// (CnMarkdownEditor body, files editor) in place of the generic schema-driven
+// create/edit dialog — the skills analogue of AgentFormModal above.
+import SkillFormModal from './modals/SkillFormModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
-import SkillsCatalog from './views/SkillsCatalog.vue'
-import RunAnalytics from './views/RunAnalytics.vue'
+import ApprovalInbox from './views/ApprovalInbox.vue'
+import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
+import McpTools from './views/McpTools.vue'
 import TenantOps from './views/TenantOps.vue'
-// Features & Roadmap page — thin wrapper around the lib's
-// CnFeaturesAndRoadmapView (in-product roadmap surface powered by
-// OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
-// from this template inherit the Settings-section "Features & roadmap"
-// entry; change the repo fallback in views/FeaturesRoadmap.vue. See
-// ConductionNL/hydra#251.
+// NOTE — Features & Roadmap is NOT registered here, deliberately. The
+// manifest page `FeaturesRoadmap` is `type: "roadmap"`, a BUILT-IN page type
+// that CnPageRenderer resolves from `defaultPageTypes` (→ the lib's
+// CnFeaturesAndRoadmapPage). Only `type: "custom"` pages are looked up in this
+// map, so an app-local wrapper here would never be mounted. The lib's page
+// reads the very same `features_roadmap_repo` / `_features` / `_disabled`
+// initial-state keys, so there is nothing left for a wrapper to add.
+// See ConductionNL/hydra#251.
 
 export default {
-	// Example custom component. Keep or delete when scaffolding a new
-	// app. The manifest does NOT reference this by default; it is
-	// included so the registry's role is visible to first-time
-	// cloners. Wire it up by adding a `type: "custom"` page entry to
-	// `src/manifest.json` with `"component": "CustomExample"`.
-	CustomExample,
-	// Agent-management-ui pages (agent-management-ui change). Custom pages because
-	// they need bespoke behaviour (agents resource + Run now + run history) that the
-	// built-in index/detail page types cannot express.
-	AgentCatalog,
-	AgentDetail,
 	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
 	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
 	// via the built-in index page type.
@@ -58,16 +54,48 @@ export default {
 	// Agent memory (agent-memory change). Custom page: agent picker + tenant-scoped
 	// Memory/Session objects + char-budget bar + consolidation nudge + OR-search recall.
 	AgentMemory,
-	// Skills catalog (skills-catalog change). Custom page: import/export agentskills.io
-	// packages + install a skill onto an agent.
-	SkillsCatalog,
-	// Run analytics (run-analytics change). Custom page: computed metrics over the OR
-	// run AuditTrail (success rate/latency/status/per-agent), tenant-scoped.
-	RunAnalytics,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,
-	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
-	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
-	// `FeaturesRoadmapMenu` settings entry).
+	// inapp-settings-section: the Settings page's `type: "settings"` tabs
+	// are rendered by CnSettingsPage, which resolves {type:"component"}
+	// widgets against THIS map (`cnCustomComponents`), never the v2
+	// `registry` (verified in CnSettingsPage.vue — it only ever injects
+	// `cnCustomComponents`). So every Settings-tab component — new or
+	// moved off a former top-level nav page — is registered here instead
+	// of registry.js, even though registry.js is otherwise the v2 home for
+	// everything else. See design.md Decision 4.
+	//
+	// Guardrail policy tab (agent-guardrails): extracted from
+	// TenantOps.vue — governance policy administration, not a
+	// per-organisation operational control.
+	GuardrailPolicySettings,
+	// MCP tools tab — re-homed from the removed top-level `/mcp-tools` nav
+	// page. Unchanged component.
+	McpTools,
+	// Compliance — RETAINED DELIBERATELY, though currently unreachable.
+	//
+	// manifest-driven-pages converted the `Compliance` page from this bespoke
+	// component to `type: "index"` + the `compliance-operations` widget, so
+	// CnPageRenderer no longer resolves this key (built-in types never consult
+	// this map). It is therefore bundled but never mounted.
+	//
+	// It is NOT deleted because it is the only caller of `getComplianceExport()`
+	// — the compliance auditor's-pack export (`GET /api/compliance/export`,
+	// still a live registered route). `compliance-operations` ships the EU AI
+	// Act audit export, which is a DIFFERENT endpoint; the auditor's pack has no
+	// replacement surface. Deleting this would silently drop a user-facing
+	// capability. Either re-home the export onto `compliance-operations` or
+	// retire the route + this component together — a product decision.
+	ComplianceDashboard,
+	// Agent form (agent-form-slot): resolved by AgentCatalog's top-level
+	// `slots.form-dialog` -> "AgentFormModal", so CnIndexPage's built-in
+	// Add CTA mounts the rich agent form (with CnIconPicker) in place of
+	// the generic schema-driven create/edit dialog. Also still registered
+	// as the `agent-form` v2 modal in registry.js for AgentDetail's
+	// route-based "Edit agent" open-modal action.
+	AgentFormModal,
+	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
+	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
+	SkillFormModal,
 }

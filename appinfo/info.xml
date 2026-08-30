@@ -5,30 +5,166 @@
     <name lang="en">Hermiq</name>
     <name lang="nl">Hermiq</name>
     <summary lang="en">Schedule autonomous AI agents in Nextcloud</summary>
-    <summary lang="nl">Schedule autonomous AI agents in Nextcloud</summary>
-    <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.]]></description>
-    <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.]]></description>
-    <version>0.1.32</version>
-    <licence>eupl</licence>
+    <summary lang="nl">Plan autonome AI-agents in Nextcloud</summary>
+    <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
+
+**Requires:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 or higher (install/upgrade from the [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent engine (chat, scheduled runs, flow-triggered agent actions) calls OpenRegister's `ToolRegistryFacade` and dispatches on its `AgentRunRequestedEvent`, both of which only exist from that OpenRegister version onward; the "Agent credentials" Settings section and the personal/organisation credential-resolution precedence additionally need OpenRegister's organisation-scope credential broker, shipped from that same version.]]></description>
+    <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
+
+**Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
+    <version>0.1.34-unstable.20260829121059</version>
+    <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
     <documentation>
-        <user>https://codeberg.org/Conduction/hermiq</user>
-        <admin>https://codeberg.org/Conduction/hermiq</admin>
-        <developer>https://codeberg.org/Conduction/hermiq</developer>
+        <user>https://github.com/ConductionNL/hermiq</user>
+        <admin>https://github.com/ConductionNL/hermiq</admin>
+        <developer>https://github.com/ConductionNL/hermiq</developer>
     </documentation>
     <category>integration</category>
-    <website>https://codeberg.org/Conduction/hermiq</website>
-    <discussion>https://codeberg.org/Conduction/hermiq/issues</discussion>
-    <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
-    <repository>https://codeberg.org/Conduction/hermiq</repository>
+    <website>https://github.com/ConductionNL/hermiq</website>
+    <discussion>https://github.com/ConductionNL/hermiq/issues</discussion>
+    <bugs>https://github.com/ConductionNL/hermiq/issues</bugs>
+    <repository>https://github.com/ConductionNL/hermiq</repository>
 
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/app-store.svg</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-dashboard.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-agents.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-skills.png</screenshot>
 
     <dependencies>
-        <nextcloud min-version="28" max-version="34"/>
+        <!--
+          min-version is 32, not 30. Hermiq's storage IS OpenRegister and it
+          IMPLEMENTS OpenRegister interfaces (IFlowNode, IFlowNodeLogActions,
+          IShareableConfigType), so it cannot run without it — and OpenRegister
+          declares min-version="32". Claiming 30 was unsupportable: on
+          Nextcloud 31, `occ app:enable openregister` refuses with
+          `App "Open Register" cannot be installed because it is not compatible
+          with this version of the server`, measured in both stable31 cells of
+          run 31490144919.
+        -->
         <php min-version="8.3"/>
+        <nextcloud min-version="32" max-version="34"/>
     </dependencies>
+
+    <!-- @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2 -->
+    <!-- @spec openspec/changes/skills-marketplace/tasks.md#task-3-1 -->
+    <!-- Single <background-jobs> block only — a second block causes an NC upgrade 500. -->
+    <background-jobs>
+        <job>OCA\Hermiq\BackgroundJob\ScheduleTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillCuratorTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillLearningsPromotionTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
+    </background-jobs>
+
+    <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
+    <!--
+      NC's info.xml <dependencies> has no element to pin the version of another
+      Nextcloud app (only php/nextcloud/database/lib/architecture/backend — see
+      resources/app-info.xsd upstream); an inter-Conduction-app version floor like
+      "OpenRegister >= 0.2.17-unstable.14" cannot be expressed/enforced there. The
+      requirement is documented in <description> above; CheckOpenRegisterCompatibility
+      below is the enforceable half — it runs class_exists() on the two classes the
+      agent engine hard-depends on and logs a clear, actionable warning/error instead
+      of letting AgentsController/Engine/ToolLoop fail construction with a bare
+      ReflectionException on a stale-OpenRegister fleet instance.
+    -->
+    <repair-steps>
+        <post-migration>
+            <!--
+                The background jobs moved from OCA\Hermiq\Cron to
+                OCA\Hermiq\BackgroundJob in #557. The <job> entries above are a
+                REGISTRATION instruction, not a description of state: on upgrade
+                Nextcloud ADDS a job it does not have, but never removes one
+                whose class disappeared — it cannot tell a renamed class from
+                one merely unavailable this boot.
+
+                Measured on a live instance carrying the equivalent opencatalogi
+                move: oc_jobs still held OCA\OpenCatalogi\Cron\DirectorySync
+                beside its replacement. A row naming a missing class fails to
+                build on every cron tick, and logs rather than raises.
+
+                First in the block: it removes rows rather than creating
+                anything, so nothing below depends on it, and running it early
+                keeps the dead registrations from being observed by the seed
+                steps that follow.
+            -->
+            <step>OCA\Hermiq\Repair\RemoveRetiredCronJobs</step>
+            <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
+            <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\InitializeActions</step>
+            <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
+            <step>OCA\Hermiq\Repair\SeedBudgets</step>
+            <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
+            <step>OCA\Hermiq\Repair\SeedIncidents</step>
+            <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
+            <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
+            <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
+            <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
+                 flow first means an operator enabling it finds the agent already
+                 there. Both are idempotent by name, so the order only affects a
+                 first install. -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug -->
+            <!-- Runs AFTER SeedHydraTriageAgent so a first-upgrade install's seeded
+                 "Hydra Triage" (which now sets applicationSlug at creation time) is
+                 already tagged and this step is a no-op for it; the other three
+                 hand-created agents have no seed step of their own, so this is
+                 their only path to getting the field backfilled. -->
+            <step>OCA\Hermiq\Repair\BackfillAgentApplicationSlug</step>
+            <step>OCA\Hermiq\Repair\MigrateAgentData</step>
+            <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
+            <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
+            <!-- Registers the in-process Talk bot. A no-op when Talk is absent,
+                 and activates nothing on its own: a Talk moderator must still
+                 enable it per conversation AND the agent must be Talk-enabled. -->
+            <step>OCA\Hermiq\Repair\InstallTalkBot</step>
+            <!--
+                Must run AFTER the register sync that adds the English columns.
+                Covers every renamed property together: a register-scoped step
+                that moved some owners and not others would leave the rest
+                silently reading null.
+            -->
+            <step>OCA\Hermiq\Repair\RenameDutchColumns</step>
+        </post-migration>
+        <install>
+            <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
+            <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\InitializeActions</step>
+            <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
+            <step>OCA\Hermiq\Repair\SeedBudgets</step>
+            <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
+            <step>OCA\Hermiq\Repair\SeedIncidents</step>
+            <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
+            <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
+            <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
+            <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
+                 flow first means an operator enabling it finds the agent already
+                 there. Both are idempotent by name, so the order only affects a
+                 first install. -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
+            <step>OCA\Hermiq\Repair\InstallTalkBot</step>
+        </install>
+    </repair-steps>
+
+    <settings>
+        <admin>OCA\Hermiq\Settings\AdminSettings</admin>
+        <admin-section>OCA\Hermiq\Sections\SettingsSection</admin-section>
+    </settings>
 
     <navigations>
         <navigation>
@@ -38,29 +174,4 @@
             <icon>app.svg</icon>
         </navigation>
     </navigations>
-
-    <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
-    <repair-steps>
-        <install>
-            <step>OCA\Hermiq\Repair\InitializeSettings</step>
-            <step>OCA\Hermiq\Repair\InitializeActions</step>
-        </install>
-        <post-migration>
-            <step>OCA\Hermiq\Repair\InitializeSettings</step>
-            <step>OCA\Hermiq\Repair\InitializeActions</step>
-        </post-migration>
-    </repair-steps>
-
-    <settings>
-        <admin>OCA\Hermiq\Settings\AdminSettings</admin>
-        <admin-section>OCA\Hermiq\Sections\SettingsSection</admin-section>
-    </settings>
-
-    <!-- @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2 -->
-    <!-- @spec openspec/changes/skills-marketplace/tasks.md#task-3-1 -->
-    <!-- Single <background-jobs> block only — a second block causes an NC upgrade 500. -->
-    <background-jobs>
-        <job>OCA\Hermiq\Cron\ScheduleTask</job>
-        <job>OCA\Hermiq\Cron\SkillCuratorTask</job>
-    </background-jobs>
 </info>
