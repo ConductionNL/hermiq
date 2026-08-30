@@ -16,6 +16,12 @@ updates:
     # Lift this the moment typescript-eslint ships TS >= 7.1 support:
     # https://github.com/typescript-eslint/typescript-eslint/issues/10940
     ignore:
+      - dependency-name: "webpack-cli"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@babel/core"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@babel/preset-env"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
     cooldown:
