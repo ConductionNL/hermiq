@@ -90,7 +90,8 @@
         "optimize-autoloader": true,
         "sort-packages": true,
         "platform": {
-            "php": "8.3"
+            "php": "8.3",
+            "ext-xsl": "1"
         }
     },
     "extra": {
