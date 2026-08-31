@@ -750,11 +750,6 @@
 						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
-					},
-					{
-						"id": "dashboard-refresh",
-						"type": "refresh",
-						"label": "Refresh"
 					}
 				],
 				"widgets": [
