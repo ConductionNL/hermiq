@@ -433,10 +433,51 @@ test.describe('speech-services: the engine is the agent’s choice', () => {
 		// natively `disabled`: a disabled button suppresses hover, so its tooltip
 		// can never appear and it would refuse without ever saying why. A real
 		// user's click lands; only the test tool's actionability check does not.
-		await mic.click({ force: true })
+		// 🔴 THE BANNER OUTLIVES NOTHING: IT WIPES ITSELF AFTER 6s.
+		//
+		// CnAiInput's `showDictationError()` arms
+		// `setTimeout(..., DICTATION_ERROR_TIMEOUT)` with DICTATION_ERROR_TIMEOUT
+		// = 6000, deliberately — a banner with no lifetime "becomes furniture",
+		// as the component says. This assertion used to allow 15s to observe a
+		// thing that exists for 6, so if the runner stalled between the click and
+		// the first poll the banner had already cleared, and Playwright then
+		// waited out the remaining timeout for an element that was gone:
+		//
+		//   Error: expect(locator).toContainText(expected) failed
+		//   Locator: locator('[data-testid="cn-ai-input-dictation-error"]')
+		//   Expected pattern: /private/i     Timeout: 15000ms
+		//   Error: element(s) not found
+		//
+		// Measured on development 2026-08-31: 2 failures in 8 runs, and a PUSH
+		// and PULL_REQUEST run of the SAME commit disagreed — the signature of a
+		// missed window, not of an app that failed to refuse.
+		//
+		// So observe inside the banner's own lifetime, and re-trigger if the
+		// window was missed. Clicking the mic again is safe and changes nothing
+		// the test is about: the control is `aria-disabled`, the click is
+		// refused by the app either way, and the assertion that matters — that
+		// NO browser recogniser was constructed — is checked below over the
+		// whole test, not per click.
+		//
+		// ⚠️ Deliberately NOT a longer timeout and NOT a weakened matcher. The
+		// refusal message is the point of the test; it still must appear, still
+		// must say "private", and a genuine failure to show it still fails here
+		// after three honest attempts.
+		const dictationError = page.locator(
+			'[data-testid="cn-ai-input-dictation-error"]',
+		)
+		let banner = false
+		for (let attempt = 0; attempt < 3 && !banner; attempt++) {
+			await mic.click({ force: true })
+			banner = await dictationError
+				.waitFor({ state: 'visible', timeout: 4_000 })
+				.then(() => true)
+				.catch(() => false)
+		}
 		await expect(
-			page.locator('[data-testid="cn-ai-input-dictation-error"]'),
-		).toContainText(/private/i)
+			dictationError,
+			'the refusal must be shown and must name the private service',
+		).toContainText(/private/i, { timeout: 4_000 })
 
 		// The assertion that matters: nothing reached for the cloud engine.
 		const constructed = await page.evaluate(
