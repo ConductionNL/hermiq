@@ -34,10 +34,12 @@
  * Auth: shared storageState session (tests/e2e/global-setup.ts).
  */
 
-import { test, expect, type Page, type ConsoleMessage } from '@playwright/test'
+import type { ConsoleMessage, Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
-import { appRoot } from './_fixtures'
+import { appRoot } from './_fixtures.ts'
 
 /* --------------------------------------------------------------------- *
  *  Manifest loading (+ optional manifest.d fragments)

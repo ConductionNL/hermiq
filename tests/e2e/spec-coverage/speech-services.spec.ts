@@ -46,16 +46,18 @@
  * Seeding: OpenRegister objects API via _fixtures (register 'hermiq').
  */
 
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 import {
-	TEST_PREFIX,
 	appRoot,
 	deleteObject,
 	dismissTour,
 	harvestToken,
 	resolveRegisterSchema,
 	seedAgent,
-} from './_fixtures'
+	TEST_PREFIX,
+} from './_fixtures.ts'
 
 /** The companion launcher, present on every Nextcloud page. */
 const FAB = '[data-testid="cn-ai-fab"]'
@@ -221,7 +223,7 @@ async function openCompanion(page: Page): Promise<void> {
 	const fab = page.locator(FAB).first()
 	try {
 		await expect(fab).toBeVisible({ timeout: 20_000 })
-	} catch (e) {
+	} catch {
 		await page.reload({ waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 		await expect(fab).toBeVisible({ timeout: 30_000 })

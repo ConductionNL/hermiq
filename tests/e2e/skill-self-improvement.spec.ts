@@ -60,7 +60,9 @@
  * @e2e openspec/specs/skills-marketplace/spec.md#publish-refuses-to-overwrite-an-existing-repository
  */
 
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 
 const NC_USER = process.env.NC_USER || 'admin'
 const NC_PASS = process.env.NC_PASS || 'admin'

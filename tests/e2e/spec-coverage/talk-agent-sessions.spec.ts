@@ -26,19 +26,19 @@
  *     NEXTCLOUD_URL=http://localhost:8080 npx playwright test tests/e2e/spec-coverage/talk-agent-sessions.spec.ts
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import {
-	OR_API,
-	TEST_PREFIX,
 	appEnabled,
 	appRoot,
 	cleanupFamily,
 	dismissTour,
 	harvestToken,
 	jsonHeaders,
+	OR_API,
 	resolveRegisterSchema,
 	seedAgent,
-} from './_fixtures'
+	TEST_PREFIX,
+} from './_fixtures.ts'
 
 const HERMIQ_API = '/index.php/apps/hermiq/api'
 
