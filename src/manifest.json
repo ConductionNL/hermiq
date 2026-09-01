@@ -111,7 +111,7 @@
 		{
 			"id": "Compliance",
 			"label": "Compliance",
-			"icon": "Check",
+			"icon": "ClipboardCheckOutline",
 			"route": "Compliance",
 			"section": "settings",
 			"order": 30
