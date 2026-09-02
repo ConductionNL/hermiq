@@ -3443,4 +3443,118 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('go do the thing', $this->auditCalls[0]['context']['prompt']);
 
 	}//end testRealRunAuditEntryPersistsPromptAndDryRunFalse()
+
+	/**
+	 * A schedule whose clock is delegated to the engine (engineFlowId set) is
+	 * never selected as due by nextRun: the tick dispatches nothing for it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 */
+	public function testDelegatedScheduleIsNotDueByNextRun(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->schedule(
+					[
+						'kind' => 'interval',
+						'intervalMinutes' => 15,
+						'agentId' => 'agent-uuid',
+						'prompt' => 'go',
+						'deliver' => 'none',
+						'enabled' => true,
+						'nextRun' => '2000-01-01T00:00:00+00:00',
+						'engineFlowId' => 'flow-owns-this-clock',
+						'repeat' => ['times' => 0, 'completed' => 0],
+					]
+				),
+			]
+		);
+
+		$this->objectService->expects($this->never())->method('saveObject');
+		$this->chatService->expects($this->never())->method('processMessage');
+
+		$this->service->run();
+
+	}//end testDelegatedScheduleIsNotDueByNextRun()
+
+	/**
+	 * Delegation never drops an open retry sequence: a delegated schedule with
+	 * a due retryState still fires from the local tick.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 */
+	public function testDelegatedScheduleWithDueRetryStillFires(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->schedule(
+					[
+						'kind' => 'interval',
+						'intervalMinutes' => 15,
+						'agentId' => 'agent-uuid',
+						'prompt' => 'go',
+						'deliver' => 'none',
+						'enabled' => true,
+						'nextRun' => '2999-01-01T00:00:00+00:00',
+						'engineFlowId' => 'flow-owns-this-clock',
+						'retryEnabled' => true,
+						'retryState' => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+						'repeat' => ['times' => 0, 'completed' => 0],
+					]
+				),
+			]
+		);
+
+		$saves = 0;
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function () use (&$saves): ObjectEntity {
+				$saves++;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertGreaterThan(0, $saves, 'A due retry on a delegated schedule must still dispatch.');
+
+	}//end testDelegatedScheduleWithDueRetryStillFires()
+
+	/**
+	 * The delegation marker round-trips through the sanitised persist:
+	 * markEngineDelegation() stores the flow uuid, clearEngineDelegation()
+	 * empties it, and both go through saveObject.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back
+	 */
+	public function testMarkAndClearEngineDelegationPersistTheMarker(): void {
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$schedule = $this->schedule(
+			[
+				'kind' => 'interval',
+				'intervalMinutes' => 15,
+				'agentId' => 'agent-uuid',
+				'deliver' => 'none',
+				'enabled' => true,
+			]
+		);
+
+		$this->service->markEngineDelegation(schedule: $schedule, flowId: ' flow-1 ');
+		$this->service->clearEngineDelegation(schedule: $schedule);
+
+		$this->assertCount(2, $saved);
+		$this->assertSame('flow-1', $saved[0]['engineFlowId'], 'The marker must store the trimmed flow uuid.');
+		$this->assertSame('', $saved[1]['engineFlowId'], 'Clearing must empty the marker.');
+
+	}//end testMarkAndClearEngineDelegationPersistTheMarker()
 }//end class

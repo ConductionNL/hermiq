@@ -40,11 +40,15 @@ class HermiqFlowNodeListener implements IEventListener {
 	 * @param HermiqAgentNode $agentNode The agent step node.
 	 * @param HermiqWorkloadNode $workloadNode The workload step node.
 	 * @param HermiqWorkloadCollectNode $collectNode Collects a workload started asynchronously.
+	 * @param HermiqScheduleDispatchNode $scheduleDispatchNode Fires one schedule occurrence
+	 *                                                         through the governed dispatch
+	 *                                                         path (schedules-onto-engine-triggers).
 	 */
 	public function __construct(
 		private readonly HermiqAgentNode $agentNode,
 		private readonly HermiqWorkloadNode $workloadNode,
 		private readonly HermiqWorkloadCollectNode $collectNode,
+		private readonly HermiqScheduleDispatchNode $scheduleDispatchNode,
 	) {
 
 	}//end __construct()
@@ -69,6 +73,7 @@ class HermiqFlowNodeListener implements IEventListener {
 		$event->registerNode(node: $this->agentNode);
 		$event->registerNode(node: $this->workloadNode);
 		$event->registerNode(node: $this->collectNode);
+		$event->registerNode(node: $this->scheduleDispatchNode);
 
 	}//end handle()
 }//end class
