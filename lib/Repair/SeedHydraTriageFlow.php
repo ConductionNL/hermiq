@@ -107,13 +107,6 @@ class SeedHydraTriageFlow implements IRepairStep {
 	public const REGISTER_SLUG = 'hermiq';
 
 	/**
-	 * Schema slug for agentflow objects.
-	 *
-	 * @var string
-	 */
-	public const FLOW_SCHEMA = 'agentflow';
-
-	/**
 	 * The seeded flow's name — also the idempotency key.
 	 *
 	 * @var string

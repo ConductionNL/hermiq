@@ -4,6 +4,11 @@ kind: code
 
 # Proposal: agent-graph-builder
 
+> Archived 2026-09-02 (finish-agentflow-retirement), superseded. The graph builder
+> this change described was built on the `agentflow` object store, and that store
+> is retired: its runner, resolver and frontend are gone. Flow authoring lives in
+> OpenRegister's native flow store and canvas instead (REQ-FA-001/002).
+
 ## Why
 
 Hermiq can run a single governed agent turn triggered by a Nextcloud event and

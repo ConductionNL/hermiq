@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+ * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCP\EventDispatcher\IEventListener;
  *
  * @template-implements IEventListener<RegisterFlowNodesEvent>
  *
- * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+ * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqFlowNodeListener implements IEventListener {
 	/**
@@ -59,7 +59,7 @@ class HermiqFlowNodeListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function handle(Event $event): void {
 		if (($event instanceof RegisterFlowNodesEvent) === false) {

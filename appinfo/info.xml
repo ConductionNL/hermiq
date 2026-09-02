@@ -132,6 +132,13 @@
                 silently reading null.
             -->
             <step>OCA\Hermiq\Repair\RenameDutchColumns</step>
+            <!-- @spec openspec/specs/flow-authoring/spec.md#requirement-a-flow-is-stored-once-by-openregister-req-fa-002 -->
+            <!-- Runs AFTER InitializeSettings: the v0.30.0 descriptor no longer
+                 declares agentflow/agentflowrun, but the import unions schema ids
+                 and never removes one, so this step deletes the retired schemas,
+                 their rows and their tables. Idempotent: once pruned it finds
+                 nothing and reports so. -->
+            <step>OCA\Hermiq\Repair\PruneRetiredAgentFlowSchemas</step>
         </post-migration>
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>

@@ -16,7 +16,7 @@
       "hermiq": {
         "slug": "hermiq",
         "title": "Hermiq (demo)",
-        "version": "0.29.0",
+        "version": "0.30.0",
         "description": "Demo data for Hermiq. Generated from the register's own schemas — see hydra-gates/scripts/lib/generate_mock_register.py."
       }
     },
@@ -113,102 +113,6 @@
         "searchObjects": true,
         "isPrivate": true,
         "invitedUsers": []
-      },
-      {
-        "@self": {
-          "register": "hermiq",
-          "schema": "agentflow",
-          "slug": "agentflow-voorbeeld-name-1-1"
-        },
-        "name": "Voorbeeld Name 1",
-        "triggerRegister": "Voorbeeld Triggerregister 1",
-        "triggerSchema": "Voorbeeld Triggerschema 1",
-        "owner": "Voorbeeld Owner 1",
-        "trigger": "object.updated",
-        "cron": "Voorbeeld Cron 1",
-        "enabled": true,
-        "nodes": [],
-        "edges": [],
-        "limits": {},
-        "description": "Voorbeeld Description 1",
-        "notes": "Voorbeeld Notes 1"
-      },
-      {
-        "@self": {
-          "register": "hermiq",
-          "schema": "agentflow",
-          "slug": "agentflow-voorbeeld-name-2-2"
-        },
-        "name": "Voorbeeld Name 2",
-        "triggerRegister": "Voorbeeld Triggerregister 2",
-        "triggerSchema": "Voorbeeld Triggerschema 2",
-        "owner": "Voorbeeld Owner 2",
-        "trigger": "object.updated",
-        "cron": "Voorbeeld Cron 2",
-        "enabled": true,
-        "nodes": [],
-        "edges": [],
-        "limits": {},
-        "description": "Voorbeeld Description 2",
-        "notes": "Voorbeeld Notes 2"
-      },
-      {
-        "@self": {
-          "register": "hermiq",
-          "schema": "agentflow",
-          "slug": "agentflow-voorbeeld-name-3-3"
-        },
-        "name": "Voorbeeld Name 3",
-        "triggerRegister": "Voorbeeld Triggerregister 3",
-        "triggerSchema": "Voorbeeld Triggerschema 3",
-        "owner": "Voorbeeld Owner 3",
-        "trigger": "object.updated",
-        "cron": "Voorbeeld Cron 3",
-        "enabled": true,
-        "nodes": [],
-        "edges": [],
-        "limits": {},
-        "description": "Voorbeeld Description 3",
-        "notes": "Voorbeeld Notes 3"
-      },
-      {
-        "@self": {
-          "register": "hermiq",
-          "schema": "agentflowrun",
-          "slug": "agentflowrun-agentflowrun-1-1"
-        },
-        "agentflow": "00000000-0000-4000-8000-000000000000",
-        "correlationId": "Voorbeeld Correlationid 1",
-        "status": "Voorbeeld Status 1",
-        "steps": [],
-        "state": {},
-        "usage": {}
-      },
-      {
-        "@self": {
-          "register": "hermiq",
-          "schema": "agentflowrun",
-          "slug": "agentflowrun-agentflowrun-2-2"
-        },
-        "agentflow": "00000000-0000-4000-8000-000000000001",
-        "correlationId": "Voorbeeld Correlationid 2",
-        "status": "Voorbeeld Status 2",
-        "steps": [],
-        "state": {},
-        "usage": {}
-      },
-      {
-        "@self": {
-          "register": "hermiq",
-          "schema": "agentflowrun",
-          "slug": "agentflowrun-agentflowrun-3-3"
-        },
-        "agentflow": "00000000-0000-4000-8000-000000000002",
-        "correlationId": "Voorbeeld Correlationid 3",
-        "status": "Voorbeeld Status 3",
-        "steps": [],
-        "state": {},
-        "usage": {}
       },
       {
         "@self": {

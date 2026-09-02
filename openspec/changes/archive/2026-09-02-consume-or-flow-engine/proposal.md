@@ -1,5 +1,11 @@
 # Proposal: consume-or-flow-engine
 
+> Archived 2026-09-02 (finish-agentflow-retirement). The contribution shipped and
+> lives on: `HermiqAgentNode` still provides the agent step, registered through
+> `HermiqFlowNodeListener`. The `agentflow` object store this change consumed is
+> retired. Flows live in OpenRegister's native flow store (REQ-FA-002), the
+> resolver is gone, and the schemas left the register descriptor in v0.30.0.
+
 ## Summary
 
 Make hermiq a CONSUMER of OpenRegister's flow engine instead of the owner of a

@@ -1,5 +1,10 @@
 # Proposal: hermiq-schedule-source
 
+> Archived 2026-09-02 (finish-agentflow-retirement), superseded. The scheduled-flow
+> enumeration and the `agentflow.cron` property this change added lived on the
+> retired `agentflow` object store. Scheduling now belongs to OpenRegister's
+> native flow store, which carries `cron` itself (REQ-FA-002).
+
 ## Summary
 
 Make hermiq's scheduled agentflows actually fire: answer OpenRegister's new

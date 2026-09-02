@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+ * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 
 declare(strict_types=1);
@@ -65,7 +65,7 @@ use UnexpectedValueException;
  * dressed as a safety property. Remove the fallback once the fleet's target
  * instances are known to carry #2835.
  *
- * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+ * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 
@@ -97,7 +97,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return string The id.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function getId(): string {
 		return 'hermiq.agent-step';
@@ -108,7 +108,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return string The display name.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function getDisplayName(): string {
 		return $this->l10n->t('Agent step');
@@ -119,7 +119,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return string The description.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function getDescription(): string {
 		return $this->l10n->t('Run an agent turn and put its answer on the item.');
@@ -130,7 +130,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return string The icon URL.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function getIcon(): string {
 		return $this->urls->imagePath('hermiq', 'app-dark.svg');
@@ -156,7 +156,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return array<int, array{label: string, href: string}> The links.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function logActions(array $entry): array {
 		$items = (array)($entry['output']['items'] ?? []);
@@ -183,7 +183,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return boolean Whether it is available.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function isAvailableForScope(int $scope): bool {
 		return in_array($scope, [IManager::SCOPE_ADMIN, IManager::SCOPE_USER], true);
@@ -198,7 +198,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @throws UnexpectedValueException When no agent is named.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function validateConfig(array $config): void {
 		if (trim((string)($config['agentId'] ?? ($config['agent'] ?? ''))) === '') {
@@ -230,7 +230,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 * @throws Throwable When the agent turn fails; the step's `onError` policy
 	 *                   decides what the run then does.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function execute(array $items, array $config, array $context): array {
 		// Third shape of the same defect: a step that did not run must not
@@ -339,7 +339,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return string The rendered prompt.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	private function render(string $template, array $json): string {
 		return (string)preg_replace_callback(
@@ -386,7 +386,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @throws UnexpectedValueException When `expectJson` is set and the answer is not JSON.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	private function decode(array $config, string $answer) {
 		if (($config['expectJson'] ?? false) !== true) {
