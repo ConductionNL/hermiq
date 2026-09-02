@@ -464,11 +464,19 @@ class ScheduleFlowBridgeTest extends TestCase {
 			$inserted->getLifecycleStatus(),
 			'The pin refuses an unpublished mirror; the bridge must publish what it creates.'
 		);
-		// The fresh stub row carries no lifecycle yet, so the bridge drafts
-		// it before publishing; the marker comes strictly last either way.
+		// Whether a createDraft precedes the publish depends on the Flow
+		// entity's birth state: the real entity is born draft (no createDraft
+		// needed), the standalone stub is born blank (drafted first). Both
+		// are correct; what this test pins is publish, then the marker.
+		$publishAndMark = array_values(
+			array_filter(
+				$this->versionCalls,
+				static fn (string $call): bool => in_array($call, ['publish', 'mark'], true)
+			)
+		);
 		$this->assertSame(
-			['createDraft', 'publish', 'mark'],
-			$this->versionCalls,
+			['publish', 'mark'],
+			$publishAndMark,
 			'Publish before the marker: a publish failure must leave the schedule on its local clock.'
 		);
 
