@@ -15,6 +15,9 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Service\Flow;
 
+use OCP\EventDispatcher\IEventDispatcher;
+use Psr\Log\LoggerInterface;
+
 /**
  * Minimal FlowOversightRegistry stub.
  */
@@ -26,6 +29,28 @@ class FlowOversightRegistry {
 	 * @var array<string, IFlowOversightCheck>
 	 */
 	private array $checks = [];
+
+	/**
+	 * Constructor, mirroring the REAL signature.
+	 *
+	 * The real class requires the logger and lazily collects contributions
+	 * through the optional dispatcher. A zero-argument stub constructor
+	 * already cost one CI round: a test built against it fataled the moment
+	 * the real OpenRegister was installed (ArgumentCountError), which is the
+	 * exact drift these stubs promise not to have.
+	 *
+	 * @param LoggerInterface $logger Unused by the stub; required by the real class.
+	 * @param IEventDispatcher|null $dispatcher Unused by the stub; the real
+	 *                                          class dispatches discovery on it.
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) Signature fidelity is the point.
+	 */
+	public function __construct(
+		LoggerInterface $logger,
+		?IEventDispatcher $dispatcher = null,
+	) {
+
+	}//end __construct()
 
 	/**
 	 * Register an oversight check.

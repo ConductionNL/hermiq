@@ -226,7 +226,10 @@ class TenantKillSwitchCheckTest extends TestCase {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-the-tenant-kill-switch-reaches-every-hermiq-flow-hop
 	 */
 	public function testListenerRegistersTheCheck(): void {
-		$registry = new FlowOversightRegistry();
+		// The real registry (present when CI installs OpenRegister) requires
+		// the logger; the stub mirrors that signature, so this construction
+		// works identically against either.
+		$registry = new FlowOversightRegistry($this->createMock(LoggerInterface::class));
 		$event = new RegisterFlowOversightEvent(registry: $registry);
 
 		$listener = new FlowOversightRegistrationListener(killSwitchCheck: $this->check());
