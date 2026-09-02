@@ -139,6 +139,15 @@
                  their rows and their tables. Idempotent: once pruned it finds
                  nothing and reports so. -->
             <step>OCA\Hermiq\Repair\PruneRetiredAgentFlowSchemas</step>
+            <!-- @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-in-flight-approvals-migrate-and-roll-back -->
+            <!-- Mirrors every already-pending Approval as an OpenRegister task
+                 (approval-task convergence, phase 1). Post-migration only: a
+                 fresh install has no approvals, and new ones are mirrored at
+                 creation time by ApprovalService itself. Idempotent, guarded
+                 on the stored taskUuid backlink; rollback is
+                 `occ hermiq:approvals:rollback-task-mirror`. Runs after the
+                 register sync so the schema's new taskUuid property exists. -->
+            <step>OCA\Hermiq\Repair\MirrorPendingApprovalsToTasks</step>
         </post-migration>
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -167,6 +176,11 @@
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
         </install>
     </repair-steps>
+
+    <commands>
+        <!-- @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-in-flight-approvals-migrate-and-roll-back -->
+        <command>OCA\Hermiq\Command\RollbackApprovalTaskMirror</command>
+    </commands>
 
     <settings>
         <admin>OCA\Hermiq\Settings\AdminSettings</admin>

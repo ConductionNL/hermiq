@@ -239,6 +239,18 @@ class Application extends App implements IBootstrap {
 			listener: TalkBotInvokeListener::class
 		);
 
+		// Approval-task convergence (phase 1): every pending Approval is
+		// mirrored as an OpenRegister task, and a task completed in
+		// OpenRegister's shared inbox decides the Approval here. Registered by
+		// event NAME (the filinq#988 pattern), deliberately: at register()
+		// time the OCA\OpenRegister\ prefix may not be autoloadable yet, so a
+		// class_exists() guard could silently disable the whole surface, while
+		// registering for a name that is never dispatched is harmless.
+		$context->registerEventListener(
+			event: \OCA\Hermiq\Listener\TaskTerminalListener::EVENT_TASK_TERMINAL,
+			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
+		);
+
 		// Approvals decided by reaction (talk-approval-reactions): spreed
 		// invokes bots on reactions with the SAME BotInvokeEvent, so this is a
 		// second listener on the same event — each ignores the invocation types
