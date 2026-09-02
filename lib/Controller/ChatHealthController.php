@@ -40,11 +40,14 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Provides GET /api/chat/health — an unauthenticated endpoint the nextcloud-vue
+ * Provides GET /api/chat/health, an unauthenticated endpoint the nextcloud-vue
  * widget probes once at mount time to decide whether to render the AI companion
  * button. Returns HTTP 200 + {status:"ok",capabilities:["chat","stream"]} when at
- * least one LLM chat provider is configured; HTTP 503 + {status:"no_provider"}
- * otherwise; HTTP 503 + {status:"config_error"} when the config read itself fails.
+ * least one LLM chat provider is configured; HTTP 200 + {status:"unconfigured",
+ * capabilities:[]} when none is, because an unconfigured app is healthy, and a
+ * 5xx here trips every co-installed app's no-5xx e2e guard; HTTP 503 +
+ * {status:"config_error"} when the config read itself fails, which IS the app
+ * being broken.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
  */
@@ -69,12 +72,14 @@ class ChatHealthController extends Controller {
 	/**
 	 * Health probe for the AI chat backend.
 	 *
-	 * Returns 200 when a chat provider is configured, 503 otherwise. Annotated
-	 * as PublicPage so the widget can probe without authentication (mirrors
-	 * OR's ChatHealthController::health()). A failing config read is reported
-	 * as `config_error` (not `no_provider`) so operators can tell a fresh
-	 * instance from a broken config service; the widget treats any non-200 as
-	 * "no AI" without branching.
+	 * Answers 200 whenever the app itself is healthy. A missing chat provider
+	 * is a configuration state, not an outage: it answers 200 with
+	 * `status: unconfigured` and an empty capability list, so a consumer
+	 * decides on the body, and a strict no-5xx guard on a co-installed app
+	 * (the rig's dossiq KPI spec) does not fail on a fresh hermiq. Reserve
+	 * 5xx for the app being broken: a failing config read stays 503
+	 * `config_error`. Annotated as PublicPage so the widget can probe without
+	 * authentication.
 	 *
 	 * The rate limit is deliberately generous: monitoring polls this on a short
 	 * interval, and a ceiling that trips on a normal probe cadence turns the
@@ -99,14 +104,19 @@ class ChatHealthController extends Controller {
 
 			if (empty($chatProvider) === true) {
 				return new JSONResponse(
-					data: ['status' => 'no_provider'],
-					statusCode: 503
+					data: [
+						'status' => 'unconfigured',
+						'configured' => false,
+						'capabilities' => [],
+					],
+					statusCode: 200
 				);
 			}
 
 			return new JSONResponse(
 				data: [
 					'status' => 'ok',
+					'configured' => true,
 					'capabilities' => ['chat', 'stream'],
 				],
 				statusCode: 200

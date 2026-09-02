@@ -3,10 +3,11 @@
 /**
  * Unit tests for ChatHealthController (agent-engine-port).
  *
- * The probe reports 200 {status:ok} only when a chat provider is configured in
- * `hermiq.llm`; a missing provider is 503 {status:no_provider} and a failing
- * config read is 503 {status:config_error} (distinct so operators can tell a
- * fresh instance from a broken config service).
+ * The probe reports 200 {status:ok} when a chat provider is configured in
+ * `hermiq.llm` and 200 {status:unconfigured, capabilities:[]} when none is: an
+ * unconfigured app is healthy, and a 5xx would trip every co-installed app's
+ * no-5xx e2e guard. Only a failing config read, the app itself being broken,
+ * is 503 {status:config_error}.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller
@@ -74,22 +75,26 @@ class ChatHealthControllerTest extends TestCase {
 	}//end testHealthOkWhenProviderConfigured()
 
 	/**
-	 * No configured chat provider yields 503 {status:no_provider}.
+	 * No configured chat provider yields 200 {status:unconfigured}: healthy,
+	 * not broken. The empty capability list is what tells a consumer there is
+	 * no chat to offer; the HTTP code no longer carries that decision.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
-	public function testHealthNoProviderWhenUnconfigured(): void {
+	public function testHealthUnconfiguredIsStillHealthy(): void {
 		$llmSettings = $this->createMock(LlmSettingsHandler::class);
 		$llmSettings->method('getLLMSettingsOnly')->willReturn(['chatProvider' => null]);
 
 		$response = $this->controller($llmSettings)->health();
 
-		$this->assertSame(503, $response->getStatus());
-		$this->assertSame('no_provider', $response->getData()['status']);
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame('unconfigured', $response->getData()['status']);
+		$this->assertFalse($response->getData()['configured']);
+		$this->assertSame([], $response->getData()['capabilities']);
 
-	}//end testHealthNoProviderWhenUnconfigured()
+	}//end testHealthUnconfiguredIsStillHealthy()
 
 	/**
 	 * A failing config read yields 503 {status:config_error}, not no_provider.
