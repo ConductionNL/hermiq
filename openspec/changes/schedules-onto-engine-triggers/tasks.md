@@ -25,6 +25,17 @@
       delete/findByUuid, `RegisterFlowOversightEvent`, `IFlowOversightCheck`,
       `FlowRun`/`FlowRunMapper`) and unit tests for the bridge, the node, the
       check, the repair step and the rollback command.
+- [x] 1.9 Publish the mirror flow's head (`FlowVersionService` via the
+      container, guarded on the class existing). Found on the rig: the engine's
+      `FlowRunVersionPin` refuses every scheduled dispatch of an unpublished
+      flow, so a mirror that is only inserted never ticks. Create path: insert,
+      publish, mark; a publish failure deletes the flow and the schedule keeps
+      its local clock. Refresh path: draft, update, publish, because the engine
+      runs the pinned published version, not the flow row; a crash in between
+      leaves an unpublished head the next pass heals. The undrifted branch
+      publishes any unpublished head, healing pre-publish mirrors. Stubs
+      (`FlowVersion`, `FlowVersionService`) model the pin's contract so a
+      bridge that skips publishing fails its tests.
 
 ## Phase 2: the shapes the engine cannot time yet (staged)
 

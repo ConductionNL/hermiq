@@ -92,6 +92,36 @@ A schedule deleted from the UI leaves its mirror orphaned until the node next
 fires; the node then finds no delegated schedule, disables the flow and fails
 the step loudly. Sweeping from the flow side is staged.
 
+### Publishing and the version pin
+
+OpenRegister versions flow definitions, and its `FlowRunVersionPin` refuses
+every scheduled dispatch of a flow with no published version. A mirror that is
+only inserted is therefore a clock that never ticks: the schedule leaves the
+local dispatcher and gains nothing in return. Proven on the rig, where the
+whole dual-app chain worked after one manual publish.
+
+The bridge publishes server-side through `FlowVersionService`, the same class
+the publish endpoint uses, resolved lazily from the container and guarded on
+the class existing (an OpenRegister without versioning has no pin and nothing
+to publish). `publishedBy` stays null: no person pressed publish, the bridge
+did, as the standing consequence of the owner's schedule.
+
+The chosen semantics per path:
+
+- **Create: insert, publish, mark.** A publish failure deletes the flow and
+  never writes the marker, so the schedule keeps its local clock. A crash
+  between publish and mark leaves a published flow the dispatch node refuses
+  (the schedule does not name it): a loud dead flow, never a dead clock.
+- **Refresh: draft, update, publish.** The engine runs the pinned published
+  version, not the flow row, so an update without a republish would fire the
+  old cadence forever. Drafting first flips the head off `published`, which
+  makes a crash between the update and the publish detectable; the old
+  published version keeps serving until the new one lands.
+- **Heal: an undrifted mirror without a published version is published.**
+  This catches mirrors created before the bridge published, and any crash the
+  refresh path left behind, on the next sync pass instead of waiting for a
+  manual publish.
+
 ### Double-fire safety
 
 At-most-once holds because the clock has exactly one owner per schedule:

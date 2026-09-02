@@ -108,6 +108,10 @@ class ScheduleFlowBridge {
 	 *                                      store must keep booting, so the flow
 	 *                                      classes are never hard constructor
 	 *                                      dependencies.
+	 * @param ScheduleFlowPublisher $publisher Publishes mirror heads so the
+	 *                                         engine's version pin accepts them.
+	 * @param ScheduleMirrorDefinition $definition The mirror flow's shape:
+	 *                                             nodes, edges, uuid, runAs.
 	 * @param IUserManager $userManager Proves a resolved runAs names a live user.
 	 * @param LoggerInterface $logger Sync diagnostics.
 	 */
@@ -116,6 +120,8 @@ class ScheduleFlowBridge {
 		private readonly ScheduleService $scheduleService,
 		private readonly ScheduleCadenceMapper $cadenceMapper,
 		private readonly ContainerInterface $container,
+		private readonly ScheduleFlowPublisher $publisher,
+		private readonly ScheduleMirrorDefinition $definition,
 		private readonly IUserManager $userManager,
 		private readonly LoggerInterface $logger,
 	) {
@@ -352,12 +358,18 @@ class ScheduleFlowBridge {
 	}//end isLiveUser()
 
 	/**
-	 * Create the mirror flow and hand the schedule's clock to the engine.
+	 * Create the mirror flow, publish it, and hand the clock to the engine.
 	 *
-	 * Insert FIRST, mark SECOND: a crash in between leaves a flow whose
-	 * dispatch node refuses to fire (the schedule does not name it), which
-	 * the node then disables. The failure mode is a loud dead flow, never a
-	 * double clock.
+	 * Insert FIRST, publish SECOND, mark LAST. The engine's
+	 * `FlowRunVersionPin` refuses every dispatch of a flow with no published
+	 * version, so a mirror that is only inserted is a clock that never ticks:
+	 * the schedule would leave the local dispatcher and gain nothing in
+	 * return. Publishing before the marker means a publish failure leaves the
+	 * schedule on its local clock (the flow is deleted again and the failure
+	 * is counted), and a crash between publish and mark leaves a published
+	 * flow whose dispatch node refuses to fire (the schedule does not name
+	 * it). The failure mode stays a loud dead flow, never a dead clock and
+	 * never a double one.
 	 *
 	 * @param ObjectEntity $schedule The eligible, unmirrored schedule.
 	 *
@@ -370,7 +382,7 @@ class ScheduleFlowBridge {
 		$data = $schedule->getObject();
 		$cron = (string)$this->mappedCron(schedule: $schedule);
 		$runAs = (string)$this->resolveRunAs(schedule: $schedule);
-		$uuid = $this->newUuid();
+		$uuid = $this->definition->newUuid();
 
 		$flow = new Flow();
 		$flow->setUuid($uuid);
@@ -386,8 +398,8 @@ class ScheduleFlowBridge {
 		$flow->setTriggerRegister(null);
 		$flow->setTriggerSchema(null);
 		$flow->setCron($cron);
-		$flow->setNodes($this->nodes(scheduleUuid: (string)$schedule->getUuid(), cron: $cron, runAs: $runAs));
-		$flow->setEdges($this->edges());
+		$flow->setNodes($this->definition->nodes(scheduleUuid: (string)$schedule->getUuid(), cron: $cron, runAs: $runAs));
+		$flow->setEdges($this->definition->edges());
 		$flow->setLimits(['maxNodes' => 5, 'maxIterations' => 5]);
 		$flow->setApplicationSlug(self::APPLICATION_SLUG);
 		$flow->setEnabled((($data['enabled'] ?? false) === true));
@@ -397,6 +409,16 @@ class ScheduleFlowBridge {
 		$flow->setUpdated(new DateTime());
 
 		$mapper->insert($flow);
+
+		try {
+			$this->publisher->publishHead(flow: $flow);
+		} catch (Throwable $e) {
+			// An unpublished mirror is a clock the pin refuses forever. Take
+			// the flow back out so the schedule stays on the local dispatcher
+			// (the marker was never written), and let syncAll count the miss.
+			$this->deleteFlow(flowId: $uuid);
+			throw $e;
+		}
 
 		$this->scheduleService->markEngineDelegation(schedule: $schedule, flowId: $uuid);
 
@@ -447,19 +469,42 @@ class ScheduleFlowBridge {
 		$enabled = (($data['enabled'] ?? false) === true);
 
 		$storedCron = trim((string)($flow->getCron() ?? ''));
-		$storedRunAs = $this->triggerRunAs(nodes: $flow->getNodes());
+		$storedRunAs = $this->definition->triggerRunAs(nodes: $flow->getNodes());
 		$storedEnabled = ($flow->getEnabled() === true);
 
 		if ($storedCron === $cron && $storedRunAs === $runAs && $storedEnabled === $enabled) {
+			if ($this->publisher->lacksPublishedVersion(flow: $flow) === true) {
+				// The definition is current but the pin still refuses it: a
+				// mirror created before publishing existed, or a crash
+				// between an update and its republish. Publish the head so
+				// the engine's clock actually ticks.
+				$this->publisher->publishHead(flow: $flow);
+				$this->logger->info(
+					sprintf('[hermiq] Mirror flow %s had no published version; published its head.', $flowId)
+				);
+
+				return 'refreshed';
+			}
+
 			return 'skipped';
 		}
 
+		// Draft FIRST, update SECOND, publish LAST. `FlowRunVersionPin` runs
+		// the PUBLISHED version, not the flow row, so an update without a
+		// republish would keep firing the old cadence forever. Drafting
+		// before the update flips the head off `published`, which is what
+		// lets the no-drift branch above heal a crash between the update and
+		// the publish; the old published version keeps serving in between.
+		$this->publisher->draftForRedefinition(flow: $flow);
+
 		$flow->setCron($cron);
-		$flow->setNodes($this->nodes(scheduleUuid: (string)$schedule->getUuid(), cron: $cron, runAs: $runAs));
-		$flow->setEdges($this->edges());
+		$flow->setNodes($this->definition->nodes(scheduleUuid: (string)$schedule->getUuid(), cron: $cron, runAs: $runAs));
+		$flow->setEdges($this->definition->edges());
 		$flow->setEnabled($enabled);
 		$flow->setUpdated(new DateTime());
 		$mapper->update($flow);
+
+		$this->publisher->publishHead(flow: $flow);
 
 		return 'refreshed';
 	}//end refresh()
@@ -522,102 +567,4 @@ class ScheduleFlowBridge {
 
 	}//end deleteFlow()
 
-	/**
-	 * The trigger node's declared runAs in a stored node list.
-	 *
-	 * @param mixed $nodes The stored nodes.
-	 *
-	 * @return string The declared runAs, or ''.
-	 *
-	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
-	 */
-	private function triggerRunAs(mixed $nodes): string {
-		if (is_array($nodes) === false) {
-			return '';
-		}
-
-		foreach ($nodes as $node) {
-			if (is_array($node) === true && ($node['type'] ?? null) === 'openregister.trigger-schedule') {
-				$config = ($node['config'] ?? []);
-				if (is_array($config) === true) {
-					return trim((string)($config['runAs'] ?? ''));
-				}
-			}
-		}
-
-		return '';
-	}//end triggerRunAs()
-
-	/**
-	 * The mirror flow's three nodes.
-	 *
-	 * @param string $scheduleUuid The schedule uuid the dispatch node fires.
-	 * @param string $cron The 5-field cron expression.
-	 * @param string $runAs The declared acting identity.
-	 *
-	 * @return array<int,array<string,mixed>> The nodes.
-	 *
-	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
-	 */
-	private function nodes(string $scheduleUuid, string $cron, string $runAs): array {
-		return [
-			[
-				'id' => 'trigger',
-				'position' => ['x' => 0, 'y' => 0],
-				'type' => 'openregister.trigger-schedule',
-				'config' => ['cron' => $cron, 'runAs' => $runAs],
-			],
-			[
-				'id' => 'dispatch',
-				'position' => ['x' => 260, 'y' => 0],
-				'type' => 'hermiq.schedule-dispatch',
-				'config' => ['scheduleId' => $scheduleUuid],
-			],
-			[
-				'id' => 'done',
-				'position' => ['x' => 520, 'y' => 0],
-				'type' => 'openregister.end',
-				'config' => [],
-			],
-		];
-	}//end nodes()
-
-	/**
-	 * The mirror flow's two edges.
-	 *
-	 * @return array<int,array<string,string>> The edges.
-	 *
-	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
-	 */
-	private function edges(): array {
-		return [
-			[
-				'id' => 'trigger-dispatch',
-				'from' => 'trigger',
-				'to' => 'dispatch',
-				'title' => 'due',
-			],
-			[
-				'id' => 'dispatch-done',
-				'from' => 'dispatch',
-				'to' => 'done',
-				'title' => 'dispatched',
-			],
-		];
-	}//end edges()
-
-	/**
-	 * A fresh v4 uuid for a mirror flow row.
-	 *
-	 * @return string The uuid.
-	 *
-	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
-	 */
-	private function newUuid(): string {
-		$bytes = random_bytes(16);
-		$bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-		$bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
-
-		return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
-	}//end newUuid()
 }//end class
