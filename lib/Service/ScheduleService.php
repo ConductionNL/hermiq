@@ -228,7 +228,7 @@ class ScheduleService {
 	 *
 	 * @return string The conversation uuid, or '' when there is none.
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function lastRunConversationUuid(): string {
 		return $this->lastRunConversationUuid;

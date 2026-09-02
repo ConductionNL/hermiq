@@ -2,8 +2,8 @@
 	"openapi": "3.0.0",
 	"info": {
 		"title": "Hermiq Register",
-		"description": "Hermiq register v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
-		"version": "0.29.0"
+		"description": "Hermiq register v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
+		"version": "0.30.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -19,7 +19,7 @@
 			"hermiq": {
 				"slug": "hermiq",
 				"title": "Hermiq",
-				"version": "0.29.0",
+				"version": "0.30.0",
 				"description": "Schedule autonomous AI agents in Nextcloud",
 				"schemas": [
 					"agent",
@@ -27,8 +27,6 @@
 					"agentbudget",
 					"agentcompliancecontrol",
 					"agentcontrolframework",
-					"agentflow",
-					"agentflowrun",
 					"agentsession",
 					"agentsessionturn",
 					"agentskill",
@@ -3623,150 +3621,6 @@
 								}
 							}
 						}
-					}
-				}
-			},
-			"AgentFlow": {
-				"slug": "agentflow",
-				"icon": "Sitemap",
-				"version": "0.1.3",
-				"title": "Agent flow",
-				"description": "An authored agent graph: nodes/edges triggered by a Nextcloud event or a cron schedule, walked by OpenRegister's flow engine (ADR-065). Authored through nc-vue's CnFlowDetail. v0.1.3 adds cron — a flow could already declare trigger 'schedule', but the expression that says WHEN had no property to live in, so every cron value was silently dropped on save and the flow was scheduled for never. Previously v0.1.2 added triggerRegister (read when matching triggers but undeclared, so it was silently dropped on save) and owner (the NC UID a trigger-fired run is attributed to).",
-				"type": "object",
-				"required": [
-					"name"
-				],
-				"authorization": {
-					"read": [
-						"authenticated"
-					]
-				},
-				"properties": {
-					"name": {
-						"type": "string",
-						"title": "Name",
-						"description": "What this flow is called — how it is listed and how a run refers to it."
-					},
-					"triggerRegister": {
-						"type": "string",
-						"title": "Trigger register",
-						"description": "OpenRegister register id/slug whose object events start this graph. Empty means any register. Trigger matching already used this field; it was missing from the schema, so the value was dropped on save and every flow matched every register."
-					},
-					"triggerSchema": {
-						"type": "string",
-						"title": "Trigger schema",
-						"description": "OpenRegister schema id/slug whose object events start this graph. Empty means any schema."
-					},
-					"owner": {
-						"type": "string",
-						"title": "Owner",
-						"description": "Nextcloud UID of the person who authored and activated this flow. A trigger fires with no acting user, so this is who the run is attributed to and whose identity its steps execute as. A flow with no owner MUST NOT dispatch — never defaulted to an empty or system owner."
-					},
-					"trigger": {
-						"type": "string",
-						"title": "Trigger",
-						"description": "Event-catalog trigger id (object.created/updated/deleted), manual for a flow run only on request, or schedule to run it on the cron below.",
-						"default": "object.updated"
-					},
-					"cron": {
-						"type": "string",
-						"title": "Cron schedule",
-						"description": "For a schedule trigger: the cron expression that decides when the flow runs (e.g. \"*/5 * * * *\" = every five minutes, \"0 9 * * 1\" = 09:00 every Monday). Ignored for other triggers. Without this property a flow could declare trigger 'schedule' and the value saying WHEN was dropped on save, so the flow was scheduled for never."
-					},
-					"enabled": {
-						"type": "boolean",
-						"title": "Enabled",
-						"description": "Whether this flow may run. A disabled flow is never started by a trigger or by the schedule, however due it is.",
-						"default": true
-					},
-					"nodes": {
-						"type": "array",
-						"default": [],
-						"title": "Nodes",
-						"description": "Graph nodes {id,type,config,position}.",
-						"items": {
-							"type": "object"
-						}
-					},
-					"edges": {
-						"type": "array",
-						"default": [],
-						"title": "Edges",
-						"description": "Graph edges {id,source,target,when?}.",
-						"items": {
-							"type": "object"
-						}
-					},
-					"limits": {
-						"type": "object",
-						"title": "Limits",
-						"description": "Execution bounds {maxNodes,maxIterations}.",
-						"default": {}
-					},
-					"description": {
-						"type": "string",
-						"title": "Description",
-						"description": "What this flow does, in a sentence — shown wherever the flow is listed."
-					},
-					"notes": {
-						"type": "string",
-						"title": "Notes",
-						"description": "Free-form working notes for whoever maintains the flow. Not read by the engine."
-					}
-				}
-			},
-			"AgentFlowRun": {
-				"slug": "agentflowrun",
-				"icon": "History",
-				"version": "0.1.0",
-				"title": "Agent flow run",
-				"description": "A record of one agent-graph run: ordered node steps, state checkpoints, status and usage.",
-				"type": "object",
-				"required": [],
-				"authorization": {
-					"read": [
-						"authenticated"
-					]
-				},
-				"properties": {
-					"agentflow": {
-						"type": "string",
-						"format": "uuid",
-						"title": "Agent flow",
-						"description": "The authored agent graph this run walked.",
-						"$ref": "agentflow"
-					},
-					"correlationId": {
-						"readOnly": true,
-						"type": "string",
-						"title": "Correlation id",
-						"description": "Ties this run to the triggering event or schedule, so every record produced by one trigger can be found together."
-					},
-					"status": {
-						"type": "string",
-						"title": "Status",
-						"description": "Where the run got to: queued, running, succeeded, failed or cancelled."
-					},
-					"steps": {
-						"type": "array",
-						"default": [],
-						"title": "Steps",
-						"description": "The node steps in the order they executed, each with what it received, returned and logged.",
-						"items": {
-							"type": "object"
-						}
-					},
-					"state": {
-						"type": "object",
-						"title": "State",
-						"description": "The run's state checkpoint, so a resumed or replayed run picks up where this one stopped.",
-						"default": {}
-					},
-					"usage": {
-						"type": "object",
-						"title": "Usage",
-						"description": "Token and cost totals accumulated across the run's LLM calls.",
-						"default": {}
 					}
 				}
 			},
