@@ -148,6 +148,16 @@
                  `occ hermiq:approvals:rollback-task-mirror`. Runs after the
                  register sync so the schema's new taskUuid property exists. -->
             <step>OCA\Hermiq\Repair\MirrorPendingApprovalsToTasks</step>
+            <!-- @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back -->
+            <!-- Delegates every already-eligible schedule's clock to
+                 OpenRegister's schedule trigger (schedules-onto-engine-triggers).
+                 Post-migration only: new and edited schedules are armed by the
+                 dispatch tick's own sync pass. Idempotent, guarded on the
+                 stored engineFlowId marker; rollback is
+                 `occ hermiq:schedules:rollback-flow-mirror`. Runs after the
+                 register sync so the schema's new engineFlowId property
+                 exists. -->
+            <step>OCA\Hermiq\Repair\MirrorSchedulesToEngineFlows</step>
         </post-migration>
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -180,6 +190,8 @@
     <commands>
         <!-- @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-in-flight-approvals-migrate-and-roll-back -->
         <command>OCA\Hermiq\Command\RollbackApprovalTaskMirror</command>
+        <!-- @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back -->
+        <command>OCA\Hermiq\Command\RollbackScheduleFlowMirror</command>
     </commands>
 
     <settings>

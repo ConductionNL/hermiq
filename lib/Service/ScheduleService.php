@@ -725,6 +725,51 @@ class ScheduleService {
 	}//end runNow()
 
 	/**
+	 * Record that an OpenRegister flow now owns this schedule's clock.
+	 *
+	 * Writes the mirror flow's uuid into `engineFlowId` through the SAME
+	 * sanitised persist every dispatcher write uses, so the full-object save
+	 * survives OpenRegister's own read-side artifacts (date format, nullable
+	 * repeat). While the marker is set, findDueSchedules() no longer selects
+	 * the schedule as due by nextRun; only the engine fires its occurrences.
+	 *
+	 * @param ObjectEntity $schedule The schedule being delegated.
+	 * @param string $flowId The mirror flow's uuid.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 */
+	public function markEngineDelegation(ObjectEntity $schedule, string $flowId): void {
+		$data = $schedule->getObject();
+		$data['engineFlowId'] = trim($flowId);
+		$this->persist(schedule: $schedule, data: $data);
+
+	}//end markEngineDelegation()
+
+	/**
+	 * Return this schedule's clock to the app-local dispatcher.
+	 *
+	 * Clears `engineFlowId` through the sanitised persist, after which
+	 * findDueSchedules() selects the schedule as due by nextRun again. The
+	 * caller (bridge retire, rollback command) deletes the mirror flow AFTER
+	 * this write: a crash between the two leaves a mirror whose delegation
+	 * check refuses to fire, never a double clock.
+	 *
+	 * @param ObjectEntity $schedule The schedule being taken back.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back
+	 */
+	public function clearEngineDelegation(ObjectEntity $schedule): void {
+		$data = $schedule->getObject();
+		$data['engineFlowId'] = '';
+		$this->persist(schedule: $schedule, data: $data);
+
+	}//end clearEngineDelegation()
+
+	/**
 	 * Find enabled schedules that are due at or before the given moment.
 	 *
 	 * Enabled schedules are fetched register/schema-wide (RBAC/multi-tenancy off —
@@ -741,6 +786,7 @@ class ScheduleService {
 	 *
 	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
 	private function findDueSchedules(DateTimeImmutable $now): array {
 		$objects = $this->objectService
@@ -763,23 +809,48 @@ class ScheduleService {
 				continue;
 			}
 
-			$nextRun = $this->parseDate(value: (string)($data['nextRun'] ?? ''));
-			$dueByNextRun = ($nextRun === null || $nextRun <= $now);
-
-			$dueByRetry = false;
-			$retryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
-			if ($retryState !== null) {
-				$nextAttemptAt = $this->parseDate(value: $retryState['nextAttemptAt']);
-				$dueByRetry = ($nextAttemptAt === null || $nextAttemptAt <= $now);
-			}
-
-			if ($dueByNextRun === true || $dueByRetry === true) {
+			if ($this->isDueAt(data: $data, now: $now) === true) {
 				$due[] = $object;
 			}
 		}//end foreach
 
 		return $due;
 	}//end findDueSchedules()
+
+	/**
+	 * Whether one enabled schedule is due at the given moment.
+	 *
+	 * Due by `nextRun` UNLESS the clock is delegated to the engine
+	 * (schedules-onto-engine-triggers): a schedule carrying `engineFlowId`
+	 * has its occurrences fired by the OpenRegister flow that owns it, so
+	 * selecting it here too would be a double clock. Due by a pending
+	 * retry's `nextAttemptAt` REGARDLESS of delegation, so an open retry
+	 * sequence is never silently dropped by handing the clock over.
+	 *
+	 * @param array<string,mixed> $data The schedule payload.
+	 * @param DateTimeImmutable $now The current UTC moment.
+	 *
+	 * @return bool Whether the schedule should fire this tick.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+	 */
+	private function isDueAt(array $data, DateTimeImmutable $now): bool {
+		$delegated = (trim((string)($data['engineFlowId'] ?? '')) !== '');
+
+		$nextRun = $this->parseDate(value: (string)($data['nextRun'] ?? ''));
+		if ($delegated === false && ($nextRun === null || $nextRun <= $now)) {
+			return true;
+		}
+
+		$retryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
+		if ($retryState !== null) {
+			$nextAttemptAt = $this->parseDate(value: $retryState['nextAttemptAt']);
+			return ($nextAttemptAt === null || $nextAttemptAt <= $now);
+		}
+
+		return false;
+	}//end isDueAt()
 
 	/**
 	 * Process one due schedule, applying the synchronous oversight gates first.

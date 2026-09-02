@@ -159,6 +159,20 @@ class Application extends App implements IBootstrap {
 			);
 		}
 
+		// Oversight (schedules-onto-engine-triggers, EU AI Act Art. 14): contribute
+		// hermiq's per-organisation kill switch to the engine's oversight registry,
+		// so a `hermiq.*` hop of an engaged organisation's run is vetoed BEFORE it
+		// executes — the operator's stop control reaches engine-timed and
+		// canvas-authored runs, not only the app-local tick. Guarded on the event
+		// class existing so an instance whose OpenRegister predates the oversight
+		// registry still boots.
+		if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class) === true) {
+			$context->registerEventListener(
+				\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class,
+				\OCA\Hermiq\Listener\FlowOversightRegistrationListener::class
+			);
+		}
+
 		// Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
 		// `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
 		// sibling-app leaf-registration hook (RegisterLeafProvidersEvent). This makes
