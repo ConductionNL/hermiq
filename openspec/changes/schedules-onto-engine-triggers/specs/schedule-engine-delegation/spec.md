@@ -10,6 +10,17 @@ trigger node, a `hermiq.schedule-dispatch` node and an end node. The mirrored
 schedule SHALL carry the flow's uuid in `engineFlowId`, and the app-local
 dispatcher SHALL NOT select it as due by `nextRun` while that marker is set.
 
+The bridge SHALL publish the mirror flow's head when OpenRegister carries flow
+versioning: the engine's version pin refuses every scheduled dispatch of an
+unpublished flow, so an unpublished mirror is a clock that never ticks. The
+marker SHALL be written only after a successful publish; a publish failure
+SHALL remove the flow again and leave the schedule on its local clock. When a
+refresh changes the mirrored definition, the bridge SHALL republish, because
+the engine runs the pinned published version, not the flow row. A sync pass
+SHALL publish the head of any mirrored, undrifted flow that lacks a published
+version, so mirrors created before publishing existed heal without a manual
+publish.
+
 #### Scenario: A cron schedule is mirrored and leaves the local clock
 
 - **GIVEN** an enabled `kind=cron` schedule with a 5-field cadence expression
@@ -34,6 +45,24 @@ dispatcher SHALL NOT select it as due by `nextRun` while that marker is set.
   expresses
 - **WHEN** the bridge syncs
 - **THEN** no flow is created and the schedule stays on the local dispatcher
+
+#### Scenario: A mirrored flow is published so the engine will run it
+
+- **GIVEN** an eligible, unmirrored schedule on an OpenRegister with flow
+  versioning
+- **WHEN** the bridge mirrors it
+- **THEN** the mirror flow has a published version before `engineFlowId` is
+  written, so the version pin accepts the first trigger tick
+- **AND** if publishing fails, the flow is removed, no marker is written, and
+  the schedule stays on the local dispatcher
+
+#### Scenario: A changed cadence lands as a new published version
+
+- **GIVEN** a mirrored schedule whose cron, `runAs` or enabled flag drifted
+  from its flow
+- **WHEN** the bridge refreshes the mirror
+- **THEN** the flow's head is republished, so the engine fires the new
+  definition instead of the old pinned version
 
 @e2e exclude {backend delegation seam; requires a live OpenRegister flow
 engine, which CI does not install. Verified by unit tests against

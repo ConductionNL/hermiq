@@ -171,19 +171,12 @@ const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
 	// mid-run it serves the 404 HTML page, tripping a MIME-type refusal.
 	/Refused to apply style/i,
 	/is not a supported stylesheet MIME type/i,
-	// 🔴 `GET /apps/hermiq/api/chat/health` answering 503 is hermiq's SPECIFIED
-	// behaviour, not a fault: ChatHealthController's contract is
-	// `200 {status:"ok"}` when an LLM provider is configured and
-	// `503 {status:"no_provider"}` when none is. The nextcloud-vue AI companion
-	// widget probes it once at mount on every page precisely to decide whether
-	// to render itself, and CI configures no provider by design — this whole
-	// suite is "UI mechanics, no LLM required".
-	//
-	// Measured: 30 such responses across one run (30878205902), and it was the
-	// ONLY 503 on the instance. Scoped to this exact route, NOT to the 503
-	// status: a 503 on any other hermiq endpoint is still a failure, which is
-	// what this assertion is for.
-	/\/apps\/hermiq\/api\/chat\/health/,
+	// `GET /apps/hermiq/api/chat/health` no longer needs a carve-out here.
+	// It used to answer a designed 503 ({status:"no_provider"}) on the
+	// providerless CI instance, and this list excused it; the contract is now
+	// 200 {status:"unconfigured"} for a healthy app without a provider, so a
+	// 503 from it means config_error, the app itself broken, and must fail
+	// this assertion like any other 5xx.
 ]
 
 /**
