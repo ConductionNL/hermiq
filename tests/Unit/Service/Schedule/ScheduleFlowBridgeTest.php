@@ -489,4 +489,72 @@ class ScheduleFlowBridgeTest extends TestCase {
 		$this->assertFalse($updated->getEnabled(), 'A paused schedule pauses its mirror.');
 
 	}//end testSyncRefreshesADriftedMirror()
+
+	/**
+	 * A delegated schedule whose mirror flow row is GONE gets its clock back
+	 * (marker cleared), so the local dispatcher covers it until the next
+	 * pass re-mirrors.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 */
+	public function testMissingMirrorFlowHandsTheClockBack(): void {
+		$schedule = $this->schedule(
+			[
+				'kind' => 'cron',
+				'cronExpr' => '0 8 * * *',
+				'agentId' => '',
+				'engineFlowId' => 'flow-gone',
+				'enabled' => true,
+			]
+		);
+		$this->objectService->method('findAll')->willReturn([$schedule]);
+		$this->flowMapper->method('findByUuid')->willThrowException(
+			new \OCP\AppFramework\Db\DoesNotExistException('gone')
+		);
+		$this->scheduleService->expects($this->once())->method('clearEngineDelegation');
+
+		$stats = $this->bridge()->syncAll();
+
+		$this->assertSame(1, $stats['refreshed']);
+
+	}//end testMissingMirrorFlowHandsTheClockBack()
+
+	/**
+	 * Deleting a flow that is already gone is the end state a delete wants:
+	 * no error, no fallback disable.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back
+	 */
+	public function testDeleteFlowTreatsAlreadyGoneAsDone(): void {
+		$this->flowMapper->method('findByUuid')->willThrowException(
+			new \OCP\AppFramework\Db\DoesNotExistException('gone')
+		);
+		$this->flowMapper->expects($this->never())->method('delete');
+		$this->flowMapper->expects($this->never())->method('update');
+
+		$this->bridge()->deleteFlow(flowId: 'flow-gone');
+
+	}//end testDeleteFlowTreatsAlreadyGoneAsDone()
+
+	/**
+	 * A schedule-store read failure is counted and never thrown: the tick
+	 * that called the sync must still dispatch locally.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 */
+	public function testScheduleReadFailureIsCountedNotThrown(): void {
+		$this->objectService->method('findAll')->willThrowException(new \RuntimeException('db gone'));
+
+		$stats = $this->bridge()->syncAll();
+
+		$this->assertSame(1, $stats['failed']);
+		$this->assertSame(0, $stats['mirrored']);
+
+	}//end testScheduleReadFailureIsCountedNotThrown()
 }//end class

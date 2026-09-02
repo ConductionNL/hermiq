@@ -158,4 +158,42 @@ class RollbackScheduleFlowMirrorTest extends TestCase {
 		$this->assertStringContainsString('Would roll back schedule sched-1', $tester->getDisplay());
 
 	}//end testDryRunTouchesNothing()
+
+	/**
+	 * An unreadable schedule store exits non-zero instead of reporting a
+	 * rollback that never ran.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back
+	 */
+	public function testUnreadableStoreExitsNonZero(): void {
+		$this->objectService->method('findAll')->willThrowException(new \RuntimeException('db gone'));
+
+		$tester = $this->tester();
+		$this->assertSame(1, $tester->execute([]));
+		$this->assertStringContainsString('Could not read schedules', $tester->getDisplay());
+
+	}//end testUnreadableStoreExitsNonZero()
+
+	/**
+	 * A schedule whose marker cannot be cleared is counted as failed and the
+	 * command exits non-zero, so a partial rollback never reads as complete.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back
+	 */
+	public function testFailedClearCountsAndExitsNonZero(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[$this->schedule('sched-1', ['engineFlowId' => 'flow-1'])]
+		);
+		$this->scheduleService->method('clearEngineDelegation')
+			->willThrowException(new \RuntimeException('save refused'));
+
+		$tester = $this->tester();
+		$this->assertSame(1, $tester->execute([]));
+		$this->assertStringContainsString('1 failed', $tester->getDisplay());
+
+	}//end testFailedClearCountsAndExitsNonZero()
 }//end class

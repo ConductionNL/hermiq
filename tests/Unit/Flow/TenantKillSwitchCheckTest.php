@@ -219,6 +219,26 @@ class TenantKillSwitchCheckTest extends TestCase {
 	}//end testReadFailureConsents()
 
 	/**
+	 * A run row without an organisation is unattributable, and so vetoed
+	 * while any switch is engaged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-the-tenant-kill-switch-reaches-every-hermiq-flow-hop
+	 */
+	public function testOrganisationlessRunIsUnattributable(): void {
+		$this->engage('org-1');
+		$this->runBelongsTo('');
+
+		$reason = $this->check()->veto(context: ['nodeType' => 'hermiq.agent-step', 'runUuid' => 'run-1']);
+
+		$this->assertNotNull($reason);
+		$this->assertStringContainsString('could not be established', $reason);
+		$this->assertSame('hermiq.tenant-killswitch', $this->check()->getId());
+
+	}//end testOrganisationlessRunIsUnattributable()
+
+	/**
 	 * The registration listener contributes the check under its stable id.
 	 *
 	 * @return void

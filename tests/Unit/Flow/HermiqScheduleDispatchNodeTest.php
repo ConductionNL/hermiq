@@ -225,8 +225,96 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 	}//end testDispatchRunsOnceAndAnnotatesItems()
 
 	/**
-	 * A gate skip is a step success: runNow() records awaiting_approval on
-	 * the schedule and returns normally, and the item carries that status.
+	 * The palette surface answers, and validateConfig refuses a nameless
+	 * dispatch step at save time.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
+	 */
+	public function testPaletteSurfaceAndConfigValidation(): void {
+		$node = $this->node();
+
+		$this->assertSame('hermiq.schedule-dispatch', $node->getId());
+		$this->assertNotSame('', $node->getDisplayName());
+		$this->assertNotSame('', $node->getDescription());
+		$node->getIcon();
+		$this->assertTrue($node->isAvailableForScope(scope: 0));
+
+		$node->validateConfig(config: ['scheduleId' => 'sched-1']);
+
+		$this->expectException(UnexpectedValueException::class);
+		$node->validateConfig(config: []);
+
+	}//end testPaletteSurfaceAndConfigValidation()
+
+	/**
+	 * A missing schedule refuses AND switches the firing flow off, so an
+	 * orphaned mirror (schedule deleted in the UI) self-heals loudly.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
+	 */
+	public function testMissingScheduleRefusesAndDisablesTheFlow(): void {
+		$this->objectService->method('find')->willReturn(null);
+		$this->scheduleService->expects($this->never())->method('runNow');
+
+		$orphanFlow = new Flow();
+		$orphanFlow->setUuid('orphan-flow');
+		$orphanFlow->setEnabled(true);
+		$this->flowMapper->method('findByUuid')->willReturn($orphanFlow);
+
+		$updated = null;
+		$this->flowMapper->method('update')->willReturnCallback(
+			function (Flow $f) use (&$updated): Flow {
+				$updated = $f;
+				return $f;
+			}
+		);
+
+		try {
+			$this->node()->execute(
+				items: [['json' => []]],
+				config: ['scheduleId' => 'gone'],
+				context: ['payload' => ['flowId' => 'orphan-flow']]
+			);
+			$this->fail('A missing schedule must refuse.');
+		} catch (UnexpectedValueException $e) {
+			$this->assertStringContainsString('no longer exists', $e->getMessage());
+		}
+
+		$this->assertNotNull($updated);
+		$this->assertFalse($updated->getEnabled());
+
+	}//end testMissingScheduleRefusesAndDisablesTheFlow()
+
+	/**
+	 * When the post-run re-read fails, the item carries 'unknown' rather
+	 * than a stale or invented status.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
+	 */
+	public function testUnreadableRefreshAnswersUnknown(): void {
+		$schedule = $this->schedule(['enabled' => true, 'engineFlowId' => 'flow-1']);
+		$this->objectService->method('find')->willReturnOnConsecutiveCalls($schedule, null);
+		$this->scheduleService->expects($this->once())->method('runNow');
+
+		$out = $this->node()->execute(
+			items: [['json' => []]],
+			config: ['scheduleId' => 'sched-1'],
+			context: ['payload' => ['flowId' => 'flow-1']]
+		);
+
+		$this->assertSame('unknown', $out[0]['json']['scheduleStatus']);
+
+	}//end testUnreadableRefreshAnswersUnknown()
+
+	/**
+	 * A gate skip is a step success: runNow() records the gate status on the
+	 * schedule and returns normally, and the item carries that status.
 	 *
 	 * @return void
 	 *
