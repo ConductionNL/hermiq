@@ -296,7 +296,7 @@
 			"Approval": {
 				"slug": "approval",
 				"icon": "CheckDecagramOutline",
-				"version": "0.5.0",
+				"version": "0.6.0",
 				"title": "Approval",
 				"description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision).",
 				"type": "object",
@@ -427,6 +427,11 @@
 						"type": "string",
 						"title": "Reason",
 						"description": "Optional decision reason (typically supplied on denial)."
+					},
+					"taskUuid": {
+						"type": "string",
+						"title": "Mirror task",
+						"description": "Uuid of the OpenRegister task mirroring this pending approval (approval-task convergence, phase 1). Written back right after creation so a hermiq decision can release the mirror and the rollback command can find it. Empty or unset means the approval was never mirrored (older OpenRegister without the task surface) and is decidable only on hermiq's own surface."
 					},
 					"talkMessageId": {
 						"type": "string",

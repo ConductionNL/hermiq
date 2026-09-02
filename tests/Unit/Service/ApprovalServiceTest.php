@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
@@ -84,6 +85,13 @@ class ApprovalServiceTest extends TestCase {
 	private ContainerInterface $container;
 
 	/**
+	 * Mock ApprovalTaskBridge (approval-task convergence seam).
+	 *
+	 * @var ApprovalTaskBridge&MockObject
+	 */
+	private ApprovalTaskBridge $taskBridge;
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -103,6 +111,13 @@ class ApprovalServiceTest extends TestCase {
 			new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null)
 		);
 		$this->container = $this->createMock(ContainerInterface::class);
+
+		// Approval-task convergence: by default the bridge reports "unmirrored"
+		// (null task uuid), which is exactly the degraded-install branch every
+		// pre-convergence expectation in this file describes: no second save,
+		// no release write.
+		$this->taskBridge = $this->createMock(ApprovalTaskBridge::class);
+		$this->taskBridge->method('ensureTaskFor')->willReturn(null);
 
 	}//end setUp()
 
@@ -126,6 +141,7 @@ class ApprovalServiceTest extends TestCase {
 			new RedactionService($this->createMock(IConfig::class)),
 			$this->container,
 			$this->createMock(LoggerInterface::class),
+			$this->taskBridge,
 		);
 
 	}//end service()
@@ -1163,4 +1179,121 @@ class ApprovalServiceTest extends TestCase {
 		$this->service()->deny($approval, 'bob', 'not convincing');
 
 	}//end testDenySkillDraftSourceTypeReconcilesTheDraft()
+
+	/**
+	 * Approval-task convergence: creating a pending Approval mirrors it as an
+	 * OpenRegister task and writes the mirror's uuid back as `taskUuid` in a
+	 * second save (design.md Decision 2).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-every-pending-approval-is-mirrored-as-one-openregister-task
+	 */
+	public function testPendingApprovalCreationMirrorsAsTask(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				$entity = new ObjectEntity();
+				$entity->setUuid('appr-new');
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
+
+		$this->taskBridge = $this->createMock(ApprovalTaskBridge::class);
+		$this->taskBridge->expects($this->once())
+			->method('ensureTaskFor')
+			->willReturn('task-9');
+
+		$this->service()->ensurePendingApproval(
+			$this->schedule(['requiresApproval' => true, 'agentId' => 'agent-1', 'prompt' => 'p', 'reviewer' => 'bob', 'reviewerType' => 'user'])
+		);
+
+		$this->assertCount(2, $saved, 'The mirror uuid must be written back in a second save.');
+		$this->assertArrayNotHasKey('taskUuid', $saved[0], 'The first save predates the mirror.');
+		$this->assertSame('task-9', $saved[1]['taskUuid']);
+
+	}//end testPendingApprovalCreationMirrorsAsTask()
+
+	/**
+	 * Approval-task convergence: an unmirrored creation (bridge answers null,
+	 * the degraded-install branch) stays a single save with no taskUuid.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-every-pending-approval-is-mirrored-as-one-openregister-task
+	 */
+	public function testUnmirroredCreationStaysSingleSave(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				$entity = new ObjectEntity();
+				$entity->setUuid('appr-new');
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
+
+		$this->service()->ensurePendingApproval(
+			$this->schedule(['requiresApproval' => true, 'agentId' => 'agent-1', 'prompt' => 'p', 'reviewer' => 'bob', 'reviewerType' => 'user'])
+		);
+
+		$this->assertCount(1, $saved);
+		$this->assertArrayNotHasKey('taskUuid', $saved[0]);
+
+	}//end testUnmirroredCreationStaysSingleSave()
+
+	/**
+	 * Approval-task convergence: approve() releases the mirror BEFORE the
+	 * resume, so a resume crash cannot leave a decided approval in an inbox.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-hermiq-decision-releases-the-mirror
+	 */
+	public function testApproveReleasesTheMirror(): void {
+		$approval = $this->approval(['status' => 'pending', 'scheduleId' => 'sched-1', 'taskUuid' => 'task-9']);
+
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$this->objectService->method('find')->willReturn($this->schedule(['agentId' => 'agent-1']));
+
+		$scheduleService = $this->createMock(ScheduleService::class);
+		$scheduleService->method('runNow');
+		$this->container->method('get')->willReturn($scheduleService);
+
+		$this->taskBridge = $this->createMock(ApprovalTaskBridge::class);
+		$this->taskBridge->expects($this->once())
+			->method('releaseFor')
+			->with($approval, 'approved', 'bob');
+
+		$this->service()->approve($approval, 'bob');
+
+	}//end testApproveReleasesTheMirror()
+
+	/**
+	 * Approval-task convergence: deny() releases the mirror too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-hermiq-decision-releases-the-mirror
+	 */
+	public function testDenyReleasesTheMirror(): void {
+		$approval = $this->approval(['status' => 'pending', 'scheduleId' => 'sched-1', 'taskUuid' => 'task-9']);
+
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+		$this->taskBridge = $this->createMock(ApprovalTaskBridge::class);
+		$this->taskBridge->expects($this->once())
+			->method('releaseFor')
+			->with($approval, 'denied', 'bob');
+
+		$this->service()->deny($approval, 'bob', 'no');
+
+	}//end testDenyReleasesTheMirror()
 }//end class
