@@ -21,6 +21,7 @@ import CalculatorVariantOutline from 'vue-material-design-icons/CalculatorVarian
 import Calendar from 'vue-material-design-icons/Calendar.vue'
 import CashMultiple from 'vue-material-design-icons/CashMultiple.vue'
 import ChartBar from 'vue-material-design-icons/ChartBar.vue'
+import ChartBoxOutline from 'vue-material-design-icons/ChartBoxOutline.vue'
 import ChartLine from 'vue-material-design-icons/ChartLine.vue'
 import ChartTimelineVariant from 'vue-material-design-icons/ChartTimelineVariant.vue'
 import ChatOutline from 'vue-material-design-icons/ChatOutline.vue'
@@ -86,6 +87,7 @@ export default {
 	Calendar,
 	CashMultiple,
 	ChartBar,
+	ChartBoxOutline,
 	ChartLine,
 	ChartTimelineVariant,
 	ChatOutline,

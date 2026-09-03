@@ -1388,7 +1388,10 @@ OC.L10N.register(
         "Open the documentation to keep going": "Open de documentatie om verder te gaan",
         "Where the automation lives": "Waar de automatisering zit",
         "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.": "Flows zijn wat er gebeurt zonder dat iemand klikt: een agent die op een schema draait, een overdracht die afgaat zodra een taak klaar is. Hier leest en bewerkt u ze. U hoeft nu niets te bouwen.",
-        "Open Flows in the menu": "Open Flows in het menu"
+        "Open Flows in the menu": "Open Flows in het menu",
+        "Reports": "Rapportages",
+        "Pick a report to open it.": "Kies een rapport om het te openen.",
+        "What the agents did, and what a human still has to answer for.": "Wat de agents deden, en waar een mens nog verantwoording over aflegt."
     },
     "nplurals=2; plural=(n != 1);"
 )

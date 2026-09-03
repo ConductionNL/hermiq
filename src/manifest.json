@@ -126,12 +126,12 @@
 			"order": 96
 		},
 		{
-			"id": "AiOversightMenu",
-			"label": "AI oversight",
-			"icon": "ShieldCheckOutline",
-			"route": "AiOversight",
-			"section": "settings",
-			"order": 97
+			"id": "ReportsMenu",
+			"label": "Reports",
+			"icon": "ChartBoxOutline",
+			"route": "Reports",
+			"section": "footer",
+			"order": 95
 		}
 	],
 	"pages": [
@@ -1279,6 +1279,25 @@
 			"config": {
 				"app": "hermiq"
 			}
+		},
+		{
+			"id": "Reports",
+			"route": "/reports",
+			"type": "reports",
+			"title": "Reports",
+			"config": {
+				"description": "Pick a report to open it.",
+				"cards": [
+					{
+						"id": "AiOversight",
+						"label": "AI oversight",
+						"description": "What the agents did, and what a human still has to answer for.",
+						"icon": "ShieldCheckOutline",
+						"route": "AiOversight"
+					}
+				]
+			},
+			"_note": "ADR-112 / ADR-114 Decision 3. Nothing is invented: AI oversight already existed and was an entry in the SETTINGS foldout. That is where configuration lives (ADR-044 Decision 3), and oversight is not configuration — it is a reading of what the agents did, which is what a report is. The page is untouched and stays routable at /ai-oversight, and dossiq deep-links it as an ADR-110 integrations entry, so the route had to survive. Guardrail policy, the algorithm register and Compliance stay in the foldout: those ARE configuration."
 		},
 		{
 			"id": "AiOversight",
