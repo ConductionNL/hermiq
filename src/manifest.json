@@ -31,7 +31,8 @@
 			"label": "Store",
 			"icon": "StoreOutline",
 			"route": "Store",
-			"order": 11
+			"order": 92,
+			"section": "footer"
 		},
 		{
 			"id": "AgentMemory",
