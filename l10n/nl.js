@@ -1,6 +1,14 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Load example data?": "Voorbeeldgegevens laden?",
+        "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install.": "Voorbeeldgegevens vullen de lijsten, detailpagina’s en dashboards, zodat je de app meteen ziet werken. Kies \"Geen\" op een productieomgeving.",
+        "Load the example data": "Laad de voorbeeldgegevens",
+        "Loads what you picked. The data is obviously sample data, it is safe to run more than once, and you can delete it afterwards.": "Laadt wat je koos. De gegevens zijn herkenbaar voorbeeldgegevens, je kunt dit meer dan een keer uitvoeren en je kunt ze daarna verwijderen.",
+        "None, I will set this up myself": "Geen, ik richt dit zelf in",
+        "Nothing is imported. You start with an empty app and add your own data.": "Er wordt niets geïmporteerd. Je begint met een lege app en voegt zelf gegevens toe.",
+        "Example data": "Voorbeeldgegevens",
+        "Sample values for every schema this app supplies, generated from the schemas themselves. It shows the lists, detail pages and dashboards working rather than telling a story. Safe to run more than once, and you can delete it afterwards.": "Voorbeeldwaarden voor elk schema dat deze app levert, gegenereerd uit de schema’s zelf. Het laat de lijsten, detailpagina’s en dashboards werkend zien in plaats van een verhaal te vertellen. Veilig om vaker uit te voeren, en je kunt het daarna verwijderen.",
         "Demo data (optional)": "Demovoorbeelddata (optioneel)",
         "Load a small example dataset of agents, skills and conversations, so the lists and detail pages show a working product straight away. The data is obviously sample data, it is safe to run more than once, and it can be removed afterwards. Skip this on a production install.": "Laad een kleine voorbeeldset met agents, skills en gesprekken, zodat de lijsten en detailpagina's meteen een werkend product laten zien. De data is duidelijk voorbeelddata, veilig om meerdere keren uit te voeren en achteraf te verwijderen. Sla dit over op een productie-installatie.",
         "%n step": ["%n stap","%n stappen"],
@@ -1388,7 +1396,10 @@ OC.L10N.register(
         "Open the documentation to keep going": "Open de documentatie om verder te gaan",
         "Where the automation lives": "Waar de automatisering zit",
         "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.": "Flows zijn wat er gebeurt zonder dat iemand klikt: een agent die op een schema draait, een overdracht die afgaat zodra een taak klaar is. Hier leest en bewerkt u ze. U hoeft nu niets te bouwen.",
-        "Open Flows in the menu": "Open Flows in het menu"
+        "Open Flows in the menu": "Open Flows in het menu",
+        "Reports": "Rapportages",
+        "Pick a report to open it.": "Kies een rapport om het te openen.",
+        "What the agents did, and what a human still has to answer for.": "Wat de agents deden, en waar een mens nog verantwoording over aflegt."
     },
     "nplurals=2; plural=(n != 1);"
 )

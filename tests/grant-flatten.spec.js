@@ -65,7 +65,7 @@ function check(label, stored, want) {
 	try {
 		assert.deepStrictEqual(got.slice().sort(), want.slice().sort())
 		console.log(`  ok   ${label}`)
-	} catch (error) {
+	} catch {
 		failures++
 		console.log(`  FAIL ${label}`)
 		console.log(`       want ${JSON.stringify(want)}`)

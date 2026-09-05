@@ -21,7 +21,9 @@
  * never collide.
  */
 
-import { type APIRequestContext, type Page, expect } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
+
+import { expect } from '@playwright/test'
 
 /** Shared family prefix for ALL spec-coverage artefacts (every run). */
 export const TEST_FAMILY = 'e2espec-'
@@ -76,7 +78,6 @@ export async function appRoot(page: Page): Promise<string> {
 	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 
 	const base = await page.evaluate(() => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const oc = (window as any).OC
 		if (typeof oc?.generateUrl === 'function') {
 			return String(oc.generateUrl('/apps/hermiq'))
@@ -165,7 +166,6 @@ export async function harvestToken(page: Page): Promise<string> {
 	// and this only needs a hermiq page to read the token off — not the router.
 	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 	const token = await page.evaluate(
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		() =>
 			(window as any).OC?.requestToken
 			|| document.head
@@ -356,12 +356,10 @@ export async function cleanupFamily(
 		Array.isArray(body) ? body : (body.results ?? body.data ?? [])
 	) as Array<Record<string, unknown>>
 	for (const obj of list) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const name = String(obj.name ?? (obj as any)['@self']?.name ?? '')
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		const id = String(obj.id ?? (obj as any)['@self']?.id ?? '')
 		if (name.startsWith(TEST_FAMILY) && id !== '') {
-			// eslint-disable-next-line no-await-in-loop
 			await deleteObject(req, token, schema, id)
 		}
 	}
@@ -442,9 +440,9 @@ export function collectHermiqConsoleErrors(page: Page): string[] {
 		) {
 			return
 		}
-		if ((msg.location()?.url || '').includes('/api/chat/health')) {
-			return
-		}
+		// No chat/health carve-out any more: the probe answers 200
+		// {status:"unconfigured"} on a providerless instance, so a console
+		// error from it means the app is broken and belongs in the sweep.
 		const source = `${msg.location()?.url || ''} ${text}`
 		const foreignApp =
 			source.match(/\/custom_apps\/([^/]+)\//)?.[1]

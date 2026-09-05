@@ -10,11 +10,11 @@
  * ---------------------------------------
  * A leaf has TWO faces (ADR-019 AD-11/AD-13, ADR-066 decisions 4 and 7):
  *
- *   * a SERVER face — either a `LeafDescriptor` contributed through
+ *   a SERVER face — either a `LeafDescriptor` contributed through
  *     `RegisterLeafProvidersEvent`, or an `IntegrationProvider` registered on
  *     OpenRegister's `IntegrationRegistry`. This face is what the
  *     `openregister.integrations.leaves` capability advertises.
- *   * a JS face — a `registerIntegration({ id, … })` call that mounts the
+ *   a JS face — a `registerIntegration({ id, … })` call that mounts the
  *     render pair on `window.OCA.OpenRegister.integrations`.
  *
  * The two are correlated ONLY by a shared `id`. Nothing at runtime notices when
@@ -132,7 +132,7 @@ function collectFiles(root, test, maxDepth = 10) {
 		let entries
 		try {
 			entries = fs.readdirSync(dir, { withFileTypes: true })
-		} catch (e) {
+		} catch {
 			return
 		}
 		for (const ent of entries) {
@@ -289,19 +289,15 @@ function resolvePhp(expr, localConsts, globalConsts) {
 	}
 	m = /^(?:self|static)::([A-Z0-9_]+)$/.exec(e)
 	if (m !== null) {
-		return Object.prototype.hasOwnProperty.call(localConsts, m[1])
-			? localConsts[m[1]]
-			: null
+		return Object.hasOwn(localConsts, m[1]) ? localConsts[m[1]] : null
 	}
 	m = /^([A-Za-z_][A-Za-z0-9_]*)::([A-Z0-9_]+)$/.exec(e)
 	if (m !== null) {
 		const key = `${m[1]}::${m[2]}`
-		if (Object.prototype.hasOwnProperty.call(FOREIGN_CONSTANTS, key) === true) {
+		if (Object.hasOwn(FOREIGN_CONSTANTS, key) === true) {
 			return FOREIGN_CONSTANTS[key]
 		}
-		return Object.prototype.hasOwnProperty.call(globalConsts, key)
-			? globalConsts[key]
-			: null
+		return Object.hasOwn(globalConsts, key) ? globalConsts[key] : null
 	}
 	if (e.startsWith('[') === true) {
 		const members = splitTopLevel(balanced(e, 0))
@@ -351,8 +347,8 @@ function phpLocalConsts(src) {
  *
  * Two shapes count as a server face, because both are how a leaf reaches the
  * `openregister.integrations.leaves` capability:
- *   * `new LeafDescriptor(…)` — the ADR-066 collect-event contribution;
- *   * an `IntegrationProvider` (extends `AbstractIntegrationProvider` or
+ *   `new LeafDescriptor(…)` — the ADR-066 collect-event contribution;
+ *   an `IntegrationProvider` (extends `AbstractIntegrationProvider` or
  *     implements `IntegrationProviderInterface`) whose `getId()` returns a
  *     literal — the `IntegrationRegistry::addProvider()` path.
  *
@@ -371,7 +367,7 @@ function collectServerFaces() {
 		let src
 		try {
 			src = fs.readFileSync(file, 'utf8')
-		} catch (e) {
+		} catch {
 			continue
 		}
 		sources.set(file, src)
@@ -504,7 +500,7 @@ function resolveJs(expr, locals) {
 	}
 	if (
 		/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(e) === true
-		&& Object.prototype.hasOwnProperty.call(locals, e) === true
+		&& Object.hasOwn(locals, e) === true
 	) {
 		return locals[e]
 	}
@@ -588,7 +584,7 @@ function collectJsRegistrations() {
 		let src
 		try {
 			src = fs.readFileSync(file, 'utf8')
-		} catch (e) {
+		} catch {
 			continue
 		}
 		// BOTH SUPPORTED REGISTRATION APIs, NOT ONE.
@@ -737,7 +733,7 @@ function collectOrSchemas() {
 		let doc
 		try {
 			doc = JSON.parse(fs.readFileSync(file, 'utf8'))
-		} catch (e) {
+		} catch {
 			continue
 		}
 		const declared = doc && doc.components && doc.components.schemas
@@ -959,7 +955,7 @@ function main() {
 				continue
 			}
 			counts.R6++
-			if (Object.prototype.hasOwnProperty.call(schemas, slug) === false) {
+			if (Object.hasOwn(schemas, slug) === false) {
 				failures.push(
 					`✗ [R6 offlineConfig] leaf offlineConfig.${key} = "${slug}" (${r.file}) names a `
 						+ `schema this repo does not declare in lib/Settings/** — the leaf would query a `
@@ -996,12 +992,10 @@ function main() {
 		.map(([rule, n]) => `${rule}:${n}`)
 		.join(' ')
 	if (failures.length === 0) {
-		// eslint-disable-next-line no-console
 		console.log(
 			`✓ integration parity: ${scope} — all rules pass (assertions run per rule: ${perRule})`,
 		)
 		if (Object.values(counts).every((n) => n === 0) === true) {
-			// eslint-disable-next-line no-console
 			console.error(
 				'✗ integration parity: every rule had ZERO subject matter, yet gate-24 selected this '
 					+ 'repo as one that registers leaves. That contradiction means this checker failed to '
@@ -1014,15 +1008,14 @@ function main() {
 	// The header carries no `✗` on purpose: gate-24 counts violations by
 	// grepping `^✗` in this log, so every violation — and only a violation —
 	// starts a line with it.
-	// eslint-disable-next-line no-console
+
 	console.error(
 		`integration parity gate FAILED — ${failures.length} violation(s) over ${scope}:`,
 	)
 	for (const f of failures) {
-		// eslint-disable-next-line no-console
 		console.error(f)
 	}
-	// eslint-disable-next-line no-console
+
 	console.error(`\nAssertions run per rule: ${perRule}`)
 	process.exit(1)
 }

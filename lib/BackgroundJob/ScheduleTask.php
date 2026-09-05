@@ -26,10 +26,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
+use OCA\Hermiq\Service\Schedule\ScheduleFlowBridge;
 use OCA\Hermiq\Service\ScheduleService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
 use OCP\BackgroundJob\TimedJob;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Background job that dispatches due Hermiq schedules.
@@ -50,12 +53,19 @@ class ScheduleTask extends TimedJob {
 	 *
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
 	 * @param ScheduleService $scheduleService Service that dispatches due schedules.
+	 * @param ScheduleFlowBridge $flowBridge Arms eligible schedules on the engine's
+	 *                                       schedule trigger before each tick
+	 *                                       (schedules-onto-engine-triggers).
+	 * @param LoggerInterface $logger Isolates a bridge failure from the tick.
 	 *
 	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
 	public function __construct(
 		ITimeFactory $time,
 		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleFlowBridge $flowBridge,
+		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);
 
@@ -85,8 +95,22 @@ class ScheduleTask extends TimedJob {
 	 * @phpstan-param mixed $argument
 	 *
 	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
 	public function run(mixed $argument): void {
+		// Arm first: a schedule created since the last tick delegates its clock
+		// to the engine within one poll interval, and a mirrored schedule whose
+		// timing drifted is refreshed. Failure-isolated on purpose — a bridge
+		// error must never block the tick, whose schedules still fire locally.
+		try {
+			$this->flowBridge->syncAll();
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'[hermiq] Schedule flow sync failed; this tick dispatches locally: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
 		$this->scheduleService->run();
 
 	}//end run()

@@ -1,6 +1,14 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Load example data?": "Load example data?",
+        "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install.": "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install.",
+        "Load the example data": "Load the example data",
+        "Loads what you picked. The data is obviously sample data, it is safe to run more than once, and you can delete it afterwards.": "Loads what you picked. The data is obviously sample data, it is safe to run more than once, and you can delete it afterwards.",
+        "None, I will set this up myself": "None, I will set this up myself",
+        "Nothing is imported. You start with an empty app and add your own data.": "Nothing is imported. You start with an empty app and add your own data.",
+        "Example data": "Example data",
+        "Sample values for every schema this app supplies, generated from the schemas themselves. It shows the lists, detail pages and dashboards working rather than telling a story. Safe to run more than once, and you can delete it afterwards.": "Sample values for every schema this app supplies, generated from the schemas themselves. It shows the lists, detail pages and dashboards working rather than telling a story. Safe to run more than once, and you can delete it afterwards.",
         "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.": "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.",
         "%n case": "%n case",
         "%n cases": "%n cases",
@@ -1307,7 +1315,10 @@ OC.L10N.register(
         "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.": "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.",
         "Where the automation lives": "Where the automation lives",
         "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.": "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.",
-        "Open Flows in the menu": "Open Flows in the menu"
+        "Open Flows in the menu": "Open Flows in the menu",
+        "Reports": "Reports",
+        "Pick a report to open it.": "Pick a report to open it.",
+        "What the agents did, and what a human still has to answer for.": "What the agents did, and what a human still has to answer for."
     },
     "nplurals=2; plural=(n != 1);"
 )

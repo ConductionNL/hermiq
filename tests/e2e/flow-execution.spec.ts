@@ -38,7 +38,9 @@
  * @spec openspec/specs/flow-canvas/spec.md
  */
 
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 
 const NC_USER = process.env.NC_USER || 'admin'
 const NC_PASS = process.env.NC_PASS || 'admin'
@@ -337,7 +339,7 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		// reads the row mid-flight and reports `running` as a failure — against
 		// an engine that is working.
 		const terminal = ['stopped', 'completed', 'failed']
-		let runs: Record<string, unknown> | null = null
+		let runs: Record<string, unknown> | null
 		let list: Array<Record<string, unknown>> = []
 		let latest: Record<string, unknown> | undefined
 

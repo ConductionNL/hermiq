@@ -35,11 +35,19 @@
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const ESM_DIR = join(HERE, '..', 'node_modules', '@opengemeenten', 'iconset-web-component', 'dist', 'esm')
+const ESM_DIR = join(
+	HERE,
+	'..',
+	'node_modules',
+	'@opengemeenten',
+	'iconset-web-component',
+	'dist',
+	'esm',
+)
 const OUT = join(HERE, '..', 'src', 'icons', 'openGemeentenIcons.js')
 
 const ENTRY = /^opengemeenten-icon-(.+)\.entry\.js$/
@@ -100,5 +108,7 @@ writeFileSync(OUT, header + JSON.stringify(icons, null, '\t') + '\n')
 
 process.stdout.write(`Wrote ${icons.length} OpenGemeenten icons to ${OUT}\n`)
 if (skipped.length > 0) {
-	process.stdout.write(`Skipped ${skipped.length} (no single flat path): ${skipped.join(', ')}\n`)
+	process.stdout.write(
+		`Skipped ${skipped.length} (no single flat path): ${skipped.join(', ')}\n`,
+	)
 }

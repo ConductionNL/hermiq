@@ -60,7 +60,7 @@ function check(id, taxonomy, want) {
 		console.log(
 			`  ok   ${id}  ->  ${got.subject} / ${got.specialLabel ?? got.verb}`,
 		)
-	} catch (error) {
+	} catch {
 		failures++
 		console.log(`  FAIL ${id}`)
 		console.log(`       want ${JSON.stringify(want)}`)

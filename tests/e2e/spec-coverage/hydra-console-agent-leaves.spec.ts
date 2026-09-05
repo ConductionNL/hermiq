@@ -36,8 +36,10 @@
  *       npx playwright test --project chromium hydra-console-agent-leaves
  */
 
-import { test, expect, type APIRequestContext } from '@playwright/test'
-import { harvestToken, jsonHeaders, OR_API } from './_fixtures'
+import type { APIRequestContext } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
+import { harvestToken, jsonHeaders, OR_API } from './_fixtures.ts'
 
 /** The seeded triage agent's name — also its idempotency key (SeedHydraTriageAgent). */
 const AGENT_NAME = 'Hydra Triage'
@@ -66,7 +68,6 @@ async function objectsNamed(
 	token: string,
 	schema: string,
 	name: string,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[]> {
 	// `_limit`, underscore-prefixed: OpenRegister control params require the
 	// prefix — a bare `limit` is treated as a PROPERTY filter and silently
@@ -79,7 +80,7 @@ async function objectsNamed(
 	const rows = Array.isArray(body) ? body : (body.results ?? body.data ?? [])
 	// OR returns an ENVELOPE ({results,…}) on most surfaces, a bare array on some —
 	// normalise rather than assuming, then match the seeded name exactly.
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 	return rows.filter((row: any) => (row?.name ?? row?.object?.name) === name)
 }
 
@@ -363,7 +364,7 @@ test.describe('hydra-console-agent-leaves', () => {
 		})
 		const body = registers.ok() ? await registers.json() : {}
 		const rows = Array.isArray(body) ? body : (body.results ?? [])
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		const hydra = rows.find((row: any) => row?.slug === HYDRA_REGISTER)
 
 		test.skip(
