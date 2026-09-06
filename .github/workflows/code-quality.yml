@@ -276,7 +276,19 @@ jobs:
       # renders the English source inside an otherwise translated form, silently.
       # The fleet had 30,459 such strings, so this records the current count and
       # fails only when it GROWS — burning it down stays an ordinary PR.
-      frontend-checks: '["check:specs", "check:manifest", "test:l10n", "format", "check:l10n-js", "check:schema-l10n"]'
+      # `check:bundle-budget` is `npm run build && node tests/companion-bundle.spec.js`
+      # as ONE script, because each leg here is a fresh checkout + `npm ci` and the
+      # check reads built output. Listing the bare check would have failed on a
+      # missing js/ every run.
+      #
+      # 🔴 IT WAS RED FOR MONTHS AND NOTHING RAN IT. The budget guard was written,
+      # committed, and never added to this list. Measured on this tree before adding
+      # it: 531 KB per page against its own 400 KB budget, with the eager half at
+      # 356 KB against 100 KB — because src/companion.js imported the component
+      # library's stylesheet and style-loader inlined all 801 KB of it into a script
+      # attached to EVERY page in the instance. A check that exists, is red, and runs
+      # nowhere is worth less than no check, because it reads as coverage.
+      frontend-checks: '["check:specs", "check:manifest", "test:l10n", "format", "check:l10n-js", "check:schema-l10n", "check:bundle-budget"]'
 
       # ── Coverage ratchet ─────────────────────────────────────────────────
       # `enable-coverage-guard` defaults to FALSE, which is why both

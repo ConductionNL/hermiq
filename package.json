@@ -7,7 +7,7 @@
     "npm": "^11.0.0"
   },
   "scripts": {
-    "build": "NODE_ENV=production webpack --config webpack.config.js --progress",
+    "build": "node scripts/build-companion-css.js && NODE_ENV=production webpack --config webpack.config.js --progress",
     "dev": "NODE_ENV=development webpack --config webpack.config.js --progress",
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
     "lint": "eslint src tests scripts",
@@ -31,7 +31,9 @@
     "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:tool-taxonomy && npm run check:grant-flatten",
     "prepare": "git config core.hooksPath .githooks || true",
     "check:companion-bundle": "node tests/companion-bundle.spec.js",
-    "icons:opengemeenten": "node scripts/generate-opengemeenten-icons.mjs"
+    "icons:opengemeenten": "node scripts/generate-opengemeenten-icons.mjs",
+    "companion-css:build": "node scripts/build-companion-css.js",
+    "check:bundle-budget": "npm run build && node tests/companion-bundle.spec.js"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"
