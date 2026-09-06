@@ -45,4 +45,18 @@ class SchemaMapper {
 	): Schema {
 		return new Schema();
 	}//end find()
+
+	/**
+	 * Resolve a schema by slug within one app's ownership — mirrors the real
+	 * mapper's signature (openregister lib/Db/SchemaMapper.php), used by the
+	 * agentflow retirement prune.
+	 *
+	 * @param string $slug The schema slug.
+	 * @param string $application The owning app id.
+	 *
+	 * @return Schema|null The schema, or null when the app owns no such slug.
+	 */
+	public function findByApplicationAndSlug(string $slug, string $application): ?Schema {
+		return null;
+	}//end findByApplicationAndSlug()
 }//end class

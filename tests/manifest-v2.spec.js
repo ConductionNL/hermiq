@@ -76,8 +76,8 @@ function loadJson(file) {
 }
 
 function loadAjv() {
-	let Ajv2020 = null
-	let addFormats = null
+	let Ajv2020
+	let addFormats
 	try {
 		Ajv2020 = require('ajv/dist/2020').default || require('ajv/dist/2020')
 	} catch (_) {
@@ -128,7 +128,7 @@ function structuralLintV2(manifest) {
 		if (!page || typeof page !== 'object') continue
 
 		// 3. No top-level layout[] (v1 remnant)
-		if (Object.prototype.hasOwnProperty.call(page, 'layout')) {
+		if (Object.hasOwn(page, 'layout')) {
 			errors.push(
 				`pages[${i}] (id="${page.id}"): top-level layout[] is not allowed in v2 — use widgets[] with gridX/gridY`,
 			)

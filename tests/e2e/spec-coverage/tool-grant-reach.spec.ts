@@ -31,24 +31,21 @@
  * Covers openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md
  */
 
+import type { APIRequestContext } from '@playwright/test'
+import type { SecondUser } from './_fixtures.ts'
+
+import { expect, request as playwrightRequest, test } from '@playwright/test'
 import {
-	test,
-	expect,
-	request as playwrightRequest,
-	type APIRequestContext,
-} from '@playwright/test'
-import {
-	OR_API,
-	TEST_PREFIX,
 	assertSecondUserAuthenticates,
 	cleanupFamily,
 	createSecondUser,
 	deleteSecondUser,
 	harvestToken,
 	jsonHeaders,
+	OR_API,
 	seedAgent,
-	type SecondUser,
-} from './_fixtures'
+	TEST_PREFIX,
+} from './_fixtures.ts'
 
 /** The closed reach vocabulary, ordered least to most far-reaching. */
 const REACHES = ['self', 'user', 'instance', 'external']
@@ -149,20 +146,19 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 			'The catalogue must not be empty with both apps installed',
 		).toBeGreaterThan(0)
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const missing = tools.filter(
 			(t: any) => typeof t?.reach !== 'string' || t.reach === '',
 		)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		expect(
 			missing.map((t: any) => t.id),
 			'Every entry must carry a reach',
 		).toEqual([])
 
 		const outOfVocabulary = tools
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 			.filter((t: any) => !REACHES.includes(t.reach))
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 			.map((t: any) => `${t.id}=${t.reach}`)
 		expect(
 			outOfVocabulary,
@@ -172,12 +168,12 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// 🔴 THE CROSS-APP ASSERTION. The two checks above would both PASS if the
 		// bridge were dropping `reach` — every entry would still carry one, and
 		// `external` is in the vocabulary. Only the distribution gives it away.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		const byId = new Map(tools.map((t: any) => [t.id, t]))
 		for (const id of NATIVE_READS) {
 			const tool = byId.get(id)
 			expect(tool, `${id} must be present in the catalogue`).toBeTruthy()
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 			expect(
 				(tool as any).reach,
 				`${id} must resolve to 'user'. Getting 'external' means the reach `
@@ -187,7 +183,7 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		}
 
 		// Same `read` scope, different reach — the axis earning its existence.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		const webFetch = byId.get('hermiq.webFetch') as any
 		expect(webFetch, 'hermiq.webFetch must be present').toBeTruthy()
 		expect(webFetch.reach).toBe('external')

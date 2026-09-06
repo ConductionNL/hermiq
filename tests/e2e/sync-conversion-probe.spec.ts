@@ -20,7 +20,9 @@
  * Run: NEXTCLOUD_URL=http://localhost:8091 npx playwright test tests/e2e/sync-conversion-probe.spec.ts
  */
 
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 
 const NC_USER = process.env.NC_USER || 'admin'
 const NC_PASS = process.env.NC_PASS || 'admin'

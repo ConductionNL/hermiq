@@ -126,7 +126,9 @@ function parseRegistry(srcPath) {
 	try {
 		vm.runInNewContext(src, sandbox)
 	} catch (err) {
-		throw new Error(`Failed to evaluate registry.js: ${err.message}`)
+		throw new Error(`Failed to evaluate registry.js: ${err.message}`, {
+			cause: err,
+		})
 	}
 	return sandbox.module.exports
 }

@@ -29,16 +29,16 @@
  * Seeding: OpenRegister objects API via _fixtures (register 'hermiq').
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import {
-	TEST_PREFIX,
 	appRoot,
 	cleanupFamily,
 	dismissTour,
 	harvestToken,
 	resolveRegisterSchema,
 	seedAgent,
-} from './_fixtures'
+	TEST_PREFIX,
+} from './_fixtures.ts'
 
 /*
  * 🔴 Every navigation below goes through `appRoot(page)` rather than a literal

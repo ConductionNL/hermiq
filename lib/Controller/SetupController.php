@@ -79,7 +79,20 @@ class SetupController extends Controller {
 	 *
 	 * @var array<int, string>
 	 */
-	private const WRITABLE_KEYS = ['llmendpoint'];
+	private const WRITABLE_KEYS = ['llmendpoint', self::DATASET_KEY];
+
+	/**
+	 * App-config key holding the dataset the operator picked.
+	 *
+	 * The wizard's `choice` step writes it through `POST /api/setup/config`, and
+	 * the `run-action` step that follows reads it back. Two steps rather than
+	 * one because `CnSetupWizard::runAction()` posts to
+	 * `/api/setup/action/{action}` with no body: an action cannot carry the
+	 * answer, so the answer has to be stored before the action runs.
+	 *
+	 * @var string
+	 */
+	private const DATASET_KEY = 'demo_dataset';
 
 	/**
 	 * Default Ollama endpoint when the admin has not configured one yet.
@@ -140,6 +153,7 @@ class SetupController extends Controller {
 	public function status(): JSONResponse {
 		$llmTested = $this->config(key: 'setup_llm_tested') === '1';
 		$demoDecided = $this->appConfig->getValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, '') !== '';
+		$pickedDataset = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
 		// `completed` stays the REQUIRED step alone. Demo data is optional, so
 		// it must not gate the app — it only needs to be reportable, so the
 		// wizard can stop asking once it has an answer.
@@ -153,13 +167,22 @@ class SetupController extends Controller {
 			data: [
 				'version' => self::SETUP_VERSION,
 				'completed' => $completed,
+				// The choice step reads its options from here: it declares
+				// `optionsSource: datasets` and no options of its own, so a
+				// dataset missing from this list is a dataset nobody can pick.
+				'datasets' => $this->demoDataService->listChoices(),
 				'steps' => [
 					// DEALT WITH, not "objects exist" — see DEMO_DECIDED_KEY.
 					// A step the wizard can never mark done keeps the dialog
 					// open over every page, which since nextcloud-vue 2.21 is
 					// enough on its own: an OUTSTANDING OPTIONAL step opens the
 					// wizard (nextcloud-vue#806).
-					'demo-data' => ['done' => $demoDecided],
+					'demo-data' => ['done' => ($pickedDataset !== '')],
+					// "None" is an ANSWER, so the load step is finished the
+					// moment it is chosen: there is nothing left to run.
+					'load-demo-data' => [
+						'done' => ($demoDecided === true || $pickedDataset === DemoDataService::NONE_DATASET),
+					],
 					'test-llm' => ['done' => $llmTested],
 				],
 			]
@@ -182,6 +205,27 @@ class SetupController extends Controller {
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function saveConfig(): JSONResponse {
+		// 🔴 THE DATASET IS VALIDATED BEFORE IT IS STORED. The allow-list above
+		// keeps this endpoint from writing arbitrary keys; it says nothing
+		// about the VALUE. The load step reads this one back and hands it to
+		// the importer, so an unknown value would surface one step later as a
+		// failed import with no clue why.
+		$dataset = $this->request->getParam(self::DATASET_KEY);
+		if ($dataset !== null) {
+			$named = 'that';
+			if (is_scalar($dataset) === true) {
+				$named = (string)$dataset;
+			}
+
+			$known = array_column($this->demoDataService->listChoices(), 'id');
+			if (in_array($named, $known, true) === false) {
+				return new JSONResponse(
+					data: ['success' => false, 'message' => 'No dataset is called "' . $named . '".'],
+					statusCode: Http::STATUS_BAD_REQUEST,
+				);
+			}
+		}
+
 		foreach ($this->request->getParams() as $key => $value) {
 			if (in_array($key, self::WRITABLE_KEYS, true) === false) {
 				continue;
@@ -222,16 +266,24 @@ class SetupController extends Controller {
 			return $this->testLlm();
 		}
 
-		if ($actionId === 'install-demo-data') {
-			return $this->installDemoData();
+		// `install-demo-data` is the id the step used before it asked WHICH
+		// dataset, and it still means "import the one this app ships". Kept so
+		// an older manifest, a runbook or a script that posts it keeps working.
+		if ($actionId === 'load-demo-data' || $actionId === 'install-demo-data') {
+			return $this->loadDataset(actionId: $actionId);
 		}
 
 		// DECLINING IS AN ANSWER. Without this the wizard re-offers the import
 		// on every visit, so "no thanks" is not expressible and the step never
 		// closes — which is also what keeps the dialog over the page.
+		//
+		// 🔴 AND IT ANSWERS *BOTH* STEPS now that the question is a choice
+		// followed by a run-action: closing only the second leaves the first
+		// outstanding, and that is enough to keep the wizard open.
 		if ($actionId === 'skip-demo-data') {
+			$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
 			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
-			return new JSONResponse(data: ['success' => true, 'message' => 'Demo data skipped.']);
+			return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
 		}
 
 		return new JSONResponse(
@@ -242,17 +294,43 @@ class SetupController extends Controller {
 	}//end runAction()
 
 	/**
-	 * Import the shipped demo dataset.
+	 * Import the dataset the operator picked in the previous step.
 	 *
 	 * Reports the FAILURE, rather than a quiet success: an operator who asked
 	 * for demo data and got none must be told, and `DemoDataService::install()`
 	 * throws instead of returning an empty result for exactly that reason.
 	 *
+	 * @param string $actionId The action that asked, which decides whether an
+	 *                         unanswered choice is refused or means the shipped set.
+	 *
 	 * @return JSONResponse `{ success, message }`.
 	 *
 	 * @spec exclude First-time-setup action dispatch; no behavioural spec.
 	 */
-	private function installDemoData(): JSONResponse {
+	private function loadDataset(string $actionId): JSONResponse {
+		$picked = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
+
+		// The legacy id carries no answer, so it means the shipped dataset. A
+		// caller that posts it has said which one by posting it.
+		if ($actionId === 'install-demo-data' && $picked === '') {
+			$picked = DemoDataService::DEMO_DATASET;
+		}
+
+		// 🔴 NO SILENT DEFAULT. Importing here because the operator clicked Run
+		// one step early would plant example objects nobody asked for.
+		if ($picked === '') {
+			return new JSONResponse(
+				data: ['success' => false, 'message' => 'Pick a dataset first.'],
+				statusCode: Http::STATUS_BAD_REQUEST,
+			);
+		}
+
+		if ($picked === DemoDataService::NONE_DATASET) {
+			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
+
+			return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
+		}
+
 		try {
 			$imported = $this->demoDataService->install();
 		} catch (\Throwable $e) {
@@ -275,7 +353,7 @@ class SetupController extends Controller {
 			]
 		);
 
-	}//end installDemoData()
+	}//end loadDataset()
 
 	/**
 	 * Probe the configured LLM endpoint (Ollama /api/tags), record the first
