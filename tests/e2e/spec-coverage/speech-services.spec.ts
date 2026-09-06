@@ -545,6 +545,25 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 		page,
 		request,
 	}) => {
+		// 🔴 THE BUDGET, not the save path. This test walks the whole real UI —
+		// navigate, dismiss the setup wizard, wait up to 30s for the detail page,
+		// open the form, assert four labels, drive two pickers, save, wait up to 20s
+		// for the modal to close — and only THEN polls the API for up to 20s. Those
+		// waits sum past the config's 90s per-test budget on a loaded box, and when
+		// the budget goes first the poll reports the value it last read: `auto`, the
+		// pre-save default. That renders as `Expected "local", Received "auto"`,
+		// which reads as a broken save path and is not one.
+		//
+		// Verified by hand against this exact build before raising the number:
+		// selecting "On this instance" in the Dictation picker and saving stores
+		// `voiceInputEngine: "local"`. The write is correct; the test was not given
+		// long enough to see it. The test's own note above the poll records an
+		// earlier one-pass-one-fail pair, which was this same budget, not the click.
+		//
+		// 180s leaves the poll its full 20s after the slowest realistic walk, so a
+		// failure here once again means the value really was not stored.
+		test.setTimeout(180_000)
+
 		// Entirely real: no route interception in this test at all.
 		const token = await harvestToken(page)
 		await resolveRegisterSchema(request, token, 'agent')

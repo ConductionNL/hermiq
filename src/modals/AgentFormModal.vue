@@ -45,31 +45,57 @@
 				{{ error }}
 			</NcNoteCard>
 
-			<!-- Vue 3 / @nextcloud/vue 9: v-model (modelValue) — the old Vue-2
+			<!-- 🔴 THE FIELDS DO NOT EXIST UNTIL THE AGENT THEY EDIT DOES.
+			     On AgentDetail's "Edit agent" action there is no `agent` prop, so
+			     the modal self-fetches from the route id — and it was rendering the
+			     editable, BLANK form for the whole of that round trip. Two things
+			     went wrong in that window, both silently:
+
+			       1. Anything the user changed was thrown away. `resetForm()` runs
+			          when the fetch resolves and REPLACES `this.form` wholesale, so
+			          a picker set a moment earlier reverted with no message. Caught
+			          by speech-services.spec.ts, which set Dictation to "On this
+			          instance", saved, and read back `auto` — a wrong stored value,
+			          which reads as a broken save path and was not one. Measured:
+			          waiting 5s before touching the picker made the same steps
+			          store `local` every time.
+			       2. An existing agent showed empty fields, so the form said the
+			          agent had no name for as long as the fetch took.
+
+			     Rendering nothing until it is seeded fixes both. Create mode is
+			     unaffected: with no route id `loadRouteAgent()` returns without
+			     awaiting anything, so the flag is never true long enough to see. -->
+			<div v-if="loadingAgent" class="agent-form__loading">
+				<NcLoadingIcon :size="32" />
+				<p>{{ t('hermiq', 'Loading the agent…') }}</p>
+			</div>
+
+			<template v-else>
+				<!-- Vue 3 / @nextcloud/vue 9: v-model (modelValue) — the old Vue-2
 			     `:value.sync` modifier is silently IGNORED by the Vue 3 compiler,
 			     leaving a one-way binding: typing never reached form.name and the
 			     Save button stayed disabled forever. -->
-			<NcTextField
-				v-model="form.name"
-				:label="t('hermiq', 'Name')"
-				:placeholder="t('hermiq', 'Morning briefing')"
-				required />
+				<NcTextField
+					v-model="form.name"
+					:label="t('hermiq', 'Name')"
+					:placeholder="t('hermiq', 'Morning briefing')"
+					required />
 
-			<NcTextField
-				v-model="form.description"
-				:label="t('hermiq', 'Description')"
-				:placeholder="t('hermiq', 'What does this agent do?')" />
+				<NcTextField
+					v-model="form.description"
+					:label="t('hermiq', 'Description')"
+					:placeholder="t('hermiq', 'What does this agent do?')" />
 
-			<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
+				<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
 			     agent in lists and on its detail page. Searchable over the full MDI
 			     range (not the small curated dashboard set) since agent icons are
 			     free-form (e.g. "Creation"); clearable — empty means the default
 			     agent icon. -->
-			<div class="agent-form__field">
-				<label class="agent-form__icon-label">{{
-					t('hermiq', 'Icon')
-				}}</label>
-				<!--
+				<div class="agent-form__field">
+					<label class="agent-form__icon-label">{{
+						t('hermiq', 'Icon')
+					}}</label>
+					<!--
 					BOTH sources. The picker offered MDI alone because this
 					passed no `catalogues` at all — the library deliberately
 					bundles no icon pack, so a consumer that names none gets the
@@ -77,29 +103,29 @@
 					municipal agent is actually named from ("Paspoort",
 					"Afvalcontainer"), and it is CC0.
 				-->
-				<CnIconPicker
-					v-model="form.icon"
-					searchable
-					clearable
-					:sources="['mdi', 'opengemeenten']"
-					:catalogues="iconCatalogues" />
-			</div>
+					<CnIconPicker
+						v-model="form.icon"
+						searchable
+						clearable
+						:sources="['mdi', 'opengemeenten']"
+						:catalogues="iconCatalogues" />
+				</div>
 
-			<!-- Provider/Model are policy-filtered pickers (tenant-model-policy):
+				<!-- Provider/Model are policy-filtered pickers (tenant-model-policy):
 			     only the caller's effective policy's providers are offered, and the
 			     model list is scoped to the chosen provider. An empty models list on
 			     the policy means "any model" → free entry. -->
-			<div class="agent-form__field">
-				<NcSelect
-					v-model="providerOption"
-					:inputLabel="t('hermiq', 'Provider')"
-					:options="providerOptions"
-					:clearable="false"
-					label="label"
-					trackBy="value" />
-			</div>
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="providerOption"
+						:inputLabel="t('hermiq', 'Provider')"
+						:options="providerOptions"
+						:clearable="false"
+						label="label"
+						trackBy="value" />
+				</div>
 
-			<!--
+				<!--
 				A DROPDOWN even with no tenant policy. The list is the policy's
 				when one exists and the provider's known models otherwise —
 				previously that second case was an empty text box, so an author
@@ -110,168 +136,177 @@
 				app is released: an unlisted model is typed and accepted, so the
 				list can never become the reason a new model cannot be used.
 			-->
-			<div class="agent-form__field">
-				<NcSelect
-					v-model="modelOption"
-					:inputLabel="t('hermiq', 'Model')"
-					:options="modelOptions"
-					:clearable="false"
-					:taggable="true"
-					:createOption="(value) => ({ label: value, value })"
-					label="label"
-					trackBy="value" />
-				<p class="agent-form__hint">
-					{{ modelHint }}
-				</p>
-			</div>
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="modelOption"
+						:inputLabel="t('hermiq', 'Model')"
+						:options="modelOptions"
+						:clearable="false"
+						:taggable="true"
+						:createOption="(value) => ({ label: value, value })"
+						label="label"
+						trackBy="value" />
+					<p class="agent-form__hint">
+						{{ modelHint }}
+					</p>
+				</div>
 
-			<NcTextArea
-				v-model="form.prompt"
-				:label="t('hermiq', 'System prompt')"
-				:placeholder="t('hermiq', 'You are a helpful assistant…')"
-				resize="vertical" />
+				<NcTextArea
+					v-model="form.prompt"
+					:label="t('hermiq', 'System prompt')"
+					:placeholder="t('hermiq', 'You are a helpful assistant…')"
+					resize="vertical" />
 
-			<div class="agent-form__row">
-				<NcTextField
-					v-model="form.temperature"
-					type="number"
-					:label="t('hermiq', 'Temperature (0–2)')"
-					placeholder="0.7" />
-				<NcTextField
-					v-model="form.maxTokens"
-					type="number"
-					:label="t('hermiq', 'Max tokens per response')"
-					placeholder="2048" />
-			</div>
+				<div class="agent-form__row">
+					<NcTextField
+						v-model="form.temperature"
+						type="number"
+						:label="t('hermiq', 'Temperature (0–2)')"
+						placeholder="0.7" />
+					<NcTextField
+						v-model="form.maxTokens"
+						type="number"
+						:label="t('hermiq', 'Max tokens per response')"
+						placeholder="2048" />
+				</div>
 
-			<div class="agent-form__field">
-				<NcSelect
-					v-model="form.tools"
-					:inputLabel="t('hermiq', 'Enabled tools')"
-					:options="toolOptions"
-					:loading="toolsLoading"
-					:multiple="true"
-					:closeOnSelect="false"
-					label="label"
-					trackBy="value"
-					:placeholder="t('hermiq', 'Select tools the agent may use')" />
-				<p class="agent-form__hint">
-					{{ t('hermiq', 'Leave empty to allow every available tool.') }}
-				</p>
-			</div>
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="form.tools"
+						:inputLabel="t('hermiq', 'Enabled tools')"
+						:options="toolOptions"
+						:loading="toolsLoading"
+						:multiple="true"
+						:closeOnSelect="false"
+						label="label"
+						trackBy="value"
+						:placeholder="
+							t('hermiq', 'Select tools the agent may use')
+						" />
+					<p class="agent-form__hint">
+						{{
+							t('hermiq', 'Leave empty to allow every available tool.')
+						}}
+					</p>
+				</div>
 
-			<!-- sub-agent-delegation: which OTHER agents (same organisation) this
+				<!-- sub-agent-delegation: which OTHER agents (same organisation) this
 			     agent's own turns may hand a bounded sub-task to via
 			     hermiq.delegateAgent. Defaults to none (default-deny); the agent
 			     being edited is never offered as its own delegation target. -->
-			<div class="agent-form__field">
-				<NcSelect
-					v-model="form.delegationAllowlist"
-					:inputLabel="t('hermiq', 'Delegation allowlist')"
-					:options="delegationAllowlistOptions"
-					:loading="agentCatalogLoading"
-					:multiple="true"
-					:closeOnSelect="false"
-					label="label"
-					trackBy="value"
-					:placeholder="
-						t('hermiq', 'Select agents this agent may delegate to')
-					" />
-				<p class="agent-form__hint">
-					{{
-						t(
-							'hermiq',
-							'Leave empty to disallow delegation entirely (default).',
-						)
-					}}
-				</p>
-			</div>
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="form.delegationAllowlist"
+						:inputLabel="t('hermiq', 'Delegation allowlist')"
+						:options="delegationAllowlistOptions"
+						:loading="agentCatalogLoading"
+						:multiple="true"
+						:closeOnSelect="false"
+						label="label"
+						trackBy="value"
+						:placeholder="
+							t('hermiq', 'Select agents this agent may delegate to')
+						" />
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'Leave empty to disallow delegation entirely (default).',
+							)
+						}}
+					</p>
+				</div>
 
-			<div class="agent-form__field">
-				<!-- v9 NcCheckboxRadioSwitch is modelValue-based; the old
+				<div class="agent-form__field">
+					<!-- v9 NcCheckboxRadioSwitch is modelValue-based; the old
 				     :checked/@update:checked pair no longer round-trips. -->
-				<NcCheckboxRadioSwitch v-model="form.enableRag">
-					{{ t('hermiq', 'Ground responses in your data (RAG)') }}
-				</NcCheckboxRadioSwitch>
-			</div>
-
-			<template v-if="form.enableRag">
-				<div class="agent-form__row">
-					<NcCheckboxRadioSwitch v-model="form.searchObjects">
-						{{ t('hermiq', 'Search in objects') }}
-					</NcCheckboxRadioSwitch>
-					<NcCheckboxRadioSwitch v-model="form.searchFiles">
-						{{ t('hermiq', 'Search in files') }}
+					<NcCheckboxRadioSwitch v-model="form.enableRag">
+						{{ t('hermiq', 'Ground responses in your data (RAG)') }}
 					</NcCheckboxRadioSwitch>
 				</div>
-				<NcTextField
-					v-model="form.ragNumSources"
-					type="number"
-					:label="t('hermiq', 'Number of RAG sources')"
-					placeholder="5" />
-			</template>
 
-			<!--
+				<template v-if="form.enableRag">
+					<div class="agent-form__row">
+						<NcCheckboxRadioSwitch v-model="form.searchObjects">
+							{{ t('hermiq', 'Search in objects') }}
+						</NcCheckboxRadioSwitch>
+						<NcCheckboxRadioSwitch v-model="form.searchFiles">
+							{{ t('hermiq', 'Search in files') }}
+						</NcCheckboxRadioSwitch>
+					</div>
+					<NcTextField
+						v-model="form.ragNumSources"
+						type="number"
+						:label="t('hermiq', 'Number of RAG sources')"
+						placeholder="5" />
+				</template>
+
+				<!--
 			  Speech (speech-services). The engine choice is a PRIVACY choice, so
 			  the options say where the audio goes rather than naming an API —
 			  the person configuring an agent for a case file cannot be expected
 			  to know that "browser" means Google's servers in Chrome.
 			-->
-			<div class="agent-form__field">
-				<NcSelect
-					v-model="voiceInputEngineOption"
-					:options="voiceEngineOptions"
-					:clearable="false"
-					label="label"
-					:inputLabel="t('hermiq', 'Dictation (speech to text)')" />
-				<p class="agent-form__hint">
-					{{
-						t(
-							'hermiq',
-							'Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.',
-						)
-					}}
-				</p>
-			</div>
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="voiceInputEngineOption"
+						:options="voiceEngineOptions"
+						:clearable="false"
+						label="label"
+						:inputLabel="t('hermiq', 'Dictation (speech to text)')" />
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.',
+							)
+						}}
+					</p>
+				</div>
 
-			<div class="agent-form__field">
-				<NcSelect
-					v-model="voiceOutputEngineOption"
-					:options="voiceEngineOptions"
-					:clearable="false"
-					label="label"
-					:inputLabel="t('hermiq', 'Spoken replies (text to speech)')" />
-			</div>
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="voiceOutputEngineOption"
+						:options="voiceEngineOptions"
+						:clearable="false"
+						label="label"
+						:inputLabel="
+							t('hermiq', 'Spoken replies (text to speech)')
+						" />
+				</div>
 
-			<div class="agent-form__field">
-				<NcTextField
-					v-model="form.voiceSilenceTimeout"
-					type="number"
-					:label="t('hermiq', 'Silence before the microphone closes (ms)')"
-					placeholder="2500" />
-				<p class="agent-form__hint">
-					{{
-						t(
-							'hermiq',
-							'How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.',
-						)
-					}}
-				</p>
-			</div>
+				<div class="agent-form__field">
+					<NcTextField
+						v-model="form.voiceSilenceTimeout"
+						type="number"
+						:label="
+							t('hermiq', 'Silence before the microphone closes (ms)')
+						"
+						placeholder="2500" />
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.',
+							)
+						}}
+					</p>
+				</div>
 
-			<div class="agent-form__field">
-				<NcCheckboxRadioSwitch v-model="form.voiceConversationEnabled">
-					{{ t('hermiq', 'Allow spoken conversation') }}
-				</NcCheckboxRadioSwitch>
-				<p class="agent-form__hint">
-					{{
-						t(
-							'hermiq',
-							'Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.',
-						)
-					}}
-				</p>
-			</div>
+				<div class="agent-form__field">
+					<NcCheckboxRadioSwitch v-model="form.voiceConversationEnabled">
+						{{ t('hermiq', 'Allow spoken conversation') }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.',
+							)
+						}}
+					</p>
+				</div>
+			</template>
 
 			<div class="agent-form__actions">
 				<NcButton :disabled="saving" @click="handleClose">
@@ -279,7 +314,7 @@
 				</NcButton>
 				<NcButton
 					variant="primary"
-					:disabled="saving || !form.name"
+					:disabled="saving || loadingAgent || !form.name"
 					@click="save">
 					<template v-if="saving" #icon>
 						<NcLoadingIcon :size="20" />
@@ -398,6 +433,11 @@ export default {
 			// AgentCatalog's "Create agent" route (no `:id` param), so create
 			// mode is unaffected.
 			routeAgent: null,
+			// True while `loadRouteAgent()` is in flight. Gates the fields (see
+			// the template): the form is not editable until it holds the agent it
+			// is editing, because `resetForm()` replaces `this.form` when the
+			// fetch lands and would discard anything entered first.
+			loadingAgent: false,
 		}
 	},
 
@@ -734,8 +774,16 @@ export default {
 				if (!open) {
 					return
 				}
-				await this.loadRouteAgent()
-				this.resetForm()
+				// Held across the fetch AND the reseed, released only once
+				// `resetForm()` has run. Releasing it before that would reopen
+				// the window this flag exists to close.
+				this.loadingAgent = true
+				try {
+					await this.loadRouteAgent()
+					this.resetForm()
+				} finally {
+					this.loadingAgent = false
+				}
 				this.loadTools()
 				this.loadPolicy()
 				this.loadAgentCatalog()
@@ -1253,6 +1301,18 @@ export default {
 .agent-form__icon-label {
 	font-weight: bold;
 	margin-bottom: 4px;
+}
+
+.agent-form__loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	/* Roughly the height the seeded form occupies, so the modal does not jump
+	   its own size the moment the fields appear. */
+	min-height: 240px;
+	color: var(--color-text-maxcontrast);
 }
 
 .agent-form__actions {
