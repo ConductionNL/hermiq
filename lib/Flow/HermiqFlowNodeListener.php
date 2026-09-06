@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+ * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCP\EventDispatcher\IEventListener;
  *
  * @template-implements IEventListener<RegisterFlowNodesEvent>
  *
- * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+ * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqFlowNodeListener implements IEventListener {
 	/**
@@ -40,11 +40,15 @@ class HermiqFlowNodeListener implements IEventListener {
 	 * @param HermiqAgentNode $agentNode The agent step node.
 	 * @param HermiqWorkloadNode $workloadNode The workload step node.
 	 * @param HermiqWorkloadCollectNode $collectNode Collects a workload started asynchronously.
+	 * @param HermiqScheduleDispatchNode $scheduleDispatchNode Fires one schedule occurrence
+	 *                                                         through the governed dispatch
+	 *                                                         path (schedules-onto-engine-triggers).
 	 */
 	public function __construct(
 		private readonly HermiqAgentNode $agentNode,
 		private readonly HermiqWorkloadNode $workloadNode,
 		private readonly HermiqWorkloadCollectNode $collectNode,
+		private readonly HermiqScheduleDispatchNode $scheduleDispatchNode,
 	) {
 
 	}//end __construct()
@@ -59,7 +63,7 @@ class HermiqFlowNodeListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function handle(Event $event): void {
 		if (($event instanceof RegisterFlowNodesEvent) === false) {
@@ -69,6 +73,7 @@ class HermiqFlowNodeListener implements IEventListener {
 		$event->registerNode(node: $this->agentNode);
 		$event->registerNode(node: $this->workloadNode);
 		$event->registerNode(node: $this->collectNode);
+		$event->registerNode(node: $this->scheduleDispatchNode);
 
 	}//end handle()
 }//end class

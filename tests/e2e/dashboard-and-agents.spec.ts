@@ -76,13 +76,11 @@ function collectConsoleErrors(page: Page): string[] {
 		) {
 			return
 		}
-		// The chat-health probe answers a DESIGNED 503 ({"status":"no_provider"})
-		// on instances without an LLM provider configured (e.g. disposable e2e
-		// instances); the browser logs that as a resource error, but it is an
-		// expected response, not an app failure.
-		if ((msg.location()?.url || '').includes('/api/chat/health')) {
-			return
-		}
+		// The chat-health probe used to answer a designed 503 on instances
+		// without an LLM provider, which forced a carve-out here. It answers
+		// 200 {status:"unconfigured"} now, so a 503 from it means the app is
+		// broken (config_error) and rightly fails this sweep.
+		//
 		// 🔴 Only hermiq's own failures may fail a hermiq regression test.
 		//
 		// Nextcloud's Dashboard hosts every installed app's widgets, so a shared

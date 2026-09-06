@@ -87,6 +87,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -170,6 +171,8 @@ class ApprovalService {
 	 * @param RedactionService $redactionService Masks the (user-supplied) reason before the audit write.
 	 * @param ContainerInterface $container Server container for lazy ScheduleService resolution.
 	 * @param LoggerInterface $logger PSR-3 logger (non-fatal gate diagnostics).
+	 * @param ApprovalTaskBridge $taskBridge Mirrors pending Approvals as OpenRegister tasks
+	 *   and releases the mirrors on decision (approval-task convergence, phase 1).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -184,6 +187,7 @@ class ApprovalService {
 		private readonly RedactionService $redactionService,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
+		private readonly ApprovalTaskBridge $taskBridge,
 	) {
 	}//end __construct()
 
@@ -1277,6 +1281,12 @@ class ApprovalService {
 		);
 		$this->writeDecisionAudit(approval: $approval, action: 'approve', reason: '');
 
+		// Release the OpenRegister mirror BEFORE resuming: a resume crash must
+		// not leave a decided approval dangling in anyone's task inbox. When
+		// the decision CAME from the task, the mirror is already terminal and
+		// this is a no-op (design.md Decision 1).
+		$this->taskBridge->releaseFor(approval: $approval, decision: 'approved', deciderUid: $deciderUid);
+
 		$sourceType = (string)($data['sourceType'] ?? 'schedule');
 		$ran = $this->resumeGatedRun(sourceType: $sourceType, data: $data);
 
@@ -1381,6 +1391,10 @@ class ApprovalService {
 			owner: (string)($approval->getOwner() ?? '')
 		);
 		$this->writeDecisionAudit(approval: $approval, action: 'deny', reason: $cleanReason);
+
+		// Release the OpenRegister mirror: idempotent when the denial came
+		// from the task itself (design.md Decision 1).
+		$this->taskBridge->releaseFor(approval: $approval, decision: 'denied', deciderUid: $deciderUid);
 
 		if ((string)($data['sourceType'] ?? '') === 'skill-draft') {
 			// Skill-self-improvement: denial from ANY surface reconciles the draft
@@ -1683,7 +1697,7 @@ class ApprovalService {
 		}
 
 		try {
-			return $this->objectService->saveObject(
+			$saved = $this->objectService->saveObject(
 				object: $data,
 				register: self::REGISTER_SLUG,
 				schema: self::APPROVAL_SCHEMA,
@@ -1691,11 +1705,70 @@ class ApprovalService {
 				_rbac: false,
 				_multitenancy: false
 			);
+
+			// Approval-task convergence, phase 1 (design.md Decision 2): the
+			// CREATION of a pending Approval is the one choke point every
+			// gated shape flows through, so the OpenRegister mirror task is
+			// ensured here and nowhere else. Decision saves (uuid known)
+			// never mirror. Still inside the owner impersonation on purpose:
+			// the backlink write-back must act as the same identity as the
+			// save it amends.
+			if ($uuid === null && (string)($data['status'] ?? '') === 'pending') {
+				$saved = $this->mirrorPendingApproval(approval: $saved, data: $data);
+			}
+
+			return $saved;
 		} finally {
 			$this->userSession->setUser($priorUser);
 		}
 
 	}//end persistApproval()
+
+	/**
+	 * Mirror a just-created pending Approval as an OpenRegister task and
+	 * write the mirror's uuid back onto the Approval as `taskUuid`.
+	 *
+	 * Non-fatal by contract, in both halves: the bridge never throws (an
+	 * absent task surface is a logged no-op and the Approval stays
+	 * authoritative), and a failed backlink write-back is logged rather than
+	 * raised — the mirror still routes through its own metadata backlink,
+	 * only release and rollback lose their shortcut.
+	 *
+	 * @param ObjectEntity $approval The just-persisted pending Approval.
+	 * @param array<string,mixed> $data The Approval payload as saved.
+	 *
+	 * @return ObjectEntity The Approval, re-saved with `taskUuid` when mirrored.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-every-pending-approval-is-mirrored-as-one-openregister-task
+	 */
+	private function mirrorPendingApproval(ObjectEntity $approval, array $data): ObjectEntity {
+		$taskUuid = $this->taskBridge->ensureTaskFor(approval: $approval);
+		if ($taskUuid === null) {
+			return $approval;
+		}
+
+		try {
+			$data['taskUuid'] = $taskUuid;
+
+			return $this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: self::APPROVAL_SCHEMA,
+				uuid: (string)$approval->getUuid(),
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not write taskUuid ' . $taskUuid . ' back onto approval '
+				. ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+
+			return $approval;
+		}
+
+	}//end mirrorPendingApproval()
 
 	/**
 	 * Write the decision AuditTrail entry via OpenRegister (redaction-before-persist).
