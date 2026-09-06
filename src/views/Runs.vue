@@ -197,6 +197,8 @@ export default {
 		 * The agents as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		agentOptions() {
 			return this.agents.map((agent) => ({
@@ -213,6 +215,8 @@ export default {
 		 * status added later.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		statusOptions() {
 			const seen = [...new Set(this.runs.map((run) => run.status))]
@@ -226,6 +230,8 @@ export default {
 		 * The rows to render, after the client-side schedule narrowing.
 		 *
 		 * @return {Array<object>} The visible runs.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		visibleRuns() {
 			if (!this.scheduleFilter) {
@@ -247,6 +253,8 @@ export default {
 		 * "1 to 50 of 340", so the pager says what it is showing.
 		 *
 		 * @return {string} The range label.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		rangeLabel() {
 			if (this.total === 0) {
@@ -263,17 +271,43 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Reload from the first page when the agent filter changes.
+		 *
+		 * The offset resets deliberately: keeping it would land the reader on
+		 * page four of a list that may now be one page long.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+		 */
 		agentFilter() {
 			this.offset = 0
 			this.load()
 		},
 
+		/**
+		 * Reload from the first page when the status filter changes.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+		 */
 		statusFilter() {
 			this.offset = 0
 			this.load()
 		},
 	},
 
+	/**
+	 * Register the agent object type, read the schedule narrowing off the query,
+	 * and load the first page.
+	 *
+	 * The `?schedule=` value is read here rather than watched: it arrives from a
+	 * delivered link, so it is set once on arrival and changed only by the reader
+	 * clearing it.
+	 *
+	 * @return {void}
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
@@ -287,6 +321,8 @@ export default {
 		 * Load one page of runs.
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		async load() {
 			this.loading = true
@@ -316,6 +352,8 @@ export default {
 		 * is the page, and it renders without the filter.
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		async loadAgents() {
 			try {
@@ -329,6 +367,8 @@ export default {
 		 * Reload the current page.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		reload() {
 			this.load()
@@ -338,6 +378,8 @@ export default {
 		 * Drop the schedule narrowing and show every run.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		clearScheduleFilter() {
 			this.scheduleFilter = ''
@@ -348,6 +390,8 @@ export default {
 		 * Go to the previous page.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		previousPage() {
 			this.offset = Math.max(0, this.offset - PAGE_SIZE)
@@ -358,6 +402,8 @@ export default {
 		 * Go to the next page.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		nextPage() {
 			this.offset += PAGE_SIZE
@@ -369,6 +415,8 @@ export default {
 		 *
 		 * @param {string|null} iso The ISO timestamp.
 		 * @return {string} The formatted time, or a dash.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		formatWhen(iso) {
 			if (!iso) {
@@ -386,6 +434,8 @@ export default {
 		 *
 		 * @param {number|null} ms The duration in milliseconds.
 		 * @return {string} The formatted duration, or a dash.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		formatDuration(ms) {
 			if (ms === null || ms === undefined || Number.isNaN(Number(ms))) {
@@ -401,6 +451,8 @@ export default {
 		 *
 		 * @param {string} trigger Either 'schedule' or 'flow'.
 		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		triggerLabel(trigger) {
 			return trigger === 'flow' ? t('hermiq', 'Flow') : t('hermiq', 'Schedule')
@@ -414,6 +466,8 @@ export default {
 		 *
 		 * @param {string} status The recorded status.
 		 * @return {string} One of 'ok', 'error' or 'neutral'.
+		 *
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		statusTone(status) {
 			if (status === 'ok') {
