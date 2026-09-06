@@ -15,6 +15,10 @@
 /website/node_modules/
 /website/.docusaurus/
 /js/
+# Built by `npm run build`, exactly like /js/. Holds the AI companion's stylesheet,
+# which scripts/build-companion-css.js copies out of the component library so the
+# always-loaded companion script no longer inlines 801 KB of CSS into itself.
+/css/
 /custom_apps/
 /config/
 

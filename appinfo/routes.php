@@ -213,6 +213,13 @@ return [
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
 
+        // The cross-agent run list. `runHistory#index` below is addressed per SCHEDULE, so
+        // it cannot answer "what did all my agents do last night" and never sees a
+        // flow-triggered `agent-run` entry (those hang on the triggering object, which
+        // routinely lives in another register). This one shares the analytics tenant
+        // boundary, so the list and the dashboard KPIs count the same set.
+        ['name' => 'analytics#runs', 'url' => '/api/runs', 'verb' => 'GET'],
+
         // Tool governance + disclosure (agent-tool-governance-and-disclosure): grant editor
         // catalog/write + per-agent art.12/14 oversight read.
         [
