@@ -1329,7 +1329,20 @@
         "Open Flows in the menu": "Open Flows in the menu",
         "Reports": "Reports",
         "Pick a report to open it.": "Pick a report to open it.",
-        "What the agents did, and what a human still has to answer for.": "What the agents did, and what a human still has to answer for."
+        "What the agents did, and what a human still has to answer for.": "What the agents did, and what a human still has to answer for.",
+        "{first} to {last} of {total}": "{first} to {last} of {total}",
+        "{seconds}s": "{seconds}s",
+        "Could not load runs": "Could not load runs",
+        "Every agent": "Every agent",
+        "Every status": "Every status",
+        "Loading the agent…": "Loading the agent…",
+        "Next": "Next",
+        "Previous": "Previous",
+        "Runs appear here once an agent has run, on a schedule or from a flow.": "Runs appear here once an agent has run, on a schedule or from a flow.",
+        "Show every run": "Show every run",
+        "Showing one schedule": "Showing one schedule",
+        "Summary": "Summary",
+        "You followed a link to a single schedule. Clear the filter to see every run.": "You followed a link to a single schedule. Clear the filter to see every run."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

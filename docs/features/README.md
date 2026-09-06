@@ -33,6 +33,7 @@ live under Settings.
 | [Guardrail policy](guardrail-policy.md) | Say which actions need a human first | `agent-guardrails` |
 | [Algorithm register](algorithm-register.md) | Publish a high-risk feature to the Algoritmeregister | `algoritmeregister-publication` |
 | [Compliance](compliance.md) | Track controls and record incidents | `compliance-control-packs` |
+| [Reports](reports.md) | Pick a report to open | `manifest-driven-pages` |
 | [AI oversight](ai-oversight.md) | Review advisory decisions an agent made | `ai-oversight-advisory-approvals` |
 | [Tenant ops](tenant-ops.md) | Set budgets and quotas per organisation | `multi-tenant-ops` |
 

@@ -7,7 +7,8 @@ This surface is where a person reviews what an agent advised.
 
 ## How to reach it
 
-**Settings > AI oversight**. An individual decision has its own detail page.
+**Reports**, in the footer of the navigation, then the **AI oversight** card. An
+individual decision has its own detail page.
 
 ## Advisory, not automatic
 
