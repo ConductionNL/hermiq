@@ -1435,14 +1435,23 @@ class DeliveryService {
 	}//end isTalkAvailable()
 
 	/**
-	 * Build an absolute deep link to the schedule for a notification.
+	 * Build an absolute deep link to the run list, scoped to one schedule.
+	 *
+	 * 🔴 This is the link EVERY Talk delivery and every failure alert carries, and it
+	 * pointed at `/apps/hermiq/schedules/<uuid>`, which the manifest does not declare.
+	 * The SPA catch-all answers 200 with the app shell, the router matches nothing, and
+	 * the reader lands on the dashboard. So the one link on the app's headline path —
+	 * scheduled run, delivered to Talk, click through to see it — went nowhere, and
+	 * looked like it worked.
 	 *
 	 * @param string $uuid The schedule UUID.
 	 *
 	 * @return string The absolute URL.
 	 */
 	private function buildScheduleLink(string $uuid): string {
-		return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/schedules/' . $uuid);
+		return $this->urlGenerator->getAbsoluteURL(
+			'/index.php/apps/hermiq/runs?schedule=' . rawurlencode($uuid)
+		);
 	}//end buildScheduleLink()
 
 	/**

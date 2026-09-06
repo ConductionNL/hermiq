@@ -36,6 +36,7 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import McpTools from './views/McpTools.vue'
+import Runs from './views/Runs.vue'
 import TenantOps from './views/TenantOps.vue'
 // NOTE — Features & Roadmap is NOT registered here, deliberately. The
 // manifest page `FeaturesRoadmap` is `type: "roadmap"`, a BUILT-IN page type
@@ -54,6 +55,11 @@ export default {
 	// Agent memory (agent-memory change). Custom page: agent picker + tenant-scoped
 	// Memory/Session objects + char-budget bar + consolidation nudge + OR-search recall.
 	AgentMemory,
+	// Runs — the cross-agent run list. The only surface that answers "what ran
+	// last night", and the only list that can see a flow-triggered `agent-run`
+	// entry at all (those hang on the triggering object, so no schedule-scoped
+	// query matches one). Shares the analytics tenant boundary.
+	Runs,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,

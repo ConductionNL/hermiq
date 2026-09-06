@@ -34,6 +34,13 @@
 			"order": 11
 		},
 		{
+			"id": "Runs",
+			"label": "Runs",
+			"icon": "History",
+			"route": "Runs",
+			"order": 16
+		},
+		{
 			"id": "AgentMemory",
 			"label": "Memory",
 			"icon": "Brain",
@@ -526,6 +533,14 @@
 			"component": "AgentMemory",
 			"title": "Memory",
 			"_note": "Custom page: agent memory combines the createObjectStore agent collection (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "Runs",
+			"route": "/runs",
+			"type": "custom",
+			"component": "Runs",
+			"title": "Runs",
+			"_note": "Custom page: the cross-agent run list. Not an index page, because runs are not OpenRegister objects — they are `action` in ('run','agent-run') AuditTrail entries, read through AnalyticsService so the list and the dashboard KPIs share one tenant boundary. Two things had no surface before it: the failures behind a dropped success rate (the only run listing was per-schedule), and flow-triggered runs, whose audit entries hang on the triggering object and so matched no schedule-scoped query at all. `?schedule=` narrows it to one schedule, which is where run-history and Talk delivery links now point — both previously built /apps/hermiq/schedules/<uuid>, a route this manifest never declared, so they answered 200 with the app shell and landed the reader on the dashboard. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "SkillsCatalog",
