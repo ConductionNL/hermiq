@@ -17,7 +17,9 @@
  *     npx playwright test tests/e2e/tutorial-captures.spec.ts --project chromium
  */
 
-import { test, expect, type Page, type Locator } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
 

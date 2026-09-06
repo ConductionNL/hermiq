@@ -27,9 +27,10 @@
  * Auth: shared storageState session (tests/e2e/global-setup.ts).
  */
 
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
 import {
-	TEST_PREFIX,
 	appRoot,
 	cleanupFamily,
 	dismissTour,
@@ -37,7 +38,8 @@ import {
 	jsonHeaders,
 	resolveRegisterSchema,
 	seedAgent,
-} from './_fixtures'
+	TEST_PREFIX,
+} from './_fixtures.ts'
 
 /**
  * Collect app-level console errors, filtering known benign noise.

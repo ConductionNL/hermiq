@@ -69,6 +69,8 @@ use DateTime;
  * @method void setOrganisation(?string $organisation)
  * @method string|null getNotes()
  * @method void setNotes(?string $notes)
+ * @method string|null getLifecycleStatus()
+ * @method void setLifecycleStatus(?string $lifecycleStatus)
  * @method DateTime|null getCreated()
  * @method void setCreated(?DateTime $created)
  * @method DateTime|null getUpdated()

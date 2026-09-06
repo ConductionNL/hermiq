@@ -21,8 +21,8 @@
  * agentflow.
  */
 
-import { test, expect } from '@playwright/test'
-import { harvestToken, jsonHeaders } from './_fixtures'
+import { expect, test } from '@playwright/test'
+import { harvestToken, jsonHeaders } from './_fixtures.ts'
 
 /** Where the repair step records how it ended. */
 const OUTCOME_KEY = 'hydra_triage_flow_seed'
@@ -36,12 +36,7 @@ const DETAIL_KEY = 'hydra_triage_flow_seed_detail'
  * @param key     The app-config key.
  * @return The stored string, or '' when unset.
  */
-async function appConfig(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	request: any,
-	token: string,
-	key: string,
-): Promise<string> {
+async function appConfig(request: any, token: string, key: string): Promise<string> {
 	const res = await request.get(
 		`/ocs/v2.php/apps/provisioning_api/api/v1/config/apps/hermiq/${key}?format=json`,
 		{ headers: jsonHeaders(token) },

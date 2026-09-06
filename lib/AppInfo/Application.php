@@ -159,6 +159,20 @@ class Application extends App implements IBootstrap {
 			);
 		}
 
+		// Oversight (schedules-onto-engine-triggers, EU AI Act Art. 14): contribute
+		// hermiq's per-organisation kill switch to the engine's oversight registry,
+		// so a `hermiq.*` hop of an engaged organisation's run is vetoed BEFORE it
+		// executes — the operator's stop control reaches engine-timed and
+		// canvas-authored runs, not only the app-local tick. Guarded on the event
+		// class existing so an instance whose OpenRegister predates the oversight
+		// registry still boots.
+		if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class) === true) {
+			$context->registerEventListener(
+				\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class,
+				\OCA\Hermiq\Listener\FlowOversightRegistrationListener::class
+			);
+		}
+
 		// Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
 		// `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
 		// sibling-app leaf-registration hook (RegisterLeafProvidersEvent). This makes
@@ -237,6 +251,18 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(
 			event: 'OCA\\Talk\\Events\\BotInvokeEvent',
 			listener: TalkBotInvokeListener::class
+		);
+
+		// Approval-task convergence (phase 1): every pending Approval is
+		// mirrored as an OpenRegister task, and a task completed in
+		// OpenRegister's shared inbox decides the Approval here. Registered by
+		// event NAME (the filinq#988 pattern), deliberately: at register()
+		// time the OCA\OpenRegister\ prefix may not be autoloadable yet, so a
+		// class_exists() guard could silently disable the whole surface, while
+		// registering for a name that is never dispatched is harmless.
+		$context->registerEventListener(
+			event: \OCA\Hermiq\Listener\TaskTerminalListener::EVENT_TASK_TERMINAL,
+			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
 		);
 
 		// Approvals decided by reaction (talk-approval-reactions): spreed

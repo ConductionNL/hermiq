@@ -12,7 +12,7 @@
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
 **Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
-    <version>0.1.43-unstable.20260831014138</version>
+    <version>0.1.47-unstable.20260905095638</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
@@ -132,6 +132,32 @@
                 silently reading null.
             -->
             <step>OCA\Hermiq\Repair\RenameDutchColumns</step>
+            <!-- @spec openspec/specs/flow-authoring/spec.md#requirement-a-flow-is-stored-once-by-openregister-req-fa-002 -->
+            <!-- Runs AFTER InitializeSettings: the v0.30.0 descriptor no longer
+                 declares agentflow/agentflowrun, but the import unions schema ids
+                 and never removes one, so this step deletes the retired schemas,
+                 their rows and their tables. Idempotent: once pruned it finds
+                 nothing and reports so. -->
+            <step>OCA\Hermiq\Repair\PruneRetiredAgentFlowSchemas</step>
+            <!-- @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-in-flight-approvals-migrate-and-roll-back -->
+            <!-- Mirrors every already-pending Approval as an OpenRegister task
+                 (approval-task convergence, phase 1). Post-migration only: a
+                 fresh install has no approvals, and new ones are mirrored at
+                 creation time by ApprovalService itself. Idempotent, guarded
+                 on the stored taskUuid backlink; rollback is
+                 `occ hermiq:approvals:rollback-task-mirror`. Runs after the
+                 register sync so the schema's new taskUuid property exists. -->
+            <step>OCA\Hermiq\Repair\MirrorPendingApprovalsToTasks</step>
+            <!-- @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back -->
+            <!-- Delegates every already-eligible schedule's clock to
+                 OpenRegister's schedule trigger (schedules-onto-engine-triggers).
+                 Post-migration only: new and edited schedules are armed by the
+                 dispatch tick's own sync pass. Idempotent, guarded on the
+                 stored engineFlowId marker; rollback is
+                 `occ hermiq:schedules:rollback-flow-mirror`. Runs after the
+                 register sync so the schema's new engineFlowId property
+                 exists. -->
+            <step>OCA\Hermiq\Repair\MirrorSchedulesToEngineFlows</step>
         </post-migration>
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -160,6 +186,13 @@
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
         </install>
     </repair-steps>
+
+    <commands>
+        <!-- @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-in-flight-approvals-migrate-and-roll-back -->
+        <command>OCA\Hermiq\Command\RollbackApprovalTaskMirror</command>
+        <!-- @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back -->
+        <command>OCA\Hermiq\Command\RollbackScheduleFlowMirror</command>
+    </commands>
 
     <settings>
         <admin>OCA\Hermiq\Settings\AdminSettings</admin>
