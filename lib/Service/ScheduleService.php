@@ -121,7 +121,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * OpenRegister schema slug for message objects (run-replay-and-dry-run:
@@ -130,7 +130,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * IAppConfig key (app `hermiq`) gating which engine runAgentAsOwner()
@@ -2701,7 +2701,7 @@ class ScheduleService {
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::MESSAGE_SCHEMA)
 				->findAll(
-					config: ['filters' => ['conversationId' => $conversationUuid]],
+					config: ['filters' => ['sessionId' => $conversationUuid]],
 					_rbac: false,
 					_multitenancy: false
 				);

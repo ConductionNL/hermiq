@@ -427,11 +427,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'positive']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-OTHER', 'role' => 'assistant']);
+				return $this->entity('msg-1', ['sessionId' => 'conv-OTHER', 'role' => 'assistant']);
 			}
 		);
 		$this->objectService->expects($this->never())->method('saveObject');
@@ -455,11 +455,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'negative', 'comment' => 'wrong answer']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity('msg-1', ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 
@@ -509,11 +509,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'positive', 'comment' => 'better now']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity('msg-1', ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 

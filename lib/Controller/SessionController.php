@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Hermiq ConversationController.
+ * Hermiq SessionController.
  *
  * AI conversation CRUD endpoints, ported route-for-route from OpenRegister's
- * ConversationController (agent-engine-port) and re-pointed at `Conversation`/
+ * OpenRegister ConversationController (agent-engine-port) and re-pointed at `Session`/
  * `Message`/`Feedback` objects in the `hermiq` OpenRegister register via
  * ObjectService — no OR QBMappers.
  *
@@ -67,7 +67,7 @@ use Throwable;
  * composes the engine facade (title generation), the OR object read/write path,
  * session and logging.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Route-for-route port of OR's
- * ConversationController (8 endpoints incl. the archive/restore lifecycle);
+ * OpenRegister ConversationController (8 endpoints incl. the archive/restore lifecycle);
  * splitting would break the structural-parity review against the OR original.
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same reason, and the class sat
  * just under the 1000-line threshold before talk-agent-sessions pushed it over.
@@ -76,7 +76,7 @@ use Throwable;
  * TalkSessionRoom, so this class only calls them. What remains is the ported
  * endpoint surface itself, which is exactly what must not be split.
  */
-class ConversationController extends Controller {
+class SessionController extends Controller {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -98,14 +98,14 @@ class ConversationController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Schema slug for message objects.
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * Schema slug for feedback objects.
@@ -213,7 +213,7 @@ class ConversationController extends Controller {
 			);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to list conversations',
+				message: '[SessionController] Failed to list conversations',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -269,7 +269,7 @@ class ConversationController extends Controller {
 			return new JSONResponse(data: $response, statusCode: 200);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to get conversation',
+				message: '[SessionController] Failed to get conversation',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -329,7 +329,7 @@ class ConversationController extends Controller {
 				->setSchema(self::MESSAGE_SCHEMA)
 				->findAll(
 					config: [
-						'filters' => ['conversationId' => $uuid],
+						'filters' => ['sessionId' => $uuid],
 						'sort' => ['created' => 'ASC'],
 						'limit' => $limit,
 						'offset' => $offset,
@@ -351,7 +351,7 @@ class ConversationController extends Controller {
 			);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to get messages',
+				message: '[SessionController] Failed to get messages',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -414,7 +414,7 @@ class ConversationController extends Controller {
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
-				message: '[ConversationController] Agent UUID could not be resolved',
+				message: '[SessionController] Agent UUID could not be resolved',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -427,7 +427,7 @@ class ConversationController extends Controller {
 
 		if ($agent === null) {
 			$this->logger->warning(
-				message: '[ConversationController] Agent UUID not found',
+				message: '[SessionController] Agent UUID not found',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -499,7 +499,7 @@ class ConversationController extends Controller {
 			);
 
 			$this->logger->info(
-				message: '[ConversationController] Conversation created',
+				message: '[SessionController] Conversation created',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -512,7 +512,7 @@ class ConversationController extends Controller {
 			return new JSONResponse(data: $this->serializeConversation(conversation: $conversation), statusCode: 201);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to create conversation',
+				message: '[SessionController] Failed to create conversation',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -588,7 +588,7 @@ class ConversationController extends Controller {
 			}
 
 			$this->logger->info(
-				message: '[ConversationController] Conversation updated',
+				message: '[SessionController] Conversation updated',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -599,7 +599,7 @@ class ConversationController extends Controller {
 			return new JSONResponse(data: $this->serializeConversation(conversation: $updated), statusCode: 200);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to update conversation',
+				message: '[SessionController] Failed to update conversation',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -656,7 +656,7 @@ class ConversationController extends Controller {
 			if ($this->isArchived(conversation: $conversation) === true) {
 				// Already archived - perform permanent delete.
 				$this->logger->info(
-					message: '[ConversationController] Permanently deleting archived conversation',
+					message: '[SessionController] Permanently deleting archived conversation',
 					context: [
 						'file' => __FILE__,
 						'line' => __LINE__,
@@ -675,7 +675,7 @@ class ConversationController extends Controller {
 				);
 
 				$this->logger->info(
-					message: '[ConversationController] Conversation permanently deleted',
+					message: '[SessionController] Conversation permanently deleted',
 					context: [
 						'file' => __FILE__,
 						'line' => __LINE__,
@@ -696,7 +696,7 @@ class ConversationController extends Controller {
 			$this->setArchiveMarker(conversation: $conversation, deletedBy: $userId);
 
 			$this->logger->info(
-				message: '[ConversationController] Conversation archived (soft deleted)',
+				message: '[SessionController] Conversation archived (soft deleted)',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -714,7 +714,7 @@ class ConversationController extends Controller {
 			);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to delete conversation',
+				message: '[SessionController] Failed to delete conversation',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -784,7 +784,7 @@ class ConversationController extends Controller {
 			);
 
 			$this->logger->info(
-				message: '[ConversationController] Conversation restored',
+				message: '[SessionController] Conversation restored',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -795,7 +795,7 @@ class ConversationController extends Controller {
 			return new JSONResponse(data: $this->serializeConversation(conversation: $restored), statusCode: 200);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to restore conversation',
+				message: '[SessionController] Failed to restore conversation',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -856,7 +856,7 @@ class ConversationController extends Controller {
 			);
 
 			$this->logger->info(
-				message: '[ConversationController] Conversation permanently deleted',
+				message: '[SessionController] Conversation permanently deleted',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -873,7 +873,7 @@ class ConversationController extends Controller {
 			);
 		} catch (Exception $e) {
 			$this->logger->error(
-				message: '[ConversationController] Failed to permanently delete conversation',
+				message: '[SessionController] Failed to permanently delete conversation',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
@@ -977,12 +977,23 @@ class ConversationController extends Controller {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
 	private function deleteRelatedObjects(string $schema, string $conversationId): void {
+		// 🔴 THE TWO SCHEMAS NAME THE PARENT DIFFERENTLY, and this method serves both.
+		// A turn points at its session through `sessionId`; Feedback still carries
+		// `conversationId`, because feedback objects are not part of the session rename.
+		// Filtering both on one key silently matches nothing for one of them, which here
+		// would mean deleting a session and leaving its turns behind as orphans with no
+		// remaining handle to reach them.
+		$parentKey = 'sessionId';
+		if ($schema === self::FEEDBACK_SCHEMA) {
+			$parentKey = 'conversationId';
+		}
+
 		$related = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema($schema)
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => [$parentKey => $conversationId],
 					'limit' => self::MAX_CONVERSATION_SCAN,
 				]
 			);
@@ -1015,7 +1026,7 @@ class ConversationController extends Controller {
 			->setSchema(self::MESSAGE_SCHEMA)
 			->searchObjectsPaginated(
 				query: [
-					'conversationId' => $conversationId,
+					'sessionId' => $conversationId,
 					'_limit' => 1,
 				]
 			);
@@ -1069,7 +1080,16 @@ class ConversationController extends Controller {
 		return [
 			'id' => $message->getUuid(),
 			'uuid' => $message->getUuid(),
-			'conversationId' => ($data['conversationId'] ?? null),
+			// 🔴 THE STORED FIELD IS `sessionId`; THE RESPONSE KEY STAYS `conversationId`
+			// FOR NOW. session-api-rename moves the backend and explicitly does NOT move
+			// the frontend, which is the next spec — so reading the new field while still
+			// emitting the old key is what keeps the Chat page working unchanged through
+			// this deploy. `sessionId` is emitted alongside it so the frontend has
+			// something to move ONTO, and `conversationId` is dropped there.
+			// Falling back to the old field keeps a turn written before the migration
+			// readable.
+			'sessionId' => ($data['sessionId'] ?? $data['conversationId'] ?? null),
+			'conversationId' => ($data['sessionId'] ?? $data['conversationId'] ?? null),
 			'role' => ($data['role'] ?? null),
 			'content' => ($data['content'] ?? null),
 			'sources' => ($data['sources'] ?? []),
@@ -1128,6 +1148,8 @@ class ConversationController extends Controller {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
 	private function requireUserId(): string {
+		$this->noteDeprecatedAlias();
+
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			throw new Exception('Authentication required', 401);
@@ -1135,4 +1157,37 @@ class ConversationController extends Controller {
 
 		return $user->getUID();
 	}//end requireUserId()
+
+	/**
+	 * Record that a caller reached this controller through a deprecated path.
+	 *
+	 * 🔑 HERE, IN `requireUserId()`, RATHER THAN IN EACH ENDPOINT. Every endpoint on this
+	 * controller calls it, so the alias cannot be forgotten when an endpoint is added, and
+	 * there is exactly one line to delete when the old family is finally retired.
+	 *
+	 * Retirement should be decided on this signal rather than on optimism: `/api/sessions`
+	 * being available says nothing about whether anything still calls
+	 * `/api/conversations`, and removing it while an integration depends on it 404s that
+	 * integration with no warning.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-api-rename/tasks.md#3-add-the-new-routes-and-keep-the-old-ones-as-aliases
+	 */
+	private function noteDeprecatedAlias(): void {
+		$path = (string) $this->request->getPathInfo();
+		if (str_contains($path, '/api/conversations') === false) {
+			return;
+		}
+
+		$this->logger->info(
+			message: '[SessionController] deprecated /api/conversations path used',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'path' => $path,
+				'replacement' => str_replace('/api/conversations', '/api/sessions', $path),
+			]
+		);
+	}//end noteDeprecatedAlias()
 }//end class

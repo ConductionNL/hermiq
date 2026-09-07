@@ -110,7 +110,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Wall-clock timestamp (microtime float) of the most recently emitted

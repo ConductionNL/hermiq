@@ -87,7 +87,7 @@ class ContextAgentInteractionService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * IAppConfig key naming the agent that serves ContextAgent interactions.

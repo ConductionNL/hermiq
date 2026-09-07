@@ -536,26 +536,63 @@ return [
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
 
-        // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
-        ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],
-        ['name' => 'conversation#create', 'url' => '/api/conversations', 'verb' => 'POST'],
-        ['name' => 'conversation#show', 'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
+        //
+        // 🔴 THE `/api/conversations/*` FAMILY BELOW IS THE SAME CONTROLLER METHODS, NOT
+        // COPIES. Pointing both path families at one method is what makes it impossible
+        // for them to drift: a fix to `show()` reaches both, and there is no second
+        // implementation to forget. Deleting the old family here would 404 every existing
+        // integration on deploy with no transition, which is why they stay as deprecated
+        // aliases rather than being removed with the rename.
+        ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
+        ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'conversation#messages',
+            'name'         => 'session#messages',
+            'url'          => '/api/sessions/{uuid}/messages',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'session#destroy', 'url' => '/api/sessions/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session#restore',
+            'url'          => '/api/sessions/{uuid}/restore',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#destroyPermanent',
+            'url'          => '/api/sessions/{uuid}/permanent',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+
+        // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
+        // traffic data (SessionController logs at info level when one is hit), not on
+        // optimism.
+        ['name' => 'session#index', 'url' => '/api/conversations', 'verb' => 'GET', 'postfix' => 'legacy'],
+        ['name' => 'session#create', 'url' => '/api/conversations', 'verb' => 'POST', 'postfix' => 'legacy'],
+        ['name' => 'session#show', 'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'postfix' => 'legacy', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session#messages',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/messages',
             'verb'         => 'GET',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'conversation#update', 'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#destroy', 'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'session#update', 'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'postfix' => 'legacy', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'session#destroy', 'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'postfix' => 'legacy', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'conversation#restore',
+            'name'         => 'session#restore',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/restore',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
         [
-            'name'         => 'conversation#destroyPermanent',
+            'name'         => 'session#destroyPermanent',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/permanent',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],

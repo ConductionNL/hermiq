@@ -50,7 +50,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$entity->setUuid('msg-' . $role . '-' . substr(md5($content), 0, 6));
 		$entity->setObject(
 			[
-				'conversationId' => 'conv-1',
+				'sessionId' => 'conv-1',
 				'role' => $role,
 				'content' => $content,
 			]
@@ -110,7 +110,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame(['app' => 'decidesk'], $userPayload['context']);
 		$this->assertArrayNotHasKey('sources', $userPayload);
 		$this->assertSame('hermiq', $saved[0]['register']);
-		$this->assertSame('message', $saved[0]['schema']);
+		$this->assertSame('agentsessionturn', $saved[0]['schema']);
 
 		$assistantPayload = $saved[1]['object'];
 		$this->assertSame('assistant', $assistantPayload['role']);
@@ -152,7 +152,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$history = $handler->buildMessageHistory(conversationId: 'conv-1');
 
 		// The fetch is filtered + capped + newest-first.
-		$this->assertSame('conv-1', $capturedConfig['filters']['conversationId']);
+		$this->assertSame('conv-1', $capturedConfig['filters']['sessionId']);
 		$this->assertSame(['created' => 'DESC'], $capturedConfig['sort']);
 		$this->assertSame(10, $capturedConfig['limit']);
 

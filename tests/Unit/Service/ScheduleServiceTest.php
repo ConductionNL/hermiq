@@ -1736,7 +1736,7 @@ class ScheduleServiceTest extends TestCase {
 			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedConversations): ObjectEntity {
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedConversations));
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					$savedConversations[] = $object;
 					$entity->setUuid('conv-uuid-1');
 				}
@@ -2121,7 +2121,7 @@ class ScheduleServiceTest extends TestCase {
 			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedConversations): ObjectEntity {
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedConversations));
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					$savedConversations[] = $object;
 					$entity->setUuid('conv-uuid-1');
 				}
@@ -3288,7 +3288,7 @@ class ScheduleServiceTest extends TestCase {
 
 		$this->service->dryRunNow(schedule: $this->engineEnabledSchedule());
 
-		$conversationDeletes = array_filter($deleted, static fn (array $d): bool => $d['schema'] === 'conversation');
+		$conversationDeletes = array_filter($deleted, static fn (array $d): bool => $d['schema'] === 'agentsession');
 		$this->assertCount(1, $conversationDeletes);
 
 	}//end testDryRunNowDeletesScratchConversation()

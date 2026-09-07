@@ -71,7 +71,7 @@ class ConversationManagementHandler {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Maximum tokens before triggering summarisation.
@@ -371,10 +371,10 @@ class ConversationManagementHandler {
 	private function fetchAllMessages(string $conversationId): array {
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
-			->setSchema('message')
+			->setSchema('agentsessionturn')
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'ASC'],
 					'limit' => self::MAX_MESSAGES_FOR_SUMMARY,
 				]
