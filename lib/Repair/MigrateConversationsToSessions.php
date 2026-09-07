@@ -137,6 +137,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @param ContainerInterface $container   Server container for lazy OpenRegister
 	 *                                        resolution (it may not be installed).
+	 * @param \OCP\App\IAppManager $appManager Answers whether OpenRegister is installed.
 	 * @param \OCP\IAppConfig    $appConfig   Records the outcome breadcrumb.
 	 * @param RegisterScopedSchema $schemas   Resolves a schema slug inside hermiq's register.
 	 * @param \OCP\IDBConnection $db          Writes the archive marker the object API cannot.
@@ -144,6 +145,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
+		private readonly \OCP\App\IAppManager $appManager,
 		private readonly \OCP\IAppConfig $appConfig,
 		private readonly RegisterScopedSchema $schemas,
 		private readonly \OCP\IDBConnection $db,
@@ -172,6 +174,17 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
 	 */
 	public function run(IOutput $output): void {
+		// Ask before reaching. Every OpenRegister class this step uses is resolved
+		// from the container at the point of use, and each of those reaches used to
+		// declare its optionality only by the shape of its own catch. Establishing
+		// availability once, here, states it where a reader and a gate can both see
+		// it, and it costs one lookup instead of one thrown exception per call site.
+		if ($this->appManager->isInstalled('openregister') === false) {
+			$output->warning('OpenRegister is not installed. Skipping the session migration.');
+			$this->recordOutcome(outcome: 'unavailable', detail: 'openregister is not installed');
+			return;
+		}
+
 		try {
 			$objectService = $this->container->get(ObjectService::class);
 		} catch (Throwable $e) {

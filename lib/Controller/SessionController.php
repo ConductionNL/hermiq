@@ -1058,6 +1058,12 @@ class SessionController extends Controller {
 			'userId' => ($data['userId'] ?? null),
 			'organisation' => $conversation->getOrganisation(),
 			'agentId' => ($data['agentId'] ?? null),
+			// What started this session: `human`, `cron`, `event` or `flow`. The
+			// session list splits on it, so a session that omits the property must
+			// still land in a group rather than vanishing from both — every session
+			// predating the property was started by a person, which is what the
+			// `human` fallback records.
+			'triggerOrigin' => ($data['triggerOrigin'] ?? 'human'),
 			'metadata' => $metadata,
 			'deletedAt' => $deletedAt,
 			'created' => $conversation->getCreated()?->format('c'),

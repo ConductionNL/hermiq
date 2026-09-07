@@ -770,7 +770,7 @@ class ChatStreamController extends Controller {
 				data: [
 					'userId' => $userId,
 					'agentId' => (string)$agent->getUuid(),
-					'title' => 'New conversation',
+					'title' => 'New session',
 				]
 			),
 			register: self::REGISTER_SLUG,

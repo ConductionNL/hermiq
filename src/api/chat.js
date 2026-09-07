@@ -2,34 +2,34 @@
 // Copyright (C) 2026 Conduction B.V.
 //
 // Plain (non-Pinia) API helper for the Hermiq chat surface (agent-engine-port
-// task 5.1) — the conversation lifecycle + chat operations behind the Chat page.
+// task 5.1) — the session lifecycle + chat operations behind the Chat page.
 //
 // STORE-VS-HELPER SPLIT (documented per the agent-engine-port design):
 //
 //   - Agent CRUD goes through createObjectStore (src/store/store.js →
 //     useAgentStore) because an Agent is a plain OR object in the hermiq
 //     register — see src/api/agents.js.
-//   - EVERYTHING conversation/chat-shaped lives HERE and hits the
-//     /apps/hermiq/api/{chat,conversations} routes (chunk 2's ported
+//   - EVERYTHING session/chat-shaped lives HERE and hits the
+//     /apps/hermiq/api/{chat,sessions} routes (chunk 2's ported
 //     controllers), NOT the generic objects path. That includes the
-//     conversation list/read/create/rename: the Hermiq ConversationController
+//     session list/read/create/rename: the Hermiq SessionController
 //     is not plain object CRUD — it user-scopes the list (the generic
 //     org-scoped objects path would leak org-mates' threads), partitions
 //     active vs archived on the payload-level archive marker
-//     (`metadata.deletedAt`/`metadata.deletedBy` — the hermiq `conversation`
+//     (`metadata.deletedAt`/`metadata.deletedBy` — the hermiq `agentsession`
 //     schema has no deletedAt column and ObjectService exposes no restore for
 //     its entity-envelope soft delete), generates unique titles via the
 //     Engine, whitelists writable fields on update, and enforces per-object
-//     ownership guards. Driving conversations through createObjectStore would
+//     ownership guards. Driving sessions through createObjectStore would
 //     silently bypass all of that (and archive/restore would simply not work).
 //
-// SOFT-DELETE SEMANTICS (must match lib/Controller/ConversationController.php):
-//   - DELETE /api/conversations/{uuid} on an ACTIVE conversation sets the
+// SOFT-DELETE SEMANTICS (must match lib/Controller/SessionController.php):
+//   - DELETE /api/sessions/{uuid} on an ACTIVE session sets the
 //     archive marker (soft delete, restorable).
-//   - DELETE /api/conversations/{uuid} on an ARCHIVED conversation deletes it
+//   - DELETE /api/sessions/{uuid} on an ARCHIVED session deletes it
 //     permanently (OR's two-step destroy mirror).
-//   - POST /api/conversations/{uuid}/restore clears the marker.
-//   - DELETE /api/conversations/{uuid}/permanent hard-deletes (messages first).
+//   - POST /api/sessions/{uuid}/restore clears the marker.
+//   - DELETE /api/sessions/{uuid}/permanent hard-deletes (messages first).
 //
 // This is deliberately a set of stateless functions (no defineStore) — the
 // hard rule is "no custom Pinia stores". axios from @nextcloud/axios attaches
@@ -42,24 +42,30 @@ import { generateUrl } from '@nextcloud/router'
 
 /** Hermiq chat API base path (agent-engine-port routes). */
 const CHAT_BASE = '/apps/hermiq/api/chat'
-/** Hermiq conversations API base path (agent-engine-port routes). */
-const CONVERSATIONS_BASE = '/apps/hermiq/api/conversations'
+/**
+ * Hermiq sessions API base path.
+ *
+ * ⚠️ `/api/conversations/*` still answers, as a deprecated alias onto the same controller
+ * methods (session-api-rename), and it is the rollback path for this change. Pointing
+ * back at it is a one-line revert.
+ */
+const SESSIONS_BASE = '/apps/hermiq/api/sessions'
 
 /**
- * List the current user's conversations (server-side user-scoped).
+ * List the current user's sessions (server-side user-scoped).
  *
  * @param {object} [options] List options.
- * @param {boolean} [options.archived] True to list archived (soft-deleted) conversations.
+ * @param {boolean} [options.archived] True to list archived (soft-deleted) sessions.
  * @param {number} [options.limit] Page size (default 50).
  * @param {number} [options.offset] Page offset (default 0).
  * @return {Promise<{results: Array<object>, total: number}>} The page envelope.
  */
-export async function listConversations({
+export async function listSessions({
 	archived = false,
 	limit = 50,
 	offset = 0,
 } = {}) {
-	const response = await axios.get(generateUrl(CONVERSATIONS_BASE), {
+	const response = await axios.get(generateUrl(SESSIONS_BASE), {
 		params: { _deleted: archived ? 'true' : 'false', limit, offset },
 	})
 	return {
@@ -69,20 +75,20 @@ export async function listConversations({
 }
 
 /**
- * Read one conversation (without its messages; includes messageCount).
+ * Read one session (without its messages; includes messageCount).
  *
- * @param {string} uuid The conversation UUID.
- * @return {Promise<object>} The conversation.
+ * @param {string} uuid The session UUID.
+ * @return {Promise<object>} The session.
  */
-export async function getConversation(uuid) {
-	const response = await axios.get(generateUrl(`${CONVERSATIONS_BASE}/${uuid}`))
+export async function getSession(uuid) {
+	const response = await axios.get(generateUrl(`${SESSIONS_BASE}/${uuid}`))
 	return response.data
 }
 
 /**
- * Read a conversation's messages, oldest first.
+ * Read a session's messages, oldest first.
  *
- * @param {string} uuid The conversation UUID.
+ * @param {string} uuid The session UUID.
  * @param {object} [options] Pagination options.
  * @param {number} [options.limit] Page size (default 50).
  * @param {number} [options.offset] Page offset (default 0).
@@ -90,7 +96,7 @@ export async function getConversation(uuid) {
  */
 export async function listMessages(uuid, { limit = 50, offset = 0 } = {}) {
 	const response = await axios.get(
-		generateUrl(`${CONVERSATIONS_BASE}/${uuid}/messages`),
+		generateUrl(`${SESSIONS_BASE}/${uuid}/messages`),
 		{
 			params: { limit, offset },
 		},
@@ -102,104 +108,103 @@ export async function listMessages(uuid, { limit = 50, offset = 0 } = {}) {
 }
 
 /**
- * Create a conversation bound to an agent. The backend generates a unique
+ * Create a session bound to an agent. The backend generates a unique
  * title via the Engine when none is provided.
  *
  * @param {string} agentUuid The agent object UUID.
  * @param {string} [title] Optional explicit title.
- * @return {Promise<object>} The created conversation.
+ * @return {Promise<object>} The created session.
  */
-export async function createConversation(agentUuid, title) {
+export async function createSession(agentUuid, title) {
 	const payload = { agentUuid }
 	if (title) {
 		payload.title = title
 	}
-	const response = await axios.post(generateUrl(CONVERSATIONS_BASE), payload)
+	const response = await axios.post(generateUrl(SESSIONS_BASE), payload)
 	return response.data
 }
 
 /**
- * Rename a conversation (only `title`/`metadata` are writable server-side).
+ * Rename a session (only `title`/`metadata` are writable server-side).
  *
- * @param {string} uuid The conversation UUID.
+ * @param {string} uuid The session UUID.
  * @param {string} title The new title.
- * @return {Promise<object>} The updated conversation.
+ * @return {Promise<object>} The updated session.
  */
-export async function renameConversation(uuid, title) {
-	const response = await axios.patch(
-		generateUrl(`${CONVERSATIONS_BASE}/${uuid}`),
-		{ title },
-	)
+export async function renameSession(uuid, title) {
+	const response = await axios.patch(generateUrl(`${SESSIONS_BASE}/${uuid}`), {
+		title,
+	})
 	return response.data
 }
 
 /**
- * Archive a conversation (soft delete via the payload archive marker).
- * NOTE: calling this on an already-archived conversation permanently deletes
+ * Archive a session (soft delete via the payload archive marker).
+ * NOTE: calling this on an already-archived session permanently deletes
  * it (the backend's two-step destroy) — the Chat page only calls it on
- * active conversations and uses deleteConversationPermanent() for hard deletes.
+ * active sessions and uses deleteSessionPermanent() for hard deletes.
  *
- * @param {string} uuid The conversation UUID.
+ * @param {string} uuid The session UUID.
  * @return {Promise<object>} The confirmation envelope.
  */
-export async function archiveConversation(uuid) {
-	const response = await axios.delete(generateUrl(`${CONVERSATIONS_BASE}/${uuid}`))
+export async function archiveSession(uuid) {
+	const response = await axios.delete(generateUrl(`${SESSIONS_BASE}/${uuid}`))
 	return response.data
 }
 
 /**
- * Restore an archived conversation (clears the archive marker).
+ * Restore an archived session (clears the archive marker).
  *
- * @param {string} uuid The conversation UUID.
- * @return {Promise<object>} The restored conversation.
+ * @param {string} uuid The session UUID.
+ * @return {Promise<object>} The restored session.
  */
-export async function restoreConversation(uuid) {
+export async function restoreSession(uuid) {
 	const response = await axios.post(
-		generateUrl(`${CONVERSATIONS_BASE}/${uuid}/restore`),
+		generateUrl(`${SESSIONS_BASE}/${uuid}/restore`),
 	)
 	return response.data
 }
 
 /**
- * Permanently delete a conversation (messages first, then the thread).
+ * Permanently delete a session (turns first, then the thread).
  *
- * @param {string} uuid The conversation UUID.
+ * @param {string} uuid The session UUID.
  * @return {Promise<object>} The confirmation envelope.
  */
-export async function deleteConversationPermanent(uuid) {
+export async function deleteSessionPermanent(uuid) {
 	const response = await axios.delete(
-		generateUrl(`${CONVERSATIONS_BASE}/${uuid}/permanent`),
+		generateUrl(`${SESSIONS_BASE}/${uuid}/permanent`),
 	)
 	return response.data
 }
 
 /**
  * Send a chat message synchronously (POST /api/chat/send) — the ADR-034
- * fallback path, and the primary path when per-conversation view/tool/RAG
+ * fallback path, and the primary path when per-session view/tool/RAG
  * settings are customised (the stream endpoint does not accept them).
  *
  * @param {object} options Send options.
  * @param {string} options.message The user message text.
- * @param {string} [options.conversationUuid] Existing conversation UUID.
- * @param {string} [options.agentUuid] Agent UUID (only when creating a new conversation).
+ * @param {string} [options.sessionUuid] Existing session UUID.
+ * @param {string} [options.agentUuid] Agent UUID (only when creating a new session).
  * @param {Array<string>} [options.views] Selected view UUIDs for RAG context.
  * @param {Array<string>} [options.tools] Selected tool ids for this turn.
  * @param {object} [options.ragSettings] RAG settings (includeObjects, includeFiles,
  *   numSourcesFiles, numSourcesObjects).
  * @return {Promise<object>} The engine result ({message, messageId, sources, usage,
- *   conversation}).
+ *   session}).
  */
 export async function sendChatMessage({
 	message,
-	conversationUuid,
+	sessionUuid,
 	agentUuid,
 	views,
 	tools,
 	ragSettings,
 }) {
 	const payload = { message }
-	if (conversationUuid) {
-		payload.conversation = conversationUuid
+	if (sessionUuid) {
+		payload.conversation = sessionUuid // wire key: ChatController reads getParam('conversation')
 	} else if (agentUuid) {
 		payload.agentUuid = agentUuid
 	}
@@ -292,26 +297,26 @@ function parseSseFrame(frame) {
  *
  * @param {object} options Stream options.
  * @param {string} options.message The user message text.
- * @param {string} [options.conversationUuid] Existing conversation UUID.
- * @param {string} [options.agentUuid] Agent UUID (only when no conversation exists yet).
+ * @param {string} [options.sessionUuid] Existing session UUID.
+ * @param {string} [options.agentUuid] Agent UUID (only when no session exists yet).
  * @param {object} [handlers] Event handlers.
  * @param {Function} [handlers.onToken] (delta: string) — incremental assistant text.
  * @param {Function} [handlers.onToolCall] (payload: object) — a tool invocation started.
  * @param {Function} [handlers.onToolResult] (payload: object) — a tool invocation finished.
  * @param {Function} [handlers.onHeartbeat] () — liveness signal (keep the UI alive).
  * @return {Promise<object>} Resolves with the `final` payload
- *   ({messageId, conversationUuid, fullText, context}).
+ *   ({messageId, sessionUuid, fullText, context}).
  * @throws {ChatStreamError} transport=true on handshake/connection failure
  *   (caller falls back to sendChatMessage()); transport=false on a terminal
  *   `error` event (no fallback — the turn failed server-side).
  */
 export async function streamChatMessage(
-	{ message, conversationUuid, agentUuid },
+	{ message, sessionUuid, agentUuid },
 	handlers = {},
 ) {
 	const body = { message }
-	if (conversationUuid) {
-		body.conversationUuid = conversationUuid
+	if (sessionUuid) {
+		body.conversationUuid = sessionUuid // wire key: the stream endpoint reads conversationUuid
 	} else if (agentUuid) {
 		body.agentUuid = agentUuid
 	}
@@ -420,7 +425,7 @@ export async function streamChatMessage(
 /**
  * Record thumbs up/down feedback (optionally with a comment) on a message.
  *
- * @param {string} conversationUuid The conversation UUID.
+ * @param {string} sessionUuid The session UUID.
  * @param {string} messageId The message UUID.
  * @param {object} options Feedback options.
  * @param {string} options.type 'positive' or 'negative'.
@@ -428,7 +433,7 @@ export async function streamChatMessage(
  * @return {Promise<object>} The stored feedback.
  */
 export async function sendMessageFeedback(
-	conversationUuid,
+	sessionUuid,
 	messageId,
 	{ type, comment },
 ) {
@@ -438,7 +443,7 @@ export async function sendMessageFeedback(
 	}
 	const response = await axios.post(
 		generateUrl(
-			`${CONVERSATIONS_BASE}/${conversationUuid}/messages/${messageId}/feedback`,
+			`${SESSIONS_BASE}/${sessionUuid}/messages/${messageId}/feedback`,
 		),
 		payload,
 	)

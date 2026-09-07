@@ -164,6 +164,35 @@ class SessionControllerTest extends TestCase {
 	}//end testIndexPartitionsActiveAndArchived()
 
 	/**
+	 * A serialized session carries its trigger origin, and a session that
+	 * predates the property is reported as `human` rather than as nothing.
+	 *
+	 * Both halves matter: the session list groups on this field, so a filter
+	 * that returned everything would pass the first assertion on its own.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+	 */
+	public function testIndexReportsTriggerOriginAndDefaultsItToHuman(): void {
+		$automated = $this->conversation(
+			'conv-cron',
+			['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Nightly', 'triggerOrigin' => 'cron']
+		);
+		$legacy = $this->conversation('conv-legacy', ['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Old']);
+		$this->objectService->method('findAll')->willReturn([$automated, $legacy]);
+		$this->request->method('getParams')->willReturn([]);
+
+		$results = $this->controller()->index()->getData()['results'];
+		$origins = array_combine(array_column($results, 'uuid'), array_column($results, 'triggerOrigin'));
+
+		$this->assertSame('cron', $origins['conv-cron'], 'A stored origin must be reported verbatim.');
+		$this->assertSame('human', $origins['conv-legacy'], 'A session with no origin was started by a person.');
+
+	}//end testIndexReportsTriggerOriginAndDefaultsItToHuman()
+
+
+	/**
 	 * index() with _deleted=true returns only the archived conversations.
 	 *
 	 * @return void

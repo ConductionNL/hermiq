@@ -607,7 +607,7 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 		await expect(form).toContainText('Dictation (speech to text)')
 		await expect(form).toContainText('Spoken replies (text to speech)')
 		await expect(form).toContainText('Silence before the microphone closes (ms)')
-		await expect(form).toContainText('Allow spoken conversation')
+		await expect(form).toContainText('Allow speaking with this agent')
 
 		await form.getByRole('combobox', { name: /dictation/i }).click()
 		await page

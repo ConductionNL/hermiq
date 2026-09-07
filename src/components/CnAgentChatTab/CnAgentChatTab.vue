@@ -29,7 +29,7 @@
 			{{ t('hermiq', 'The agent assistant is not available on this object.') }}
 		</NcNoteCard>
 
-		<div v-else class="cn-agent-chat-tab__conversation">
+		<div v-else class="cn-agent-chat-tab__session">
 			<NcNoteCard
 				v-if="contextResolved && !hasBoundedContext"
 				type="warning"
@@ -168,6 +168,10 @@ export default {
 	methods: {
 		t,
 		/**
+		 * The label shown beside a turn, from its role.
+		 *
+		 * @param {string} role The turn's role, 'user' or otherwise.
+		 * @return {string} The translated label.
 		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
 		 */
 		roleLabel(role) {

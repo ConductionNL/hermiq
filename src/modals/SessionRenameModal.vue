@@ -2,22 +2,22 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  ConversationRenameModal — rename a chat conversation (agent-engine-port
+  SessionRenameModal — rename a chat session (agent-engine-port
   task 5.1; OR rendered this inline in ChatIndex.vue, hermiq's modal-isolation
   gate requires an own file).
 
-  Persists via PATCH /apps/hermiq/api/conversations/{uuid} (only `title` is
-  writable server-side) and emits `saved` with the updated conversation.
+  Persists via PATCH /apps/hermiq/api/sessions/{uuid} (only `title` is
+  writable server-side) and emits `saved` with the updated session.
 -->
 <template>
 	<NcModal
 		:show="show"
 		size="small"
-		:name="t('hermiq', 'Rename conversation')"
+		:name="t('hermiq', 'Rename session')"
 		@close="$emit('close')">
-		<div class="conversation-rename">
-			<h2 class="conversation-rename__title">
-				{{ t('hermiq', 'Rename conversation') }}
+		<div class="session-rename">
+			<h2 class="session-rename__title">
+				{{ t('hermiq', 'Rename session') }}
 			</h2>
 
 			<NcNoteCard v-if="error" type="error">
@@ -26,15 +26,15 @@
 
 			<NcTextField
 				v-model="title"
-				:label="t('hermiq', 'Conversation title')"
-				:placeholder="t('hermiq', 'New conversation')" />
+				:label="t('hermiq', 'Session title')"
+				:placeholder="t('hermiq', 'New session')" />
 
-			<div class="conversation-rename__actions">
+			<div class="session-rename__actions">
 				<NcButton :disabled="saving" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving || !title.trim()"
 					@click="save">
 					<template v-if="saving" #icon>
@@ -55,10 +55,10 @@ import {
 	NcNoteCard,
 	NcTextField,
 } from '@nextcloud/vue'
-import { renameConversation } from '../api/chat.js'
+import { renameSession } from '../api/chat.js'
 
 export default {
-	name: 'ConversationRenameModal',
+	name: 'SessionRenameModal',
 
 	components: {
 		NcButton,
@@ -75,8 +75,8 @@ export default {
 			default: false,
 		},
 
-		/** The conversation being renamed. */
-		conversation: {
+		/** The session being renamed. */
+		session: {
 			type: Object,
 			default: null,
 		},
@@ -96,7 +96,7 @@ export default {
 		show(open) {
 			if (open) {
 				this.error = ''
-				this.title = this.conversation?.title || ''
+				this.title = this.session?.title || ''
 			}
 		},
 	},
@@ -108,14 +108,14 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async save() {
-			if (!this.conversation?.uuid || !this.title.trim()) {
+			if (!this.session?.uuid || !this.title.trim()) {
 				return
 			}
 			this.saving = true
 			this.error = ''
 			try {
-				const updated = await renameConversation(
-					this.conversation.uuid,
+				const updated = await renameSession(
+					this.session.uuid,
 					this.title.trim(),
 				)
 				this.$emit('saved', updated)
@@ -134,20 +134,20 @@ export default {
 </script>
 
 <style scoped>
-.conversation-rename {
+.session-rename {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 	padding: 20px;
 }
 
-.conversation-rename__title {
+.session-rename__title {
 	margin: 0 0 4px;
 	font-size: 20px;
 	font-weight: 600;
 }
 
-.conversation-rename__actions {
+.session-rename__actions {
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
