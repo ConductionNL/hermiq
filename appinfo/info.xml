@@ -119,6 +119,12 @@
                  their only path to getting the field backfilled. -->
             <step>OCA\Hermiq\Repair\BackfillAgentApplicationSlug</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
+            <!--
+              session-data-migration. Copies conversations onto the session schema; the
+              sources are never modified, so rollback is deleting the copies. Runs after
+              InitializeSettings, which is what imports the session schema it writes to.
+            -->
+            <step>OCA\Hermiq\Repair\MigrateConversationsToSessions</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
             <!-- Registers the in-process Talk bot. A no-op when Talk is absent,
