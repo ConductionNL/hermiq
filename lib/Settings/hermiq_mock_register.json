@@ -1273,9 +1273,10 @@
           "slug": "agentsession-voorbeeld-title-1-1"
         },
         "agentId": "00000000-0000-4000-8000-000000000000",
-        "title": "Voorbeeld Title 1",
+        "title": "Vraag over het mandaatbesluit",
+        "triggerOrigin": "human",
         "startedAt": "2026-03-01T09:00:00+00:00",
-        "lastActivityAt": "2026-03-01T09:00:00+00:00"
+        "lastActivityAt": "2026-03-01T09:12:00+00:00"
       },
       {
         "@self": {
@@ -1284,9 +1285,10 @@
           "slug": "agentsession-voorbeeld-title-2-2"
         },
         "agentId": "00000000-0000-4000-8000-000000000001",
-        "title": "Voorbeeld Title 2",
-        "startedAt": "2026-03-02T09:00:00+00:00",
-        "lastActivityAt": "2026-03-02T09:00:00+00:00"
+        "title": "Ochtendbriefing, 2 maart",
+        "triggerOrigin": "cron",
+        "startedAt": "2026-03-02T06:00:00+00:00",
+        "lastActivityAt": "2026-03-02T06:00:41+00:00"
       },
       {
         "@self": {
@@ -1295,9 +1297,10 @@
           "slug": "agentsession-voorbeeld-title-3-3"
         },
         "agentId": "00000000-0000-4000-8000-000000000002",
-        "title": "Voorbeeld Title 3",
+        "title": "Welke stukken horen bij zaak 2026-0042?",
+        "triggerOrigin": "human",
         "startedAt": "2026-03-03T09:00:00+00:00",
-        "lastActivityAt": "2026-03-03T09:00:00+00:00"
+        "lastActivityAt": "2026-03-03T09:04:00+00:00"
       },
       {
         "@self": {
