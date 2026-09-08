@@ -69,11 +69,11 @@ use OCP\Http\Client\IResponse;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
-use OCP\Server;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
@@ -299,6 +299,14 @@ class ProviderFactory {
 	 *                                   Nullable/defaulted for the same
 	 *                                   backward-compat reason; a null config
 	 *                                   simply means no override is applied.
+	 * @param ContainerInterface|null $container The app container AppAPI and the
+	 *                                          OpenRegister credential broker are
+	 *                                          resolved from, both being optional
+	 *                                          sibling apps named by class-string.
+	 *                                          Nullable and trailing for the same
+	 *                                          backward-compat reason: the unit tests
+	 *                                          build this factory positionally with
+	 *                                          its first four collaborators.
 	 *
 	 * @return void
 	 *
@@ -323,8 +331,38 @@ class ProviderFactory {
 		private readonly ?RunTokenService $runTokenService = null,
 		private readonly ?IURLGenerator $urlGenerator = null,
 		private readonly ?IAppConfig $appConfig = null,
+		private readonly ?ContainerInterface $container = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The container AppAPI and the OpenRegister credential broker are resolved from.
+	 *
+	 * Both are other apps' classes, named by class-string and probed with class_exists,
+	 * so neither can be a constructor type: hermiq has to stay constructible, and stay
+	 * able to serve `http`, on an instance that has neither. They used to come from
+	 * `\OCP\Server::get()`, which outside a booted Nextcloud autowires from scratch and
+	 * can recurse through a constructor cycle until memory runs out. The container is
+	 * nullable and trailing because eight unit tests build this factory positionally
+	 * with its first four collaborators and never reach a cross-app call.
+	 *
+	 * @return ContainerInterface The injected container.
+	 *
+	 * @throws ProviderUnavailableException When the factory was built without one, which
+	 *                                      is the same dead end as the sibling app being
+	 *                                      absent.
+	 */
+	private function serviceContainer(): ContainerInterface {
+		if ($this->container === null) {
+			throw new ProviderUnavailableException(
+				'This provider is unavailable: the factory was constructed without a container, so '
+				. 'AppAPI and the OpenRegister credential broker cannot be resolved.',
+				503
+			);
+		}
+
+		return $this->container;
+	}//end serviceContainer()
 
 	/**
 	 * Read the current `hermiq.llm` configuration.
@@ -566,7 +604,8 @@ class ProviderFactory {
 		$client = new BrokerHttpClient(
 			credentialId: $credentialId,
 			logger: $this->logger,
-			actingUserId: $this->currentUid()
+			actingUserId: $this->currentUid(),
+			container: $this->container
 		);
 
 		try {
@@ -1339,9 +1378,9 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException When the scope cannot be verified, the credential is
 	 *                                      organisation-scope, or no token can be resolved (503).
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
-	 *   of the optional OpenRegister broker (guarded by class_exists above) so this class
-	 *   stays constructible when the broker is absent.
+	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
+	 *   class-string and resolved through the injected container (guarded by class_exists
+	 *   above) so this class stays constructible when the broker is absent.
 	 *
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
 	 */
@@ -1357,7 +1396,7 @@ class ProviderFactory {
 		}
 
 		try {
-			$broker = Server::get(BrokerHttpClient::BROKER_CLASS);
+			$broker = $this->serviceContainer()->get(BrokerHttpClient::BROKER_CLASS);
 			$token = $broker->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
 		} catch (Throwable $e) {
 			// The broker's own denial reasons (owner/allowedApps) are operator-relevant but
@@ -1763,22 +1802,23 @@ class ProviderFactory {
 	 * Resolve AppAPI's public interface lazily, by class-name string.
 	 *
 	 * Never a hard `use` or a constructor type — Hermiq MUST still boot and still serve `http`
-	 * on an instance with no AppAPI installed. Mirrors `BrokerHttpClient`'s pattern for the
-	 * credential broker. Callers assert {@see APP_API_PUBLIC_FUNCTIONS} exists first.
+	 * on an instance with no AppAPI installed. Resolved by class-name string through the
+	 * injected container, mirroring `BrokerHttpClient`'s pattern for the credential broker.
+	 * Callers assert {@see APP_API_PUBLIC_FUNCTIONS} exists first.
 	 *
 	 * `AppAPIService` internals were read as EVIDENCE for this dispatch's traps; they are not
 	 * an API to call. `PublicFunctions` is the supported seam.
 	 *
 	 * @return object AppAPI's `PublicFunctions`.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
-	 *   of the optional AppAPI interface so Hermiq still boots and serves `http` on an
-	 *   instance without AppAPI installed.
+	 * @SuppressWarnings(PHPMD.StaticAccess) The optional AppAPI interface is named by
+	 *   class-string and resolved through the injected container, so Hermiq still boots
+	 *   and serves `http` on an instance without AppAPI installed.
 	 *
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
 	 */
 	private function appApiPublicFunctions(): object {
-		return Server::get(self::APP_API_PUBLIC_FUNCTIONS);
+		return $this->serviceContainer()->get(self::APP_API_PUBLIC_FUNCTIONS);
 	}//end appApiPublicFunctions()
 
 	/**
@@ -2006,7 +2046,8 @@ class ProviderFactory {
 		$client = new BrokerHttpClient(
 			credentialId: $credentialId,
 			logger: $this->logger,
-			actingUserId: $this->currentUid()
+			actingUserId: $this->currentUid(),
+			container: $this->container
 		);
 
 		try {
@@ -2320,7 +2361,8 @@ class ProviderFactory {
 				new BrokerHttpClient(
 					credentialId: $credentialId,
 					logger: $this->logger,
-					actingUserId: $this->currentUid()
+					actingUserId: $this->currentUid(),
+					container: $this->container
 				)
 			)
 			->make();
