@@ -7,10 +7,10 @@
  * `openbuild/tests/Unit/Service/GitHubPushServiceTest.php`): this service takes
  * no GitHub token — only a broker `credentialId` — so these tests lock the
  * no-token surface and the fail-closed guards. There is deliberately no
- * happy-path test here: `push()` resolves the broker through `Server::get()`,
- * which needs the Nextcloud container; with no container available in the unit
- * suite, every path that reaches the broker fails closed — which is exactly the
- * behaviour asserted below. The wire surface (create-repo → set-topics →
+ * happy-path test here: `push()` resolves the broker through the container it
+ * is constructed with, and these tests construct it without one, so every path
+ * that reaches the broker fails closed — which is exactly the behaviour asserted
+ * below. The wire surface (create-repo → set-topics →
  * blob/tree/commit → update-ref) is covered where it is actually exercisable:
  * against the live broker on the dev instance.
  *
@@ -109,9 +109,9 @@ final class GitHubTemplatePushServiceTest extends TestCase {
 	 * Fail closed when the broker cannot serve the call: no fallback, no publish.
 	 *
 	 * OpenRegister IS on the unit-test autoloader, so `isBrokerAvailable()` is true
-	 * here and `push()` gets as far as the first broker call — which cannot resolve
-	 * a real `Server::get()` container in a unit test. It must throw rather than
-	 * degrade to any token-bearing path.
+	 * here and `push()` gets as far as the first broker call — which has no container
+	 * to resolve the broker from, this service having been built without one. It must
+	 * throw rather than degrade to any token-bearing path.
 	 *
 	 * @return void
 	 */

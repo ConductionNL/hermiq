@@ -27,7 +27,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCP\Server;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Throwable;
@@ -95,13 +95,43 @@ class StageDispatchService {
 	 *                                         proxy needs. Without one the sidecar has no
 	 *                                         identity to present and the PDP refuses every
 	 *                                         CONNECT before it evaluates any policy.
+	 * @param ContainerInterface|null $container The app container the optional cross-app
+	 *                                           classes are resolved from; null when the
+	 *                                           class is built by hand in a test.
 	 */
 	public function __construct(
 		private readonly LoggerInterface $logger,
 		private readonly RunTokenService $runTokenService,
+		private readonly ?ContainerInterface $container = null,
 	) {
 
 	}//end __construct()
+
+	/**
+	 * The container AppAPI and the OpenRegister broker are resolved from.
+	 *
+	 * Both are optional sibling apps, so neither can be a constructor type: hermiq
+	 * has to stay constructible on an instance that has neither. They used to come
+	 * from `\OCP\Server::get()`, which outside a booted Nextcloud autowires from
+	 * scratch and can recurse through a constructor cycle until memory runs out.
+	 * The container is nullable because the two test subclasses build this service
+	 * with its two real collaborators and never reach a cross-app call.
+	 *
+	 * @return ContainerInterface The injected container.
+	 *
+	 * @throws RuntimeException When the service was built without one, which is the
+	 *                          same dead end as the sibling app being absent.
+	 */
+	protected function serviceContainer(): ContainerInterface {
+		if ($this->container === null) {
+			throw new RuntimeException(
+				'The stage cannot be dispatched: this service was constructed without a container, so '
+				. 'AppAPI and the OpenRegister credential broker cannot be resolved.'
+			);
+		}
+
+		return $this->container;
+	}//end serviceContainer()
 
 	/**
 	 * Run one stage and return its result.
@@ -170,9 +200,9 @@ class StageDispatchService {
 	 *
 	 * @throws RuntimeException When the stage could not be run.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess)           OCP\Server::get is deliberate lazy resolution
-	 *   of AppAPI and the optional OpenRegister broker, so this class stays constructible
-	 *   when either is absent.
+	 * @SuppressWarnings(PHPMD.StaticAccess)           AppAPI and the optional OpenRegister
+	 *   broker are named by class-string and resolved through the injected container, so
+	 *   this class stays constructible when either is absent.
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) The tenth parameter takes this one
 	 *   over the threshold, and the remedy the rule implies — bundling some of them into
 	 *   an array — is the exact shape in which a field has already been silently dropped
@@ -217,7 +247,7 @@ class StageDispatchService {
 			collect: $collect
 		);
 
-		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
+		$result = $this->serviceContainer()->get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
 			self::RUNNER_EXAPP_ID,
 			self::RUNNER_ROUTE,
 			$uid,
@@ -590,7 +620,7 @@ class StageDispatchService {
 		}
 
 		try {
-			$response = Server::get(BrokerHttpClient::BROKER_CLASS)->request(
+			$response = $this->serviceContainer()->get(BrokerHttpClient::BROKER_CLASS)->request(
 				$credentialId,
 				BrokerHttpClient::APP_ID,
 				'GET',
@@ -660,7 +690,7 @@ class StageDispatchService {
 		}
 
 		try {
-			$token = Server::get(BrokerHttpClient::BROKER_CLASS)
+			$token = $this->serviceContainer()->get(BrokerHttpClient::BROKER_CLASS)
 				->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
 		} catch (Throwable $e) {
 			// NOT fatal, for the same reason a null is not: an INJECTED token is
