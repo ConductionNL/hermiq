@@ -121,6 +121,8 @@ class StageDispatchService {
 	 *
 	 * @throws RuntimeException When the service was built without one, which is the
 	 *                          same dead end as the sibling app being absent.
+	 *
+	 * @spec exclude Container-resolution seam: it hands back the injected container and has no behavioural contract of its own.
 	 */
 	protected function serviceContainer(): ContainerInterface {
 		if ($this->container === null) {
