@@ -1,12 +1,23 @@
 # OpenRegister Flow Consumer Specification
 
-**Status**: active
+**Status**: retired
 
 **Feature tier**: V1
 
-**OpenSpec changes:** `hermiq-schedule-source` — DONE (12 of 12 tasks): Hermiq's flow resolver is
-also a scheduled-flow source, reporting every agentflow whose trigger is `schedule` to
-OpenRegister's scheduler.
+**OpenSpec changes:** `hermiq-schedule-source` built this in `d000fd75` (#115).
+`8408a75a` (#134, "delete hermiq's second flow engine; contribute nodes only")
+then removed it, along with the whole `agentflow` object store.
+
+> **RETIRED.** `HermiqFlowResolver`, `HermiqFlowResolverListener` and
+> `tests/Unit/Flow/HermiqScheduledFlowSourceTest.php` were all deleted by
+> `8408a75a`. Hermiq no longer runs a flow engine or answers a scheduler: flows
+> are authored in OpenRegister's native flow store, and OpenRegister schedules
+> them itself, so there is nothing left for hermiq to be a source of. The
+> `agentflow` and `agentflowrun` schemas are retired too, and
+> `lib/Repair/PruneRetiredAgentFlowSchemas.php` removes them from existing
+> installs. What hermiq still contributes is nodes: `HermiqAgentNode`,
+> `HermiqWorkloadNode` and `HermiqFlowNodeListener`. The requirement below is
+> kept for history and describes code that is gone.
 
 ## Purpose
 
@@ -55,7 +66,11 @@ the sequencer being the hydra pipeline's heartbeat.)
 - **WHEN** it is read back
 - **THEN** the expression is present
 
-@e2e exclude covered by HermiqScheduledFlowSourceTest plus a live verification on
-the dev instance (an agentflow with a one-minute cron fired through
-OpenRegister's schedule worker, producing the first `trigger='schedule'` run the
-instance has ever held; a disabled sibling produced none)
+@e2e exclude retired, and no longer implemented here. The PHPUnit class this
+reason used to name was deleted by `8408a75a` with the resolver it tested, and
+the live verification it describes was of a store that no longer exists. What
+this app now asserts about the subject is the retirement itself:
+`tests/Unit/Settings/AgentFlowRetirementTest.php` pins that neither schema
+returns to `hermiq_register.json` and that the prune stays registered in
+`info.xml`, and `tests/Unit/Repair/PruneRetiredAgentFlowSchemasTest.php` covers
+the prune across five cases including a second run being a no-op.
