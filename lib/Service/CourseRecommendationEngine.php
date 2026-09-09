@@ -64,6 +64,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -111,11 +112,32 @@ class CourseRecommendationEngine {
 	private const AIFEATURE_SLUG = 'course-recommendations';
 
 	/**
-	 * The optional runtime peer app whose learner-signal schemas this engine reads.
+	 * The optional peer app whose learner signals this engine reads, by its
+	 * CANONICAL (current) name — resolved via FleetAppId, never a literal.
+	 *
+	 * The app renamed `scholiq` -> `learniq` and both are in the field.
+	 * `isInstalled('scholiq')` against an instance running `learniq` does not
+	 * error, it returns false, so the gate below fell through to
+	 * `unavailableResult()` and every learner got an empty recommendation set
+	 * with the feature enabled and nothing logged beyond "not installed".
 	 *
 	 * @var string
 	 */
-	private const SCHOLIQ_APP_ID = 'scholiq';
+	private const LEARNIQ_APP = 'learniq';
+
+	/**
+	 * The app id STAMPED ONTO a persisted CourseRecommendation.
+	 *
+	 * 🔴 FROZEN, and deliberately not the constant above. `sourceApp` is a
+	 * required schema property already carrying `scholiq` in stored rows and in
+	 * the mock register; renaming it in code splits the field into two
+	 * vocabularies rather than migrating it. Same reason
+	 * {@see self::SCHOLIQ_REGISTER} does not move: stored data stays put, only
+	 * LOOKUPS follow the rename.
+	 *
+	 * @var string
+	 */
+	private const SOURCE_APP_STAMP = 'scholiq';
 
 	/**
 	 * OpenRegister register slug that holds Scholiq's objects.
@@ -299,8 +321,9 @@ class CourseRecommendationEngine {
 			return $this->unavailableResult(learnerUid: $learnerUid);
 		}
 
-		// Gate 2 (2.4): Scholiq installed.
-		if ($this->appManager->isInstalled(self::SCHOLIQ_APP_ID) === false) {
+		// Gate 2 (2.4): the learner-signal app installed, under EITHER of the
+		// names it answers to. See self::LEARNIQ_APP.
+		if (FleetAppId::isInstalled(appManager: $this->appManager, canonical: self::LEARNIQ_APP) === false) {
 			$this->logger->info(
 				'[CourseRecommendationEngine] Scholiq is not installed; returning an unavailable recommendation set.'
 			);
@@ -371,7 +394,7 @@ class CourseRecommendationEngine {
 
 		$payload = [
 			'learnerId' => $learnerUid,
-			'sourceApp' => self::SCHOLIQ_APP_ID,
+			'sourceApp' => self::SOURCE_APP_STAMP,
 			'tenantId' => $organisation,
 			'status' => 'fresh',
 			'generatedAt' => $now->format('c'),
@@ -1041,7 +1064,7 @@ class CourseRecommendationEngine {
 	private function unavailableResult(string $learnerUid): array {
 		return [
 			'learnerId' => $learnerUid,
-			'sourceApp' => self::SCHOLIQ_APP_ID,
+			'sourceApp' => self::SOURCE_APP_STAMP,
 			'tenantId' => '',
 			'status' => 'unavailable',
 			'generatedAt' => null,
