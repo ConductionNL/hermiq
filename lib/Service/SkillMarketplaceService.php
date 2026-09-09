@@ -40,6 +40,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -455,10 +456,19 @@ class SkillMarketplaceService {
 		// strip as GitHub publish — unvetted observations never leave the instance.
 		$package = ($this->skillService->exportSkill(skillId: $skillId) ?? '');
 
-		try {
-			// Route outbound through OpenConnector's CallService — never a direct HTTP client.
-			$callService = $this->container->get('OCA\\OpenConnector\\Service\\CallService');
-		} catch (Throwable $e) {
+		// Route outbound through the connector app's CallService — never a direct
+		// HTTP client. Asked for by CANONICAL app name rather than by a literal
+		// FQCN: that app moved its PSR-4 root from `OCA\OpenConnector` to
+		// `OCA\Integriq` with no compatibility alias, and both roots are in the
+		// field. A container lookup on the wrong one throws, and a thrown lookup
+		// here is indistinguishable from the app not being installed — every
+		// publish reported `hub_unavailable` on an instance that had it.
+		$callService = FleetAppId::getService(
+			container: $this->container,
+			canonical: 'integriq',
+			relative: 'Service\CallService'
+		);
+		if ($callService === null) {
 			return [
 				'error' => [
 					'code' => 'hub_unavailable',

@@ -217,6 +217,9 @@ class CourseRecommendationEngineTest extends TestCase {
 	 * @param bool $killSwitchEngaged Whether the tenant kill-switch is engaged.
 	 * @param ProviderFactory|null $providerFactory A specific LLM provider double, or a plain mock.
 	 * @param array<int, Organisation> $organisations The learner's resolved organisations.
+	 * @param string|null $installedAppId When given, the ONE app id the instance
+	 *                                    answers to; every other id reports
+	 *                                    not-installed, as a real IAppManager does.
 	 *
 	 * @return CourseRecommendationEngine
 	 */
@@ -227,12 +230,21 @@ class CourseRecommendationEngineTest extends TestCase {
 		bool $killSwitchEngaged = false,
 		?ProviderFactory $providerFactory = null,
 		array $organisations = [],
+		?string $installedAppId = null,
 	): CourseRecommendationEngine {
 		$aiFeatureService = $this->createMock(AiFeatureService::class);
 		$aiFeatureService->method('findBySlug')->willReturn($feature);
 
 		$appManager = $this->createMock(IAppManager::class);
-		$appManager->method('isInstalled')->willReturn($scholiqInstalled);
+		if ($installedAppId === null) {
+			$appManager->method('isInstalled')->willReturn($scholiqInstalled);
+		} else {
+			$appManager->method('isInstalled')->willReturnCallback(
+				static function (string $appId) use ($installedAppId): bool {
+					return $appId === $installedAppId;
+				}
+			);
+		}
 
 		$scheduleService = $this->createMock(ScheduleService::class);
 		$scheduleService->method('isOrganisationEngaged')->willReturn($killSwitchEngaged);
@@ -352,6 +364,75 @@ class CourseRecommendationEngineTest extends TestCase {
 		$this->assertSame([], $schemaCallLog);
 
 	}//end testScholiqNotInstalledDegradesToUnavailable()
+
+	/**
+	 * The install gate passes under EITHER name the learner-signal app answers to.
+	 *
+	 * The app renamed `scholiq` -> `learniq`. `isInstalled()` on the name an
+	 * instance does not use returns FALSE rather than raising, so pinning one
+	 * spelling turned this gate into a permanent "not installed" on half the
+	 * fleet: the AI feature was enabled, no schema was ever read, and every
+	 * learner got an empty recommendation set with nothing logged beyond an
+	 * info line. Asserting the schema call log is non-empty is the tell that
+	 * the gate was actually cleared, and it is the exact inverse of the
+	 * assertion in testScholiqNotInstalledDegradesToUnavailable().
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#scenario-scholiq-not-installed
+	 */
+	public function testTheInstallGatePassesUnderEitherFleetAppId(): void {
+		foreach (['learniq', 'scholiq'] as $installedAppId) {
+			$saved = [];
+			$schemaCallLog = [];
+			$objectService = $this->objectService(bySchema: [], throwFor: [], saved: $saved, schemaCallLog: $schemaCallLog);
+
+			$engine = $this->engine(
+				objectService: $objectService,
+				feature: $this->enabledFeature(),
+				installedAppId: $installedAppId
+			);
+
+			$result = $engine->getOrRegenerate(learnerUid: 'alice');
+
+			$this->assertNotSame(
+				[],
+				$schemaCallLog,
+				'the install gate rejected an instance whose app id is ' . $installedAppId
+			);
+			$this->assertNotSame('unavailable', $result['status']);
+		}
+
+	}//end testTheInstallGatePassesUnderEitherFleetAppId()
+
+	/**
+	 * The persisted `sourceApp` stamp stays `scholiq` on both paths.
+	 *
+	 * 🔴 THIS IS THE OPPOSITE RULE TO THE ONE ABOVE, AND BOTH ARE RIGHT.
+	 * `sourceApp` is a required property of the CourseRecommendation schema and
+	 * stored rows plus the mock register already carry `scholiq`. Following the
+	 * rename here would not migrate those rows, it would split the field into
+	 * two vocabularies so that anything filtering on it sees half the data.
+	 * Lookups follow the rename; stored data does not.
+	 *
+	 * @return void
+	 */
+	public function testThePersistedSourceAppStampIsFrozen(): void {
+		$saved = [];
+		$schemaCallLog = [];
+		$objectService = $this->objectService(bySchema: [], throwFor: [], saved: $saved, schemaCallLog: $schemaCallLog);
+
+		$engine = $this->engine(
+			objectService: $objectService,
+			feature: $this->enabledFeature(),
+			installedAppId: 'learniq'
+		);
+
+		$result = $engine->getOrRegenerate(learnerUid: 'alice');
+
+		$this->assertSame('scholiq', $result['sourceApp']);
+
+	}//end testThePersistedSourceAppStampIsFrozen()
 
 	/**
 	 * The deterministic scoring stage produces the SAME rank/score/matchedSignals
