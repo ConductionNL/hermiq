@@ -63,15 +63,34 @@ class RegisterSlugPinTest extends TestCase {
 	/**
 	 * Superseded register slug => the canonical slug replacing it.
 	 *
-	 * Only the register this app actually reads. openregister owns the full fleet
-	 * map in `lib/Support/RegisterSlugAliases.php`, which is not published to
-	 * consumers, and copying all ten here would put a second copy of that truth in
-	 * a repository that does not own it. What this guard needs is narrower anyway:
-	 * the slugs THIS app could plausibly type.
+	 * All ten, and this list used to hold one. It said it covered "the slugs THIS
+	 * app could plausibly type", and that premise is measurably wrong about this
+	 * repository: a sweep of register position under `lib/` finds `learniq` and
+	 * `opencatalogi` already there, beside the 76 sites naming `hermiq` itself.
+	 * An app that types two other apps' register slugs today can type a third
+	 * tomorrow, and a guard scoped to `scholiq` alone watched the one slug this
+	 * repository has already been cleaned of.
+	 *
+	 * Transcribed from openregister's `lib/Support/RegisterSlugAliases.php`,
+	 * which is the authority and is NOT published to consumers. The list is not
+	 * derivable from the app-rename map: `stackiq` renamed the register
+	 * `voorzieningen`, while its former app id `softwarecatalog` was never a
+	 * register slug on any instance.
 	 *
 	 * @var array<string, string>
 	 */
-	private const SUPERSEDED = ['scholiq' => 'learniq'];
+	private const SUPERSEDED = [
+		'openconnector'   => 'integriq',
+		'openbuild'       => 'buildiq',
+		'decidesk'        => 'decidiq',
+		'hrmq'            => 'humaniq',
+		'larpingapp'      => 'larpinq',
+		'planix'          => 'planninq',
+		'voorzieningen'   => 'stackiq',
+		'procest'         => 'dossiq',
+		'procest-default' => 'dossiq-default',
+		'scholiq'         => 'learniq',
+	];
 
 	/**
 	 * Files allowed to name a superseded slug, and why.
@@ -107,6 +126,15 @@ class RegisterSlugPinTest extends TestCase {
 	 * frozen `sourceApp` stamp is not this defect, and a guard that flagged those
 	 * would be turned off.
 	 *
+	 * The last three cover the NULL-COALESCING DEFAULT, and they are the reason
+	 * this list is eight long rather than five. integriq shipped
+	 * `register: ($data['register'] ?? 'openconnector')` in MappingsController
+	 * and this guard, which is the same guard, did not see it: all five of the
+	 * original patterns require the quote to follow `register:` directly, and
+	 * the coalesce operator sits in between. It was found by a hand grep. A
+	 * default is the likeliest place for a pin to survive a rename, because it
+	 * is the branch nobody exercises on a healthy instance.
+	 *
 	 * @var list<string>
 	 */
 	private const REGISTER_POSITION = [
@@ -115,6 +143,9 @@ class RegisterSlugPinTest extends TestCase {
 		'/\'register\'\s*=>\s*\'([a-zA-Z0-9_-]+)\'/',
 		'/\bconst\s+[A-Z0-9_]*REGISTER[A-Z0-9_]*\s*=\s*\'([a-zA-Z0-9_-]+)\'/',
 		'/\$[a-zA-Z0-9_]*(?:[Rr]egister|[Ss]lug)[a-zA-Z0-9_]*\s*=\s*\'([a-zA-Z0-9_-]+)\'/',
+		'/\bregister:\s*\(?[^,()]*\?\?\s*\'([a-zA-Z0-9_-]+)\'/',
+		'/\'register\'\s*=>\s*\(?[^,()]*\?\?\s*\'([a-zA-Z0-9_-]+)\'/',
+		'/\$[a-zA-Z0-9_]*(?:[Rr]egister|[Ss]lug)[a-zA-Z0-9_]*\s*=\s*[^;]*\?\?\s*\'([a-zA-Z0-9_-]+)\'/',
 	];
 
 	/**
@@ -206,6 +237,10 @@ class RegisterSlugPinTest extends TestCase {
 	 * register-position form a known-bad line and requires a match, so a regex
 	 * that stops matching reddens immediately instead of going quiet.
 	 *
+	 * The sixth sample is not invented. It is integriq's MappingsController line
+	 * as it stood on `development`, copied verbatim, and it is here because the
+	 * five patterns above let it through.
+	 *
 	 * @return void
 	 */
 	public function testEachRegisterPositionPatternStillMatches(): void {
@@ -215,6 +250,9 @@ class RegisterSlugPinTest extends TestCase {
 			'/\'register\'\s*=>\s*\'([a-zA-Z0-9_-]+)\'/'              => "'filters' => ['register' => 'scholiq', 'schema' => 'course'],",
 			'/\bconst\s+[A-Z0-9_]*REGISTER[A-Z0-9_]*\s*=\s*\'([a-zA-Z0-9_-]+)\'/' => "\tprivate const SCHOLIQ_REGISTER = 'scholiq';",
 			'/\$[a-zA-Z0-9_]*(?:[Rr]egister|[Ss]lug)[a-zA-Z0-9_]*\s*=\s*\'([a-zA-Z0-9_-]+)\'/' => "\t\t\$registerSlug = 'scholiq';",
+			'/\bregister:\s*\(?[^,()]*\?\?\s*\'([a-zA-Z0-9_-]+)\'/'   => "\t\t\tregister: (\$data['register'] ?? 'openconnector'),",
+			'/\'register\'\s*=>\s*\(?[^,()]*\?\?\s*\'([a-zA-Z0-9_-]+)\'/' => "'register' => (\$data['register'] ?? 'scholiq'),",
+			'/\$[a-zA-Z0-9_]*(?:[Rr]egister|[Ss]lug)[a-zA-Z0-9_]*\s*=\s*[^;]*\?\?\s*\'([a-zA-Z0-9_-]+)\'/' => "\t\t\$register = \$resolution?->slug ?? 'scholiq';",
 		];
 
 		foreach (self::REGISTER_POSITION as $pattern) {
