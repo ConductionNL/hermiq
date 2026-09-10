@@ -44,6 +44,7 @@ use OCA\Hermiq\TaskProcessing\TextToSpeechProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCA\Hermiq\Tenant\OpenRegisterManageableOrganisations;
+use OCA\OpenRegister\Contract\RegisterSlugResolverInterface;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
@@ -290,6 +291,41 @@ class Application extends App implements IBootstrap {
 		$context->registerServiceAlias(
 			ManageableOrganisations::class,
 			OpenRegisterManageableOrganisations::class
+		);
+
+		// The register-slug resolver, published by OpenRegister (ADR-084's shape:
+		// one definition owned by the app that implements it).
+		//
+		// Register slugs live in `openregister_registers`, and nine fleet apps
+		// ship a repair step that renames theirs. The step is per instance, so
+		// both slugs are live across the estate at once and a literal is wrong on
+		// half of it. The old-slug case is the quiet one: OpenRegister finds no
+		// register, matches no rows, and returns an empty set that is
+		// byte-for-byte what a healthy empty register returns. No exception, no
+		// 404, no log line. `CourseRecommendationEngine` read the learner-signal
+		// register that way, which for a recommendation engine means it
+		// recommends nothing and reports success.
+		//
+		// Verified against this container rather than assumed: resolving this
+		// interface from hermiq's own DIContainer on the running instance returns
+		// a working resolver. OpenRegister registers the concrete class in its OWN
+		// container and none of that registration reaches here; what reaches here
+		// is this alias plus autowiring of the concrete class, whose dependencies
+		// are `RegisterMapper` and `LoggerInterface`, both resolvable from a leaf
+		// app's container. The one thing lost is OpenRegister's shared-instance
+		// registration: a leaf container autowires a fresh resolver per injection
+		// point, so the request-scoped memo is per consumer rather than per
+		// request. That costs one indexed read per consumer and changes no answer.
+		//
+		// An ALIAS specifically, and not a factory that touches the class. Apps
+		// register in sorted order, so `OCA\OpenRegister\` is not autoloadable at
+		// `register()` time on every instance; both sides of an alias are strings
+		// and neither triggers an autoload, so the binding is safe whatever the
+		// order. `OpenRegisterAutoloader::register()` at the top of this method
+		// already removes that hazard here, and the alias would hold without it.
+		$context->registerServiceAlias(
+			RegisterSlugResolverInterface::class,
+			'OCA\\OpenRegister\\Service\\RegisterSlugResolver'
 		);
 
 		// NC-native agent tools (nc-native-tools): expose Files/Contacts/Calendar/Deck/email
