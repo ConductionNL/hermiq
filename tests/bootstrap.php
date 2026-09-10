@@ -74,35 +74,23 @@ foreach ($capabilityRoots as $capabilityRoot) {
 // absence unmistakable would be a second copy of that rule, kept here by someone
 // who does not own it. There is no stub, and there must not be one.
 //
-// TWO SOURCES, ONE DEFINITION. Gate 67 (`openregister-contract-parity`) requires
-// openregister's `lib/Contract/` and the hydra-gates package's
-// `hydra-gates/contracts/` to be byte identical, so either yields the same type.
-// Both are listed because they become available at different times: the package
-// copy ships on a TAG, openregister's own tree is what CI checks out beside this
-// app and what a dev checkout has next to it. That difference is not
-// hypothetical. Measured here at v1.17.0, the vendored directory holds
-// ObjectEntityInterface, ObjectServiceInterface and fleet-schema-slugs.json and
-// nothing else, because the resolver contract was published to the package by
-// ConductionNL/.github#739, which merged AFTER v1.17.0 was cut. Bumping the
-// constraint alone does not make it loadable.
+// ONE SOURCE. Gate 67 (`openregister-contract-parity`) requires openregister's
+// `lib/Contract/` and the hydra-gates package's `hydra-gates/contracts/` to be
+// byte identical, so the vendored file is the definition openregister declares.
 //
-// PSR-4 with several directories searches them in order, so nothing is required
-// eagerly and no duplicate declaration is possible.
-$hermiqContractDirs = array_values(
-	array_filter(
-		array_merge(
-			array_map(
-				static fn (string $root): string => rtrim($root, '/') . '/lib/Contract',
-				array_map('strval', $capabilityRoots)
-			),
-			[__DIR__ . '/../vendor/conduction/hydra-gates/hydra-gates/contracts']
-		),
-		'is_dir'
-	)
+// This used to list openregister's own tree beside the package, because the
+// resolver contract was published to the package by ConductionNL/.github#739,
+// which merged after v1.17.0 was cut, so for a while it was on main and in no
+// release and the constraint bump alone did not make it loadable. v1.18.0
+// carries all four, measured on this checkout, so the second source covers
+// nothing and is gone.
+//
+// PSR-4 registers the directory rather than requiring anything, so nothing is
+// loaded eagerly and no duplicate declaration is possible.
+$autoloader->addPsr4(
+	'OCA\\OpenRegister\\Contract\\',
+	[__DIR__ . '/../vendor/conduction/hydra-gates/hydra-gates/contracts']
 );
-if ($hermiqContractDirs !== []) {
-	$autoloader->addPsr4('OCA\\OpenRegister\\Contract\\', $hermiqContractDirs);
-}
 
 // This app's OWN test-support classes (doubles that are not themselves tests, so
 // PHPUnit never loads them by file). Registered here rather than in composer.json

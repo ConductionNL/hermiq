@@ -90,20 +90,24 @@
                 <referencedClass name="OCA\OpenRegister\Db\EntityRelationMapper"/>
                 <referencedClass name="OCA\OpenRegister\Mcp\IMcpToolProvider"/>
                 <!-- The register-slug resolver contract and its return type.
-                     Same situation as the OpenRegister entries above, with one
-                     extra wrinkle worth writing down: these were published to
-                     the hydra-gates package by ConductionNL/.github#739, which
-                     merged AFTER v1.17.0 was cut, so no tagged release ships
-                     them yet. Measured here: at ^1.17.0 the vendored contracts
-                     directory holds ObjectEntityInterface,
-                     ObjectServiceInterface and fleet-schema-slugs.json and
-                     nothing else, so even an app that vendors the contracts
-                     cannot resolve these two from vendor/ today. Once a tag
-                     carries them this pair can go, and findUnusedBaselineEntry
-                     is not what enforces that, someone re-reading this comment
-                     is. The tests already run against the REAL definitions,
-                     which tests/bootstrap.php maps from openregister's own
-                     lib/Contract under a longer PSR-4 prefix. -->
+                     Same situation as the OpenRegister entries above, and for
+                     the same reason, which is not the reason the first version
+                     of this comment gave. That version said the pair could go
+                     once a tagged hydra-gates release carried the files.
+                     v1.18.0 carries them, and psalm still cannot resolve them,
+                     so the claim was wrong. The cause is structural:
+                     conduction/hydra-gates declares no autoload section, so
+                     nothing under
+                     vendor/conduction/hydra-gates/hydra-gates/contracts/ is
+                     autoloadable, and this config ignores vendor outright.
+                     Measured on buildiq, which shares the shape, by deleting
+                     the ObjectEntityInterface entry that the package has
+                     shipped far longer: psalm exits 2 on that one too. What
+                     would make all four removable is an autoload entry on the
+                     package, or listing the contract files as psalm stubs here.
+                     A tag is not it. The tests do run against the real
+                     definitions, which tests/bootstrap.php now maps from the
+                     vendored package under a longer PSR-4 prefix. -->
                 <referencedClass name="OCA\OpenRegister\Contract\RegisterSlugResolverInterface"/>
                 <referencedClass name="OCA\OpenRegister\Contract\RegisterSlugResolution"/>
                 <!-- Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily -->
