@@ -20,6 +20,30 @@
     </projectFiles>
     <stubs>
         <file name="vendor/nextcloud/ocp/OCP/Capabilities/ICapability.php" preloadClasses="true" />
+        <!--
+            OpenRegister's register-slug resolver contract and its return type,
+            which this app's lib/ typehints but does not own. OpenRegister
+            supplies them at RUNTIME; these are analysis stubs only.
+
+            Both were referencedClass suppressions until now, because
+            conduction/hydra-gates declares no autoload section, so nothing under
+            hydra-gates/contracts/ is autoloadable and this config ignores vendor
+            outright. A stub is read anyway: stubs are loaded explicitly rather
+            than scanned, so ignoreFiles does not reach them.
+
+            The suppression was not cosmetic and the swap is not either. A
+            suppressed class makes every value flowing through it mixed, so psalm
+            stops analysing the very branch this contract exists to force. The
+            stub is what lets psalm see that
+            RegisterSlugResolution::isResolved() returns bool and that ->slug is
+            readonly ?string.
+
+            Only these two. The rest of the OpenRegister surface this app
+            consumes is still handled by the UndefinedClass allowlist below,
+            which is a separate question from this contract.
+        -->
+        <file name="vendor/conduction/hydra-gates/hydra-gates/contracts/RegisterSlugResolution.php" />
+        <file name="vendor/conduction/hydra-gates/hydra-gates/contracts/RegisterSlugResolverInterface.php" />
     </stubs>
     <issueHandlers>
         <UndefinedDocblockClass errorLevel="suppress"/>
@@ -89,27 +113,6 @@
                 <referencedClass name="OCA\OpenRegister\Service\RiskLevelService"/>
                 <referencedClass name="OCA\OpenRegister\Db\EntityRelationMapper"/>
                 <referencedClass name="OCA\OpenRegister\Mcp\IMcpToolProvider"/>
-                <!-- The register-slug resolver contract and its return type.
-                     Same situation as the OpenRegister entries above, and for
-                     the same reason, which is not the reason the first version
-                     of this comment gave. That version said the pair could go
-                     once a tagged hydra-gates release carried the files.
-                     v1.18.0 carries them, and psalm still cannot resolve them,
-                     so the claim was wrong. The cause is structural:
-                     conduction/hydra-gates declares no autoload section, so
-                     nothing under
-                     vendor/conduction/hydra-gates/hydra-gates/contracts/ is
-                     autoloadable, and this config ignores vendor outright.
-                     Measured on buildiq, which shares the shape, by deleting
-                     the ObjectEntityInterface entry that the package has
-                     shipped far longer: psalm exits 2 on that one too. What
-                     would make all four removable is an autoload entry on the
-                     package, or listing the contract files as psalm stubs here.
-                     A tag is not it. The tests do run against the real
-                     definitions, which tests/bootstrap.php now maps from the
-                     vendored package under a longer PSR-4 prefix. -->
-                <referencedClass name="OCA\OpenRegister\Contract\RegisterSlugResolverInterface"/>
-                <referencedClass name="OCA\OpenRegister\Contract\RegisterSlugResolution"/>
                 <!-- Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily -->
                 <referencedClass name="OCA\Talk\Manager"/>
                 <referencedClass name="OCA\Talk\Room"/>
