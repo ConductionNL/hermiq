@@ -22,6 +22,34 @@ if (is_dir(__DIR__ . '/../vendor/nextcloud/ocp/OCP')) {
 $autoloader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
 $autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
 
+// OpenRegister's PUBLISHED CONTRACTS from real source, under a LONGER PSR-4
+// prefix so they beat the blanket stub mapping above. Kept in step with
+// tests/bootstrap.php, which carries the full rationale: the register-slug
+// resolver and its return type exist to make an absent register unmistakable,
+// and a stubbed copy of that rule would be a second copy of it here. Both
+// sources are listed because the package copy ships on a TAG while
+// openregister's own tree is what sits beside this checkout, and at v1.17.0 the
+// vendored directory does not yet carry the resolver contract.
+$hermiqUnitContractDirs = array_values(
+	array_filter(
+		[
+			(getenv('HERMIQ_OPENREGISTER_PATH') === false ? null : getenv('HERMIQ_OPENREGISTER_PATH') . '/lib/Contract'),
+			__DIR__ . '/../../openregister/lib/Contract',
+			__DIR__ . '/../vendor/conduction/hydra-gates/hydra-gates/contracts',
+		],
+		static fn (?string $dir): bool => ($dir !== null && is_dir($dir) === true)
+	)
+);
+if ($hermiqUnitContractDirs !== []) {
+	$autoloader->addPsr4('OCA\\OpenRegister\\Contract\\', $hermiqUnitContractDirs);
+}
+
+// This app's own test-support classes (doubles that are not themselves tests, so
+// PHPUnit never loads them by file). Registered here, not in composer.json
+// `autoload-dev`, for the same reason as everything else in this block; nothing
+// under lib/ names `OCA\Hermiq\Tests\`, so there is nothing it can shadow.
+$autoloader->addPsr4('OCA\\Hermiq\\Tests\\', __DIR__ . '/');
+
 // OCP\Files\IRootFolder extends the private OC\Hooks\Emitter interface, absent from the
 // nextcloud/ocp stubs. Register it lazily so standalone runs can mock IRootFolder; the
 // real interface ships with the Nextcloud server. (Formerly an autoload-dev classmap.)

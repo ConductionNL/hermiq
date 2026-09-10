@@ -33,10 +33,13 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\LearnerSignalReader;
+use OCA\Hermiq\Service\LearnerSignalRegister;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Tests\Unit\Support\FakeSlugResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -220,6 +223,14 @@ class CourseRecommendationEngineTest extends TestCase {
 	 * @param string|null $installedAppId When given, the ONE app id the instance
 	 *                                    answers to; every other id reports
 	 *                                    not-installed, as a real IAppManager does.
+	 * @param list<string> $presentRegisterSlugs The register slugs the instance carries.
+	 *                                          Defaults to the MIGRATED instance, which is
+	 *                                          the only state that can catch a pinned slug:
+	 *                                          on an unmigrated one the old literal happens
+	 *                                          to be the right answer, so a default of
+	 *                                          `['scholiq']` would let every test here pass
+	 *                                          with the defect present. See
+	 *                                          CourseRegisterResolutionTest.
 	 *
 	 * @return CourseRecommendationEngine
 	 */
@@ -231,6 +242,7 @@ class CourseRecommendationEngineTest extends TestCase {
 		?ProviderFactory $providerFactory = null,
 		array $organisations = [],
 		?string $installedAppId = null,
+		array $presentRegisterSlugs = ['learniq'],
 	): CourseRecommendationEngine {
 		$aiFeatureService = $this->createMock(AiFeatureService::class);
 		$aiFeatureService->method('findBySlug')->willReturn($feature);
@@ -252,14 +264,17 @@ class CourseRecommendationEngineTest extends TestCase {
 		$organisationMapper = $this->createMock(OrganisationMapper::class);
 		$organisationMapper->method('findByUserId')->willReturn($organisations);
 
+		$logger = $this->createMock(LoggerInterface::class);
+
 		return new CourseRecommendationEngine(
 			$objectService,
-			$appManager,
+			new LearnerSignalRegister(new FakeSlugResolver($presentRegisterSlugs), $appManager, $logger),
+			new LearnerSignalReader($objectService, $logger),
 			$aiFeatureService,
 			$scheduleService,
 			$providerFactory ?? $this->createMock(ProviderFactory::class),
 			$organisationMapper,
-			$this->createMock(LoggerInterface::class)
+			$logger
 		);
 
 	}//end engine()

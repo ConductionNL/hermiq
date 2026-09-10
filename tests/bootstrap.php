@@ -64,6 +64,53 @@ foreach ($capabilityRoots as $capabilityRoot) {
 	}
 }
 
+// ── OpenRegister's PUBLISHED CONTRACTS, loaded from real source for the same
+// reason and by the same mechanism as the capability grammar above: a longer
+// PSR-4 prefix beats the blanket stub mapping, so these never come from a stub.
+//
+// `RegisterSlugResolverInterface` and its return type `RegisterSlugResolution`
+// are what tells "this register is not on this instance" from "this register
+// holds nothing", and a stubbed copy of a type whose whole job is to make an
+// absence unmistakable would be a second copy of that rule, kept here by someone
+// who does not own it. There is no stub, and there must not be one.
+//
+// TWO SOURCES, ONE DEFINITION. Gate 67 (`openregister-contract-parity`) requires
+// openregister's `lib/Contract/` and the hydra-gates package's
+// `hydra-gates/contracts/` to be byte identical, so either yields the same type.
+// Both are listed because they become available at different times: the package
+// copy ships on a TAG, openregister's own tree is what CI checks out beside this
+// app and what a dev checkout has next to it. That difference is not
+// hypothetical. Measured here at v1.17.0, the vendored directory holds
+// ObjectEntityInterface, ObjectServiceInterface and fleet-schema-slugs.json and
+// nothing else, because the resolver contract was published to the package by
+// ConductionNL/.github#739, which merged AFTER v1.17.0 was cut. Bumping the
+// constraint alone does not make it loadable.
+//
+// PSR-4 with several directories searches them in order, so nothing is required
+// eagerly and no duplicate declaration is possible.
+$hermiqContractDirs = array_values(
+	array_filter(
+		array_merge(
+			array_map(
+				static fn (string $root): string => rtrim($root, '/') . '/lib/Contract',
+				array_map('strval', $capabilityRoots)
+			),
+			[__DIR__ . '/../vendor/conduction/hydra-gates/hydra-gates/contracts']
+		),
+		'is_dir'
+	)
+);
+if ($hermiqContractDirs !== []) {
+	$autoloader->addPsr4('OCA\\OpenRegister\\Contract\\', $hermiqContractDirs);
+}
+
+// This app's OWN test-support classes (doubles that are not themselves tests, so
+// PHPUnit never loads them by file). Registered here rather than in composer.json
+// `autoload-dev` to keep every test-time mapping in one place, per the warning
+// above. Unlike the mappings above this one carries no shadowing risk whatsoever:
+// nothing under lib/ names `OCA\Hermiq\Tests\`, and no other app declares it.
+$autoloader->addPsr4('OCA\\Hermiq\\Tests\\', __DIR__ . '/');
+
 // OCP\Files\IRootFolder extends the private OC\Hooks\Emitter interface, absent from the
 // nextcloud/ocp stubs. Register it lazily so standalone runs can mock IRootFolder; the
 // real interface ships with the Nextcloud server. (Formerly an autoload-dev classmap.)

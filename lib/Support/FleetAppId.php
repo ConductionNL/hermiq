@@ -26,12 +26,25 @@
  * id half and {@see self::getService()} the namespace half; fixing one and not
  * the other leaves the integration just as dark.
  *
- * WHAT THIS DELIBERATELY DOES NOT COVER: stored data. An OpenRegister register
- * slug, and any app id already written into a persisted object, are frozen on
- * purpose — renaming one in code does not rename the rows, it orphans them.
- * `CourseRecommendationEngine::SCHOLIQ_REGISTER` and the `sourceApp` written
- * onto a CourseRecommendation are both in that category and neither goes
- * through this class.
+ * WHAT THIS DELIBERATELY DOES NOT COVER, part one: data already written INTO an
+ * object. The `sourceApp` stamped onto a CourseRecommendation is frozen on
+ * purpose: renaming it in code does not rename the rows, it splits the field
+ * into two vocabularies.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT COVER, part two, and it is NOT the same case:
+ * an OpenRegister REGISTER SLUG. This paragraph used to name
+ * `CourseRecommendationEngine::SCHOLIQ_REGISTER` alongside `sourceApp` as
+ * equally frozen, and that reading is what let a pinned `scholiq` stand. A
+ * register slug is not stored data this app owns; it is a row in
+ * `openregister_registers` that the OWNING app renames through its own repair
+ * step, per instance. So both slugs are live across the estate and a literal is
+ * wrong on half of it, silently: the read matches nothing and returns the empty
+ * list a register with no matching objects returns. Resolve one through
+ * `OCA\OpenRegister\Contract\RegisterSlugResolverInterface` and branch on
+ * `isResolved()`. It does not go through THIS class either, because the two
+ * questions have two different sources of truth, `IAppManager` for an app id and
+ * `openregister_registers` for a slug, and two separate repair steps move them,
+ * so neither answer predicts the other.
  *
  * @category Support
  * @package  OCA\Hermiq\Support
