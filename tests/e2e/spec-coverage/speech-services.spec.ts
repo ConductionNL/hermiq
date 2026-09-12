@@ -545,6 +545,25 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 		page,
 		request,
 	}) => {
+		// 🔴 THE BUDGET, not the save path. This test walks the whole real UI —
+		// navigate, dismiss the setup wizard, wait up to 30s for the detail page,
+		// open the form, assert four labels, drive two pickers, save, wait up to 20s
+		// for the modal to close — and only THEN polls the API for up to 20s. Those
+		// waits sum past the config's 90s per-test budget on a loaded box, and when
+		// the budget goes first the poll reports the value it last read: `auto`, the
+		// pre-save default. That renders as `Expected "local", Received "auto"`,
+		// which reads as a broken save path and is not one.
+		//
+		// Verified by hand against this exact build before raising the number:
+		// selecting "On this instance" in the Dictation picker and saving stores
+		// `voiceInputEngine: "local"`. The write is correct; the test was not given
+		// long enough to see it. The test's own note above the poll records an
+		// earlier one-pass-one-fail pair, which was this same budget, not the click.
+		//
+		// 180s leaves the poll its full 20s after the slowest realistic walk, so a
+		// failure here once again means the value really was not stored.
+		test.setTimeout(180_000)
+
 		// Entirely real: no route interception in this test at all.
 		const token = await harvestToken(page)
 		await resolveRegisterSchema(request, token, 'agent')
@@ -570,15 +589,28 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 		// timeout — which reads as "the button is missing" rather than "the page
 		// had not hydrated yet". Asserting the page first makes the two
 		// distinguishable.
-		await expect(
-			page.getByRole('button', { name: /edit agent/i }).first(),
-		).toBeVisible({
-			timeout: 30_000,
+		// Edit agent is a manifest `headerActions` entry, and since
+		// nextcloud-vue 2.42.0 CnDetailPage renders those in the header's
+		// Actions menu instead of as a row of buttons beside the title. So it
+		// is a `menuitem` now, not a `button`, and it does not exist in the DOM
+		// until the menu opens: the old `getByRole('button', …)` waited out its
+		// full 30s and reported "element(s) not found", which reads as a
+		// missing feature rather than a closed menu.
+		//
+		// The entry keeps its `data-testid`, so the id is the stable half. The
+		// menu's own root carries `action-item--open` when it is open, which is
+		// the only open-state signal this NcActions version publishes: the
+		// toggle button has no `aria-expanded` to assert on.
+		const actionsMenu = page.getByTestId('cn-detail-page-actions')
+		await expect(actionsMenu).toBeVisible({ timeout: 30_000 })
+		await actionsMenu.locator('.action-item__menutoggle').click()
+		await expect(actionsMenu).toHaveClass(/action-item--open/, {
+			timeout: 10_000,
 		})
-		await page
-			.getByRole('button', { name: /edit agent/i })
-			.first()
-			.click()
+
+		const editAgent = page.getByTestId('cn-action-edit-agent')
+		await expect(editAgent).toBeVisible({ timeout: 30_000 })
+		await editAgent.click()
 
 		const form = page.locator('.agent-form')
 		await expect(form).toBeVisible({ timeout: 20_000 })

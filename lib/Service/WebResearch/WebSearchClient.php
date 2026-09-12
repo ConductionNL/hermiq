@@ -41,8 +41,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\WebResearch;
 
 use OCP\Http\Client\IClientService;
-use OCP\Server;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -75,14 +76,45 @@ class WebSearchClient {
 	 * @param WebResearchSettingsHandler $settingsHandler Reads `hermiq.webResearch`.
 	 * @param WebResearchEgressGuard $guard SSRF/allowlist/denylist gate.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ContainerInterface|null $container The app container the optional cross-app
+	 *                                           classes are resolved from; null when the
+	 *                                           class is built by hand in a test.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
 		private readonly WebResearchSettingsHandler $settingsHandler,
 		private readonly WebResearchEgressGuard $guard,
 		private readonly LoggerInterface $logger,
+		private readonly ?ContainerInterface $container = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The container the optional OpenRegister credential broker is resolved from.
+	 *
+	 * The broker is another app's class, probed by class-string, so it can never be a
+	 * constructor type here: that would hard-couple hermiq to an OpenRegister version
+	 * that ships it. It used to come from the global server, which outside a booted
+	 * Nextcloud autowires from scratch and can recurse through a constructor cycle
+	 * until memory runs out. The container is nullable because the unit tests build
+	 * this client with its four real collaborators; `fetchBody()` treats a null as it
+	 * treats an absent broker and takes the direct path, so this only ever throws for
+	 * a caller that reached the brokered path some other way.
+	 *
+	 * @return ContainerInterface The injected container.
+	 *
+	 * @throws RuntimeException When the client was built without one.
+	 */
+	private function serviceContainer(): ContainerInterface {
+		if ($this->container === null) {
+			throw new RuntimeException(
+				'Hermiq web research: this client was constructed without a container, so the '
+				. 'OpenRegister credential broker cannot be resolved.'
+			);
+		}
+
+		return $this->container;
+	}//end serviceContainer()
 
 	/**
 	 * Search the configured backend. Never throws.
@@ -155,7 +187,7 @@ class WebSearchClient {
 	 * @return string The raw response body.
 	 */
 	private function fetchBody(string $requestUrl, string $credentialId, ?string $actingUserId, int $timeout): string {
-		if ($credentialId !== '' && class_exists(self::BROKER_CLASS) === true) {
+		if ($credentialId !== '' && $this->container !== null && class_exists(self::BROKER_CLASS) === true) {
 			return $this->requestViaBroker(url: $requestUrl, credentialId: $credentialId, actingUserId: $actingUserId);
 		}
 
@@ -242,8 +274,8 @@ class WebSearchClient {
 	 * @return string The raw response body.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) The broker is OpenRegister's optional
-	 *   cross-app service, resolved by class-name string via `Server::get()` only
-	 *   after a `class_exists()` probe — constructor injection would hard-couple
+	 *   cross-app service, resolved by class-name string through the injected container
+	 *   and only after a `class_exists()` probe. Constructor injection would hard-couple
 	 *   Hermiq to an OpenRegister version that ships it.
 	 */
 	private function requestViaBroker(string $url, string $credentialId, ?string $actingUserId): string {
@@ -253,7 +285,7 @@ class WebSearchClient {
 			$path .= '?' . $parts['query'];
 		}
 
-		$broker = Server::get(self::BROKER_CLASS);
+		$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
 		$response = $broker->request($credentialId, self::APP_ID, 'GET', $path, [], null, $actingUserId);
 
 		return (string)($response['body'] ?? '');

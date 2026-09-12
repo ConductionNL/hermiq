@@ -64,6 +64,41 @@ foreach ($capabilityRoots as $capabilityRoot) {
 	}
 }
 
+// ── OpenRegister's PUBLISHED CONTRACTS, loaded from real source for the same
+// reason and by the same mechanism as the capability grammar above: a longer
+// PSR-4 prefix beats the blanket stub mapping, so these never come from a stub.
+//
+// `RegisterSlugResolverInterface` and its return type `RegisterSlugResolution`
+// are what tells "this register is not on this instance" from "this register
+// holds nothing", and a stubbed copy of a type whose whole job is to make an
+// absence unmistakable would be a second copy of that rule, kept here by someone
+// who does not own it. There is no stub, and there must not be one.
+//
+// ONE SOURCE. Gate 67 (`openregister-contract-parity`) requires openregister's
+// `lib/Contract/` and the hydra-gates package's `hydra-gates/contracts/` to be
+// byte identical, so the vendored file is the definition openregister declares.
+//
+// This used to list openregister's own tree beside the package, because the
+// resolver contract was published to the package by ConductionNL/.github#739,
+// which merged after v1.17.0 was cut, so for a while it was on main and in no
+// release and the constraint bump alone did not make it loadable. v1.18.0
+// carries all four, measured on this checkout, so the second source covers
+// nothing and is gone.
+//
+// PSR-4 registers the directory rather than requiring anything, so nothing is
+// loaded eagerly and no duplicate declaration is possible.
+$autoloader->addPsr4(
+	'OCA\\OpenRegister\\Contract\\',
+	[__DIR__ . '/../vendor/conduction/hydra-gates/hydra-gates/contracts']
+);
+
+// This app's OWN test-support classes (doubles that are not themselves tests, so
+// PHPUnit never loads them by file). Registered here rather than in composer.json
+// `autoload-dev` to keep every test-time mapping in one place, per the warning
+// above. Unlike the mappings above this one carries no shadowing risk whatsoever:
+// nothing under lib/ names `OCA\Hermiq\Tests\`, and no other app declares it.
+$autoloader->addPsr4('OCA\\Hermiq\\Tests\\', __DIR__ . '/');
+
 // OCP\Files\IRootFolder extends the private OC\Hooks\Emitter interface, absent from the
 // nextcloud/ocp stubs. Register it lazily so standalone runs can mock IRootFolder; the
 // real interface ships with the Nextcloud server. (Formerly an autoload-dev classmap.)
@@ -89,25 +124,116 @@ if (interface_exists(\OCP\IUser::class) === false && is_dir(__DIR__ . '/../vendo
 	$ocpLoader->register();
 }
 
-// Bootstrap Nextcloud only when a server tree is present (e.g. running inside a
-// full checkout). In CI / standalone unit runs there is no ../../../lib/base.php, so
-// the OCP interfaces come from the stubs registered above and unit tests mock every
-// collaborator — no live server is required. Guard the OC_* calls with class_exists so
-// the suite runs in either environment.
-if (!defined('OC_CONSOLE') && file_exists(__DIR__ . '/../../../lib/base.php')) {
-	require_once __DIR__ . '/../../../lib/base.php';
-
-	if (file_exists(__DIR__ . '/../../../tests/autoload.php')) {
-		require_once __DIR__ . '/../../../tests/autoload.php';
+/**
+ * Tell whether a Nextcloud root is an INSTALLED instance, not just a source tree.
+ *
+ * `lib/base.php` from a source tree that was never installed still declares
+ * `OC` and builds `\OC::$server` before it throws "Not installed". That server
+ * cannot be undone (`OC::$server` is a typed static), so from then on every
+ * `\OC::$server->get()` in the code under test hits a container that knows
+ * none of this app's registrations and autowires from scratch; constructor
+ * cycles then recurse until memory runs out (19 GB on one openregister test,
+ * 2026-09-08). So the decision has to be made BEFORE base.php is loaded, and
+ * the only cheap signal is the `installed` flag in config/config.php.
+ *
+ * @param string $ncRoot Candidate Nextcloud root.
+ *
+ * @return bool True when config/config.php declares `installed => true`.
+ */
+function hermiq_nc_root_is_installed(string $ncRoot): bool
+{
+	$configFile = $ncRoot . '/config/config.php';
+	if (is_file($configFile) === false || filesize($configFile) === 0) {
+		return false;
 	}
 
-	if (class_exists('\OC_App')) {
-		\OC_App::loadApps();
-		\OC_App::loadApp('hermiq');
-	}
+	// The config file is a plain `$CONFIG = [...]` script; including it in a
+	// closure keeps `$CONFIG` out of the global scope.
+	$config = (static function () use ($configFile): array {
+		$CONFIG = [];
+		try {
+			include $configFile;
+		} catch (\Throwable) {
+			return [];
+		}
 
-	if (class_exists('\OC_Hook')) {
-		\OC_Hook::clear();
+		if (is_array($CONFIG) === false) {
+			return [];
+		}
+
+		return $CONFIG;
+	})();
+
+	return ($config['installed'] ?? false) === true;
+}
+
+// The Nextcloud root this checkout sits under (apps-extra/hermiq/), or null
+// when there is none or it is only a bare source tree. Decided ONCE, up here,
+// so that lib/base.php is never loaded from a tree that cannot finish booting.
+$hermiqNcRoot = null;
+$hermiqNcCandidate = dirname(__DIR__, 3);
+if (is_file($hermiqNcCandidate . '/lib/base.php') === true) {
+	if (hermiq_nc_root_is_installed($hermiqNcCandidate) === true) {
+		$hermiqNcRoot = $hermiqNcCandidate;
+	} else {
+		fwrite(
+			STDERR,
+			sprintf(
+				"[hermiq/tests/bootstrap] Nextcloud tree at %s is not installed (config/config.php lacks installed => true); "
+				. "skipping lib/base.php and running in pure-unit mode.\n",
+				$hermiqNcCandidate
+			)
+		);
+	}
+}
+
+// Bootstrap Nextcloud only when an INSTALLED server tree is present (e.g.
+// running inside a full checkout). In CI / standalone unit runs there is no
+// usable ../../../lib/base.php, so the OCP interfaces come from the stubs
+// registered above and unit tests mock every collaborator. Guard the OC_* calls
+// with class_exists so the suite runs in either environment.
+if (!defined('OC_CONSOLE') && $hermiqNcRoot !== null) {
+	try {
+		require_once $hermiqNcRoot . '/lib/base.php';
+
+		// NC's own tests/autoload.php starts with `require_once ../lib/base.php`,
+		// so it is only safe once base.php itself has succeeded.
+		if (file_exists($hermiqNcRoot . '/tests/autoload.php')) {
+			require_once $hermiqNcRoot . '/tests/autoload.php';
+		}
+
+		if (class_exists('\OC_App')) {
+			\OC_App::loadApps();
+			\OC_App::loadApp('hermiq');
+		}
+
+		if (class_exists('\OC_Hook')) {
+			\OC_Hook::clear();
+		}
+	} catch (\Throwable $e) {
+		// The tree IS installed, so the dangerous case this guard exists for
+		// (loading a bare source tree) did not happen. base.php still failed
+		// part-way.
+		//
+		// This does NOT abort. `OC::$server` is a typed static, so a half-built
+		// container cannot be unset, and aborting was tried: it turned all six
+		// PHPUnit legs red on a suite that passes (humaniq, 2026-09-08). The
+		// runaway this guard exists for needs an autowiring lookup to reach the
+		// poisoned container, this app has none in lib, and phpunit.xml's 2G cap
+		// bounds one anyway.
+		//
+		// So: say plainly that the container is unreliable, and let the pure unit
+		// tests run. A container-bound test failing loudly is the intended outcome.
+		fwrite(
+			STDERR,
+			sprintf(
+				"[hermiq/tests/bootstrap] Nextcloud at %s could not finish booting (%s).\n"
+				. "  \\OC::\$server now holds a HALF-BUILT container and cannot be unset. Pure unit tests\n"
+				. "  continue; anything resolving a service from that container is UNVERIFIED by this run.\n",
+				$hermiqNcRoot,
+				$e->getMessage()
+			)
+		);
 	}
 }
 

@@ -1399,7 +1399,20 @@ OC.L10N.register(
         "Open Flows in the menu": "Open Flows in het menu",
         "Reports": "Rapportages",
         "Pick a report to open it.": "Kies een rapport om het te openen.",
-        "What the agents did, and what a human still has to answer for.": "Wat de agents deden, en waar een mens nog verantwoording over aflegt."
+        "What the agents did, and what a human still has to answer for.": "Wat de agents deden, en waar een mens nog verantwoording over aflegt.",
+        "Every agent": "Elke agent",
+        "Every status": "Elke status",
+        "Summary": "Samenvatting",
+        "Next": "Volgende",
+        "Previous": "Vorige",
+        "Runs appear here once an agent has run, on a schedule or from a flow.": "Runs verschijnen hier zodra een agent heeft gedraaid, volgens een planning of vanuit een flow.",
+        "Could not load runs": "Runs konden niet worden geladen",
+        "Showing one schedule": "Eén planning wordt getoond",
+        "You followed a link to a single schedule. Clear the filter to see every run.": "Je volgde een link naar één planning. Wis het filter om alle runs te zien.",
+        "Show every run": "Toon alle runs",
+        "Loading the agent…": "Bezig met laden van de agent…",
+        "{first} to {last} of {total}": "{first} tot {last} van {total}",
+        "{seconds}s": "{seconds}s"
     },
     "nplurals=2; plural=(n != 1);"
 )

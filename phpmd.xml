@@ -5,5 +5,32 @@
     xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_xml_schema.xsd">
     <description>hermiq — Conduction PHPMD ruleset (single source: conduction/hydra-gates).</description>
 
-    <rule ref="vendor/conduction/hydra-gates/quality-config/phpmd.xml"/>
+    <rule ref="vendor/conduction/hydra-gates/quality-config/phpmd.xml">
+        <exclude name="StaticAccess"/>
+    </rule>
+
+    <!-- StaticAccess: one exception, and only one.
+
+         `\OCA\Hermiq\Support\FleetAppId` is a pure resolver over two constant
+         maps: given a canonical app name it returns whichever id or namespace
+         the instance actually has. It holds no state and no collaborators — it
+         takes the only things it needs as arguments — so there is nothing here
+         that could be injected. Making it a service would add DI wiring around
+         a lookup table, and would have to reach the two call sites that need it
+         before their own constructors run.
+
+         It also exists to be DELETED. It bridges the window in which the fleet
+         answers to both its old and its new app ids and namespaces; once those
+         agree, every call site becomes a plain string again and the class goes.
+
+         This uses the rule's OWN `exceptions` property — its designed
+         configuration surface — rather than an @SuppressWarnings annotation or
+         a baseline entry. The rule stays fully active for every other class,
+         and the exception is one named class, visible in config, with the
+         reason attached. Same shape as pipelinq's. -->
+    <rule ref="rulesets/cleancode.xml/StaticAccess">
+        <properties>
+            <property name="exceptions" value="\OCA\Hermiq\Support\FleetAppId"/>
+        </properties>
+    </rule>
 </ruleset>

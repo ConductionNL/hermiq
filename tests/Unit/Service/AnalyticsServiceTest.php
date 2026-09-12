@@ -256,4 +256,209 @@ class AnalyticsServiceTest extends TestCase {
 		$this->assertSame(1, $perAgent['agentA']['runs']);
 
 	}//end testDryRunEntriesAreExcludedFromTheBreakdown()
+
+	/**
+	 * listRuns() returns the caller's runs newest-first and keeps the SAME tenant
+	 * boundary the metrics use.
+	 *
+	 * A list that disagrees with the KPIs above it about what the caller may see is
+	 * worse than either being wrong alone, so the exclusions are asserted here too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function testListRunsIsNewestFirstAndTenantScoped(): void {
+		$schedules = [
+			$this->schedule('s1', 'agentA'),
+			$this->schedule('s2', 'agentB'),
+		];
+
+		$older = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$older->setUuid('run-older');
+		$older->setCreated(new \DateTime('2026-09-01 09:00:00'));
+
+		$newer = $this->runEntry('s2', 'error', 200, 'agentB');
+		$newer->setUuid('run-newer');
+		$newer->setCreated(new \DateTime('2026-09-05 09:00:00'));
+
+		// Another organisation's run. Its agent is not in the visible set, so it must
+		// never appear.
+		$foreign = $this->runEntry('s3-foreign', 'ok', 999, 'agentX');
+		$foreign->setUuid('run-foreign');
+		$foreign->setCreated(new \DateTime('2026-09-06 09:00:00'));
+
+		$page = $this->service($schedules, [$older, $newer, $foreign])->listRuns();
+
+		$this->assertSame(2, $page['total'], 'The foreign run must not be counted.');
+		$this->assertCount(2, $page['results']);
+		$this->assertSame(
+			['run-newer', 'run-older'],
+			array_column($page['results'], 'id'),
+			'Runs must come back newest-first.'
+		);
+		$this->assertSame(
+			'agentB',
+			$page['results'][0]['agentId'],
+			'The row must carry the agent that ran, which is the tenant key.'
+		);
+		// The sort key is internal bookkeeping and must not reach the caller.
+		$this->assertArrayNotHasKey('createdSort', $page['results'][0]);
+
+	}//end testListRunsIsNewestFirstAndTenantScoped()
+
+	/**
+	 * A flow-triggered run appears in the list and names its channel.
+	 *
+	 * 🔴 This is the case no other listing can produce. An `agent-run` entry hangs on
+	 * the object that triggered the flow, not on a schedule, so
+	 * `RunHistoryController::index()` — which reads `object_uuid = <schedule>` — never
+	 * matches one. The dashboard KPIs counted these runs while every list denied they
+	 * existed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function testListRunsIncludesFlowTriggeredRunsAndNamesTheChannel(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$scheduled = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$scheduled->setUuid('run-scheduled');
+		$scheduled->setCreated(new \DateTime('2026-09-01 09:00:00'));
+
+		// Hangs on a case object in another register entirely — exactly the entry a
+		// schedule-scoped query cannot reach.
+		$flowRun = $this->runEntry('case-in-another-register', 'ok', 150, 'agentA');
+		$flowRun->setAction('agent-run');
+		$flowRun->setUuid('run-from-flow');
+		$flowRun->setCreated(new \DateTime('2026-09-02 09:00:00'));
+
+		$page = $this->service($schedules, [$scheduled, $flowRun])->listRuns();
+
+		$this->assertSame(2, $page['total']);
+
+		$byId = array_column($page['results'], null, 'id');
+		$this->assertArrayHasKey('run-from-flow', $byId, 'A flow-triggered run must be listed.');
+		$this->assertSame('flow', $byId['run-from-flow']['trigger']);
+		$this->assertSame('schedule', $byId['run-scheduled']['trigger']);
+
+	}//end testListRunsIncludesFlowTriggeredRunsAndNamesTheChannel()
+
+	/**
+	 * The status filter narrows the rows, and `total` counts the filtered set.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function testListRunsFiltersByStatus(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$ok = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$ok->setUuid('run-ok');
+		$ok->setCreated(new \DateTime('2026-09-01 09:00:00'));
+
+		$failed = $this->runEntry('s1', 'error', 200, 'agentA');
+		$failed->setUuid('run-error');
+		$failed->setCreated(new \DateTime('2026-09-02 09:00:00'));
+
+		$page = $this->service($schedules, [$ok, $failed])->listRuns(status: 'error');
+
+		$this->assertSame(1, $page['total']);
+		$this->assertSame(['run-error'], array_column($page['results'], 'id'));
+
+	}//end testListRunsFiltersByStatus()
+
+	/**
+	 * Paging reports the UNPAGED total, so a pager can say "51 to 100 of 340".
+	 *
+	 * Counting the returned page instead is how a list quietly claims to be complete.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function testListRunsReportsTheUnpagedTotal(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$runs = [];
+		for ($i = 0; $i < 5; $i++) {
+			$entry = $this->runEntry('s1', 'ok', 100, 'agentA');
+			$entry->setUuid('run-' . $i);
+			$entry->setCreated(new \DateTime('2026-09-0' . ($i + 1) . ' 09:00:00'));
+			$runs[] = $entry;
+		}
+
+		$page = $this->service($schedules, $runs)->listRuns(limit: 2, offset: 0);
+
+		$this->assertCount(2, $page['results'], 'The page honours the limit.');
+		$this->assertSame(5, $page['total'], 'The total counts every visible run, not the page.');
+
+		$second = $this->service($schedules, $runs)->listRuns(limit: 2, offset: 2);
+		$this->assertSame(5, $second['total']);
+		$this->assertNotSame(
+			array_column($page['results'], 'id'),
+			array_column($second['results'], 'id'),
+			'A later offset must return different rows.'
+		);
+
+	}//end testListRunsReportsTheUnpagedTotal()
+
+	/**
+	 * A caller who can see no agent gets an empty page, not every run on the instance.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function testListRunsReturnsNothingWhenNoAgentIsVisible(): void {
+		$run = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$run->setUuid('run-1');
+		$run->setCreated(new \DateTime('2026-09-01 09:00:00'));
+
+		$page = $this->service([], [$run])->listRuns();
+
+		$this->assertSame(0, $page['total']);
+		$this->assertSame([], $page['results']);
+
+	}//end testListRunsReturnsNothingWhenNoAgentIsVisible()
+
+	/**
+	 * A dry-run or replay preview never appears in the list.
+	 *
+	 * The same rule `computeAnalytics()` applies, so the list and the KPIs above it
+	 * count the same set.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function testListRunsExcludesDryRuns(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$real = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$real->setUuid('run-real');
+		$real->setCreated(new \DateTime('2026-09-01 09:00:00'));
+
+		$dry = new AuditTrail();
+		$dry->setAction('run');
+		$dry->setObjectUuid('s1');
+		$dry->setUuid('run-dry');
+		$dry->setCreated(new \DateTime('2026-09-02 09:00:00'));
+		$dry->setChanged(
+			[
+				'status' => 'ok',
+				'durationMs' => 999999,
+				'agentId' => 'agentA',
+				'dryRun' => true,
+			]
+		);
+
+		$page = $this->service($schedules, [$real, $dry])->listRuns();
+
+		$this->assertSame(1, $page['total']);
+		$this->assertSame(['run-real'], array_column($page['results'], 'id'));
+
+	}//end testListRunsExcludesDryRuns()
 }//end class

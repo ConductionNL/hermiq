@@ -168,6 +168,38 @@
              the real classes win whenever OpenRegister is enabled. Same
              "share the contract" pattern as nldesign (2e0eab2). -->
         <directory name="tests/Stubs" />
+        <!-- OpenRegister's published contracts, shipped by
+             conduction/hydra-gates v1.18.0 and held byte identical to
+             openregister's own lib/Contract/ by gate 67
+             (openregister-contract-parity).
+
+             Scanned rather than suppressed, and the suppression this replaces
+             said so itself: it recorded that no tagged release shipped the
+             resolver contract yet and that the pair could go once one did.
+             v1.18.0 is that tag. Every other OCA\OpenRegister\* type in the
+             UndefinedClass list stays a suppression because the class genuinely
+             is out of this repository's reach; a suppression buys silence rather
+             than checking, and would accept RegisterSlugResolution::isReslved()
+             just as happily. These two are in reach, so psalm reads the real
+             definitions.
+
+             Read out of vendor, never copied in. A copy of a published contract
+             drifts, and the drift is invisible: it still resolves.
+
+             This directory is now the only route by which psalm reads these
+             contracts. Two of the files were listed a second time as explicit
+             stubs above until 2026-09-10. Measured on 6a3cc696: dropping that
+             stub pair left psalm at exit 0 with a byte identical 757 issue
+             list, and dropping this directory instead did the same, so each
+             route was spare only because the other was there. Dropping BOTH
+             exits 2 with three UndefinedClass errors on
+             OCA\OpenRegister\Contract\RegisterSlugResolverInterface, in
+             lib/AppInfo/Application.php:327 and
+             lib/Service/LearnerSignalRegister.php:108,153. The loading is
+             load bearing; the duplication was not. This half is the one kept
+             because it covers every contract hydra-gates publishes rather
+             than only the two the slug resolver needs. -->
+        <directory name="vendor/conduction/hydra-gates/hydra-gates/contracts" />
         <!--
             tests/Stubs above now also covers the ADR-099 §5 capability grammar
             (tests/Stubs/Service/Capability). Those stubs are DECLARATION-ONLY and

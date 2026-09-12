@@ -405,7 +405,17 @@ class RunHistoryService {
 	}//end toRunRecord()
 
 	/**
-	 * Build an absolute deep link to the schedule for a run record.
+	 * Build an absolute deep link to the run list, scoped to one schedule.
+	 *
+	 * 🔴 This pointed at `/apps/hermiq/schedules/<uuid>` and nothing served it. The
+	 * manifest declares no `/schedules` route and never has, so the SPA catch-all
+	 * answered 200 with the app shell and the router dropped the visitor on the
+	 * dashboard. Verified in a browser: the URL resolves, silently, to `/apps/hermiq/`.
+	 *
+	 * It never failed loudly because a 200 is what a missing SPA route looks like.
+	 *
+	 * `/runs` is a route that exists, and `?schedule=` narrows it to this schedule's
+	 * runs — which is what the reader wanted when they followed the link.
 	 *
 	 * @param string $uuid The schedule UUID.
 	 *
@@ -415,7 +425,9 @@ class RunHistoryService {
 	 */
 	private function buildScheduleLink(string $uuid): string {
 		try {
-			return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/schedules/' . $uuid);
+			return $this->urlGenerator->getAbsoluteURL(
+				'/index.php/apps/hermiq/runs?schedule=' . rawurlencode($uuid)
+			);
 		} catch (Throwable $e) {
 			return '';
 		}

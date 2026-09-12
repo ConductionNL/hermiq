@@ -34,6 +34,46 @@ agents within their organisation, and MUST NOT show data belonging to a differen
 - THEN the system MUST show combined metrics for all three of organisation A's agents
 - AND the system MUST NOT include run data from any other organisation
 
+### Requirement: A cross-agent run list, on the same tenant boundary as the metrics
+
+The system MUST provide one list of the caller's runs across every agent they may see,
+newest first, filterable by agent and by status and paged with an unpaged `total`. It
+MUST resolve visibility through the same agent-set boundary the metrics above use, so
+the list and the metrics can never disagree about which runs are the caller's. It MUST
+include runs from BOTH run channels, and MUST say on each row which channel it arrived
+on. It MUST exclude dry-run and replay previews, exactly as the metrics do.
+
+🔴 The schedule-scoped read (`/api/schedules/{scheduleId}/runs`) cannot satisfy this and
+is not a substitute. It is addressed by one schedule, and a flow-triggered `agent-run`
+entry hangs on the object that triggered the flow, which routinely lives in another
+register. No schedule's `object_uuid` ever matches one, so those runs were counted by
+the metrics and absent from every list.
+
+#### Scenario: An operator looks for last night's failures
+- **GIVEN** several agents ran overnight and some runs failed
+- **WHEN** the operator opens the run list and filters on the failed status
+- **THEN** the system MUST list those runs newest first, naming the agent for each
+- **AND** the system MUST NOT include a run belonging to another organisation
+
+#### Scenario: A flow-triggered run is listed
+- **GIVEN** an agent run was started by a flow, and its audit entry hangs on the
+  triggering object rather than on a schedule
+- **WHEN** the run list is opened
+- **THEN** that run MUST appear in the list
+- **AND** the row MUST identify its channel as a flow rather than a schedule
+
+#### Scenario: A dry run never appears
+- **GIVEN** an agent has a real run and a dry-run preview recorded
+- **WHEN** the run list is opened
+- **THEN** only the real run MUST be listed
+- **AND** the list's total MUST count only the real run, matching the metrics
+
+#### Scenario: A run's delivered link opens the run it describes
+- **GIVEN** a run's output was delivered to Talk with a link
+- **WHEN** the recipient follows that link
+- **THEN** the system MUST open a surface showing that schedule's runs
+- **AND** the system MUST NOT resolve the link to an unrelated page
+
 ### Requirement: Pre-run cost estimate derived from trailing per-agent run history
 The system MUST derive a pre-run cost/token estimate for a given agent from that agent's own
 trailing run history (the same `action='run'` AuditTrail entries `AnalyticsService` aggregates),

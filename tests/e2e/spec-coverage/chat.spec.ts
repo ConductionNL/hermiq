@@ -147,6 +147,22 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 	test('with a seeded agent: start conversation, Send disabled/enabled coherent with input, optimistic bubble + honest turn outcome', async ({
 		page,
 	}) => {
+		// 🔴 The turn-settles assertion below waits up to 90s, and the config's own
+		// per-test budget is ALSO 90s. The inner wait could therefore never reach its
+		// limit: setup spent the first seconds, the test budget expired, and Playwright
+		// reported a bare "Test timeout of 90000ms exceeded" with no failing assertion
+		// and no clue which step was outstanding. The test looked flaky and was not.
+		//
+		// The wait is right and the budget was wrong. Where an LLM IS reachable — a dev
+		// instance with Ollama on host.docker.internal, which is the normal case here —
+		// the turn does a real generation on a local model, and a cold 4b model on CPU
+		// passes 90s without anything being broken. Where none is reachable the turn
+		// settles fast on sendError, which is the other branch the assertion accepts.
+		//
+		// 180s is setup plus the full inner 90s with room to spare, so a failure now
+		// means the turn genuinely never settled, which is the bug this test is for.
+		test.setTimeout(180_000)
+
 		// Seed a minimal agent through the OpenRegister objects API (register
 		// 'hermiq', schema 'agent' — name is the only required property).
 		const token = await harvestToken(page)
