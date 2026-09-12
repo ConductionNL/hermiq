@@ -18,9 +18,14 @@
  * Point at a running Nextcloud with NEXTCLOUD_URL (default
  * http://localhost:8080). Authentication / storage-state wiring is
  * left for the team to add when the first real e2e spec lands.
+ *
+ * The target is resolved in tests/e2e/base-url.ts rather than here, so the
+ * two playwright configs cannot disagree about which instance they mean,
+ * and so a run that lands on the shared development instance has to say so.
  */
 
 import { defineConfig, devices } from '@playwright/test'
+import { BASE_URL } from './tests/e2e/base-url.ts'
 
 export default defineConfig({
 	testDir: './tests/e2e',
@@ -52,7 +57,7 @@ export default defineConfig({
 	outputDir: 'tests/e2e/test-results',
 
 	use: {
-		baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
+		baseURL: BASE_URL,
 		// Authenticated session persisted by tests/e2e/global-setup.ts — specs
 		// start logged in as admin without per-spec form logins.
 		storageState: './tests/e2e/.auth/admin.json',
