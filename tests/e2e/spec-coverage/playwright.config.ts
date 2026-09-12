@@ -33,6 +33,7 @@
 
 import { defineConfig, devices } from '@playwright/test'
 import * as path from 'path'
+import { BASE_URL } from '../base-url.ts'
 
 // 🔴 Every path is resolved from __dirname, never left relative.
 //
@@ -78,10 +79,7 @@ export default defineConfig({
 	outputDir: path.join(E2E_ROOT, 'test-results'),
 
 	use: {
-		baseURL:
-			process.env.NEXTCLOUD_URL
-			|| process.env.BASE_URL
-			|| 'http://localhost:8080',
+		baseURL: BASE_URL,
 		storageState: path.join(E2E_ROOT, '.auth', 'admin.json'),
 		// `on-first-retry` writes a trace only when a retry actually happens, so
 		// the trace artifact is a function of `retries`. Off CI `retries` is 0
