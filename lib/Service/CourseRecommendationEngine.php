@@ -67,7 +67,6 @@ use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
-use OCP\App\IAppManager;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -111,55 +110,24 @@ class CourseRecommendationEngine {
 	private const AIFEATURE_SLUG = 'course-recommendations';
 
 	/**
-	 * The optional runtime peer app whose learner-signal schemas this engine reads.
+	 * The app id STAMPED ONTO a persisted CourseRecommendation.
+	 *
+	 * 🔴 FROZEN, and deliberately not {@see LearnerSignalRegister::CANONICAL_APP}.
+	 * `sourceApp` is a required schema property already carrying `scholiq` in
+	 * stored rows and in the mock register; renaming it in code splits the field
+	 * into two vocabularies rather than migrating it. Stored data stays put, only
+	 * LOOKUPS follow the rename.
 	 *
 	 * @var string
 	 */
-	private const SCHOLIQ_APP_ID = 'scholiq';
+	private const SOURCE_APP_STAMP = 'scholiq';
 
 	/**
-	 * OpenRegister register slug that holds Scholiq's objects.
+	 * Unavailable because the DPO has not enabled the AiFeature.
 	 *
 	 * @var string
 	 */
-	private const SCHOLIQ_REGISTER = 'scholiq';
-
-	/**
-	 * Scholiq schema slug: Enrolment.
-	 *
-	 * @var string
-	 */
-	private const SCHEMA_ENROLMENT = 'enrolment';
-
-	/**
-	 * Scholiq schema slug: Course.
-	 *
-	 * @var string
-	 */
-	private const SCHEMA_COURSE = 'course';
-
-	/**
-	 * Scholiq schema slug: XapiStatement.
-	 *
-	 * @var string
-	 */
-	private const SCHEMA_XAPI_STATEMENT = 'xapi-statement';
-
-	/**
-	 * Scholiq schema slug: LearningPlan.
-	 *
-	 * @var string
-	 */
-	private const SCHEMA_LEARNING_PLAN = 'learning-plan';
-
-	/**
-	 * Scholiq schema slug: the wave-2 competency-gap signal (does not exist in
-	 * Scholiq at this revision — reads speculatively and degrades to "unavailable"
-	 * per design.md "Cross-app signal read").
-	 *
-	 * @var string
-	 */
-	private const SCHEMA_COMPETENCY_ATTAINMENT = 'competency-attainment';
+	public const REASON_FEATURE_NOT_ENABLED = 'feature-not-enabled';
 
 	/**
 	 * Freshness TTL (hours) — a plain constant, not configurable at this revision.
@@ -249,18 +217,20 @@ class CourseRecommendationEngine {
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister read/write (single write-path).
-	 * @param IAppManager $appManager Tells "Scholiq absent" from "no data".
+	 * @param LearnerSignalRegister $signalRegister Tells "app or register absent" from "no data".
+	 * @param LearnerSignalReader $signalReader Reads the learner signals from the resolved register.
 	 * @param AiFeatureService $aiFeatureService The AiFeature DPO-ack gate (2.2).
 	 * @param ScheduleService $scheduleService The tenant kill-switch (2.3/Stage 2).
 	 * @param ProviderFactory $providerFactory Credential-broker-backed LLM call.
 	 * @param OrganisationMapper $organisationMapper Resolves the caller's own organisation.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Seven distinct, reused collaborators.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Eight distinct, reused collaborators.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly IAppManager $appManager,
+		private readonly LearnerSignalRegister $signalRegister,
+		private readonly LearnerSignalReader $signalReader,
 		private readonly AiFeatureService $aiFeatureService,
 		private readonly ScheduleService $scheduleService,
 		private readonly ProviderFactory $providerFactory,
@@ -296,15 +266,16 @@ class CourseRecommendationEngine {
 		// when missing or not enabled.
 		$feature = $this->aiFeatureService->findBySlug(slug: self::AIFEATURE_SLUG);
 		if ($feature === null || (string)($feature->getObject()['lifecycle'] ?? '') !== 'enabled') {
-			return $this->unavailableResult(learnerUid: $learnerUid);
+			return $this->unavailableResult(learnerUid: $learnerUid, reason: self::REASON_FEATURE_NOT_ENABLED);
 		}
 
-		// Gate 2 (2.4): Scholiq installed.
-		if ($this->appManager->isInstalled(self::SCHOLIQ_APP_ID) === false) {
-			$this->logger->info(
-				'[CourseRecommendationEngine] Scholiq is not installed; returning an unavailable recommendation set.'
-			);
-			return $this->unavailableResult(learnerUid: $learnerUid);
+		// Gate 2 (2.4, extended): the learner-signal app AND its register, asked
+		// together because they can disagree. Asking only the first half is what
+		// let a pinned slug read nothing and report success; the why is in
+		// {@see LearnerSignalRegister}.
+		['slug' => $registerSlug, 'reason' => $absenceReason] = $this->signalRegister->slugOrReason();
+		if ($registerSlug === null) {
+			return $this->unavailableResult(learnerUid: $learnerUid, reason: (string)$absenceReason);
 		}
 
 		$existing = $this->findExistingRecommendation(learnerUid: $learnerUid);
@@ -321,7 +292,12 @@ class CourseRecommendationEngine {
 			}
 		}
 
-		return $this->regenerate(learnerUid: $learnerUid, existing: $existing, now: $now);
+		return $this->regenerate(
+			learnerUid: $learnerUid,
+			existing: $existing,
+			now: $now,
+			registerSlug: $registerSlug
+		);
 	}//end getOrRegenerate()
 
 	/**
@@ -330,6 +306,8 @@ class CourseRecommendationEngine {
 	 * @param string $learnerUid The learner's NC user id.
 	 * @param ObjectEntity|null $existing The previously-persisted CourseRecommendation, if any.
 	 * @param DateTimeImmutable $now The current time (UTC).
+	 * @param string $registerSlug The resolved slug, passed rather than re-resolved
+	 *                             so the read cannot disagree with the gate above it.
 	 *
 	 * @return array<string, mixed> The persisted (or, on a write failure, in-memory) payload.
 	 *
@@ -337,9 +315,14 @@ class CourseRecommendationEngine {
 	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-6
 	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-7
 	 */
-	private function regenerate(string $learnerUid, ?ObjectEntity $existing, DateTimeImmutable $now): array {
+	private function regenerate(
+		string $learnerUid,
+		?ObjectEntity $existing,
+		DateTimeImmutable $now,
+		string $registerSlug,
+	): array {
 		$organisation = $this->resolveOrganisation(uid: $learnerUid);
-		$signals = $this->collectSignals(learnerUid: $learnerUid);
+		$signals = $this->signalReader->collect(learnerUid: $learnerUid, registerSlug: $registerSlug);
 
 		$ranked = $this->scoreCandidates(
 			courses: $signals['courses'],
@@ -371,7 +354,7 @@ class CourseRecommendationEngine {
 
 		$payload = [
 			'learnerId' => $learnerUid,
-			'sourceApp' => self::SCHOLIQ_APP_ID,
+			'sourceApp' => self::SOURCE_APP_STAMP,
 			'tenantId' => $organisation,
 			'status' => 'fresh',
 			'generatedAt' => $now->format('c'),
@@ -386,103 +369,6 @@ class CourseRecommendationEngine {
 
 		return $this->persist(payload: $payload, existingUuid: $existingUuid);
 	}//end regenerate()
-
-	/**
-	 * Read every Scholiq signal source for one learner (each independently
-	 * degraded, per readSignal()) and derive the `signalsUsed` summary + the
-	 * flattened OPEN-goal / competency-gap-id lists the scorer needs.
-	 *
-	 * @param string $learnerUid The learner's NC user id.
-	 *
-	 * @return array{
-	 *     courses: array<int, array<string, mixed>>,
-	 *     enrolments: array<int, array<string, mixed>>,
-	 *     xapiStatements: array<int, array<string, mixed>>,
-	 *     goals: array<int, array<string, mixed>>,
-	 *     gapIds: array<int, string>,
-	 *     signalsUsed: array<string, mixed>
-	 * }
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Five independent, sequential signal
-	 *   reads (each its own degrade branch by design — spec.md "Cross-app signal reads
-	 *   degrade gracefully") plus the goal/gap derivation they feed; splitting further
-	 *   would scatter the single place `signalsUsed` is assembled.
-	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
-	 */
-	private function collectSignals(string $learnerUid): array {
-		$enrolments = $this->readSignal(
-			schema: self::SCHEMA_ENROLMENT,
-			filters: ['learnerId' => $learnerUid],
-			limit: 200
-		) ?? [];
-		// Deliberately UNfiltered by lifecycle: scoreCandidates() needs every course
-		// the learner is already enrolled in (which may be archived) to resolve
-		// curriculum-path/mandatory-renewal signals from it, not just published
-		// candidates. Candidate ELIGIBILITY (published only) is enforced inside
-		// scoreCandidates(), not at the query layer.
-		$courses = $this->readSignal(schema: self::SCHEMA_COURSE, filters: [], limit: 500) ?? [];
-		$xapiStatements = $this->readSignal(
-			schema: self::SCHEMA_XAPI_STATEMENT,
-			filters: ['verified_actor_id' => $learnerUid],
-			limit: 500
-		) ?? [];
-		$plans = $this->readSignal(
-			schema: self::SCHEMA_LEARNING_PLAN,
-			filters: ['learnerId' => $learnerUid],
-			limit: 200
-		) ?? [];
-		// Optional, speculative (schema does not exist in Scholiq at this revision;
-		// a Throwable from an unknown schema degrades identically to a read failure).
-		$competencyRaw = $this->readSignal(
-			schema: self::SCHEMA_COMPETENCY_ATTAINMENT,
-			filters: ['learnerId' => $learnerUid],
-			limit: 200
-		);
-
-		$goals = [];
-		foreach ($plans as $plan) {
-			foreach ((array)($plan['goals'] ?? []) as $goal) {
-				if (is_array($goal) === true && (string)($goal['status'] ?? 'open') === 'open') {
-					$goals[] = $goal;
-				}
-			}
-		}
-
-		$hasCompetencyData = ($competencyRaw !== null && $competencyRaw !== []);
-		$gapIds = [];
-		if ($hasCompetencyData === true) {
-			foreach ($competencyRaw as $row) {
-				$id = (string)($row['competencyId'] ?? '');
-				if ($id !== '') {
-					$gapIds[] = $id;
-				}
-			}
-		}
-
-		$completedCount = 0;
-		foreach ($enrolments as $enrolment) {
-			if ((string)($enrolment['lifecycle'] ?? '') === 'completed') {
-				$completedCount++;
-			}
-		}
-
-		return [
-			'courses' => $courses,
-			'enrolments' => $enrolments,
-			'xapiStatements' => $xapiStatements,
-			'goals' => $goals,
-			'gapIds' => $gapIds,
-			'signalsUsed' => [
-				'enrolmentCount' => count($enrolments),
-				'completedCourseCount' => $completedCount,
-				'xapiStatementCount' => count($xapiStatements),
-				'goalCount' => count($goals),
-				'competencyDataAvailable' => $hasCompetencyData,
-			],
-		];
-
-	}//end collectSignals()
 
 	/**
 	 * Persist the computed payload via ObjectService (single write-path); on a
@@ -938,45 +824,6 @@ class CourseRecommendationEngine {
 	}//end signalLabel()
 
 	/**
-	 * Read one Scholiq signal schema, independently degrading to null on ANY
-	 * failure — a missing/unknown schema (the not-yet-shipped
-	 * `competency-attainment`) and a transient OpenRegister error are treated
-	 * identically (spec.md "Cross-app signal reads degrade gracefully").
-	 *
-	 * @param string $schema Scholiq schema slug.
-	 * @param array<string, mixed> $filters OpenRegister filter map.
-	 * @param int $limit Max objects to read.
-	 *
-	 * @return array<int, array<string, mixed>>|null The object payloads (each carries
-	 *                                               `_uuid`), or null on failure.
-	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
-	 */
-	private function readSignal(string $schema, array $filters, int $limit): ?array {
-		try {
-			$objects = $this->objectService
-				->setRegister(self::SCHOLIQ_REGISTER)
-				->setSchema($schema)
-				->findAll(config: ['filters' => $filters, 'limit' => $limit]);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'[CourseRecommendationEngine] Scholiq signal read failed for schema "' . $schema . '": ' . $e->getMessage(),
-				['exception' => $e]
-			);
-			return null;
-		}
-
-		$out = [];
-		foreach ($objects as $object) {
-			if ($object instanceof ObjectEntity) {
-				$out[] = array_merge($object->getObject(), ['_uuid' => (string)$object->getUuid()]);
-			}
-		}
-
-		return $out;
-	}//end readSignal()
-
-	/**
 	 * Find the learner's existing persisted CourseRecommendation, if any.
 	 *
 	 * @param string $learnerUid The learner's NC user id.
@@ -1034,16 +881,23 @@ class CourseRecommendationEngine {
 	 * persisted (zero Scholiq/LLM footprint per the AiFeature-disabled /
 	 * Scholiq-absent gates).
 	 *
+	 * Carries WHY: three different repairs used to arrive here as one indistinct
+	 * `unavailable`, and the absent-register one did not arrive here at all. The
+	 * field is additive and this payload is never persisted, so the
+	 * CourseRecommendation schema is untouched by it.
+	 *
 	 * @param string $learnerUid The learner's NC user id.
+	 * @param string $reason One of the REASON_* constants.
 	 *
 	 * @return array<string, mixed> The unavailable payload.
 	 */
-	private function unavailableResult(string $learnerUid): array {
+	private function unavailableResult(string $learnerUid, string $reason): array {
 		return [
 			'learnerId' => $learnerUid,
-			'sourceApp' => self::SCHOLIQ_APP_ID,
+			'sourceApp' => self::SOURCE_APP_STAMP,
 			'tenantId' => '',
 			'status' => 'unavailable',
+			'unavailableReason' => $reason,
 			'generatedAt' => null,
 			'staleAt' => null,
 			'signalsUsed' => [

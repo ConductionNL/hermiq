@@ -47,7 +47,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use GuzzleHttp\Psr7\Response;
-use OCP\Server;
+use Psr\Container\ContainerInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
@@ -121,11 +121,17 @@ class BrokerHttpClient implements ClientInterface {
 	 * @param string|null $actingUserId Credential owner. Required on the background /
 	 *                                  scheduled-agent path, where there is no session
 	 *                                  for the broker's ownership guard to read.
+	 * @param ContainerInterface|null $container The app container the OpenRegister
+	 *                                          credential broker is resolved from; null
+	 *                                          when this client is built by hand in a
+	 *                                          test, in which case sendRequest() fails
+	 *                                          closed like an absent broker.
 	 */
 	public function __construct(
 		private string $credentialId,
 		private LoggerInterface $logger,
 		private ?string $actingUserId = null,
+		private ?ContainerInterface $container = null,
 	) {
 	}//end __construct()
 
@@ -152,9 +158,9 @@ class BrokerHttpClient implements ClientInterface {
 	 *                          the call. Failing closed is deliberate: there is no
 	 *                          app-held key left to fall back to.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
-	 *   of the optional OpenRegister broker (feature-detected via isAvailable()) so this
-	 *   class stays constructible when the broker is absent.
+	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
+	 *   class-string and resolved through the injected container (feature-detected via
+	 *   isAvailable()) so this class stays constructible when the broker is absent.
 	 *
 	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
@@ -169,6 +175,16 @@ class BrokerHttpClient implements ClientInterface {
 			throw new RuntimeException('Hermiq LLM: no broker credential is configured for this provider.');
 		}
 
+		// No container means nothing to resolve the broker from, which is the same dead
+		// end as the broker being absent. Failing closed here is deliberate for the same
+		// reason as above: there is no app-held key left to fall back to.
+		if ($this->container === null) {
+			throw new RuntimeException(
+				'Hermiq LLM: this client was constructed without a container, so the OpenRegister '
+				. 'credential broker cannot be resolved; refusing to call the provider.'
+			);
+		}
+
 		$uri = $request->getUri();
 		$path = $uri->getPath();
 		if ($path === '') {
@@ -180,7 +196,7 @@ class BrokerHttpClient implements ClientInterface {
 		}
 
 		try {
-			$broker = Server::get(self::BROKER_CLASS);
+			$broker = $this->container->get(self::BROKER_CLASS);
 			$response = $broker->request(
 				$this->credentialId,
 				self::APP_ID,

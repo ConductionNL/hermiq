@@ -113,9 +113,9 @@ class ExposedStageDispatchService extends StageDispatchService {
 	/**
 	 * Record which credential the TOOL ARCHIVE was fetched with.
 	 *
-	 * Stubbed rather than mocked: the real method reaches `OCP\Server::get()`,
-	 * which is not available in a unit test, so the choice is between a seam
-	 * here and not testing the decision at all.
+	 * Stubbed rather than mocked: the real method resolves AppAPI through the
+	 * container, and this service is built without one in a unit test, so the
+	 * choice is between a seam here and not testing the decision at all.
 	 *
 	 * @param string $credentialId The broker credential.
 	 * @param string|null $uid The acting user.

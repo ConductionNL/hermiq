@@ -67,6 +67,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -257,6 +258,186 @@ class AnalyticsService
         ];
 
     }//end computeAnalytics()
+
+    /**
+     * List the caller's runs across every agent, newest first.
+     *
+     * 🔴 THIS IS THE ONLY CROSS-AGENT RUN LIST. `RunHistoryController::index()` reads
+     * `object_uuid = <schedule>`, so it can answer "what did THIS schedule do" and
+     * nothing else. Two consequences followed from that being the only listing:
+     *
+     *   1. An operator whose success rate dropped overnight could see the number move
+     *      on the dashboard and could not open the runs behind it. Scheduling is the
+     *      app's headline promise, and the failures it produces had no surface.
+     *   2. A flow-triggered run was invisible to EVERY list. `agent-run` entries hang
+     *      on the flow's triggering object, which routinely lives in another register,
+     *      so no schedule's `object_uuid` ever matches one. The dashboard KPIs counted
+     *      them (they read this service) while every list denied they existed.
+     *
+     * The tenant boundary is `loadVisibleAgents()`, exactly as `computeAnalytics()`
+     * uses it, and for the same reason: the run's AGENT decides whether a run is the
+     * caller's to see, because `object_uuid` cannot serve as the scope key for both
+     * run channels. Sharing the boundary rather than writing a second one is the
+     * point — a list and a metric that disagree about what the caller may see is a
+     * worse bug than either being wrong alone.
+     *
+     * Dry-runs and replays are excluded on the same rule `computeAnalytics()` applies,
+     * so this list and the KPIs above it count the same set.
+     *
+     * @param string|null $agentId Optional agent UUID to scope the list to.
+     * @param string|null $status  Optional status to filter on (exact match).
+     * @param int         $limit   Max rows to return.
+     * @param int         $offset  Rows to skip.
+     *
+     * @return array<string, mixed> The page of run rows plus the unpaged total.
+     *
+     * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+     */
+    public function listRuns(
+        ?string $agentId=null,
+        ?string $status=null,
+        int $limit=50,
+        int $offset=0
+    ): array {
+        $visibleAgents = $this->loadVisibleAgents(agentId: $agentId);
+        if ($visibleAgents === []) {
+            return [
+                'results' => [],
+                'total'   => 0,
+                'limit'   => $limit,
+                'offset'  => $offset,
+            ];
+        }
+
+        // Unlimited for the same reason computeAnalytics() reads unlimited: the
+        // per-row tenant check below is what bounds the result, and a limit applied
+        // BEFORE it would page over rows the caller cannot see, making page two
+        // shorter than page one for no reason a user could understand.
+        $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
+
+        $rows = [];
+        foreach ($logs as $log) {
+            $context = ($log->getChanged() ?? []);
+
+            $runAgent = trim((string) ($context['agentId'] ?? ''));
+            if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false) {
+                continue;
+            }
+
+            if (($context['dryRun'] ?? false) === true) {
+                continue;
+            }
+
+            $rowStatus = (string) ($context['status'] ?? 'unknown');
+            if ($status !== null && $status !== '' && $rowStatus !== $status) {
+                continue;
+            }
+
+            $rows[] = $this->toRunRow(
+                log: $log,
+                context: $context,
+                agentId: $runAgent,
+                agentName: $visibleAgents[$runAgent],
+                status: $rowStatus
+            );
+        }//end foreach
+
+        usort(
+            $rows,
+            static function (array $a, array $b): int {
+                return ($b['createdSort'] <=> $a['createdSort']);
+            }
+        );
+
+        // `total` is the count BEFORE paging, so a pager can say "51 to 100 of 340".
+        // Counting the page instead is how a list quietly claims it is complete.
+        $total = count($rows);
+
+        $paged = array_slice($rows, max(0, $offset), max(1, $limit));
+
+        return [
+            'results' => array_map(
+                static function (array $row): array {
+                    unset($row['createdSort']);
+                    return $row;
+                },
+                $paged
+            ),
+            'total'   => $total,
+            'limit'   => $limit,
+            'offset'  => $offset,
+        ];
+
+    }//end listRuns()
+
+    /**
+     * Shape one audit entry into a run row for the list.
+     *
+     * Split out of `listRuns()` so that method stays the tenant filter and the paging,
+     * which is the part worth reading closely. Every value here comes from the entry
+     * that has already passed that filter.
+     *
+     * `createdSort` rides along as an epoch-seconds sort key and is dropped before the
+     * page is returned. Sorting on the ISO string would order `2026-09-06T09:00:00+02:00`
+     * against `2026-09-06T08:30:00Z` by text, which is the wrong answer whenever an
+     * instance has ever changed offset.
+     *
+     * @param AuditTrail           $log       The audit entry.
+     * @param array<string, mixed> $context   The entry's recorded `changed` payload.
+     * @param string               $agentId   The run's agent UUID.
+     * @param string               $agentName The agent's display name (may be '').
+     * @param string               $status    The run's recorded status.
+     *
+     * @return array<string, mixed> The run row, including the internal sort key.
+     */
+    private function toRunRow(
+        AuditTrail $log,
+        array $context,
+        string $agentId,
+        string $agentName,
+        string $status
+    ): array {
+        $created     = $log->getCreated();
+        $createdIso  = null;
+        $createdSort = 0;
+        if ($created !== null) {
+            $createdIso  = $created->format('c');
+            $createdSort = (int) $created->format('U');
+        }
+
+        // Fall back to the UUID only when the agent carries no name. A row labelled
+        // with a UUID is hard to read; a blank label is worse.
+        $label = $agentName;
+        if ($label === '') {
+            $label = $agentId;
+        }
+
+        // The channel this run arrived on, so a reader can tell a scheduled run from a
+        // flow-triggered one. `run` hangs on the schedule; `agent-run` hangs on whatever
+        // object triggered the flow.
+        $trigger = 'flow';
+        if ($log->getAction() === 'run') {
+            $trigger = 'schedule';
+        }
+
+        return [
+            'id'          => $log->getUuid(),
+            'agentId'     => $agentId,
+            'agentName'   => $label,
+            'status'      => $status,
+            'trigger'     => $trigger,
+            'objectId'    => $log->getObjectUuid(),
+            'startedAt'   => ($context['startedAt'] ?? null),
+            'endedAt'     => ($context['endedAt'] ?? null),
+            'durationMs'  => ($context['durationMs'] ?? null),
+            'summary'     => ($context['summary'] ?? null),
+            'attempt'     => ($context['attempt'] ?? null),
+            'user'        => $log->getUser(),
+            'created'     => $createdIso,
+            'createdSort' => $createdSort,
+        ];
+
+    }//end toRunRow()
 
     /**
      * Load the caller's visible agent UUIDs mapped to their display name.

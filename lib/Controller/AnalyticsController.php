@@ -93,4 +93,68 @@ class AnalyticsController extends Controller {
 		}
 
 	}//end index()
+
+	/**
+	 * List the caller's runs across every agent, newest first.
+	 *
+	 * Sits beside `index()` rather than on `RunHistoryController` on purpose. That
+	 * controller is addressed as `/api/schedules/{scheduleId}/runs` and its guard is
+	 * ownership of one schedule, which cannot express "every run I may see" and cannot
+	 * see a flow-triggered run at all. This endpoint answers the cross-agent question,
+	 * and shares its tenant boundary with the KPIs directly above it so the list and
+	 * the numbers can never disagree about what the caller may see.
+	 *
+	 * @param string $agentId Optional agent UUID to scope the list to.
+	 * @param string $status  Optional run status to filter on.
+	 * @param int    $limit   Max rows to return.
+	 * @param int    $offset  Rows to skip.
+	 *
+	 * @return JSONResponse The page of runs, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
+	 */
+	public function runs(
+		string $agentId = '',
+		string $status = '',
+		int $limit = 50,
+		int $offset = 0,
+	): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$scopedAgent = null;
+		if (trim($agentId) !== '') {
+			$scopedAgent = $agentId;
+		}
+
+		$scopedStatus = null;
+		if (trim($status) !== '') {
+			$scopedStatus = $status;
+		}
+
+		// Clamped rather than trusted. `limit` reaches this from a query string, and an
+		// unbounded one turns a list endpoint into a way to pull every audit row the
+		// caller can see in a single request.
+		$safeLimit = max(1, min(200, $limit));
+		$safeOffset = max(0, $offset);
+
+		try {
+			return new JSONResponse(
+				$this->analyticsService->listRuns(
+					agentId: $scopedAgent,
+					status: $scopedStatus,
+					limit: $safeLimit,
+					offset: $safeOffset
+				)
+			);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq run list failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load runs'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end runs()
 }//end class

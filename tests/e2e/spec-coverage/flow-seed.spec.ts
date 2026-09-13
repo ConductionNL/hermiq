@@ -99,11 +99,25 @@ test.describe('hermiq#140: the Hydra Triage flow seeds on a clean install', () =
 				+ 'from "the write failed".',
 		).not.toEqual('')
 
+		// 🔴 BOTH healthy outcomes are accepted, and this is not a loosening.
+		//
+		// `seeded` is what a genuinely clean install records. `present` is what the
+		// SAME healthy step records on every `occ app:enable` after the first: it
+		// finds the flow, backfills its application slug, and correctly declines to
+		// write a second one. Asserting `seeded` alone made this test pass exactly
+		// once per instance and fail on every re-enable — which is how it failed
+		// here, on an instance that had been seeded correctly hours earlier.
+		//
+		// The bug this test exists to catch is NOT distinguished by the breadcrumb
+		// anyway. The orphan reported `present` too; what gave it away was that the
+		// flow could not be READ back. That assertion is below, it is unchanged, and
+		// it is the one doing the work. `unavailable` and an empty breadcrumb stay
+		// failures, because neither means the flow is there.
 		expect(
 			outcome,
 			`The install-time Hydra Triage flow seed did not succeed (outcome="${outcome}"). `
 				+ `Recorded cause: ${detail || '<none recorded>'}`,
-		).toBe('seeded')
+		).toMatch(/^(seeded|present)$/)
 
 		// And the flow is actually readable — the breadcrumb says what the step
 		// BELIEVED; this says what the store contains. A step that reported

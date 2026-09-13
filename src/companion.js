@@ -50,23 +50,66 @@
 // hardcodes wrongly for a custom_apps install, and which pipelinq and openbuild
 // already set. Setting it changes chunk resolution for `main` and `adminSettings`
 // too, so it needs those pages re-verified; it is not part of this fix.
+import { generateFilePath } from '@nextcloud/router'
 import { createApp, defineAsyncComponent, h } from 'vue'
 
-// 🔴 The component library's compiled stylesheet. Without it `.cn-ai-companion`
-// has NO rules at all: the element measures 0x0 with `position: static`, and the
-// panel inside it falls back to NcAppSidebar's bare default — docked to the left
-// edge at full height instead of the floating bottom-right companion. It still
-// opened, still worked, still passed every DOM assertion; it just looked like a
-// different, older component.
+// 🔴 The component library's compiled stylesheet is REQUIRED, and is deliberately
+// NOT imported here. Without it `.cn-ai-companion` has no rules at all: the element
+// measures 0x0 with `position: static`, and the panel inside it falls back to
+// NcAppSidebar's bare default — docked to the left edge at full height instead of the
+// floating bottom-right companion. It still opened, still worked, still passed every
+// DOM assertion; it just looked like a different, older component. So it must load.
 //
-// `css/index.css` (which main.js imports) does NOT carry these rules — the
-// cn-ai-* styles live only in the compiled bundle, so importing the wrong one
-// looks like a fix and changes nothing.
+// It used to load as `import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'`, and
+// webpack is configured with `style-loader`, which does not emit a stylesheet: it
+// inlined all 801 KB of it into THIS bundle as a JavaScript string. Attributing the
+// emitted bundle's own source map showed what that meant:
 //
-// Checked before shipping it to EVERY page in the instance: the file has zero
-// bare element selectors (no `body`, `a`, `table`, `button` rules), so it cannot
-// restyle a host app.
-import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'
+//     1861 KB   80.9%  @conduction/nextcloud-vue/dist/nextcloud-vue.css
+//      271 KB   11.8%  @vue/runtime-core
+//       11 KB    0.5%  this file and its glue
+//
+// Four fifths of a script attached to EVERY page in the instance was a stylesheet
+// pretending to be code: 146 KB over the wire per page, re-parsed as JavaScript each
+// time, and uncacheable as the static asset it is.
+//
+// `ensureStylesheet()` below requests it as a real file instead, and only after the
+// mount guards have passed — so the login screen, public shares, framed documents and
+// Hermiq's own pages now fetch none of it. `css/index.css` (which main.js imports) does
+// NOT carry these rules, so pointing at that one looks like a fix and changes nothing.
+//
+// Checked before shipping it to every page: the file has zero bare element selectors
+// (no `body`, `a`, `table`, `button` rules), so it cannot restyle a host app.
+const STYLESHEET_ID = 'hermiq-companion-stylesheet'
+
+/**
+ * Attach the companion's stylesheet once, and resolve when it has applied.
+ *
+ * Awaited before mounting so the FAB never renders unstyled. A failed load resolves
+ * rather than rejects: an unstyled companion is bad, and no companion at all on a page
+ * whose stylesheet 404'd is worse, so the mount proceeds either way.
+ *
+ * @return {Promise<void>} Resolves once the stylesheet has loaded, or failed to.
+ */
+function ensureStylesheet() {
+	if (document.getElementById(STYLESHEET_ID) !== null) {
+		return Promise.resolve()
+	}
+
+	return new Promise((resolve) => {
+		const link = document.createElement('link')
+		link.id = STYLESHEET_ID
+		link.rel = 'stylesheet'
+		// Built by scripts/build-companion-css.js. `generateFilePath` is the
+		// helper for an app's own static files and resolves the apps-vs-custom_apps
+		// difference itself, which is exactly the problem src/publicPath.js already
+		// uses it to solve for the JS chunks.
+		link.href = generateFilePath('hermiq', 'css', 'companion.css')
+		link.addEventListener('load', () => resolve())
+		link.addEventListener('error', () => resolve())
+		document.head.appendChild(link)
+	})
+}
 
 const CnAiCompanion = defineAsyncComponent(
 	() =>
@@ -177,7 +220,7 @@ function currentAppId() {
  *
  * @return {void}
  */
-function mount() {
+async function mount() {
 	if (hermiqOwnsThisPage() === true) {
 		return
 	}
@@ -206,6 +249,16 @@ function mount() {
 	if (document.getElementById('hermiq-companion-root') !== null) {
 		return
 	}
+
+	// 🔴 AFTER every guard above, never before. This is the whole saving: a page that
+	// does not get a companion — the login screen, a public share, a framed document,
+	// any of Hermiq's own pages — now fetches no stylesheet at all, where the inlined
+	// import made every one of them download 146 KB of CSS inside the script.
+	//
+	// Awaited so the FAB never paints unstyled. Without the rules it is a 0x0
+	// statically-positioned element, so an unawaited mount would flash it in the
+	// document flow before the sheet applied.
+	await ensureStylesheet()
 
 	const root = document.createElement('div')
 	root.id = 'hermiq-companion-root'

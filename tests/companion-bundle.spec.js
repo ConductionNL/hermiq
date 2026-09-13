@@ -46,8 +46,10 @@ const path = require('path')
 const zlib = require('zlib')
 
 const JS_DIR = path.join(__dirname, '..', 'js')
+const CSS_DIR = path.join(__dirname, '..', 'css')
 const EAGER = 'hermiq-companion.js'
 const PANEL = 'hermiq-companion-panel.js'
+const STYLESHEET = 'companion.css'
 
 // The fleet budget for an always-loaded widget. Measured at the time of writing:
 // 33 KB eager + 218 KB panel = 251 KB over the wire.
@@ -58,7 +60,25 @@ const PANEL = 'hermiq-companion-panel.js'
 // (CnAiCompanion instantiates CnAiChatPanel unconditionally, passing `:visible`
 // rather than guarding it with `v-if`), which would drop the per-page cost to the
 // eager 33 KB alone.
+//
+// 🔴 THE STYLESHEET COUNTS TOO, and it is measured here for a reason. It used to be
+// INSIDE the eager bundle: `src/companion.js` imported nextcloud-vue.css and
+// style-loader inlined all 801 KB of it as a JavaScript string, which is how the
+// eager half reached 356 KB and the total reached 531 KB against this 400 KB budget.
+// It is now a real file that `companion.js` requests at mount time.
+//
+// If this check measured only the two JS files it would now report 208 KB and call
+// that a 323 KB saving. It is not: 142 KB of it moved to a file the browser still
+// fetches. Counting it keeps the number honest. The real wins are the ones a byte
+// count cannot show — the stylesheet is cached across pages instead of re-parsed as
+// JavaScript on every one, and a page that gets no companion (the login screen, a
+// public share, a framed document, Hermiq's own pages) now fetches none of it.
 const WIRE_BUDGET = 400 * 1024
+
+// The eager half is the hex button and its glue. This is the number that caught the
+// regression: the original design measured 33 KB here, and an inlined stylesheet took
+// it to 356 KB while every other assertion in this file still passed.
+const EAGER_BUDGET = 100 * 1024
 
 let failed = 0
 
@@ -85,30 +105,52 @@ function assert(ok, message) {
  * @param {string} name File name inside js/.
  * @return {number} Size in bytes after gzip.
  */
-function wireSize(name) {
-	return zlib.gzipSync(fs.readFileSync(path.join(JS_DIR, name)), { level: 9 })
-		.length
+function wireSize(file) {
+	return zlib.gzipSync(fs.readFileSync(file), { level: 9 }).length
 }
 
-for (const f of [EAGER, PANEL]) {
-	if (!fs.existsSync(path.join(JS_DIR, f))) {
-		console.error(`${f} not found — run \`npm run build\` first.`)
+const EAGER_PATH = path.join(JS_DIR, EAGER)
+const PANEL_PATH = path.join(JS_DIR, PANEL)
+const STYLESHEET_PATH = path.join(CSS_DIR, STYLESHEET)
+
+for (const f of [EAGER_PATH, PANEL_PATH]) {
+	if (!fs.existsSync(f)) {
+		console.error(`${path.basename(f)} not found — run \`npm run build\` first.`)
 		process.exit(1)
 	}
 }
 
-const eagerWire = wireSize(EAGER)
-const panelWire = wireSize(PANEL)
-const totalWire = eagerWire + panelWire
+// Absence is a FAILURE, not a skip. `companion.js` requests this file by name at
+// mount time, so a build that did not emit it ships a companion whose rules 404 —
+// a 0x0 statically-positioned button that renders, reports no error, and cannot be
+// seen. Treating a missing file as "nothing to measure" would pass that build.
+if (!fs.existsSync(STYLESHEET_PATH)) {
+	console.error(
+		`css/${STYLESHEET} not found — run \`npm run companion-css:build\`.`,
+	)
+	console.error(
+		'companion.js requests this file at mount time; without it the companion renders unstyled.',
+	)
+	process.exit(1)
+}
+
+const eagerWire = wireSize(EAGER_PATH)
+const panelWire = wireSize(PANEL_PATH)
+const cssWire = wireSize(STYLESHEET_PATH)
+const totalWire = eagerWire + panelWire + cssWire
 const kb = (n) => (n / 1024).toFixed(1) + ' KB'
 
 console.log(
-	`eager  ${EAGER}: ${kb(eagerWire)} gzipped (${fs.statSync(path.join(JS_DIR, EAGER)).size.toLocaleString()} raw)`,
+	`eager  ${EAGER}: ${kb(eagerWire)} gzipped (${fs.statSync(EAGER_PATH).size.toLocaleString()} raw)`,
 )
 console.log(
-	`panel  ${PANEL}: ${kb(panelWire)} gzipped (${fs.statSync(path.join(JS_DIR, PANEL)).size.toLocaleString()} raw)`,
+	`panel  ${PANEL}: ${kb(panelWire)} gzipped (${fs.statSync(PANEL_PATH).size.toLocaleString()} raw)`,
 )
-console.log(`total per page load: ${kb(totalWire)} (budget ${kb(WIRE_BUDGET)})\n`)
+console.log(
+	`style  ${STYLESHEET}: ${kb(cssWire)} gzipped (${fs.statSync(STYLESHEET_PATH).size.toLocaleString()} raw)`,
+)
+console.log(`total per page load: ${kb(totalWire)} (budget ${kb(WIRE_BUDGET)})`)
+console.log(`  of which fetched ONLY where the companion mounts: ${kb(cssWire)}\n`)
 
 assert(
 	totalWire <= WIRE_BUDGET,
@@ -123,11 +165,24 @@ assert(
 )
 
 assert(
-	eagerWire <= 100 * 1024,
-	`the eager bundle is the hex and its glue, not the panel (${kb(eagerWire)} <= 100.0 KB)`,
+	eagerWire <= EAGER_BUDGET,
+	`the eager bundle is the hex and its glue, not the panel (${kb(eagerWire)} <= ${kb(EAGER_BUDGET)})`,
 )
 
-const eagerSource = fs.readFileSync(path.join(JS_DIR, EAGER), 'utf8')
+const eagerSource = fs.readFileSync(EAGER_PATH, 'utf8')
+
+// 🔴 THE STYLESHEET MUST NOT BE BACK INSIDE THE SCRIPT. Re-adding
+// `import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'` to src/companion.js
+// looks harmless and silently inlines 801 KB into a file every page fetches. The
+// size assertion above would catch it today, but only while the eager budget stays
+// far below the inlined size — so name the actual mistake as well as its symptom.
+//
+// `.cn-ai-companion{` is a rule that exists only in the library stylesheet, so
+// finding it inside the JavaScript means the CSS is in there.
+assert(
+	eagerSource.includes('.cn-ai-companion{') === false,
+	'the component library stylesheet is NOT inlined into the always-loaded script',
+)
 
 // A self-contained entry never expects a chunk the page was not given. Async
 // chunks it fetches ITSELF are fine — publicPath is 'auto', so they resolve.

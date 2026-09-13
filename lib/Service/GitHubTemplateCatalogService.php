@@ -23,10 +23,11 @@
  * the acting user supplies an allowed broker `github` credential the call is
  * transparently upgraded through OpenRegister's CredentialBrokerService so the
  * token stays broker-side and NEVER enters Hermiq. The broker is resolved
- * lazily (`class_exists` + `Server::get`, mirroring BrokerHttpClient/
- * WebSearchClient) so a missing/older OpenRegister falls back to anonymous
- * cleanly. Search results are cached short-TTL against the tight anonymous
- * rate limit; the raw GitHub body and any token are never returned or logged.
+ * lazily (`class_exists` + a lookup on the injected container, mirroring
+ * BrokerHttpClient/WebSearchClient) so a missing/older OpenRegister falls back
+ * to anonymous cleanly. Search results are cached short-TTL against the tight
+ * anonymous rate limit; the raw GitHub body and any token are never returned or
+ * logged.
  *
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
@@ -51,8 +52,9 @@ namespace OCA\Hermiq\Service;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
 use OCP\ICacheFactory;
-use OCP\Server;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -268,12 +270,16 @@ class GitHubTemplateCatalogService {
 	 * @param ICacheFactory $cacheFactory NC cache factory (short-TTL server cache).
 	 * @param LoggerInterface $logger PSR logger (secret-free diagnostics only).
 	 * @param GitHubArchiveExtractor $archiveExtractor Unpacks an already-fetched repository tarball.
+	 * @param ContainerInterface|null $container The app container the optional cross-app
+	 *                                           classes are resolved from; null when the
+	 *                                           class is built by hand in a test.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
 		ICacheFactory $cacheFactory,
 		private readonly LoggerInterface $logger,
 		private readonly GitHubArchiveExtractor $archiveExtractor,
+		private readonly ?ContainerInterface $container = null,
 	) {
 		$cache = null;
 		if ($cacheFactory->isAvailable() === true) {
@@ -282,6 +288,32 @@ class GitHubTemplateCatalogService {
 
 		$this->cache = $cache;
 	}//end __construct()
+
+	/**
+	 * The container the optional OpenRegister credential broker is resolved from.
+	 *
+	 * The broker is another app's class, feature-detected by class-string, so it can
+	 * never be a constructor type here. It used to come from `\OCP\Server::get()`,
+	 * which outside a booted Nextcloud autowires from scratch and can recurse through
+	 * a constructor cycle until memory runs out. The container is nullable because the
+	 * unit tests build this service with its four real collaborators and never reach
+	 * a brokered call; a null is the same dead end as the broker being absent, and the
+	 * caller already falls back to the anonymous GET.
+	 *
+	 * @return ContainerInterface The injected container.
+	 *
+	 * @throws RuntimeException When the service was built without one.
+	 */
+	private function serviceContainer(): ContainerInterface {
+		if ($this->container === null) {
+			throw new RuntimeException(
+				'Hermiq GitHub template catalog: this service was constructed without a container, '
+				. 'so the OpenRegister credential broker cannot be resolved.'
+			);
+		}
+
+		return $this->container;
+	}//end serviceContainer()
 
 	/**
 	 * Whether the OpenRegister credential broker is present on this instance.
@@ -1057,13 +1089,13 @@ class GitHubTemplateCatalogService {
 	 * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}|null Null when the broker
 	 *                                                                                     denies the call (caller falls back to anonymous).
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
-	 *   of the optional OpenRegister broker so this class stays constructible when the
-	 *   broker is absent (feature-detected via class_exists).
+	 * @SuppressWarnings(PHPMD.StaticAccess) The optional OpenRegister broker is named by
+	 *   class-string and resolved through the injected container, so this class stays
+	 *   constructible when the broker is absent (feature-detected via class_exists).
 	 */
 	private function brokerGet(string $path, string $credentialId, ?string $actingUserId): ?array {
 		try {
-			$broker = Server::get(self::BROKER_CLASS);
+			$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
 			$response = $broker->request(
 				$credentialId,
 				self::APP_ID,

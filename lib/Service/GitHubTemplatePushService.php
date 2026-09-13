@@ -42,7 +42,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCP\Server;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
@@ -140,11 +140,41 @@ class GitHubTemplatePushService {
 	 * GitHub call goes through the broker.
 	 *
 	 * @param LoggerInterface $logger Logger (secret-free diagnostics only).
+	 * @param ContainerInterface|null $container The app container the optional cross-app
+	 *                                           classes are resolved from; null when the
+	 *                                           class is built by hand in a test.
 	 */
 	public function __construct(
 		private readonly LoggerInterface $logger,
+		private readonly ?ContainerInterface $container = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The container the optional OpenRegister credential broker is resolved from.
+	 *
+	 * The broker is another app's class, feature-detected by class-string, so it can
+	 * never be a constructor type here. It used to come from the global server, which
+	 * outside a booted Nextcloud autowires from scratch and can recurse through a
+	 * constructor cycle until memory runs out. The container is nullable because the
+	 * unit tests build this service with a logger alone and never reach a brokered
+	 * call; a null is the same dead end as the broker being absent, and the caller
+	 * already treats that as a failed call.
+	 *
+	 * @return ContainerInterface The injected container.
+	 *
+	 * @throws RuntimeException When the service was built without one.
+	 */
+	private function serviceContainer(): ContainerInterface {
+		if ($this->container === null) {
+			throw new RuntimeException(
+				'Hermiq GitHub template publish: this service was constructed without a container, '
+				. 'so the OpenRegister credential broker cannot be resolved.'
+			);
+		}
+
+		return $this->container;
+	}//end serviceContainer()
 
 	/**
 	 * Whether OpenRegister's credential broker is installed.
@@ -944,9 +974,9 @@ class GitHubTemplatePushService {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) $failQuietly is a genuine two-mode
 	 *   logging input: setTopics() treats failure as cosmetic while every other caller
 	 *   wants the scrubbed warning.
-	 * @SuppressWarnings(PHPMD.StaticAccess)        OCP\Server::get is deliberate lazy
-	 *   resolution of the optional OpenRegister broker so this class stays
-	 *   constructible when the broker is absent.
+	 * @SuppressWarnings(PHPMD.StaticAccess)        The optional OpenRegister broker is
+	 *   named by class-string and resolved through the injected container, so this class
+	 *   stays constructible when the broker is absent.
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
 	 */
@@ -964,7 +994,7 @@ class GitHubTemplatePushService {
 		}
 
 		try {
-			$broker = Server::get(self::BROKER_CLASS);
+			$broker = $this->serviceContainer()->get(self::BROKER_CLASS);
 			$response = $broker->request(
 				$credentialId,
 				self::APP_ID,

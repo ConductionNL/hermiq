@@ -10,8 +10,8 @@
  * but makes it impossible to unit-test anything downstream of it.
  *
  * This stub only needs to EXIST for `class_exists()`. It is never actually called in the
- * unit suite: `Server::get()` cannot resolve a real container there, so any test that
- * reached `sendRequest()` would fail anyway. The broker's own guards (owner, allowed-app,
+ * unit suite: the clients are built without a container there, so any test that reached
+ * `sendRequest()` would fail anyway. The broker's own guards (owner, allowed-app,
  * allow-rules, host-lock) are tested in openregister, where they live.
  *
  * Mirrors the existing `OCA\OpenRegister\Mcp\IMcpToolProvider` / ObjectService stub
