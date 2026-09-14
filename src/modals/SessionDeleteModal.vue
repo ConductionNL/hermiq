@@ -115,6 +115,7 @@ export default {
 		 * Permanently delete the session and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async confirmDelete() {
 			if (!this.session?.uuid) {

@@ -465,20 +465,20 @@ class ConversationTitleWriterTest extends TestCase {
 	 */
 	public function testTheSessionPlaceholderIsRecognisedAsUntitled(): void {
 		$conversation = $this->conversation(
-			[
+			payload: [
 				'title' => 'New session',
 				'userId' => 'alice',
 			]
 		);
 
-		$objectService = $this->objectService($conversation);
+		$objectService = $this->objectService(conversation: $conversation);
 		$objectService->expects($this->once())->method('saveObject')->willReturn(new ObjectEntity());
 
-		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler = $this->createMock(originalClassName: ConversationManagementHandler::class);
 		$handler->expects($this->once())->method('generateConversationTitle')->willReturn('Leave policy');
 		$handler->method('ensureUniqueTitle')->willReturn('Leave policy');
 
-		$this->writer($objectService, $handler)->write(
+		$this->writer(objectService: $objectService, handler: $handler)->write(
 			conversationId: 'conv-1',
 			userMessage: 'What is our leave policy?',
 			userId: 'alice'

@@ -93,6 +93,12 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Clear a previous error when the modal opens.
+		 *
+		 * @param {boolean} open Whether the modal is now shown.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
 		show(open) {
 			if (open) {
 				this.error = ''
@@ -106,6 +112,7 @@ export default {
 		 * Persist the new title and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async save() {
 			if (!this.session?.uuid || !this.title.trim()) {

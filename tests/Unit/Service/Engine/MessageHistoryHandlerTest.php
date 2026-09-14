@@ -110,7 +110,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame(['app' => 'decidesk'], $userPayload['context']);
 		$this->assertArrayNotHasKey('sources', $userPayload);
 		$this->assertSame('hermiq', $saved[0]['register']);
-		$this->assertSame('agentsessionturn', $saved[0]['schema']);
+		$this->assertSame(expected: 'agentsessionturn', actual: $saved[0]['schema']);
 
 		$assistantPayload = $saved[1]['object'];
 		$this->assertSame('assistant', $assistantPayload['role']);
@@ -152,7 +152,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$history = $handler->buildMessageHistory(conversationId: 'conv-1');
 
 		// The fetch is filtered + capped + newest-first.
-		$this->assertSame('conv-1', $capturedConfig['filters']['sessionId']);
+		$this->assertSame(expected: 'conv-1', actual: $capturedConfig['filters']['sessionId']);
 		$this->assertSame(['created' => 'DESC'], $capturedConfig['sort']);
 		$this->assertSame(10, $capturedConfig['limit']);
 

@@ -107,12 +107,12 @@ class SessionControllerTest extends TestCase {
 		$sessionRoom->method('attachToSession')->willReturnArgument(0);
 
 		return new SessionController(
-			$this->request,
-			$this->engine,
-			$this->objectService,
-			$this->userSession,
-			$sessionRoom,
-			$this->createMock(LoggerInterface::class)
+			request: $this->request,
+			engine: $this->engine,
+			objectService: $this->objectService,
+			userSession: $this->userSession,
+			sessionRoom: $sessionRoom,
+			logger: $this->createMock(LoggerInterface::class)
 		);
 
 	}//end controller()
@@ -176,18 +176,18 @@ class SessionControllerTest extends TestCase {
 	 */
 	public function testIndexReportsTriggerOriginAndDefaultsItToHuman(): void {
 		$automated = $this->conversation(
-			'conv-cron',
-			['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Nightly', 'triggerOrigin' => 'cron']
+			uuid: 'conv-cron',
+			payload: ['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Nightly', 'triggerOrigin' => 'cron']
 		);
-		$legacy = $this->conversation('conv-legacy', ['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Old']);
+		$legacy = $this->conversation(uuid: 'conv-legacy', payload: ['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Old']);
 		$this->objectService->method('findAll')->willReturn([$automated, $legacy]);
 		$this->request->method('getParams')->willReturn([]);
 
 		$results = $this->controller()->index()->getData()['results'];
 		$origins = array_combine(array_column($results, 'uuid'), array_column($results, 'triggerOrigin'));
 
-		$this->assertSame('cron', $origins['conv-cron'], 'A stored origin must be reported verbatim.');
-		$this->assertSame('human', $origins['conv-legacy'], 'A session with no origin was started by a person.');
+		$this->assertSame(expected: 'cron', actual: $origins['conv-cron'], message: 'A stored origin must be reported verbatim.');
+		$this->assertSame(expected: 'human', actual: $origins['conv-legacy'], message: 'A session with no origin was started by a person.');
 
 	}//end testIndexReportsTriggerOriginAndDefaultsItToHuman()
 

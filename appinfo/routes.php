@@ -573,7 +573,13 @@ return [
         // optimism.
         ['name' => 'session#index', 'url' => '/api/conversations', 'verb' => 'GET', 'postfix' => 'legacy'],
         ['name' => 'session#create', 'url' => '/api/conversations', 'verb' => 'POST', 'postfix' => 'legacy'],
-        ['name' => 'session#show', 'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'postfix' => 'legacy', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session#show',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
         [
             'name'         => 'session#messages',
             'postfix'      => 'legacy',
@@ -581,8 +587,20 @@ return [
             'verb'         => 'GET',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'session#update', 'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'postfix' => 'legacy', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'session#destroy', 'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'postfix' => 'legacy', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session#update',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'PATCH',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#destroy',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
         [
             'name'         => 'session#restore',
             'postfix'      => 'legacy',

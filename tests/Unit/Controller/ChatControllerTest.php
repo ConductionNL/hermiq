@@ -431,7 +431,7 @@ class ChatControllerTest extends TestCase {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['sessionId' => 'conv-OTHER', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-OTHER', 'role' => 'assistant']);
 			}
 		);
 		$this->objectService->expects($this->never())->method('saveObject');
@@ -459,7 +459,7 @@ class ChatControllerTest extends TestCase {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['sessionId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 
@@ -513,7 +513,7 @@ class ChatControllerTest extends TestCase {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['sessionId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 
