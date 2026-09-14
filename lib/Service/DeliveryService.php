@@ -51,6 +51,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use DateTime;
+use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -220,6 +221,9 @@ class DeliveryService {
 	 * @param TalkApprovalNotifier $talkApprovalNotifier Posts an approval request into the agent's
 	 *                                                   bound room as the bot, so it can be decided
 	 *                                                   by a reaction (talk-approval-reactions).
+	 * @param ConnectionReporter|null $connectionReporter Tells integriq's connection registry what a
+	 *                                                    webhook delivery met; null when built by hand
+	 *                                                    in a test (adopt-connection-registry).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
@@ -238,6 +242,7 @@ class DeliveryService {
 		private readonly LoggerInterface $logger,
 		private readonly TalkRoomBinding $talkRoomBinding,
 		private readonly TalkApprovalNotifier $talkApprovalNotifier,
+		private readonly ?ConnectionReporter $connectionReporter = null,
 	) {
 	}//end __construct()
 
@@ -1134,6 +1139,7 @@ class DeliveryService {
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	private function deliverWebhook(ObjectEntity $schedule, string $output): DeliveryResult {
 		$uuid = (string)$schedule->getUuid();
@@ -1170,14 +1176,58 @@ class DeliveryService {
 			$lastError = $this->tryPostWebhook(url: $url, body: $body, secret: $secret);
 			if ($lastError === '') {
 				$this->logWarning(warning: null, uuid: $uuid, channel: 'webhook');
+				$this->reportWebhookOutcome(url: $url, delivered: true, attempts: $attempt);
 				return new DeliveryResult(delivered: true, channel: 'webhook', fellBack: false, warning: null);
 			}
 		}
 
 		$warning = sprintf('Webhook delivery failed after %d attempt(s): %s', $maxAttempts, $lastError);
 		$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
+		$this->reportWebhookOutcome(url: $url, delivered: false, attempts: $maxAttempts);
 		return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
 	}//end deliverWebhook()
+
+	/**
+	 * Tell integriq what a webhook delivery met, at most once an hour per status.
+	 *
+	 * Webhook targets are per schedule, so `webhook-delivery` is one row for the
+	 * family and shows the last outcome (adopt-connection-registry design D4).
+	 * The message names the target host only: the full URL may carry a token.
+	 * A missing target or secret is a gap in one schedule and sends nothing.
+	 *
+	 * @param string $url       The target URL the POST went to.
+	 * @param bool   $delivered Whether a 2xx answer came back.
+	 * @param int    $attempts  The attempts made.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function reportWebhookOutcome(string $url, bool $delivered, int $attempts): void {
+		if ($this->connectionReporter === null) {
+			return;
+		}
+
+		$host = parse_url($url, PHP_URL_HOST);
+		if (is_string($host) === false || $host === '') {
+			$host = 'its target';
+		}
+
+		if ($delivered === true) {
+			$this->connectionReporter->reportThrottled(
+				key: 'webhook-delivery',
+				status: 'configured',
+				message: 'The last webhook delivery reached ' . $host . '.'
+			);
+			return;
+		}
+
+		$this->connectionReporter->reportThrottled(
+			key: 'webhook-delivery',
+			status: 'error',
+			message: sprintf('The last webhook delivery to %s failed after %d attempt(s).', $host, $attempts)
+		);
+	}//end reportWebhookOutcome()
 
 	/**
 	 * Attempt a single signed webhook POST.

@@ -34,6 +34,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
@@ -56,6 +57,8 @@ class LlmSettingsController extends Controller {
 	 * @param IRequest $request The request.
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
 	 * @param LoggerInterface $logger Logger.
+	 * @param LlmConnectionReport|null $connectionReport Reports the saved provider to integriq's connection
+	 *                                                  registry; null when built by hand in a test.
 	 *
 	 * @return void
 	 */
@@ -63,6 +66,7 @@ class LlmSettingsController extends Controller {
 		IRequest $request,
 		private readonly LlmSettingsHandler $settingsHandler,
 		private readonly LoggerInterface $logger,
+		private readonly ?LlmConnectionReport $connectionReport = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -103,6 +107,7 @@ class LlmSettingsController extends Controller {
 	 *                      an unsupported provider.
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
@@ -156,6 +161,10 @@ class LlmSettingsController extends Controller {
 			);
 			return new JSONResponse(['error' => 'Failed to save LLM configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
+
+		// Tell integriq what the saved provider means for the AI provider and runner
+		// rows. Never throws; a failed save above reports nothing.
+		$this->connectionReport?->reportSaved(config: $merged);
 
 		return new JSONResponse(
 			[
