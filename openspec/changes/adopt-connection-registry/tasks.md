@@ -22,7 +22,7 @@
 
 ## 4. End to end
 
-- [ ] 4.1 `tests/e2e/connections-page.spec.ts`, written and not run: it needs integriq installed and synced.
+- [x] 4.1 `tests/e2e/connections-page.spec.ts`, written and not run: it needs integriq installed and synced.
 
 ## 5. After integriq ships hydra#674
 
