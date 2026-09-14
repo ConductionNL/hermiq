@@ -39,6 +39,7 @@
 <template>
 	<div class="hermiq-admin-settings">
 		<NcSettingsSection
+			id="section-ai-provider"
 			:name="t('hermiq', 'AI provider')"
 			:description="
 				t(
@@ -66,6 +67,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-web-research"
 			:name="t('hermiq', 'Web research')"
 			:description="
 				t(
@@ -115,6 +117,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-organisation-credentials"
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="
 				t(

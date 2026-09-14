@@ -1417,7 +1417,16 @@ OC.L10N.register(
         "write": "schrijven",
         "{kind}: requires explicit grant": "{kind}: expliciete toestemming vereist",
         "Allow speaking with this agent": "Praten met deze agent toestaan",
-        "Unavailable: this version of Talk does not support conversation tags.": "Niet beschikbaar: deze versie van Talk ondersteunt geen gesprekstags."
+        "Unavailable: this version of Talk does not support conversation tags.": "Niet beschikbaar: deze versie van Talk ondersteunt geen gesprekstags.",
+        "Integrations": "Integraties",
+        "Add integration": "Integratie toevoegen",
+        "Configured": "Geconfigureerd",
+        "Simulated": "Gesimuleerd",
+        "Not available": "Niet beschikbaar",
+        "Open settings": "Instellingen openen",
+        "Last checked": "Laatst gecontroleerd",
+        "All connections": "Alle verbindingen",
+        "Status message": "Statusmelding"
     },
     "nplurals=2; plural=(n != 1);"
 )

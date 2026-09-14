@@ -1309,7 +1309,7 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
 	 */
-	private function assertCliRunnerAvailable(): void {
+	public function assertCliRunnerAvailable(): void {
 		if ($this->appManager === null) {
 			throw new ProviderUnavailableException(
 				'Anthropic executionMode "cli" is unavailable: the Nextcloud app manager could not be '
