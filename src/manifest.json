@@ -133,6 +133,21 @@
 			"order": 96
 		},
 		{
+			"id": "IntegrationsMenu",
+			"label": "Integrations",
+			"icon": "Connection",
+			"route": "Integrations",
+			"query": {
+				"app": "hermiq"
+			},
+			"section": "settings",
+			"order": 97,
+			"permission": "admin",
+			"visibleIf": {
+				"appInstalled": "integriq"
+			}
+		},
+		{
 			"id": "ReportsMenu",
 			"label": "Reports",
 			"icon": "ChartBoxOutline",
@@ -1260,6 +1275,71 @@
 			"config": {
 				"entitySource": "flows",
 				"app": "hermiq"
+			}
+		},
+		{
+			"id": "Integrations",
+			"route": "/settings/integrations",
+			"type": "index",
+			"title": "Integrations",
+			"permission": "admin",
+			"requiresApp": {
+				"id": "integriq",
+				"name": "Integriq"
+			},
+			"_note": "Hermiq's outside connections (adopt-connection-registry, hydra connection-registry D8). The rows are integriq's `app_connection` objects, synced from lib/Settings/connections.json. Integriq works out each status; hermiq only reports. The app=hermiq preset is the menu entry's `query` (ADR-097 decision 5), which the index page merges into the fetch as a bare filter key. `showAdd` is false because a row nothing declared has nothing to check (D9). Add integration leaves for integriq's overview through the openIntegriqConnections handler in src/customComponents.js, because a header action's `navigate` only pushes a route inside this app.",
+			"config": {
+				"register": "integriq",
+				"schema": "app_connection",
+				"showViewAction": false,
+				"showAdd": false,
+				"headerActions": [
+					{
+						"id": "add-integration",
+						"label": "Add integration",
+						"icon": "Connection",
+						"handler": "openIntegriqConnections"
+					}
+				],
+				"defaultSort": {
+					"field": "order",
+					"direction": "asc"
+				},
+				"folderSidebar": {
+					"source": "field",
+					"field": "status",
+					"allLabel": "All connections"
+				},
+				"columns": [
+					{
+						"key": "title",
+						"label": "Connection"
+					},
+					{
+						"key": "status",
+						"label": "Status",
+						"formatter": "connectionStatus"
+					},
+					{
+						"key": "statusMessage",
+						"label": "Status message",
+						"sortable": false
+					},
+					{
+						"key": "checkedAt",
+						"label": "Last checked"
+					},
+					{
+						"key": "settingsUrl",
+						"label": "Settings",
+						"sortable": false,
+						"formatter": "connectionSettingsLabel",
+						"widget": "link",
+						"widgetProps": {
+							"href": "{settingsUrl}"
+						}
+					}
+				]
 			}
 		},
 		{

@@ -1332,7 +1332,16 @@ OC.L10N.register(
         "Delete session": "Delete session",
         "Restore session": "Restore session",
         "Allow speaking with this agent": "Allow speaking with this agent",
-        "Unavailable: this version of Talk does not support conversation tags.": "Unavailable: this version of Talk does not support conversation tags."
+        "Unavailable: this version of Talk does not support conversation tags.": "Unavailable: this version of Talk does not support conversation tags.",
+        "Integrations": "Integrations",
+        "Add integration": "Add integration",
+        "Configured": "Configured",
+        "Simulated": "Simulated",
+        "Not available": "Not available",
+        "Open settings": "Open settings",
+        "Last checked": "Last checked",
+        "All connections": "All connections",
+        "Status message": "Status message"
     },
     "nplurals=2; plural=(n != 1);"
 )
