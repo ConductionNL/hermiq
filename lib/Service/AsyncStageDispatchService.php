@@ -47,7 +47,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCP\Server;
 use RuntimeException;
 
 /**
@@ -76,7 +75,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 *
 	 * @throws RuntimeException When the stage could not be started.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess)           Mirrors `dispatch()`; AppAPI is resolved lazily.
+	 * @SuppressWarnings(PHPMD.StaticAccess)           Mirrors `dispatch()`; AppAPI is resolved
+	 *   through the injected container.
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()` exactly, deliberately:
 	 *   the two must accept the same stage, and a bundled array is the shape in which a field
 	 *   has already been silently dropped at this boundary once.
@@ -282,12 +282,13 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 *
 	 * @return mixed The response, or an array when the ExApp is unreachable.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI is resolved lazily, as `dispatch()` does.
+	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI is resolved through the injected
+	 *   container by class-string, as `dispatch()` does.
 	 *
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function callRunner(string $route, string $method, array $params, ?string $uid): mixed {
-		return Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
+		return $this->serviceContainer()->get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
 			self::RUNNER_EXAPP_ID,
 			$route,
 			$uid,

@@ -589,15 +589,28 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 		// timeout — which reads as "the button is missing" rather than "the page
 		// had not hydrated yet". Asserting the page first makes the two
 		// distinguishable.
-		await expect(
-			page.getByRole('button', { name: /edit agent/i }).first(),
-		).toBeVisible({
-			timeout: 30_000,
+		// Edit agent is a manifest `headerActions` entry, and since
+		// nextcloud-vue 2.42.0 CnDetailPage renders those in the header's
+		// Actions menu instead of as a row of buttons beside the title. So it
+		// is a `menuitem` now, not a `button`, and it does not exist in the DOM
+		// until the menu opens: the old `getByRole('button', …)` waited out its
+		// full 30s and reported "element(s) not found", which reads as a
+		// missing feature rather than a closed menu.
+		//
+		// The entry keeps its `data-testid`, so the id is the stable half. The
+		// menu's own root carries `action-item--open` when it is open, which is
+		// the only open-state signal this NcActions version publishes: the
+		// toggle button has no `aria-expanded` to assert on.
+		const actionsMenu = page.getByTestId('cn-detail-page-actions')
+		await expect(actionsMenu).toBeVisible({ timeout: 30_000 })
+		await actionsMenu.locator('.action-item__menutoggle').click()
+		await expect(actionsMenu).toHaveClass(/action-item--open/, {
+			timeout: 10_000,
 		})
-		await page
-			.getByRole('button', { name: /edit agent/i })
-			.first()
-			.click()
+
+		const editAgent = page.getByTestId('cn-action-edit-agent')
+		await expect(editAgent).toBeVisible({ timeout: 30_000 })
+		await editAgent.click()
 
 		const form = page.locator('.agent-form')
 		await expect(form).toBeVisible({ timeout: 20_000 })
