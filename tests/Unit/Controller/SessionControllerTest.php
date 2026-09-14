@@ -112,7 +112,7 @@ class SessionControllerTest extends TestCase {
 			objectService: $this->objectService,
 			userSession: $this->userSession,
 			sessionRoom: $sessionRoom,
-			logger: $this->createMock(LoggerInterface::class)
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
 		);
 
 	}//end controller()

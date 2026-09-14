@@ -103,6 +103,12 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Clear a previous error when the modal opens.
+		 *
+		 * @param {boolean} open Whether the modal is now shown.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
 		show(open) {
 			if (open) {
 				this.error = ''
