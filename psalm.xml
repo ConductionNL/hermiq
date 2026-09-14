@@ -75,6 +75,14 @@
                 <referencedClass name="OCA\OpenRegister\Db\RegisterMapper"/>
                 <referencedClass name="OCA\OpenRegister\Db\SchemaMapper"/>
                 <referencedClass name="OCA\OpenRegister\Db\AuditTrailMapper"/>
+                <!--
+                  MagicMapper: objects live in per-register/schema "magic" tables, and
+                  this is the only mapper that reads soft-deleted rows
+                  (findDeletedAcrossAllMagicTables) or resolves a table name. The session
+                  migration needs both, because ObjectService cannot see an archived
+                  object at all.
+                -->
+                <referencedClass name="OCA\OpenRegister\Db\MagicMapper"/>
                 <referencedClass name="OCA\OpenRegister\Event\DeepLinkRegistrationEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatingEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatedEvent"/>
