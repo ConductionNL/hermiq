@@ -26,7 +26,6 @@
 			:pageTypes="pageTypes"
 			:registry="registry"
 			:cellWidgets="cellWidgets"
-			:formatters="formatters"
 			appId="hermiq"
 			:translate="translateForApp"
 			:permissions="permissions"
@@ -152,10 +151,6 @@ import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 // Lives beside the manifest (not inside it): the app-manifest v2 schema has no
 // root `credentials` block, and the declaration is consumed only by this shell.
 import credentialDeclarations from './credentials.json'
-// The Integrations page's `connectionStatus` and `connectionSettingsLabel`
-// cell formatters (adopt-connection-registry). The pinned nextcloud-vue ships
-// neither as a built-in.
-import { createConnectionFormatters } from './services/connectionRegistry.js'
 
 export default {
 	name: 'App',
@@ -233,14 +228,6 @@ export default {
 
 	data() {
 		return {
-			/**
-			 * Named cell formatters merged over CnAppRoot's built-ins, for the
-			 * Integrations page (adopt-connection-registry). Static.
-			 */
-			formatters: createConnectionFormatters((source) =>
-				ncT('hermiq', source),
-			),
-
 			showSetup: false,
 			objectSidebarState: reactive({
 				active: false,

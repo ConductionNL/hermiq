@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Conduction B.V.
 //
 // connections-page.spec.js — the Integrations page, its declaration and the
-// formatters it renders with (adopt-connection-registry).
+// built-in formatters it renders with (adopt-connection-registry).
 //
 // Usage:
 //   node tests/connections-page.spec.js
@@ -15,7 +15,8 @@
 // Everything asserted here fails SILENTLY in the browser. A menu entry without
 // its `query` lists every app's rows as though they were hermiq's. A header
 // action naming a handler nobody passes to CnAppRoot does nothing when clicked.
-// A formatter name nobody registers renders the raw enum. A page without
+// A local formatter under a built-in's name wins over the built-in, so a copy
+// that predates a status renders that status as its raw word. A page without
 // `requiresApp` renders an empty table where it should say integriq is missing.
 //
 // @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
@@ -59,6 +60,23 @@ async function main() {
 		pathToFileURL(path.join(ROOT, 'src', 'services', 'connectionRegistry.js'))
 			.href
 	)
+	// The built-ins import @nextcloud/l10n, whose auth dependency reads
+	// `window` at load. Plain node has none, and an untranslated call returns
+	// the English source string, which is what the check compares.
+	globalThis.window ??= globalThis
+	const builtIns = await import(
+		pathToFileURL(
+			require.resolve(
+				'@conduction/nextcloud-vue/dist/esm/utils/builtInFormatters.js',
+			),
+		).href
+	)
+	const libraryNl = JSON.parse(
+		fs.readFileSync(
+			require.resolve('@conduction/nextcloud-vue/l10n/nl.json'),
+			'utf8',
+		),
+	).translations
 
 	const manifest = readJson('src', 'manifest.json')
 	const en = readJson('l10n', 'en.json').translations
@@ -147,10 +165,8 @@ async function main() {
 		)
 	})
 
-	check('the handler and the formatters reach CnAppRoot', () => {
+	check('the handler reaches CnAppRoot', () => {
 		assert.match(customComponentsJs, /\.\.\.createConnectionHandlers\(/)
-		assert.match(appVue, /:formatters="formatters"/)
-		assert.match(appVue, /formatters: createConnectionFormatters\(/)
 	})
 
 	check("the menu entry presets the list to hermiq's own rows", () => {
@@ -166,45 +182,22 @@ async function main() {
 		},
 	)
 
-	const formatters = registry.createConnectionFormatters((source) => source)
-
-	check('the formatters name each of the six statuses', () => {
-		assert.strictEqual(formatters.connectionStatus('configured'), 'Configured')
-		assert.strictEqual(formatters.connectionStatus('limited'), 'Limited')
-		assert.strictEqual(
-			formatters.connectionStatus('unconfigured'),
-			'Not configured',
-		)
-		assert.strictEqual(formatters.connectionStatus('simulated'), 'Simulated')
-		assert.strictEqual(
-			formatters.connectionStatus('unavailable'),
-			'Not available',
-		)
-		assert.strictEqual(formatters.connectionStatus('error'), 'Error')
-	})
-
-	check('an unknown status renders as itself and a missing one as empty', () => {
-		assert.strictEqual(formatters.connectionStatus('degraded'), 'degraded')
-		assert.strictEqual(formatters.connectionStatus('toString'), 'toString')
-		assert.strictEqual(formatters.connectionStatus(undefined), '')
-		assert.strictEqual(formatters.connectionStatus(null), '')
-	})
-
-	check('Open settings shows only when there is somewhere to go', () => {
-		assert.strictEqual(
-			formatters.connectionSettingsLabel(
-				'/settings/admin/hermiq#section-ai-provider',
-			),
-			'Open settings',
-		)
-		assert.strictEqual(formatters.connectionSettingsLabel(''), '')
-		assert.strictEqual(formatters.connectionSettingsLabel(undefined), '')
+	check('a switched-off connection reads Switched off, from the built-in', () => {
+		// CnAppRoot provides `{ ...BUILT_IN_FORMATTERS, ...props.formatters }`,
+		// so this builds the registry the same way. A local copy passed to
+		// CnAppRoot under either name wins, and one that predates `disabled`
+		// shows the raw word.
+		const local = /createConnectionFormatters\(/.test(appVue)
+			? registry.createConnectionFormatters((source) => source)
+			: {}
+		const formatters = { ...builtIns.BUILT_IN_FORMATTERS, ...local }
+		assert.strictEqual(formatters.connectionStatus('disabled'), 'Switched off')
+		assert.strictEqual(libraryNl['Switched off'], 'Uitgeschakeld')
+		assert.doesNotMatch(appVue, /:formatters=/)
 	})
 
 	check('the page strings are in the English and Dutch catalogues', () => {
 		for (const source of [
-			...Object.values(registry.CONNECTION_STATUS_LABELS),
-			'Open settings',
 			'Add integration',
 			'Integrations',
 			'Last checked',
@@ -219,7 +212,6 @@ async function main() {
 				`nl.json leaves "${source}" in English`,
 			)
 		}
-		assert.strictEqual(nl.Limited, 'Beperkt')
 	})
 
 	if (failures.length > 0) {
