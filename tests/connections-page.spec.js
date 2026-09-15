@@ -60,6 +60,10 @@ async function main() {
 		pathToFileURL(path.join(ROOT, 'src', 'services', 'connectionRegistry.js'))
 			.href
 	)
+	// The built-ins import @nextcloud/l10n, whose auth dependency reads
+	// `window` at load. Plain node has none, and an untranslated call returns
+	// the English source string, which is what the check compares.
+	globalThis.window ??= globalThis
 	const builtIns = await import(
 		pathToFileURL(
 			require.resolve(
