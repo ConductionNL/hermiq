@@ -26,7 +26,7 @@
 				{{
 					t(
 						'hermiq',
-						'Choose which language-model provider Hermiq uses for background work such as conversation titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
+						'Choose which language-model provider Hermiq uses for background work such as session titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
 					)
 				}}
 			</p>
@@ -175,7 +175,7 @@
 					<NcButton @click="$emit('close')">
 						{{ t('hermiq', 'Cancel') }}
 					</NcButton>
-					<NcButton type="primary" :disabled="saving" @click="save">
+					<NcButton variant="primary" :disabled="saving" @click="save">
 						<template v-if="saving" #icon>
 							<NcLoadingIcon :size="20" />
 						</template>

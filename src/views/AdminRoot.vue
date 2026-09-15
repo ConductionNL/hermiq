@@ -39,11 +39,12 @@
 <template>
 	<div class="hermiq-admin-settings">
 		<NcSettingsSection
+			id="section-ai-provider"
 			:name="t('hermiq', 'AI provider')"
 			:description="
 				t(
 					'hermiq',
-					'Choose which language-model provider Hermiq uses for background work (conversation titles, summaries). Streaming chat and embeddings always use the directly-configured provider — they cannot run through Nextcloud’s TaskProcessing.',
+					'Choose which language-model provider Hermiq uses for background work (session titles, summaries). Streaming chat and embeddings always use the directly-configured provider. They cannot run through Nextcloud’s TaskProcessing.',
 				)
 			">
 			<div class="hermiq-admin-settings__provider">
@@ -52,7 +53,7 @@
 				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
-			<NcButton type="primary" @click="showModal = true">
+			<NcButton variant="primary" @click="showModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
@@ -66,6 +67,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-web-research"
 			:name="t('hermiq', 'Web research')"
 			:description="
 				t(
@@ -79,7 +81,7 @@
 				>
 				<strong>{{ currentSearchProviderLabel }}</strong>
 			</div>
-			<NcButton type="primary" @click="showWebResearchModal = true">
+			<NcButton variant="primary" @click="showWebResearchModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
@@ -115,6 +117,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-organisation-credentials"
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="
 				t(

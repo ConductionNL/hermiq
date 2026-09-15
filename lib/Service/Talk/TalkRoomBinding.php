@@ -59,7 +59,7 @@ class TalkRoomBinding {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * `talkRoomOrigin` for a room Hermiq created for a session.

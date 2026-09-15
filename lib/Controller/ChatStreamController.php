@@ -110,7 +110,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Wall-clock timestamp (microtime float) of the most recently emitted
@@ -770,7 +770,7 @@ class ChatStreamController extends Controller {
 				data: [
 					'userId' => $userId,
 					'agentId' => (string)$agent->getUuid(),
-					'title' => 'New conversation',
+					'title' => 'New session',
 				]
 			),
 			register: self::REGISTER_SLUG,

@@ -79,7 +79,7 @@ class AssistantService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Sentinel tool-whitelist entry meaning "this agent is intentionally

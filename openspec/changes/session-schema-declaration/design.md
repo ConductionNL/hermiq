@@ -75,3 +75,66 @@ Both carry realistic titles, timestamps and message counts. Neither uses a value
 - **Applied before the OpenRegister fix ships.** The whole design rests on Decision 1. Task 1.2 is the check; if it returns 1286, stop.
 - **Property drift between the two schemas.** The migration copies field-by-field, so a property on one and not the other drops data silently. The property list must be machine-derived from the live `conversation` schema (task 2.1), never transcribed.
 - **A schema that fails import VANISHES** — OpenRegister logs the failure rather than raising it. So verification must confirm the schema EXISTS after import; the absence of an error message is not evidence that anything was created.
+
+## Decisions taken while implementing (2026-09-07)
+
+### The slug stays `agentsession`, and task 1.2 is why
+
+Task 1.2 said: resolve slug `session` in register `hermiq`, and if it comes back as
+another app's schema, STOP. Measured on the dev instance:
+
+```
+GET /api/schemas/session   -> id 336, scholiq's
+                              "A scheduled occurrence of a Cohort meeting"
+GET /api/objects/hermiq/session -> {"message":"Schema not found: 'session'"}
+```
+
+So the gate fires. It does not follow that the chain stops, because hermiq's session
+schema **already exists** as `agentsession` (id 1154), and this register already prefixes
+for exactly this reason: `agentskill`, `agentskillsource`, `agentskilldraft`,
+`agentbudget`, `agentwebhook`, `agentaifeature`. Declaring a bare `session` would walk
+into the collision the gate names; keeping the prefix avoids it.
+
+The chain's goal is one vocabulary in the UI, the API and the code. A storage slug is
+none of those, and it is not user-facing. `agentsession` it is.
+
+### The property list is machine-derived (task 2.1, 2.2)
+
+Read from the live schemas rather than transcribed:
+
+| | properties |
+|---|---|
+| conversation (1160) | title, userId, agentId, metadata, talkRoomToken, participants, talkRoomOrigin |
+| message (1161) | conversationId, role, content, sources, context, authorId, authorDisplayName |
+
+Every one is now on Session / SessionTurn, copied verbatim so the migration compares
+field for field. `sessionId` replaces `conversationId`; `startedAt`, `lastActivityAt` and
+the new `triggerOrigin` are Session's own.
+
+### Archived objects need a different read path, found now rather than later
+
+Task 1.2 also told us to prove the archived-read path returns rows. It does not:
+
+```
+?_limit=1000                     -> 1 row,  total 1
+?_limit=1000&_includeDeleted=true -> 1 row,  total 10
+```
+
+The flag reaches the count query only, exactly as measured on 2026-08-13. The table
+`oc_openregister_table_34_1160` holds **10 conversations: 1 live, 9 archived.**
+
+The working read path is `ObjectEntityMapper::findDeletedAcrossAllMagicTables()`, which
+is what `DeletedController::index()` uses and which does return them. The migration spec
+must use it, or it will silently leave 9 of 10 conversations behind and empty the Archive
+tab, which is the symptom task 3.4 names.
+
+### Baseline for the migration to assert against (task 5.2)
+
+Measured 2026-09-07, on the dev instance, NOT the 282 the spec assumes:
+
+| | total | live | archived |
+|---|---|---|---|
+| conversation | 10 | 1 | 9 |
+| message | 7 | 1 | 6 |
+
+Trigger-origin default is `human`, which is what all 10 are.

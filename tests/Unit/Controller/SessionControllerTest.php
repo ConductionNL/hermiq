@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit tests for ConversationController (agent-engine-port).
+ * Unit tests for SessionController (agent-engine-port, renamed by session-api-rename).
  *
  * Exercises the ported conversation CRUD against ObjectService: the
  * active/archived partition on the payload-level `metadata.deletedAt` marker,
@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
-use OCA\Hermiq\Controller\ConversationController;
+use OCA\Hermiq\Controller\SessionController;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -39,11 +39,11 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
- * Tests for the agent-engine-port ConversationController.
+ * Tests for the agent-engine-port SessionController.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
  */
-class ConversationControllerTest extends TestCase {
+class SessionControllerTest extends TestCase {
 
 	/**
 	 * Mock request.
@@ -96,9 +96,9 @@ class ConversationControllerTest extends TestCase {
 	/**
 	 * Build the controller wired to the current mocks.
 	 *
-	 * @return ConversationController
+	 * @return SessionController
 	 */
-	private function controller(): ConversationController {
+	private function controller(): SessionController {
 		// TalkSessionRoom is mocked, not exercised: a bare double returns the
 		// session unchanged from attachToSession(), which is exactly the
 		// no-Talk path these CRUD assertions are written against. The room
@@ -106,13 +106,13 @@ class ConversationControllerTest extends TestCase {
 		$sessionRoom = $this->createMock(TalkSessionRoom::class);
 		$sessionRoom->method('attachToSession')->willReturnArgument(0);
 
-		return new ConversationController(
-			$this->request,
-			$this->engine,
-			$this->objectService,
-			$this->userSession,
-			$sessionRoom,
-			$this->createMock(LoggerInterface::class)
+		return new SessionController(
+			request: $this->request,
+			engine: $this->engine,
+			objectService: $this->objectService,
+			userSession: $this->userSession,
+			sessionRoom: $sessionRoom,
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
 		);
 
 	}//end controller()
@@ -162,6 +162,35 @@ class ConversationControllerTest extends TestCase {
 		$this->assertNull($response->getData()['results'][0]['deletedAt']);
 
 	}//end testIndexPartitionsActiveAndArchived()
+
+	/**
+	 * A serialized session carries its trigger origin, and a session that
+	 * predates the property is reported as `human` rather than as nothing.
+	 *
+	 * Both halves matter: the session list groups on this field, so a filter
+	 * that returned everything would pass the first assertion on its own.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+	 */
+	public function testIndexReportsTriggerOriginAndDefaultsItToHuman(): void {
+		$automated = $this->conversation(
+			uuid: 'conv-cron',
+			payload: ['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Nightly', 'triggerOrigin' => 'cron']
+		);
+		$legacy = $this->conversation(uuid: 'conv-legacy', payload: ['userId' => 'alice', 'agentId' => 'a1', 'title' => 'Old']);
+		$this->objectService->method('findAll')->willReturn([$automated, $legacy]);
+		$this->request->method('getParams')->willReturn([]);
+
+		$results = $this->controller()->index()->getData()['results'];
+		$origins = array_combine(array_column($results, 'uuid'), array_column($results, 'triggerOrigin'));
+
+		$this->assertSame(expected: 'cron', actual: $origins['conv-cron'], message: 'A stored origin must be reported verbatim.');
+		$this->assertSame(expected: 'human', actual: $origins['conv-legacy'], message: 'A session with no origin was started by a person.');
+
+	}//end testIndexReportsTriggerOriginAndDefaultsItToHuman()
+
 
 	/**
 	 * index() with _deleted=true returns only the archived conversations.
@@ -244,7 +273,7 @@ class ConversationControllerTest extends TestCase {
 
 		$message = new ObjectEntity();
 		$message->setUuid('msg-1');
-		$message->setObject(['conversationId' => 'conv-1', 'role' => 'user', 'content' => 'hi']);
+		$message->setObject(['sessionId' => 'conv-1', 'role' => 'user', 'content' => 'hi']);
 		$this->objectService->method('findAll')->willReturn([$message]);
 		$this->objectService->method('searchObjectsPaginated')->willReturn(['results' => [], 'total' => 1]);
 
@@ -435,7 +464,7 @@ class ConversationControllerTest extends TestCase {
 
 		$related = new ObjectEntity();
 		$related->setUuid('rel-1');
-		$related->setObject(['conversationId' => 'conv-1']);
+		$related->setObject(['sessionId' => 'conv-1']);
 		$this->objectService->method('findAll')->willReturn([$related]);
 		$this->objectService->expects($this->never())->method('saveObject');
 
@@ -453,8 +482,8 @@ class ConversationControllerTest extends TestCase {
 		$this->assertSame(
 			[
 				['rel-1', 'feedback'],
-				['rel-1', 'message'],
-				['conv-1', 'conversation'],
+				['rel-1', 'agentsessionturn'],
+				['conv-1', 'agentsession'],
 			],
 			$deleted,
 			'Feedback, then messages, then the conversation must be deleted (OR ordering).'
@@ -521,7 +550,7 @@ class ConversationControllerTest extends TestCase {
 
 		$message = new ObjectEntity();
 		$message->setUuid('msg-1');
-		$message->setObject(['conversationId' => 'conv-1']);
+		$message->setObject(['sessionId' => 'conv-1']);
 		$this->objectService->method('findAll')->willReturn([$message]);
 
 		$deleted = [];
@@ -537,8 +566,8 @@ class ConversationControllerTest extends TestCase {
 		$this->assertSame(200, $response->getStatus());
 		$this->assertSame(
 			[
-				['msg-1', 'message'],
-				['conv-1', 'conversation'],
+				['msg-1', 'agentsessionturn'],
+				['conv-1', 'agentsession'],
 			],
 			$deleted
 		);

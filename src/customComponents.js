@@ -24,6 +24,7 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
+import { generateUrl } from '@nextcloud/router'
 import AgentFormModal from './modals/AgentFormModal.vue'
 // Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
 // SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
@@ -38,6 +39,7 @@ import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import McpTools from './views/McpTools.vue'
 import Runs from './views/Runs.vue'
 import TenantOps from './views/TenantOps.vue'
+import { createConnectionHandlers } from './services/connectionRegistry.js'
 // NOTE — Features & Roadmap is NOT registered here, deliberately. The
 // manifest page `FeaturesRoadmap` is `type: "roadmap"`, a BUILT-IN page type
 // that CnPageRenderer resolves from `defaultPageTypes` (→ the lib's
@@ -48,6 +50,15 @@ import TenantOps from './views/TenantOps.vue'
 // See ConductionNL/hydra#251.
 
 export default {
+	// Header-action handler: the Integrations page's Add integration
+	// (adopt-connection-registry). A function, because it leaves the app for
+	// integriq's Connections overview and a header action's `navigate` only
+	// pushes a route inside this app. CnIndexPage resolves a handler name
+	// against this map, not `registry`.
+	...createConnectionHandlers({
+		generateUrl,
+		assign: (url) => window.location.assign(url),
+	}),
 	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
 	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
 	// via the built-in index page type.
