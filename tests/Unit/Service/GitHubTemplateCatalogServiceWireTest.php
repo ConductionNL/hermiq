@@ -93,6 +93,21 @@ final class GitHubTemplateCatalogServiceWireTest extends TestCase {
 			public array $recorded = [];
 
 			/**
+			 * Stand in for the parent constructor without its seven collaborators.
+			 *
+			 * The parent takes at least seven services, none of which this double
+			 * touches: every method it inherits is overridden below. Calling
+			 * `parent::__construct()` would only be a way to fail with
+			 * ArgumentCountError, which is exactly what an implicit inherited
+			 * constructor did here.
+			 *
+			 * @return void
+			 */
+			public function __construct() {
+				// No parent call: this double overrides everything it uses.
+			}//end __construct()
+
+			/**
 			 * Record the call, then refuse it the way the broker's app guard does.
 			 *
 			 * @param string $credentialId The credential.
