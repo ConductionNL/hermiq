@@ -66,9 +66,7 @@ async function main() {
 	globalThis.window ??= globalThis
 	const builtIns = await import(
 		pathToFileURL(
-			require.resolve(
-				'@conduction/nextcloud-vue/dist/esm/utils/builtInFormatters.js',
-			),
+			require.resolve('@conduction/nextcloud-vue/dist/esm/utils/builtInFormatters.js'),
 		).href
 	)
 	const libraryNl = JSON.parse(
