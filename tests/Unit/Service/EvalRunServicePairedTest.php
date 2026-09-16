@@ -180,6 +180,13 @@ class RecordingObjectService extends ObjectService {
 		// OCP stubs, so the fatal appears locally (inside a booted Nextcloud)
 		// while CI stays green.
 		bool $_unowned = false,
+		// Added by openregister (duplicate detection), seen 2026-09-16. Appended,
+		// so no re-ordering was needed. Note which way round this one broke: the
+		// LOCAL suite stayed green, because tests/bootstrap.php resolves
+		// ObjectService from hermiq's own stub, while CI installs the real
+		// openregister and PHP refused to declare this class, killing all six
+		// cells with a fatal before a single test ran.
+		bool $_dedupOverride = false,
 	): ObjectEntity {
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
 		$this->saves[] = [
