@@ -51,6 +51,9 @@ use Psr\Log\LoggerInterface;
  * Unit tests for the webhook delivery connection report.
  *
  * @covers \OCA\Hermiq\Service\DeliveryService
+ *
+ * @uses \OCA\Hermiq\Service\DeliveryResult
+ * @uses \OCA\Hermiq\Service\RedactionService
  */
 class DeliveryServiceConnectionReportTest extends TestCase {
 
