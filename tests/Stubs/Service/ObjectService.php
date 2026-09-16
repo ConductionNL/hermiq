@@ -162,6 +162,8 @@ class ObjectService {
 		// absent there — so a drift here is invisible in CI and only fatals when
 		// the suite runs inside a booted Nextcloud, where the real class wins.
 		bool $_unowned = false,
+		// Added by openregister (duplicate detection), seen 2026-09-16.
+		bool $_dedupOverride = false,
 	): ObjectEntity {
 		return new ObjectEntity();
 	}//end saveObject()
