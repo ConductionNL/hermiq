@@ -107,6 +107,8 @@ class EvalRunServiceTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
 			): ObjectEntity {
 				$entity = new ObjectEntity();
 				$entity->setUuid('eval-run-uuid');
