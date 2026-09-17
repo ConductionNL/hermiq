@@ -53,7 +53,7 @@
     "@nextcloud/vue": "^9.9.0",
     "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
-    "dexie": "^4.4.5",
+    "dexie": "^4.4.6",
     "dompurify": "^3.4.15",
     "gridstack": "^13.2.0",
     "marked": "^18.0.12",
