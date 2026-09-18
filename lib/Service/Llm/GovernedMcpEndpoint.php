@@ -43,7 +43,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 
 declare(strict_types=1);
@@ -56,6 +56,8 @@ use OCP\IURLGenerator;
 /**
  * Resolves, and recognises, the container-facing origin of Hermiq's governed MCP
  * endpoint.
+ *
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 class GovernedMcpEndpoint {
 
@@ -91,6 +93,8 @@ class GovernedMcpEndpoint {
 	 * @param string $baseOverride The `mcp_run_base_url` value ('' when unset).
 	 *
 	 * @return string The container-facing URL, or `$publishedUrl` unchanged.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	public static function applyContainerOrigin(string $publishedUrl, string $baseOverride): string {
 		$baseOverride = trim($baseOverride);
@@ -111,6 +115,8 @@ class GovernedMcpEndpoint {
 	 * The container-facing URL of the governed MCP endpoint.
 	 *
 	 * @return string The URL, or '' when it cannot be resolved.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	public function url(): string {
 		try {
@@ -133,6 +139,8 @@ class GovernedMcpEndpoint {
 	 * The `host:port` of the governed MCP endpoint, lowercased.
 	 *
 	 * @return string The authority, or '' when it cannot be resolved.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	public function authority(): string {
 		$url = $this->url();
@@ -147,7 +155,10 @@ class GovernedMcpEndpoint {
 
 		$port = (int)($parts['port'] ?? 0);
 		if ($port === 0) {
-			$port = (strtolower((string)($parts['scheme'] ?? 'http')) === 'https') ? 443 : 80;
+			$port = 80;
+			if (strtolower((string)($parts['scheme'] ?? 'http')) === 'https') {
+				$port = 443;
+			}
 		}
 
 		return strtolower((string)$parts['host']) . ':' . $port;
@@ -164,6 +175,8 @@ class GovernedMcpEndpoint {
 	 * @param int $port The requested port.
 	 *
 	 * @return bool True when this is the governance origin itself.
+	 *
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	public function matches(string $host, int $port): bool {
 		$authority = $this->authority();
