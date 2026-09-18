@@ -4,6 +4,7 @@
     "aifeature.acknowledge": ["admin"],
     "aifeature.enable": ["admin"],
     "aifeature.disable": ["admin"],
+    "aifeature.bind": ["admin"],
     "aifeature.publish-to-algoritmeregister": ["admin"],
     "aifeature.withdraw-from-algoritmeregister": ["admin"],
     "skill.approve-quarantined": ["admin"],

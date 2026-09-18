@@ -642,7 +642,7 @@
 			"AiFeature": {
 				"slug": "agentaifeature",
 				"icon": "RobotOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "AI feature",
 				"description": "A design-time inventory entry for a high-risk AI feature this platform provides (EU AI Act registration/oversight). Risk-classified and gated by a declarative lifecycle whose enable transition requires a DPO acknowledgement.",
 				"type": "object",
@@ -685,6 +685,23 @@
 						"type": "string",
 						"title": "Description",
 						"description": "What the AI feature does and why it is risk-relevant."
+					},
+					"provider": {
+					    "type": "string",
+					    "enum": ["", "openai", "ollama", "fireworks", "nextcloud", "anthropic"],
+					    "title": "Provider",
+					    "description": "The chat provider this feature's runs use. Empty means the organisation's effective model policy decides, which is the behaviour of a feature that has never been bound. A binding narrows the policy and can never widen it."
+					},
+					"model": {
+					    "type": "string",
+					    "title": "Model",
+					    "description": "The model this feature's runs use, alongside the bound provider. Set both or neither."
+					},
+					"requiredResidency": {
+					    "type": "string",
+					    "enum": ["", "on-premise", "eu", "outside-eu"],
+					    "title": "Required residency",
+					    "description": "Where the provider serving this feature must run. A run whose provider carries a different residency is refused before any request reaches it."
 					},
 					"riskCategory": {
 						"type": "string",
@@ -2118,7 +2135,7 @@
 			"Agent": {
 				"slug": "agent",
 				"icon": "RobotOutline",
-				"version": "0.6.0",
+				"version": "0.7.0",
 				"title": "Agent",
 				"description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target). v0.5.0 (hermiq-agent-application-slug): gains the OPTIONAL applicationSlug. v0.6.0 (speech-services): gains the four voice* fields — which engine transcribes, which speaks, the silence that closes the microphone, and whether spoken conversation is offered. ⚠️ voice* is NOT talkEnabled: that one is about Nextcloud Talk rooms, this family is about microphones, and naming a voice flag 'talk*' would collide with it.",
 				"type": "object",
@@ -2162,6 +2179,11 @@
 						"type": "string",
 						"title": "Model",
 						"description": "Model identifier used by the provider (e.g. gpt-4o-mini, llama3)."
+					},
+					"aiFeature": {
+						"type": "string",
+						"title": "AI feature",
+						"description": "The slug of the registered AI feature this agent's runs belong to. It decides which provider binding, required residency and audit disclosure apply to every turn."
 					},
 					"prompt": {
 						"type": "string",

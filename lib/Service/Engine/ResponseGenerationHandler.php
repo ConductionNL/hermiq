@@ -48,6 +48,7 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -80,6 +81,12 @@ class ResponseGenerationHandler {
 	 * @param ProviderFactory $providerFactory LLM provider resolution (`hermiq.llm`).
 	 * @param ToolLoop $toolLoop Tool resolution via the OR facade.
 	 * @param LoggerInterface $logger Logger.
+	 * @param FeatureProviderResolver|null $featureResolver Records which feature, provider,
+	 *                                                      model and residency a run used
+	 *                                                      (a-provider-and-a-place-per-ai-feature).
+	 *                                                      Nullable and trailing: a handler
+	 *                                                      built by hand in a test records
+	 *                                                      nothing and behaves as before.
 	 *
 	 * @return void
 	 *
@@ -89,6 +96,7 @@ class ResponseGenerationHandler {
 		private readonly ProviderFactory $providerFactory,
 		private readonly ToolLoop $toolLoop,
 		private readonly LoggerInterface $logger,
+		private readonly ?FeatureProviderResolver $featureResolver = null,
 	) {
 	}//end __construct()
 
@@ -233,13 +241,34 @@ class ResponseGenerationHandler {
 				$organisation = (string)($agent->getOrganisation() ?? '');
 			}
 
+			// a-provider-and-a-place-per-ai-feature: the AI feature this agent's runs
+			// belong to, when it declares one. It selects the feature's own provider
+			// binding and the residency it requires, both applied before the call.
+			$aiFeature = $agentData['aiFeature'] ?? null;
+			if (is_string($aiFeature) === false || trim($aiFeature) === '') {
+				$aiFeature = null;
+			}
+
 			$driver = $this->providerFactory->createChatDriver(
 				llmConfig: $llmConfig,
 				agentModel: $agentModel,
 				agentTemperature: $agentTemperature,
 				organisation: $organisation,
-				agentMaxTokens: $agentMaxTokens
+				agentMaxTokens: $agentMaxTokens,
+				aiFeature: $aiFeature
 			);
+
+			// Which model saw this case, and where. Copied onto the run rather than
+			// referenced, so relabelling the provider later cannot rewrite it.
+			if ($aiFeature !== null && $trace !== null && $this->featureResolver !== null) {
+				$trace->recordProviderDisclosure(
+					disclosure: $this->featureResolver->disclosureFor(
+						featureSlug: $aiFeature,
+						provider: $driver->provider,
+						model: $driver->model
+					)
+				);
+			}
 
 			if ($driver->provider === 'nextcloud') {
 				// Scope guard — see the class docblock.

@@ -450,6 +450,19 @@ return [
         ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // A provider and a place per AI feature (a-provider-and-a-place-per-ai-feature):
+        // bind one feature to a provider and model within the organisation's model policy,
+        // and read which provider each feature will use and where that provider runs.
+        ['name' => 'aiFeature#residencyOverview', 'url' => '/api/ai-features/residency', 'verb' => 'GET'],
+        ['name' => 'aiFeature#bind', 'url' => '/api/ai-features/{id}/binding', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'Settings\ProviderResidencySettings#get', 'url' => '/api/settings/provider-residency', 'verb' => 'GET'],
+        [
+            'name'         => 'Settings\ProviderResidencySettings#declareResidency',
+            'url'          => '/api/settings/provider-residency/{provider}',
+            'verb'         => 'PUT',
+            'requirements' => ['provider' => '[^/]+'],
+        ],
+
         // Algoritmeregister publication (algoritmeregister-publication): publish/withdraw a
         // high-risk feature to the national register, delegated to OpenCatalogi's publication
         // path via the runtime seam (action-auth-gated; NO direct national-portal call).

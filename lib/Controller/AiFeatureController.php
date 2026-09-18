@@ -34,8 +34,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureBindingService;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\AlgoritmekaderMapper;
 use OCA\Hermiq\Service\PublicationGateway;
@@ -69,6 +72,8 @@ class AiFeatureController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AlgoritmekaderMapper $algoritmekader Publish-readiness gate + Algoritmekader mapping.
 	 * @param PublicationGateway $publicationGateway Runtime seam to the fleet publication path (OpenCatalogi).
+	 * @param AiFeatureBindingService $bindingService Writes a feature's provider binding and required residency.
+	 * @param FeatureProviderResolver $featureResolver Resolves which provider each feature will use.
 	 *
 	 * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
 	 */
@@ -80,6 +85,8 @@ class AiFeatureController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly AlgoritmekaderMapper $algoritmekader,
 		private readonly PublicationGateway $publicationGateway,
+		private readonly AiFeatureBindingService $bindingService,
+		private readonly FeatureProviderResolver $featureResolver,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -146,6 +153,98 @@ class AiFeatureController extends Controller {
 		}
 
 	}//end acknowledge()
+
+	/**
+	 * Bind a provider and model to a feature, and set the residency it requires
+	 * (action-auth-gated).
+	 *
+	 * The organisation's effective model policy is the ceiling: a binding outside it
+	 * is refused with a 422 naming the policy. Sending an empty provider and model
+	 * clears the binding and returns the feature to the policy default.
+	 *
+	 * @param string $id The AiFeature UUID.
+	 *
+	 * @return JSONResponse The bound feature, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 */
+	public function bind(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->actionAuth->requireAction(user: $user, action: 'aifeature.bind');
+		} catch (OCSForbiddenException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			$feature = $this->bindingService->bind(
+				id: $id,
+				provider: $this->stringParam(name: 'provider'),
+				model: $this->stringParam(name: 'model'),
+				requiredResidency: $this->stringParam(name: 'requiredResidency')
+			);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq AI-feature bind failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Binding failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		if ($feature === null) {
+			return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		return new JSONResponse($this->shape(object: $feature));
+	}//end bind()
+
+	/**
+	 * What every registered feature will use, and where that provider runs, so what
+	 * leaves the building is readable in one place.
+	 *
+	 * @return JSONResponse One row per feature, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+	 */
+	public function residencyOverview(): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$rows = $this->bindingService->overview(resolver: $this->featureResolver);
+			return new JSONResponse(['results' => $rows, 'total' => count($rows)]);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq AI-feature residency overview failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load the AI feature residency overview'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end residencyOverview()
+
+	/**
+	 * Read one trimmed string request parameter, or null when it was not sent.
+	 *
+	 * @param string $name The parameter name.
+	 *
+	 * @return string|null The trimmed value, or null when absent.
+	 */
+	private function stringParam(string $name): ?string {
+		$value = $this->request->getParam($name);
+		if (is_string($value) === false) {
+			return null;
+		}
+
+		return trim($value);
+	}//end stringParam()
 
 	/**
 	 * Enable a feature (action-auth-gated; the lifecycle guard blocks un-acknowledged features).
