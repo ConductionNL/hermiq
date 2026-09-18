@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\EgressAuthorizeController;
+use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
@@ -47,6 +48,43 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	private ?IThrottler $throttlerOverride = null;
 
 	/**
+	 * Set by a test that needs the guard to resolve a PRIVATE address (the shape
+	 * a containerised governance origin actually has); otherwise the default
+	 * public-address guard applies.
+	 *
+	 * @var string
+	 */
+	private string $resolvedAddress = '203.0.113.10';
+
+	/**
+	 * The authority the governed MCP endpoint double claims, or '' for none.
+	 *
+	 * @var string
+	 */
+	private string $governanceAuthority = '';
+
+	/**
+	 * A GovernedMcpEndpoint double that recognises exactly one authority.
+	 *
+	 * It is the REAL matching rule that is under test elsewhere; here the double
+	 * only has to answer "is this the governance origin", which is the single
+	 * question the controller asks it.
+	 *
+	 * @return GovernedMcpEndpoint
+	 */
+	private function mcpEndpointStub(): GovernedMcpEndpoint {
+		$authority = $this->governanceAuthority;
+		$endpoint = $this->createMock(GovernedMcpEndpoint::class);
+		$endpoint->method('matches')->willReturnCallback(
+			static function (string $host, int $port) use ($authority): bool {
+				return $authority !== '' && $authority === strtolower($host) . ':' . $port;
+			}
+		);
+		return $endpoint;
+
+	}//end mcpEndpointStub()
+
+	/**
 	 * A throttler that records nothing — most tests here assert HTTP outcomes,
 	 * not brute-force bookkeeping.
 	 *
@@ -67,9 +105,12 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	 * @return WebResearchEgressGuard
 	 */
 	private function guard(): WebResearchEgressGuard {
-		return new class extends WebResearchEgressGuard {
+		$address = $this->resolvedAddress;
+		return new class($address) extends WebResearchEgressGuard {
+			public function __construct(private string $address) {
+			}
 			protected function resolveAddresses(string $host): array {
-				return ['203.0.113.10'];
+				return [$this->address];
 			}
 		};
 
@@ -111,16 +152,17 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		// arguments to user-defined functions. Adding $throttler as a real 5th
 		// parameter made that stray argument bind, so it now has to be the
 		// thing the parent actually expects.
-		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $body) extends EgressAuthorizeController {
+		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $this->mcpEndpointStub(), $body) extends EgressAuthorizeController {
 			public function __construct(
 				$request,
 				$tokens,
 				$guard,
 				$settings,
 				$throttler,
+				$mcpEndpoint,
 				private string $rawBody,
 			) {
-				parent::__construct($request, $tokens, $guard, $settings, $throttler);
+				parent::__construct($request, $tokens, $guard, $settings, $throttler, $mcpEndpoint);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;
@@ -349,4 +391,104 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		$this->assertSame('denylisted_host', $data['code']);
 
 	}//end testDenylistedHostIsDenied()
+
+	/**
+	 * The governed MCP endpoint is admitted even though it resolves to a PRIVATE
+	 * address — because it is Hermiq's own control plane, not an internet host.
+	 *
+	 * This is the case that made the floating chat answer without tools. The
+	 * runner reaches its governance through the same proxy as everything else, and
+	 * on a container deployment `mcp_run_base_url` is `http://nextcloud`, an
+	 * RFC1918 address the SSRF guard blocks — correctly, for every destination the
+	 * MODEL names, and wrongly for the one the ADMIN configured.
+	 *
+	 * @return void
+	 */
+	public function testTheGovernedMcpOriginIsAdmittedEvenThoughItIsPrivate(): void {
+		$this->resolvedAddress = '192.168.32.4';
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"nextcloud","port":80}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertTrue($data['allowed'], 'the governance origin must be reachable, or no tool call can run');
+		$this->assertNull($data['code']);
+
+	}//end testTheGovernedMcpOriginIsAdmittedEvenThoughItIsPrivate()
+
+	/**
+	 * A NEIGHBOUR of the governance origin is still judged by the ordinary policy.
+	 *
+	 * The admission is exact-authority, not a suffix and not a domain. This is the
+	 * property a `NO_PROXY` exemption could not have given: `NO_PROXY=nextcloud`
+	 * is a suffix match in libcurl and in Node's proxy-from-env, so
+	 * `evil.nextcloud` would have travelled unpoliced.
+	 *
+	 * @return void
+	 */
+	public function testANeighbourOfTheGovernanceOriginIsStillJudgedByPolicy(): void {
+		$this->resolvedAddress = '192.168.32.9';
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"evil.nextcloud","port":80}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertFalse($data['allowed']);
+		$this->assertSame('private_address', $data['code']);
+
+	}//end testANeighbourOfTheGovernanceOriginIsStillJudgedByPolicy()
+
+	/**
+	 * Another PORT on the governance host is not the governance origin.
+	 *
+	 * @return void
+	 */
+	public function testAnotherPortOnTheGovernanceHostIsNotAdmitted(): void {
+		$this->resolvedAddress = '192.168.32.4';
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"nextcloud","port":8080}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertFalse($data['allowed']);
+		$this->assertSame('private_address', $data['code']);
+
+	}//end testAnotherPortOnTheGovernanceHostIsNotAdmitted()
+
+	/**
+	 * An ARBITRARY internet host is refused exactly as before — the admission
+	 * widened nothing else.
+	 *
+	 * @return void
+	 */
+	public function testAnArbitraryHostIsStillRefusedWhenAnAllowlistIsSet(): void {
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"evil.example.com","port":443}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertFalse($data['allowed']);
+		$this->assertSame('not_allowlisted', $data['code']);
+
+	}//end testAnArbitraryHostIsStillRefusedWhenAnAllowlistIsSet()
 }//end class

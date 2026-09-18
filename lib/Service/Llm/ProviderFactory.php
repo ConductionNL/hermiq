@@ -1318,13 +1318,13 @@ class ProviderFactory {
 		// `http://nextcloud`); `mcp_run_base_url` lets the operator pin the same value
 		// here. Unset → the published URL is used unchanged (correct whenever
 		// Nextcloud's public origin IS reachable from the container).
-		$baseOverride = trim($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '');
-		if ($baseOverride !== '' && $mcpUrl !== '') {
-			$path = (string)parse_url($mcpUrl, PHP_URL_PATH);
-			if ($path !== '') {
-				$mcpUrl = rtrim($baseOverride, '/') . $path;
-			}
-		}
+		// The rewrite rule itself lives in GovernedMcpEndpoint, because the egress
+		// PDP has to recognise the very same origin. Two copies would be two
+		// policies; the PDP would then deny the endpoint this config points at.
+		$mcpUrl = GovernedMcpEndpoint::applyContainerOrigin(
+			publishedUrl: $mcpUrl,
+			baseOverride: (string)($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '')
+		);
 
 		if ($mcpUrl === '') {
 			throw new ProviderUnavailableException(
