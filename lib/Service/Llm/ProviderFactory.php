@@ -1294,6 +1294,14 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the MCP endpoint URL cannot be resolved (503).
 	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) `GovernedMcpEndpoint::applyContainerOrigin()`
+	 *   is a pure function of its two arguments, and it is static precisely so this
+	 *   caller can share it. Injecting the service instead would mean a third nullable
+	 *   collaborator on a constructor that already carries several for its test call
+	 *   sites, to reach a method that reads no state. The alternative to the static call
+	 *   is a second copy of the rewrite rule, and a second copy is what puts the egress
+	 *   PDP and this config into disagreement about where the endpoint is.
+	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	private function buildGovernedMcpConfig(string $runToken): array {
@@ -1318,13 +1326,13 @@ class ProviderFactory {
 		// `http://nextcloud`); `mcp_run_base_url` lets the operator pin the same value
 		// here. Unset → the published URL is used unchanged (correct whenever
 		// Nextcloud's public origin IS reachable from the container).
-		$baseOverride = trim($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '');
-		if ($baseOverride !== '' && $mcpUrl !== '') {
-			$path = (string)parse_url($mcpUrl, PHP_URL_PATH);
-			if ($path !== '') {
-				$mcpUrl = rtrim($baseOverride, '/') . $path;
-			}
-		}
+		// The rewrite rule itself lives in GovernedMcpEndpoint, because the egress
+		// PDP has to recognise the very same origin. Two copies would be two
+		// policies; the PDP would then deny the endpoint this config points at.
+		$mcpUrl = GovernedMcpEndpoint::applyContainerOrigin(
+			publishedUrl: $mcpUrl,
+			baseOverride: (string)($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '')
+		);
 
 		if ($mcpUrl === '') {
 			throw new ProviderUnavailableException(

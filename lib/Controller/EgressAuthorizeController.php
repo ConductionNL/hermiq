@@ -47,6 +47,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
@@ -86,6 +87,11 @@ class EgressAuthorizeController extends Controller {
 	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
 	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens.
+	 * @param GovernedMcpEndpoint $mcpEndpoint Recognises Hermiq's OWN governed MCP
+	 *                                         origin — the one destination the
+	 *                                         web-research SSRF policy cannot judge,
+	 *                                         because it is the control plane rather
+	 *                                         than an internet host.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -93,6 +99,7 @@ class EgressAuthorizeController extends Controller {
 		private readonly WebResearchEgressGuard $guard,
 		private readonly WebResearchSettingsHandler $settingsHandler,
 		private readonly IThrottler $throttler,
+		private readonly GovernedMcpEndpoint $mcpEndpoint,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -147,10 +154,22 @@ class EgressAuthorizeController extends Controller {
 			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
 		}
 
+		// The ONE destination this policy cannot judge: Hermiq's own governed MCP
+		// endpoint. The runner reaches its governance through this same proxy, and
+		// on a container deployment that endpoint is deliberately a private address
+		// (`mcp_run_base_url`, e.g. `http://nextcloud`) — which the SSRF guard
+		// blocks, correctly, for every destination the MODEL names. This one is not
+		// named by the model: it is set by the admin and it is the very authority
+		// that hands out the tool grants. It is admitted at the same trust tier the
+		// guard already has for the admin-configured search endpoint, on an EXACT
+		// host:port match, and `webFetch` is untouched — it calls the guard with its
+		// own arguments and never with this flag.
+		$isGovernanceOrigin = $this->mcpEndpoint->matches(host: $host, port: $port);
+
 		$config = $this->settingsHandler->getWebResearchSettingsOnly();
 		$verdict = $this->guard->assertSafe(
 			url: 'https://' . $host . ':' . $port . '/',
-			isAdminConfiguredEndpoint: false,
+			isAdminConfiguredEndpoint: $isGovernanceOrigin,
 			allowlist: (array)($config['fetchAllowlist'] ?? []),
 			denylist: (array)($config['fetchDenylist'] ?? []),
 			allowInsecureHttp: (bool)($config['allowInsecureHttp'] ?? false)
