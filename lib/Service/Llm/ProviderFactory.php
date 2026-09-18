@@ -412,6 +412,10 @@ class ProviderFactory {
 	 *                               own provider binding and the residency that feature
 	 *                               requires (a-provider-and-a-place-per-ai-feature). null
 	 *                               leaves every pre-existing call site unchanged.
+	 * @param string|null $documentReference The document this run was handed, when it was
+	 *                               handed one. A feature declaring `requiresRedaction`
+	 *                               is refused unless filinq has redacted it; a run with
+	 *                               no document reference passes that gate untouched.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -424,6 +428,9 @@ class ProviderFactory {
 	 * @throws \OCA\Hermiq\Service\AiFeature\ResidencyViolationException When `$aiFeature`
 	 *                                       names a feature that requires a residency the
 	 *                                       resolved provider does not carry.
+	 * @throws \OCA\Hermiq\Service\AiFeature\RedactionRequiredException When the feature
+	 *                                       reads no unredacted document and the one it was
+	 *                                       handed has no recorded redaction.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
@@ -436,6 +443,7 @@ class ProviderFactory {
 		?string $organisation = null,
 		?int $agentMaxTokens = null,
 		?string $aiFeature = null,
+		?string $documentReference = null,
 	): ChatDriver {
 		$chatProvider = $llmConfig['chatProvider'] ?? null;
 
@@ -504,7 +512,8 @@ class ProviderFactory {
 				featureSlug: (string)$aiFeature,
 				organisation: $organisation,
 				provider: $driver->provider,
-				model: $driver->model
+				model: $driver->model,
+				documentReference: $documentReference
 			);
 
 			return $driver;

@@ -642,7 +642,7 @@
 			"AiFeature": {
 				"slug": "agentaifeature",
 				"icon": "RobotOutline",
-				"version": "0.3.0",
+				"version": "0.4.0",
 				"title": "AI feature",
 				"description": "A design-time inventory entry for a high-risk AI feature this platform provides (EU AI Act registration/oversight). Risk-classified and gated by a declarative lifecycle whose enable transition requires a DPO acknowledgement.",
 				"type": "object",
@@ -702,6 +702,17 @@
 					    "enum": ["", "on-premise", "eu", "outside-eu"],
 					    "title": "Required residency",
 					    "description": "Where the provider serving this feature must run. A run whose provider carries a different residency is refused before any request reaches it."
+					},
+					"requiresRedaction": {
+						"type": "boolean",
+						"default": false,
+						"title": "Requires redaction",
+						"description": "Whether this feature refuses to read a document that filinq has not redacted. The requirement attaches to a document reference, so the feature still runs on typed text. Hermiq never redacts and never treats a detection result as a redaction."
+					},
+					"retentionDays": {
+						"type": "integer",
+						"title": "Retention (days)",
+						"description": "How long this feature's run records are kept, overriding the instance default. The resolved period is copied onto each run, so changing it later does not move a promise already made."
 					},
 					"riskCategory": {
 						"type": "string",

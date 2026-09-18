@@ -456,6 +456,12 @@ return [
         ['name' => 'aiFeature#residencyOverview', 'url' => '/api/ai-features/residency', 'verb' => 'GET'],
         ['name' => 'aiFeature#bind', 'url' => '/api/ai-features/{id}/binding', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'Settings\ProviderResidencySettings#get', 'url' => '/api/settings/provider-residency', 'verb' => 'GET'],
+
+        // What the model reads and what is kept (what-the-model-reads-and-what-is-kept):
+        // the instance retention for AI run records, and the report saying when the
+        // cleanup job last enforced it and how much it removed.
+        ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
+        ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
         [
             'name'         => 'Settings\ProviderResidencySettings#declareResidency',
             'url'          => '/api/settings/provider-residency/{provider}',
