@@ -126,7 +126,7 @@
 						trackBy="value" />
 					<NcSelect
 						v-model="anthropicCredential"
-						:options="credentialsFor(anthropicCredentialProviderId)"
+						:options="credentialsFor(anthropicCredentialProviderIds)"
 						:inputLabel="
 							anthropicAuthModeValue === 'oauth'
 								? t(
@@ -139,7 +139,7 @@
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
 					<p class="llm-provider-modal__hint">
-						{{ credentialHint(anthropicCredentialProviderId) }}
+						{{ credentialHint(anthropicCredentialProviderIds) }}
 					</p>
 					<NcNoteCard
 						v-if="anthropicAuthModeValue === 'oauth'"
@@ -324,22 +324,27 @@ export default {
 		},
 
 		/**
-		 * The credential-broker provider id whose credentials the Anthropic
-		 * credential picker should list, keyed off the selected auth mode.
+		 * The credential-broker provider ids whose credentials the Anthropic
+		 * credential picker lists, keyed off the selected auth mode.
 		 *
-		 * A Claude Max/Pro OAuth token is stored under the `anthropic-oauth`
-		 * broker provider (injected as `Authorization: Bearer`); an API key
-		 * under `anthropic` (injected as `x-api-key`). The picker must show the
-		 * matching set — otherwise an OAuth credential is invisible when the
-		 * user selects OAuth auth, and vice versa.
+		 * An API key lives under `anthropic` (injected as `x-api-key`). A Claude
+		 * Max or Pro subscription token lives under one of two providers, and
+		 * which one depends on the transport, not on the auth mode: `anthropic-oauth`
+		 * for `executionMode: http`, `anthropic-cli` for `executionMode: cli`.
 		 *
-		 * @return {string} The broker provider id.
+		 * Both are listed under OAuth auth. `executionMode` is API-only configuration
+		 * and this dialog cannot read it, so listing one provider hid the other:
+		 * a subscription credential stored for the CLI transport, which is the
+		 * only transport Anthropic permits for a subscription, could not be
+		 * selected here at all.
+		 *
+		 * @return {Array<string>} The broker provider ids to list.
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
-		anthropicCredentialProviderId() {
+		anthropicCredentialProviderIds() {
 			return this.anthropicAuthModeValue === 'oauth'
-				? 'anthropic-oauth'
-				: 'anthropic'
+				? ['anthropic-oauth', 'anthropic-cli']
+				: ['anthropic']
 		},
 	},
 
@@ -475,21 +480,26 @@ export default {
 		/**
 		 * The broker credentials that can serve a given LLM provider.
 		 *
-		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
+		 * @param {string|Array<string>} provider One broker provider id, or several.
+		 *                                        Anthropic passes several: an OAuth
+		 *                                        subscription token is stored under
+		 *                                        `anthropic-oauth` or `anthropic-cli`
+		 *                                        depending on the transport.
 		 * @return {Array} NcSelect options.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		credentialsFor(provider) {
+			const providers = Array.isArray(provider) ? provider : [provider]
 			return this.credentials
-				.filter((c) => c.provider === provider)
+				.filter((c) => providers.includes(c.provider))
 				.map((c) => ({ label: c.name || c.id, value: c.id }))
 		},
 
 		/**
 		 * Explain where the key lives — or how to add one when there is none.
 		 *
-		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
+		 * @param {string|Array<string>} provider One broker provider id, or several.
 		 * @return {string} The hint text.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
@@ -498,7 +508,7 @@ export default {
 			if (!this.loadingCredentials && !this.credentialsFor(provider).length) {
 				return this.t(
 					'hermiq',
-					'No credential yet. Add one under Personal settings → Additional settings, then reopen this dialog.',
+					'No credential yet. Add one in Hermiq under Settings, Credentials. Then reopen this dialog.',
 				)
 			}
 			return this.t(

@@ -388,6 +388,131 @@ reach its governance is not degraded, it is ungoverned. The preflight accepts an
 HTTP answer including 401/403, because it carries no bearer token: it asks whether
 a connection can be made, not whether the run is authorised.
 
+## Bringing up the LLM half on its own
+
+The steps above bring up the speech half. An instance that only wants Claude on a
+subscription needs the LLM half, and nothing else. Do this instead, in order.
+
+### 1. Build the LLM image
+
+```bash
+cd exapp/llm-runner
+docker build -t ghcr.io/conductionnl/hermiq-llm-runner:latest .
+docker build -t ghcr.io/conductionnl/hermiq-egress-proxy:latest deploy/egress-proxy
+```
+
+`Dockerfile`, not `Dockerfile.combined`. The combined image adds the speech stack, which
+a CLI turn never touches.
+
+### 2. Start the runner and its proxy
+
+```bash
+cd exapp/llm-runner/deploy
+printf 'APP_SECRET=placeholder\nEGRESS_PDP_URL=http://nextcloud/apps/hermiq/api/egress/authorize\n' > .env
+chmod 600 .env
+docker compose -p hermiq-runner up -d
+```
+
+Start before you register. AppAPI heartbeats the container during registration, and the
+registration fails when nothing answers. The placeholder secret is replaced in step 5.
+
+### 3. Join the jailed network
+
+```bash
+docker network connect hermiq-runner_jailed <nextcloud-container>
+docker exec <nextcloud-container> curl -s http://hermiq-llm-runner:9000/heartbeat
+```
+
+The runner keeps no gateway. Nextcloud comes to it, the same way it does for speech.
+
+### 4. Register a manual-install daemon
+
+AppAPI deploys nothing here, because you run the container yourself. Tell it so:
+
+```bash
+occ app_api:daemon:register hermiq_manual "Hermiq manual install" \
+    manual-install http "hermiq-llm-runner:9000" "http://nextcloud"
+```
+
+AppAPI strips the port from the host for a manual-install daemon and takes the ExApp's
+port from the registration instead. Give it the port there, in step 5.
+
+### 5. Register the ExApp, then hand it the secret
+
+```bash
+occ app_api:app:register hermiq-llm-runner hermiq_manual --wait-finish --json-info \
+  '{"id":"hermiq-llm-runner","name":"hermiq-llm-runner","version":"0.1.0","port":9000,
+    "routes":[{"url":"run","verb":"POST","access_level":2,"headers_to_exclude":[]},
+              {"url":"heartbeat","verb":"GET","access_level":0,"headers_to_exclude":[]}]}'
+```
+
+`--json-info` rather than `--info-xml`, for one reason: the manifest carries no port, so
+AppAPI picks a free one in the 23000 range and then heartbeats a port nothing listens on.
+Note that the JSON branch takes `access_level` as a NUMBER (PUBLIC 0, USER 1, ADMIN 2).
+The XML branch is the one that maps the names.
+
+Nextcloud mints `APP_SECRET` during this command and stores it in `oc_ex_apps`. Copy that
+value into `deploy/.env` and recreate the container, then enable the app:
+
+```bash
+docker compose -p hermiq-runner up -d
+occ app_api:app:enable hermiq-llm-runner
+```
+
+Enabling calls `PUT /enabled` on the runner with AppAPI's signature. A container still
+holding the placeholder logs `AUTHORIZATION-APP-API secret does not match` and stays
+disabled, which is the one symptom this ordering produces.
+
+### 6. Verify the turn, not the heartbeat
+
+`GET /heartbeat` proves a process is listening. Ask AppAPI to make the same call Hermiq
+makes, from inside the Nextcloud container:
+
+```php
+$pf = \OC::$server->get(\OCA\AppAPI\PublicFunctions::class);
+$r = $pf->exAppRequest('hermiq-llm-runner', '/run', 'admin', 'POST', [
+    'provider' => 'anthropic',
+    'model' => 'claude-opus-5',
+    'messages' => [['role' => 'user', 'content' => 'Reply with the single word PONG.']],
+], ['http_errors' => false]);
+```
+
+Without a credential the CLI exits 1 and the runner answers `502 runner execution failed`.
+That is a pass for the transport: the signature, the runner's own check and the CLI spawn
+all happened. The runner log shows the turn it accepted.
+
+### 7. Confirm the jail, and the one route out
+
+```bash
+# no default route, and no way to Anthropic directly
+docker exec hermiq-llm-runner cat /proc/net/route
+docker exec hermiq-llm-runner node -e "require('net').connect({host:'api.anthropic.com',port:443,timeout:8000}).on('error',e=>console.log(e.code))"
+
+# the proxy answers, asks the PDP, and denies an unknown run token
+docker logs hermiq-egress-proxy
+```
+
+`/proc/net/route` must hold exactly one entry, its own subnet, with no `00000000`
+destination. The direct socket must fail. A CONNECT carrying a bogus token must come back
+`DENY … (pdp_rejected)`, which also proves the proxy reached Hermiq over the jailed
+network.
+
+:::warning A run token minted on the command line will not verify
+`RunTokenService` stores tokens in the distributed cache. With `memcache.distributed`
+unset, Nextcloud falls back to the local cache, and APCu gives a CLI process its own
+segment. A token minted by an `occ` command or a CLI script is therefore invisible to the
+web tier, and the PDP answers `401 invalid_token`. Mint inside a real turn, or configure a
+distributed cache. Apache prefork shares one APCu segment across its workers, so an
+ordinary turn is unaffected.
+:::
+
+:::warning Add the container-facing host to `trusted_domains` before a tool-using turn
+Step 6 above points `mcp_run_base_url` at `http://nextcloud`. Nextcloud refuses a GET on
+an untrusted host with a 400 page, so add that name:
+`occ config:system:set trusted_domains 1 --value=nextcloud`. POSTs are unaffected, which
+is why the egress PDP works without it and a governed MCP session can still surprise you.
+:::
+
 ## Known limits
 
 - **CONNECT proxying is `host:port`, not URL.** The PDP authorises a host, not a
