@@ -660,6 +660,25 @@ return [
         ],
         ['name' => 'assistantPrompt#disableAll', 'url' => '/api/assistant-prompts/disable-all', 'verb' => 'POST'],
 
+        // Identical reports collapse into one (identical-reports-collapse-into-one):
+        // which group an incoming report belongs to, why, and how to take one back out.
+        // hermiq answers; the owning app decides what a group means.
+        ['name' => 'reportSimilarity#evaluate', 'url' => '/api/report-similarity/evaluate', 'verb' => 'POST'],
+        [
+            'name'         => 'reportSimilarity#show',
+            'url'          => '/api/report-similarity/groups/{groupId}',
+            'verb'         => 'GET',
+            'requirements' => ['groupId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'reportSimilarity#removeMember',
+            'url'          => '/api/report-similarity/groups/{groupId}/members/{reportId}',
+            'verb'         => 'DELETE',
+            'requirements' => ['groupId' => '[^/]+', 'reportId' => '[^/]+'],
+        ],
+        ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
+        ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+
         // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
         // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +
         // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,
