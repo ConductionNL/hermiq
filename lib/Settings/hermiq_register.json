@@ -639,6 +639,114 @@
 					}
 				}
 			},
+			"OutsideAgentRegistration": {
+				"slug": "agentoutsideregistration",
+				"icon": "RobotOutline",
+				"version": "0.1.0",
+				"title": "Outside agent registration",
+				"description": "What one AI agent outside this instance may call, and as whom. The registration narrows what its principal may already do and never raises it: revoking the person's access revokes the agent's on the next call, with nothing to edit here.",
+				"type": "object",
+				"required": [
+					"label",
+					"principal"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"label": {
+						"type": "string",
+						"title": "Label",
+						"description": "Human-readable name of the outside agent this registration is for."
+					},
+					"principal": {
+						"type": "string",
+						"title": "Principal",
+						"description": "The Nextcloud user the outside agent authenticates as. Every call is authorised by the owning app for this person, exactly as a call from them would be."
+					},
+					"tools": {
+						"type": "array",
+						"title": "Granted tools",
+						"description": "The tool ids this registration may call. A tool that writes is denied unless it is named here, which is the same default-deny rule the per-agent grants already state.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"fieldAllowlist": {
+						"type": "array",
+						"title": "Response fields",
+						"description": "The fields a tool response may carry for this registration. Empty means the owning app's own response, unnarrowed. The filter narrows only: it never renames, reshapes or computes a value.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"enabled": {
+						"type": "boolean",
+						"default": true,
+						"title": "Enabled",
+						"description": "Whether this registration may call anything at all."
+					}
+				}
+			},
+			"AssistantPrompt": {
+				"slug": "agentassistantprompt",
+				"icon": "TextBoxOutline",
+				"version": "0.1.0",
+				"title": "Assistant prompt",
+				"description": "One prompt the assistant offers on a record, as an object an administrator can read and edit. A gemeente that cannot read the prompt cannot defend the output: when a citizen asks why the assistant summarised their bezwaar as it did, the answer is this text.",
+				"type": "object",
+				"required": [
+					"label",
+					"prompt"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"label": {
+						"type": "string",
+						"title": "Label",
+						"description": "What the person clicking it reads."
+					},
+					"prompt": {
+						"type": "string",
+						"title": "Prompt",
+						"description": "The exact text that is sent to the model. What an administrator reads here is what the model is told."
+					},
+					"usageScope": {
+						"type": "string",
+						"title": "Usage scope",
+						"description": "Where this prompt is offered, named by the record type it belongs to. An empty scope is offered everywhere."
+					},
+					"order": {
+						"type": "integer",
+						"default": 0,
+						"title": "Order",
+						"description": "The administrator's order. The surface renders the library in it, unsorted."
+					},
+					"enabled": {
+						"type": "boolean",
+						"default": true,
+						"title": "Enabled",
+						"description": "Whether this prompt is offered. Disabling every prompt is one act; re-enabling is per prompt, because a bulk re-enable would restore a prompt switched off weeks earlier for a different reason."
+					},
+					"source": {
+						"type": "string",
+						"title": "Shipped by",
+						"description": "The app that shipped this prompt as an initial library entry, when one did."
+					},
+					"administered": {
+						"type": "boolean",
+						"default": false,
+						"title": "Administered",
+						"description": "Set once an administrator has edited, reordered, scoped or disabled this prompt. The shipping app may no longer restore it: the edited state lives here."
+					}
+				}
+			},
 			"AiFeature": {
 				"slug": "agentaifeature",
 				"icon": "RobotOutline",

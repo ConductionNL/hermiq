@@ -106,6 +106,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Assistant prompts')"
+			:description="
+				t(
+					'hermiq',
+					'The prompts the assistant offers on a record, with the exact text that is sent to the model. Read them here when you need to explain an answer, and switch them off in one act when you need to stop giving any.',
+				)
+			">
+			<AssistantPromptLibrary />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'AI run retention')"
 			:description="
 				t(
@@ -149,6 +160,7 @@
 import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
+import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
@@ -174,6 +186,7 @@ export default {
 	name: 'AdminRoot',
 	components: {
 		AiFeatureRegister,
+		AssistantPromptLibrary,
 		CnCredentials,
 		Cog,
 		LlmProviderModal,
