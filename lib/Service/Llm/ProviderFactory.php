@@ -63,6 +63,7 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -307,6 +308,16 @@ class ProviderFactory {
 	 *                                          backward-compat reason: the unit tests
 	 *                                          build this factory positionally with
 	 *                                          its first four collaborators.
+	 * @param FeatureProviderResolver|null $featureResolver Joins the AiFeature register to
+	 *                                                      the ModelPolicy: resolves a
+	 *                                                      feature's own provider binding
+	 *                                                      and refuses a run whose provider
+	 *                                                      runs outside the residency the
+	 *                                                      feature requires. Nullable and
+	 *                                                      trailing for the same
+	 *                                                      backward-compat reason; a null
+	 *                                                      resolver leaves every existing
+	 *                                                      call site unchanged.
 	 *
 	 * @return void
 	 *
@@ -332,6 +343,7 @@ class ProviderFactory {
 		private readonly ?IURLGenerator $urlGenerator = null,
 		private readonly ?IAppConfig $appConfig = null,
 		private readonly ?ContainerInterface $container = null,
+		private readonly ?FeatureProviderResolver $featureResolver = null,
 	) {
 	}//end __construct()
 
@@ -395,6 +407,11 @@ class ProviderFactory {
 	 *                                  organisation see zero behavior change).
 	 * @param int|null $agentMaxTokens Agent-level max-tokens override, applied to the
 	 *                                 resolved driver when set and non-null.
+	 * @param string|null $aiFeature The slug of the registered AI feature this run belongs
+	 *                               to, when the run names one. It selects the feature's
+	 *                               own provider binding and the residency that feature
+	 *                               requires (a-provider-and-a-place-per-ai-feature). null
+	 *                               leaves every pre-existing call site unchanged.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -404,6 +421,9 @@ class ProviderFactory {
 	 * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
 	 *                                       (provider, model) pair falls outside its
 	 *                                       effective ModelPolicy.
+	 * @throws \OCA\Hermiq\Service\AiFeature\ResidencyViolationException When `$aiFeature`
+	 *                                       names a feature that requires a residency the
+	 *                                       resolved provider does not carry.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
@@ -415,8 +435,23 @@ class ProviderFactory {
 		?float $agentTemperature = null,
 		?string $organisation = null,
 		?int $agentMaxTokens = null,
+		?string $aiFeature = null,
 	): ChatDriver {
 		$chatProvider = $llmConfig['chatProvider'] ?? null;
+
+		// a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
+		// resolve the feature's own binding. It only resolves; the ceiling is
+		// applied below, so a binding can narrow the policy and never widen it.
+		$featureBound = false;
+		if ($aiFeature !== null && $aiFeature !== '' && $this->featureResolver !== null && $organisation !== null) {
+			$binding = $this->featureResolver->bindingFor(featureSlug: $aiFeature, organisation: $organisation);
+			if ($binding['provider'] !== null && $binding['model'] !== null) {
+				$chatProvider = $binding['provider'];
+				$agentModel = $binding['model'];
+			}
+
+			$featureBound = true;
+		}
 
 		if (empty($chatProvider) === true) {
 			throw new ProviderUnavailableException(
@@ -453,13 +488,28 @@ class ProviderFactory {
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
 		};// End match.
 
-		// Tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
-		// agent override is applied (createOllamaDriver()/createOpenAiDriver()/
-		// createFireworksDriver() already resolved agentModel ?? providerConfig
-		// into $driver->model) so a policy cannot be bypassed by leaving the
-		// per-agent model field blank — see design.md "Decisions". Runs BEFORE
-		// any network call: driver construction above only builds client value
-		// objects, it never sends a request.
+		// Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3
+		// of this change's specified order. Runs AFTER the agent override is applied
+		// (createOllamaDriver()/createOpenAiDriver()/createFireworksDriver() already
+		// resolved agentModel ?? providerConfig into $driver->model) so a policy
+		// cannot be bypassed by leaving the per-agent model field blank — see
+		// design.md "Decisions". Runs BEFORE any network call: driver construction
+		// above only builds client value objects, it never sends a request.
+		//
+		// When the run names an AI feature the resolver applies both gates in order
+		// and names the one that refuses; with no feature named the model-policy gate
+		// alone runs, exactly as before.
+		if ($featureBound === true && $this->featureResolver !== null && $organisation !== null) {
+			$this->featureResolver->enforceForRun(
+				featureSlug: (string)$aiFeature,
+				organisation: $organisation,
+				provider: $driver->provider,
+				model: $driver->model
+			);
+
+			return $driver;
+		}
+
 		$this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
 
 		return $driver;
@@ -498,7 +548,7 @@ class ProviderFactory {
 
 		throw new ModelPolicyViolationException(
 			sprintf(
-				"Model policy violation: organisation '%s' does not permit provider '%s' model '%s'.",
+				"Refused by the model-policy check: organisation '%s' does not permit provider '%s' model '%s'.",
 				$orgLabel,
 				$provider,
 				$model
