@@ -9,7 +9,7 @@
   - The requirement attaches to a document reference, not to the whole run
   - A run with no document reference still proceeds
 
-- [ ] Add the field to the `AiFeature` register fragment
+- [x] Add the field to the `AiFeature` register fragment
 
 ### Task 2: Refuse an unredacted document before the call
 - **acceptance_criteria**:
@@ -17,8 +17,8 @@
   - No request reaches the provider when it refuses
   - The refusal names the feature and the document reference
 
-- [ ] Read filinq's redaction outcome for the reference
-- [ ] Add the refusal to the pre-call path
+- [x] Read filinq's redaction outcome for the reference
+- [x] Add the refusal to the pre-call path
 
 ### Task 3: Fail closed, and never call detection redaction
 - **acceptance_criteria**:
@@ -26,8 +26,8 @@
   - An unresolvable filinq refuses every redaction-requiring feature
   - hermiq ships no redactor of its own
 
-- [ ] Add the closed-fail path and its message
-- [ ] Confirm by inspection that no path removes personal data inside hermiq
+- [x] Add the closed-fail path and its message
+- [x] Confirm by inspection that no path removes personal data inside hermiq
 
 ### Task 4: A retention on every run
 - **spec_ref**: `openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md`
@@ -36,8 +36,8 @@
   - A per-feature override is possible
   - The resolved period is copied onto the run entry
 
-- [ ] Add the setting and the override
-- [ ] Write the resolved retention onto each run entry
+- [x] Add the setting and the override
+- [x] Write the resolved retention onto each run entry
 
 ### Task 5: The job that enforces it
 - **acceptance_criteria**:
@@ -45,8 +45,8 @@
   - The instance reports the last run and the count
   - A job that has never run reads as never run, not as zero
 
-- [ ] Add the job
-- [ ] Add the report to the admin surface
+- [x] Add the job
+- [x] Add the report to the admin surface
 
 ### Task 6: Deletion that keeps the chain whole
 - **acceptance_criteria**:
@@ -55,9 +55,9 @@
   - The input and the output are absent afterwards
   - The chain verifies after a cleanup
 
-- [ ] Implement payload removal with a tombstone
-- [ ] Add a chain verification test over cleaned entries
+- [x] Implement payload removal with a tombstone
+- [x] Add a chain verification test over cleaned entries
 
 ### Task 7: Verification
-- [ ] Unit tests for the closed fail, the copied retention and the tombstone
-- [ ] e2e coverage or a reason-bearing exclusion per scenario, per gate 19
+- [x] Unit tests for the closed fail, the copied retention and the tombstone
+- [x] e2e coverage or a reason-bearing exclusion per scenario, per gate 19

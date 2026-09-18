@@ -249,13 +249,27 @@ class ResponseGenerationHandler {
 				$aiFeature = null;
 			}
 
+			// The document this turn is about, when the widget's context snapshot
+			// names one. A feature that reads no unredacted document is refused on
+			// this reference, and a turn that carries none still runs: the
+			// requirement attaches to the document, not to the whole run.
+			$documentReference = null;
+			foreach (['fileId', 'documentId', 'objectId'] as $key) {
+				$candidate = ($cnAiContext[$key] ?? null);
+				if (is_scalar($candidate) === true && trim((string)$candidate) !== '') {
+					$documentReference = trim((string)$candidate);
+					break;
+				}
+			}
+
 			$driver = $this->providerFactory->createChatDriver(
 				llmConfig: $llmConfig,
 				agentModel: $agentModel,
 				agentTemperature: $agentTemperature,
 				organisation: $organisation,
 				agentMaxTokens: $agentMaxTokens,
-				aiFeature: $aiFeature
+				aiFeature: $aiFeature,
+				documentReference: $documentReference
 			);
 
 			// Which model saw this case, and where. Copied onto the run rather than

@@ -106,6 +106,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'AI run retention')"
+			:description="
+				t(
+					'hermiq',
+					'How long the record of an AI run is kept. Each run is written with the retention that applied at the time, so changing this does not move a promise already made. A daily job removes what a run recorded once it expires, and leaves the audit entry itself in place.',
+				)
+			">
+			<RunRetentionSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -138,6 +149,7 @@
 import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
+import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
@@ -167,6 +179,7 @@ export default {
 		LlmProviderModal,
 		NcButton,
 		NcSettingsSection,
+		RunRetentionSettings,
 		TalkBridgeSettings,
 		WebResearchSettingsModal,
 	},

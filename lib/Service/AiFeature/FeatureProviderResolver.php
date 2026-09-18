@@ -74,11 +74,19 @@ class FeatureProviderResolver {
 	 * @param AiFeatureService $features Reads the AiFeature register.
 	 * @param TenantModelPolicyService $modelPolicy The ceiling a binding narrows within.
 	 * @param ProviderResidencyRegistry $residency Where each provider runs, as administered.
+	 * @param RedactionOutcomeReader|null $redaction Reads filinq's redaction outcome for a
+	 *                                               document. Nullable and trailing so a
+	 *                                               resolver built by hand keeps its old
+	 *                                               shape; a null reader refuses every
+	 *                                               feature that requires redaction, which
+	 *                                               is the same fail-closed answer an
+	 *                                               absent filinq gives.
 	 */
 	public function __construct(
 		private readonly AiFeatureService $features,
 		private readonly TenantModelPolicyService $modelPolicy,
 		private readonly ProviderResidencyRegistry $residency,
+		private readonly ?RedactionOutcomeReader $redaction = null,
 	) {
 	}//end __construct()
 
@@ -95,7 +103,7 @@ class FeatureProviderResolver {
 	 * @param string $featureSlug The AI feature slug this run belongs to.
 	 * @param string $organisation The organisation the run belongs to.
 	 *
-	 * @return array{provider: string|null, model: string|null, requiredResidency: string|null, source: string}
+	 * @return array{provider: string|null, model: string|null, requiredResidency: string|null, requiresRedaction: bool, source: string}
 	 *         The resolved binding.
 	 *
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
@@ -110,11 +118,14 @@ class FeatureProviderResolver {
 			$requiredResidency = null;
 		}
 
+		$requiresRedaction = (($data['requiresRedaction'] ?? false) === true);
+
 		if ($provider !== '' && $model !== '') {
 			return [
 				'provider' => $provider,
 				'model' => $model,
 				'requiredResidency' => $requiredResidency,
+				'requiresRedaction' => $requiresRedaction,
 				'source' => self::SOURCE_FEATURE,
 			];
 		}
@@ -128,6 +139,7 @@ class FeatureProviderResolver {
 				'provider' => (string)$default['provider'],
 				'model' => (string)$default['model'],
 				'requiredResidency' => $requiredResidency,
+				'requiresRedaction' => $requiresRedaction,
 				'source' => self::SOURCE_POLICY,
 			];
 		}
@@ -136,6 +148,7 @@ class FeatureProviderResolver {
 			'provider' => null,
 			'model' => null,
 			'requiredResidency' => $requiredResidency,
+			'requiresRedaction' => $requiresRedaction,
 			'source' => self::SOURCE_INSTANCE,
 		];
 
@@ -143,8 +156,9 @@ class FeatureProviderResolver {
 
 	/**
 	 * Apply both pre-call gates to an already-resolved pair, in the specified
-	 * order: narrow by the organisation's effective policy, then check the
-	 * residency the feature demands. Returns what the run must record.
+	 * order: narrow by the organisation's effective policy, check the residency the
+	 * feature demands, then check that any document it was handed has been redacted.
+	 * Returns what the run must record.
 	 *
 	 * The policy is read here rather than at write time alone, so a policy
 	 * narrowed after a binding was written takes effect on the next run with no
@@ -154,17 +168,25 @@ class FeatureProviderResolver {
 	 * @param string $organisation The organisation the run belongs to.
 	 * @param string $provider The resolved provider.
 	 * @param string $model The resolved model id.
+	 * @param string|null $documentReference The document this run was handed, when there is one.
 	 *
 	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}
 	 *         The disclosure to copy onto the run.
 	 *
 	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
 	 * @throws ResidencyViolationException When the provider runs somewhere the feature forbids.
+	 * @throws RedactionRequiredException When the document has not been redacted and the feature requires it.
 	 *
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
 	 */
-	public function enforceForRun(string $featureSlug, string $organisation, string $provider, string $model): array {
+	public function enforceForRun(
+		string $featureSlug,
+		string $organisation,
+		string $provider,
+		string $model,
+		?string $documentReference = null,
+	): array {
 		if ($this->modelPolicy->isAllowed(organisation: $organisation, provider: $provider, model: $model) === false) {
 			$orgLabel = $organisation;
 			if ($orgLabel === '') {
@@ -184,8 +206,10 @@ class FeatureProviderResolver {
 			);
 		}
 
+		$binding = $this->bindingFor(featureSlug: $featureSlug, organisation: $organisation);
+
 		$declaration = $this->residency->forProvider(provider: $provider);
-		$required = ($this->bindingFor(featureSlug: $featureSlug, organisation: $organisation)['requiredResidency'] ?? null);
+		$required = ($binding['requiredResidency'] ?? null);
 
 		if ($required !== null && $declaration['residency'] !== $required) {
 			throw new ResidencyViolationException(
@@ -196,8 +220,90 @@ class FeatureProviderResolver {
 			);
 		}
 
-		return $this->disclosure(featureSlug: $featureSlug, provider: $provider, model: $model, declaration: $declaration);
+		$redaction = $this->enforceRedaction(
+			featureSlug: $featureSlug,
+			requiresRedaction: (($binding['requiresRedaction'] ?? false) === true),
+			documentReference: $documentReference
+		);
+
+		return $this->disclosure(
+			featureSlug: $featureSlug,
+			provider: $provider,
+			model: $model,
+			declaration: $declaration,
+			redaction: $redaction
+		);
 	}//end enforceForRun()
+
+	/**
+	 * The fourth and last gate: a feature that reads no unredacted document is not
+	 * handed one. The requirement attaches to the document, not to the run, so the
+	 * same feature still summarises a handler's typed note.
+	 *
+	 * It fails closed in both directions that matter. A document with no recorded
+	 * redaction is refused, and so is a document nobody can be asked about, because
+	 * "filinq did not answer" is not "the document is clean". hermiq never
+	 * substitutes its own detection: detection returns spans over the original text
+	 * and needs the model to see that text, so treating it as evidence of redaction
+	 * would mark a run safe on the strength of having sent exactly what it must not.
+	 *
+	 * @param string $featureSlug The AI feature slug.
+	 * @param bool $requiresRedaction Whether the feature declares the requirement.
+	 * @param string|null $documentReference The document this run was handed, when there is one.
+	 *
+	 * @return array{required: bool, satisfied: bool, status: string, redactedAt: string, reference: string}
+	 *         What the run records about the document it read.
+	 *
+	 * @throws RedactionRequiredException When the document has no redaction to show.
+	 *
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-missing-redaction-client-must-fail-closed
+	 */
+	private function enforceRedaction(string $featureSlug, bool $requiresRedaction, ?string $documentReference): array {
+		$reference = trim((string)$documentReference);
+
+		if ($requiresRedaction === false || $reference === '') {
+			return [
+				'required' => $requiresRedaction,
+				'satisfied' => true,
+				'status' => 'not-applicable',
+				'redactedAt' => '',
+				'reference' => $reference,
+			];
+		}
+
+		if ($this->redaction === null) {
+			throw new RedactionRequiredException(
+				featureSlug: $featureSlug,
+				documentReference: $reference,
+				reason: 'the redaction client (filinq) is not available to this instance'
+			);
+		}
+
+		$outcome = $this->redaction->outcomeFor(documentReference: $reference);
+
+		if ($outcome['available'] === false || $outcome['redacted'] === false) {
+			$reason = $outcome['reason'];
+			if ($reason === '') {
+				$reason = sprintf("the recorded redaction state is '%s'", $outcome['status']);
+			}
+
+			throw new RedactionRequiredException(
+				featureSlug: $featureSlug,
+				documentReference: $reference,
+				reason: $reason
+			);
+		}
+
+		return [
+			'required' => true,
+			'satisfied' => true,
+			'status' => $outcome['status'],
+			'redactedAt' => $outcome['redactedAt'],
+			'reference' => $reference,
+		];
+
+	}//end enforceRedaction()
 
 	/**
 	 * What a completed run records about where it went: the feature, the provider
@@ -231,12 +337,19 @@ class FeatureProviderResolver {
 	 * @param string $provider The provider actually used.
 	 * @param string $model The model actually used.
 	 * @param array{provider: string, residency: string, location: string} $declaration The provider's declaration.
+	 * @param array<string, mixed> $redaction What the redaction gate found, when the run passed through it.
 	 *
 	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}
 	 *         The disclosure.
 	 */
-	private function disclosure(string $featureSlug, string $provider, string $model, array $declaration): array {
-		return [
+	private function disclosure(
+		string $featureSlug,
+		string $provider,
+		string $model,
+		array $declaration,
+		array $redaction = [],
+	): array {
+		$disclosure = [
 			'feature' => $featureSlug,
 			'provider' => $provider,
 			'model' => $model,
@@ -244,6 +357,11 @@ class FeatureProviderResolver {
 			'location' => $declaration['location'],
 		];
 
+		if ($redaction !== []) {
+			$disclosure['redaction'] = $redaction;
+		}
+
+		return $disclosure;
 	}//end disclosure()
 
 	/**
