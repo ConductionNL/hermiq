@@ -227,15 +227,36 @@ class ChatStreamController extends Controller {
 			// Resolve agent + conversation.
 			$agentUuid = (string)($body['agentUuid'] ?? '');
 			$conversationUuid = (string)($body['conversationUuid'] ?? '');
+			// The raw snapshot is echoed back on the `final` frame, unchanged, so
+			// the wire contract keeps whatever the client sent (including null).
 			$context = ($body['context'] ?? null);
 
-			// Widget UX: when the widget opens a fresh chat it doesn't know which
-			// agent to use (no agent picker in v1). Fall back to an agent the
-			// CURRENT USER can access (owner / non-private / invited), never the
-			// first agent in the register — that would cross tenant/user boundaries
-			// in a multi-user deployment.
+			// The CnAiContext snapshot is persisted on the user-authored Message
+			// object Engine::processMessage will create. Reject anything other
+			// than an associative array so a bad client payload doesn't break
+			// the JSON encoding. Normalised HERE rather than further down
+			// because the agent fallback below reads the app out of it too.
+			$contextArr = [];
+			if (is_array($context) === true) {
+				$contextArr = $context;
+			}
+
+			// Widget UX: when a client opens a fresh chat without naming an agent,
+			// fall back to an agent the CURRENT USER can access (owner /
+			// non-private / invited), never the first agent in the register —
+			// that would cross tenant/user boundaries in a multi-user deployment.
+			//
+			// Prefer one that belongs to the app the caller is sitting in. The
+			// panel already tells us which app that is, in `context.appId`, and
+			// without this a Hydra agent answered inside Buildiq: it was simply
+			// first in the register. An agent from another app is not a degraded
+			// answer, it is a confusing one, because its tools are for a product
+			// the person is not looking at.
 			if ($conversationUuid === '' && $agentUuid === '') {
-				$agentUuid = $this->pickFallbackAgentForUser(userId: $userId);
+				$agentUuid = $this->pickFallbackAgentForUser(
+					userId: $userId,
+					applicationSlug: trim((string)($contextArr['appId'] ?? ''))
+				);
 			}
 
 			if ($conversationUuid === '' && $agentUuid === '') {
@@ -263,15 +284,6 @@ class ChatStreamController extends Controller {
 				}
 
 				throw $e;
-			}
-
-			// The CnAiContext snapshot is persisted on the user-authored Message
-			// object Engine::processMessage will create. Reject anything other
-			// than an associative array so a bad client payload doesn't break
-			// the JSON encoding.
-			$contextArr = [];
-			if (is_array($context) === true) {
-				$contextArr = $context;
 			}
 
 			// Emit a heartbeat right after headers so the client knows we're alive
@@ -637,15 +649,25 @@ class ChatStreamController extends Controller {
 	 * multi-user deployments.
 	 *
 	 * @param string $userId Nextcloud user id.
+	 * @param string $applicationSlug The app the caller is sitting in, or '' when
+	 *                                unknown. An agent whose own `applicationSlug`
+	 *                                matches wins over one that merely comes first.
 	 *
 	 * @return string The accessible agent uuid, or '' when none is found.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
 	 */
-	private function pickFallbackAgentForUser(string $userId): string {
+	private function pickFallbackAgentForUser(string $userId, string $applicationSlug = ''): string {
+		// The first agent the user may use, whatever app it belongs to. It is the
+		// answer only when nothing matches the app, because an agent from the
+		// wrong app still beats no agent at all.
+		$firstAccessible = '';
+
 		try {
-			// Cheap cap — we only need the first match. Twenty rows is
-			// enough headroom for any realistic instance.
+			// Cheap cap — twenty rows is enough headroom for any realistic
+			// instance. The whole page is walked rather than stopped at the first
+			// hit, because the app's own agent is frequently not first: the one
+			// that made a Hydra agent answer inside Buildiq sat at position 7.
 			$agents = $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::AGENT_SCHEMA)
@@ -655,10 +677,24 @@ class ChatStreamController extends Controller {
 					continue;
 				}
 
-				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
-					return (string)$agent->getUuid();
+				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+					continue;
+				}
+
+				$uuid = (string)$agent->getUuid();
+				if ($firstAccessible === '') {
+					$firstAccessible = $uuid;
+				}
+
+				// With no app to match on, the first accessible agent stands, which
+				// is exactly the previous behaviour.
+				$slug = (string)(($agent->getObject()['applicationSlug'] ?? ''));
+				if ($applicationSlug === '' || strtolower(trim($slug)) === strtolower($applicationSlug)) {
+					return $uuid;
 				}
 			}
+
+			return $firstAccessible;
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[ChatStreamController] Agent fallback lookup failed',
