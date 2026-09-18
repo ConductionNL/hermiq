@@ -67,7 +67,14 @@ const PDP_URL = process.env.EGRESS_PDP_URL || ''
 
 // How long to wait for a verdict. A slow PDP denies (see DEFAULT DENY above) —
 // this bounds how long a caller waits to be told "no".
-const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '5000')
+//
+// It was 5000 ms. Measured 2026-09-18 on the live demo instance, that produced a
+// stream of `DENY api.anthropic.com:443 (pdp_timeout)` in the middle of working
+// turns, because the PDP is a Nextcloud request and this instance answered
+// `status.php` in 4878 ms. The control was denying the provider for being slow,
+// which surfaces to the operator as "the provider is down" and to the model as a
+// failed turn. Fail-closed is right; five seconds of patience was not.
+const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '15000')
 
 /**
  * Ask the PDP whether this run may reach this host:port.
