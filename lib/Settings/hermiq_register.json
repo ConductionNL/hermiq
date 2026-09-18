@@ -830,6 +830,100 @@
 					}
 				}
 			},
+			"IntakeConversation": {
+				"slug": "agentintakeconversation",
+				"icon": "ForumOutline",
+				"version": "0.1.0",
+				"title": "Intake conversation",
+				"description": "One conversation with a person who has no record yet, keyed by the person and the subject rather than by the channel, so somebody who starts by e-mail and continues in the portal is not asked to repeat themselves. It ends in a filed request or in a handover to a person, and in nothing else.",
+				"type": "object",
+				"required": [
+					"person",
+					"subject"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"person": {
+						"type": "string",
+						"title": "Person",
+						"description": "Who this conversation is with."
+					},
+					"subject": {
+						"type": "string",
+						"title": "Subject",
+						"description": "What it is about, as the owning app names it. Together with the person it is the key, which is what joins the channels into one conversation."
+					},
+					"state": {
+						"type": "string",
+						"enum": ["open", "filed", "handover"],
+						"default": "open",
+						"title": "State",
+						"description": "Open, or one of the two endings. A citizen who gives up leaves no case and no complaint, so there is no third."
+					},
+					"messages": {
+						"type": "array",
+						"title": "Messages",
+						"description": "What was said, and on which channel it arrived. The channel is recorded because it is worth knowing; it decides nothing.",
+						"items": {
+							"type": "object",
+							"properties": {
+								"channel": {"type": "string", "title": "Channel", "description": "The channel this message arrived on."},
+								"text": {"type": "string", "title": "Text", "description": "What was written."},
+								"at": {"type": "string", "format": "date-time", "title": "At", "description": "When it arrived."}
+							}
+						}
+					},
+					"classification": {
+						"type": "object",
+						"title": "Classification",
+						"description": "What kind of request this was proposed to be, with the confidence and the threshold that applied. The type is drawn from the catalogue the owning app declares and is never invented.",
+						"properties": {
+							"type": {"type": "string", "title": "Type", "description": "The proposed request type."},
+							"confidence": {"type": "number", "title": "Confidence", "description": "How certain the proposal was, between 0 and 1."},
+							"threshold": {"type": "number", "title": "Threshold", "description": "The abstention threshold in force at the time."}
+						}
+					},
+					"escalation": {
+						"type": "object",
+						"title": "Escalation",
+						"description": "How urgent this is, and who said so. A level the owning app decided by rule is preferred over a model one, and a model score is labelled as a model output wherever it is shown.",
+						"properties": {
+							"level": {"type": "string", "title": "Level", "description": "The escalation level."},
+							"decidedBy": {"type": "string", "enum": ["deterministic", "model"], "title": "Decided by", "description": "Whether a rule or a model produced this level."},
+							"label": {"type": "string", "title": "Label", "description": "The words shown beside the level, so a reader can tell a rule from a model without asking."}
+						}
+					},
+					"reviews": {
+						"type": "array",
+						"title": "External reviews",
+						"description": "Verdicts another party formed, carried into the conversation with whose they were and when. Hermiq forms no opinion of its own about what was reviewed.",
+						"items": {"type": "object"}
+					},
+					"handover": {
+						"type": "object",
+						"title": "Handover",
+						"description": "Why a person has it and what they were given. The transcript travels, so nobody has to ask the citizen to say it all again.",
+						"properties": {
+							"reason": {"type": "string", "title": "Reason", "description": "Why it could not be filed."},
+							"at": {"type": "string", "format": "date-time", "title": "At", "description": "When it was handed over."}
+						}
+					},
+					"filed": {
+						"type": "object",
+						"title": "Filed",
+						"description": "Which declared intake tool was called and what the owning app created. Hermiq proposes; the owning app validates and creates.",
+						"properties": {
+							"tool": {"type": "string", "title": "Tool", "description": "The declared intake tool that was called."},
+							"type": {"type": "string", "title": "Type", "description": "The request type that was filed."},
+							"at": {"type": "string", "format": "date-time", "title": "At", "description": "When it was filed."}
+						}
+					}
+				}
+			},
 			"AiFeature": {
 				"slug": "agentaifeature",
 				"icon": "RobotOutline",

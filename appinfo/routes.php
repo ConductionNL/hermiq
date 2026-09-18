@@ -679,6 +679,33 @@ return [
         ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
         ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
 
+        // A conversational intake that files for the citizen
+        // (a-conversational-intake-that-files-for-the-citizen): one conversation per
+        // person and subject, whichever channel it arrives on, ending in a filed request
+        // or in front of a person. Hermiq transports nothing: each channel arrives here
+        // through the app that owns it.
+        ['name' => 'intake#receive', 'url' => '/api/intake/messages', 'verb' => 'POST'],
+        [
+            'name'         => 'intake#show',
+            'url'          => '/api/intake/conversations/{conversationId}',
+            'verb'         => 'GET',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'intake#conclude',
+            'url'          => '/api/intake/conversations/{conversationId}/conclude',
+            'verb'         => 'POST',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'intake#review',
+            'url'          => '/api/intake/conversations/{conversationId}/review',
+            'verb'         => 'POST',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        ['name' => 'Settings\IntakeSettings#get',    'url' => '/api/settings/intake', 'verb' => 'GET'],
+        ['name' => 'Settings\IntakeSettings#update', 'url' => '/api/settings/intake', 'verb' => 'PUT'],
+
         // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
         // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +
         // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,

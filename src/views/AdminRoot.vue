@@ -106,6 +106,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Conversational intake')"
+			:description="
+				t(
+					'hermiq',
+					'How certain the intake has to be before it files a request on somebody’s behalf. Under this, the conversation goes to a person instead, carrying everything that was said.',
+				)
+			">
+			<IntakeSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Report grouping')"
 			:description="
 				t(
@@ -172,6 +183,7 @@ import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
@@ -203,6 +215,7 @@ export default {
 		Cog,
 		LlmProviderModal,
 		NcButton,
+		IntakeSettings,
 		NcSettingsSection,
 		ReportGroupingSettings,
 		RunRetentionSettings,
