@@ -157,6 +157,19 @@ class RegisterAgentLeafListener implements IEventListener {
 				// server descriptor MUST declare the SAME render mode under the shared
 				// id for cross-layer parity (gate-24 integration-parity).
 				renderMode: LeafDescriptor::RENDER_MODE_MOUNT,
+				// 🔴 SAID OUT LOUD BECAUSE IT WAS NEARLY INFERRED WRONGLY.
+				// hermiq ships no `hermiq-leaves.js` and does not need one: it
+				// loads `hermiq-agent-leaf.js` itself, on EVERY Nextcloud page,
+				// via `Util::addInitScript` in `Application::boot()`, so this
+				// leaf registers wherever another app renders the integration
+				// registry rather than only on hermiq's own pages.
+				//
+				// openregister#3954 read the missing `hermiq-leaves.js` as proof
+				// the surface was dark and refused the registration; #3955
+				// reverted that, and #3956 replaced the inference with this
+				// declaration. Declaring it is what stops the next reader
+				// re-deriving the wrong answer from the filesystem.
+				loadStrategy: LeafDescriptor::LOADS_VIA_OWN_SCRIPT,
 			);
 
 			// Render-only leaf: no IntegrationProvider (null). The chat reads via
