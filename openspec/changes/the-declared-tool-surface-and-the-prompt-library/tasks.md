@@ -9,8 +9,8 @@
   - hermiq declares no tool of its own in either direction
   - The surface is discoverable by an outside client
 
-- [ ] Add the publication surface
-- [ ] Add the owning app's declaration path
+- [x] Add the publication surface
+- [x] Add the owning app's declaration path
 
 ### Task 2: Registration, with default-deny on writes
 - **acceptance_criteria**:
@@ -18,8 +18,8 @@
   - Write tools are denied unless granted, reusing the existing rule rather than a
     second one
 
-- [ ] Add the registration object and its admin surface
-- [ ] Reuse the default-deny grant check
+- [x] Add the registration object and its admin surface
+- [x] Reuse the default-deny grant check
 
 ### Task 3: Authorise as the calling principal
 - **acceptance_criteria**:
@@ -27,22 +27,22 @@
   - A registration carries no rights of its own
   - Revoking a principal's access refuses the next call with no hermiq edit
 
-- [ ] Wire the principal through the call path
-- [ ] Add a test proving a registration cannot exceed its principal
+- [x] Wire the principal through the call path
+- [x] Add a test proving a registration cannot exceed its principal
 
 ### Task 4: Two gates
 - **acceptance_criteria**:
   - The grant check and the owning app's authorisation both run, in that order
   - Neither passes a call alone
 
-- [ ] Add the ordered check and its refusal messages
+- [x] Add the ordered check and its refusal messages
 
 ### Task 5: The output filter
 - **acceptance_criteria**:
   - A registration may allowlist response fields
   - Nothing is renamed, reshaped or computed
 
-- [ ] Add the allowlist and apply it on the way out
+- [x] Add the allowlist and apply it on the way out
 
 ### Task 6: The prompt library
 - **spec_ref**: `openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md`
@@ -51,8 +51,8 @@
   - The text sent is the text the object carries
   - Order is not re-sorted for display
 
-- [ ] Add the schema and the admin pages
-- [ ] Point the case assistant surface at the library
+- [x] Add the schema and the admin pages
+- [x] Point the case assistant surface at the library
 
 ### Task 7: The kill switch
 - **acceptance_criteria**:
@@ -60,9 +60,9 @@
   - It is recorded with actor and time
   - No bulk re-enable exists
 
-- [ ] Add the act and its audit entry
+- [x] Add the act and its audit entry
 
 ### Task 8: Verification
-- [ ] Unit tests for the two gates, the narrowing-only filter and the shipped-library
+- [x] Unit tests for the two gates, the narrowing-only filter and the shipped-library
       precedence
-- [ ] e2e coverage or a reason-bearing exclusion per scenario, per gate 19
+- [x] e2e coverage or a reason-bearing exclusion per scenario, per gate 19

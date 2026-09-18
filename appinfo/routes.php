@@ -639,6 +639,27 @@ return [
         // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
         ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
 
+        // The declared tool surface (the-declared-tool-surface-and-the-prompt-library):
+        // what an AI agent outside this instance may call, and the call itself. Ordinary
+        // authenticated requests: the agent authenticates AS a person, and the owning app
+        // authorises every call for that person. Two gates, both must open.
+        ['name' => 'outsideAgent#tools', 'url' => '/api/outside-agent/tools', 'verb' => 'GET'],
+        ['name' => 'outsideAgent#call',  'url' => '/api/outside-agent/call',  'verb' => 'POST'],
+
+        // The prompt library (the-declared-tool-surface-and-the-prompt-library): the
+        // prompts the assistant offers on a record, as objects an administrator reads
+        // and edits. Disable-all is one act; re-enabling is per prompt, by design.
+        ['name' => 'assistantPrompt#index', 'url' => '/api/assistant-prompts', 'verb' => 'GET'],
+        ['name' => 'assistantPrompt#save',  'url' => '/api/assistant-prompts', 'verb' => 'POST'],
+        [
+            'name'         => 'assistantPrompt#save',
+            'postfix'      => 'update',
+            'url'          => '/api/assistant-prompts/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        ['name' => 'assistantPrompt#disableAll', 'url' => '/api/assistant-prompts/disable-all', 'verb' => 'POST'],
+
         // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
         // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +
         // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,
