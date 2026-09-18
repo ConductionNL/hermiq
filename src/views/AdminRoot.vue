@@ -106,6 +106,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Report grouping')"
+			:description="
+				t(
+					'hermiq',
+					'Where the line falls between one event and two. Two hundred meldingen about one street-wide power cut should read as one item with a count, and a report that only looks alike should not disappear into it.',
+				)
+			">
+			<ReportGroupingSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Assistant prompts')"
 			:description="
 				t(
@@ -161,6 +172,7 @@ import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
@@ -192,6 +204,7 @@ export default {
 		LlmProviderModal,
 		NcButton,
 		NcSettingsSection,
+		ReportGroupingSettings,
 		RunRetentionSettings,
 		TalkBridgeSettings,
 		WebResearchSettingsModal,

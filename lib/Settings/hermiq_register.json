@@ -747,6 +747,89 @@
 					}
 				}
 			},
+			"ReportGroup": {
+				"slug": "agentreportgroup",
+				"icon": "GroupOutline",
+				"version": "0.1.0",
+				"title": "Report group",
+				"description": "One underlying event that several incoming reports describe. A group is a judgement and a set of references: every report in it stays a complete record of its own, nothing was discarded to form it, and removing a member leaves that report standing alone.",
+				"type": "object",
+				"required": [
+					"reportType"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"reportType": {
+						"type": "string",
+						"title": "Report type",
+						"description": "The kind of report this group holds, as the owning app names it. The comparison window is administered per type."
+					},
+					"deterministicKey": {
+						"type": "string",
+						"title": "Deterministic key",
+						"description": "The key the owning app supplied for this group, such as a location and a category within a period. Where a key decides, the model is not asked."
+					},
+					"windowMinutes": {
+						"type": "integer",
+						"title": "Window (minutes)",
+						"description": "The comparison window in force when this group was formed, recorded so a handler can read what was compared rather than what is configured today."
+					},
+					"terms": {
+						"type": "array",
+						"title": "Terms",
+						"description": "The words this group's members have in common. A citizen who disagrees with a grouping is owed a reason, and the reason cannot be that the model said so.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"members": {
+						"type": "array",
+						"title": "Members",
+						"description": "One entry per report in the group, carrying its score, whether the key or the model decided, and whether it is a near-duplicate a human should look at.",
+						"items": {
+							"type": "object",
+							"properties": {
+								"reportId": {
+									"type": "string",
+									"title": "Report",
+									"description": "The owning app's identifier for the report. A reference, never a copy."
+								},
+								"score": {
+									"type": "number",
+									"title": "Score",
+									"description": "How alike this report and the group are, between 0 and 1."
+								},
+								"decidedBy": {
+									"type": "string",
+									"enum": ["key", "model"],
+									"title": "Decided by",
+									"description": "Whether the owning app's deterministic key or the similarity judgement put this report in the group."
+								},
+								"scorer": {
+									"type": "string",
+									"title": "Scorer",
+									"description": "Which judgement produced the score, named rather than implied."
+								},
+								"uncertain": {
+									"type": "boolean",
+									"title": "Near-duplicate",
+									"description": "Set when the score fell between the two thresholds. The report is attached and listed beside the group rather than counted silently into it."
+								},
+								"joinedAt": {
+									"type": "string",
+									"format": "date-time",
+									"title": "Joined at",
+									"description": "When this report joined the group."
+								}
+							}
+						}
+					}
+				}
+			},
 			"AiFeature": {
 				"slug": "agentaifeature",
 				"icon": "RobotOutline",
