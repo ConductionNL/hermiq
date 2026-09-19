@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "node scripts/build-companion-css.js && NODE_ENV=production webpack --config webpack.config.js --progress",
+    "postbuild": "node scripts/check-single-dexie.js",
     "dev": "NODE_ENV=development webpack --config webpack.config.js --progress",
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
     "lint": "eslint src tests scripts",
@@ -34,7 +35,8 @@
     "check:companion-bundle": "node tests/companion-bundle.spec.js",
     "icons:opengemeenten": "node scripts/generate-opengemeenten-icons.mjs",
     "companion-css:build": "node scripts/build-companion-css.js",
-    "check:bundle-budget": "npm run build && node tests/companion-bundle.spec.js"
+    "check:bundle-budget": "npm run build && node tests/companion-bundle.spec.js",
+    "check:dexie": "node scripts/check-single-dexie.js"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"
@@ -53,7 +55,7 @@
     "@nextcloud/vue": "^9.9.0",
     "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
-    "dexie": "^4.4.6",
+    "dexie": "^4.4.5",
     "dompurify": "^3.4.15",
     "gridstack": "^13.2.0",
     "marked": "^18.0.13",
