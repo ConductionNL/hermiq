@@ -58,14 +58,14 @@ class RedactionRequiredException extends RuntimeException {
 		public readonly string $reason,
 	) {
 		parent::__construct(
-			sprintf(
+			message: sprintf(
 				"Refused by the %s check: feature '%s' reads no document that has not been redacted, and document '%s' has none: %s.",
 				self::STEP,
 				$featureSlug,
 				$documentReference,
 				$reason
 			),
-			422
+			code: 422
 		);
 
 	}//end __construct()

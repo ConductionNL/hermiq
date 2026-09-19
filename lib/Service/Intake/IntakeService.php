@@ -274,7 +274,7 @@ class IntakeService {
 	 * Carry an external party's verdict into the conversation, with whose it was
 	 * and when.
 	 *
-	 * hermiq forms no opinion about what was reviewed. It calls the tool the owning
+	 * Hermiq forms no opinion about what was reviewed. It calls the tool the owning
 	 * app declared, records the answer, and that is the whole of its part.
 	 *
 	 * @param string $conversationId The conversation uuid.
@@ -367,11 +367,14 @@ class IntakeService {
 		$inCatalogue = ($type !== '' && in_array($type, array_map('strval', $catalogue), true));
 
 		if ($inCatalogue === false || $confidence < $threshold) {
+			$reason = 'the classification was less certain than the threshold this instance requires';
+			if ($inCatalogue === false) {
+				$reason = 'the proposed request type is not in the catalogue this municipality declares';
+			}
+
 			$data = $this->handOver(
 				data: $data,
-				reason: ($inCatalogue === false
-					? 'the proposed request type is not in the catalogue this municipality declares'
-					: 'the classification was less certain than the threshold this instance requires'),
+				reason: $reason,
 				at: $at
 			);
 

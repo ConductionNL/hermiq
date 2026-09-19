@@ -572,7 +572,12 @@ class IntakeServiceTest extends TestCase {
 		// no opinion about what was reviewed.
 		$this->assertStringNotContainsString('function evaluatePlan', $source);
 		$this->assertStringNotContainsString('function assessCompliance', $source);
-		$this->assertStringContainsString('hermiq forms no opinion', $source);
+		// Case-insensitive on purpose. This asserts a DESIGN CLAIM, and the
+		// sentence carrying it is a doc comment, so its first letter belongs to
+		// phpcs (Generic.Commenting.DocComment.LongNotCapital), not to this
+		// test. Pinning the lowercase spelling made a style rule and a design
+		// assertion fight over one character.
+		$this->assertMatchesRegularExpression('/hermiq forms no opinion/i', $source);
 	}//end testHermiqDoesNotReview()
 
 	/**

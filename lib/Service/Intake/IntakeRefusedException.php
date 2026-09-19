@@ -46,8 +46,8 @@ class IntakeRefusedException extends RuntimeException {
 		string $reason,
 	) {
 		parent::__construct(
-			sprintf("The intake surface may not call '%s': %s.", $toolId, $reason),
-			403
+			message: sprintf("The intake surface may not call '%s': %s.", $toolId, $reason),
+			code: 403
 		);
 
 	}//end __construct()

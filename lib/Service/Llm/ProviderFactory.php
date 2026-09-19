@@ -447,7 +447,7 @@ class ProviderFactory {
 	): ChatDriver {
 		$chatProvider = $llmConfig['chatProvider'] ?? null;
 
-		// a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
+		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
 		// resolve the feature's own binding. It only resolves; the ceiling is
 		// applied below, so a binding can narrow the policy and never widen it.
 		$featureBound = false;

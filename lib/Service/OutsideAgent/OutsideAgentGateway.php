@@ -300,7 +300,13 @@ class OutsideAgentGateway {
 
 		if (array_is_list($result) === true) {
 			return array_map(
-				fn (mixed $row): mixed => (is_array($row) === true ? $this->keep(row: $row, allowlist: $allowlist) : $row),
+				function (mixed $row) use ($allowlist): mixed {
+					if (is_array($row) === true) {
+						return $this->keep(row: $row, allowlist: $allowlist);
+					}
+
+					return $row;
+				},
 				$result
 			);
 		}
