@@ -1824,22 +1824,7 @@ class ScheduleService {
 				'replayOf' => $replayOf,
 			];
 
-			// What is kept, and for how long. The resolved period is written onto the
-			// entry rather than referenced, so changing the instance default later
-			// cannot shorten or extend what this run was promised. A retention nobody
-			// set is a retention of forever, so the policy always resolves to a number.
-			if ($this->retentionPolicy !== null) {
-				$context = $this->retentionPolicy->stamp(
-					context: $context,
-					featureSlug: $this->aiFeatureForAgent(agentId: (string)($data['agentId'] ?? ''))
-				);
-			}
-
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: $context
-			);
+			$this->persistRunAudit(schedule: $schedule, context: $context, agentId: $agentId);
 
 			// Skill-learnings: AFTER the run record is written, enqueue the post-run
 			// capture job for a REAL run that actually exposed skills. Never for a
@@ -1861,6 +1846,41 @@ class ScheduleService {
 		}//end try
 
 	}//end writeRunAudit()
+
+	/**
+	 * Stamp the retention this run was promised, then write the audit entry.
+	 *
+	 * Split out of writeRunAudit() to bring it under the method-length gate. It
+	 * is also the whole of the "persist" half: everything above it assembles the
+	 * context, and everything here writes it.
+	 *
+	 * What is kept, and for how long, is written ONTO the entry rather than
+	 * referenced, so changing the instance default later cannot shorten or
+	 * extend what this run was promised. A retention nobody set is a retention
+	 * of forever, so the policy always resolves to a number.
+	 *
+	 * @param ObjectEntity $schedule The schedule this run belongs to.
+	 * @param array<string, mixed> $context The assembled run context.
+	 * @param string $agentId The agent that ran, for the feature lookup.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude extracted verbatim from writeRunAudit(); covered by its tests
+	 */
+	private function persistRunAudit(ObjectEntity $schedule, array $context, string $agentId): void {
+		if ($this->retentionPolicy !== null) {
+			$context = $this->retentionPolicy->stamp(
+				context: $context,
+				featureSlug: $this->aiFeatureForAgent(agentId: $agentId)
+			);
+		}
+
+		$this->auditTrailMapper->createAuditTrailEntry(
+			object: $schedule,
+			action: 'run',
+			context: $context
+		);
+	}//end persistRunAudit()
 
 	/**
 	 * Enqueue the post-run learnings capture QueuedJob for the just-audited run

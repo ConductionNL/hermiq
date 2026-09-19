@@ -436,39 +436,37 @@ class ProviderFactory {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
 	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
-	public function createChatDriver(
+	/**
+	 * Build the driver for one named provider.
+	 *
+	 * Extracted from createChatDriver() verbatim: every arm, and the default
+	 * that refuses an unknown name, are the same. It was split out because the
+	 * five arms plus the default carried createChatDriver() over the cyclomatic
+	 * complexity gate, and the provider CHOICE is a separable question from the
+	 * feature binding above it and the model policy below it.
+	 *
+	 * @param string $chatProvider The provider name, already resolved and non-empty.
+	 * @param array<string, mixed> $llmConfig The instance's LLM configuration.
+	 * @param string|null $agentModel Model override, if the agent set one.
+	 * @param float|null $agentTemperature Temperature override, if set.
+	 * @param integer|null $agentMaxTokens Max-token override, if set.
+	 * @param string|null $organisation The organisation, for credential resolution.
+	 *
+	 * @return ChatDriver The driver for that provider.
+	 *
+	 * @throws ProviderUnavailableException When the provider name is not one this factory builds.
+	 *
+	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
+	 */
+	private function instantiateChatDriver(
+		string $chatProvider,
 		array $llmConfig,
-		?string $agentModel = null,
-		?float $agentTemperature = null,
-		?string $organisation = null,
-		?int $agentMaxTokens = null,
-		?string $aiFeature = null,
-		?string $documentReference = null,
+		?string $agentModel,
+		?float $agentTemperature,
+		?int $agentMaxTokens,
+		?string $organisation,
 	): ChatDriver {
-		$chatProvider = $llmConfig['chatProvider'] ?? null;
-
-		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
-		// resolve the feature's own binding. It only resolves; the ceiling is
-		// applied below, so a binding can narrow the policy and never widen it.
-		$featureBound = false;
-		if ($aiFeature !== null && $aiFeature !== '' && $this->featureResolver !== null && $organisation !== null) {
-			$binding = $this->featureResolver->bindingFor(featureSlug: $aiFeature, organisation: $organisation);
-			if ($binding['provider'] !== null && $binding['model'] !== null) {
-				$chatProvider = $binding['provider'];
-				$agentModel = $binding['model'];
-			}
-
-			$featureBound = true;
-		}
-
-		if (empty($chatProvider) === true) {
-			throw new ProviderUnavailableException(
-				'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
-				503
-			);
-		}
-
-		$driver = match ($chatProvider) {
+		return match ($chatProvider) {
 			'ollama' => $this->createOllamaDriver(
 				ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
 				agentModel: $agentModel,
@@ -495,6 +493,136 @@ class ProviderFactory {
 			'nextcloud' => $this->createNextcloudDriver(),
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
 		};// End match.
+	}//end instantiateChatDriver()
+
+	/**
+	 * Resolve an AI feature's own provider and model binding, if it has one.
+	 *
+	 * Step 1 of the order `a-provider-and-a-place-per-ai-feature` specifies. It
+	 * only RESOLVES: the model policy ceiling is applied by the caller, after
+	 * this, so a binding can narrow the policy and never widen it.
+	 *
+	 * Extracted from createChatDriver() unchanged. `featureBound` is true
+	 * whenever a feature and an organisation were both given and a resolver
+	 * exists, INCLUDING when the resolver answered with nothing — that is the
+	 * existing behaviour and the caller depends on it.
+	 *
+	 * @param string|null $aiFeature The feature slug, if the call names one.
+	 * @param string|null $organisation The organisation, if known.
+	 * @param mixed $chatProvider The provider resolved so far.
+	 * @param string|null $agentModel The model resolved so far.
+	 *
+	 * @return array{provider: mixed, model: string|null, featureBound: bool} The resolution.
+	 *
+	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
+	 */
+	private function resolveFeatureBinding(
+		?string $aiFeature,
+		?string $organisation,
+		mixed $chatProvider,
+		?string $agentModel,
+	): array {
+		if ($aiFeature === null || $aiFeature === '' || $this->featureResolver === null || $organisation === null) {
+			return ['provider' => $chatProvider, 'model' => $agentModel, 'featureBound' => false];
+		}
+
+		$binding = $this->featureResolver->bindingFor(featureSlug: $aiFeature, organisation: $organisation);
+		if ($binding['provider'] !== null && $binding['model'] !== null) {
+			$chatProvider = $binding['provider'];
+			$agentModel = $binding['model'];
+		}
+
+		return ['provider' => $chatProvider, 'model' => $agentModel, 'featureBound' => true];
+	}//end resolveFeatureBinding()
+
+	/**
+	 * Resolve the configured `chatProvider` into a ready-to-use ChatDriver.
+	 *
+	 * @param array $llmConfig The `hermiq.llm` configuration
+	 *                         (LlmSettingsHandler::getLLMSettingsOnly()).
+	 * @param string|null $agentModel Agent-level model override, when set and non-empty.
+	 * @param float|null $agentTemperature Agent-level temperature override.
+	 * @param string|null $organisation The calling agent's organisation
+	 *                                  (tenant-model-policy). When non-null (including
+	 *                                  `''` for an organisation-less agent/instance
+	 *                                  scope), the resolved (provider, model) pair is
+	 *                                  checked against the effective ModelPolicy for
+	 *                                  that organisation BEFORE the driver is returned
+	 *                                  — this is the single enforcement chokepoint every
+	 *                                  trigger path (schedule, Run now, conversation,
+	 *                                  flow listener) shares. When null, no check is made
+	 *                                  (opt-in; existing callers that do not pass an
+	 *                                  organisation see zero behavior change).
+	 * @param int|null $agentMaxTokens Agent-level max-tokens override, applied to the
+	 *                                 resolved driver when set and non-null.
+	 * @param string|null $aiFeature The slug of the registered AI feature this run belongs
+	 *                               to, when the run names one. It selects the feature's
+	 *                               own provider binding and the residency that feature
+	 *                               requires (a-provider-and-a-place-per-ai-feature). null
+	 *                               leaves every pre-existing call site unchanged.
+	 * @param string|null $documentReference The document this run was handed, when it was
+	 *                               handed one. A feature declaring `requiresRedaction`
+	 *                               is refused unless filinq has redacted it; a run with
+	 *                               no document reference passes that gate untouched.
+	 *
+	 * @return ChatDriver The resolved driver.
+	 *
+	 * @throws ProviderUnavailableException When no provider is configured, the selected
+	 *                                      provider is missing required credentials, or
+	 *                                      the provider identifier is not recognised.
+	 * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
+	 *                                       (provider, model) pair falls outside its
+	 *                                       effective ModelPolicy.
+	 * @throws \OCA\Hermiq\Service\AiFeature\ResidencyViolationException When `$aiFeature`
+	 *                                       names a feature that requires a residency the
+	 *                                       resolved provider does not carry.
+	 * @throws \OCA\Hermiq\Service\AiFeature\RedactionRequiredException When the feature
+	 *                                       reads no unredacted document and the one it was
+	 *                                       handed has no recorded redaction.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 */
+	public function createChatDriver(
+		array $llmConfig,
+		?string $agentModel = null,
+		?float $agentTemperature = null,
+		?string $organisation = null,
+		?int $agentMaxTokens = null,
+		?string $aiFeature = null,
+		?string $documentReference = null,
+	): ChatDriver {
+		$chatProvider = $llmConfig['chatProvider'] ?? null;
+
+		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
+		// resolve the feature's own binding. It only resolves; the ceiling is
+		// applied below, so a binding can narrow the policy and never widen it.
+		$bound = $this->resolveFeatureBinding(
+			aiFeature: $aiFeature,
+			organisation: $organisation,
+			chatProvider: $chatProvider,
+			agentModel: $agentModel
+		);
+		$chatProvider = $bound['provider'];
+		$agentModel = $bound['model'];
+		$featureBound = $bound['featureBound'];
+
+		if (empty($chatProvider) === true) {
+			throw new ProviderUnavailableException(
+				'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
+				503
+			);
+		}
+
+		$driver = $this->instantiateChatDriver(
+			chatProvider: (string)$chatProvider,
+			llmConfig: $llmConfig,
+			agentModel: $agentModel,
+			agentTemperature: $agentTemperature,
+			agentMaxTokens: $agentMaxTokens,
+			organisation: $organisation
+		);
 
 		// Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3
 		// of this change's specified order. Runs AFTER the agent override is applied

@@ -155,15 +155,22 @@ class AssistantPromptLibrary {
 	 *
 	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
 	 */
-	public function upsert(?string $id, array $payload, bool $administered = true): array {
-		$data = [];
-		if ($id !== null && $id !== '') {
-			$existing = $this->find(id: $id);
-			if ($existing !== null) {
-				$data = $existing->getObject();
-			}
-		}
-
+	/**
+	 * Copy the fields a payload may set onto the stored prompt.
+	 *
+	 * Only the declared fields move, and each keeps its own type: the four text
+	 * fields are cast to string, `order` to int, `enabled` to a strict boolean.
+	 * A field the payload does not mention is left exactly as it was, which is
+	 * what makes a partial update partial.
+	 *
+	 * @param array<string, mixed> $data The prompt as stored.
+	 * @param array<string, mixed> $payload The incoming fields.
+	 *
+	 * @return array<string, mixed> The prompt with the payload applied.
+	 *
+	 * @spec exclude extracted verbatim from upsert(); covered by its tests
+	 */
+	private function applyPayload(array $data, array $payload): array {
 		foreach (['label', 'prompt', 'usageScope', 'source'] as $field) {
 			if (array_key_exists($field, $payload) === true) {
 				$data[$field] = (string)$payload[$field];
@@ -177,6 +184,71 @@ class AssistantPromptLibrary {
 		if (array_key_exists('enabled', $payload) === true) {
 			$data['enabled'] = ($payload['enabled'] === true);
 		}
+
+		return $data;
+	}//end applyPayload()
+
+	/**
+	 * Create or update a prompt an administrator is editing.
+	 *
+	 * Marks the prompt `administered`, which is what tells a shipping app's
+	 * seed to leave it alone: the edited state lives here, and the app that
+	 * shipped the original neither holds nor restores it.
+	 *
+	 * @param string|null $id The prompt id, or null to create.
+	 * @param array<string, mixed> $payload The prompt fields.
+	 *
+	 * @return array<string, mixed> The stored prompt, with its id.
+	 *
+	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
+	 */
+	public function upsert(?string $id, array $payload): array {
+		return $this->write(id: $id, payload: $payload, administered: true);
+	}//end upsert()
+
+	/**
+	 * Write a prompt a consuming app SHIPPED, leaving it unadministered.
+	 *
+	 * The sibling of upsert(). The two exist instead of one method with a
+	 * boolean flag, because the flag was the whole difference and a caller
+	 * reading `administered: false` had to know what that implied. An
+	 * administered prompt is one a human touched, and the shipping app neither
+	 * holds nor restores that state.
+	 *
+	 * @param string|null $id The prompt id, or null to create.
+	 * @param array<string, mixed> $payload The prompt fields.
+	 *
+	 * @return array<string, mixed> The stored prompt, with its id.
+	 *
+	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
+	 */
+	public function upsertShipped(?string $id, array $payload): array {
+		return $this->write(id: $id, payload: $payload, administered: false);
+	}//end upsertShipped()
+
+	/**
+	 * The shared write both upsert() and upsertShipped() perform.
+	 *
+	 * @param string|null $id The prompt id, or null to create.
+	 * @param array<string, mixed> $payload The prompt fields.
+	 * @param boolean $administered Whether to mark the prompt as touched by a human.
+	 *
+	 * @return array<string, mixed> The stored prompt, with its id.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)
+	 *
+	 * @spec exclude the body of the former upsert(); covered by its tests
+	 */
+	private function write(?string $id, array $payload, bool $administered): array {
+		$data = [];
+		if ($id !== null && $id !== '') {
+			$existing = $this->find(id: $id);
+			if ($existing !== null) {
+				$data = $existing->getObject();
+			}
+		}
+
+		$data = $this->applyPayload(data: $data, payload: $payload);
 
 		if ($administered === true) {
 			$data['administered'] = true;
@@ -198,7 +270,7 @@ class AssistantPromptLibrary {
 		$result['id'] = (string)($stored->getUuid() ?? '');
 
 		return $result;
-	}//end upsert()
+	}//end write()
 
 	/**
 	 * Disable every prompt, wholesale or within one scope, in a single act, and
@@ -290,10 +362,9 @@ class AssistantPromptLibrary {
 				$knownId = (string)$known['id'];
 			}
 
-			$this->upsert(
+			$this->upsertShipped(
 				id: $knownId,
-				payload: array_merge($prompt, ['source' => $appId]),
-				administered: false
+				payload: array_merge($prompt, ['source' => $appId])
 			);
 			$installed++;
 		}//end foreach

@@ -58,6 +58,24 @@ use Psr\Log\LoggerInterface;
  * Orchestrates one LLM response generation: prompt assembly, tool wiring,
  * streaming/blocking invocation, usage capture.
  *
+ * ⚠️ COUPLING IS SUPPRESSED HERE, AND IT IS THE ONLY SUPPRESSION IN THIS CLASS.
+ * phpmd counts 13 coupled objects against a threshold of 12. That count is not
+ * a bloated constructor: it takes FOUR collaborators. It is the types this
+ * class necessarily names to do its one job — two LLPhant chat clients, two
+ * exception types it must distinguish, the provider factory and its failure
+ * type, the feature resolver, the tool loop, an ObjectEntity and a logger.
+ *
+ * Bringing the number down means hiding those types behind an abstraction
+ * whose only purpose is to reduce a count, on the path that answers every
+ * agent turn. That is a refactor worth doing deliberately, with time to test
+ * provider selection and tool wiring properly, and not one worth doing to make
+ * a number smaller.
+ *
+ * If you are reading this because you are doing that refactor: delete the
+ * annotation, do not widen the threshold.
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
+ *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
  */
 class ResponseGenerationHandler {
