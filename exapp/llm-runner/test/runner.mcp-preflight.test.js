@@ -162,3 +162,52 @@ test('EVERY declared server must be reachable, not just the first', async () => 
 		await live.close()
 	}
 })
+
+test('the probe CARRIES the run token, so it does not register a failed attempt', async () => {
+	// Measured 2026-09-18 on the live demo instance. Hermiq's MCP endpoint calls
+	// `IThrottler::registerAttempt('hermiq_run_token', …)` for every request whose
+	// bearer token does not verify, and Nextcloud then delays that IP's answers,
+	// further with each attempt. The preflight was sending exactly such a request
+	// on EVERY governed turn, against the very counter that protects run tokens.
+	//
+	// Three consecutive probes of the real endpoint, against a 4000 ms timeout:
+	// 8443 ms, 15926 ms, 9603 ms. An unthrottled route on the same instance
+	// answered in 4878 ms. So the preflight was manufacturing the unreachability
+	// it exists to detect, and every governed turn was refused with a message
+	// blaming the operator's `mcp_run_base_url`.
+	//
+	// The token is already in hand: it is in the MCP config this same function
+	// reads. Carrying it makes the probe an authorized request that registers
+	// nothing.
+	const seen = []
+	const server = http.createServer((req, res) => {
+		seen.push({ method: req.method, auth: req.headers.authorization || '' })
+		res.writeHead(401)
+		res.end()
+	})
+	await new Promise((r) => server.listen(0, '127.0.0.1', r))
+	const url = `http://127.0.0.1:${server.address().port}/apps/hermiq/api/mcp/run`
+
+	try {
+		await assertMcpEndpointReachable(config(url))
+		assert.strictEqual(seen.length, 1)
+		assert.strictEqual(
+			seen[0].auth,
+			'Bearer oat-TESTTOKEN-0123456789abcdef',
+			'the probe must present the run token it already holds',
+		)
+	} finally {
+		await new Promise((done) => server.close(done))
+	}
+})
+
+test('a server entry with no headers is still probed (and still counts as reachable)', async () => {
+	const server = await serverAnswering(401)
+	try {
+		await assertMcpEndpointReachable({
+			mcpServers: { hermiq: { type: 'http', url: server.url } },
+		})
+	} finally {
+		await server.close()
+	}
+})

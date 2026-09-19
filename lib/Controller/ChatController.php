@@ -106,14 +106,14 @@ class ChatController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Schema slug for message objects.
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * Schema slug for feedback objects.
@@ -527,7 +527,7 @@ class ChatController extends Controller {
 	 * Mirrors OR ChatController::clearHistory(). Adaptation: OR soft-deletes
 	 * via ConversationMapper::softDelete(); here the archive marker is written
 	 * onto the conversation payload (`metadata.deletedAt`), the same marker
-	 * ConversationController::destroy()/restore() use.
+	 * SessionController::destroy()/restore() use.
 	 *
 	 * @return JSONResponse A JSON response confirming conversation clearing or error.
 	 *
@@ -663,7 +663,7 @@ class ChatController extends Controller {
 				schema: self::MESSAGE_SCHEMA
 			);
 			if ($message === null
-				|| ($message->getObject()['conversationId'] ?? null) !== $conversationUuid
+				|| ($message->getObject()['sessionId'] ?? null) !== $conversationUuid
 			) {
 				return new JSONResponse(
 					data: [
@@ -1046,7 +1046,7 @@ class ChatController extends Controller {
 			->setSchema(self::MESSAGE_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'ASC'],
 					'limit' => $limit,
 					'offset' => $offset,
@@ -1146,7 +1146,16 @@ class ChatController extends Controller {
 		return [
 			'id' => $message->getUuid(),
 			'uuid' => $message->getUuid(),
-			'conversationId' => ($data['conversationId'] ?? null),
+			// 🔴 THE STORED FIELD IS `sessionId`; THE RESPONSE KEY STAYS `conversationId`
+			// FOR NOW. session-api-rename moves the backend and explicitly does NOT move
+			// the frontend, which is the next spec — so reading the new field while still
+			// emitting the old key is what keeps the Chat page working unchanged through
+			// this deploy. `sessionId` is emitted alongside it so the frontend has
+			// something to move ONTO, and `conversationId` is dropped there.
+			// Falling back to the old field keeps a turn written before the migration
+			// readable.
+			'sessionId' => ($data['sessionId'] ?? $data['conversationId'] ?? null),
+			'conversationId' => ($data['sessionId'] ?? $data['conversationId'] ?? null),
 			'role' => ($data['role'] ?? null),
 			'content' => ($data['content'] ?? null),
 			'sources' => ($data['sources'] ?? []),

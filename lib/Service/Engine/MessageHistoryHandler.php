@@ -54,7 +54,7 @@ class MessageHistoryHandler {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * Number of recent messages to keep in context.
@@ -101,7 +101,7 @@ class MessageHistoryHandler {
 			->setSchema(self::MESSAGE_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'DESC'],
 					'limit' => self::RECENT_MESSAGES_COUNT,
 				]
@@ -299,7 +299,7 @@ class MessageHistoryHandler {
 		?string $authorDisplayName = null,
 	): ObjectEntity {
 		$payload = [
-			'conversationId' => $conversationId,
+			'sessionId' => $conversationId,
 			'role' => $role,
 			'content' => $content,
 		];

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "node scripts/build-companion-css.js && NODE_ENV=production webpack --config webpack.config.js --progress",
+    "postbuild": "node scripts/check-single-dexie.js",
     "dev": "NODE_ENV=development webpack --config webpack.config.js --progress",
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
     "lint": "eslint src tests scripts",
@@ -28,12 +29,14 @@
     "check:tool-taxonomy": "node tests/tool-taxonomy.spec.js",
     "check:grant-flatten": "node tests/grant-flatten.spec.js",
     "check:json-strict": "node tests/validate-json-strict.js",
-    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:tool-taxonomy && npm run check:grant-flatten",
+    "check:connections-page": "node tests/connections-page.spec.js",
+    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:tool-taxonomy && npm run check:grant-flatten && npm run check:connections-page",
     "prepare": "git config core.hooksPath .githooks || true",
     "check:companion-bundle": "node tests/companion-bundle.spec.js",
     "icons:opengemeenten": "node scripts/generate-opengemeenten-icons.mjs",
     "companion-css:build": "node scripts/build-companion-css.js",
-    "check:bundle-budget": "npm run build && node tests/companion-bundle.spec.js"
+    "check:bundle-budget": "npm run build && node tests/companion-bundle.spec.js",
+    "check:dexie": "node scripts/check-single-dexie.js"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"
@@ -41,7 +44,7 @@
   "dependencies": {
     "@babel/core": "^7.22.9",
     "@babel/preset-env": "^7.29.7",
-    "@conduction/nextcloud-vue": "^2.42.0",
+    "@conduction/nextcloud-vue": "^3.2.0",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.6.0",
     "@nextcloud/dialogs": "^7.5.0",
@@ -55,7 +58,7 @@
     "dexie": "^4.4.5",
     "dompurify": "^3.4.15",
     "gridstack": "^13.2.0",
-    "marked": "^18.0.12",
+    "marked": "^18.0.13",
     "node-polyfill-webpack-plugin": "4.0.0",
     "pinia": "^2.1.7",
     "vue": "^3.5.42",
@@ -92,7 +95,7 @@
     "eslint-config-prettier": "^10.1.8",
     "postcss-html": "^2.0.0",
     "prettier": "^3.9.6",
-    "sass": "^1.104.0",
+    "sass": "^1.104.1",
     "sass-loader": "^17.0.0",
     "style-loader": "~4.0.0",
     "stylelint": "^17.15.0",
@@ -103,7 +106,7 @@
     "typescript": "^5.9.3",
     "vue-eslint-parser": "^10.3.0",
     "vue-loader": "^17.4.2",
-    "webpack": "^5.110.3",
+    "webpack": "^5.111.0",
     "webpack-cli": "^6.0.1"
   },
   "prettier": "@nextcloud/prettier-config"

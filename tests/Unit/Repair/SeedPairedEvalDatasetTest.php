@@ -135,6 +135,8 @@ class SeedPairedEvalDatasetTest extends TestCase {
 				// assertion.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
 			): ObjectEntity {
 				if ($this->failWrites === true) {
 					throw new RuntimeException('register unavailable');

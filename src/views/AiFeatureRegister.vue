@@ -97,6 +97,19 @@
 						{{ t('hermiq', 'Not acknowledged') }}
 					</span>
 				</template>
+				<template #column-runsOn="{ row }">
+					<span class="ai-feature-register__runs-on">
+						{{ providerLabel(row) }}
+					</span>
+					<span
+						class="ai-feature-register__residency"
+						:class="`ai-feature-register__residency--${row.residency}`">
+						{{ residencyLabel(row.residency) }}
+					</span>
+					<span v-if="row.location" class="ai-feature-register__location">
+						{{ row.location }}
+					</span>
+				</template>
 				<template #column-algoritmeregister="{ row }">
 					<span
 						class="ai-feature-register__algo"
@@ -192,6 +205,7 @@ import {
 	disableAiFeature,
 	enableAiFeature,
 	listAiFeatures,
+	listFeatureResidency,
 	publishAiFeature,
 	withdrawAiFeature,
 } from '../api/aiFeatures.js'
@@ -221,6 +235,9 @@ export default {
 	data() {
 		return {
 			features: [],
+			// One row per feature: which provider it will use and where that
+			// provider runs (a-provider-and-a-place-per-ai-feature).
+			residencyRows: [],
 			loading: true,
 			busy: false,
 			error: '',
@@ -248,6 +265,7 @@ export default {
 					key: 'acknowledged',
 					label: this.t('hermiq', 'DPO acknowledgement'),
 				},
+				{ key: 'runsOn', label: this.t('hermiq', 'Runs on') },
 				{
 					key: 'algoritmeregister',
 					label: this.t('hermiq', 'Algoritmeregister'),
@@ -263,7 +281,13 @@ export default {
 		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		rows() {
+			const residencyBySlug = {}
+			this.residencyRows.forEach((row) => {
+				residencyBySlug[row.slug] = row
+			})
+
 			return this.features.map((feature) => ({
+				...this.runsOn(residencyBySlug[feature.slug]),
 				id: feature.uuid || feature.slug,
 				name: feature.name || feature.slug,
 				riskCategory: feature.riskCategory || 'minimal',
@@ -292,7 +316,12 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				this.features = await listAiFeatures()
+				const [features, residencyRows] = await Promise.all([
+					listAiFeatures(),
+					listFeatureResidency(),
+				])
+				this.features = features
+				this.residencyRows = residencyRows
 			} catch (e) {
 				this.error =
 					e?.response?.data?.error
@@ -301,6 +330,57 @@ export default {
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Flatten one residency row onto a table row. A feature nothing has bound
+		 * reads `undeclared` rather than a guess, because a guessed residency is one
+		 * nobody can be held to.
+		 *
+		 * @param {object} [row] The residency row for this feature, when there is one.
+		 * @return {object} The provider fields for the table row.
+		 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+		 */
+		runsOn(row) {
+			return {
+				provider: row?.provider || '',
+				model: row?.model || '',
+				source: row?.source || 'instance',
+				residency: row?.residency || 'undeclared',
+				location: row?.location || '',
+			}
+		},
+
+		/**
+		 * What this feature's runs use, written for a reader rather than a machine.
+		 *
+		 * @param {object} row The table row.
+		 * @return {string} The provider and model, or the fallback wording.
+		 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+		 */
+		providerLabel(row) {
+			if (!row.provider) {
+				return this.t('hermiq', 'The instance default')
+			}
+
+			return `${row.provider} · ${row.model}`
+		},
+
+		/**
+		 * The localised label for a provider residency.
+		 *
+		 * @param {string} residency The residency label.
+		 * @return {string} The localised label.
+		 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+		 */
+		residencyLabel(residency) {
+			const labels = {
+				'on-premise': this.t('hermiq', 'On premise'),
+				eu: this.t('hermiq', 'In the EU'),
+				'outside-eu': this.t('hermiq', 'Outside the EU'),
+				undeclared: this.t('hermiq', 'Not stated'),
+			}
+			return labels[residency] || residency
 		},
 
 		/**
@@ -599,6 +679,34 @@ export default {
 
 .ai-feature-register__lifecycle--enabled {
 	color: var(--color-success);
+}
+
+.ai-feature-register__runs-on {
+	display: block;
+	font-size: 13px;
+}
+
+.ai-feature-register__residency {
+	display: inline-block;
+	font-size: 12px;
+	text-transform: uppercase;
+	padding: 1px 6px;
+	border-radius: 4px;
+	background: var(--color-background-dark);
+}
+
+.ai-feature-register__residency--outside-eu {
+	color: var(--color-warning);
+}
+
+.ai-feature-register__residency--undeclared {
+	color: var(--color-text-maxcontrast);
+}
+
+.ai-feature-register__location {
+	display: block;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
 }
 
 .ai-feature-register__lifecycle--disabled {
