@@ -14,6 +14,7 @@
 
 import AccountDetailsOutline from 'vue-material-design-icons/AccountDetailsOutline.vue'
 import AccountGroup from 'vue-material-design-icons/AccountGroup.vue'
+import AccountGroupOutline from 'vue-material-design-icons/AccountGroupOutline.vue'
 import AlertOctagonOutline from 'vue-material-design-icons/AlertOctagonOutline.vue'
 import BookOpenVariantOutline from 'vue-material-design-icons/BookOpenVariantOutline.vue'
 import Brain from 'vue-material-design-icons/Brain.vue'
@@ -70,6 +71,7 @@ import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import StoreOutline from 'vue-material-design-icons/StoreOutline.vue'
 import ThumbUpOutline from 'vue-material-design-icons/ThumbUpOutline.vue'
+import TextBoxOutline from 'vue-material-design-icons/TextBoxOutline.vue'
 import Timeline from 'vue-material-design-icons/Timeline.vue'
 import TrayArrowDown from 'vue-material-design-icons/TrayArrowDown.vue'
 import Tune from 'vue-material-design-icons/Tune.vue'
@@ -80,6 +82,7 @@ import Webhook from 'vue-material-design-icons/Webhook.vue'
 export default {
 	AccountDetailsOutline,
 	AccountGroup,
+	AccountGroupOutline,
 	AlertOctagonOutline,
 	BookOpenVariantOutline,
 	Brain,
@@ -141,6 +144,7 @@ export default {
 	StopCircleOutline,
 	StoreOutline,
 	ThumbUpOutline,
+	TextBoxOutline,
 	Timeline,
 	TrayArrowDown,
 	Tune,
