@@ -23,3 +23,7 @@ All notable changes to Hermiq are documented in this file.
   - OpenRegister's `createToolInvocationEntry()` records the ambient Nextcloud **session user**, not an agent principal (the `IMcpToolProvider` ABI threads no acting-agent identity into `invokeTool()`). The oversight surface therefore **correlates** invocations to an agent via that agent's owner plus its schedules' owners.
 
   Adds the `agent-tool-governance` capability spec; extends `human-approval-gate` with the `sourceType: "tool"` requirement; `Approval` schema gains `toolId` and the `tool` source type (v0.3.0), `Agent` gains the documented grant grammar on `tools` (v0.2.0).
+
+### Fixed
+
+- **Hermiq no longer ships a Dexie the rest of the instance does not have.** `dexie` was declared `^4.4.6` while every other Conduction app on an instance resolves 4.4.5. Because Hermiq's companion panel and agent leaf load next to another app's bundles, on that app's pages, Dexie's own duplicate check fired at module init and the SPA never mounted: buildiq, dossiq and every app built with buildiq rendered a blank page, with nothing in the Nextcloud log. `dexie` is pinned back to the fleet's `^4.4.5`, and the new `scripts/check-single-dexie.js` runs as `postbuild` (also `npm run check:dexie`). It fails the build when built chunks disagree with each other, with `package-lock.json`, or with `FLEET_DEXIE`, the version the other apps ship. The last of those is what the per-repo guards in openregister and dossiq cannot see, and it is the check that would have caught this.
