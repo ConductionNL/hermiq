@@ -71,22 +71,32 @@ const SENTINEL = 'Two different versions of Dexie'
 const SEMVER_RE = /semVer\s*[:=]\s*["']([0-9][0-9A-Za-z.+-]*)["']/g
 
 if (!fs.existsSync(jsDir)) {
-	console.log('i dexie singleton: js/ not built yet, skipping (run npm run build first)')
+	console.log(
+		'i dexie singleton: js/ not built yet, skipping (run npm run build first)',
+	)
 	process.exit(0)
 }
 
 let expected = null
 try {
-	const lock = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package-lock.json'), 'utf8'))
-	expected = (lock.packages
-		&& lock.packages['node_modules/dexie']
-		&& lock.packages['node_modules/dexie'].version) || null
+	const lock = JSON.parse(
+		fs.readFileSync(path.join(repoRoot, 'package-lock.json'), 'utf8'),
+	)
+	expected =
+		(lock.packages
+			&& lock.packages['node_modules/dexie']
+			&& lock.packages['node_modules/dexie'].version)
+		|| null
 } catch (e) {
-	console.log(`i dexie singleton: could not read package-lock.json (${e.message}); checking chunk agreement only`)
+	console.log(
+		`i dexie singleton: could not read package-lock.json (${e.message}); checking chunk agreement only`,
+	)
 }
 
 if (expected && expected !== FLEET_DEXIE) {
-	console.error(`x dexie singleton: package-lock.json resolves dexie ${expected}, but the fleet ships ${FLEET_DEXIE}. Hermiq's bundles load on every other app's pages, so this drift blanks those apps. Pin dexie back, or bump FLEET_DEXIE in the same pass that bumps the rest of the fleet.`)
+	console.error(
+		`x dexie singleton: package-lock.json resolves dexie ${expected}, but the fleet ships ${FLEET_DEXIE}. Hermiq's bundles load on every other app's pages, so this drift blanks those apps. Pin dexie back, or bump FLEET_DEXIE in the same pass that bumps the rest of the fleet.`,
+	)
 	process.exit(1)
 }
 
@@ -107,7 +117,9 @@ for (const name of fs.readdirSync(jsDir).sort()) {
 		// A chunk carries Dexie's error string but no recognisable version
 		// literal. The marker contract changed, so the guard can no longer
 		// see, and a guard that cannot see must say so rather than pass.
-		console.error(`x dexie singleton: js/${name} embeds Dexie (sentinel found) but no semVer literal matched; update SEMVER_RE in ${path.basename(__filename)}`)
+		console.error(
+			`x dexie singleton: js/${name} embeds Dexie (sentinel found) but no semVer literal matched; update SEMVER_RE in ${path.basename(__filename)}`,
+		)
 		process.exit(1)
 	}
 	for (const v of versions) {
@@ -127,18 +139,26 @@ for (const f of findings) {
 }
 
 if (distinct.length > 1) {
-	console.error(`x dexie singleton: ${distinct.length} different Dexie versions in one chunk set (${distinct.join(', ')}). Loading any two of these chunks in one page throws at module init and the SPA never mounts. Rebuild from a clean js/ with a single resolved dexie.`)
+	console.error(
+		`x dexie singleton: ${distinct.length} different Dexie versions in one chunk set (${distinct.join(', ')}). Loading any two of these chunks in one page throws at module init and the SPA never mounts. Rebuild from a clean js/ with a single resolved dexie.`,
+	)
 	process.exit(1)
 }
 
 if (expected && distinct[0] !== expected) {
-	console.error(`x dexie singleton: built chunks carry dexie ${distinct[0]} but package-lock.json resolves ${expected}. A chunk is stale, or a dependency vendors its own copy. Rebuild from a clean js/.`)
+	console.error(
+		`x dexie singleton: built chunks carry dexie ${distinct[0]} but package-lock.json resolves ${expected}. A chunk is stale, or a dependency vendors its own copy. Rebuild from a clean js/.`,
+	)
 	process.exit(1)
 }
 
 if (distinct[0] !== FLEET_DEXIE) {
-	console.error(`x dexie singleton: built chunks carry dexie ${distinct[0]} but the fleet ships ${FLEET_DEXIE}. Hermiq's panel loads on the other apps' pages; two versions in one page blank them all.`)
+	console.error(
+		`x dexie singleton: built chunks carry dexie ${distinct[0]} but the fleet ships ${FLEET_DEXIE}. Hermiq's panel loads on the other apps' pages; two versions in one page blank them all.`,
+	)
 	process.exit(1)
 }
 
-console.log(`+ dexie singleton: one Dexie version (${distinct[0]}) across ${findings.length} chunk(s), matching the lockfile and the fleet`)
+console.log(
+	`+ dexie singleton: one Dexie version (${distinct[0]}) across ${findings.length} chunk(s), matching the lockfile and the fleet`,
+)
