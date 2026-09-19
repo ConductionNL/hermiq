@@ -74,12 +74,12 @@ async function login(page: Page, user: string, pass: string): Promise<void> {
  */
 async function readSurface(
 	page: Page,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(async () => {
 		const res = await fetch('/index.php/apps/hermiq/api/outside-agent/tools', {
 			headers: { Accept: 'application/json' },
 		})
-		const body = await res.json().catch(() => ({})) as Record<string, unknown>
+		const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
 		return { status: res.status, body }
 	})
 }
@@ -95,12 +95,13 @@ async function readSurface(
 async function callTool(
 	page: Page,
 	tool: string,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(async (tool) => {
-		const token = (
-			document.querySelector('head[data-requesttoken]') as HTMLElement | null
-		)?.dataset.requesttoken
-			|| (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken
+		const token =
+			(document.querySelector('head[data-requesttoken]') as HTMLElement | null)
+				?.dataset.requesttoken
+			|| (window as unknown as { OC?: { requestToken?: string } }).OC
+				?.requestToken
 			|| ''
 
 		const res = await fetch('/index.php/apps/hermiq/api/outside-agent/call', {
@@ -113,7 +114,7 @@ async function callTool(
 			body: JSON.stringify({ tool, arguments: {} }),
 		})
 
-		const body = await res.json().catch(() => ({})) as Record<string, unknown>
+		const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
 		return { status: res.status, body }
 	}, tool)
 }
@@ -178,12 +179,18 @@ test.describe('the declared tool surface and the prompt library', () => {
 		})
 
 		await page.goto('/settings/admin/hermiq', { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('.prompt-library').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.locator('.prompt-library').first()).toBeVisible({
+			timeout: 30_000,
+		})
 
 		// There is one act that switches everything off, and no act that switches
 		// everything back on: coming back is deliberate.
-		await expect(page.getByRole('button', { name: 'Disable every prompt' })).toBeVisible()
-		await expect(page.getByRole('button', { name: /enable every|enable all/i })).toHaveCount(0)
+		await expect(
+			page.getByRole('button', { name: 'Disable every prompt' }),
+		).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: /enable every|enable all/i }),
+		).toHaveCount(0)
 
 		test.skip(prompts.length === 0, 'no prompts shipped on this instance yet')
 

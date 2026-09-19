@@ -112,13 +112,17 @@ async function putBinding(
 	page: Page,
 	id: string,
 	binding: Record<string, string>,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(
 		async ({ id, binding }) => {
-			const token = (
-				document.querySelector('head[data-requesttoken]') as HTMLElement | null
-			)?.dataset.requesttoken
-				|| (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken
+			const token =
+				(
+					document.querySelector(
+						'head[data-requesttoken]',
+					) as HTMLElement | null
+				)?.dataset.requesttoken
+				|| (window as unknown as { OC?: { requestToken?: string } }).OC
+					?.requestToken
 				|| ''
 
 			const res = await fetch(
@@ -134,9 +138,10 @@ async function putBinding(
 				},
 			)
 
-			const body = await res
-				.json()
-				.catch(() => ({})) as Record<string, unknown>
+			const body = (await res.json().catch(() => ({}))) as Record<
+				string,
+				unknown
+			>
 
 			return { status: res.status, body }
 		},
@@ -153,7 +158,10 @@ test.describe('a provider and a place per AI feature', () => {
 		await login(page, NC_USER, NC_PASS)
 
 		const features = await fetchFeatures(page)
-		test.skip(features.length === 0, 'no AI features registered on this instance')
+		test.skip(
+			features.length === 0,
+			'no AI features registered on this instance',
+		)
 
 		const overview = await fetchResidencyOverview(page)
 
@@ -164,12 +172,9 @@ test.describe('a provider and a place per AI feature', () => {
 
 		for (const row of overview) {
 			// Never blank, and never inferred: an unstated residency says so.
-			expect([
-				'on-premise',
-				'eu',
-				'outside-eu',
-				'undeclared',
-			]).toContain(row.residency)
+			expect(['on-premise', 'eu', 'outside-eu', 'undeclared']).toContain(
+				row.residency,
+			)
 		}
 
 		// The register renders inside hermiq's admin settings section, which is also

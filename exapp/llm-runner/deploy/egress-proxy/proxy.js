@@ -302,7 +302,11 @@ const server = http.createServer(async (req, res) => {
 	// not a web server, and it exposes no endpoints of its own.
 	const target = parseAbsoluteTarget(req.url)
 	if (target === null) {
-		refuse(405, 'not_a_proxy_request', 'this proxy serves CONNECT and http:// forward requests only')
+		refuse(
+			405,
+			'not_a_proxy_request',
+			'this proxy serves CONNECT and http:// forward requests only',
+		)
 		return
 	}
 

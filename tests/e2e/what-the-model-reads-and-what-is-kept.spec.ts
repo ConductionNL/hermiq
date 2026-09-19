@@ -80,10 +80,10 @@ async function login(page: Page, user: string, pass: string): Promise<void> {
  */
 async function readRetention(
 	page: Page,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(async (url) => {
 		const res = await fetch(url, { headers: { Accept: 'application/json' } })
-		const body = await res.json().catch(() => ({})) as Record<string, unknown>
+		const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
 		return { status: res.status, body }
 	}, RETENTION)
 }
@@ -99,13 +99,17 @@ async function readRetention(
 async function writeRetention(
 	page: Page,
 	defaultDays: number,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(
 		async ({ url, defaultDays }) => {
-			const token = (
-				document.querySelector('head[data-requesttoken]') as HTMLElement | null
-			)?.dataset.requesttoken
-				|| (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken
+			const token =
+				(
+					document.querySelector(
+						'head[data-requesttoken]',
+					) as HTMLElement | null
+				)?.dataset.requesttoken
+				|| (window as unknown as { OC?: { requestToken?: string } }).OC
+					?.requestToken
 				|| ''
 
 			const res = await fetch(url, {
@@ -118,7 +122,10 @@ async function writeRetention(
 				body: JSON.stringify({ defaultDays }),
 			})
 
-			const body = await res.json().catch(() => ({})) as Record<string, unknown>
+			const body = (await res.json().catch(() => ({}))) as Record<
+				string,
+				unknown
+			>
 			return { status: res.status, body }
 		},
 		{ url: RETENTION, defaultDays },
@@ -145,7 +152,10 @@ test.describe('what the model reads and what is kept', () => {
 
 		// And the enforcement is a question with an answer. "Never ran" is an answer;
 		// silence is not, and neither is a zero that could mean either.
-		const lastCleanup = read.body.lastCleanup as { ran: boolean, removed: number | null }
+		const lastCleanup = read.body.lastCleanup as {
+			ran: boolean
+			removed: number | null
+		}
 		expect(typeof lastCleanup.ran).toBe('boolean')
 		if (lastCleanup.ran === false) {
 			expect(lastCleanup.removed).toBeNull()
@@ -154,7 +164,9 @@ test.describe('what the model reads and what is kept', () => {
 		}
 
 		await page.goto('/settings/admin/hermiq', { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('.run-retention').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.locator('.run-retention').first()).toBeVisible({
+			timeout: 30_000,
+		})
 
 		// The report is on the screen beside the setting, because a setting without
 		// a report says ninety days while the data is still there in year three.
@@ -179,7 +191,9 @@ test.describe('what the model reads and what is kept', () => {
 		expect(after.body.defaultDays).toBe(original)
 	})
 
-	test('an ordinary user can neither read nor move the retention', async ({ page }) => {
+	test('an ordinary user can neither read nor move the retention', async ({
+		page,
+	}) => {
 		test.skip(
 			ORDINARY_USER === '' || ORDINARY_PASS === '',
 			'set NC_ORDINARY_USER / NC_ORDINARY_PASS to probe the boundary with a non-admin',

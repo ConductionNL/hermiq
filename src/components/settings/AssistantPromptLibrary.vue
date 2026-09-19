@@ -22,7 +22,10 @@
 -->
 <template>
 	<div class="prompt-library">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Prompt library error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Prompt library error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -41,7 +44,9 @@
 				v-for="prompt in prompts"
 				:key="prompt.id"
 				class="prompt-library__item"
-				:class="{ 'prompt-library__item--disabled': prompt.enabled === false }">
+				:class="{
+					'prompt-library__item--disabled': prompt.enabled === false,
+				}">
 				<div class="prompt-library__head">
 					<strong class="prompt-library__label">{{ prompt.label }}</strong>
 					<span class="prompt-library__scope">
@@ -51,7 +56,11 @@
 						variant="tertiary"
 						:disabled="busy"
 						@click="toggle(prompt)">
-						{{ prompt.enabled === false ? t('hermiq', 'Enable') : t('hermiq', 'Disable') }}
+						{{
+							prompt.enabled === false
+								? t('hermiq', 'Enable')
+								: t('hermiq', 'Disable')
+						}}
 					</NcButton>
 				</div>
 				<!-- The exact text that is sent, in full: a truncated prompt is one
@@ -139,7 +148,9 @@ export default {
 			this.busy = true
 			this.error = ''
 			try {
-				await saveAssistantPrompt(prompt.id, { enabled: prompt.enabled === false })
+				await saveAssistantPrompt(prompt.id, {
+					enabled: prompt.enabled === false,
+				})
 				await this.load()
 			} catch (e) {
 				this.error = this.messageFor(e)

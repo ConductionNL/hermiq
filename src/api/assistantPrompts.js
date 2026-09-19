@@ -23,9 +23,7 @@ const PROMPTS = '/apps/hermiq/api/assistant-prompts'
  * @return {Promise<Array<object>>} The prompts.
  */
 export async function listAssistantPrompts(scope = '') {
-	const url = scope
-		? `${PROMPTS}?scope=${encodeURIComponent(scope)}`
-		: PROMPTS
+	const url = scope ? `${PROMPTS}?scope=${encodeURIComponent(scope)}` : PROMPTS
 	const response = await axios.get(generateUrl(url))
 	return response.data?.results || []
 }
