@@ -749,7 +749,7 @@
 			},
 			"ReportGroup": {
 				"slug": "agentreportgroup",
-				"icon": "GroupOutline",
+				"icon": "AccountGroupOutline",
 				"version": "0.1.0",
 				"title": "Report group",
 				"description": "One underlying event that several incoming reports describe. A group is a judgement and a set of references: every report in it stays a complete record of its own, nothing was discarded to form it, and removing a member leaves that report standing alone.",
