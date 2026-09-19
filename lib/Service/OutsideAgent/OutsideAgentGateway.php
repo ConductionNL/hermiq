@@ -283,10 +283,17 @@ class OutsideAgentGateway {
 	 * model, and a field renamed there would then silently produce a wrong shape
 	 * here. An empty allowlist means the owning app's own response, untouched.
 	 *
-	 * @param array<string, mixed> $registration The registration.
-	 * @param array<string, mixed> $result The owning app's response.
+	 * The response is keyed by `array-key`, not `string`, and that is load-bearing:
+	 * an owning app may answer with a LIST of rows, which the `array_is_list`
+	 * branch below exists to handle. Declared as `array<string, mixed>` the branch
+	 * was dead by its own type, and psalm said so (NoValue, "all possible types for
+	 * this argument were invalidated"). The runtime always expected both shapes;
+	 * only the docblock disagreed.
 	 *
-	 * @return array<string, mixed> The narrowed response.
+	 * @param array<string, mixed> $registration The registration.
+	 * @param array<array-key, mixed> $result The owning app's response.
+	 *
+	 * @return array<array-key, mixed> The narrowed response.
 	 *
 	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-a-registration-may-narrow-what-a-tool-response-carries
 	 */
