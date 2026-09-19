@@ -189,7 +189,8 @@ class SeedAiFeatures implements IRepairStep {
 				// register has to be able to say so independently.
 				'slug' => 'conversational-intake',
 				'name' => 'Conversational intake',
-				'description' => 'A conversation with a citizen who has no record yet, which either answers them or files a request on their behalf through the owning app.',
+				'description' => 'A conversation with a citizen who has no record yet, which either answers them '
+					. 'or files a request on their behalf through the owning app.',
 				'riskCategory' => 'high',
 				'lifecycle' => 'disabled',
 				'tenantId' => '',

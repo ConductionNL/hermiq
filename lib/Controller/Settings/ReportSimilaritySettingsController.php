@@ -99,11 +99,26 @@ class ReportSimilaritySettingsController extends Controller {
 		$lower = $this->request->getParam('lower');
 		$windows = $this->request->getParam('windows');
 
+		$upperValue = null;
+		if (is_numeric($upper) === true) {
+			$upperValue = (float)$upper;
+		}
+
+		$lowerValue = null;
+		if (is_numeric($lower) === true) {
+			$lowerValue = (float)$lower;
+		}
+
+		$windowsValue = null;
+		if (is_array($windows) === true) {
+			$windowsValue = $windows;
+		}
+
 		try {
 			$stored = $this->settings->store(
-				upper: (is_numeric($upper) === true ? (float)$upper : null),
-				lower: (is_numeric($lower) === true ? (float)$lower : null),
-				windows: (is_array($windows) === true ? $windows : null)
+				upper: $upperValue,
+				lower: $lowerValue,
+				windows: $windowsValue
 			);
 		} catch (InvalidArgumentException $e) {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);

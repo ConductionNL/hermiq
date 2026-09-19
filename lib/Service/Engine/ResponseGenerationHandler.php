@@ -241,7 +241,7 @@ class ResponseGenerationHandler {
 				$organisation = (string)($agent->getOrganisation() ?? '');
 			}
 
-			// a-provider-and-a-place-per-ai-feature: the AI feature this agent's runs
+			// Spec a-provider-and-a-place-per-ai-feature: the AI feature this agent's runs
 			// belong to, when it declares one. It selects the feature's own provider
 			// binding and the residency it requires, both applied before the call.
 			$aiFeature = $agentData['aiFeature'] ?? null;

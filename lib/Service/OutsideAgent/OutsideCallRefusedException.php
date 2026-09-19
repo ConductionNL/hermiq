@@ -82,14 +82,14 @@ class OutsideCallRefusedException extends RuntimeException {
 		string $reason,
 	) {
 		parent::__construct(
-			sprintf(
+			message: sprintf(
 				"Refused by the %s gate: '%s' for principal '%s': %s.",
 				$gate,
 				$toolId,
 				$principal,
 				$reason
 			),
-			403
+			code: 403
 		);
 
 	}//end __construct()

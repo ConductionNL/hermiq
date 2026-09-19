@@ -180,8 +180,7 @@ class RunTraceCollector {
 	 * provider next year cannot rewrite what this run says. "Which model saw this
 	 * case, and where" then becomes a read rather than an investigation.
 	 *
-	 * @param array{feature: string, provider: string, model: string, residency: string, location: string} $disclosure
-	 *        The disclosure, as `FeatureProviderResolver` shaped it.
+	 * @param array{feature: string, provider: string, model: string, residency: string, location: string} $disclosure As resolved.
 	 *
 	 * @return void
 	 *

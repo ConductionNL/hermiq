@@ -59,7 +59,7 @@ class ResidencyViolationException extends RuntimeException {
 		public readonly string $provider,
 	) {
 		parent::__construct(
-			sprintf(
+			message: sprintf(
 				"Refused by the %s check: feature '%s' requires a provider running %s, and provider '%s' runs %s.",
 				self::STEP,
 				$featureSlug,
@@ -67,7 +67,7 @@ class ResidencyViolationException extends RuntimeException {
 				$provider,
 				$actualResidency
 			),
-			422
+			code: 422
 		);
 
 	}//end __construct()

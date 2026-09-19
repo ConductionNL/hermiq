@@ -194,7 +194,7 @@ class FeatureProviderResolver {
 			}
 
 			throw new ModelPolicyViolationException(
-				sprintf(
+				message: sprintf(
 					"Refused by the %s check: organisation '%s' does not permit provider '%s' model '%s' for feature '%s'.",
 					ModelPolicyViolationException::STEP,
 					$orgLabel,
@@ -202,7 +202,7 @@ class FeatureProviderResolver {
 					$model,
 					$featureSlug
 				),
-				422
+				code: 422
 			);
 		}
 

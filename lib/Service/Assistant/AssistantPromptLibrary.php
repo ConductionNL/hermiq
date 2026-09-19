@@ -182,11 +182,16 @@ class AssistantPromptLibrary {
 			$data['administered'] = true;
 		}
 
+		$uuid = $id;
+		if ($id === '') {
+			$uuid = null;
+		}
+
 		$stored = $this->objectService->saveObject(
 			object: $data,
 			register: self::REGISTER_SLUG,
 			schema: self::SCHEMA_SLUG,
-			uuid: (($id === '') ? null : $id)
+			uuid: $uuid
 		);
 
 		$result = $stored->getObject();
@@ -280,8 +285,13 @@ class AssistantPromptLibrary {
 				continue;
 			}
 
+			$knownId = null;
+			if ($known !== null) {
+				$knownId = (string)$known['id'];
+			}
+
 			$this->upsert(
-				id: (($known === null) ? null : (string)$known['id']),
+				id: $knownId,
 				payload: array_merge($prompt, ['source' => $appId]),
 				administered: false
 			);

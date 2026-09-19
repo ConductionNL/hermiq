@@ -307,6 +307,11 @@ class ReportSimilarityService {
 		int $windowMinutes,
 		DateTimeImmutable $at,
 	): array {
+		$decidedBy = self::DECIDED_BY_KEY;
+		if ($deterministicKey === '') {
+			$decidedBy = self::DECIDED_BY_MODEL;
+		}
+
 		$data = [
 			'reportType' => $reportType,
 			'deterministicKey' => $deterministicKey,
@@ -316,7 +321,7 @@ class ReportSimilarityService {
 				[
 					'reportId' => $reportId,
 					'score' => 1.0,
-					'decidedBy' => (($deterministicKey === '') ? self::DECIDED_BY_MODEL : self::DECIDED_BY_KEY),
+					'decidedBy' => $decidedBy,
 					'scorer' => TermOverlapScorer::NAME,
 					'uncertain' => false,
 					'joinedAt' => $at->format('c'),
