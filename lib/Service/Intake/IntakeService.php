@@ -403,15 +403,20 @@ class IntakeService {
 				reason: 'the owning app did not create a record for this request',
 				at: $at
 			);
-		} else {
-			$data['state'] = self::STATE_FILED;
-			$data['filed'] = [
-				'tool' => $intakeTool,
-				'type' => $type,
-				'record' => $filing['result'],
-				'at' => $at->format('c'),
-			];
+
+			$stored = $this->save(data: $data, uuid: $conversationId);
+			$this->record(conversationId: $conversationId, data: $data);
+
+			return $this->shape(conversation: $stored);
 		}
+
+		$data['state'] = self::STATE_FILED;
+		$data['filed'] = [
+			'tool' => $intakeTool,
+			'type' => $type,
+			'record' => $filing['result'],
+			'at' => $at->format('c'),
+		];
 
 		$stored = $this->save(data: $data, uuid: $conversationId);
 		$this->record(conversationId: $conversationId, data: $data);

@@ -147,6 +147,7 @@ class ReportSimilarityService {
 			deterministicKey: $deterministicKey
 		);
 
+		$answer = null;
 		if ($match === null) {
 			$answer = $this->startGroup(
 				reportId: $reportId,
@@ -156,7 +157,9 @@ class ReportSimilarityService {
 				windowMinutes: $windowMinutes,
 				at: $at
 			);
-		} else {
+		}
+
+		if ($match !== null) {
 			$answer = $this->joinGroup(
 				group: $match['group'],
 				reportId: $reportId,

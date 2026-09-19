@@ -85,9 +85,12 @@ class AssistantPromptController extends Controller {
 		$scope = $this->request->getParam('scope');
 
 		try {
+			$prompts = null;
 			if (is_string($scope) === true && trim($scope) !== '') {
 				$prompts = $this->library->forScope(usageScope: trim($scope));
-			} else {
+			}
+
+			if ($prompts === null) {
 				$prompts = $this->library->all();
 			}
 		} catch (Throwable $e) {
