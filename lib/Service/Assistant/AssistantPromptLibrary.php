@@ -332,6 +332,17 @@ class AssistantPromptLibrary {
 	 *
 	 * @return array{installed: int, skipped: int} What the seed did.
 	 *
+	 * @orphaned-write-capability exclude this is the CONSUMER-FACING half of
+	 *   `a-consuming-app-may-ship-an-initial-library`, and the caller is by
+	 *   definition another app: hermiq holds the library, a shipping app hands
+	 *   it the prompts it ships. No app in the fleet ships prompts yet, so
+	 *   there is no caller for gate-57 to find, and there would be none in a
+	 *   single-repo checkout even after one existed — the gate says so itself
+	 *   when it declines to judge a foundation repo (hydra#106). Deleting the
+	 *   method would delete an implemented spec requirement; giving it an HTTP
+	 *   route would invent a write endpoint the spec does not ask for. It
+	 *   stays, unreachable and deliberate, until a consuming app calls it.
+	 *
 	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
 	 */
 	public function seed(string $appId, array $prompts): array {
