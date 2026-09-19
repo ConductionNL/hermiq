@@ -17,7 +17,10 @@
 -->
 <template>
 	<div class="run-retention">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Retention error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Retention error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -40,10 +43,14 @@
 		<p class="run-retention__report">
 			<span v-if="lastCleanup.ran">
 				{{
-					t('hermiq', 'Retention last ran on {at} and removed {removed} run records.', {
-						at: lastCleanup.at,
-						removed: String(lastCleanup.removed),
-					})
+					t(
+						'hermiq',
+						'Retention last ran on {at} and removed {removed} run records.',
+						{
+							at: lastCleanup.at,
+							removed: String(lastCleanup.removed),
+						},
+					)
 				}}
 			</span>
 			<span v-else>

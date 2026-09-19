@@ -18,7 +18,10 @@
 -->
 <template>
 	<div class="report-grouping">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Grouping settings error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Grouping settings error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -51,9 +54,13 @@
 
 		<p class="report-grouping__note">
 			{{
-				t('hermiq', 'Reports are only compared against others from the last {minutes} minutes.', {
-					minutes: String(defaultWindowMinutes),
-				})
+				t(
+					'hermiq',
+					'Reports are only compared against others from the last {minutes} minutes.',
+					{
+						minutes: String(defaultWindowMinutes),
+					},
+				)
 			}}
 		</p>
 	</div>

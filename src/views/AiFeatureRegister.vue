@@ -106,9 +106,7 @@
 						:class="`ai-feature-register__residency--${row.residency}`">
 						{{ residencyLabel(row.residency) }}
 					</span>
-					<span
-						v-if="row.location"
-						class="ai-feature-register__location">
+					<span v-if="row.location" class="ai-feature-register__location">
 						{{ row.location }}
 					</span>
 				</template>

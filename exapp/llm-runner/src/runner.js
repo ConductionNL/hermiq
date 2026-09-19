@@ -267,9 +267,9 @@ function assertMcpEndpointReachable(mcpConfig) {
 		return Promise.resolve()
 	}
 
-	return Promise.all(
-		targets.map((t) => probeUrl(t.url, t.headers)),
-	).then(() => undefined)
+	return Promise.all(targets.map((t) => probeUrl(t.url, t.headers))).then(
+		() => undefined,
+	)
 }
 
 /**

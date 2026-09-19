@@ -76,10 +76,10 @@ async function login(page: Page, user: string, pass: string): Promise<void> {
  */
 async function readSettings(
 	page: Page,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(async (url) => {
 		const res = await fetch(url, { headers: { Accept: 'application/json' } })
-		const body = await res.json().catch(() => ({})) as Record<string, unknown>
+		const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
 		return { status: res.status, body }
 	}, SETTINGS)
 }
@@ -95,13 +95,17 @@ async function readSettings(
 async function writeThreshold(
 	page: Page,
 	abstentionThreshold: number,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(
 		async ({ url, abstentionThreshold }) => {
-			const token = (
-				document.querySelector('head[data-requesttoken]') as HTMLElement | null
-			)?.dataset.requesttoken
-				|| (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken
+			const token =
+				(
+					document.querySelector(
+						'head[data-requesttoken]',
+					) as HTMLElement | null
+				)?.dataset.requesttoken
+				|| (window as unknown as { OC?: { requestToken?: string } }).OC
+					?.requestToken
 				|| ''
 
 			const res = await fetch(url, {
@@ -114,7 +118,10 @@ async function writeThreshold(
 				body: JSON.stringify({ abstentionThreshold }),
 			})
 
-			const body = await res.json().catch(() => ({})) as Record<string, unknown>
+			const body = (await res.json().catch(() => ({}))) as Record<
+				string,
+				unknown
+			>
 			return { status: res.status, body }
 		},
 		{ url: SETTINGS, abstentionThreshold },
@@ -133,12 +140,18 @@ test.describe('a conversational intake that files for the citizen', () => {
 		expect(read.body.abstentionThreshold as number).toBeLessThanOrEqual(1)
 
 		await page.goto('/settings/admin/hermiq', { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('.intake-settings').first()).toBeVisible({ timeout: 30_000 })
-		await expect(page.locator('.intake-settings__row input[type="number"]')).toBeEditable()
+		await expect(page.locator('.intake-settings').first()).toBeVisible({
+			timeout: 30_000,
+		})
+		await expect(
+			page.locator('.intake-settings__row input[type="number"]'),
+		).toBeEditable()
 	})
 
 	// @e2e conversational-intake::intake-is-classified-separately-from-the-handler-assistant
-	test('intake is its own AI feature, not the handler assistant', async ({ page }) => {
+	test('intake is its own AI feature, not the handler assistant', async ({
+		page,
+	}) => {
 		await login(page, NC_USER, NC_PASS)
 
 		const features = await page.evaluate(async () => {
@@ -149,7 +162,10 @@ test.describe('a conversational intake that files for the citizen', () => {
 			return (body.results || []) as Array<Record<string, unknown>>
 		})
 
-		test.skip(features.length === 0, 'the AI feature register is not seeded on this instance')
+		test.skip(
+			features.length === 0,
+			'the AI feature register is not seeded on this instance',
+		)
 
 		const intake = features.find((f) => f.slug === 'conversational-intake')
 		const companion = features.find((f) => f.slug === 'chat-companion')

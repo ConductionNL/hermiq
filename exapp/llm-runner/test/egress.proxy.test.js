@@ -511,7 +511,12 @@ test('an ALLOWED plain-HTTP forward request is forwarded (the governed MCP hop)'
 			raw += c
 		})
 		req.on('end', () => {
-			seen.push({ method: req.method, url: req.url, headers: req.headers, body: raw })
+			seen.push({
+				method: req.method,
+				url: req.url,
+				headers: req.headers,
+				body: raw,
+			})
 			res.writeHead(200, { 'Content-Type': 'application/json' })
 			res.end(JSON.stringify({ ok: true }))
 		})
@@ -532,14 +537,25 @@ test('an ALLOWED plain-HTTP forward request is forwarded (the governed MCP hop)'
 		'{"jsonrpc":"2.0","method":"tools/list","id":1}',
 	)
 
-	assert.strictEqual(out.status, 200, 'an allowed plain-HTTP request must be forwarded')
+	assert.strictEqual(
+		out.status,
+		200,
+		'an allowed plain-HTTP request must be forwarded',
+	)
 	assert.strictEqual(out.body, '{"ok":true}')
-	assert.strictEqual(seen.length, 1, 'the origin must have seen exactly one request')
+	assert.strictEqual(
+		seen.length,
+		1,
+		'the origin must have seen exactly one request',
+	)
 	// ORIGIN-form is what the origin must receive: a proxy rewrites the request
 	// line, and Nextcloud's router cannot match an absolute-form URL.
 	assert.strictEqual(seen[0].url, '/apps/hermiq/api/mcp/run')
 	assert.strictEqual(seen[0].method, 'POST')
-	assert.strictEqual(seen[0].body, '{"jsonrpc":"2.0","method":"tools/list","id":1}')
+	assert.strictEqual(
+		seen[0].body,
+		'{"jsonrpc":"2.0","method":"tools/list","id":1}',
+	)
 	// The proxy credential is hop-by-hop: it must NEVER reach the origin.
 	assert.strictEqual(
 		'proxy-authorization' in seen[0].headers,
@@ -549,7 +565,10 @@ test('an ALLOWED plain-HTTP forward request is forwarded (the governed MCP hop)'
 
 	// The PDP was asked about the EXACT host:port, with the run token as bearer.
 	assert.strictEqual(pdp.calls.length, 1)
-	assert.deepStrictEqual(pdp.calls[0].body, { host: '127.0.0.1', port: originPort })
+	assert.deepStrictEqual(pdp.calls[0].body, {
+		host: '127.0.0.1',
+		port: originPort,
+	})
 	assert.strictEqual(pdp.calls[0].headers.authorization, 'Bearer tok-123')
 
 	proxy.close()
@@ -627,7 +646,11 @@ test('a plain-HTTP forward request with no run token is CHALLENGED and never rea
 	const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }))
 
 	const out = await forwardThrough(proxy.port, 'http://127.0.0.1:1/x', null)
-	assert.strictEqual(out.status, 407, 'no credential ⇒ challenge, never a silent pass')
+	assert.strictEqual(
+		out.status,
+		407,
+		'no credential ⇒ challenge, never a silent pass',
+	)
 	assert.match(out.headers['proxy-authenticate'] || '', /^Basic/)
 	assert.strictEqual(out.denyCode, 'no_run_token')
 	assert.strictEqual(pdp.calls.length, 0, 'there is no run to ask the PDP about')

@@ -77,10 +77,10 @@ async function login(page: Page, user: string, pass: string): Promise<void> {
  */
 async function readSettings(
 	page: Page,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(async (url) => {
 		const res = await fetch(url, { headers: { Accept: 'application/json' } })
-		const body = await res.json().catch(() => ({})) as Record<string, unknown>
+		const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
 		return { status: res.status, body }
 	}, SETTINGS)
 }
@@ -96,13 +96,17 @@ async function readSettings(
 async function writeSettings(
 	page: Page,
 	settings: Record<string, number>,
-): Promise<{ status: number, body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
 	return await page.evaluate(
 		async ({ url, settings }) => {
-			const token = (
-				document.querySelector('head[data-requesttoken]') as HTMLElement | null
-			)?.dataset.requesttoken
-				|| (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken
+			const token =
+				(
+					document.querySelector(
+						'head[data-requesttoken]',
+					) as HTMLElement | null
+				)?.dataset.requesttoken
+				|| (window as unknown as { OC?: { requestToken?: string } }).OC
+					?.requestToken
 				|| ''
 
 			const res = await fetch(url, {
@@ -115,7 +119,10 @@ async function writeSettings(
 				body: JSON.stringify(settings),
 			})
 
-			const body = await res.json().catch(() => ({})) as Record<string, unknown>
+			const body = (await res.json().catch(() => ({}))) as Record<
+				string,
+				unknown
+			>
 			return { status: res.status, body }
 		},
 		{ url: SETTINGS, settings },
@@ -124,7 +131,9 @@ async function writeSettings(
 
 test.describe('identical reports collapse into one', () => {
 	// @e2e report-similarity::the-thresholds-are-the-administrators
-	test('both thresholds are on the screen and both are editable', async ({ page }) => {
+	test('both thresholds are on the screen and both are editable', async ({
+		page,
+	}) => {
 		await login(page, NC_USER, NC_PASS)
 
 		const read = await readSettings(page)
@@ -134,7 +143,9 @@ test.describe('identical reports collapse into one', () => {
 		expect(read.body.lower as number).toBeLessThan(read.body.upper as number)
 
 		await page.goto('/settings/admin/hermiq', { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('.report-grouping').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.locator('.report-grouping').first()).toBeVisible({
+			timeout: 30_000,
+		})
 
 		// Two fields, not one: the middle band is the point of the feature, and a
 		// single threshold on the screen would quietly remove it.

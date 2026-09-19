@@ -141,7 +141,10 @@ export async function listFeatureResidency() {
  * @param {string} [binding.requiredResidency] The residency the feature requires, or '' for none.
  * @return {Promise<object>} The bound feature.
  */
-export async function bindAiFeature(id, { provider, model, requiredResidency = '' }) {
+export async function bindAiFeature(
+	id,
+	{ provider, model, requiredResidency = '' },
+) {
 	const response = await axios.put(
 		generateUrl(`${AI_FEATURES_BASE}/${id}/binding`),
 		{ provider, model, requiredResidency },

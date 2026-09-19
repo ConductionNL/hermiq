@@ -17,7 +17,10 @@
 -->
 <template>
 	<div class="intake-settings">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Intake settings error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Intake settings error')">
 			{{ error }}
 		</NcNoteCard>
 
