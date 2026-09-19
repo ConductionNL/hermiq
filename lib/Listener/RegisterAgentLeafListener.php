@@ -169,7 +169,16 @@ class RegisterAgentLeafListener implements IEventListener {
 				// reverted that, and #3956 replaced the inference with this
 				// declaration. Declaring it is what stops the next reader
 				// re-deriving the wrong answer from the filesystem.
-				loadStrategy: LeafDescriptor::LOADS_VIA_OWN_SCRIPT,
+				//
+				// 🔴 IT IS SAID HERE AND NOWHERE ELSE, BECAUSE OPENREGISTER HAS
+				// NO WAY TO CARRY IT. `LeafDescriptor` ships no `loadStrategy`
+				// parameter and no `LOADS_VIA_OWN_SCRIPT` constant: its
+				// constructor ends at `renderMode`. Passing them threw
+				// `Undefined constant …LeafDescriptor::LOADS_VIA_OWN_SCRIPT` on
+				// every single page load, the catch below turned that into a
+				// warning, and THE AGENT LEAF NEVER REGISTERED AT ALL — measured
+				// on a live instance, seven occurrences in nextcloud.log.
+				// Restore the argument only once OpenRegister accepts it.
 			);
 
 			// Render-only leaf: no IntegrationProvider (null). The chat reads via

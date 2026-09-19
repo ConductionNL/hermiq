@@ -47,14 +47,18 @@ final class LeafDescriptor {
 		'single-entity',
 	];
 
-	/**
-	 * Load strategies, mirroring openregister#3956.
+	/*
+	 * 🔴 NO LOAD-STRATEGY CONSTANTS HERE. They used to be, "mirroring
+	 * openregister#3956", and openregister never gained them: the real
+	 * `LeafDescriptor` constructor ends at `renderMode` and the class contains
+	 * the string `loadStrategy` zero times. This stub therefore offered an API
+	 * the real class does not have, the listener used it, and the suite passed
+	 * while every live instance logged
+	 * `Undefined constant …LeafDescriptor::LOADS_VIA_OWN_SCRIPT` and
+	 * registered no agent leaf at all.
+	 *
+	 * A stub may mirror the real class or lag it. It may never LEAD it.
 	 */
-	public const LOADS_VIA_SHARED_ENTRY = 'shared-entry';
-
-	public const LOADS_VIA_OWN_SCRIPT = 'own-script';
-
-	public const LOADS_ALREADY_PRESENT = 'already-present';
 
 	public const RENDER_MODE_COMPONENT = 'component';
 
@@ -96,22 +100,8 @@ final class LeafDescriptor {
 		private ?string $referenceType = null,
 		private ?string $requiresPermission = null,
 		private string $renderMode = self::RENDER_MODE_COMPONENT,
-		// Mirrors the real descriptor, which gained this in openregister#3956.
-		// A stub that drifts from the real class can only pass: without this
-		// parameter the named argument below would be a TypeError in the suite
-		// and silently fine in production, or the reverse.
-		private ?string $loadStrategy = null,
 	) {
 	}//end __construct()
-
-	/**
-	 * How this leaf's render bundle reaches the page, if it has said.
-	 *
-	 * @return string|null The declared strategy, or null.
-	 */
-	public function getLoadStrategy(): ?string {
-		return $this->loadStrategy;
-	}//end getLoadStrategy()
 
 	/**
 	 * How a render-surface leaf renders.
