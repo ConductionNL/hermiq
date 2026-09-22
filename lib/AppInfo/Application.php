@@ -153,12 +153,10 @@ class Application extends App implements IBootstrap {
 		// contribution is the whole of the integration surface. Guarded on the
 		// class existing so an instance whose OpenRegister predates the flow
 		// engine still boots.
-		if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class) === true) {
-			$context->registerEventListener(
-				\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class,
-				\OCA\Hermiq\Flow\HermiqFlowNodeListener::class
-			);
-		}
+		$context->registerEventListener(
+			\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class,
+			\OCA\Hermiq\Flow\HermiqFlowNodeListener::class
+		);
 
 		// Oversight (schedules-onto-engine-triggers, EU AI Act Art. 14): contribute
 		// hermiq's per-organisation kill switch to the engine's oversight registry,
@@ -167,12 +165,10 @@ class Application extends App implements IBootstrap {
 		// canvas-authored runs, not only the app-local tick. Guarded on the event
 		// class existing so an instance whose OpenRegister predates the oversight
 		// registry still boots.
-		if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class) === true) {
-			$context->registerEventListener(
-				\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class,
-				\OCA\Hermiq\Listener\FlowOversightRegistrationListener::class
-			);
-		}
+		$context->registerEventListener(
+			\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class,
+			\OCA\Hermiq\Listener\FlowOversightRegistrationListener::class
+		);
 
 		// Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
 		// `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
@@ -182,19 +178,16 @@ class Application extends App implements IBootstrap {
 		// predates the leaf hook still boots. The matching JS registration
 		// (registerIntegration under the SAME id) ships in the always-loaded
 		// `hermiq-agent-leaf` bundle added below.
-		if (class_exists(RegisterLeafProvidersEvent::class) === true) {
-			$context->registerEventListener(
-				RegisterLeafProvidersEvent::class,
-				RegisterAgentLeafListener::class
-			);
-
-			// Load the leaf's render-registration bundle on EVERY Nextcloud page so
-			// `registerIntegration('hermiq-agent', …)` runs wherever an OpenBuild app
-			// renders the OpenRegister integration registry — not only on Hermiq's own
-			// pages. The load-order-safe registry shim queues the call when OR's bundle
-			// has not loaded yet and replays it on install (ADR-019 cross-bundle trap).
-			\OCP\Util::addInitScript(self::APP_ID, self::APP_ID . '-agent-leaf');
-		}
+		$context->registerEventListener(
+			RegisterLeafProvidersEvent::class,
+			RegisterAgentLeafListener::class
+		);
+		// Load the leaf's render-registration bundle on EVERY Nextcloud page so
+		// `registerIntegration('hermiq-agent', …)` runs wherever an OpenBuild app
+		// renders the OpenRegister integration registry — not only on Hermiq's own
+		// pages. The load-order-safe registry shim queues the call when OR's bundle
+		// has not loaded yet and replays it on install (ADR-019 cross-bundle trap).
+		\OCP\Util::addInitScript(self::APP_ID, self::APP_ID . '-agent-leaf');
 
 		// AI companion on EVERY page (companion-everywhere). Until now the chat
 		// existed only inside Hermiq's own Vue app, where CnAppRoot renders it from
