@@ -302,11 +302,16 @@ class ResponseGenerationHandler {
 				);
 			}
 
-			if ($driver->provider === 'nextcloud') {
-				// Scope guard — see the class docblock.
+			if ($driver->provider === 'nextcloud' && $channel !== null) {
+				// Scope guard. TaskProcessing has no streaming surface, so it cannot
+				// serve a caller that passed a channel to emit tokens into. A caller
+				// with no channel is a blocking one (a schedule, a flow node, a
+				// background worker) and is served normally: the reason to refuse is
+				// the missing surface, not the provider.
 				throw new ProviderUnavailableException(
-					message: 'The nextcloud (TaskProcessing) chat provider serves background work only '
-					. '(titles, summaries) — select openai, ollama, or fireworks for chat.',
+					message: 'The nextcloud (TaskProcessing) chat provider cannot stream. '
+					. 'Select openai, ollama or fireworks for interactive chat, '
+					. 'or run this agent from a schedule or flow.',
 					code: 503
 				);
 			}
@@ -451,6 +456,22 @@ class ResponseGenerationHandler {
 				// Anthropic usage (input/output tokens) is available on the response but not
 				// yet threaded here; record latency only, matching the Fireworks path.
 				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+			} elseif ($driver->provider === 'nextcloud') {
+				// Nextcloud Assistant: TaskProcessing exposes no LLPhant chat object,
+				// so the turn is flattened into a single core:text2text task. Only
+				// blocking callers reach here, the streaming guard above turns an
+				// interactive one away.
+				//
+				// Tools are not available on this path. The text2text shape carries
+				// no tool contract, so an agent run here is generation only, and a
+				// turn that needed a tool says so rather than calling one silently.
+				$response = $this->providerFactory->generateViaNextcloud(
+					prompt: $this->flattenForTaskProcessing($messageHistory),
+					userId: $agent?->getOwner(),
+					customId: $conversationId
+				);
+				$llmTime = microtime(true) - $llmStartTime;
+				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
 			} else {
 				// OpenAI / Ollama: LLPhant chat instance from the driver.
 				$chat = $driver->chat;
@@ -578,6 +599,59 @@ class ResponseGenerationHandler {
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
+	/**
+	 * Flatten a turn into the single prompt string TaskProcessing accepts.
+	 *
+	 * `core:text2text` takes one `input` string, so the roles a chat model would
+	 * have seen as structure are written out as labels instead. Crude, and it is
+	 * what the task type offers: Assistant has no multi-turn text task shape.
+	 *
+	 * @param array $messageHistory The turn, newest last.
+	 *
+	 * @return string The prompt.
+	 */
+	private function flattenForTaskProcessing(array $messageHistory): string {
+		$lines = [];
+		foreach ($messageHistory as $message) {
+			$role = '';
+			$content = '';
+			if (is_object($message) === true) {
+				$role = (string)($message->role->value ?? $message->role ?? '');
+				$content = (string)($message->content ?? '');
+			} elseif (is_array($message) === true) {
+				$role = (string)($message['role'] ?? '');
+				$content = (string)($message['content'] ?? '');
+			}
+
+			if (trim($content) === '') {
+				continue;
+			}
+
+			$label = match ($role) {
+				'system' => 'Instructions',
+				'assistant' => 'Assistant',
+				default => 'User',
+			};
+
+			$line = $label . ': ' . $content;
+			// A turn is often handed to us with the current message already in the
+			// history and appended again. Two identical lines in a row read to the
+			// model as emphasis and it answers by echoing them back.
+			if (end($lines) === $line) {
+				continue;
+			}
+
+			$lines[] = $line;
+		}
+
+		// text2text continues a document rather than answering a turn, so it needs
+		// somewhere to write. Without the trailing cue the model tends to repeat the
+		// prompt back instead of repying to it.
+		$lines[] = 'Assistant:';
+
+		return implode("\n\n", $lines);
+	}//end flattenForTaskProcessing()
+
 	private function invokeChat(
 		OpenAIChat|OllamaChat $chat,
 		array $messageHistory,
