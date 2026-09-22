@@ -1,0 +1,14 @@
+# How the app store package is built.
+#
+# The package must not carry dev dependencies. psalm, robo and the consolidation
+# packages pull in symfony/console 6, and Nextcloud 35 calls
+# Application::addCommand(), which that version does not have. A shipped copy
+# wins the autoload race and breaks every occ command on the instance, not only
+# ours. Installing without dev leaves Console to Nextcloud, which is where it
+# belongs.
+[package]
+before_cmds = [
+	"composer install --no-dev --optimize-autoloader --no-interaction",
+	"npm ci",
+	"npm run build",
+]

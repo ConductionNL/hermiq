@@ -102,8 +102,5 @@
                 "Capture Ollama token/latency usage on OllamaChat::$lastUsage so the Engine can record per-run cost (run-analytics) \u2014 drop when LLPhant exposes response usage": "patches/llphant-ollama-usage-capture.patch"
             }
         }
-    },
-    "replace": {
-        "symfony/console": "*"
     }
 }
