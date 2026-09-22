@@ -466,7 +466,7 @@ class ResponseGenerationHandler {
 				// no tool contract, so an agent run here is generation only, and a
 				// turn that needed a tool says so rather than calling one silently.
 				$response = $this->providerFactory->generateViaNextcloud(
-					prompt: $this->flattenForTaskProcessing($messageHistory),
+					prompt: $this->flattenForTaskProcessing(messageHistory: $messageHistory),
 					userId: $agent?->getOwner(),
 					customId: $conversationId
 				);
@@ -574,32 +574,6 @@ class ResponseGenerationHandler {
 	}//end generateResponse()
 
 	/**
-	 * Invoke the configured chat client, preferring streaming where possible.
-	 *
-	 * Ollama-with-tools degrades to blocking: `OllamaChat::generateChatStream`
-	 * does NOT process tool_calls — only the blocking `generateChat` path
-	 * handles the tool-call branch (and our FacadeToolInvoker still fires
-	 * tool_call/tool_result frames from there, so SSE consumers see tool
-	 * progress even without token streaming). OpenAI's streamed response
-	 * handles tool_calls during the stream, so it stays on the streaming path.
-	 * On `MissingFeatureException` we fall through to the blocking call so
-	 * providers that advertise streaming but fail at runtime degrade gracefully.
-	 *
-	 * @param OpenAIChat|OllamaChat $chat Configured chat client.
-	 * @param array $messageHistory LLPhant message history.
-	 * @param StreamYieldChannel|null $channel Optional streaming channel.
-	 * @param string $provider Provider slug (for logging).
-	 * @param bool $hasTools Whether tools were registered on the chat
-	 *                       (tracked at setTools() time — the ported
-	 *                       original recovered this via reflection on
-	 *                       LLPhant's protected `tools` property; we
-	 *                       set the tools ourselves, so no reflection).
-	 *
-	 * @return string The assistant's textual response.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 */
-	/**
 	 * Flatten a turn into the single prompt string TaskProcessing accepts.
 	 *
 	 * `core:text2text` takes one `input` string, so the roles a chat model would
@@ -644,14 +618,40 @@ class ResponseGenerationHandler {
 			$lines[] = $line;
 		}
 
-		// text2text continues a document rather than answering a turn, so it needs
-		// somewhere to write. Without the trailing cue the model tends to repeat the
-		// prompt back instead of repying to it.
+		// The text2text task type continues a document rather than answering a turn,
+		// so it needs somewhere to write. Without the trailing cue the model tends to
+		// repeat the prompt back instead of replying to it.
 		$lines[] = 'Assistant:';
 
 		return implode("\n\n", $lines);
 	}//end flattenForTaskProcessing()
 
+	/**
+	 * Invoke the configured chat client, preferring streaming where possible.
+	 *
+	 * Ollama-with-tools degrades to blocking: `OllamaChat::generateChatStream`
+	 * does NOT process tool_calls — only the blocking `generateChat` path
+	 * handles the tool-call branch (and our FacadeToolInvoker still fires
+	 * tool_call/tool_result frames from there, so SSE consumers see tool
+	 * progress even without token streaming). OpenAI's streamed response
+	 * handles tool_calls during the stream, so it stays on the streaming path.
+	 * On `MissingFeatureException` we fall through to the blocking call so
+	 * providers that advertise streaming but fail at runtime degrade gracefully.
+	 *
+	 * @param OpenAIChat|OllamaChat $chat Configured chat client.
+	 * @param array $messageHistory LLPhant message history.
+	 * @param StreamYieldChannel|null $channel Optional streaming channel.
+	 * @param string $provider Provider slug (for logging).
+	 * @param bool $hasTools Whether tools were registered on the chat
+	 *                       (tracked at setTools() time — the ported
+	 *                       original recovered this via reflection on
+	 *                       LLPhant's protected `tools` property; we
+	 *                       set the tools ourselves, so no reflection).
+	 *
+	 * @return string The assistant's textual response.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
 	private function invokeChat(
 		OpenAIChat|OllamaChat $chat,
 		array $messageHistory,
