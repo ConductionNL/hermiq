@@ -42,6 +42,7 @@ namespace OCA\Hermiq\Flow;
 use DateTime;
 use OCA\Hermiq\Service\GitHubBroker;
 use OCA\OpenRegister\Service\Flow\FlowItems;
+use OCA\OpenRegister\Service\Flow\FlowNodeResumeState;
 use OCA\OpenRegister\Service\Flow\FlowStop;
 use OCA\OpenRegister\Service\Flow\FlowSuspension;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
@@ -240,9 +241,13 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	/**
 	 * Read the issue, continue when the label is there, otherwise sleep.
 	 *
-	 * The deadline is carried on the item rather than in the node, because the node
-	 * is re-entered from scratch on every wake and holds nothing between them. The
-	 * first pass writes it; later passes compare against it.
+	 * The deadline lives in the node's RESUME STATE, not on the item. That is not a
+	 * preference: throwing FlowSuspension abandons the step, so every item mutation
+	 * made on the way to the throw is discarded. A deadline written onto the item
+	 * was therefore recomputed from `now` on every single wake, which is a timeout
+	 * that can never expire, on a node whose whole reason for having a deadline is
+	 * that a suspended run holds its flow's schedule shut behind it. Resume state
+	 * is the one thing the engine carries across a suspension.
 	 *
 	 * @param array $items The items in flight.
 	 * @param array $config The step configuration.
@@ -262,8 +267,9 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 
 		$userId = ($context['triggeredBy'] ?? null);
 		$now = new DateTime();
-		$deadlineFor = [];
 		$stillWaiting = false;
+		$deadline = $this->deadline(config: $config, context: $context, now: $now);
+		$expired = ($deadline !== null && strtotime($deadline) !== false && strtotime($deadline) <= $now->getTimestamp());
 
 		foreach ($items as $index => $item) {
 			if (is_array($item) === false) {
@@ -299,16 +305,6 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 				);
 			}
 
-			$existing = (array)($json[$outputKey] ?? []);
-			$deadline = (string)($existing['deadline'] ?? '');
-			if ($deadline === '') {
-				$deadline = (clone $now)
-					->modify('+' . $this->minutes(config: $config, key: 'timeoutMinutes', fallback: self::DEFAULT_TIMEOUT_MINUTES) . ' minutes')
-					->format(DATE_ATOM);
-			}
-
-			$deadlineFor[$index] = $deadline;
-
 			try {
 				$issue = $this->broker->getIssue(repo: $repo, number: $number, userId: $userId);
 				$labels = (array)($issue['labels'] ?? []);
@@ -321,8 +317,6 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 				$labels = [];
 				$issue = ['error' => $e->getMessage()];
 			}
-
-			$expired = (strtotime($deadline) !== false && strtotime($deadline) <= $now->getTimestamp());
 
 			if ($found === false && $expired === false) {
 				$json[$outputKey] = ['waited' => true, 'found' => false, 'deadline' => $deadline, 'labels' => $labels];
@@ -368,6 +362,44 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 
 		return $items;
 	}//end execute()
+
+	/**
+	 * When this wait gives up, fixed on the first pass and carried across wakes.
+	 *
+	 * The engine hands the node a resume-state object precisely because a
+	 * suspending node has nowhere else to keep anything: the items it mutated are
+	 * thrown away with the step. The first pass writes the deadline, every later
+	 * pass reads the same one back, which is what makes the timeout a real
+	 * deadline rather than a fresh one per heartbeat.
+	 *
+	 * An engine that hands over no resume state answers null, and the wait then
+	 * runs without a deadline rather than failing: losing the safety net is bad,
+	 * and refusing to wait at all is worse.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $context The run context.
+	 * @param DateTime $now The current time.
+	 *
+	 * @return string|null The deadline as an ATOM timestamp, or null when none can be kept.
+	 */
+	private function deadline(array $config, array $context, DateTime $now): ?string {
+		$resume = ($context[FlowNodeResumeState::CONTEXT_KEY] ?? null);
+		if (($resume instanceof FlowNodeResumeState) === false) {
+			return null;
+		}
+
+		if ($resume->has(key: 'deadline') === true) {
+			return (string)$resume->get(key: 'deadline');
+		}
+
+		$deadline = (clone $now)
+			->modify('+' . $this->minutes(config: $config, key: 'timeoutMinutes', fallback: self::DEFAULT_TIMEOUT_MINUTES) . ' minutes')
+			->format(DATE_ATOM);
+
+		$resume->merge(values: ['deadline' => $deadline, 'label' => (string)($config['label'] ?? '')]);
+
+		return $deadline;
+	}//end deadline()
 
 	/**
 	 * Read one positive whole number off the config.
