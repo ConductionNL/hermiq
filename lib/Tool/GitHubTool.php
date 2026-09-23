@@ -51,13 +51,6 @@ use OCA\OpenRegister\Tool\ToolInterface;
 class GitHubTool implements ToolInterface {
 
 	/**
-	 * The agent this tool is serving, when the registry set one.
-	 *
-	 * @var Agent|null
-	 */
-	private ?Agent $agent = null;
-
-	/**
 	 * Constructor.
 	 *
 	 * @param GitHubBroker $broker The brokered GitHub client.
@@ -88,12 +81,20 @@ class GitHubTool implements ToolInterface {
 	/**
 	 * Receive the agent whose grants admitted this tool.
 	 *
+	 * Deliberately a no-op. `ToolInterface` requires the setter, and every
+	 * function here is already scoped twice over without knowing which agent is
+	 * calling: the registry hands the tool over only after resolving that agent's
+	 * grants, and every call then goes through the credential broker's own
+	 * host-lock and allow-rules. Storing the agent would add a field nothing
+	 * reads, which phpstan correctly reported as write-only, and a field nothing
+	 * reads is a standing invitation for a later change to start scoping here
+	 * instead of where the scoping actually happens.
+	 *
 	 * @param Agent|null $agent The agent, or null outside an agent run.
 	 *
 	 * @return void
 	 */
 	public function setAgent(?Agent $agent): void {
-		$this->agent = $agent;
 	}//end setAgent()
 
 	/**
