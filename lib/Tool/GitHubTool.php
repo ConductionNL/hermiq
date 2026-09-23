@@ -93,6 +93,12 @@ class GitHubTool implements ToolInterface {
 	 * @param Agent|null $agent The agent, or null outside an agent run.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) `ToolInterface` declares the
+	 *   parameter, so the signature is not ours to narrow. Accepting and ignoring
+	 *   it is the honest implementation of a setter this class has nothing to do
+	 *   with; the alternative is a field nothing reads, which phpstan flags in the
+	 *   other direction.
 	 */
 	public function setAgent(?Agent $agent): void {
 	}//end setAgent()

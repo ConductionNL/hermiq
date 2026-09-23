@@ -402,7 +402,7 @@ class GitHubBroker {
 	 * @return array<string,mixed>
 	 */
 	public function createPullRequest(string $repo, string $head, string $base, string $title, string $body, bool $draft, ?string $userId): array {
-		$pr = $this->call(
+		$pull = $this->call(
 			method: 'POST',
 			path: '/repos/' . $repo . '/pulls',
 			payload: [
@@ -417,9 +417,9 @@ class GitHubBroker {
 
 		return [
 			'success' => true,
-			'number' => (int)($pr['number'] ?? 0),
-			'html_url' => (string)($pr['html_url'] ?? ''),
-			'draft' => (bool)($pr['draft'] ?? $draft),
+			'number' => (int)($pull['number'] ?? 0),
+			'html_url' => (string)($pull['html_url'] ?? ''),
+			'draft' => (bool)($pull['draft'] ?? $draft),
 		];
 	}//end createPullRequest()
 
