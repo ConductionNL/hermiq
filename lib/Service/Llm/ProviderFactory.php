@@ -72,6 +72,7 @@ use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
+use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
 use Psr\Container\ContainerInterface;
@@ -110,6 +111,21 @@ class ProviderFactory {
 	 *
 	 * @var string
 	 */
+	/**
+	 * The plain completion task type: a prompt in, prose out, no tools.
+	 *
+	 * @var string
+	 */
+	public const TASK_TYPE_TEXT = 'text2text';
+
+	/**
+	 * The Assistant's agent task type: the same prompt, but the provider runs a
+	 * tool loop behind it.
+	 *
+	 * @var string
+	 */
+	public const TASK_TYPE_AGENT = 'contextagent';
+
 	private const APP_API_ID = 'app_api';
 
 	/**
@@ -564,6 +580,18 @@ class ProviderFactory {
 	 *                               handed one. A feature declaring `requiresRedaction`
 	 *                               is refused unless filinq has redacted it; a run with
 	 *                               no document reference passes that gate untouched.
+	 * @param string|null $agentProvider The provider the AGENT itself names, when it names
+	 *                               one. Agents have carried a `provider` field since they
+	 *                               existed, and it was shown in the UI and stored on every
+	 *                               save while nothing ever read it, so an agent authored
+	 *                               against Fireworks ran on whatever the instance's single
+	 *                               `chatProvider` happened to be. The only symptom was
+	 *                               answers that did not match the model the agent claimed.
+	 *                               It overrides the instance setting and NOT policy: the
+	 *                               AI feature binding below still wins, and the resolved
+	 *                               pair still goes through the same ModelPolicy check. An
+	 *                               unrecognised name raises rather than falling back,
+	 *                               because falling back is how this went unnoticed.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -592,8 +620,14 @@ class ProviderFactory {
 		?int $agentMaxTokens = null,
 		?string $aiFeature = null,
 		?string $documentReference = null,
+		?string $agentProvider = null,
 	): ChatDriver {
 		$chatProvider = $llmConfig['chatProvider'] ?? null;
+
+		$agentProvider = strtolower(trim((string)$agentProvider));
+		if ($agentProvider !== '') {
+			$chatProvider = $agentProvider;
+		}
 
 		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
 		// resolve the feature's own binding. It only resolves; the ceiling is
@@ -2321,13 +2355,32 @@ class ProviderFactory {
 	/**
 	 * Generate text via the `nextcloud` TaskProcessing driver.
 	 *
-	 * Non-streaming, background/non-interactive only (conversation titles,
-	 * summaries) — never call this for SSE chat. Runs the `core:text2text` task
-	 * type synchronously via `IManager::runTask()`.
+	 * Non-streaming, background/non-interactive only — never call this for SSE
+	 * chat. Runs one task synchronously via `IManager::runTask()`.
+	 *
+	 * TWO TASK TYPES, AND THE DIFFERENCE IS TOOLS. `core:text2text` carries a
+	 * prompt and returns prose; its shape has no place for a tool call, so an
+	 * agent on that path cannot use one however it is instructed — it will say so
+	 * in its answer and carry on guessing. `core:contextagent:interaction` is the
+	 * Assistant's agent surface, and its provider runs a real tool loop with
+	 * whatever MCP servers the Assistant is configured with. A step that must
+	 * READ or WRITE something asks for the agent type; a step that must only
+	 * think asks for text.
+	 *
+	 * WHY THE MODEL IS PASSED PER TASK. A provider's preferred model is admin
+	 * config, one setting for the whole instance, so without this every step of
+	 * every flow runs on the same model — a one-line triage and a code review
+	 * priced and paced identically. `model` is a declared OPTIONAL input on
+	 * `core:text2text`, so passing it is the supported way to choose per call,
+	 * and `taskInput()` only sends it where the resolved provider actually
+	 * declares it: an unrecognised input key fails the task's own validation, so
+	 * sending it blind would break every provider that does not offer the choice.
 	 *
 	 * @param string $prompt The prompt text.
 	 * @param string|null $userId The user id scheduling the task (optional).
 	 * @param string|null $customId Optional custom task id for correlation.
+	 * @param string|null $model The model to ask for, when the provider accepts one.
+	 * @param string $taskType Either `text2text` or `contextagent`.
 	 *
 	 * @return string The generated text.
 	 *
@@ -2336,12 +2389,25 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
 	 */
-	public function generateViaNextcloud(string $prompt, ?string $userId = null, ?string $customId = null): string {
+	public function generateViaNextcloud(
+		string $prompt,
+		?string $userId = null,
+		?string $customId = null,
+		?string $model = null,
+		string $taskType = self::TASK_TYPE_TEXT
+	): string {
 		if ($this->taskManager->hasProviders() === false) {
 			throw new ProviderUnavailableException('No Nextcloud Assistant (TaskProcessing) provider is installed.', 503);
 		}
 
-		$task = new Task(TextToText::ID, ['input' => $prompt], $this->appName, $userId, ($customId ?? ''));
+		$taskTypeId = ($taskType === self::TASK_TYPE_AGENT) ? ContextAgentInteraction::ID : TextToText::ID;
+		$task = new Task(
+			$taskTypeId,
+			$this->taskInput(taskTypeId: $taskTypeId, prompt: $prompt, model: $model),
+			$this->appName,
+			$userId,
+			($customId ?? '')
+		);
 
 		try {
 			$result = $this->taskManager->runTask($task);
@@ -2364,6 +2430,131 @@ class ProviderFactory {
 
 		return $output;
 	}//end generateViaNextcloud()
+
+	/**
+	 * Build the input map for one task, asking for a model only where it is offered.
+	 *
+	 * The shape check is not defensive tidiness. A Task validates its input against
+	 * the resolved provider's declared shapes and REJECTS an unknown key, so a
+	 * `model` sent to a provider that does not declare one does not fall back to the
+	 * default — it fails the whole task, and does so identically to the model being
+	 * unavailable. Asking the provider first is the difference between "this
+	 * provider does not let you choose" and "this provider is broken".
+	 *
+	 * @param string $taskTypeId The task type being run.
+	 * @param string $prompt The prompt text.
+	 * @param string|null $model The requested model, if any.
+	 *
+	 * @return array<string,mixed> The task input map.
+	 */
+	private function taskInput(string $taskTypeId, string $prompt, ?string $model): array {
+		if ($taskTypeId === ContextAgentInteraction::ID) {
+			// The agent surface is a conversation, so it needs the two turn fields
+			// even on a first turn: an empty token starts one, and `confirmation`
+			// is the answer to a question nobody has asked yet.
+			return ['input' => $prompt, 'confirmation' => 0, 'conversation_token' => ''];
+		}
+
+		$input = ['input' => $prompt];
+
+		$model = trim((string)$model);
+		if ($model === '') {
+			return $input;
+		}
+
+		try {
+			$provider = $this->taskManager->getPreferredProvider($taskTypeId);
+			$accepts = array_key_exists('model', $provider->getOptionalInputShape());
+			$allowed = $this->modelEnumValues(provider: $provider);
+		} catch (\Throwable $e) {
+			$accepts = false;
+			$allowed = [];
+		}
+
+		if ($accepts === false) {
+			return $input;
+		}
+
+		// The shape is not enough, because `model` is declared as an ENUM rather
+		// than as free text. A value outside the enum does not fall back to the
+		// default: it fails the task's input validation, and the run dies with
+		// "Wrong value given for Enum slot" — which reads as a broken provider.
+		//
+		// Worse, the enum is built from the provider's own /models listing, and an
+		// OpenAI-COMPATIBLE endpoint need not offer one. Measured 2026-09-23
+		// against Fireworks: /models answered with zero entries, so the enum was
+		// empty and rejected EVERY value, including the admin's configured default
+		// model that was serving every other call correctly.
+		//
+		// So an unlisted model is dropped rather than sent, and said out loud. A
+		// dropped model means the step runs on the admin default, which is the old
+		// behaviour and works; sending it means the step does not run at all. The
+		// warning is what stops the drop being silent, since a step that quietly
+		// ran on another model is the failure this whole parameter exists to end.
+		if ($allowed !== [] && in_array($model, $allowed, true) === false) {
+			$this->logger->warning(
+				message: '[ProviderFactory] the Assistant provider does not offer this model, falling back to its default',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'requested' => $model,
+					'offered' => $allowed,
+					'taskType' => $taskTypeId,
+				]
+			);
+
+			return $input;
+		}
+
+		if ($allowed === []) {
+			$this->logger->warning(
+				message: '[ProviderFactory] the Assistant provider lists no models, so the requested one cannot be asked for',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'requested' => $model,
+					'taskType' => $taskTypeId,
+				]
+			);
+
+			return $input;
+		}
+
+		$input['model'] = $model;
+
+		return $input;
+	}//end taskInput()
+
+	/**
+	 * The model names one provider will accept, as plain strings.
+	 *
+	 * `getOptionalInputShapeEnumValues()` returns ShapeEnumValue objects, whose
+	 * `value` is what validation compares against and whose `name` is only a label.
+	 * Reading the label would pass a display string to the API.
+	 *
+	 * @param object $provider The resolved TaskProcessing provider.
+	 *
+	 * @return array<int,string> The accepted values, empty when the provider lists none.
+	 */
+	private function modelEnumValues(object $provider): array {
+		if (method_exists($provider, 'getOptionalInputShapeEnumValues') === false) {
+			return [];
+		}
+
+		$values = [];
+		foreach (($provider->getOptionalInputShapeEnumValues()['model'] ?? []) as $entry) {
+			if (is_object($entry) === true && method_exists($entry, 'getValue') === true) {
+				$values[] = (string)$entry->getValue();
+				continue;
+			}
+
+			if (is_string($entry) === true) {
+				$values[] = $entry;
+			}
+		}
+
+		return $values;
+	}//end modelEnumValues()
 
 	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently
@@ -2550,7 +2741,7 @@ class ProviderFactory {
 
 		// The seam that makes this possible without rewriting LLPhant: OpenAIChat uses
 		// `$config->client` when set, and OpenAI::factory() accepts any PSR-18 client.
-		$config->client = OpenAI::factory()
+		$factory = OpenAI::factory()
 			->withApiKey(BrokerHttpClient::BROKER_MANAGED_KEY)
 			->withHttpClient(
 				new BrokerHttpClient(
@@ -2559,8 +2750,28 @@ class ProviderFactory {
 					actingUserId: $this->currentUid(),
 					container: $this->container
 				)
-			)
-			->make();
+			);
+
+		// An OpenAI-COMPATIBLE endpoint is reached by setting the base URI, and it
+		// has to be set here rather than left to the broker. BrokerHttpClient
+		// reduces the request to a PATH and lets the credential's provider supply
+		// the host, which is the whole host-lock; but the path is whatever the
+		// client emitted, and the openai-php client emits `/v1/...`. Fireworks
+		// serves the same API under `/inference/v1/...`, so without this the call
+		// lands on a path the provider's allow-rules do not match and never
+		// reaches an endpoint at all.
+		//
+		// Worth having beyond one vendor: it is the difference between "hermiq
+		// supports OpenAI" and "hermiq supports anything speaking OpenAI's chat
+		// API", and function calling comes with the dialect. Hermiq's own
+		// `fireworks` provider has no tool support, so an agent that needs tools
+		// on Fireworks arrives here.
+		$openAiBaseUrl = trim((string)($openaiConfig['baseUrl'] ?? ''));
+		if ($openAiBaseUrl !== '') {
+			$factory = $factory->withBaseUri($openAiBaseUrl);
+		}
+
+		$config->client = $factory->make();
 
 		$config->model = ($openaiConfig['chatModel'] ?? 'gpt-4o-mini');
 		if (empty($agentModel) === false) {

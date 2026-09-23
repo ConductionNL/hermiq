@@ -2476,6 +2476,12 @@
 						"title": "Model",
 						"description": "Model identifier used by the provider (e.g. gpt-4o-mini, llama3)."
 					},
+					"taskType": {
+						"type": "string",
+						"title": "Task type",
+						"description": "Which Nextcloud Assistant task type this agent runs on when its provider is nextcloud. text2text, the default, is generation only: the task shape carries no tool contract, so the agent cannot call a tool however it is instructed. contextagent hands the turn to the Assistant agent surface instead, whose provider runs a tool loop over the configured MCP servers. Ignored on every other provider.",
+						"enum": ["text2text", "contextagent"]
+					},
 					"aiFeature": {
 						"type": "string",
 						"title": "AI feature",

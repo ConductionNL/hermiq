@@ -280,6 +280,16 @@ class ResponseGenerationHandler {
 				}
 			}
 
+			// The agent's own provider, which until now was stored and displayed and
+			// never read: every agent ran on the instance's single `chatProvider`
+			// whatever its own said. That matters most for a flow, where one chain
+			// wants a tool-capable provider for the steps that touch a repository
+			// and the Assistant for the steps that only think.
+			$agentProvider = $agentData['provider'] ?? null;
+			if (is_string($agentProvider) === false || trim($agentProvider) === '') {
+				$agentProvider = null;
+			}
+
 			$driver = $this->providerFactory->createChatDriver(
 				llmConfig: $llmConfig,
 				agentModel: $agentModel,
@@ -287,7 +297,8 @@ class ResponseGenerationHandler {
 				organisation: $organisation,
 				agentMaxTokens: $agentMaxTokens,
 				aiFeature: $aiFeature,
-				documentReference: $documentReference
+				documentReference: $documentReference,
+				agentProvider: $agentProvider
 			);
 
 			// Which model saw this case, and where. Copied onto the run rather than
@@ -458,17 +469,27 @@ class ResponseGenerationHandler {
 				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
 			} elseif ($driver->provider === 'nextcloud') {
 				// Nextcloud Assistant: TaskProcessing exposes no LLPhant chat object,
-				// so the turn is flattened into a single core:text2text task. Only
-				// blocking callers reach here, the streaming guard above turns an
-				// interactive one away.
+				// so the turn is flattened into a single task. Only blocking callers
+				// reach here, the streaming guard above turns an interactive one away.
 				//
-				// Tools are not available on this path. The text2text shape carries
-				// no tool contract, so an agent run here is generation only, and a
-				// turn that needed a tool says so rather than calling one silently.
+				// WHICH TASK TYPE IS THE AGENT'S OWN CHOICE. `text2text` carries no
+				// tool contract, so a turn that needed a tool can only say so; that
+				// is the right shape for a step whose whole job is to think, and the
+				// wrong one for a step that has to read a repository. An agent that
+				// sets `taskType: contextagent` is handed to the Assistant's agent
+				// surface instead, whose provider runs its own tool loop over the MCP
+				// servers the Assistant is configured with.
+				//
+				// The model travels with it for the same reason: a provider's model
+				// is admin config, one setting for the whole instance, so without
+				// passing the agent's own the triage step and the review step run on
+				// the same model whatever either agent says.
 				$response = $this->providerFactory->generateViaNextcloud(
 					prompt: $this->flattenForTaskProcessing(messageHistory: $messageHistory),
 					userId: $agent?->getOwner(),
-					customId: $conversationId
+					customId: $conversationId,
+					model: $this->assistantModel(agentData: $agentData),
+					taskType: $this->assistantTaskType(agentData: $agentData)
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
@@ -572,6 +593,42 @@ class ResponseGenerationHandler {
 			throw new Exception('Failed to generate response: ' . $e->getMessage(), (int)$e->getCode(), $e);
 		}//end try
 	}//end generateResponse()
+
+	/**
+	 * Which TaskProcessing task type this agent asked for.
+	 *
+	 * Anything other than `contextagent` reads as `text2text`, so an agent that
+	 * says nothing behaves exactly as it did before this existed, and a typo
+	 * cannot silently hand a governed step to a tool-running provider.
+	 *
+	 * @param array $agentData The agent object's data.
+	 *
+	 * @return string Either `text2text` or `contextagent`.
+	 */
+	private function assistantTaskType(array $agentData): string {
+		$requested = strtolower(trim((string)($agentData['taskType'] ?? '')));
+
+		return ($requested === ProviderFactory::TASK_TYPE_AGENT)
+			? ProviderFactory::TASK_TYPE_AGENT
+			: ProviderFactory::TASK_TYPE_TEXT;
+	}//end assistantTaskType()
+
+	/**
+	 * The model this agent asked for, or null to leave the provider's default alone.
+	 *
+	 * Empty is returned as null rather than as an empty string because those mean
+	 * opposite things downstream: null is "the admin's choice stands", and '' would
+	 * be a request for a model with no name.
+	 *
+	 * @param array $agentData The agent object's data.
+	 *
+	 * @return string|null The requested model, or null.
+	 */
+	private function assistantModel(array $agentData): ?string {
+		$model = trim((string)($agentData['model'] ?? ''));
+
+		return ($model === '') ? null : $model;
+	}//end assistantModel()
 
 	/**
 	 * Flatten a turn into the single prompt string TaskProcessing accepts.
