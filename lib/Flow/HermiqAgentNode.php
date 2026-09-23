@@ -305,6 +305,30 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 				anchor: null
 			);
 
+			// An EMPTY answer is a failure, not an answer. The turn can succeed
+			// mechanically and still produce nothing: a model handed a prompt
+			// large enough to exhaust its output budget returns an empty string,
+			// and so does one that spent its whole budget reasoning. Measured
+			// 2026-09-23 on a build step whose prompt carried a specification and
+			// a research note inline: the step completed in 92 seconds, wrote ''
+			// onto the item, and the pipeline carried on to review a diff that
+			// was never written. Nothing in the run said anything had gone wrong.
+			//
+			// This is the same defect the surrounding comment describes for a
+			// THROWN failure, arriving by a different route, so it gets the same
+			// answer: raise, and let the step's own `onError` policy decide.
+			// An author who wants an empty turn to pass says so on the step.
+			if (trim($answer) === '') {
+				throw new UnexpectedValueException(
+					sprintf(
+						'Agent %s returned an empty answer. The turn ran and produced nothing, which usually means '
+						. 'the prompt was too large for the model\'s output budget, or every token went to '
+						. 'reasoning. Shorten the prompt, or raise the agent\'s maxTokens.',
+						$agentId
+					)
+				);
+			}
+
 			$json[$outKey] = $this->decode(config: $config, answer: $answer);
 
 			// The conversation this turn produced, so the run log can link to
