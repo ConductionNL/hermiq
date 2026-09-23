@@ -170,6 +170,17 @@ class Application extends App implements IBootstrap {
 			\OCA\Hermiq\Listener\FlowOversightRegistrationListener::class
 		);
 
+		// Tools (github-tool-for-the-assistant): contribute Hermiq's tools to
+		// OpenRegister's tool registry. That registry is what `McpRunController`
+		// serves as an MCP server, so registering here is the whole of "Hermiq
+		// gives the Nextcloud Assistant a GitHub tool" — the Assistant's ExApp
+		// points its `mcp_config` at /apps/hermiq/api/mcp/run and these functions
+		// appear in its tools/list, still filtered by the agent's own grants.
+		$context->registerEventListener(
+			\OCA\OpenRegister\Event\ToolRegistrationEvent::class,
+			\OCA\Hermiq\Listener\ToolRegistrationListener::class
+		);
+
 		// Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
 		// `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
 		// sibling-app leaf-registration hook (RegisterLeafProvidersEvent). This makes
