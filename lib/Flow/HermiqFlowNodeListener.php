@@ -43,12 +43,14 @@ class HermiqFlowNodeListener implements IEventListener {
 	 * @param HermiqScheduleDispatchNode $scheduleDispatchNode Fires one schedule occurrence
 	 *                                                         through the governed dispatch
 	 *                                                         path (schedules-onto-engine-triggers).
+	 * @param GitHubAwaitLabelNode $awaitLabelNode Holds a run until a label lands on an issue.
 	 */
 	public function __construct(
 		private readonly HermiqAgentNode $agentNode,
 		private readonly HermiqWorkloadNode $workloadNode,
 		private readonly HermiqWorkloadCollectNode $collectNode,
 		private readonly HermiqScheduleDispatchNode $scheduleDispatchNode,
+		private readonly GitHubAwaitLabelNode $awaitLabelNode,
 	) {
 
 	}//end __construct()
@@ -56,8 +58,9 @@ class HermiqFlowNodeListener implements IEventListener {
 	/**
 	 * Contribute hermiq's nodes.
 	 *
-	 * Two, and they are the two things a flow cannot do for itself: run a model
-	 * turn, and run a command over a checked-out tree.
+	 * What they have in common is that a flow cannot do any of them for itself:
+	 * run a model turn, run a command over a checked-out tree, and wait on a
+	 * decision that only exists on someone else's forge.
 	 *
 	 * @param Event $event The dispatched event.
 	 *
@@ -74,6 +77,7 @@ class HermiqFlowNodeListener implements IEventListener {
 		$event->registerNode(node: $this->workloadNode);
 		$event->registerNode(node: $this->collectNode);
 		$event->registerNode(node: $this->scheduleDispatchNode);
+		$event->registerNode(node: $this->awaitLabelNode);
 
 	}//end handle()
 }//end class
