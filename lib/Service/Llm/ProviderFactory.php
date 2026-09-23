@@ -2448,14 +2448,22 @@ class ProviderFactory {
 	 * @return array<string,mixed> The task input map.
 	 */
 	private function taskInput(string $taskTypeId, string $prompt, ?string $model): array {
+		$input = ['input' => $prompt];
+
 		if ($taskTypeId === ContextAgentInteraction::ID) {
 			// The agent surface is a conversation, so it needs the two turn fields
 			// even on a first turn: an empty token starts one, and `confirmation`
 			// is the answer to a question nobody has asked yet.
-			return ['input' => $prompt, 'confirmation' => 0, 'conversation_token' => ''];
+			//
+			// The model question is then asked the SAME way as for text: this used
+			// to return here, before looking at the model at all, so an agent that
+			// set both `taskType: contextagent` and a model ran on the admin's
+			// default and said nothing about it. That is exactly the failure this
+			// parameter exists to end, arriving through the branch that was
+			// supposed to be the more capable one.
+			$input['confirmation'] = 0;
+			$input['conversation_token'] = '';
 		}
-
-		$input = ['input' => $prompt];
 
 		$model = trim((string)$model);
 		if ($model === '') {

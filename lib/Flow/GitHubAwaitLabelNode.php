@@ -273,7 +273,14 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 
 		foreach ($items as $index => $item) {
 			if (is_array($item) === false) {
-				continue;
+				// Not a skip. `continue` here let a malformed item through the
+				// approval gate untouched, which is the same hole as an empty
+				// template resolving to nothing: the gate does not gate, and the
+				// run carries on as though someone had approved it.
+				throw new FlowStop(
+					reason: sprintf('Item %s is not a record this step can read, so it cannot be waited on.', (string)$index),
+					isError: true
+				);
 			}
 
 			$json = (array)($item[FlowItems::JSON] ?? []);
@@ -334,17 +341,28 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 				'labels' => $labels,
 				'title' => (string)($issue['title'] ?? ''),
 				'state' => (string)($issue['state'] ?? ''),
+				// Carried so a timeout can be told apart from an outage. Without
+				// it, a day of failed reads and a day of nobody looking at the
+				// issue produce the identical record: timedOut true, no labels,
+				// no title. One of those is a person deciding not to approve, and
+				// the other is us never having asked.
+				'lastError' => (string)($issue['error'] ?? ''),
 			];
 			$item[FlowItems::JSON] = $json;
 			$items[$index] = $item;
 
 			if ($found === false && strtolower(trim((string)($config['onTimeout'] ?? 'continue'))) === 'fail') {
+				$lastError = (string)($issue['error'] ?? '');
+
 				throw new FlowStop(
 					reason: sprintf(
-						'Nobody put the "%s" label on %s#%d before the deadline.',
+						'The "%s" label was not on %s#%d before the deadline. %s',
 						(string)($config['label'] ?? ''),
 						$repo,
-						$number
+						$number,
+						($lastError === '')
+							? 'The issue was readable throughout, so nobody applied it.'
+							: ('The last read of the issue failed, so it may never have been asked: ' . $lastError)
 					),
 					isError: true
 				);

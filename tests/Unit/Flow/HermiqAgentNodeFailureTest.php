@@ -139,6 +139,53 @@ class HermiqAgentNodeFailureTest extends TestCase {
 	}//end testAnEmptyAnswerWhereJsonWasPromisedFailsTheStep()
 
 	/**
+	 * 🔴 AN EMPTY ANSWER FAILS THE STEP EVEN WHERE NO JSON WAS PROMISED.
+	 *
+	 * This is the only case the empty-answer guard uniquely governs, and therefore
+	 * the only one that can detect it. Under `expectJson` an empty answer ALSO fails
+	 * `decode()`, with the same exception class, so the test above stays green with
+	 * the guard deleted outright — it pins the JSON parse, not the guard.
+	 *
+	 * Without `expectJson`, `decode()` hands the empty string straight back and the
+	 * step writes '' onto the item as its output. That is the measured defect: a
+	 * build step whose prompt exhausted the model's output budget completed in 92
+	 * seconds, wrote nothing, and the pipeline reviewed a diff that was never
+	 * written. Nothing in the run said anything had gone wrong.
+	 *
+	 * The assertion is on the MESSAGE, not the class, for the same reason: the class
+	 * alone cannot tell this guard from any other `UnexpectedValueException` on the
+	 * path. It must name the agent, because a flow has many steps and an operator
+	 * reading the failed run has to know which one produced nothing, and it must say
+	 * what to do about it, because "empty answer" on its own reads as a broken
+	 * provider rather than as a prompt that outgrew its budget.
+	 *
+	 * @return void
+	 */
+	public function testAnEmptyAnswerFailsTheStepEvenWhenNoJsonWasPromised(): void {
+		$node = $this->nodeAnswering('   ');
+
+		try {
+			$out = $node->execute($this->oneItem(), ['agentId' => self::AGENT_ID, 'output' => 'stage'], []);
+			$this->fail(
+				'an empty turn must fail the step; it produced '
+				. var_export(($out[0]['json']['stage'] ?? null), true)
+			);
+		} catch (UnexpectedValueException $e) {
+			$this->assertStringContainsString(
+				self::AGENT_ID,
+				$e->getMessage(),
+				'the failure has to name which step of the flow produced nothing'
+			);
+			$this->assertStringContainsString(
+				'output budget',
+				$e->getMessage(),
+				'the failure has to name the cause an operator can act on'
+			);
+		}
+
+	}//end testAnEmptyAnswerFailsTheStepEvenWhenNoJsonWasPromised()
+
+	/**
 	 * A step naming no agent fails rather than passing the items straight through.
 	 *
 	 * `validateConfig()` rejects this, but only when a flow is SAVED. A flow that
