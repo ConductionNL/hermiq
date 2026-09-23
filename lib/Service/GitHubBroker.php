@@ -146,7 +146,11 @@ class GitHubBroker {
 
 		$labels = [];
 		foreach (($issue['labels'] ?? []) as $label) {
-			$name = is_array($label) ? ($label['name'] ?? '') : $label;
+			$name = $label;
+			if (is_array($label) === true) {
+				$name = ($label['name'] ?? '');
+			}
+
 			$name = trim((string)$name);
 			if ($name !== '') {
 				$labels[] = $name;
@@ -201,7 +205,9 @@ class GitHubBroker {
 	 */
 	public function createBranch(string $repo, string $name, string $base, ?string $userId): array {
 		$name = ltrim(trim($name), '/');
-		$base = ($base === '') ? 'development' : $base;
+		if ($base === '') {
+			$base = 'development';
+		}
 
 		$existing = $this->tryCall(method: 'GET', path: '/repos/' . $repo . '/git/ref/heads/' . rawurlencode($name), userId: $userId);
 		if ($existing !== null) {
@@ -264,7 +270,10 @@ class GitHubBroker {
 		// "decoded to something falsy" from "did not decode".
 		$decoded = base64_decode(str_replace("\n", '', (string)($file['content'] ?? '')), true);
 
-		$content = ($decoded === false) ? '' : $decoded;
+		$content = $decoded;
+		if ($decoded === false) {
+			$content = '';
+		}
 		// The offset is what makes the cap survivable. Without it a file larger
 		// than the cap is not merely trimmed, it is unreachable past the cut:
 		// calling again returns the identical first slice, so an agent that is
@@ -445,7 +454,7 @@ class GitHubBroker {
 				'status' => (string)($file['status'] ?? ''),
 				'additions' => (int)($file['additions'] ?? 0),
 				'deletions' => (int)($file['deletions'] ?? 0),
-				// mb_strcut, not substr: the result is JSON-encoded for the model, and
+				// Cut with mb_strcut, not substr: the result is JSON-encoded for the model, and
 				// json_encode FAILS on invalid UTF-8. A byte-wise cut through a
 				// multibyte character would therefore lose the whole comparison
 				// rather than one character, and only for diffs containing
@@ -515,13 +524,21 @@ class GitHubBroker {
 
 		if ($status < 200 || $status >= 300) {
 			$decoded = json_decode($body, true);
-			$message = is_array($decoded) ? (string)($decoded['message'] ?? $body) : $body;
+			$message = $body;
+			if (is_array($decoded) === true) {
+				$message = (string)($decoded['message'] ?? $body);
+			}
+
 			throw new RuntimeException("GitHub refused {$method} {$path} (HTTP {$status}): {$message}", $status);
 		}
 
 		$decoded = json_decode($body, true);
 
-		return is_array($decoded) ? $decoded : [];
+		if (is_array($decoded) === false) {
+			return [];
+		}
+
+		return $decoded;
 	}//end call()
 
 	/**

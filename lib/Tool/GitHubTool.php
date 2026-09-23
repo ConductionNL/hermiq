@@ -274,7 +274,7 @@ class GitHubTool implements ToolInterface {
 	 * try something else. A 404 on a branch it invented is a correctable mistake.
 	 *
 	 * @param string $functionName The function to call.
-	 * @param array<string,mixed> $parameters Its arguments.
+	 * @param array<array-key,mixed> $parameters Its arguments, keyed by parameter name.
 	 * @param string|null $userId The acting user, for the broker's owner guard.
 	 *
 	 * @return array<string,mixed>
@@ -367,7 +367,12 @@ class GitHubTool implements ToolInterface {
 	private function stringList(mixed $value): array {
 		if (is_string($value) === true) {
 			$decoded = json_decode($value, true);
-			$value = (is_array($decoded) === true) ? $decoded : [$value];
+			$parsed = [$value];
+			if (is_array($decoded) === true) {
+				$parsed = $decoded;
+			}
+
+			$value = $parsed;
 		}
 
 		if (is_array($value) === false) {

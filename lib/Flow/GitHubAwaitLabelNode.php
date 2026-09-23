@@ -435,7 +435,11 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	private function minutes(array $config, string $key, int $fallback): int {
 		$value = (int)($config[$key] ?? 0);
 
-		return ($value > 0) ? $value : $fallback;
+		if ($value > 0) {
+			return $value;
+		}
+
+		return $fallback;
 	}//end minutes()
 
 	/**

@@ -608,9 +608,11 @@ class ResponseGenerationHandler {
 	private function assistantTaskType(array $agentData): string {
 		$requested = strtolower(trim((string)($agentData['taskType'] ?? '')));
 
-		return ($requested === ProviderFactory::TASK_TYPE_AGENT)
-			? ProviderFactory::TASK_TYPE_AGENT
-			: ProviderFactory::TASK_TYPE_TEXT;
+		if ($requested === ProviderFactory::TASK_TYPE_AGENT) {
+			return ProviderFactory::TASK_TYPE_AGENT;
+		}
+
+		return ProviderFactory::TASK_TYPE_TEXT;
 	}//end assistantTaskType()
 
 	/**
@@ -627,7 +629,11 @@ class ResponseGenerationHandler {
 	private function assistantModel(array $agentData): ?string {
 		$model = trim((string)($agentData['model'] ?? ''));
 
-		return ($model === '') ? null : $model;
+		if ($model === '') {
+			return null;
+		}
+
+		return $model;
 	}//end assistantModel()
 
 	/**

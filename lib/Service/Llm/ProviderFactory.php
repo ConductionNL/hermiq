@@ -2400,7 +2400,11 @@ class ProviderFactory {
 			throw new ProviderUnavailableException('No Nextcloud Assistant (TaskProcessing) provider is installed.', 503);
 		}
 
-		$taskTypeId = ($taskType === self::TASK_TYPE_AGENT) ? ContextAgentInteraction::ID : TextToText::ID;
+		$taskTypeId = TextToText::ID;
+		if ($taskType === self::TASK_TYPE_AGENT) {
+			$taskTypeId = ContextAgentInteraction::ID;
+		}
+
 		$task = new Task(
 			$taskTypeId,
 			$this->taskInput(taskTypeId: $taskTypeId, prompt: $prompt, model: $model),
