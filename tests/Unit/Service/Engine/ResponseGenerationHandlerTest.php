@@ -29,6 +29,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use Exception;
 use LLPhant\Chat\Enums\ChatRole;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -236,13 +237,19 @@ class ResponseGenerationHandlerTest extends TestCase {
 
 		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
 
+		// The refusal is now about STREAMING, not about the provider. A blocking
+		// caller on this driver is exactly how a flow step runs, and refusing it
+		// would have made the whole Assistant path unreachable from a flow; what
+		// TaskProcessing genuinely cannot do is yield tokens into an open
+		// connection, so the guard fires on the presence of a channel.
 		$this->expectException(Exception::class);
-		$this->expectExceptionMessage('background work only');
+		$this->expectExceptionMessage('cannot stream');
 		$handler->generateResponse(
 			userMessage: 'Hi',
 			context: ['text' => '', 'sources' => []],
 			messageHistory: [],
-			agent: null
+			agent: null,
+			channel: new StreamYieldChannel()
 		);
 
 	}//end testNextcloudDriverIsRefusedForChat()
