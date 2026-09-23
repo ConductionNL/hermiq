@@ -180,13 +180,19 @@ class GitHubTool implements ToolInterface {
 				'name' => 'github_get_file',
 				'subject' => 'file',
 				'action' => 'read',
-				'description' => 'Read one text file at a ref. Returns its decoded content.',
+				'description' => 'Read one text file at a ref. A large file comes back cut, with truncated true and '
+					. 'totalBytes saying how big it really is. Read the rest by calling again with offset set past '
+					. 'what you already have. Never rewrite a file you have only seen part of.',
 				'parameters' => [
 					'type' => 'object',
 					'properties' => [
 						'repo' => $repo,
 						'path' => ['type' => 'string', 'description' => 'Path from the repository root.'],
 						'ref' => ['type' => 'string', 'description' => 'Branch, tag or SHA. Defaults to development.'],
+						'offset' => [
+							'type' => 'integer',
+							'description' => 'Byte to start reading from. Use it to continue past a truncated read.',
+						],
 					],
 					'required' => ['repo', 'path'],
 				],
@@ -309,7 +315,8 @@ class GitHubTool implements ToolInterface {
 					repo: $repo,
 					path: (string)($parameters['path'] ?? ''),
 					ref: (string)($parameters['ref'] ?? 'development'),
-					userId: $userId
+					userId: $userId,
+					offset: (int)($parameters['offset'] ?? 0)
 				),
 				'github_list_files' => $this->broker->listFiles(
 					repo: $repo,

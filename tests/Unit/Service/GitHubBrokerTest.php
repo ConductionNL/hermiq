@@ -37,6 +37,7 @@ use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use ReflectionClassConstant;
 use RuntimeException;
 
 /**
@@ -858,4 +859,181 @@ final class GitHubBrokerTest extends TestCase {
 			'The fixture must put a character across byte 8000, or it proves nothing'
 		);
 	}//end testCompareCutsAnOversizedPatchOnACharacterBoundary()
+
+	/**
+	 * A file comfortably inside the cap comes back whole, and says it was not cut.
+	 *
+	 * This is the guard against the mirror of the regression the cap was added
+	 * for. A change that cuts unconditionally, or a `truncated` flag that is
+	 * always true, makes every read look partial, and a model told that a 460
+	 * character file is an excerpt either goes looking for a remainder that does
+	 * not exist or refuses to rewrite the file at all. Both cost a whole turn.
+	 *
+	 * @return void
+	 */
+	public function testGetFileInsideTheCapComesBackWhole(): void {
+		$content = str_repeat("a line of a small file\n", 20);
+		$service = $this->service(
+			[
+				'GET /repos/acme/demo/contents/small.md?ref=development' => [
+					'status' => 200,
+					'body' => ['path' => 'small.md', 'sha' => 'blob1', 'content' => base64_encode($content)],
+				],
+			]
+		);
+
+		$result = $service->getFile('acme/demo', 'small.md', 'development', 'alice');
+
+		$this->assertSame(true, $result['success']);
+		$this->assertSame($content, $result['content'], 'A file under the cap must come back byte for byte');
+		$this->assertSame(false, $result['truncated']);
+		$this->assertSame(strlen($content), $result['totalBytes']);
+	}//end testGetFileInsideTheCapComesBackWhole()
+
+	/**
+	 * A file over the cap is cut, says so, and reports the length of the WHOLE file.
+	 *
+	 * The difference between the two lengths is the entire reason the pair of keys
+	 * exists. Content cut to 14000 with `totalBytes` also reading 14000 tells the
+	 * model it holds the file; the same content with `totalBytes` reading 40000
+	 * tells it that nearly two thirds are missing and that rewriting from what it
+	 * holds would delete them. A `totalBytes` measured AFTER the cut is therefore
+	 * not a smaller mistake than shipping no flag at all, it is the same mistake
+	 * wearing a flag.
+	 *
+	 * @return void
+	 */
+	public function testGetFileOverTheCapReportsTheFullLengthNotTheCutOne(): void {
+		$content = str_repeat('a', 40000);
+		$service = $this->service(
+			[
+				'GET /repos/acme/demo/contents/big.php?ref=development' => [
+					'status' => 200,
+					'body' => ['path' => 'big.php', 'sha' => 'blob2', 'content' => base64_encode($content)],
+				],
+			]
+		);
+
+		$result = $service->getFile('acme/demo', 'big.php', 'development', 'alice');
+
+		$this->assertSame(true, $result['success']);
+		$this->assertSame(true, $result['truncated']);
+		$this->assertSame(40000, $result['totalBytes'], 'totalBytes must measure the file, not the excerpt');
+		// The excerpt carries an in-band marker, so a consumer that keeps only
+		// `content` and drops the sibling flag still knows it holds part of a file.
+		// The marker counts AGAINST the cap rather than being added on top of it,
+		// so the excerpt is shortened to make room. A result that exceeded the cap
+		// while announcing the limit would be the limit lying about itself.
+		$marker = "\n… file truncated, read on with offset";
+		$this->assertSame(str_repeat('a', (14000 - strlen($marker))) . $marker, $result['content']);
+		$this->assertSame(14000, strlen($result['content']));
+		$this->assertNotSame(
+			strlen($result['content']),
+			$result['totalBytes'],
+			'A cut file whose two lengths agree tells the model nothing is missing'
+		);
+	}//end testGetFileOverTheCapReportsTheFullLengthNotTheCutOne()
+
+	/**
+	 * Whatever the file, the content handed back never exceeds the declared cap.
+	 *
+	 * The cap is read off the class rather than written out here again.
+	 * `MAX_FILE_CHARS` is private, but a class constant is readable through
+	 * reflection without being made accessible, so this assertion moves with the
+	 * constant instead of quietly passing against a stale literal if someone
+	 * lowers it. The fixture is three times the cap, so the assertion has room to
+	 * fail rather than sitting one byte away from it.
+	 *
+	 * @return void
+	 */
+	public function testGetFileNeverHandsBackMoreThanTheCap(): void {
+		$cap = (int)(new ReflectionClassConstant(GitHubBroker::class, 'MAX_FILE_BYTES'))->getValue();
+		$content = str_repeat('x', ($cap * 3));
+		$service = $this->service(
+			[
+				'GET /repos/acme/demo/contents/huge.php?ref=development' => [
+					'status' => 200,
+					'body' => ['path' => 'huge.php', 'sha' => 'blob3', 'content' => base64_encode($content)],
+				],
+			]
+		);
+
+		$result = $service->getFile('acme/demo', 'huge.php', 'development', 'alice');
+
+		$this->assertStringEndsWith(
+			"\n… file truncated, read on with offset",
+			$result['content'],
+			'An excerpt must say so in band, not only in a sibling key'
+		);
+		$this->assertLessThanOrEqual(
+			$cap,
+			strlen($result['content']),
+			'A tool result is model input, so the excerpt must stay inside the declared cap'
+		);
+		$this->assertSame(($cap * 3), $result['totalBytes']);
+		$this->assertSame(true, $result['truncated']);
+	}//end testGetFileNeverHandsBackMoreThanTheCap()
+
+	/**
+	 * An oversized file is cut on a character boundary, so the result still encodes.
+	 *
+	 * The fixture puts a character across the byte the cut lands on: one ASCII
+	 * byte, then 8000 two-byte characters, which places byte 14000 on the lead
+	 * byte of the 7000th of them, so a byte-wise `substr` hands back half a
+	 * character. The control assertion at the end proves that positioning rather
+	 * than assuming it, so a fixture that drifted to a clean boundary fails here
+	 * instead of passing vacuously.
+	 *
+	 * What it costs when this is wrong is the whole read, not one character: the
+	 * tool result is JSON encoded on its way to the model, and json_encode
+	 * refuses invalid UTF-8 outright, so the model is handed nothing at all
+	 * rather than a file with one bad byte in it.
+	 *
+	 * @return void
+	 */
+	public function testGetFileCutsAnOversizedFileOnACharacterBoundary(): void {
+		$content = 'x' . str_repeat('é', 8000);
+		$service = $this->service(
+			[
+				'GET /repos/acme/demo/contents/accenten.php?ref=development' => [
+					'status' => 200,
+					'body' => ['path' => 'accenten.php', 'sha' => 'blob4', 'content' => base64_encode($content)],
+				],
+			]
+		);
+
+		$result = $service->getFile('acme/demo', 'accenten.php', 'development', 'alice');
+
+		$this->assertSame(true, $result['truncated']);
+		$this->assertTrue(mb_check_encoding($result['content'], 'UTF-8'), 'The cut must land on a character boundary');
+		$this->assertNotFalse(json_encode($result), 'The whole result must survive json_encode');
+		// The excerpt is cut to the cap minus the marker, then rounded DOWN to the
+		// nearest character boundary, so it is at most that and never more.
+		$marker = "\n… file truncated, read on with offset";
+		$this->assertLessThanOrEqual(
+			(14000 - strlen($marker)),
+			strlen($result['content']) - strlen($marker)
+		);
+		$this->assertTrue(
+			mb_check_encoding(substr($result['content'], 0, (strlen($result['content']) - strlen($marker))), 'UTF-8'),
+			'The excerpt itself, without the marker, must still be valid UTF-8'
+		);
+		$this->assertSame(16001, $result['totalBytes']);
+
+		// The fixture is positioned for a cut at exactly byte 14000. If the cap
+		// moves, this test has to be repositioned rather than left measuring a
+		// boundary that is no longer where the code cuts.
+		$this->assertSame(
+			14000,
+			(new ReflectionClassConstant(GitHubBroker::class, 'MAX_FILE_BYTES'))->getValue(),
+			'This fixture is built around a 14000 byte cut point'
+		);
+
+		// The control: the byte-wise cut really would have split a character here,
+		// so a green above is the code working and not the fixture being harmless.
+		$this->assertFalse(
+			mb_check_encoding(substr($content, 0, 14000), 'UTF-8'),
+			'The fixture must put a character across byte 14000, or it proves nothing'
+		);
+	}//end testGetFileCutsAnOversizedFileOnACharacterBoundary()
 }//end class

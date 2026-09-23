@@ -58,14 +58,30 @@ class GitHubBroker {
 	private const APP_ID = 'hermiq';
 
 	/**
-	 * How much of one file may come back to the model.
+	 * How much of one file may come back to the model, in BYTES.
 	 *
 	 * Generous enough for almost every source file in this fleet and small enough
 	 * that two or three of them still leave a turn room to answer.
 	 *
+	 * Bytes rather than characters, and named so. The figure that reaches the
+	 * model has to be the one it can reason with: told "14000 of 16001" about a
+	 * file that is 8001 characters, a model concludes it holds most of the file
+	 * when it holds under half.
+	 *
 	 * @var int
 	 */
-	private const MAX_FILE_CHARS = 14000;
+	private const MAX_FILE_BYTES = 14000;
+
+	/**
+	 * What a cut file says about itself, in band.
+	 *
+	 * `compare()` carries the same kind of marker on a cut patch. The sibling
+	 * `truncated` key is the machine-readable answer, and this is the one that
+	 * survives a consumer that logs, caches or re-embeds only the content.
+	 *
+	 * @var string
+	 */
+	private const TRUNCATION_MARKER = "\n… file truncated, read on with offset";
 
 	/**
 	 * App-config key naming the `github` credential to use.
@@ -225,10 +241,11 @@ class GitHubBroker {
 	 * @param string $path Path from the repository root.
 	 * @param string $ref Branch, tag or SHA.
 	 * @param string|null $userId Acting user.
+	 * @param int $offset Byte to start reading from, for continuing past a cut.
 	 *
 	 * @return array<string,mixed>
 	 */
-	public function getFile(string $repo, string $path, string $ref, ?string $userId): array {
+	public function getFile(string $repo, string $path, string $ref, ?string $userId, int $offset = 0): array {
 		$file = $this->tryCall(
 			method: 'GET',
 			path: '/repos/' . $repo . '/contents/' . $this->encodePath(path: $path) . '?ref=' . rawurlencode($ref),
@@ -248,7 +265,14 @@ class GitHubBroker {
 		$decoded = base64_decode(str_replace("\n", '', (string)($file['content'] ?? '')), true);
 
 		$content = ($decoded === false) ? '' : $decoded;
-		$truncated = (strlen($content) > self::MAX_FILE_CHARS);
+		// The offset is what makes the cap survivable. Without it a file larger
+		// than the cap is not merely trimmed, it is unreachable past the cut:
+		// calling again returns the identical first slice, so an agent that is
+		// told the file is truncated has no way to read the rest and correctly
+		// refuses to rewrite it. Measured 2026-09-23: a build step left a feature
+		// unwired for exactly that reason and said so.
+		$offset = max(0, $offset);
+		$truncated = (strlen($content) > ($offset + self::MAX_FILE_BYTES));
 
 
 		return [
@@ -262,9 +286,17 @@ class GitHubBroker {
 			// nothing about why. Capping keeps the turn survivable, and saying so
 			// in the result is what stops the model treating a cut file as the
 			// whole file and rewriting it short.
-			'content' => $truncated ? mb_strcut($content, 0, self::MAX_FILE_CHARS, 'UTF-8') : $content,
+			// The marker counts against the cap rather than being added on top of
+			// it. The cap exists to bound what reaches the model, so a result that
+			// exceeds it while announcing the limit would be the limit lying about
+			// itself.
+			'content' => $truncated
+				? (mb_strcut($content, $offset, (self::MAX_FILE_BYTES - strlen(self::TRUNCATION_MARKER)), 'UTF-8')
+					. self::TRUNCATION_MARKER)
+				: mb_strcut($content, $offset, self::MAX_FILE_BYTES, 'UTF-8'),
 			'truncated' => $truncated,
-			'totalChars' => strlen($content),
+			'offset' => $offset,
+			'totalBytes' => strlen($content),
 		];
 	}//end getFile()
 
