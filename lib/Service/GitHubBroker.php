@@ -58,6 +58,16 @@ class GitHubBroker {
 	private const APP_ID = 'hermiq';
 
 	/**
+	 * How much of one file may come back to the model.
+	 *
+	 * Generous enough for almost every source file in this fleet and small enough
+	 * that two or three of them still leave a turn room to answer.
+	 *
+	 * @var int
+	 */
+	private const MAX_FILE_CHARS = 14000;
+
+	/**
 	 * App-config key naming the `github` credential to use.
 	 *
 	 * @var string
@@ -237,11 +247,24 @@ class GitHubBroker {
 		// "decoded to something falsy" from "did not decode".
 		$decoded = base64_decode(str_replace("\n", '', (string)($file['content'] ?? '')), true);
 
+		$content = ($decoded === false) ? '' : $decoded;
+		$truncated = (strlen($content) > self::MAX_FILE_CHARS);
+
+
 		return [
 			'success' => true,
 			'path' => (string)($file['path'] ?? $path),
 			'sha' => (string)($file['sha'] ?? ''),
-			'content' => ($decoded === false) ? '' : $decoded,
+			// A tool result is model INPUT, so an unbounded one is a context bomb.
+			// Measured 2026-09-23: a build step asked for a 22 kB component and a
+			// 9 kB helper, and the turn that followed ended with the budget spent
+			// on reasoning and no content at all — an empty answer that says
+			// nothing about why. Capping keeps the turn survivable, and saying so
+			// in the result is what stops the model treating a cut file as the
+			// whole file and rewriting it short.
+			'content' => $truncated ? mb_strcut($content, 0, self::MAX_FILE_CHARS, 'UTF-8') : $content,
+			'truncated' => $truncated,
+			'totalChars' => strlen($content),
 		];
 	}//end getFile()
 
