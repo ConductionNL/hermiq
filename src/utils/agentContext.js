@@ -28,7 +28,7 @@ export const AGENT_CONTEXT_KEYWORD = 'x-openregister-agent-context'
  * Normalise the raw allowlist spec into a `{ name: caps }` map. Anything
  * unexpected yields an empty allowlist (fail-closed).
  *
- * @param {*} spec The raw `x-openregister-agent-context` value.
+ * @param {unknown} spec The raw `x-openregister-agent-context` value, shape unverified.
  * @return {{[key: string]: object}} Property name → caps map.
  */
 function normaliseAllowlist(spec) {
@@ -64,9 +64,9 @@ function normaliseAllowlist(spec) {
 /**
  * Apply per-field caps (currently `maxLength`, code-point-safe) to a value.
  *
- * @param {*} value The property value.
+ * @param {unknown} value The property value, shape unverified.
  * @param {object} caps The per-field caps.
- * @return {*} The capped value.
+ * @return {unknown} The capped value, same shape as it arrived.
  */
 function applyCaps(value, caps) {
 	const maxLength = caps && caps.maxLength

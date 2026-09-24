@@ -53,10 +53,12 @@
 
 				<!-- Learnings markdown is sanitised via DOMPurify with the shared safe config. -->
 				<!-- eslint-disable-next-line vue/no-v-html -->
+				<!-- eslint-disable vue/no-v-html -->
 				<div
 					v-if="learningsMarkdown"
 					class="skill-learnings__content"
 					v-html="renderMarkdown(learningsMarkdown)" />
+				<!-- eslint-enable vue/no-v-html -->
 				<p v-else class="skill-learnings__empty">
 					{{
 						t(

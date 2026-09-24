@@ -54,7 +54,7 @@ export async function getAgentGrants(agentId) {
  * next Save would persist that widening. Narrowing is the whole reason the
  * constrained form exists, so it cannot be lost in transit through a screen.
  *
- * @param {*} entry The stored entry — a bare id, or `{id, args}`.
+ * @param {string|{id: string, args: object}} entry The stored entry, a bare id or an id with args.
  * @return {string} The grant string, or '' when the entry is unusable.
  */
 function grantStringFor(entry) {
@@ -98,7 +98,7 @@ function grantStringFor(entry) {
  * coordinates it is stored under: `hermiq.listFiles` lives at (hermiq, file,
  * list), and rebuilding gives `hermiq.file.list`, which is not a tool.
  *
- * @param {*} tools The stored `tools` value, in either shape.
+ * @param {Array<string|{id: string, args: object}>|null} tools The stored `tools` value, in either shape.
  * @return {Array<string>} The grant ids.
  */
 export function flattenGrants(tools) {

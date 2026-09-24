@@ -258,10 +258,11 @@
 								}}</span>
 							</div>
 							<!-- Assistant markdown is sanitised via DOMPurify with the shared safe config. -->
-							<!-- eslint-disable-next-line vue/no-v-html -->
+							<!-- eslint-disable vue/no-v-html -->
 							<div
 								class="chat-page__text"
 								v-html="renderMarkdown(message.content)" />
+							<!-- eslint-enable vue/no-v-html -->
 
 							<!-- RAG sources -->
 							<div
@@ -400,10 +401,13 @@
 							</div>
 							<!-- Streamed markdown is sanitised via DOMPurify with the shared safe config. -->
 							<!-- eslint-disable-next-line vue/no-v-html -->
+							<!-- Sanitised by renderMarkdown() below: marked + DOMPurify with the shared safe config. -->
+							<!-- eslint-disable vue/no-v-html -->
 							<div
 								v-if="streamingText"
 								class="chat-page__text"
 								v-html="renderMarkdown(streamingText)" />
+							<!-- eslint-enable vue/no-v-html -->
 							<div v-else class="chat-page__typing">
 								<span /><span /><span />
 							</div>
@@ -1527,7 +1531,7 @@ export default {
 	width: 300px;
 	flex-shrink: 0;
 	padding: 16px 12px;
-	border-right: 1px solid var(--color-border);
+	border-inline-end: 1px solid var(--color-border);
 	overflow-y: auto;
 }
 
@@ -1986,7 +1990,7 @@ export default {
 	.chat-page__list {
 		width: 100%;
 		max-height: 40%;
-		border-right: none;
+		border-inline-end: none;
 		border-bottom: 1px solid var(--color-border);
 	}
 }

@@ -331,7 +331,7 @@ export default {
 
 .approval-inbox__table th,
 .approval-inbox__table td {
-	text-align: left;
+	text-align: start;
 	padding: 10px 12px;
 	border-bottom: 1px solid var(--color-border);
 	vertical-align: top;
@@ -347,7 +347,7 @@ export default {
 }
 
 .approval-inbox__row-actions {
-	text-align: right;
+	text-align: end;
 	white-space: nowrap;
 }
 

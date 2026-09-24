@@ -300,10 +300,10 @@ function parseSseFrame(frame) {
  * @param {string} [options.sessionUuid] Existing session UUID.
  * @param {string} [options.agentUuid] Agent UUID (only when no session exists yet).
  * @param {object} [handlers] Event handlers.
- * @param {Function} [handlers.onToken] (delta: string) — incremental assistant text.
- * @param {Function} [handlers.onToolCall] (payload: object) — a tool invocation started.
- * @param {Function} [handlers.onToolResult] (payload: object) — a tool invocation finished.
- * @param {Function} [handlers.onHeartbeat] () — liveness signal (keep the UI alive).
+ * @param {(delta: string) => void} [handlers.onToken] Incremental assistant text.
+ * @param {(payload: object) => void} [handlers.onToolCall] A tool invocation started.
+ * @param {(payload: object) => void} [handlers.onToolResult] A tool invocation finished.
+ * @param {() => void} [handlers.onHeartbeat] Liveness signal, keeps the UI alive.
  * @return {Promise<object>} Resolves with the `final` payload
  *   ({messageId, sessionUuid, fullText, context}).
  * @throws {ChatStreamError} transport=true on handshake/connection failure

@@ -403,6 +403,7 @@ export default {
 		 * rather than schema-driven — but accepted so the slot binding lands
 		 * without a Vue "extraneous non-prop attribute" warning.
 		 */
+		// eslint-disable-next-line vue/no-unused-properties -- accepted so the slot binding lands without a Vue extraneous-attribute warning
 		schema: {
 			type: Object,
 			default: null,

@@ -427,7 +427,7 @@ export default {
 		 * Render a diff value for display.
 		 *
 		 * @spec exclude pure display formatting of a diff value
-		 * @param {*} value The old/new value.
+		 * @param {unknown} value The old or new value, rendered without assuming a shape.
 		 * @return {string} The printable form.
 		 */
 		stringify(value) {

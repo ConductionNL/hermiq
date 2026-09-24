@@ -207,7 +207,7 @@ export default {
 		 * Render a diffed value for display — arrays/objects as compact JSON,
 		 * everything else as a string; absent values as a dash.
 		 *
-		 * @param {*} value The value to render.
+		 * @param {unknown} value The value to render, shape unverified.
 		 * @return {string} The display string.
 		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */

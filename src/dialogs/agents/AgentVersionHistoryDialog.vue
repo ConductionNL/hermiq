@@ -197,8 +197,12 @@ export default {
 		 * AgentDetail used to pass down explicitly. An explicit true/false
 		 * still wins (e.g. tests).
 		 */
+		// null is a third state here: it means "work it out from the agent's owner",
+		// where true/false mean the parent already decided. Defaulting to false would
+		// silently withdraw the rollback control from someone entitled to it.
 		canRollback: {
 			type: Boolean,
+			// eslint-disable-next-line vue/no-boolean-default
 			default: null,
 		},
 	},

@@ -42,18 +42,21 @@ export default {
 		},
 
 		/** The full row object (unused; part of the cell-widget contract). */
+		// eslint-disable-next-line vue/no-unused-properties -- cell-widget contract: the table renderer passes it
 		row: {
 			type: Object,
 			default: () => ({}),
 		},
 
 		/** The schema property definition (unused; cell-widget contract). */
+		// eslint-disable-next-line vue/no-unused-properties -- cell-widget contract: the table renderer passes it
 		property: {
 			type: Object,
 			default: () => ({}),
 		},
 
 		/** The formatter-shaped value (unused; cell-widget contract). */
+		// eslint-disable-next-line vue/no-unused-properties -- cell-widget contract: the table renderer passes it
 		formatted: {
 			type: [Number, String],
 			default: null,

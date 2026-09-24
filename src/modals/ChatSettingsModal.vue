@@ -176,7 +176,7 @@ export default {
 		 * Emit an updated settings object with one field replaced.
 		 *
 		 * @param {string} key The settings key.
-		 * @param {*} fieldValue The new value.
+		 * @param {unknown} fieldValue The new value, as the field produced it.
 		 * @return {void}
 		 */
 		set(key, fieldValue) {

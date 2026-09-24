@@ -139,7 +139,7 @@ export default {
 		/**
 		 * Pretty-print a value, tolerating one that will not serialise.
 		 *
-		 * @param {*} value The value.
+		 * @param {unknown} value The value, rendered without assuming a shape.
 		 * @return {string} The JSON, or a readable stand-in.
 		 */
 		stringify(value) {

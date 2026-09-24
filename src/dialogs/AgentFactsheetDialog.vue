@@ -326,7 +326,7 @@ export default {
 
 .agent-factsheet-dialog__list {
 	margin: 0;
-	padding-left: 20px;
+	padding-inline-start: 20px;
 }
 
 .agent-factsheet-dialog__risk {
