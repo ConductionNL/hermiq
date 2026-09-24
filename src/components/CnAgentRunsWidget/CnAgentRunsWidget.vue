@@ -128,6 +128,7 @@ export default {
 		t,
 		/**
 		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @param {string} status The run status as the record stores it.
 		 */
 		statusLabel(status) {
 			const map = {
@@ -222,6 +223,7 @@ export default {
 
 		/**
 		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 * @param {object} entry One audit-trail entry for this object.
 		 */
 		toRun(entry) {
 			const ctx = entry.context || entry.changed || {}

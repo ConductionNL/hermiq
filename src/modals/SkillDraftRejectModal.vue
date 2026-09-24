@@ -97,6 +97,8 @@ export default {
 		},
 	},
 
+	emits: ['close', 'reject'],
+
 	data() {
 		return {
 			note: '',

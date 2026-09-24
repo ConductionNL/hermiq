@@ -147,6 +147,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {

@@ -134,6 +134,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {

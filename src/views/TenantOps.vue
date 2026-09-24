@@ -399,6 +399,7 @@ export default {
 
 			/**
 			 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+			 * @param {object|null} option The chosen option, or null when the selection was cleared.
 			 */
 			set(option) {
 				this.selectedOrg = option ? option.value : ''

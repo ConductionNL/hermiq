@@ -368,6 +368,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {

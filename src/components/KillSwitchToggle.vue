@@ -135,6 +135,7 @@ export default {
 
 			/**
 			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+			 * @param {object|null} option The chosen option, or null when the selection was cleared.
 			 */
 			set(option) {
 				this.selectedOrg = option ? option.value : ''

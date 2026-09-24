@@ -125,6 +125,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {

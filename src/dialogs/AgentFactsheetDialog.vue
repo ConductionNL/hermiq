@@ -224,6 +224,7 @@ export default {
 			immediate: true,
 			/**
 			 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+			 * @param {boolean} open Whether the dialog is now open.
 			 */
 			handler(open) {
 				if (open) {

@@ -208,6 +208,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {

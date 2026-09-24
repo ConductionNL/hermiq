@@ -83,6 +83,8 @@ export default {
 		NcNoteCard,
 	},
 
+	emits: ['close', 'imported'],
+
 	data() {
 		return {
 			importText: '',

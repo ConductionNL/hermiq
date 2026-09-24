@@ -351,6 +351,7 @@ export default {
 
 			/**
 			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 * @param {object|null} option The chosen option, or null when the selection was cleared.
 			 */
 			set(option) {
 				this.form.kind = option ? option.value : 'once'
@@ -395,6 +396,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {

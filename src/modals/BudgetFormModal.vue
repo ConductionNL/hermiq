@@ -225,6 +225,7 @@ export default {
 
 			/**
 			 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+			 * @param {object|null} option The chosen option, or null when the selection was cleared.
 			 */
 			set(option) {
 				this.form.scope = option ? option.value : 'organisation'
@@ -252,6 +253,7 @@ export default {
 	watch: {
 		/**
 		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+		 * @param {boolean} open Whether the dialog is now open.
 		 */
 		show(open) {
 			if (open) {
