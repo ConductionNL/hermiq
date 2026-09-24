@@ -389,6 +389,8 @@ class AssistantPromptLibrary {
 	 * @param string $id The prompt uuid.
 	 *
 	 * @return ObjectEntity|null The prompt, or null.
+	 *
+	 * @spec exclude Pre-existing internal helper; no capability requirement governs it.
 	 */
 	public function find(string $id): ?ObjectEntity {
 		if ($id === '') {

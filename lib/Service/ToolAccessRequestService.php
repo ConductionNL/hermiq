@@ -58,6 +58,8 @@ use Throwable;
  *   parameter to HermiqToolProvider, which calls both. ⚠️ The split is still the
  *   right move — do it when that provider's constructor is next opened, not by
  *   raising this number again.
+ *
+ * @spec exclude Pre-existing service; its behaviour is specified through its callers, not as a capability of its own.
  */
 class ToolAccessRequestService {
 

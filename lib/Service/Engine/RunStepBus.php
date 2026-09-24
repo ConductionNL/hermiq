@@ -62,6 +62,8 @@ use Throwable;
  * @author   Conduction B.V. <info@conduction.nl>
  * @license  EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @link     https://conduction.nl
+ *
+ * @spec exclude Pre-existing service; its behaviour is specified through its callers, not as a capability of its own.
  */
 class RunStepBus {
 

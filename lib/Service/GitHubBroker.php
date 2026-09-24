@@ -40,6 +40,8 @@ use RuntimeException;
 
 /**
  * The brokered GitHub client.
+ *
+ * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
  */
 class GitHubBroker {
 
@@ -112,6 +114,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function createIssue(string $repo, string $title, string $body, array $labels, ?string $userId): array {
 		$payload = ['title' => $title, 'body' => $body];
@@ -140,6 +144,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function getIssue(string $repo, int $number, ?string $userId): array {
 		$issue = $this->call(method: 'GET', path: '/repos/' . $repo . '/issues/' . $number, payload: null, userId: $userId);
@@ -177,6 +183,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function commentIssue(string $repo, int $number, string $body, ?string $userId): array {
 		$comment = $this->call(
@@ -202,6 +210,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function createBranch(string $repo, string $name, string $base, ?string $userId): array {
 		$name = ltrim(trim($name), '/');
@@ -250,6 +260,8 @@ class GitHubBroker {
 	 * @param int $offset Byte to start reading from, for continuing past a cut.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-tool-result-is-bounded-and-says-when-it-was-cut
 	 */
 	public function getFile(string $repo, string $path, string $ref, ?string $userId, int $offset = 0): array {
 		$file = $this->tryCall(
@@ -283,6 +295,16 @@ class GitHubBroker {
 		$offset = max(0, $offset);
 		$truncated = (strlen($content) > ($offset + self::MAX_FILE_BYTES));
 
+		$excerpt = mb_strcut($content, $offset, self::MAX_FILE_BYTES, 'UTF-8');
+		if ($truncated === true) {
+			$excerpt = mb_strcut(
+				$content,
+				$offset,
+				(self::MAX_FILE_BYTES - strlen(self::TRUNCATION_MARKER)),
+				'UTF-8'
+			) . self::TRUNCATION_MARKER;
+		}
+
 
 		return [
 			'success' => true,
@@ -299,10 +321,7 @@ class GitHubBroker {
 			// it. The cap exists to bound what reaches the model, so a result that
 			// exceeds it while announcing the limit would be the limit lying about
 			// itself.
-			'content' => $truncated
-				? (mb_strcut($content, $offset, (self::MAX_FILE_BYTES - strlen(self::TRUNCATION_MARKER)), 'UTF-8')
-					. self::TRUNCATION_MARKER)
-				: mb_strcut($content, $offset, self::MAX_FILE_BYTES, 'UTF-8'),
+			'content' => $excerpt,
 			'truncated' => $truncated,
 			'offset' => $offset,
 			'totalBytes' => strlen($content),
@@ -318,6 +337,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function listFiles(string $repo, string $path, string $ref, ?string $userId): array {
 		$entries = $this->tryCall(
@@ -353,6 +374,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function putFile(string $repo, string $branch, string $path, string $content, string $message, ?string $userId): array {
 		$payload = [
@@ -400,8 +423,14 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-the-forge-credential-never-enters-the-app
 	 */
 	public function createPullRequest(string $repo, string $head, string $base, string $title, string $body, bool $draft, ?string $userId): array {
+		if ($base === '') {
+			$base = 'development';
+		}
+
 		$pull = $this->call(
 			method: 'POST',
 			path: '/repos/' . $repo . '/pulls',
@@ -409,7 +438,7 @@ class GitHubBroker {
 				'title' => $title,
 				'body' => $body,
 				'head' => $head,
-				'base' => ($base === '') ? 'development' : $base,
+				'base' => $base,
 				'draft' => $draft,
 			],
 			userId: $userId
@@ -436,6 +465,8 @@ class GitHubBroker {
 	 * @param string|null $userId Acting user.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-tool-result-is-bounded-and-says-when-it-was-cut
 	 */
 	public function compare(string $repo, string $base, string $head, ?string $userId): array {
 		$comparison = $this->call(
@@ -449,6 +480,11 @@ class GitHubBroker {
 		foreach (($comparison['files'] ?? []) as $file) {
 			$patch = (string)($file['patch'] ?? '');
 			$truncated = (strlen($patch) > 8000);
+
+			$shown = $patch;
+			if ($truncated === true) {
+				$shown = mb_strcut($patch, 0, 8000, 'UTF-8') . "\n… patch truncated";
+			}
 			$files[] = [
 				'filename' => (string)($file['filename'] ?? ''),
 				'status' => (string)($file['status'] ?? ''),
@@ -459,7 +495,7 @@ class GitHubBroker {
 				// multibyte character would therefore lose the whole comparison
 				// rather than one character, and only for diffs containing
 				// non-ASCII near the 8000th byte.
-				'patch' => $truncated ? (mb_strcut($patch, 0, 8000, 'UTF-8') . "\n… patch truncated") : $patch,
+				'patch' => $shown,
 				'patchTruncated' => $truncated,
 			];
 		}
@@ -508,6 +544,11 @@ class GitHubBroker {
 			throw new RuntimeException('OpenRegister\'s credential broker is not available.');
 		}
 
+		$encodedPayload = null;
+		if ($payload !== null) {
+			$encodedPayload = json_encode($payload);
+		}
+
 		$broker = $this->container->get(self::BROKER_CLASS);
 		$response = $broker->request(
 			$credentialId,
@@ -515,7 +556,7 @@ class GitHubBroker {
 			$method,
 			$path,
 			['Accept' => 'application/vnd.github+json', 'Content-Type' => 'application/json'],
-			($payload === null) ? null : json_encode($payload),
+			$encodedPayload,
 			$userId
 		);
 

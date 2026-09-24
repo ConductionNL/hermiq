@@ -285,11 +285,6 @@ class ResponseGenerationHandler {
 			// whatever its own said. That matters most for a flow, where one chain
 			// wants a tool-capable provider for the steps that touch a repository
 			// and the Assistant for the steps that only think.
-			$agentProvider = $agentData['provider'] ?? null;
-			if (is_string($agentProvider) === false || trim($agentProvider) === '') {
-				$agentProvider = null;
-			}
-
 			$driver = $this->providerFactory->createChatDriver(
 				llmConfig: $llmConfig,
 				agentModel: $agentModel,
@@ -298,7 +293,7 @@ class ResponseGenerationHandler {
 				agentMaxTokens: $agentMaxTokens,
 				aiFeature: $aiFeature,
 				documentReference: $documentReference,
-				agentProvider: $agentProvider
+				agentProvider: AssistantSelection::provider(agentData: $agentData)
 			);
 
 			// Which model saw this case, and where. Copied onto the run rather than
@@ -485,11 +480,11 @@ class ResponseGenerationHandler {
 				// passing the agent's own the triage step and the review step run on
 				// the same model whatever either agent says.
 				$response = $this->providerFactory->generateViaNextcloud(
-					prompt: $this->flattenForTaskProcessing(messageHistory: $messageHistory),
+					prompt: AssistantSelection::flatten(messageHistory: $messageHistory),
 					userId: $agent?->getOwner(),
 					customId: $conversationId,
-					model: $this->assistantModel(agentData: $agentData),
-					taskType: $this->assistantTaskType(agentData: $agentData)
+					model: AssistantSelection::model(agentData: $agentData),
+					taskType: AssistantSelection::taskType(agentData: $agentData)
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
@@ -594,100 +589,8 @@ class ResponseGenerationHandler {
 		}//end try
 	}//end generateResponse()
 
-	/**
-	 * Which TaskProcessing task type this agent asked for.
-	 *
-	 * Anything other than `contextagent` reads as `text2text`, so an agent that
-	 * says nothing behaves exactly as it did before this existed, and a typo
-	 * cannot silently hand a governed step to a tool-running provider.
-	 *
-	 * @param array $agentData The agent object's data.
-	 *
-	 * @return string Either `text2text` or `contextagent`.
-	 */
-	private function assistantTaskType(array $agentData): string {
-		$requested = strtolower(trim((string)($agentData['taskType'] ?? '')));
 
-		if ($requested === ProviderFactory::TASK_TYPE_AGENT) {
-			return ProviderFactory::TASK_TYPE_AGENT;
-		}
 
-		return ProviderFactory::TASK_TYPE_TEXT;
-	}//end assistantTaskType()
-
-	/**
-	 * The model this agent asked for, or null to leave the provider's default alone.
-	 *
-	 * Empty is returned as null rather than as an empty string because those mean
-	 * opposite things downstream: null is "the admin's choice stands", and '' would
-	 * be a request for a model with no name.
-	 *
-	 * @param array $agentData The agent object's data.
-	 *
-	 * @return string|null The requested model, or null.
-	 */
-	private function assistantModel(array $agentData): ?string {
-		$model = trim((string)($agentData['model'] ?? ''));
-
-		if ($model === '') {
-			return null;
-		}
-
-		return $model;
-	}//end assistantModel()
-
-	/**
-	 * Flatten a turn into the single prompt string TaskProcessing accepts.
-	 *
-	 * `core:text2text` takes one `input` string, so the roles a chat model would
-	 * have seen as structure are written out as labels instead. Crude, and it is
-	 * what the task type offers: Assistant has no multi-turn text task shape.
-	 *
-	 * @param array $messageHistory The turn, newest last.
-	 *
-	 * @return string The prompt.
-	 */
-	private function flattenForTaskProcessing(array $messageHistory): string {
-		$lines = [];
-		foreach ($messageHistory as $message) {
-			$role = '';
-			$content = '';
-			if (is_object($message) === true) {
-				$role = (string)($message->role->value ?? $message->role ?? '');
-				$content = (string)($message->content ?? '');
-			} elseif (is_array($message) === true) {
-				$role = (string)($message['role'] ?? '');
-				$content = (string)($message['content'] ?? '');
-			}
-
-			if (trim($content) === '') {
-				continue;
-			}
-
-			$label = match ($role) {
-				'system' => 'Instructions',
-				'assistant' => 'Assistant',
-				default => 'User',
-			};
-
-			$line = $label . ': ' . $content;
-			// A turn is often handed to us with the current message already in the
-			// history and appended again. Two identical lines in a row read to the
-			// model as emphasis and it answers by echoing them back.
-			if (end($lines) === $line) {
-				continue;
-			}
-
-			$lines[] = $line;
-		}
-
-		// The text2text task type continues a document rather than answering a turn,
-		// so it needs somewhere to write. Without the trailing cue the model tends to
-		// repeat the prompt back instead of replying to it.
-		$lines[] = 'Assistant:';
-
-		return implode("\n\n", $lines);
-	}//end flattenForTaskProcessing()
 
 	/**
 	 * Invoke the configured chat client, preferring streaming where possible.

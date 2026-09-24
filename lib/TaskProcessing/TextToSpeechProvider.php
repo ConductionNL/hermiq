@@ -62,6 +62,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * The provider id.
 	 *
 	 * @return string The id.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getId(): string {
 		return 'hermiq:text2speech';
@@ -72,6 +74,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * The human-readable name.
 	 *
 	 * @return string The name.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getName(): string {
 		return 'Hermiq (local Kokoro)';
@@ -82,6 +86,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * The task type served.
 	 *
 	 * @return string The task type id.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getTaskTypeId(): string {
 		return TextToSpeech::ID;
@@ -92,6 +98,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * A rough runtime hint, in seconds.
 	 *
 	 * @return int Seconds.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getExpectedRuntime(): int {
 		return 30;
@@ -102,6 +110,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Optional inputs.
 	 *
 	 * @return array<string, ShapeDescriptor> The shape.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalInputShape(): array {
 		return [
@@ -119,6 +129,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Optional outputs.
 	 *
 	 * @return array<string, ShapeDescriptor> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalOutputShape(): array {
 		return [];
@@ -129,6 +141,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Input enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getInputShapeEnumValues(): array {
 		return [];
@@ -139,6 +153,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Input defaults.
 	 *
 	 * @return array<array-key, numeric|string> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getInputShapeDefaults(): array {
 		return [];
@@ -149,6 +165,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Optional input enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalInputShapeEnumValues(): array {
 		return [];
@@ -159,6 +177,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Optional input defaults.
 	 *
 	 * @return array<array-key, numeric|string> The defaults.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalInputShapeDefaults(): array {
 		return ['voice' => 'af_heart'];
@@ -169,6 +189,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Output enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOutputShapeEnumValues(): array {
 		return [];
@@ -179,6 +201,8 @@ class TextToSpeechProvider implements ISynchronousProvider {
 	 * Optional output enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalOutputShapeEnumValues(): array {
 		return [];

@@ -43,6 +43,8 @@ namespace OCA\Hermiq\Service\Talk;
  * Matches `@name` mentions in Talk message text.
  *
  * @psalm-api
+ *
+ * @spec exclude Pre-existing service; its behaviour is specified through its callers, not as a capability of its own.
  */
 class TalkMentionMatcher {
 	/**

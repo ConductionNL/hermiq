@@ -47,6 +47,8 @@ use OCA\OpenRegister\Tool\ToolInterface;
 
 /**
  * GitHub, as an agent-callable tool.
+ *
+ * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
  */
 class GitHubTool implements ToolInterface {
 
@@ -64,6 +66,8 @@ class GitHubTool implements ToolInterface {
 	 * The registry's display name.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative ToolInterface metadata the registry reads; the behaviour lives in getFunctions() and executeFunction().
 	 */
 	public function getName(): string {
 		return 'GitHub';
@@ -73,6 +77,8 @@ class GitHubTool implements ToolInterface {
 	 * What the tool is for, in one line.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative ToolInterface metadata the registry reads; the behaviour lives in getFunctions() and executeFunction().
 	 */
 	public function getDescription(): string {
 		return 'Read and write issues, branches, files and pull requests on GitHub, through a brokered credential.';
@@ -99,6 +105,8 @@ class GitHubTool implements ToolInterface {
 	 *   it is the honest implementation of a setter this class has nothing to do
 	 *   with; the alternative is a field nothing reads, which phpstan flags in the
 	 *   other direction.
+	 *
+	 * @spec exclude Interface-required setter this class deliberately ignores; scoping happens in the registry and the broker, not here.
 	 */
 	public function setAgent(?Agent $agent): void {
 	}//end setAgent()
@@ -111,6 +119,8 @@ class GitHubTool implements ToolInterface {
 	 * artefacts into it and there is no undo for an opened issue.
 	 *
 	 * @return array<int,array<string,mixed>>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
 	 */
 	public function getFunctions(): array {
 		$repo = [
@@ -118,6 +128,28 @@ class GitHubTool implements ToolInterface {
 			'description' => 'Repository as owner/name, for example ConductionNL/planninq.',
 		];
 
+		return array_merge(
+			$this->issueFunctions(repo: $repo),
+			$this->branchFunctions(repo: $repo),
+			$this->fileFunctions(repo: $repo),
+			$this->pullRequestFunctions(repo: $repo)
+		);
+	}//end getFunctions()
+
+	/**
+	 * The issue functions.
+	 *
+	 * Split out of getFunctions() so the whole callable surface is not one method
+	 * long enough for phpmd to stop reading it. The grouping is the same one the
+	 * descriptors already carry in their `subject` key.
+	 *
+	 * @param array $repo The shared repository parameter every function takes.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
+	 */
+	private function issueFunctions(array $repo): array {
 		return [
 			[
 				'name' => 'github_create_issue',
@@ -168,6 +200,24 @@ class GitHubTool implements ToolInterface {
 					'required' => ['repo', 'number', 'body'],
 				],
 			],
+		];
+	}//end issueFunctions()
+
+	/**
+	 * The branch functions.
+	 *
+	 * Split out of getFunctions() so the whole callable surface is not one method
+	 * long enough for phpmd to stop reading it. The grouping is the same one the
+	 * descriptors already carry in their `subject` key.
+	 *
+	 * @param array $repo The shared repository parameter every function takes.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
+	 */
+	private function branchFunctions(array $repo): array {
+		return [
 			[
 				'name' => 'github_create_branch',
 				'subject' => 'branch',
@@ -183,6 +233,24 @@ class GitHubTool implements ToolInterface {
 					'required' => ['repo', 'name'],
 				],
 			],
+		];
+	}//end branchFunctions()
+
+	/**
+	 * The file functions.
+	 *
+	 * Split out of getFunctions() so the whole callable surface is not one method
+	 * long enough for phpmd to stop reading it. The grouping is the same one the
+	 * descriptors already carry in their `subject` key.
+	 *
+	 * @param array $repo The shared repository parameter every function takes.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
+	 */
+	private function fileFunctions(array $repo): array {
+		return [
 			[
 				'name' => 'github_get_file',
 				'subject' => 'file',
@@ -236,6 +304,24 @@ class GitHubTool implements ToolInterface {
 					'required' => ['repo', 'branch', 'path', 'content', 'message'],
 				],
 			],
+		];
+	}//end fileFunctions()
+
+	/**
+	 * The pull request functions.
+	 *
+	 * Split out of getFunctions() so the whole callable surface is not one method
+	 * long enough for phpmd to stop reading it. The grouping is the same one the
+	 * descriptors already carry in their `subject` key.
+	 *
+	 * @param array $repo The shared repository parameter every function takes.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
+	 */
+	private function pullRequestFunctions(array $repo): array {
+		return [
 			[
 				'name' => 'github_create_pull_request',
 				'subject' => 'pull-request',
@@ -270,7 +356,8 @@ class GitHubTool implements ToolInterface {
 				],
 			],
 		];
-	}//end getFunctions()
+	}//end pullRequestFunctions()
+
 
 	/**
 	 * Dispatch one call.
@@ -285,6 +372,8 @@ class GitHubTool implements ToolInterface {
 	 * @param string|null $userId The acting user, for the broker's owner guard.
 	 *
 	 * @return array<string,mixed>
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-absence-and-failure-are-different-answers
 	 */
 	public function executeFunction(string $functionName, array $parameters, ?string $userId = null): array {
 		$repo = trim((string)($parameters['repo'] ?? ''));

@@ -51,6 +51,8 @@ use RuntimeException;
 
 /**
  * The async half of the stage transport.
+ *
+ * @spec exclude Pre-existing service; its behaviour is specified through its callers, not as a capability of its own.
  */
 class AsyncStageDispatchService extends StageDispatchService {
 

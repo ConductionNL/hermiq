@@ -65,6 +65,8 @@ use UnexpectedValueException;
 
 /**
  * Reads the outcome of a stage started asynchronously.
+ *
+ * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
  */
 class HermiqWorkloadCollectNode implements IFlowNode {
 
@@ -87,6 +89,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * The step type.
 	 *
 	 * @return string The id.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function getId(): string {
 		return 'hermiq.workload-collect';
@@ -96,6 +100,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * Palette name.
 	 *
 	 * @return string The display name.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function getDisplayName(): string {
 		return $this->l10n->t('Collect workload');
@@ -105,6 +111,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * Palette description.
 	 *
 	 * @return string The description.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function getDescription(): string {
 		return $this->l10n->t('Ask what became of a workload that was started asynchronously.');
@@ -114,6 +122,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * Palette icon.
 	 *
 	 * @return string The icon URL.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function getIcon(): string {
 		return $this->urls->imagePath('hermiq', 'app-dark.svg');
@@ -125,6 +135,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * @param int $scope The scope constant.
 	 *
 	 * @return boolean Whether it is available.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function isAvailableForScope(int $scope): bool {
 		return in_array($scope, [IManager::SCOPE_ADMIN, IManager::SCOPE_USER], true);
@@ -138,6 +150,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * @return void
 	 *
 	 * @throws UnexpectedValueException When `job` is missing.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function validateConfig(array $config): void {
 		if (trim((string)($config['job'] ?? '')) === '') {
@@ -156,6 +170,8 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	 * @param array $context Run-level metadata.
 	 *
 	 * @return array The items, each carrying the job state.
+	 *
+	 * @spec exclude Pre-existing workload-collect node; or-flow-consumer specifies the schedule path only, and no requirement governs collection.
 	 */
 	public function execute(array $items, array $config, array $context): array {
 		$outKey = trim((string)($config['output'] ?? 'collected'));

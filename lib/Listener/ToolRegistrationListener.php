@@ -35,6 +35,8 @@ use OCP\EventDispatcher\IEventListener;
  * Registers Hermiq's tools when OpenRegister builds its catalogue.
  *
  * @template-implements IEventListener<Event>
+ *
+ * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
  */
 class ToolRegistrationListener implements IEventListener {
 
@@ -54,6 +56,8 @@ class ToolRegistrationListener implements IEventListener {
 	 * @param Event $event The dispatched event.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-forge-tools-are-registered-through-openregisters-tool-registry
 	 */
 	public function handle(Event $event): void {
 		if (($event instanceof ToolRegistrationEvent) === false) {

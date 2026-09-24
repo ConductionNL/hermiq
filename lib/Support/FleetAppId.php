@@ -69,6 +69,8 @@ use Throwable;
 
 /**
  * Resolves fleet app ids and namespaces across the rename.
+ *
+ * @spec exclude Pre-existing app-id resolution helper for the fleet rename; no capability spec governs it.
  */
 final class FleetAppId {
 	/**
@@ -124,6 +126,8 @@ final class FleetAppId {
 	 * @param string $canonical Canonical (new) app name, e.g. 'learniq'.
 	 *
 	 * @return string|null The installed id, or null when the app is absent.
+	 *
+	 * @spec exclude Pre-existing app-id resolution helper for the fleet rename; no capability spec governs it.
 	 */
 	public static function resolve(IAppManager $appManager, string $canonical): ?string {
 		foreach ((self::CANDIDATES[$canonical] ?? [$canonical]) as $candidate) {
@@ -148,6 +152,8 @@ final class FleetAppId {
 	 * @param string $canonical Canonical (new) app name, e.g. 'learniq'.
 	 *
 	 * @return bool True when the app is present under some id.
+	 *
+	 * @spec exclude Pre-existing app-id resolution helper for the fleet rename; no capability spec governs it.
 	 */
 	public static function isInstalled(IAppManager $appManager, string $canonical): bool {
 		return self::resolve(appManager: $appManager, canonical: $canonical) !== null;
@@ -160,6 +166,8 @@ final class FleetAppId {
 	 * @param string $relative Class name below the app root, e.g. 'Service\CallService'.
 	 *
 	 * @return list<string> Candidate FQCNs, newest first; empty when unknown.
+	 *
+	 * @spec exclude Pre-existing app-id resolution helper for the fleet rename; no capability spec governs it.
 	 */
 	public static function classCandidates(string $canonical, string $relative): array {
 		$relative = ltrim($relative, '\\');
@@ -185,6 +193,8 @@ final class FleetAppId {
 	 * @param string $relative Class name below the app root, e.g. 'Service\CallService'.
 	 *
 	 * @return object|null The service, or null when no candidate resolves.
+	 *
+	 * @spec exclude Pre-existing app-id resolution helper for the fleet rename; no capability spec governs it.
 	 */
 	public static function getService(ContainerInterface $container, string $canonical, string $relative): ?object {
 		foreach (self::classCandidates(canonical: $canonical, relative: $relative) as $fqcn) {

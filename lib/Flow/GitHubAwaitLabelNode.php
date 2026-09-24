@@ -57,6 +57,8 @@ use UnexpectedValueException;
 
 /**
  * Suspends the run until a named label is on a named issue.
+ *
+ * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
  */
 class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeConfigForm, IFlowNodeTaxonomy {
 
@@ -92,6 +94,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * The node id.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function getId(): string {
 		return 'hermiq.github-await-label';
@@ -101,6 +105,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * The name on the canvas.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function getDisplayName(): string {
 		return $this->l10n->t('Wait for a GitHub label');
@@ -110,6 +116,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * What it does, in one line.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function getDescription(): string {
 		return $this->l10n->t('Pause until someone puts a named label on the issue, then carry on.');
@@ -119,6 +127,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * The icon.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function getIcon(): string {
 		return $this->urls->imagePath('core', 'actions/confirm.svg');
@@ -130,6 +140,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * @param int $scope The workflow scope.
 	 *
 	 * @return bool
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function isAvailableForScope(int $scope): bool {
 		return in_array($scope, [IManager::SCOPE_ADMIN, IManager::SCOPE_USER], true);
@@ -140,6 +152,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * what it is really waiting for is a person deciding.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function getKind(): string {
 		return 'serviceTask';
@@ -149,6 +163,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * The palette group.
 	 *
 	 * @return string
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function getCategory(): string {
 		return 'human';
@@ -158,6 +174,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * The accepted config keys.
 	 *
 	 * @return array<int,string>
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function configKeys(): array {
 		return ['repo', 'issue', 'label', 'heartbeatMinutes', 'timeoutMinutes', 'output', 'onTimeout'];
@@ -167,6 +185,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * The editor's fields.
 	 *
 	 * @return array<int,array<string,mixed>>
+	 *
+	 * @spec exclude Declarative IFlowNode metadata the canvas reads; the behaviour this node is specified for lives in execute().
 	 */
 	public function configForm(): array {
 		return [
@@ -227,6 +247,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 * @return void
 	 *
 	 * @throws UnexpectedValueException When repo, issue or label is missing.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
 	 */
 	public function validateConfig(array $config): void {
 		foreach (['repo' => 'a repository', 'issue' => 'an issue number', 'label' => 'a label'] as $key => $what) {
@@ -257,6 +279,8 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 	 *
 	 * @throws FlowSuspension While the label is absent and the deadline has not passed.
 	 * @throws FlowStop When the deadline passes and the step is set to fail.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
 	 */
 	public function execute(array $items, array $config, array $context): array {
 		$label = strtolower(trim((string)($config['label'] ?? '')));
@@ -265,108 +289,36 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 			$outputKey = 'labelWait';
 		}
 
-		$userId = ($context['triggeredBy'] ?? null);
 		$now = new DateTime();
-		$stillWaiting = false;
 		$deadline = $this->deadline(config: $config, context: $context, now: $now);
 		$expired = ($deadline !== null && strtotime($deadline) !== false && strtotime($deadline) <= $now->getTimestamp());
+		$stillWaiting = false;
 
 		foreach ($items as $index => $item) {
-			if (is_array($item) === false) {
-				// Not a skip. `continue` here let a malformed item through the
-				// approval gate untouched, which is the same hole as an empty
-				// template resolving to nothing: the gate does not gate, and the
-				// run carries on as though someone had approved it.
-				throw new FlowStop(
-					reason: sprintf('Item %s is not a record this step can read, so it cannot be waited on.', (string)$index),
-					isError: true
-				);
-			}
+			$this->assertReadable(item: $item, index: $index);
 
 			$json = (array)($item[FlowItems::JSON] ?? []);
-			$repo = trim($this->render(template: (string)($config['repo'] ?? ''), json: $json));
-			$number = (int)trim($this->render(template: (string)($config['issue'] ?? ''), json: $json));
+			[$repo, $number] = $this->subjectOf(config: $config, json: $json);
+			$read = $this->readIssue(repo: $repo, number: $number, label: $label, context: $context);
 
-			if ($repo === '' || $number <= 0) {
-				// This used to write "no issue on this item" and carry on, which read
-				// as tolerance and behaved as a hole. Measured 2026-09-23: the step
-				// was configured with a template that resolved to nothing, so the gate
-				// waiting for a human's `accepted` label passed in a single pass, and
-				// the run branched a repository and started writing code that nobody
-				// had approved. The run looked healthy the whole way.
-				//
-				// A gate that cannot find what it is gating has not been satisfied, it
-				// has failed, and the difference has to be visible. Stopping names the
-				// template and the value it produced, which is the one thing that makes
-				// the mistake fixable.
-				throw new FlowStop(
-					reason: sprintf(
-						'This step cannot tell which issue to watch: repo "%s" and issue "%s" resolved to "%s" and "%s". '
-						. 'Point them at a value the item actually carries.',
-						(string)($config['repo'] ?? ''),
-						(string)($config['issue'] ?? ''),
-						$repo,
-						(string)$number
-					),
-					isError: true
-				);
-			}
-
-			try {
-				$issue = $this->broker->getIssue(repo: $repo, number: $number, userId: $userId);
-				$labels = (array)($issue['labels'] ?? []);
-				$found = in_array($label, array_map('strtolower', $labels), true);
-			} catch (Throwable $e) {
-				// A failed read is not an answer. Treating it as "label absent" keeps
-				// the wait honest: a rate limit or an outage must not be able to
-				// decide that an issue was never approved.
-				$found = false;
-				$labels = [];
-				$issue = ['error' => $e->getMessage()];
-			}
-
-			if ($found === false && $expired === false) {
-				$json[$outputKey] = ['waited' => true, 'found' => false, 'deadline' => $deadline, 'labels' => $labels];
-				$item[FlowItems::JSON] = $json;
-				$items[$index] = $item;
+			$waiting = ($read['found'] === false && $expired === false);
+			if ($waiting === true) {
+				$json[$outputKey] = [
+					'waited' => true,
+					'found' => false,
+					'deadline' => $deadline,
+					'labels' => $read['labels'],
+				];
 				$stillWaiting = true;
-				continue;
 			}
 
-			$json[$outputKey] = [
-				'waited' => true,
-				'found' => $found,
-				'timedOut' => ($found === false),
-				'deadline' => $deadline,
-				'labels' => $labels,
-				'title' => (string)($issue['title'] ?? ''),
-				'state' => (string)($issue['state'] ?? ''),
-				// Carried so a timeout can be told apart from an outage. Without
-				// it, a day of failed reads and a day of nobody looking at the
-				// issue produce the identical record: timedOut true, no labels,
-				// no title. One of those is a person deciding not to approve, and
-				// the other is us never having asked.
-				'lastError' => (string)($issue['error'] ?? ''),
-			];
+			if ($waiting === false) {
+				$json[$outputKey] = $this->settledResult(read: $read, deadline: $deadline);
+				$this->assertTimeoutTolerated(config: $config, read: $read, repo: $repo, number: $number);
+			}
+
 			$item[FlowItems::JSON] = $json;
 			$items[$index] = $item;
-
-			if ($found === false && strtolower(trim((string)($config['onTimeout'] ?? 'continue'))) === 'fail') {
-				$lastError = (string)($issue['error'] ?? '');
-
-				throw new FlowStop(
-					reason: sprintf(
-						'The "%s" label was not on %s#%d before the deadline. %s',
-						(string)($config['label'] ?? ''),
-						$repo,
-						$number,
-						($lastError === '')
-							? 'The issue was readable throughout, so nobody applied it.'
-							: ('The last read of the issue failed, so it may never have been asked: ' . $lastError)
-					),
-					isError: true
-				);
-			}
 		}//end foreach
 
 		if ($stillWaiting === true) {
@@ -380,6 +332,175 @@ class GitHubAwaitLabelNode implements IFlowNode, IFlowNodeConfigKeys, IFlowNodeC
 
 		return $items;
 	}//end execute()
+
+	/**
+	 * Refuse an item this step cannot read.
+	 *
+	 * Not a skip. `continue` here let a malformed item through the approval gate
+	 * untouched, which is the same hole as an empty template resolving to nothing:
+	 * the gate does not gate, and the run carries on as though someone had
+	 * approved it.
+	 *
+	 * @param mixed $item The item in flight.
+	 * @param mixed $index Its position, for the message.
+	 *
+	 * @return void
+	 *
+	 * @throws FlowStop When the item is not a record.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
+	 */
+	private function assertReadable(mixed $item, mixed $index): void {
+		if (is_array($item) === false) {
+			throw new FlowStop(
+				reason: sprintf('Item %s is not a record this step can read, so it cannot be waited on.', (string)$index),
+				isError: true
+			);
+		}
+	}//end assertReadable()
+
+	/**
+	 * Which issue this item is waiting on.
+	 *
+	 * A gate that cannot find what it is gating has not been satisfied, it has
+	 * failed, and the difference has to be visible. Measured 2026-09-23: the step
+	 * was configured with a template that resolved to nothing, the wait passed in
+	 * a single pass, and the run branched a repository nobody had approved. The
+	 * stop names the template and the value it produced, which is the one thing
+	 * that makes the mistake fixable.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 *
+	 * @return array{0:string,1:int} The repository and the issue number.
+	 *
+	 * @throws FlowStop When either resolves to nothing.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
+	 */
+	private function subjectOf(array $config, array $json): array {
+		$repo = trim($this->render(template: (string)($config['repo'] ?? ''), json: $json));
+		$number = (int)trim($this->render(template: (string)($config['issue'] ?? ''), json: $json));
+
+		if ($repo === '' || $number <= 0) {
+			throw new FlowStop(
+				reason: sprintf(
+					'This step cannot tell which issue to watch: repo "%s" and issue "%s" resolved to "%s" and "%s". '
+					. 'Point them at a value the item actually carries.',
+					(string)($config['repo'] ?? ''),
+					(string)($config['issue'] ?? ''),
+					$repo,
+					(string)$number
+				),
+				isError: true
+			);
+		}
+
+		return [$repo, $number];
+	}//end subjectOf()
+
+	/**
+	 * Read the issue and say whether the label is on it.
+	 *
+	 * A failed read is NOT an answer. Treating it as "label absent" keeps the wait
+	 * honest: a rate limit or an outage must not be able to decide that an issue
+	 * was never approved, so it reports not-found and the heartbeat asks again.
+	 *
+	 * @param string $repo The repository.
+	 * @param int $number The issue number.
+	 * @param string $label The label being waited for, lower-cased.
+	 * @param array $context The run context.
+	 *
+	 * @return array{found:bool,labels:array,issue:array} What the read saw.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
+	 */
+	private function readIssue(string $repo, int $number, string $label, array $context): array {
+		try {
+			$issue = $this->broker->getIssue(repo: $repo, number: $number, userId: ($context['triggeredBy'] ?? null));
+			$labels = (array)($issue['labels'] ?? []);
+
+			return [
+				'found' => in_array($label, array_map('strtolower', $labels), true),
+				'labels' => $labels,
+				'issue' => $issue,
+			];
+		} catch (Throwable $e) {
+			return ['found' => false, 'labels' => [], 'issue' => ['error' => $e->getMessage()]];
+		}
+	}//end readIssue()
+
+	/**
+	 * What to write on an item the wait is done with.
+	 *
+	 * `lastError` is carried so a timeout can be told apart from an outage.
+	 * Without it, a day of failed reads and a day of nobody looking at the issue
+	 * produce the identical record: timedOut true, no labels, no title. One of
+	 * those is a person deciding not to approve, and the other is us never having
+	 * asked.
+	 *
+	 * @param array $read What readIssue() saw.
+	 * @param string|null $deadline The deadline this wait was given.
+	 *
+	 * @return array<string,mixed> The result for the item.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
+	 */
+	private function settledResult(array $read, ?string $deadline): array {
+		$issue = (array)$read['issue'];
+
+		return [
+			'waited' => true,
+			'found' => $read['found'],
+			'timedOut' => ($read['found'] === false),
+			'deadline' => $deadline,
+			'labels' => $read['labels'],
+			'title' => (string)($issue['title'] ?? ''),
+			'state' => (string)($issue['state'] ?? ''),
+			'lastError' => (string)($issue['error'] ?? ''),
+		];
+	}//end settledResult()
+
+	/**
+	 * Stop the run when the author said a timeout is a fault.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $read What readIssue() saw.
+	 * @param string $repo The repository.
+	 * @param int $number The issue number.
+	 *
+	 * @return void
+	 *
+	 * @throws FlowStop When the label never arrived and onTimeout is `fail`.
+	 *
+	 * @spec openspec/specs/forge-tools/spec.md#requirement-a-run-waits-for-a-forge-decision-and-a-gate-that-cannot-resolve-its-subject-stops
+	 */
+	private function assertTimeoutTolerated(array $config, array $read, string $repo, int $number): void {
+		if ($read['found'] === true) {
+			return;
+		}
+
+		if (strtolower(trim((string)($config['onTimeout'] ?? 'continue'))) !== 'fail') {
+			return;
+		}
+
+		$lastError = (string)(((array)$read['issue'])['error'] ?? '');
+		$why = 'The issue was readable throughout, so nobody applied it.';
+		if ($lastError !== '') {
+			$why = 'The last read of the issue failed, so it may never have been asked: ' . $lastError;
+		}
+
+		throw new FlowStop(
+			reason: sprintf(
+				'The "%s" label was not on %s#%d before the deadline. %s',
+				(string)($config['label'] ?? ''),
+				$repo,
+				$number,
+				$why
+			),
+			isError: true
+		);
+	}//end assertTimeoutTolerated()
 
 	/**
 	 * When this wait gives up, fixed on the first pass and carried across wakes.

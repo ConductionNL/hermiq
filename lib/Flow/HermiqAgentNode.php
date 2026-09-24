@@ -305,45 +305,11 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 				anchor: null
 			);
 
-			// An EMPTY answer is a failure, not an answer. The turn can succeed
-			// mechanically and still produce nothing: a model handed a prompt
-			// large enough to exhaust its output budget returns an empty string,
-			// and so does one that spent its whole budget reasoning. Measured
-			// 2026-09-23 on a build step whose prompt carried a specification and
-			// a research note inline: the step completed in 92 seconds, wrote ''
-			// onto the item, and the pipeline carried on to review a diff that
-			// was never written. Nothing in the run said anything had gone wrong.
-			//
-			// This is the same defect the surrounding comment describes for a
-			// THROWN failure, arriving by a different route, so it gets the same
-			// answer: raise, and let the step's own `onError` policy decide.
-			// An author who wants an empty turn to pass says so on the step.
-			if (trim($answer) === '') {
-				throw new UnexpectedValueException(
-					sprintf(
-						'Agent %s returned an empty answer. The turn ran and produced nothing, which usually means '
-						. 'the prompt was too large for the model\'s output budget, or every token went to '
-						. 'reasoning. Shorten the prompt, or raise the agent\'s maxTokens.',
-						$agentId
-					)
-				);
-			}
+			$this->assertAnswered(agentId: $agentId, answer: $answer);
 
 			$json[$outKey] = $this->decode(config: $config, answer: $answer);
 
-			// The conversation this turn produced, so the run log can link to
-			// it. A POINTER, never a copy: the session is the record, and a
-			// copy of its messages in the log would diverge from it the moment
-			// the session gains a reply — and would put the whole reasoning
-			// into a record kept for months.
-			//
-			// Empty on a dry run and on the flag-off legacy path, which produce
-			// no bindable conversation. Written only when there is one, so an
-			// absent key means "no session", not "the link failed".
-			$sessionUuid = $this->scheduleService->lastRunConversationUuid();
-			if ($sessionUuid !== '') {
-				$json['sessionId'] = $sessionUuid;
-			}
+			$json = $this->withSessionPointer(json: $json);
 
 			$out[] = [
 				'json' => $json,
@@ -354,6 +320,72 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 
 		return $out;
 	}//end execute()
+
+	/**
+	 * Refuse a turn that ran and produced nothing.
+	 *
+	 * An EMPTY answer is a failure, not an answer. The turn can succeed
+	 * mechanically and still produce nothing: a model handed a prompt large enough
+	 * to exhaust its output budget returns an empty string, and so does one that
+	 * spent its whole budget reasoning. Measured 2026-09-23 on a build step whose
+	 * prompt carried a specification and a research note inline: the step completed
+	 * in 92 seconds, wrote '' onto the item, and the pipeline carried on to review
+	 * a diff that was never written. Nothing in the run said anything had gone
+	 * wrong.
+	 *
+	 * This is the same defect the comment in execute() describes for a THROWN
+	 * failure, arriving by a different route, so it gets the same answer: raise,
+	 * and let the step's own `onError` policy decide.
+	 *
+	 * @param string $agentId The agent that produced nothing.
+	 * @param string $answer Its answer.
+	 *
+	 * @return void
+	 *
+	 * @throws UnexpectedValueException When the answer is empty.
+	 *
+	 * @spec exclude Guard split out of execute() to keep it under the length gate; the behaviour is unchanged and covered by HermiqAgentNodeFailureTest.
+	 */
+	private function assertAnswered(string $agentId, string $answer): void {
+		if (trim($answer) !== '') {
+			return;
+		}
+
+		throw new UnexpectedValueException(
+			sprintf(
+				'Agent %s returned an empty answer. The turn ran and produced nothing, which usually means '
+				. 'the prompt was too large for the model\'s output budget, or every token went to '
+				. 'reasoning. Shorten the prompt, or raise the agent\'s maxTokens.',
+				$agentId
+			)
+		);
+	}//end assertAnswered()
+
+	/**
+	 * Point the item at the conversation this turn produced.
+	 *
+	 * A POINTER, never a copy: the session is the record, and a copy of its
+	 * messages in the log would diverge from it the moment the session gains a
+	 * reply, and would put the whole reasoning into a record kept for months.
+	 *
+	 * Empty on a dry run and on the flag-off legacy path, which produce no
+	 * bindable conversation. Written only when there is one, so an absent key
+	 * means "no session", not "the link failed".
+	 *
+	 * @param array $json The item's record.
+	 *
+	 * @return array The record, with the pointer when there is one.
+	 *
+	 * @spec exclude Split out of execute() to keep it under the length gate; behaviour unchanged.
+	 */
+	private function withSessionPointer(array $json): array {
+		$sessionUuid = $this->scheduleService->lastRunConversationUuid();
+		if ($sessionUuid !== '') {
+			$json['sessionId'] = $sessionUuid;
+		}
+
+		return $json;
+	}//end withSessionPointer()
 
 	/**
 	 * Substitute `{{dotted.path}}` placeholders from the item's json.

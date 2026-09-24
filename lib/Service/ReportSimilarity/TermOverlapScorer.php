@@ -113,6 +113,8 @@ class TermOverlapScorer {
 	 * @param string $text The report text.
 	 *
 	 * @return array<int, string> The terms.
+	 *
+	 * @spec exclude Pre-existing internal helper; no capability requirement governs it.
 	 */
 	public function terms(string $text): array {
 		$normalised = mb_strtolower(trim($text));

@@ -60,6 +60,8 @@ use Throwable;
 
 /**
  * Merges bundle content onto an existing skill without destroying local state.
+ *
+ * @spec exclude Pre-existing service; its behaviour is specified through its callers, not as a capability of its own.
  */
 class SkillUpsertPolicy {
 

@@ -51,6 +51,8 @@ namespace OCA\Hermiq\Service;
 
 /**
  * Resolves the canonical identity of a bundle skill, and the local skill it matches.
+ *
+ * @spec exclude Pre-existing service; its behaviour is specified through its callers, not as a capability of its own.
  */
 class SkillIdentityResolver {
 
