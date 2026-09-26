@@ -59,10 +59,12 @@ const fs = require('fs')
 const path = require('path')
 
 // The Dexie version every other Conduction app on an instance ships today.
-// Verified 2026-09-19 against buildiq, dossiq, openregister, opencatalogi and
-// integriq, all resolving 4.4.5, and against @conduction/nextcloud-vue's peer
-// range ^4.0.8. Move this only together with them.
-const FLEET_DEXIE = '4.4.5'
+// Moved to 4.4.6 on 2026-09-25 in the fleet-wide pass that moves every app
+// together with openregister (ConductionNL/openregister#3788). Previously
+// verified 2026-09-19 against buildiq, dossiq, openregister, opencatalogi and
+// integriq on 4.4.5, and against @conduction/nextcloud-vue's peer range ^4.0.8.
+// Move this only together with them.
+const FLEET_DEXIE = '4.4.6'
 
 const repoRoot = path.join(__dirname, '..')
 const jsDir = path.join(repoRoot, 'js')

@@ -34,6 +34,11 @@ updates:
       # natural pilot.
       - dependency-name: "vue-router"
         update-types: ["version-update:semver-major"]
+      # dexie must be the same version in every app bundle. openregister's
+      # integration-global bundle loads on every page, and two different
+      # versions of dexie stop the app from mounting. Move it together with
+      # openregister across the fleet, never in one app alone.
+      - dependency-name: "dexie"
     cooldown:
       default-days: 1
       include:
