@@ -219,11 +219,16 @@
 			"feature": "agent-management-ui",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "yes",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38288 \"Full profile builder in the dashboard: Build a complete Hermes profile from the browser - pick its model, choose its skills, attach its MCP servers - without hand-editing config.yaml.\"",
+				"copilot-studio": "docs-only: competitor_features#31604 \"Low-code agent builder: Natural-language + graphical builder for topics, actions and knowledge.\"",
+				"dify": "docs-only: competitor_features#38549 \"You can build Dify Agents through the UI: set a base prompt, upload Skills and files, and connect tools and knowledge from the Dify ecosystem.\""
+			}
 		},
 		{
 			"id": "ag-list",
@@ -245,9 +250,12 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38558 \"Agent App enters open beta: an agent roster for managing and reusing agents across a workspace\""
+			}
 		},
 		{
 			"id": "ag-detail",
@@ -266,11 +274,14 @@
 			"feature": "agent-management-ui",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38288 \"Full profile builder in the dashboard: Build a complete Hermes profile from the browser - pick its model, choose its skills, attach its MCP servers - without hand-editing config.yaml.\""
+			}
 		},
 		{
 			"id": "ag-model",
@@ -289,11 +300,16 @@
 			"feature": "tenant-model-policy",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31140 \"LLM provider abstraction: ProviderTransport ABC: Nous/Anthropic/Bedrock/OpenRouter/local vLLM, switch with no code change\"",
+				"dify": "docs-only: competitor_features#30989 \"Model provider hub: Dozens of LLM providers incl. local.\"",
+				"n8n": "docs-only: competitor_features#3907 \"Anthropic Node: Update credential test to use available model: From n8n@2.14.0 (2026-03-24)\""
+			}
 		},
 		{
 			"id": "ag-visibility",
@@ -315,9 +331,14 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "partial",
+			"open-webui": "partial",
+			"evidence": {
+				"dify": "docs-only: competitor_features#30994 \"Workspaces & RBAC: Team workspaces with member roles.\"",
+				"n8n": "docs-only: competitor_features#31101 \"RBAC & SSO (Enterprise): Role-based access, SSO/LDAP gated behind Enterprise.\"",
+				"open-webui": "docs-only: competitor_features#31811 \"Role-Based Access Control (RBAC): Built-in RBAC with user groups and model access controls\""
+			}
 		},
 		{
 			"id": "ag-quota",
@@ -338,10 +359,14 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "partial",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "partial",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31612 \"Message-metered pricing: $0.01/message or $200/mo pack; cost spikes with generative/autonomous use.\"",
+				"open-webui": "docs-only: competitor_features#38864 \"Automation scheduling limits: Administrators can now set AUTOMATIONMAXCOUNT and AUTOMATIONMININTERVAL to limit how many automations each non-admin user can create\""
+			}
 		},
 		{
 			"id": "ag-enable",
@@ -432,10 +457,14 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"copilot-studio": "yes",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31604 \"Low-code agent builder: Natural-language + graphical builder for topics, actions and knowledge.\"",
+				"dify": "docs-only: competitor_features#38550 \"We also provide an agent that helps you build Dify Agents: Through conversation, it can configure the Linux sandbox environment, install required packages, and create new Skills and files that your Dify Agent can use later.\""
+			}
 		},
 		{
 			"id": "ag-app-slug",
@@ -479,11 +508,15 @@
 			"feature": "agent-capability-profile",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38288 \"Full profile builder in the dashboard: pick its model, choose its skills, attach its MCP servers - without hand-editing config.yaml.\"",
+				"dify": "docs-only: competitor_features#38549 \"You can build Dify Agents through the UI: set a base prompt, upload Skills and files, and connect tools and knowledge from the Dify ecosystem.\""
+			}
 		},
 		{
 			"id": "ag-delete",
@@ -530,9 +563,12 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38725 \"Or upload your exported file via Creator Center: From 1.14.0-rc1: New Agent x Skills for Production Workflows (2026-02-14)\""
+			}
 		},
 		{
 			"id": "ch-chat",
@@ -550,12 +586,19 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-engine-port",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "partial",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31372 \"AI Chat with tools (agentic mode): Chat-with-AI can call virtual integrations (tools) to perform actions; backed by the Context Agent ExApp. Chains multiple tools to complete a task.\"",
+				"hermes-agent": "docs-only: competitor_features#31129 \"Agent loop core: AIAgent (run_agent.py) powers CLI, gateway, API and scheduler uniformly\"",
+				"dify": "docs-only: competitor_features#30986 \"Visual LLM app builder: No-code chatflow/workflow app studio.\"",
+				"n8n": "docs-only: competitor_features#3912 \"core: Allow expressions in tool default values on chat hub tools: From n8n@2.14.0 (2026-03-24)\"",
+				"open-webui": "docs-only: competitor_features#31813 \"RAG document ingestion / knowledge base: Upload docs and chat over them with retrieval\""
+			}
 		},
 		{
 			"id": "ch-stream",
@@ -578,7 +621,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38737 \"Streamed reasoning display: Models that emit thinking or reasoning now show that content as it streams, and it renders correctly in the chat overview and in exported conversations.\""
+			}
 		},
 		{
 			"id": "ch-sessions",
@@ -597,11 +643,14 @@
 			"feature": "agent-engine-port",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31131 \"FTS5 session search: Full-text search across all past sessions with LLM summarization\""
+			}
 		},
 		{
 			"id": "ch-session-delete",
@@ -644,11 +693,14 @@
 			"feature": "warm-start-and-cli-step-visibility",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38242 \"Watch your subagents work: delegatetask dispatches now return live transcript files you can tail -f the moment the subagents launch: every tool call, result, and streamed reply, one human-readable log per child.\""
+			}
 		},
 		{
 			"id": "ch-attach",
@@ -695,7 +747,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38806 \"Feedback user attribution spoofing: Submitting evaluation feedback can no longer forge the user_id field through mass-assignment, preventing authenticated users from attributing ratings to other users and corrupting Elo leaderboard rankings and admin feedback exports.\""
+			}
 		},
 		{
 			"id": "ch-companion",
@@ -784,12 +839,16 @@
 			"providerHow": "read-from-code",
 			"feature": "speech-services",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31386 \"Voice input: Hands-free natural-language invocation of agent commands.\"",
+				"open-webui": "docs-only: competitor_features#38876 \"STT preprocessing bypass option: Administrators can now enable AUDIOSTTSKIP_PREPROCESSING to send audio files directly to the speech-to-text backend, reducing memory and CPU consumption during large uploads for better transcription performance\""
+			}
 		},
 		{
 			"id": "ch-voice-out",
@@ -809,11 +868,15 @@
 			"feature": "speech-services",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38361 \"Opt-in autospeechtags for xAI TTS: inserts light [pause] tags between paragraphs and sentences for more natural-sounding voice replies. Default OFF. (#29376)\"",
+				"open-webui": "docs-only: competitor_features#38875 \"Mistral TTS support: Mistral can now be used as a text-to-speech provider, with admin settings for the API key, base URL, voices, and model selection.\""
+			}
 		},
 		{
 			"id": "ch-smart-picker",
@@ -832,12 +895,15 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "medium",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31889 \"Smart Picker in-app invocation: Invoke AI from any Nextcloud text field\""
+			}
 		},
 		{
 			"id": "ch-text-tasks",
@@ -855,12 +921,15 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31383 \"Text tasks (summarize/headline/reformulate/formalize/context-write): core:text2text task-type family via Task Processing providers.\""
+			}
 		},
 		{
 			"id": "ch-image-gen",
@@ -878,12 +947,17 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31381 \"Document & image generation: Generate spreadsheets, slides, PDFs and images from chat instructions.\"",
+				"hermes-agent": "docs-only: competitor_features#38354 \"Two new imagegen providers: Krea joins the imagegen lineup as a built-in plugin: Krea 2 Medium ($0.03) and Krea 2 Large ($0.06), auto-discovered, selectable via hermes tools -> Image Generation -> Krea.\"",
+				"open-webui": "docs-only: competitor_features#31818 \"Image generation integration: DALL-E, Gemini, ComfyUI, AUTOMATIC1111 image backends\""
+			}
 		},
 		{
 			"id": "ch-search-history",
@@ -903,11 +977,14 @@
 			"feature": "agent-engine-port",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31131 \"FTS5 session search: Full-text search across all past sessions with LLM summarization\""
+			}
 		},
 		{
 			"id": "ch-citations",
@@ -930,7 +1007,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38872 \"Responses citation visibility: Responses API flows now emit citation sources more consistently, making linked references easier to preserve and display in chat output.\""
+			}
 		},
 		{
 			"id": "ch-share-link",
@@ -954,7 +1034,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38831 \"Public chat sharing permission control: Administrators can now control whether users are allowed to create publicly shareable chats through a dedicated permission setting.\""
+			}
 		},
 		{
 			"id": "sc-cron",
@@ -972,12 +1055,19 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"hermes-agent": "docs-only: competitor_features#31136 \"Cron scheduler: Natural-language scheduled tasks, /api/jobs REST, delivery to any channel\"",
+				"dify": "docs-only: competitor_features#30992 \"Scheduling / triggers: Scheduled and triggered app runs.\"",
+				"n8n": "docs-only: competitor_features#31094 \"Cron & interval scheduling: Schedule Trigger node runs workflows on cron expressions.\"",
+				"open-webui": "docs-only: competitor_features#31816 \"Scheduled prompt Automations: Recurring prompts via RRULE/cron in a background worker loop\""
+			}
 		},
 		{
 			"id": "sc-interval",
@@ -995,12 +1085,18 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"dify": "docs-only: competitor_features#30992 \"Scheduling / triggers: Scheduled and triggered app runs.\"",
+				"n8n": "docs-only: competitor_features#31094 \"Cron & interval scheduling: Schedule Trigger node runs workflows on cron expressions.\"",
+				"open-webui": "docs-only: competitor_features#31816 \"Scheduled prompt Automations: Recurring prompts via RRULE/cron in a background worker loop\""
+			}
 		},
 		{
 			"id": "sc-once",
@@ -1018,12 +1114,15 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\""
+			}
 		},
 		{
 			"id": "sc-nl",
@@ -1041,12 +1140,16 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"hermes-agent": "docs-only: competitor_features#38286 \"Automation Blueprints: schedule things without learning cron - Pick an automation by name and Hermes asks you for what it needs - no cron syntax, no slot=value typing.\""
+			}
 		},
 		{
 			"id": "sc-timezone",
@@ -1064,12 +1167,16 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"hermes-agent": "docs-only: competitor_features#38250 \"Perceived-latency round 2: mtime-cached timezone resolution (#59389)\""
+			}
 		},
 		{
 			"id": "sc-run-now",
@@ -1087,12 +1194,15 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-management-ui",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\""
+			}
 		},
 		{
 			"id": "sc-pause",
@@ -1110,12 +1220,16 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"open-webui": "docs-only: competitor_features#38863 \"Automation tools in chat: Built-in chat tools can now create, update, list, pause, and delete scheduled automations directly in conversation when automation access is enabled.\""
+			}
 		},
 		{
 			"id": "sc-webhook",
@@ -1133,12 +1247,17 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-webhook-trigger",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"hermes-agent": "docs-only: competitor_features#38368 \"Microsoft Teams - end-to-end: The full Microsoft Graph stack lands together: auth + client foundation, a webhook listener that receives Teams events, a pipeline plugin runtime, and outbound delivery.\"",
+				"n8n": "docs-only: competitor_features#31096 \"Webhook triggers: Inbound HTTP webhooks start workflows.\""
+			}
 		},
 		{
 			"id": "sc-webhook-secret",
@@ -1180,12 +1299,17 @@
 			"providerHow": "read-from-code",
 			"feature": "flow-agent-listener",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "yes",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"copilot-studio": "docs-only: competitor_features#31603 \"Autonomous agents: Agents that trigger on events and act without a human prompt (5 messages/action).\"",
+				"n8n": "docs-only: competitor_features#31096 \"Webhook triggers: Inbound HTTP webhooks start workflows.\""
+			}
 		},
 		{
 			"id": "sc-manual-event-choice",
@@ -1227,12 +1351,17 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"dify": "docs-only: competitor_features#38562 \"Workflow run archives can now be exported: active runs are properly aborted during Celery warm shutdown to prevent orphaned tasks. Redis connections are more resilient with TCP keepalive support and expanded retry coverage.\"",
+				"n8n": "docs-only: competitor_features#3039 \"Error Handling: Built-in error handling with retry and fallback paths\""
+			}
 		},
 		{
 			"id": "sc-dead-letter",
@@ -1250,12 +1379,15 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\""
+			}
 		},
 		{
 			"id": "sc-overlap",
@@ -1274,12 +1406,16 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "medium",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"n8n": "docs-only: competitor_features#38156 \"core: Close the durable scheduler's record-then-dispatch effect boundary: From n8n@2.32.0 (2026-07-21)\""
+			}
 		},
 		{
 			"id": "sc-list",
@@ -1290,7 +1426,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentRunOperationsWidget.vue:107-127 shows one schedule's trigger/deliver/enabled/next-run on its own AgentDetail page; searched src/manifest.json for a schedules index page or register:hermiq schema:schedule index and found none — only per-agent access exists (Schedule is 1:1 with its owning Agent per the widget's own design note)."
+				"evidence": "src/widgets/AgentRunOperationsWidget.vue:107-127 shows one schedule's trigger/deliver/enabled/next-run on its own AgentDetail page; searched src/manifest.json for a schedules index page or register:hermiq schema:schedule index and found none; only per-agent access exists (Schedule is 1:1 with its owning Agent per the widget's own design note)."
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget (one schedule at a time, not a fleet-wide list)",
 			"note": "Next run and last status are visible, but only one agent's schedule at a time; there is no single list of every schedule across agents, so seeing them all means opening each AgentDetail page in turn.",
@@ -1298,12 +1434,16 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "medium",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31890 \"No autonomous scheduling: Agent is interactive/reactive only; no cron/scheduled runs\"",
+				"open-webui": "docs-only: competitor_features#38862 \"Scheduled chat automations: Create and manage automations from the Automations page or directly in chat, with full run history\""
+			}
 		},
 		{
 			"id": "tl-files",
@@ -1321,12 +1461,16 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31376 \"Files tool: Read, create, move, copy, delete files and create public share links.\"",
+				"open-webui": "docs-only: competitor_features#38760 \"Open WebUI Computer agent support: Open WebUI can now connect to Open WebUI Computer through its OpenAI-compatible gateway, letting chats run full agent sessions on your own machine with file, terminal, git, and web access.\""
+			}
 		},
 		{
 			"id": "tl-calendar",
@@ -1344,12 +1488,16 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31373 \"Calendar tool: List calendars, schedule events, find free time slots via natural-language chat.\"",
+				"open-webui": "docs-only: competitor_features#38866 \"Calendar workspace and event management: Open WebUI now has a full Calendar workspace. Create and manage events, set up recurring schedules, get reminders via in-app toasts or browser notifications, and see your scheduled automations alongside your calendar.\""
+			}
 		},
 		{
 			"id": "tl-contacts",
@@ -1367,12 +1515,15 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31379 \"Contacts tool: Look up contact and user information to feed other tools.\""
+			}
 		},
 		{
 			"id": "tl-deck",
@@ -1391,12 +1542,15 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31377 \"Deck tool: Manage Deck board cards, labels and assignments.\""
+			}
 		},
 		{
 			"id": "tl-mail",
@@ -1414,12 +1568,15 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-native-tools",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31375 \"Mail tool: Send emails, manage mail accounts and folders.\""
+			}
 		},
 		{
 			"id": "tl-talk",
@@ -1437,12 +1594,16 @@
 			"providerHow": "read-from-code",
 			"feature": "talk-delivery",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31374 \"Talk tool: List conversations, send messages, create public conversations from the agent.\"",
+				"hermes-agent": "docs-only: competitor_features#31137 \"Multi-platform gateway: Single daemon routes 22+ platforms (Telegram/Slack/Signal/Email/Matrix/Teams)\""
+			}
 		},
 		{
 			"id": "tl-tasks",
@@ -1461,12 +1622,15 @@
 			"providerHow": "read-from-code",
 			"feature": "nc-tasks-tool",
 			"featureConfidence": "low",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31378 \"Tasks tool: Create, list, complete, update and delete tasks.\""
+			}
 		},
 		{
 			"id": "tl-unified-search",
@@ -1484,12 +1648,15 @@
 			"providerHow": "read-from-code",
 			"feature": "unified-search-tool",
 			"featureConfidence": "low",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31384 \"Unified search tool: Access all Nextcloud search providers from the agent.\""
+			}
 		},
 		{
 			"id": "tl-web-search",
@@ -1508,11 +1675,15 @@
 			"feature": "web-research-tool",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38358 \"xAI Web Search lands as a plugins/web/xai/ provider: slots alongside Brave / Tavily / Exa / SearXNG / DDGS / Firecrawl - reuses your existing Grok OAuth or XAIAPIKEY credentials, no new env vars.\"",
+				"open-webui": "docs-only: competitor_features#31814 \"Web search integration: Pluggable web search providers for grounded answers\""
+			}
 		},
 		{
 			"id": "tl-register",
@@ -1554,12 +1725,19 @@
 			"providerHow": "read-from-code",
 			"feature": "governed-cli-mcp-transport",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"nextcloud-assistant": "partial",
+			"hermes-agent": "yes",
+			"copilot-studio": "yes",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31385 \"Remote MCP client: Consume external MCP servers, but streamable_http only and cannot use per-user access tokens.\"",
+				"hermes-agent": "docs-only: competitor_features#31146 \"MCP integration: Connects to MCP servers for external tools\"",
+				"copilot-studio": "docs-only: competitor_features#31607 \"MCP support: Copilot Studio can consume MCP tool servers.\"",
+				"n8n": "docs-only: competitor_features#3906 \"AI Agent Node: Extract tool name correctly for MCP tool calls: From n8n@2.14.0 (2026-03-24)\"",
+				"open-webui": "docs-only: competitor_features#31815 \"Model Context Protocol (MCP) tools: MCP tool/server support for external tools\""
+			}
 		},
 		{
 			"id": "tl-mcp-server",
@@ -1580,9 +1758,13 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38560 \"The workflow-as-MCP server now supports MCP protocol 2025-06-18: with version negotiation and structured tool output, while remaining backward compatible with older clients.\"",
+				"n8n": "docs-only: competitor_features#38148 \"core: Acquire expression isolate for MCP Trigger tool calls in queue mode: From n8n@2.32.0 (2026-07-21)\""
+			}
 		},
 		{
 			"id": "tl-catalog",
@@ -1601,11 +1783,17 @@
 			"feature": "agent-engine-port",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"hermes-agent": "yes",
+			"copilot-studio": "yes",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38355 \"Nous-approved MCP catalog with interactive picker: A curated catalog of Nous-vetted MCP servers, mirroring the optional-skills shape. Run hermes mcp and you get an interactive picker; install with one keystroke.\"",
+				"copilot-studio": "docs-only: competitor_features#31605 \"1400+ connectors (Power Platform): Reuses Power Platform / Power Automate connector catalogue.\"",
+				"dify": "docs-only: competitor_features#30990 \"Tools/plugins marketplace: Plugin ecosystem of tools/connectors.\"",
+				"n8n": "docs-only: competitor_features#31095 \"400+ app connectors: Large library of prebuilt integration nodes.\""
+			}
 		},
 		{
 			"id": "tl-grants",
@@ -1624,11 +1812,15 @@
 			"feature": "agent-tool-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38288 \"Full profile builder in the dashboard: pick its model, choose its skills, attach its MCP servers - without hand-editing config.yaml.\"",
+				"open-webui": "docs-only: competitor_features#38785 \"Access preview for users and groups: Administrators can now preview exactly which models, knowledge bases, and tools a given user or group can access, making it easier to audit and verify permission setups.\""
+			}
 		},
 		{
 			"id": "tl-request-access",
@@ -1673,11 +1865,17 @@
 			"feature": "code-execution-sandbox",
 			"featureConfidence": "low",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "partial",
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31139 \"Six execution backends: Local/SSH/Docker/Daytona/Singularity/Modal; 8 parallel workers\"",
+				"dify": "docs-only: competitor_features#38558 \"Agent App enters open beta: It introduces a built-in sandbox for code execution and shell commands, a skill system that lets agents call tools and APIs.\"",
+				"n8n": "docs-only: competitor_features#3038 \"Code Nodes: JavaScript and Python code execution within workflows\"",
+				"open-webui": "docs-only: competitor_features#38760 \"Open WebUI Computer agent support: Open WebUI can now connect to Open WebUI Computer through its OpenAI-compatible gateway, letting chats run full agent sessions on your own machine with file, terminal, git, and web access.\""
+			}
 		},
 		{
 			"id": "tl-git",
@@ -1688,7 +1886,7 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/changes/hermiq-runner-git-capability/tasks.md: all 8 tasks unchecked ('[x]' count = 0). find lib -iname '*workspace*' and grep -rn 'workspace\\.' across lib/ and exapp/ return nothing — no WorkspaceProvider/WorkspaceToolset class exists, only contract.md/design.md/tasks.md."
+				"evidence": "openspec/changes/hermiq-runner-git-capability/tasks.md: all 8 tasks unchecked ('[x]' count = 0). find lib -iname '*workspace*' and grep -rn 'workspace\\.' across lib/ and exapp/ return nothing; no WorkspaceProvider/WorkspaceToolset class exists, only contract.md/design.md/tasks.md."
 			},
 			"reachedOn": "nothing",
 			"note": "Fully specified as a workspace.* MCP tool contract, but zero implementing code exists.",
@@ -1697,11 +1895,15 @@
 			"feature": "hermiq-runner-git-capability",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38266 \"First-class coding Projects in the desktop app: a sidebar of your codebases, a coding rail, a review pane, git worktree management, and agent-facing project tools.\"",
+				"open-webui": "docs-only: competitor_features#38760 \"Open WebUI Computer agent support: letting chats run full agent sessions on your own machine with file, terminal, git, and web access.\""
+			}
 		},
 		{
 			"id": "tl-custom-tool",
@@ -1719,12 +1921,18 @@
 			"providerHow": "read-from-code",
 			"feature": "custom-tool-extensibility",
 			"featureConfidence": "low",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31883 \"Model Context Protocol (MCP) tools: Admins add custom services to Context Agent via MCP\"",
+				"dify": "docs-only: competitor_features#30990 \"Tools/plugins marketplace: Plugin ecosystem of tools/connectors.\"",
+				"n8n": "docs-only: competitor_features#3045 \"Community Nodes: Community-contributed custom integration nodes\"",
+				"open-webui": "docs-only: competitor_features#31817 \"Pipelines / custom function plugins: Python function pipelines and filters extend the chat flow\""
+			}
 		},
 		{
 			"id": "tl-invocations-export",
@@ -1743,11 +1951,14 @@
 			"feature": "agent-tool-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38247 \"Your sessions, your data - export everything: hermes sessions export now writes Markdown, Quarto, HTML, prompt-only, and even Hugging Face-ready trace formats, with the full filter surface (age, workspace, platform).\""
+			}
 		},
 		{
 			"id": "tl-integrations-page",
@@ -1766,11 +1977,14 @@
 			"feature": "settings-management",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38303 \"The web dashboard is now a full admin panel: There's a Channels page that sets up every gateway messaging platform (Telegram, Discord, Slack, etc.) from the browser.\""
+			}
 		},
 		{
 			"id": "me-long-term",
@@ -1788,12 +2002,17 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-memory",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31388 \"No persistent agent memory: Stateless per-conversation; no MEMORY/USER long-term memory store across sessions.\"",
+				"hermes-agent": "docs-only: competitor_features#31130 \"Persistent memory (MEMORY.md/USER.md): Curated cross-session memory files with periodic persistence nudges\"",
+				"open-webui": "docs-only: competitor_features#38763 \"Reworked memory system: Memory has been overhauled with distinct memory types - long-lived personal memories and per-conversation context - managed through a structured add, update, and delete flow.\""
+			}
 		},
 		{
 			"id": "me-user-profile",
@@ -1811,12 +2030,17 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-memory",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "partial",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31388 \"No persistent agent memory: Stateless per-conversation; no MEMORY/USER long-term memory store across sessions.\"",
+				"hermes-agent": "docs-only: competitor_features#31132 \"Honcho dialectic user modeling: Pluggable memory provider builds a persistent model of the user\"",
+				"open-webui": "docs-only: competitor_features#38763 \"Reworked memory system: long-lived personal memories and per-conversation context - managed through a structured add, update, and delete flow, giving models a more reliable way to remember and apply what they've learned about you.\""
+			}
 		},
 		{
 			"id": "me-view-edit",
@@ -1835,12 +2059,17 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-memory",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31388 \"No persistent agent memory: Stateless per-conversation; no MEMORY/USER long-term memory store across sessions.\"",
+				"hermes-agent": "docs-only: competitor_features#38290 \"The memory tool got a major upgrade - atomic batch operations: The memory tool gained an operations array that applies a batch of add/replace/remove edits atomically against the final character budget.\"",
+				"open-webui": "docs-only: competitor_features#38763 \"Reworked memory system: managed through a structured add, update, and delete flow\""
+			}
 		},
 		{
 			"id": "me-consolidate",
@@ -1858,12 +2087,15 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-memory",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "no",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31388 \"No persistent agent memory: Stateless per-conversation; no MEMORY/USER long-term memory store across sessions.\""
+			}
 		},
 		{
 			"id": "me-kb-upload",
@@ -1882,12 +2114,17 @@
 			"providerHow": "read-from-code",
 			"feature": "vector-rag",
 			"featureConfidence": "medium",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31881 \"Context Chat (RAG over Nextcloud data): RAG over Files, Collectives and Analytics\"",
+				"dify": "docs-only: competitor_features#30988 \"RAG pipeline & knowledge base: Built-in document ingestion + retrieval.\"",
+				"open-webui": "docs-only: competitor_features#31813 \"RAG document ingestion / knowledge base: Upload docs and chat over them with retrieval\""
+			}
 		},
 		{
 			"id": "me-context",
@@ -1930,11 +2167,15 @@
 			"feature": "agent-engine-port",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31145 \"Context compression: ContextCompressor summarizes middle turns near token limits\"",
+				"open-webui": "docs-only: competitor_features#38759 \"Automatic context compaction for long chats: Conversations that grow past a configurable token threshold can now be summarized automatically so they stay within a model's context window.\""
+			}
 		},
 		{
 			"id": "me-knowledge-graph",
@@ -2001,10 +2242,14 @@
 			"featureConfidence": "low",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "yes",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31606 \"Dataverse knowledge grounding: Grounds agents on SharePoint, Dataverse, Graph and external sources.\"",
+				"open-webui": "docs-only: competitor_features#38762 \"External knowledge bases: Knowledge bases can now be backed by an external retrieval source through configurable external knowledge connections, so you can search an existing external system from chat instead of only Open WebUI's built-in store.\""
+			}
 		},
 		{
 			"id": "sk-catalog",
@@ -2023,11 +2268,14 @@
 			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31135 \"Skills catalog (ClawHub/skills.sh): 166 skills across 26+ categories, shareable/searchable\""
+			}
 		},
 		{
 			"id": "sk-install",
@@ -2046,11 +2294,14 @@
 			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38289 \"Skills Hub browser rehaul: Browsing and installing skills from the trusted taps (OpenAI, Anthropic, HuggingFace, NVIDIA) is now a real...\""
+			}
 		},
 		{
 			"id": "sk-format",
@@ -2069,11 +2320,14 @@
 			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31133 \"Autonomous skills system: agentskills.io standard; skills auto-created after 5+ tool calls, self-improving\""
+			}
 		},
 		{
 			"id": "sk-self-improve",
@@ -2092,11 +2346,14 @@
 			"feature": "skill-self-improvement",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31133 \"Autonomous skills system: agentskills.io standard; skills auto-created after 5+ tool calls, self-improving\""
+			}
 		},
 		{
 			"id": "sk-draft-review",
@@ -2138,11 +2395,14 @@
 			"feature": "autonomous-skill-creation",
 			"featureConfidence": "low",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31133 \"Autonomous skills system: agentskills.io standard; skills auto-created after 5+ tool calls, self-improving\""
+			}
 		},
 		{
 			"id": "sk-curator",
@@ -2161,11 +2421,14 @@
 			"feature": "skills-marketplace",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31134 \"Skills curator: Autonomous curator reviews/consolidates/archives skills with per-run reports\""
+			}
 		},
 		{
 			"id": "sk-maturity",
@@ -2184,11 +2447,14 @@
 			"feature": "skill-maturity",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38289 \"Skills Hub browser rehaul: full skill previews before you install, and a security scan on each skill.\""
+			}
 		},
 		{
 			"id": "sk-versions",
@@ -2253,11 +2519,14 @@
 			"feature": "skill-learnings",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38268 \"Cheaper self-improvement - smarter background review: The post-turn self-improvement fork (the one that decides whether to save a memory or skill) now routes to an auxiliary model.\""
+			}
 		},
 		{
 			"id": "sk-export",
@@ -2299,11 +2568,14 @@
 			"feature": "skills-marketplace",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38289 \"Skills Hub browser rehaul: Browsing and installing skills from the trusted taps (OpenAI, Anthropic, HuggingFace, NVIDIA) is now a real...\""
+			}
 		},
 		{
 			"id": "sk-evals",
@@ -2346,11 +2618,17 @@
 			"feature": "taskprocessing-consume-ui",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "partial",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31140 \"LLM provider abstraction: ProviderTransport ABC: Nous/Anthropic/Bedrock/OpenRouter/local vLLM, switch with no code change\"",
+				"dify": "docs-only: competitor_features#30989 \"Model provider hub: Dozens of LLM providers incl. local.\"",
+				"n8n": "docs-only: competitor_features#3907 \"Anthropic Node: Update credential test to use available model: From n8n@2.14.0 (2026-03-24)\"",
+				"open-webui": "docs-only: competitor_features#31809 \"OpenAI-compatible API support: Connects to any OpenAI-compatible endpoint and exposes one itself\""
+			}
 		},
 		{
 			"id": "mo-local",
@@ -2368,12 +2646,18 @@
 			"providerHow": "read-from-code",
 			"feature": "taskprocessing-consume-ui",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31885 \"Local model backend: Runs against local LLM ExApp / Ollama-compatible backends\"",
+				"hermes-agent": "docs-only: competitor_features#31140 \"LLM provider abstraction: ProviderTransport ABC: Nous/Anthropic/Bedrock/OpenRouter/local vLLM, switch with no code change\"",
+				"dify": "docs-only: competitor_features#30989 \"Model provider hub: Dozens of LLM providers incl. local.\"",
+				"open-webui": "docs-only: competitor_features#31810 \"Local model support via Ollama: Native Ollama integration for fully local inference\""
+			}
 		},
 		{
 			"id": "mo-openai-compat",
@@ -2392,12 +2676,17 @@
 			"providerHow": "read-from-code",
 			"feature": "taskprocessing-consume-ui",
 			"featureConfidence": "medium",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "partial",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31390 \"AppAPI ExApp + Task Processing backend: Python ExApp requiring AppAPI >=3.1 and a tool-calling text2text provider (llm2 or integration_openai).\"",
+				"hermes-agent": "docs-only: competitor_features#38366 \"OpenAI-compatible local proxy for OAuth providers: Run hermes proxy and you get a http://localhost:port endpoint that speaks the OpenAI API but is backed by whichever OAuth provider you're signed into.\"",
+				"open-webui": "docs-only: competitor_features#31809 \"OpenAI-compatible API support: Connects to any OpenAI-compatible endpoint and exposes one itself\""
+			}
 		},
 		{
 			"id": "mo-nc-assistant",
@@ -2416,12 +2705,15 @@
 			"providerHow": "read-from-code",
 			"feature": "taskprocessing-consume-ui",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31880 \"Unified AI Task Processing GUI: Frontend for the Nextcloud Task Processing API\""
+			}
 		},
 		{
 			"id": "mo-provide-text2text",
@@ -2445,7 +2737,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#31809 \"OpenAI-compatible API support: Connects to any OpenAI-compatible endpoint and exposes one itself\""
+			}
 		},
 		{
 			"id": "mo-per-agent",
@@ -2464,11 +2759,16 @@
 			"feature": "agent-management-ui",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38308 \"Fuzzy model picker, everywhere: The model picker now does fuzzy search across the desktop app, web dashboard, TUI, and CLI.\"",
+				"dify": "docs-only: competitor_features#30989 \"Model provider hub: Dozens of LLM providers incl. local.\"",
+				"n8n": "docs-only: competitor_features#3907 \"Anthropic Node: Update credential test to use available model: From n8n@2.14.0 (2026-03-24)\""
+			}
 		},
 		{
 			"id": "mo-tenant-policy",
@@ -2535,11 +2835,14 @@
 			"feature": "multi-tenant-ops",
 			"featureConfidence": "low",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31144 \"Credential pools + OAuth PKCE: Multiple credentials per provider with rotation/failover\""
+			}
 		},
 		{
 			"id": "mo-sensitivity-routing",
@@ -2606,11 +2909,16 @@
 			"feature": "agent-credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38241 \"Plug your password manager into Hermes - Bitwarden & 1Password secret sources: A new pluggable SecretSource interface lets Hermes fetch secrets from Bitwarden and 1Password (op:// references) at load time.\"",
+				"dify": "docs-only: competitor_features#38714 \"Cleared stale provider credentials during plugin uninstall: to reduce residual credential risk.\"",
+				"n8n": "docs-only: competitor_features#3040 \"Credential Management: Encrypted credential storage for all integrations\""
+			}
 		},
 		{
 			"id": "mo-personal-key",
@@ -2652,12 +2960,20 @@
 			"providerHow": "read-from-code",
 			"feature": "multi-tenant-ops",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
+			"copilot-studio": "no",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31886 \"On-premises / sovereign deployment: Fully self-hosted inside the customer's Nextcloud\"",
+				"hermes-agent": "docs-only: competitor_features#31139 \"Six execution backends: Local/SSH/Docker/Daytona/Singularity/Modal; 8 parallel workers\"",
+				"copilot-studio": "docs-only: competitors#1450 tech_stack \"Power Platform, Dataverse, Azure AI Foundry, Power Automate, autonomous agents, connectors\"",
+				"dify": "docs-only: competitor_features#30991 \"Self-hosting (Docker): Self-host community edition via Docker.\"",
+				"n8n": "docs-only: competitor_features#31099 \"Self-hosting via Docker: Run community edition on own infra with Docker.\"",
+				"open-webui": "docs-only: competitor_features#31819 \"Offline / air-gapped deployment: Runs fully self-hosted with no external calls required\""
+			}
 		},
 		{
 			"id": "dl-talk",
@@ -2675,12 +2991,15 @@
 			"providerHow": "read-from-code",
 			"feature": "talk-delivery",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31374 \"Talk tool: List conversations, send messages, create public conversations from the agent.\""
+			}
 		},
 		{
 			"id": "dl-talk-bridge",
@@ -2750,7 +3069,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38765 \"New event system with webhooks: Open WebUI now emits events for a wide range of system activity - sign-ins, configuration changes, startup, and actions across chats, knowledge, files, and more. Administrators can send these as outbound webhooks.\""
+			}
 		},
 		{
 			"id": "dl-email",
@@ -2769,12 +3091,16 @@
 			"providerHow": "read-from-code",
 			"feature": "delivery-channels",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31375 \"Mail tool: Send emails, manage mail accounts and folders.\"",
+				"dify": "docs-only: competitor_features#38710 \"Hardened HITL email delivery: From v1.13.1 (2026-03-17)\""
+			}
 		},
 		{
 			"id": "dl-notification",
@@ -2793,11 +3119,15 @@
 			"feature": "delivery-channels",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38351 \"ntfy as the 23rd messaging platform - push notifications without an account: ntfy is the self-hostable push-notification service with no signup, no API key, just a topic URL. Hermes now adapts to it as a platform plugin.\"",
+				"open-webui": "docs-only: competitor_features#38867 \"Calendar reminders and alerts: Calendar events now support reminder options from no alert up to one hour before start time, with upcoming alerts delivered through in-app toasts, browser notifications, and optional webhooks while avoiding duplicate sends.\""
+			}
 		},
 		{
 			"id": "dl-target-pref",
@@ -2840,11 +3170,15 @@
 			"feature": "talk-delivery",
 			"featureConfidence": "low",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"hermes-agent": "yes",
+			"copilot-studio": "partial",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31137 \"Multi-platform gateway: Single daemon routes 22+ platforms (Telegram/Slack/Signal/Email/Matrix/Teams)\"",
+				"copilot-studio": "docs-only: competitor_features#31610 \"Multi-channel deployment: Publish agents to Teams, web, M365 Copilot Chat and custom apps.\""
+			}
 		},
 		{
 			"id": "dl-digest",
@@ -2868,7 +3202,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38862 \"Scheduled chat automations: You can now schedule the AI to run tasks automatically on a recurring basis: daily digests, periodic reports, anything you'd otherwise need to remember to ask for.\""
+			}
 		},
 		{
 			"id": "dl-dedupe",
@@ -2936,12 +3273,17 @@
 			"feature": "speech-services",
 			"featureConfidence": "high",
 			"defectCandidate": "SpeechController's transcribe/synthesise routes and the per-agent voice settings look built for a composer mic feature that has no frontend caller; worth confirming live whether a mic button exists anywhere the static search missed.",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31382 \"Media transcription (STT): Speech-to-text transcription exposed as an agent tool.\"",
+				"hermes-agent": "docs-only: competitor_features#31138 \"Voice transcription: Voice-memo transcription across channels\"",
+				"open-webui": "docs-only: competitor_features#38876 \"STT preprocessing bypass option: Administrators can now enable AUDIOSTTSKIP_PREPROCESSING to send audio files directly to the speech-to-text backend.\""
+			}
 		},
 		{
 			"id": "dl-embed-web",
@@ -2961,10 +3303,13 @@
 			"featureConfidence": "low",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "yes",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31610 \"Multi-channel deployment: Publish agents to Teams, web, M365 Copilot Chat and custom apps.\""
+			}
 		},
 		{
 			"id": "ov-approval",
@@ -2983,11 +3328,17 @@
 			"feature": "human-approval-gate",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"hermes-agent": "yes",
+			"copilot-studio": "yes",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38240 \"Smart approvals are now the default: When Hermes wants to run a flagged command, an LLM reviewer now assesses it independently instead of asking you to approve every single one.\"",
+				"copilot-studio": "docs-only: competitor_features#31608 \"Human-in-the-loop approvals: Approval steps via Power Automate before actions execute.\"",
+				"dify": "docs-only: competitor_features#38648 \"Service API for HITL: programmatic support for human-in-the-loop flows alongside existing console behavior.\"",
+				"n8n": "docs-only: competitor_features#31103 \"Wait/approval nodes: Pause workflow for manual approval or timed wait.\""
+			}
 		},
 		{
 			"id": "ov-approval-inbox",
@@ -3053,11 +3404,14 @@
 			"feature": "agent-guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38240 \"Smart approvals are now the default: an LLM reviewer now assesses it independently instead of asking you to approve every single one - and each verdict covers only that exact command, so a later command matching the same pattern gets its own review.\""
+			}
 		},
 		{
 			"id": "ov-talk-reaction",
@@ -3102,9 +3456,12 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#30996 \"Human-in-loop review: Annotation/review of agent outputs.\""
+			}
 		},
 		{
 			"id": "ov-kill-switch",
@@ -3170,11 +3527,14 @@
 			"feature": "agent-guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31142 \"PII & secret redaction: Automatic scrubbing of PII, API keys, tokens; regex masking\""
+			}
 		},
 		{
 			"id": "ov-guardrail-output",
@@ -3194,10 +3554,14 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "partial",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31609 \"Governance & DLP: Admin governance, data-loss-prevention policies and environment isolation.\"",
+				"n8n": "docs-only: competitor_features#38146 \"AWS Bedrock Chat Model Node: Default guardrail version to working draft when not set: From n8n@2.32.0 (2026-07-21)\""
+			}
 		},
 		{
 			"id": "ov-tool-risk",
@@ -3243,7 +3607,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "partial",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38798 \"Redirect-based SSRF protection: All outbound HTTP requests now block 3xx redirects by default via a new AIOHTTPCLIENTALLOW_REDIRECTS environment variable, preventing redirect-based SSRF where a public URL silently redirects to internal addresses.\""
+			}
 		},
 		{
 			"id": "ov-anonymise",
@@ -3288,9 +3655,12 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#30996 \"Human-in-loop review: Annotation/review of agent outputs.\""
+			}
 		},
 		{
 			"id": "ov-automation-bias",
@@ -3333,11 +3703,15 @@
 			"feature": "agent-tool-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38242 \"Watch your subagents work: delegatetask dispatches now return live transcript files you can tail -f the moment the subagents launch: every tool call, result, and streamed reply, one human-readable log per child.\"",
+				"n8n": "docs-only: competitor_features#3041 \"Execution History: Complete execution logs with replay capability\""
+			}
 		},
 		{
 			"id": "co-audit-log",
@@ -3380,11 +3754,15 @@
 			"feature": "multi-tenant-ops",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38247 \"Your sessions, your data - export everything: hermes sessions export now writes Markdown, Quarto, HTML, prompt-only, and even Hugging Face-ready trace formats, with the full filter surface (age, workspace, platform), an opt-in --redact secret-scrubbing pass.\"",
+				"dify": "docs-only: competitor_features#38708 \"Added a new export-app-messages CLI command: to export application messages and related feedback to JSONL.GZ (local or cloud storage).\""
+			}
 		},
 		{
 			"id": "co-retention",
@@ -3714,10 +4092,16 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"copilot-studio": "yes",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31611 \"Analytics dashboard: Session, resolution and message-consumption analytics.\"",
+				"dify": "docs-only: competitor_features#30993 \"Observability & annotations: Log inspection, LLM annotation, monitoring.\"",
+				"n8n": "docs-only: competitor_features#3041 \"Execution History: Complete execution logs with replay capability\"",
+				"open-webui": "docs-only: competitor_features#38862 \"Scheduled chat automations: Create and manage automations from the Automations page or directly in chat, with full run history\""
+			}
 		},
 		{
 			"id": "ob-trace",
@@ -3736,11 +4120,16 @@
 			"feature": "observability",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38242 \"Watch your subagents work: delegatetask dispatches now return live transcript files you can tail -f the moment the subagents launch: every tool call, result, and streamed reply, one human-readable log per child.\"",
+				"dify": "docs-only: competitor_features#30993 \"Observability & annotations: Log inspection, LLM annotation, monitoring.\"",
+				"n8n": "docs-only: competitor_features#3041 \"Execution History: Complete execution logs with replay capability\""
+			}
 		},
 		{
 			"id": "ob-replay",
@@ -3762,8 +4151,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#3041 \"Execution History: Complete execution logs with replay capability\""
+			}
 		},
 		{
 			"id": "ob-dry-run",
@@ -3785,8 +4177,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#3919 \"core: Fix IDOR in test-runs endpoint by consolidating access checks: From n8n@2.14.0 (2026-03-24)\""
+			}
 		},
 		{
 			"id": "ob-analytics",
@@ -3807,10 +4202,15 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"copilot-studio": "yes",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "partial",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31611 \"Analytics dashboard: Session, resolution and message-consumption analytics.\"",
+				"dify": "docs-only: competitor_features#30993 \"Observability & annotations: Log inspection, LLM annotation, monitoring.\"",
+				"open-webui": "docs-only: competitor_features#31821 \"Usage tracking & model access control: Per-user model permissions and usage visibility\""
+			}
 		},
 		{
 			"id": "ob-cost-per-run",
@@ -3831,10 +4231,13 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "partial",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31611 \"Analytics dashboard: Session, resolution and message-consumption analytics.\""
+			}
 		},
 		{
 			"id": "ob-budget",
@@ -3876,11 +4279,14 @@
 			"feature": "cost-guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38245 \"New providers and the newest frontier models: Fireworks AI and DeepInfra land as first-class providers (Fireworks with cost estimation and a #2 slot in the provider picker).\""
+			}
 		},
 		{
 			"id": "ob-fail-alert",
@@ -3940,7 +4346,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:49 metrics#index GET /api/metrics (admin-auth, Prometheus text/plain 0.0.4 per ADR-006, lib/Controller/MetricsController.php:41-104); appinfo/routes.php:51 health#index GET /api/health (#[PublicPage] + #[NoCSRFRequired], lib/Controller/HealthController.php:45-78)."
 			},
-			"reachedOn": "GET /apps/hermiq/api/metrics (admin auth) and GET /apps/hermiq/api/health (public) — machine/monitoring-system callers, no UI page",
+			"reachedOn": "GET /apps/hermiq/api/metrics (admin auth) and GET /apps/hermiq/api/health (public); machine/monitoring-system callers, no UI page",
 			"note": "Row's user is a monitoring system, not a person; the route with its declared auth attribute is the reached surface per the brief's machine-as-user rule.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -3950,8 +4356,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#6928 \"core: Fix /healthz endpoint when using N8N_PATH: From n8n@2.15.0 (2026-03-30)\""
+			}
 		},
 		{
 			"id": "ob-external-tracing",
@@ -3973,9 +4382,12 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38661 \"Langfuse - optional time-to-first-token (TTFT) reporting.: From v1.14.0 (2026-04-29)\""
+			}
 		},
 		{
 			"id": "ob-reports",
@@ -3996,10 +4408,13 @@
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "partial",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31611 \"Analytics dashboard: Session, resolution and message-consumption analytics.\""
+			}
 		},
 		{
 			"id": "ob-feedback-stats",
@@ -4010,7 +4425,7 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json components.schemas.Feedback (messageId/conversationId/agentId/userId/type positive|negative, read: authenticated); src/views/Chat.vue and src/api/chat.js:446 are the only hits for 'Feedback' in src/ — chat.js POSTs a rating on a message. No page, widget or dashboard reads Feedback objects back as per-agent stats; grepped registry.js/customComponents.js/manifest.json for a feedback widget, none found."
+				"evidence": "lib/Settings/hermiq_register.json components.schemas.Feedback (messageId/conversationId/agentId/userId/type positive|negative, read: authenticated); src/views/Chat.vue and src/api/chat.js:446 are the only hits for 'Feedback' in src/; chat.js POSTs a rating on a message. No page, widget or dashboard reads Feedback objects back as per-agent stats; grepped registry.js/customComponents.js/manifest.json for a feedback widget, none found."
 			},
 			"reachedOn": "nothing",
 			"note": "Feedback can be submitted (thumbs up/down in Chat) but there is no surface to see it aggregated per agent.",
@@ -4021,9 +4436,13 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38708 \"Added a new export-app-messages CLI command: to export application messages and related feedback to JSONL.GZ (local or cloud storage).\"",
+				"open-webui": "docs-only: competitor_features#38806 \"Feedback user attribution spoofing: corrupting Elo leaderboard rankings and admin feedback exports.\""
+			}
 		},
 		{
 			"id": "fl-canvas",
@@ -4044,10 +4463,15 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"copilot-studio": "yes",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31604 \"Low-code agent builder: Natural-language + graphical builder for topics, actions and knowledge.\"",
+				"dify": "docs-only: competitor_features#30986 \"Visual LLM app builder: No-code chatflow/workflow app studio.\"",
+				"n8n": "docs-only: competitor_features#31093 \"Visual node-based editor: Drag-and-drop canvas to wire nodes into workflows.\""
+			}
 		},
 		{
 			"id": "fl-agent-node",
@@ -4068,9 +4492,13 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#30987 \"Agent nodes + tool-calling: Agents with tool/function invocation.\"",
+				"n8n": "docs-only: competitor_features#31097 \"AI Agent node (LangChain): Built-in AI agent nodes with tool-calling over LangChain.\""
+			}
 		},
 		{
 			"id": "fl-approval-step",
@@ -4092,9 +4520,13 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38648 \"Service API for HITL: programmatic support for human-in-the-loop flows alongside existing console behavior.\"",
+				"n8n": "docs-only: competitor_features#31103 \"Wait/approval nodes: Pause workflow for manual approval or timed wait.\""
+			}
 		},
 		{
 			"id": "fl-subagent",
@@ -4113,11 +4545,14 @@
 			"feature": "sub-agent-delegation",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31141 \"Sub-agent delegation: Isolated parallel sub-agent contexts for concurrent workstreams\""
+			}
 		},
 		{
 			"id": "fl-branch",
@@ -4137,11 +4572,15 @@
 			"feature": "flow-canvas",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38346 \"Kanban grew into a real multi-agent platform - 104 PRs end to end: hermes kanban swarm creates a full Swarm v1 graph in one command - root, parallel workers, gated verifier, gated synthesizer, shared blackboard.\"",
+				"n8n": "docs-only: competitor_features#3046 \"Branching Logic: Conditional routing with if/switch/merge nodes\""
+			}
 		},
 		{
 			"id": "fl-run-history",
@@ -4163,9 +4602,13 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#30993 \"Observability & annotations: Log inspection, LLM annotation, monitoring.\"",
+				"n8n": "docs-only: competitor_features#3041 \"Execution History: Complete execution logs with replay capability\""
+			}
 		},
 		{
 			"id": "fl-seed-flows",
@@ -4184,11 +4627,15 @@
 			"feature": "flow-authoring",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38286 \"Automation Blueprints: Pick an automation by name and Hermes asks you for what it needs - no cron syntax, no slot=value typing. One blueprint definition renders natively on every surface.\"",
+				"dify": "docs-only: competitor_features#38614 \"App creation and onboarding - tracked app creation source and template ID: initialized user timezone and language from the browser, and fixed WebApp icon and description display.\""
+			}
 		},
 		{
 			"id": "fl-n8n",
@@ -4234,9 +4681,14 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38721 \"Command + Upload File to Sandbox make runtime operations practical and controllable.: From 1.14.0-rc1: New Agent x Skills for Production Workflows (2026-02-14)\"",
+				"n8n": "docs-only: competitor_features#3038 \"Code Nodes: JavaScript and Python code execution within workflows\"",
+				"open-webui": "docs-only: competitor_features#31817 \"Pipelines / custom function plugins: Python function pipelines and filters extend the chat flow\""
+			}
 		},
 		{
 			"id": "fl-subflow",
@@ -4259,8 +4711,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#3042 \"Sub-workflows: Compose complex flows from reusable sub-workflows\""
+			}
 		},
 		{
 			"id": "fl-validate",
@@ -4271,7 +4726,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/flow-canvas/spec.md:131-133 'Requirement: Saving warns about a dead end; it never refuses' — 'A save MUST succeed and then report the engine's connectivity verdict, taken from the save response's warnings (reason node-dead-end). The editor MUST NOT recompute that verdict itself.' Status: done."
+				"evidence": "openspec/specs/flow-canvas/spec.md:131-133 'Requirement: Saving warns about a dead end; it never refuses'; 'A save MUST succeed and then report the engine's connectivity verdict, taken from the save response's warnings (reason node-dead-end). The editor MUST NOT recompute that verdict itself.' Status: done."
 			},
 			"reachedOn": "FlowDetail canvas -> Save -> connectivity warning surfaced from the engine's response",
 			"note": "The verdict is computed by OpenRegister's flow engine; hermiq's canvas only displays it, by explicit design (never recomputed locally).",
@@ -4399,8 +4854,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#31102 \"Git version control (Enterprise): Environments + git-backed workflow versioning in EE.\""
+			}
 		},
 		{
 			"id": "re-evals",
@@ -4422,8 +4880,12 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "partial",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#6941 \"editor: Correct navigation to evaluation tab: From n8n@2.15.0 (2026-03-30)\"",
+				"open-webui": "docs-only: competitor_features#38777 \"Arena evaluation models configurable via environment: Arena evaluation models can now be defined through an environment variable, which previously could not be set that way.\""
+			}
 		},
 		{
 			"id": "re-baseline",
@@ -4467,11 +4929,15 @@
 			"feature": "skills-marketplace",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31135 \"Skills catalog (ClawHub/skills.sh): 166 skills across 26+ categories, shareable/searchable\"",
+				"n8n": "docs-only: competitor_features#3045 \"Community Nodes: Community-contributed custom integration nodes\""
+			}
 		},
 		{
 			"id": "re-template-cross-tenant",
@@ -4537,12 +5003,20 @@
 			"providerHow": "read-from-code",
 			"feature": "app-runtime-requirements",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
+			"copilot-studio": "no",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31886 \"On-premises / sovereign deployment: Fully self-hosted inside the customer's Nextcloud\"",
+				"hermes-agent": "docs-only: competitor_features#31139 \"Six execution backends: Local/SSH/Docker/Daytona/Singularity/Modal; 8 parallel workers\"",
+				"copilot-studio": "docs-only: competitors#1450 tech_stack \"Power Platform, Dataverse, Azure AI Foundry, Power Automate, autonomous agents, connectors\"",
+				"dify": "docs-only: competitor_features#30991 \"Self-hosting (Docker): Self-host community edition via Docker.\"",
+				"n8n": "docs-only: competitor_features#31099 \"Self-hosting via Docker: Run community edition on own infra with Docker.\"",
+				"open-webui": "docs-only: competitor_features#31819 \"Offline / air-gapped deployment: Runs fully self-hosted with no external calls required\""
+			}
 		},
 		{
 			"id": "op-airgap",
@@ -4563,10 +5037,14 @@
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"copilot-studio": "no",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "yes",
+			"evidence": {
+				"copilot-studio": "docs-only: competitors#1450 tech_stack \"Power Platform, Dataverse, Azure AI Foundry, Power Automate, autonomous agents, connectors\"",
+				"open-webui": "docs-only: competitor_features#31819 \"Offline / air-gapped deployment: Runs fully self-hosted with no external calls required\""
+			}
 		},
 		{
 			"id": "op-open-source",
@@ -4584,12 +5062,20 @@
 			"providerHow": "read-from-code",
 			"feature": "app-manifest",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
+			"copilot-studio": "no",
+			"dify": "partial",
+			"n8n": "no",
+			"open-webui": "partial",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitors#1428 license \"AGPL-3.0\"",
+				"hermes-agent": "docs-only: competitors#1410 license \"MIT\"",
+				"copilot-studio": "docs-only: competitors#1450 license \"Proprietary\"",
+				"dify": "docs-only: competitors#1398 license \"Apache-2.0 (modified: multi-tenant + logo restrictions)\"",
+				"n8n": "docs-only: competitors#206 license \"Sustainable Use License / Proprietary\"",
+				"open-webui": "docs-only: competitors#1460 license \"Open WebUI License (BSD-3 with branding clause)\""
+			}
 		},
 		{
 			"id": "op-multi-tenant",
@@ -4609,11 +5095,16 @@
 			"feature": "multi-tenant-ops",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "yes",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38244 \"One gateway, many profiles - profile-based message routing: route specific guilds, channels, or threads to different profiles - each with fully isolated config, skills, memory, and secrets.\"",
+				"copilot-studio": "docs-only: competitor_features#31609 \"Governance & DLP: Admin governance, data-loss-prevention policies and environment isolation.\"",
+				"dify": "docs-only: competitor_features#38608 \"Tenant-scoped sensitive endpoints: strengthened tenant isolation for app trace-config endpoints and FilePreview text extraction.\""
+			}
 		},
 		{
 			"id": "op-tenant-quota",
@@ -4682,9 +5173,14 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "partial",
+			"open-webui": "partial",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38654 \"Marketplace and OAuth - targeted fixes for marketplace flows and OAuth sign-in: including edge cases such as null email on GitHub OAuth.\"",
+				"n8n": "docs-only: competitor_features#31101 \"RBAC & SSO (Enterprise): Role-based access, SSO/LDAP gated behind Enterprise.\"",
+				"open-webui": "docs-only: competitor_features#31820 \"SSO / OAuth / LDAP auth: Enterprise identity integration options\""
+			}
 		},
 		{
 			"id": "op-credential-vault",
@@ -4703,11 +5199,16 @@
 			"feature": "agent-credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38241 \"Plug your password manager into Hermes - Bitwarden & 1Password secret sources: A new pluggable SecretSource interface lets Hermes fetch secrets from Bitwarden and 1Password (op:// references) at load time.\"",
+				"dify": "docs-only: competitor_features#38714 \"Cleared stale provider credentials during plugin uninstall: to reduce residual credential risk.\"",
+				"n8n": "docs-only: competitor_features#31106 \"Credential vault: Encrypted credential store shared across workflows.\""
+			}
 		},
 		{
 			"id": "op-agent-credential",
@@ -4718,7 +5219,7 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/agent-credentials/spec.md 'Run-time credential resolution precedence': personal (acting user) broker credential, else the agent's ORGANISATION's org-scope credential, else the instance-wide one. lib/Service/Credential/CredentialScopeResolver.php resolves by (provider, actingUser, organisation) — there is no per-Agent-object credential scope in the precedence chain or in the Agent schema."
+				"evidence": "openspec/specs/agent-credentials/spec.md 'Run-time credential resolution precedence': personal (acting user) broker credential, else the agent's ORGANISATION's org-scope credential, else the instance-wide one. lib/Service/Credential/CredentialScopeResolver.php resolves by (provider, actingUser, organisation); there is no per-Agent-object credential scope in the precedence chain or in the Agent schema."
 			},
 			"reachedOn": "nothing (no per-agent scope exists to reach)",
 			"note": "Credentials are scoped to the acting user or the organisation, never to an individual agent instance, so two agents run by the same user in the same org always share the same resolved credential.",
@@ -4727,11 +5228,15 @@
 			"feature": "agent-credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#38248 \"Security hardening round: Vertex credentials scoped away from subprocess env and through profile secret scopes.\"",
+				"n8n": "docs-only: competitor_features#38153 \"core: Bind dynamic credential tokens to a user ID: From n8n@2.32.0 (2026-07-21)\""
+			}
 		},
 		{
 			"id": "op-admin-settings",
@@ -4749,12 +5254,19 @@
 			"providerHow": "read-from-code",
 			"feature": "admin-ui",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"nextcloud-assistant": "yes",
+			"hermes-agent": "yes",
+			"copilot-studio": "yes",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31888 \"Per-user AI settings & admin controls: Admin toggles and per-user AI configuration\"",
+				"hermes-agent": "docs-only: competitor_features#38303 \"The web dashboard is now a full admin panel: The dashboard grew from view your sessions into a complete administration surface.\"",
+				"copilot-studio": "docs-only: competitor_features#31609 \"Governance & DLP: Admin governance, data-loss-prevention policies and environment isolation.\"",
+				"dify": "docs-only: competitor_features#30994 \"Workspaces & RBAC: Team workspaces with member roles.\"",
+				"n8n": "docs-only: competitor_features#31101 \"RBAC & SSO (Enterprise): Role-based access, SSO/LDAP gated behind Enterprise.\""
+			}
 		},
 		{
 			"id": "op-setup-wizard",
@@ -4775,9 +5287,12 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38588 \"Redesigned landing / onboarding for an easier first-run experience: (#37433, #37844, #37800)\""
+			}
 		},
 		{
 			"id": "op-health",
@@ -4800,8 +5315,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#6928 \"core: Fix /healthz endpoint when using N8N_PATH: From n8n@2.15.0 (2026-03-30)\""
+			}
 		},
 		{
 			"id": "op-flat-cost",
@@ -4821,11 +5339,16 @@
 			"feature": "app-manifest",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "no",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "partial",
+			"evidence": {
+				"hermes-agent": "docs-only: competitors#1410 pricing_model \"open-source (free forever)\"",
+				"copilot-studio": "docs-only: competitor_features#31612 \"Message-metered pricing: $0.01/message or $200/mo pack; cost spikes with generative/autonomous use.\"",
+				"open-webui": "docs-only: competitors#1460 pricing \"Free self-hosted; paid enterprise license/support\""
+			}
 		},
 		{
 			"id": "op-scale",
@@ -4844,12 +5367,18 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"nextcloud-assistant": "no",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown"
+			"dify": "partial",
+			"n8n": "partial",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31389 \"No scaling / single-instance: Docs state \"no scaling support currently\"; English-biased tool-calling models required.\"",
+				"hermes-agent": "docs-only: competitor_features#31139 \"Six execution backends: Local/SSH/Docker/Daytona/Singularity/Modal; 8 parallel workers\"",
+				"dify": "docs-only: competitor_features#38562 \"Workflow run archives can now be exported: active runs are properly aborted during Celery warm shutdown to prevent orphaned tasks.\"",
+				"n8n": "docs-only: competitor_features#6931 \"core: Fix race condition when stopping jobs in queue mode: From n8n@2.15.0 (2026-03-30)\""
+			}
 		},
 		{
 			"id": "op-outside-agent",
@@ -4860,9 +5389,9 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:646-647 outsideAgent#tools/call '/api/outside-agent/tools' and '/call'; lib/Controller/OutsideAgentController.php:1-50 delegates to OutsideToolSurface/OutsideAgentGateway, authenticating the outside agent as an ordinary Nextcloud user (app password) with no separate credential of its own; lib/Settings/hermiq_register.json declares an OutsideAgentRegistration schema (components.schemas.OutsideAgentRegistration). Searched src/ for 'OutsideAgent'/'outside-agent': zero hits — no manifest page or widget manages an OutsideAgentRegistration object."
+				"evidence": "appinfo/routes.php:646-647 outsideAgent#tools/call '/api/outside-agent/tools' and '/call'; lib/Controller/OutsideAgentController.php:1-50 delegates to OutsideToolSurface/OutsideAgentGateway, authenticating the outside agent as an ordinary Nextcloud user (app password) with no separate credential of its own; lib/Settings/hermiq_register.json declares an OutsideAgentRegistration schema (components.schemas.OutsideAgentRegistration). Searched src/ for 'OutsideAgent'/'outside-agent': zero hits; no manifest page or widget manages an OutsideAgentRegistration object."
 			},
-			"reachedOn": "Machine side: POST /apps/hermiq/api/outside-agent/call (authenticated, tool-surface-gated). Admin side: nothing — no hermiq page creates/edits a registration.",
+			"reachedOn": "Machine side: POST /apps/hermiq/api/outside-agent/call (authenticated, tool-surface-gated). Admin side: nothing; no hermiq page creates/edits a registration.",
 			"note": "The calling/enforcement machinery is real and gated, but a person can only create/limit a registration via a raw OpenRegister object write, not through any hermiq screen.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -4892,12 +5421,15 @@
 			"providerHow": "read-from-code",
 			"feature": "talk-delivery",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown"
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31888 \"Per-user AI settings & admin controls: Admin toggles and per-user AI configuration\""
+			}
 		}
 	],
 	"pending": [
@@ -4922,8 +5454,11 @@
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
-			"n8n": "unknown",
+			"n8n": "partial",
 			"open-webui": "unknown",
+			"evidence": {
+				"n8n": "docs-only: competitor_features#38153 \"core: Bind dynamic credential tokens to a user ID: From n8n@2.32.0 (2026-07-21)\""
+			},
 			"pendingReason": "Whether actingUser is set anywhere outside seed/repair scripts on a live instance could not be settled without running the app."
 		},
 		{
@@ -4946,9 +5481,13 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown",
+			"open-webui": "partial",
+			"evidence": {
+				"dify": "docs-only: competitor_features#38723 \"Collaboration Beta adds shared editing, comments, and @ mentions: From 1.14.0-rc1: New Agent x Skills for Production Workflows (2026-02-14)\"",
+				"open-webui": "docs-only: competitor_features#38758 \"Share folders with your team: share a folder and the chats inside it with specific users, groups, or everyone, with read or write access; people you share with see shared folders in their sidebar and open the chats in a read-only view when they are not the owner\""
+			},
 			"pendingReason": "Whether every talk-shared-sessions requirement is complete cannot be settled without running a live Talk room."
 		},
 		{
@@ -4986,7 +5525,7 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/integriq",
-				"evidence": "lib/Settings/hermiq_register.json:136,562 both say reaching a named chat platform or third-party system 'is OpenConnector's job, not a Hermiq delivery channel — point webhook at an OpenConnector Source or an n8n webhook trigger.' Hermiq's own webhook delivery (appinfo/routes.php budget/agent-webhook routes) is a generic signed HTTP POST, not a connector catalogue."
+				"evidence": "lib/Settings/hermiq_register.json:136,562 both say reaching a named chat platform or third-party system 'is OpenConnector's job, not a Hermiq delivery channel; point webhook at an OpenConnector Source or an n8n webhook trigger.' Hermiq's own webhook delivery (appinfo/routes.php budget/agent-webhook routes) is a generic signed HTTP POST, not a connector catalogue."
 			},
 			"reachedOn": "Schedule/agent webhook target pointed at an OpenConnector Source URL (generic HTTP, not verified live here)",
 			"provider": "integriq",
@@ -4995,10 +5534,15 @@
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
+			"copilot-studio": "yes",
+			"dify": "yes",
+			"n8n": "yes",
 			"open-webui": "unknown",
+			"evidence": {
+				"copilot-studio": "docs-only: competitor_features#31605 \"1400+ connectors (Power Platform): Reuses Power Platform / Power Automate connector catalogue.\"",
+				"dify": "docs-only: competitor_features#30990 \"Tools/plugins marketplace: Plugin ecosystem of tools/connectors.\"",
+				"n8n": "docs-only: competitor_features#31095 \"400+ app connectors: Large library of prebuilt integration nodes.\""
+			},
 			"pendingReason": "Hermiq documents the seam but ships no connector catalogue itself; whether integriq's own catalogue is reachable and how many connectors it exposes needs checking in the integriq repo, not done here."
 		},
 		{
@@ -5017,12 +5561,18 @@
 			"providerHow": "read-from-code",
 			"feature": "vector-rag",
 			"featureConfidence": "high",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "yes",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"copilot-studio": "partial",
+			"dify": "yes",
 			"n8n": "unknown",
-			"open-webui": "unknown",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31881 \"Context Chat (RAG over Nextcloud data): RAG over Files, Collectives and Analytics\"",
+				"copilot-studio": "docs-only: competitor_features#31606 \"Dataverse knowledge grounding: Grounds agents on SharePoint, Dataverse, Graph and external sources.\"",
+				"dify": "docs-only: competitor_features#30988 \"RAG pipeline & knowledge base: Built-in document ingestion + retrieval.\"",
+				"open-webui": "docs-only: competitor_features#31813 \"RAG document ingestion / knowledge base: Upload docs and chat over them with retrieval\""
+			},
 			"pendingReason": "Real semantic/vector grounding is unbuilt (vector-rag change open); today's grounding is keyword search over the agent's declared views/files."
 		},
 		{
@@ -5047,7 +5597,10 @@
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
-			"open-webui": "unknown",
+			"open-webui": "yes",
+			"evidence": {
+				"open-webui": "docs-only: competitor_features#38816 \"File ownership in folder and knowledge attachments: Attaching files to folders or knowledge bases now verifies per-file read access, and folder file lists in chat middleware are filtered to entries the caller can read, preventing unauthorized file content from being injected into RAG context.\""
+			},
 			"pendingReason": "Needs checking OpenRegister's ObjectService/ACL enforcement for the session identity the chat request actually runs under; out of scope for a hermiq-only read."
 		},
 		{
@@ -5067,11 +5620,15 @@
 			"feature": "context-documents",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "unknown",
 			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31133 \"Autonomous skills system: agentskills.io standard; skills auto-created after 5+ tool calls, self-improving\"",
+				"dify": "docs-only: competitor_features#38720 \"Skill Editor helps you build reusable SOP blocks: and call tools inline with @ (e.g., @send_email).\""
+			},
 			"pendingReason": "hermiq-context-documents change (assembler + editor) is open, not implemented -- the schema field exists but nothing reads or writes it yet."
 		},
 		{
@@ -5116,11 +5673,17 @@
 			"feature": "agent-tool-governance",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31136 \"Cron scheduler: Natural-language scheduled tasks, /api/jobs REST, delivery to any channel\"",
+				"dify": "docs-only: competitor_features#30995 \"API-first backend: Every app exposed as a backend API.\"",
+				"n8n": "docs-only: competitor_features#3909 \"core: Add missing fields to public API workflow schema: From n8n@2.14.0 (2026-03-24)\"",
+				"open-webui": "docs-only: competitor_features#31809 \"OpenAI-compatible API support: Connects to any OpenAI-compatible endpoint and exposes one itself\""
+			},
 			"pendingReason": "whether third-party integrators are actually told about this API anywhere outside the code cannot be settled by reading the repo alone"
 		},
 		{
@@ -5191,11 +5754,14 @@
 			"feature": "sub-agent-delegation",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "unknown",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
 			"dify": "unknown",
 			"n8n": "unknown",
 			"open-webui": "unknown",
+			"evidence": {
+				"hermes-agent": "docs-only: competitor_features#31141 \"Sub-agent delegation: Isolated parallel sub-agent contexts for concurrent workstreams\""
+			},
 			"pendingReason": "whether delegated sub-agent calls actually run concurrently needs a live run to confirm timing"
 		},
 		{
@@ -5215,12 +5781,19 @@
 			"providerHow": "read-from-code",
 			"feature": "agent-tool-governance",
 			"featureConfidence": "medium",
-			"nextcloud-assistant": "unknown",
+			"nextcloud-assistant": "partial",
 			"hermes-agent": "unknown",
-			"copilot-studio": "unknown",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"copilot-studio": "partial",
+			"dify": "yes",
+			"n8n": "partial",
+			"open-webui": "yes",
+			"evidence": {
+				"nextcloud-assistant": "docs-only: competitor_features#31888 \"Per-user AI settings & admin controls: Admin toggles and per-user AI configuration\"",
+				"copilot-studio": "docs-only: competitor_features#31609 \"Governance & DLP: Admin governance, data-loss-prevention policies and environment isolation.\"",
+				"dify": "docs-only: competitor_features#30994 \"Workspaces & RBAC: Team workspaces with member roles.\"",
+				"n8n": "docs-only: competitor_features#31101 \"RBAC & SSO (Enterprise): Role-based access, SSO/LDAP gated behind Enterprise.\"",
+				"open-webui": "docs-only: competitor_features#31811 \"Role-Based Access Control (RBAC): Built-in RBAC with user groups and model access controls\""
+			},
 			"pendingReason": "Could not confirm which page lets an admin edit the action-to-group matrix (as opposed to the individual per-agent RBAC surfaces already covered elsewhere)."
 		},
 		{
