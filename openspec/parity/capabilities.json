@@ -5434,6 +5434,126 @@
 			"evidence": {
 				"nextcloud-assistant": "docs-only: competitor_features#31888 \"Per-user AI settings & admin controls: Admin toggles and per-user AI configuration\""
 			}
+		},
+		{
+			"id": "td-no-training",
+			"area": "compliance",
+			"name": "Guarantee that the organisation's data is never used to train the models its agents call.",
+			"source": "tender",
+			"origin": "tender",
+			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/364027",
+			"originNote": "Gemeente Zaanstad zaaksysteem (2025-01-17) requirement 17539; also UWV 415648 requirement 123258",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"hermes-agent": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"copilot-studio": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "td-explain",
+			"area": "oversight",
+			"name": "See in plain language how an AI outcome came about, so a person keeps the final say.",
+			"source": "tender",
+			"origin": "tender",
+			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/402469",
+			"originNote": "Tilburg University DMS (2025-11-26) requirement 57596; also Juridisch Loket 307676 requirement 102700 and Molenlanden 415259 requirement 71423",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"hermes-agent": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"copilot-studio": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "td-validated-sources",
+			"area": "memory",
+			"name": "Limit an assistant to answering only from documents the organisation has validated.",
+			"source": "tender",
+			"origin": "tender",
+			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/371293",
+			"originNote": "Veiligheidsregio Utrecht klantcontactsysteem (2025-03-17) requirement 4339",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"hermes-agent": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"copilot-studio": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "td-ai-literacy",
+			"area": "compliance",
+			"name": "Help users build AI literacy with explanation or training modules inside the product.",
+			"source": "tender",
+			"origin": "tender",
+			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/415259",
+			"originNote": "Gemeente Molenlanden zaaksysteem 2026 (2026-03-11) requirement 71423",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"hermes-agent": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"copilot-studio": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "td-bias-test",
+			"area": "reuse",
+			"name": "Test agents for bias on a regular basis and keep the result.",
+			"source": "tender",
+			"origin": "tender",
+			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/415259",
+			"originNote": "Gemeente Molenlanden zaaksysteem 2026 (2026-03-11) requirement 71423",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"hermes-agent": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"copilot-studio": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending"
+			}
 		}
 	],
 	"pending": [
