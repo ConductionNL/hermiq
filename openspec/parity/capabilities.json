@@ -6036,7 +6036,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.5.7",
-			"hermiq": "unknown",
+			"hermiq": "no",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
@@ -6050,6 +6050,11 @@
 				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			},
+			"built": {
+				"state": "none",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "searched 'kanban|task.?board|claim' in lib/, src/ and exapp/llm-runner/src at development 5277c0d: no shared task board; agents hand work on only through delegation (lib/Service/DelegationService.php) and flows"
 			}
 		},
 		{
@@ -6059,7 +6064,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.5.7",
-			"hermiq": "unknown",
+			"hermiq": "no",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
@@ -6073,6 +6078,11 @@
 				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			},
+			"built": {
+				"state": "none",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "searched 'standing goal|goal' in lib/Service, lib/Controller, src/views and src/modals at 5277c0d: goal appears only in the course-recommendation feature (lib/Service/CourseRecommendationEngine.php); no goal an agent keeps working toward across turns"
 			}
 		},
 		{
@@ -6082,7 +6092,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.7.1",
-			"hermiq": "unknown",
+			"hermiq": "no",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
@@ -6096,6 +6106,11 @@
 				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			},
+			"built": {
+				"state": "none",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229)"
 			}
 		},
 		{
@@ -6105,7 +6120,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.4.3",
-			"hermiq": "unknown",
+			"hermiq": "no",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
@@ -6119,6 +6134,11 @@
 				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			},
+			"built": {
+				"state": "none",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "searched 'credential.?pool|key.?rotat|next key' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; provider keys sit in the broker, one credential per provider (lib/Service/Llm/BrokerHttpClient.php:9-12), and a provider 429 is surfaced as an error (lib/Service/Llm/ProviderFactory.php:2288), not rotated"
 			}
 		},
 		{
@@ -6128,7 +6148,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/12238",
-			"hermiq": "unknown",
+			"hermiq": "partial",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
@@ -6142,7 +6162,13 @@
 				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
-			}
+			},
+			"built": {
+				"state": "built",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup"
+			},
+			"reachedOn": "/agents/:id AgentDetail -> Version history (AgentVersionHistoryDialog) -> Roll back"
 		},
 		{
 			"id": "dm-remote-agent",
@@ -6151,7 +6177,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/689",
-			"hermiq": "unknown",
+			"hermiq": "no",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
@@ -6165,6 +6191,11 @@
 				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			},
+			"built": {
+				"state": "none",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only"
 			}
 		},
 		{
@@ -6174,7 +6205,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/31802",
-			"hermiq": "unknown",
+			"hermiq": "no",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "no",
 			"copilot-studio": "unknown",
@@ -6188,6 +6219,11 @@
 				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			},
+			"built": {
+				"state": "none",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "searched 'rate.?limit|throttl|per.?minute' in lib/Service/BudgetService.php and lib/Service/Llm at 5277c0d: only provider 429 handling (lib/Service/Llm/ProviderFactory.php:829,2288-2300); budgets cap tokens and euros per period, not requests per minute"
 			}
 		},
 		{
@@ -6197,7 +6233,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/17565",
-			"hermiq": "unknown",
+			"hermiq": "yes",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
@@ -6211,7 +6247,13 @@
 				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
-			}
+			},
+			"built": {
+				"state": "built",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "src/modals/AgentFormModal.vue:161-165 Temperature (0-2) field, mounted via src/customComponents.js:28,114 as the agents index form-dialog; lib/Service/Engine/ResponseGenerationHandler.php:237-239,286 reads agent.temperature and applies it to the provider call"
+			},
+			"reachedOn": "/agents -> New or Edit agent (AgentFormModal, form-dialog slot) -> Temperature field"
 		},
 		{
 			"id": "dm-project-memory",
@@ -6220,7 +6262,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/16833",
-			"hermiq": "unknown",
+			"hermiq": "partial",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "partial",
 			"copilot-studio": "unknown",
@@ -6234,7 +6276,13 @@
 				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
-			}
+			},
+			"built": {
+				"state": "built",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property)"
+			},
+			"reachedOn": "/agents/:id -> Memory widget (AgentMemory)"
 		},
 		{
 			"id": "dm-cross-channel",
@@ -6257,7 +6305,8 @@
 				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
-			}
+			},
+			"note": "not checked: lib/Settings/hermiq_register.json Session.talkRoomOrigin shows a Hermiq chat session can own or bind a Talk room, so one session spans the Chat page and Talk; whether a user can pick up in the Chat page a session begun in Talk was not traced to a page"
 		}
 	],
 	"pending": [
