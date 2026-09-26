@@ -22,7 +22,7 @@
 			"vendor": "Nextcloud GmbH",
 			"readOn": "2026-09-26",
 			"columnAddedOn": "2026-09-26",
-			"evidenceGrade": "docs-only",
+			"evidenceGrade": "source-read",
 			"readHow": "source read at assistant v4.0.0 (366d5ee, github.com/nextcloud/assistant) and context_agent v2.8.0 (99936dd, github.com/nextcloud/context_agent), not driven: routes, controllers, services, Vue pages and l10n of the Assistant, and the Context Agent ExApp's LangGraph agent and tools; nextcloud/server's TaskProcessing providers and integration_openai were not read, so three cells stay unknown. The July column predates 4.0.0, which added Assignments (RFC 5545 scheduling), memories, agentskills.io skills, an MCP server at /mcp and streaming. There is one fixed agent, so per-agent rows are no or partial by construction. Scheduled write actions that pause for approval are partial. Licence: the Assistant ships AGPL-3.0-or-later; context_agent's LICENSE file and SPDX headers say AGPL-3.0 while its appinfo/info.xml says MIT, a contradiction in the product itself",
 			"unknownReason": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the code reading could not settle this row",
 			"sources": {
@@ -84,7 +84,9 @@
 					"tenders": "searched the intelligence database on 2026-09-26 (tenders name, description and keywords, and requirements text_nl/text_en, word-boundary match on 'nextcloud assistant', 'context agent'): no tender names it; 'nextcloud' alone matches Middelburg VTH (tender 1184, a Nextcloud storage integration requirement) and two Austrian tenders, none about the Assistant"
 				},
 				"notes": "nextcloud.com pages (featurePage, pricing, caseStudies, partnerDirectory, jobPostings) were confirmed through web search results, not by direct fetch: this shell cannot reach nextcloud.com (connection fails) and WebFetch failed. docs.nextcloud.com, apps.nextcloud.com, try.nextcloud.com, help.nextcloud.com, hackerone and GitHub URLs returned 200 directly. Pricing: subscriptions from 100 users, priced by user count per instance (search result on nextcloud.com/pricing/)."
-			}
+			},
+			"readVersion": "assistant v4.0.0 (366d5ee) and context_agent v2.8.0 (99936dd)",
+			"evidenceGradeBefore": "docs-only"
 		},
 		{
 			"key": "hermes-agent",
@@ -92,7 +94,7 @@
 			"vendor": "Nous Research",
 			"readOn": "2026-09-26",
 			"columnAddedOn": "2026-09-26",
-			"evidenceGrade": "docs-only",
+			"evidenceGrade": "source-read",
 			"readHow": "source read at v2026.9.24 (f97608f, shallow clone of github.com/NousResearch/hermes-agent), not driven: CLI subcommands, web dashboard pages and routers, gateway adapters, tools and skills registries, tests and i18n, every row rated with path:line evidence; no instance booted",
 			"unknownReason": "source read at v2026.9.24, not driven: the code reading could not settle this row",
 			"sources": {
@@ -142,7 +144,12 @@
 					"trainingCurriculum": "no training or certification curriculum; the docs have guides (e.g. /docs/guides/tips resolves) but no course.",
 					"tenders": "searched the intelligence database on 2026-09-26 (tenders name, description and keywords, and requirements text_nl/text_en, word-boundary match on 'hermes agent', 'nous research'): no tender names it"
 				}
-			}
+			},
+			"readVersion": {
+				"tag": "v2026.9.24",
+				"commit": "f97608f"
+			},
+			"evidenceGradeBefore": "docs-only"
 		},
 		{
 			"key": "copilot-studio",
@@ -260,7 +267,7 @@
 			"vendor": "LangGenius",
 			"readOn": "2026-09-26",
 			"columnAddedOn": "2026-09-26",
-			"evidenceGrade": "docs-only",
+			"evidenceGrade": "source-read",
 			"readHow": "source read at 1.17.1 (8387590, shallow clone of github.com/langgenius/dify), not driven: api/, web/ (pages and i18n), dify-agent/ and the Agent v2 layer, tests; the official and community plugin repos (langgenius/dify-official-plugins, langgenius/dify-plugins) were read on main, not at a tag, and a capability that exists only as a marketplace plugin is rated partial; enterprise or Cloud plan gates (RBAC_ENABLED, MODEL_LB_ENABLED, billing flags) are named per cell; no instance booted",
 			"unknownReason": "source read at 1.17.1, not driven: the code reading could not settle this row",
 			"sources": {
@@ -296,7 +303,12 @@
 					"tenders": "searched the intelligence database on 2026-09-26 (tenders name, description and keywords, and requirements text_nl/text_en, word-boundary match on 'dify'): no tender names it"
 				},
 				"notes": "roadmap.dify.ai is a Featurebase board, its items did not render without sign-in; G2 (g2.com/products/dify-ai/reviews) returned 403 to fetch so Product Hunt is given; caseStudies is the blog case-study category (dify.ai/case-study 404s); partner page is the partner programme with a 'Find a Partner' section; trainingCurriculum is the docs Learn/Key Concepts section; jobPostings is the 'Careers of Dify' GitHub discussion (dify.ai/careers 404s)"
-			}
+			},
+			"readVersion": {
+				"tag": "1.17.1",
+				"commit": "8387590"
+			},
+			"evidenceGradeBefore": "docs-only"
 		},
 		{
 			"key": "n8n",
@@ -304,7 +316,7 @@
 			"vendor": "n8n GmbH",
 			"readOn": "2026-09-26",
 			"columnAddedOn": "2026-09-26",
-			"evidenceGrade": "docs-only",
+			"evidenceGrade": "source-read",
 			"readHow": "source read at n8n@2.40.7 (09b3ce6, shallow clone of github.com/n8n-io/n8n), not driven: the LangChain AI Agent nodes, the editor UI and its i18n, the CLI REST and public API, licence checks in .ee. files; cells resting on the opt-in Agents module (N8N_ENABLED_MODULES=agents) are rated yes with an opt-in note, because enabling a shipped module is configuration; licence-gated features are partial and marked enterprise-licensed; a capability a user must hand-build from generic nodes is partial unless a shipped node or screen satisfies the row; no instance booted",
 			"unknownReason": "source read at n8n@2.40.7, not driven: the code reading could not settle this row",
 			"sources": {
@@ -366,7 +378,12 @@
 					"accessibilityStatement": "n8n.io/accessibility/ and docs.n8n.io/accessibility/ return 404; no 'accessib' link on n8n.io, n8n.io/legal/ or docs.n8n.io home pages.",
 					"tenders": "searched the intelligence database on 2026-09-26 (tenders name, description and keywords, and requirements text_nl/text_en, word-boundary match on 'n8n'): no tender names it"
 				}
-			}
+			},
+			"readVersion": {
+				"tag": "n8n@2.40.7",
+				"commit": "09b3ce6"
+			},
+			"evidenceGradeBefore": "docs-only"
 		},
 		{
 			"key": "open-webui",
@@ -374,7 +391,7 @@
 			"vendor": "Open WebUI Inc.",
 			"readOn": "2026-09-26",
 			"columnAddedOn": "2026-09-26",
-			"evidenceGrade": "docs-only",
+			"evidenceGrade": "source-read",
 			"readHow": "source read at v0.11.4 (8bd8b4f, shallow clone of github.com/open-webui/open-webui), not driven: backend routers, models, config and utils, the SvelteKit routes and components, en-US i18n, tools and functions; an agent is a workspace Model preset, with Automations, sub-agents and skills as separate objects; capabilities that sit in separate first-party repos (Open Terminal, oikb, Open WebUI Computer) or in community Functions are rated partial or no with the reason; the Open WebUI licence (branding clause) is noted on op-open-source and op-flat-cost; no instance booted",
 			"unknownReason": "source read at v0.11.4, not driven: the code reading could not settle this row",
 			"sources": {
@@ -416,7 +433,12 @@
 					"trainingCurriculum": "docs sitemap has how-to tutorials (docs.openwebui.com/tutorials) but no structured course or certification",
 					"tenders": "searched the intelligence database on 2026-09-26 (tenders name, description and keywords, and requirements text_nl/text_en, word-boundary match on 'open webui'): no tender names it"
 				}
-			}
+			},
+			"readVersion": {
+				"tag": "v0.11.4",
+				"commit": "8bd8b4f"
+			},
+			"evidenceGradeBefore": "docs-only"
 		}
 	],
 	"areas": [
