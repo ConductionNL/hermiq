@@ -889,7 +889,7 @@
 			"hermiq": "yes",
 			"built": {
 				"state": "built",
-				"owner": "nextcloud",
+				"owner": "nextcloud/server",
 				"evidence": "lib/TaskProcessing/ContextAgentProvider.php implements ISynchronousProvider over OCP\\TaskProcessing\\TaskTypes\\ContextAgentInteraction (the core task type behind Nextcloud's Smart Picker 'Ask AI' flow); lib/AppInfo/Application.php:353 registerTaskProcessingProvider(ContextAgentProvider::class)."
 			},
 			"reachedOn": "Nextcloud's Smart Picker in any text field (core UI) -> ContextAgentInteraction task -> hermiq's ContextAgentProvider",
@@ -916,7 +916,7 @@
 			"hermiq": "yes",
 			"built": {
 				"state": "built",
-				"owner": "nextcloud",
+				"owner": "nextcloud/server",
 				"evidence": "lib/AppInfo/Application.php:350-352 registers Text2TextProvider, Text2TextSummaryProvider, Text2TextHeadlineProvider as TaskProcessing providers (lib/TaskProcessing/Text2Text*.php)."
 			},
 			"reachedOn": "Nextcloud Assistant's text-task menu (summarise/headline/free-form text2text) -> hermiq's Text2Text providers",
@@ -1293,7 +1293,7 @@
 			"hermiq": "yes",
 			"built": {
 				"state": "built",
-				"owner": "openregister",
+				"owner": "ConductionNL/openregister",
 				"evidence": "lib/AppInfo/Application.php:124-126 registers AgentRunRequestedListener on OpenRegister's AgentRunRequestedEvent, enqueuing lib/BackgroundJob/AgentRunRequestedJob.php (QueuedJob via IJobList, listener at lib/Listener/AgentRunRequestedListener.php:94); Application.php also registers HermiqFlowNodeListener on RegisterFlowNodesEvent so hermiq contributes an 'agent' action node to OpenRegister's flow canvas; src/manifest.json:1357-1370 FlowDetail page type:'flow' is in hermiq's own menu (FlowIndex, id:128)."
 			},
 			"reachedOn": "/flows FlowIndex -> a flow with an event trigger (e.g. ObjectCreatedEvent on file upload/new record) and hermiq's agent action node",
