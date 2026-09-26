@@ -711,10 +711,11 @@
 			"built": {
 				"state": "none",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue for a file picker/attachment affordance and found none. The only file-related setting is a boolean RAG toggle (settings.includeFiles, Chat.vue:834,864) that widens the agent's own file search, not an explicit per-message attach-and-ask action."
+				"evidence": "Searched src/views/Chat.vue for a file picker/attachment affordance and found none. The only file-related setting is a boolean RAG toggle (settings.includeFiles, Chat.vue:834,864) that widens the agent's own file search, not an explicit per-message attach-and-ask action.",
+				"readOn": "2026-09-26"
 			},
 			"reachedOn": "nothing",
-			"note": "includeFiles/searchFiles let the agent search the user's Nextcloud files as part of RAG, which is related but not the same as attaching one specific file to a message.",
+			"note": "includeFiles/searchFiles let the agent search the user's Nextcloud files as part of RAG, which is related but not the same as attaching one specific file to a message. Noted 2026-09-26, rating unchanged: the nextcloud-vue 2.55.1 companion's attach control (src/components/CnAiCompanion/CnAiInput.vue:259) posts to /apps/hermiq/api/chat/attachments, which hermiq never registers (appinfo/routes.php has no such route), so every attach fails: hermiq#950.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-engine-port",
@@ -827,14 +828,15 @@
 			"area": "chat",
 			"name": "Speak to an agent instead of typing.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "partial",
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/SpeechController.php and routes.php:546-548 speech#transcribe/synthesise/capabilities exist server-side; src/modals/AgentFormModal.vue:252 voiceInputEngineOption is editable on the Agent form. But src/views/Chat.vue has no microphone/dictate control at all (grepped for microphone/mic/speech/audio, no hits), and no component under src/ calls /api/speech/* (grepped). openspec/specs/speech-services/spec.md: the composer-facing 'voice-composer' delta is 'in-progress' and says the dictate/converse UI split lives in the shared nextcloud-vue lib, which Chat.vue's hand-rolled <textarea> composer does not use."
+				"evidence": "lib/Controller/SpeechController.php and routes.php:546-548 speech#transcribe/synthesise/capabilities exist server-side; src/modals/AgentFormModal.vue:252 voiceInputEngineOption is editable on the Agent form. But src/views/Chat.vue has no microphone/dictate control at all (grepped for microphone/mic/speech/audio, no hits), and no component under src/ calls /api/speech/* (grepped). openspec/specs/speech-services/spec.md: the composer-facing 'voice-composer' delta is 'in-progress' and says the dictate/converse UI split lives in the shared nextcloud-vue lib, which Chat.vue's hand-rolled <textarea> composer does not use. Reached from the companion, not from hermiq's own /chat page (added 2026-09-26): @conduction/nextcloud-vue 2.55.1 src/components/CnAiCompanion/CnAiInput.vue:81-92 renders a microphone button and :215 imports speechTranscriptionsUrl, which targets hermiq's speech#transcribe (appinfo/routes.php:540).",
+				"readOn": "2026-09-26"
 			},
-			"reachedOn": "nothing",
-			"note": "An agent can be configured with a voiceInputEngine, and the transcription backend exists, but nothing in the chat page lets a user actually speak to it.",
+			"reachedOn": "the nextcloud-vue 2.55.1 AI companion (CnAiChatPanel with CnAiInput) microphone button; not hermiq's own /chat page",
+			"note": "Re-rated no to partial on 2026-09-26: speaking to an agent works through the companion panel from nextcloud-vue 2.55.1, backed by hermiq's transcription endpoint. hermiq's own chat page still has no microphone.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "speech-services",
@@ -855,14 +857,15 @@
 			"area": "chat",
 			"name": "Have the agent read its answer out loud.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "partial",
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Same as ch-voice-in: lib/Controller/SpeechController.php speech#synthesise exists, voiceOutputEngine is editable in AgentFormModal.vue:269, but Chat.vue has no read-aloud/speaker control and no caller of /api/speech/speech under src/."
+				"evidence": "Same as ch-voice-in: lib/Controller/SpeechController.php speech#synthesise exists, voiceOutputEngine is editable in AgentFormModal.vue:269, but Chat.vue has no read-aloud/speaker control and no caller of /api/speech/speech under src/. Reached from the companion, not from hermiq's own /chat page (added 2026-09-26): @conduction/nextcloud-vue 2.55.1 src/components/CnAiCompanion/CnAiChatPanel.vue:113-121 renders the read-aloud control and :346-347 imports speechCapabilitiesUrl and speechSynthesisUrl, which target hermiq's speech#capabilities and speech#synthesise (appinfo/routes.php:541-542).",
+				"readOn": "2026-09-26"
 			},
-			"reachedOn": "nothing",
-			"note": "Same gap as ch-voice-in: backend and per-agent config exist, chat page has no consuming UI.",
+			"reachedOn": "the nextcloud-vue 2.55.1 AI companion (CnAiChatPanel) read-aloud control; not hermiq's own /chat page",
+			"note": "Re-rated no to partial on 2026-09-26: read-aloud works through the companion panel from nextcloud-vue 2.55.1; hermiq's own chat page still has no speaker control.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "speech-services",
@@ -4769,14 +4772,15 @@
 			"area": "reuse",
 			"name": "Turn an agent I built into a template others can reuse.",
 			"source": "own-code",
-			"hermiq": "yes",
+			"hermiq": "no",
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:405-408 agentTemplate#fromAgentExport POST /api/agent-templates/from-agent/{agentId}/export; src/api/agentTemplates.js:88-91 exportAgentToTemplate(); reached from AgentDetail's header actions per src/manifest.json's AgentDetail note referencing AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolving the route agent id the same way export-to-template does."
+				"evidence": "appinfo/routes.php:405-408 agentTemplate#fromAgentExport exists and src/api/agentTemplates.js:88-91 exportAgentToTemplate() wraps it, but exportAgentToTemplate() has zero callers in src/, the same finding row ag-import-export records. The earlier yes assumed an AgentDetail header action that nobody opened.",
+				"readOn": "2026-09-26"
 			},
-			"reachedOn": "AgentDetail (/agents/:id) header action -> export agent as template -> Store",
-			"note": "Confirmed the route and the api wrapper exist and are exported; did not open the exact AgentDetail header-action button component that calls exportAgentToTemplate().",
+			"reachedOn": "nothing reaches it",
+			"note": "Re-rated yes to no on 2026-09-26: the row contradicted ag-import-export, which found the wrapper has no caller.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-template-gallery",
@@ -5499,15 +5503,15 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/IntakeController.php:76-197 receive()/show()/conclude()/review() implement the conversational-intake spec (abstention threshold, one thread across channels per design.md D2/D4); routes.php:693-713 intake routes + Settings\\IntakeSettings; but every IntakeController method carries only @NoAdminRequired/@NoCSRFRequired (checked lines 76-197), never #[PublicPage], so the endpoint still requires an authenticated Nextcloud session."
+				"evidence": "lib/Controller/IntakeController.php:76-197 receive()/show()/conclude()/review() implement the conversational-intake spec (abstention threshold, one thread across channels per design.md D2/D4); routes.php:693-713 intake routes + Settings\\IntakeSettings; but every IntakeController method carries only @NoAdminRequired/@NoCSRFRequired (checked lines 76-197), never #[PublicPage], so the endpoint still requires an authenticated Nextcloud session.",
+				"readOn": "2026-09-26"
 			},
 			"reachedOn": "nothing directly reachable by an account-less caller",
-			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive.",
+			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive. Corrected 2026-09-26: intake#receive answering 401 to an anonymous caller is by design, because channel apps call it logged in; the earlier defect candidate is withdrawn.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "a-conversational-intake-that-files-for-the-citizen",
 			"featureConfidence": "medium",
-			"defectCandidate": "intake#receive has no #[PublicPage] attribute, so it 401s for a genuinely unauthenticated caller despite the row's 'resident without an account' framing.",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
