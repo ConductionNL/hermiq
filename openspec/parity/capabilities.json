@@ -34,7 +34,55 @@
 			"columnAddedOn": "2026-09-26",
 			"evidenceGrade": "docs-only",
 			"readHow": "source read at v2026.9.24 (f97608f, shallow clone of github.com/NousResearch/hermes-agent), not driven: CLI subcommands, web dashboard pages and routers, gateway adapters, tools and skills registries, tests and i18n, every row rated with path:line evidence; no instance booted",
-			"unknownReason": "source read at v2026.9.24, not driven: the code reading could not settle this row"
+			"unknownReason": "source read at v2026.9.24, not driven: the code reading could not settle this row",
+			"sources": {
+				"docs": "https://hermes-agent.nousresearch.com/docs/",
+				"sourceRepo": "https://github.com/NousResearch/hermes-agent",
+				"featurePage": "https://hermes-agent.nousresearch.com/docs/user-guide/features/overview",
+				"featureRequests": "https://github.com/NousResearch/hermes-agent/issues?q=is%3Aissue%20state%3Aopen%20label%3Atype%2Ffeature",
+				"issueTracker": {
+					"url": "https://github.com/NousResearch/hermes-agent/issues",
+					"featureLabel": "type/feature"
+				},
+				"roadmap": null,
+				"changelog": "https://github.com/NousResearch/hermes-agent/releases",
+				"apiReference": {
+					"apiServer": "https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server",
+					"cli": "https://hermes-agent.nousresearch.com/docs/reference/cli-commands"
+				},
+				"marketplace": {
+					"skillsHub": "https://hermes-agent.nousresearch.com/docs/skills",
+					"pluginCatalog": "https://hermes-agent.nousresearch.com/docs/user-guide/features/plugin-catalog"
+				},
+				"pricing": null,
+				"accessibilityStatement": null,
+				"securityDocs": {
+					"policy": "https://github.com/NousResearch/hermes-agent/blob/main/SECURITY.md",
+					"guide": "https://hermes-agent.nousresearch.com/docs/user-guide/security"
+				},
+				"demoInstance": null,
+				"community": {
+					"discord": "https://discord.gg/NousResearch",
+					"x": "https://x.com/NousResearch"
+				},
+				"reviews": null,
+				"videos": "https://www.youtube.com/@NousResearch",
+				"caseStudies": "https://hermes-agent.nousresearch.com/docs/user-stories",
+				"partnerDirectory": null,
+				"trainingCurriculum": null,
+				"jobPostings": "https://nousresearch.com/careers",
+				"tenders": null,
+				"nullReasons": {
+					"roadmap": "no ROADMAP file in the repo at v2026.9.24 (find -iname '*roadmap*' hit only a skill asset), hermes-agent.nousresearch.com/roadmap and /docs/roadmap return 404, GitHub Discussions are disabled (has_discussions false, /discussions 404); GitHub Projects could not be listed (token lacks read:project).",
+					"pricing": "the agent is MIT-licensed and free; the only paid surface is the Nous Portal subscription, and portal.nousresearch.com/pricing returned HTTP 429 so it was not seen resolving (portal.nousresearch.com itself resolves, title 'Nous Portal').",
+					"accessibilityStatement": "no accessibility statement: hermes-agent.nousresearch.com/accessibility 404; grep -ril accessib in website/docs only hits install and desktop pages, none a statement.",
+					"demoInstance": "no hosted demo: the product is a self-installed CLI, desktop app and gateway; the homepage and README link install scripts, not a demo.",
+					"reviews": "no review-site listing found or linked from README or the docs site; none seen resolving.",
+					"partnerDirectory": "no partner or integrator directory linked from README, the docs site or nousresearch.com.",
+					"trainingCurriculum": "no training or certification curriculum; the docs have guides (e.g. /docs/guides/tips resolves) but no course.",
+					"tenders": "searched the intelligence database on 2026-09-26 (tenders name, description and keywords, and requirements text_nl/text_en, word-boundary match on 'hermes agent', 'nous research'): no tender names it"
+				}
+			}
 		},
 		{
 			"key": "copilot-studio",
@@ -5979,6 +6027,236 @@
 				"dify": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
 				"n8n": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending",
 				"open-webui": "not checked: demand row mined from the intelligence database on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-task-board",
+			"area": "flows",
+			"name": "Put tasks on a shared board that several agents claim, hand off and close.",
+			"source": "competitor-derived",
+			"origin": "changelog",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.5.7",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "yes",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/kanban_parser.py:459 `hermes kanban` durable task board shared across profiles; hermes_cli/kanban_db.py:1249 create_task, :2263 claim_task, :2558 reclaim_task, :2723 complete_task; tools/kanban_tools.py:112 kanban_complete/kanban_block agent tools, :237 kanban_comment hand-off between tasks.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-standing-goal",
+			"area": "agents",
+			"name": "Give an agent a standing goal it keeps working on across turns until a check says it is reached.",
+			"source": "competitor-derived",
+			"origin": "changelog",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.5.7",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "yes",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/commands.py:117 /goal 'Set a standing goal Hermes works on across turns until achieved'; gateway/slash_commands_goals.py:37 handler in every messaging channel; hermes_cli/goals.py:397 GoalState, :344 GoalGate shell checks, :860 goal_judge model call decides done.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-model-ensemble",
+			"area": "models",
+			"name": "Answer one prompt with several models at once and merge their answers into one reply.",
+			"source": "competitor-derived",
+			"origin": "changelog",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.7.1",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "yes",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/commands.py:134 /moa runs a prompt through the Mixture of Agents preset; agent/moa_loop.py:1 reference models gathered before each iteration, aggregator answers; hermes_cli/subcommands/moa.py:10 `hermes moa configure`; hermes_cli/web_routers/models.py:204 GET /api/model/moa for the dashboard.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-key-rotation",
+			"area": "models",
+			"name": "Spread calls over several API keys for one provider and rotate to the next key when one runs out.",
+			"source": "competitor-derived",
+			"origin": "changelog",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.4.3",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "yes",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/subcommands/auth.py:10 `hermes auth add` pooled credentials; agent/credential_pool.py:122 least_used strategy, :1941 select, :2221 mark_exhausted_and_rotate; agent/agent_runtime_helpers.py:895 the turn rotates to the next key on a quota or auth failure. Note: distinct from mo-failover (second provider) and mo-key-broker (central store): same provider, many keys.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent changelog on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-backup-restore",
+			"area": "operations",
+			"name": "Back up all agent data automatically and restore it to an earlier point after a bad change.",
+			"source": "competitor-derived",
+			"origin": "featureRequest",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/12238",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/subcommands/backup.py:10 `hermes backup` zips ~/.hermes, hermes_cli/backup.py:671 run_backup, :993 run_import; hermes_cli/cli_commands_mixin.py:805 /snapshot list|create|restore; hermes_cli/update_cmd_maint.py:692 automatic snapshot only before an update. No scheduled backup job and no version history (grep backup in cron/: only fallback-provider copy). Note: issue open; automatic backups are limited to the pre-update snapshot.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-remote-agent",
+			"area": "flows",
+			"name": "Hand a task to an agent running on another server and get its answer back.",
+			"source": "competitor-derived",
+			"origin": "featureRequest",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/689",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "yes",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: plugins/platforms/a2a/plugin.yaml:6 bundled A2A plugin, outbound a2a_discover/a2a_call/a2a_orchestrate; plugins/platforms/a2a/tools.py:173 a2a_call sends a task to a configured peer or URL and returns the reply, :255 a2a_orchestrate; :330 tools appear only once a2a_agents or the platform is configured. Note: issue #689 is still open but the A2A plugin shipped in core covers remote delegation; config-gated, off by default.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-rate-cap",
+			"area": "models",
+			"name": "Cap how many requests per minute an agent sends to a model provider.",
+			"source": "competitor-derived",
+			"origin": "featureRequest",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/31802",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "no",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: searched 'requests_per_minute|rpm|token_bucket|throttle|rate_limit_delay' in agent/, run_agent.py, hermes_cli/: agent/rate_limit_tracker.py:181 only displays provider RPM headers; rate_limit_delay is accepted in hermes_cli/config.py:993 and hermes_cli/config_providers.py:260 but nothing in agent/ reads it. No client-side limiter. Note: a config key nothing reads, so no. Same demand in #58061.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-temperature",
+			"area": "models",
+			"name": "Set the temperature an agent's model answers with.",
+			"source": "competitor-derived",
+			"origin": "featureRequest",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/17565",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: no temperature key in hermes_cli/config*.py (grep temperature hermes_cli: none for the main agent); agent/chat_completion_helpers.py:1416 only fixed per-model temperatures; a custom provider's extra_body (hermes_cli/config.py:993, applied at agent/agent_runtime_helpers.py:1937) can pass one; MoA presets have reference/aggregator temperature (hermes_cli/web_models.py:152). Note: issue open; only indirect paths.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-project-memory",
+			"area": "memory",
+			"name": "Keep a separate memory per project next to a shared memory.",
+			"source": "competitor-derived",
+			"origin": "featureRequest",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/16833",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: tools/memory_tool.py:39 memory dir is per profile (HERMES_HOME/memories), so a profile per project gives separate memory but no shared layer; agent/prompt_builder.py:139 project .hermes.md/HERMES.md is read-only context; agent/skill_utils.py:437 project-local skills. Searched 'project.scoped|memory_scope' in agent, tools, plugins/memory: none. Note: issue open.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
+			}
+		},
+		{
+			"id": "dm-cross-channel",
+			"area": "chat",
+			"name": "Carry one conversation over from one channel to another, such as from a messenger to the desktop.",
+			"source": "competitor-derived",
+			"origin": "featureRequest",
+			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/4335",
+			"hermiq": "unknown",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "partial",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"evidence": {
+				"nextcloud-assistant": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: gateway/slash_commands_session.py:862 /resume, :323 a stored session is only resumable from the same platform and thread, :303 cross-origin resume only for an explicitly configured admin with --all; all sessions share one state.db so the local CLI can reopen them. Note: issue open; cross-channel is admin-only in the gateway.",
+				"copilot-studio": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"dify": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"n8n": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending",
+				"open-webui": "not checked: demand row mined from the hermes-agent feature requests on 2026-09-26, back-fill pending"
 			}
 		}
 	],
