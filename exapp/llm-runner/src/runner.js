@@ -192,14 +192,21 @@ function assertGovernedArgs(args) {
 /**
  * How long the governed-MCP reachability preflight waits for a response.
  *
- * Deliberately short. This is a same-instance call — Hermiq is a container away —
- * so anything slower than a couple of seconds is a misconfiguration, not load,
- * and the turn is better refused than run tool-less.
+ * It was 4000 ms, on the reasoning that this is a same-instance call and anything
+ * slower is a misconfiguration rather than load. Measured 2026-09-18 on a real
+ * demo instance, that reasoning was wrong in the direction that costs the most:
+ * `status.php`, a route with no throttling and almost no work, answered in
+ * 4878 ms. A Nextcloud under any load at all takes seconds, and the penalty for
+ * being impatient is a REFUSED governed turn carrying a message that blames the
+ * operator's `mcp_run_base_url` for a setting that was correct.
+ *
+ * 15 s is chosen so a genuinely unreachable endpoint still fails well inside the
+ * CLI timeout, while a merely slow instance is allowed to answer.
  *
  * @type {number}
  */
 const MCP_PREFLIGHT_TIMEOUT_MS = Number(
-	process.env.RUNNER_MCP_PREFLIGHT_TIMEOUT_MS || '4000',
+	process.env.RUNNER_MCP_PREFLIGHT_TIMEOUT_MS || '15000',
 )
 
 /**
@@ -223,35 +230,56 @@ const MCP_PREFLIGHT_TIMEOUT_MS = Number(
  * reach its governance is not a degraded turn, it is an UNGOVERNED one, so it
  * is refused here rather than run.
  *
- * ANY HTTP response counts as reachable — including 401/403/405. The endpoint
- * authenticates the per-run bearer token, and this probe deliberately does not
- * carry it: what is under test is whether a connection can be established at
- * all, not whether this run is authorised. Only DNS failure, connection refusal
- * and timeout are treated as unreachable.
+ * ANY HTTP response counts as reachable — including 401/403/405. What is under
+ * test is whether a connection can be established at all, not whether this run
+ * is authorised. Only DNS failure, connection refusal and timeout are treated as
+ * unreachable.
+ *
+ * THE PROBE CARRIES THE RUN TOKEN, and that is not incidental. It used to go out
+ * deliberately unauthenticated, and Hermiq's MCP endpoint answers an unverifiable
+ * bearer token by calling `IThrottler::registerAttempt('hermiq_run_token', …)`.
+ * Nextcloud then delays that IP's answers, further with each attempt. So every
+ * governed turn poisoned its own next preflight, against the very counter that
+ * protects run tokens. Measured 2026-09-18 on the live instance, three
+ * consecutive probes took 8443 ms, 15926 ms and 9603 ms against a 4000 ms
+ * timeout, while an unthrottled route on the same instance answered in 4878 ms.
+ * The preflight was manufacturing the unreachability it exists to detect.
+ *
+ * The token is already in hand: it is in the MCP config this function reads. An
+ * authorized probe registers nothing, so the check stops degrading the thing it
+ * measures.
  *
  * @param {object} mcpConfig The governed `{mcpServers: {...}}` config.
  * @returns {Promise<void>} Resolves when reachable; rejects with an actionable message.
  */
 function assertMcpEndpointReachable(mcpConfig) {
 	const servers = (mcpConfig && mcpConfig.mcpServers) || {}
-	const urls = Object.values(servers)
-		.map((s) => (s && typeof s.url === 'string' ? s.url : ''))
-		.filter((u) => u !== '')
+	const targets = Object.values(servers)
+		.map((s) => ({
+			url: s && typeof s.url === 'string' ? s.url : '',
+			// The server entry's own headers, which carry the run token. An entry
+			// without them is still probed; it simply probes unauthenticated.
+			headers: (s && typeof s.headers === 'object' && s.headers) || {},
+		}))
+		.filter((t) => t.url !== '')
 
-	if (urls.length === 0) {
+	if (targets.length === 0) {
 		return Promise.resolve()
 	}
 
-	return Promise.all(urls.map((url) => probeUrl(url))).then(() => undefined)
+	return Promise.all(targets.map((t) => probeUrl(t.url, t.headers))).then(
+		() => undefined,
+	)
 }
 
 /**
  * Open one connection to `url` and resolve if the server answers at all.
  *
  * @param {string} url The endpoint to probe.
+ * @param {object} [headers] Headers from the server entry, carrying the run token.
  * @returns {Promise<void>} Resolves when the host answers; rejects otherwise.
  */
-function probeUrl(url) {
+function probeUrl(url, headers) {
 	return new Promise((resolve, reject) => {
 		let parsed
 		try {
@@ -268,7 +296,11 @@ function probeUrl(url) {
 		const transport = parsed.protocol === 'https:' ? https : http
 		const req = transport.request(
 			url,
-			{ method: 'HEAD', timeout: MCP_PREFLIGHT_TIMEOUT_MS },
+			{
+				method: 'HEAD',
+				timeout: MCP_PREFLIGHT_TIMEOUT_MS,
+				headers: headers || {},
+			},
 			(res) => {
 				res.resume()
 				resolve()

@@ -7,13 +7,13 @@
   Merges OpenRegister's chat surface (src/views/chat/ChatIndex.vue +
   src/sidebars/chat/ChatSideBar.vue + src/components/AgentSelector.vue) onto
   hermiq's manifest SPA idioms: one custom page with an internal
-  conversation-list column (active/archive) and a thread column
+  session-list column (active/archive) and a thread column
   (messages + composer + feedback), all against the Hermiq engine routes at
-  /apps/hermiq/api/{chat,conversations} (chunk 2). Agents come from the
-  createObjectStore agent store; conversation/chat transport lives in
+  /apps/hermiq/api/{chat,sessions} (chunk 2). Agents come from the
+  createObjectStore agent store; session/chat transport lives in
   src/api/chat.js (see its docblock for the store-vs-helper split). All
-  dialogs are isolated modal files (ADR-004): ConversationRenameModal,
-  ConversationDeleteModal, ChatSettingsModal.
+  dialogs are isolated modal files (ADR-004): SessionRenameModal,
+  SessionDeleteModal, ChatSettingsModal.
 
   STREAMING (hydra ADR-034): sending uses POST /api/chat/stream (SSE
   six-event envelope) with incremental token rendering, degrading to
@@ -22,25 +22,25 @@
   - OR's frontend at HEAD has NO SSE consumption (its chat always POSTs
     /chat/send); the streaming consumption here is written against the ported
     ChatStreamController's contract instead of ported from OR code.
-  - The stream endpoint accepts only message/agentUuid/conversationUuid, so
-    when the user customises per-conversation views/tools/RAG settings the
+  - The stream endpoint accepts only message/agentUuid/sessionUuid, so
+    when the user customises per-session views/tools/RAG settings the
     turn is sent over POST /api/chat/send (which accepts them) instead of the
     stream — behaviourally identical to OR, which always used /send.
 
   After every completed turn the thread is re-read from the server so
   message ids (needed for feedback), RAG sources, and the auto-generated
-  conversation title reflect persisted truth rather than optimistic state.
+  session title reflect persisted truth rather than optimistic state.
 -->
 <template>
 	<div class="chat-page">
-		<!-- Conversation list column -->
+		<!-- Session list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton type="primary" wide @click="newConversation">
+				<NcButton variant="primary" wide @click="newSession">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
-					{{ t('hermiq', 'New conversation') }}
+					{{ t('hermiq', 'New session') }}
 				</NcButton>
 				<div class="chat-page__tabs">
 					<NcCheckboxRadioSwitch
@@ -66,72 +66,95 @@
 				</div>
 			</div>
 
-			<div v-if="conversationsLoading" class="chat-page__list-state">
+			<div v-if="sessionsLoading" class="chat-page__list-state">
 				<NcLoadingIcon :size="28" />
 			</div>
 
-			<NcNoteCard v-else-if="visibleConversations.length === 0" type="info">
+			<NcNoteCard v-else-if="visibleSessions.length === 0" type="info">
 				{{
 					showArchive
-						? t('hermiq', 'No archived conversations.')
+						? t('hermiq', 'No archived sessions.')
 						: t(
 								'hermiq',
-								'No conversations yet. Start one to chat with an agent.',
+								'No sessions yet. Start one to chat with an agent.',
 							)
 				}}
 			</NcNoteCard>
 
+			<!--
+				Human and automated sessions are listed apart: a chat someone is
+				holding and a session a cron or a flow opened are not the same
+				thing to a user deciding what needs attention. A group with no
+				sessions is not rendered, so the heading is never a promise the
+				list does not keep.
+			-->
 			<div v-else class="chat-page__rows">
-				<div
-					v-for="conversation in visibleConversations"
-					:key="conversation.uuid"
-					class="chat-page__row"
-					:class="{ 'chat-page__row--active': isActive(conversation) }">
+				<template v-for="group in sessionGroups" :key="group.key">
+					<h3
+						v-if="group.heading"
+						class="chat-page__group"
+						:data-testid="`chat-session-group-${group.key}`">
+						{{ group.heading }}
+					</h3>
 					<div
-						class="chat-page__row-main"
-						data-testid="chat-conversation-row"
-						role="button"
-						tabindex="0"
-						@click="selectConversation(conversation)"
-						@keydown.enter="selectConversation(conversation)">
-						<strong>{{
-							conversation.title || t('hermiq', 'New conversation')
-						}}</strong>
-						<span class="chat-page__row-date">{{
-							formatTime(conversation.updated)
-						}}</span>
-					</div>
-					<div class="chat-page__row-actions">
-						<template v-if="!showArchive">
-							<NcButton
-								type="tertiary"
-								:aria-label="t('hermiq', 'Archive conversation')"
-								@click="archive(conversation)">
+						v-for="session in group.sessions"
+						:key="session.uuid"
+						class="chat-page__row"
+						:data-testid="`chat-session-row-${group.key}`"
+						:class="{ 'chat-page__row--active': isActive(session) }">
+						<div
+							class="chat-page__row-main"
+							data-testid="chat-session-row"
+							role="button"
+							tabindex="0"
+							@click="selectSession(session)"
+							@keydown.enter="selectSession(session)">
+							<span class="chat-page__row-icon">
+								<component :is="originIcon(session)" :size="20" />
+							</span>
+							<span class="chat-page__row-text">
+								<strong>{{
+									session.title || t('hermiq', 'New session')
+								}}</strong>
+								<span class="chat-page__row-meta">{{
+									rowMeta(session)
+								}}</span>
+							</span>
+						</div>
+						<NcActions
+							class="chat-page__row-actions"
+							:aria-label="t('hermiq', 'Session actions')">
+							<NcActionButton
+								:disabled="isActive(session)"
+								@click="selectSession(session)">
+								<template #icon>
+									<MessageText :size="20" />
+								</template>
+								{{ t('hermiq', 'Continue') }}
+							</NcActionButton>
+							<NcActionButton
+								v-if="!showArchive"
+								@click="archive(session)">
 								<template #icon>
 									<Archive :size="20" />
 								</template>
-							</NcButton>
-						</template>
-						<template v-else>
-							<NcButton
-								type="tertiary"
-								:aria-label="t('hermiq', 'Restore conversation')"
-								@click="restore(conversation)">
+								{{ t('hermiq', 'Archive session') }}
+							</NcActionButton>
+							<NcActionButton v-else @click="restore(session)">
 								<template #icon>
 									<Restore :size="20" />
 								</template>
-							</NcButton>
-							<NcButton
-								type="tertiary"
-								:aria-label="t('hermiq', 'Delete permanently')"
-								@click="openDelete(conversation)">
+								{{ t('hermiq', 'Restore session') }}
+							</NcActionButton>
+							<NcActionButton @click="openDelete(session)">
 								<template #icon>
 									<Delete :size="20" />
 								</template>
-							</NcButton>
-						</template>
+								{{ t('hermiq', 'Delete session') }}
+							</NcActionButton>
+						</NcActions>
 					</div>
-				</div>
+				</template>
 			</div>
 		</aside>
 
@@ -142,17 +165,17 @@
 					<Creation :size="26" />
 					{{ headerTitle }}
 				</h2>
-				<div v-if="activeConversation" class="chat-page__header-actions">
+				<div v-if="activeSession" class="chat-page__header-actions">
 					<NcButton
-						type="tertiary"
-						:aria-label="t('hermiq', 'Rename conversation')"
+						variant="tertiary"
+						:aria-label="t('hermiq', 'Rename session')"
 						@click="showRename = true">
 						<template #icon>
 							<Pencil :size="20" />
 						</template>
 					</NcButton>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:aria-label="t('hermiq', 'Chat settings')"
 						@click="showSettings = true">
 						<template #icon>
@@ -162,26 +185,38 @@
 				</div>
 			</div>
 
-			<!-- No conversation: agent selector -->
-			<div v-if="!activeConversation" class="chat-page__empty">
-				<div class="chat-page__empty-icon">
-					<MessageText :size="56" />
+			<!--
+				No session: the start-a-session surface.
+
+				The scroll container and the centring live on DIFFERENT elements
+				on purpose. A scrolling flex column that centres its own children
+				pushes the first one above the scroll origin once the content is
+				taller than the column, and nothing can scroll back up to it — so
+				the top row of agent cards is unreachable. An inner block with
+				`margin: auto` centres identically while there is room and
+				collapses to zero when there is not, which is the whole fix.
+			-->
+			<div v-if="!activeSession" ref="startSurface" class="chat-page__empty">
+				<div class="chat-page__empty-inner" data-testid="chat-start-surface">
+					<div class="chat-page__empty-icon">
+						<MessageText :size="56" />
+					</div>
+					<h3>{{ t('hermiq', 'Start a session') }}</h3>
+					<p>
+						{{
+							t(
+								'hermiq',
+								'Select an agent to begin chatting with your data.',
+							)
+						}}
+					</p>
+					<AgentSelector
+						:agents="agents"
+						:loading="agentsLoading"
+						:error="agentsError"
+						:startingId="startingId"
+						@start="startWithAgent" />
 				</div>
-				<h3>{{ t('hermiq', 'Start a conversation') }}</h3>
-				<p>
-					{{
-						t(
-							'hermiq',
-							'Select an agent to begin chatting with your data.',
-						)
-					}}
-				</p>
-				<AgentSelector
-					:agents="agents"
-					:loading="agentsLoading"
-					:error="agentsError"
-					:startingId="startingId"
-					@start="startWithAgent" />
 			</div>
 
 			<!-- Thread -->
@@ -191,7 +226,7 @@
 						v-if="messagesLoading && messages.length === 0"
 						class="chat-page__messages-state">
 						<NcLoadingIcon :size="28" />
-						<p>{{ t('hermiq', 'Loading conversation…') }}</p>
+						<p>{{ t('hermiq', 'Loading session…') }}</p>
 					</div>
 
 					<div
@@ -263,7 +298,7 @@
 								"
 								class="chat-page__feedback">
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="t('hermiq', 'Helpful')"
 									:class="{
 										'chat-page__feedback--active-positive':
@@ -275,7 +310,7 @@
 									</template>
 								</NcButton>
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="t('hermiq', 'Not helpful')"
 									:class="{
 										'chat-page__feedback--active-negative':
@@ -290,7 +325,7 @@
 								     (e.g. a SKILL.md drafted by the seeded skill-creator skill) into a
 								     reviewable Skill via the pre-filled authoring modal. -->
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="t('hermiq', 'Save as skill')"
 									@click="openSaveAsSkill(message)">
 									<template #icon>
@@ -320,7 +355,7 @@
 										message.feedbackComment = $event.target.value
 									" />
 								<NcButton
-									type="secondary"
+									variant="secondary"
 									:disabled="
 										!message.feedbackComment
 										|| !message.feedbackComment.trim()
@@ -395,7 +430,7 @@
 							@keydown.enter.exact.prevent="handleSend"
 							@input="autoResize" />
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="!currentMessage.trim() || sending"
 							:aria-label="t('hermiq', 'Send message')"
 							@click="handleSend">
@@ -418,14 +453,14 @@
 		</section>
 
 		<!-- Isolated modals (ADR-004) -->
-		<ConversationRenameModal
+		<SessionRenameModal
 			:show="showRename"
-			:conversation="activeConversation"
+			:session="activeSession"
 			@close="showRename = false"
 			@saved="onRenamed" />
-		<ConversationDeleteModal
+		<SessionDeleteModal
 			:show="showDelete"
-			:conversation="deleteTarget"
+			:session="deleteTarget"
 			@close="showDelete = false"
 			@deleted="onDeleted" />
 		<ChatSettingsModal
@@ -453,6 +488,8 @@ import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
+	NcActionButton,
+	NcActions,
 	NcAvatar,
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -462,6 +499,11 @@ import {
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import Archive from 'vue-material-design-icons/Archive.vue'
+// One icon per session row, chosen by what started the session. A row that
+// always drew the same mark would leave the human/automated split visible only
+// in the group headings, which scroll away; the agent itself is named in the
+// row's meta line beside the time.
+import ClockOutline from 'vue-material-design-icons/ClockOutline.vue'
 import CogOutline from 'vue-material-design-icons/CogOutline.vue'
 // The assistant is drawn with the AI sparkles, not a robot — the same mark as
 // the launcher hex and the chat empty state, so "this came from the model"
@@ -471,32 +513,52 @@ import CubeOutline from 'vue-material-design-icons/CubeOutline.vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
 import FileDocument from 'vue-material-design-icons/FileDocument.vue'
 import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.vue'
+import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import Send from 'vue-material-design-icons/Send.vue'
+import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
-import ConversationDeleteModal from '../modals/ConversationDeleteModal.vue'
-import ConversationRenameModal from '../modals/ConversationRenameModal.vue'
+import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
+import SessionRenameModal from '../modals/SessionRenameModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import {
-	archiveConversation,
+	archiveSession,
 	ChatStreamError,
-	createConversation,
-	getConversation,
-	listConversations,
+	createSession,
+	getSession,
 	listMessages,
-	restoreConversation,
+	listSessions,
+	restoreSession,
 	sendChatMessage,
 	sendMessageFeedback,
 	streamChatMessage,
 } from '../api/chat.js'
 import { useAgentStore } from '../store/store.js'
+
+/**
+ * The trigger origins that mean "no person started this".
+ *
+ * Listed positively so an origin the frontend has not heard of falls to the
+ * human group. The alternative — treating anything that is not `human` as
+ * automated — would hide a real chat behind a heading the user does not expect
+ * to look under the first time a new origin ships.
+ */
+const AUTOMATED_ORIGINS = ['cron', 'event', 'flow']
+
+/** The row icon for each trigger origin; anything else uses the agent mark. */
+const ORIGIN_ICONS = {
+	cron: 'ClockOutline',
+	event: 'FlashOutline',
+	flow: 'SitemapOutline',
+	human: 'Creation',
+}
 
 export default {
 	name: 'Chat',
@@ -505,14 +567,18 @@ export default {
 		AgentSelector,
 		Archive,
 		ChatSettingsModal,
+		ClockOutline,
 		CogOutline,
-		ConversationDeleteModal,
-		ConversationRenameModal,
+		SessionDeleteModal,
+		SessionRenameModal,
 		CubeOutline,
 		Delete,
 		FileDocument,
 		FileDocumentOutline,
+		FlashOutline,
 		MessageText,
+		NcActionButton,
+		NcActions,
 		NcAvatar,
 		NcButton,
 		NcCheckboxRadioSwitch,
@@ -524,6 +590,7 @@ export default {
 		Restore,
 		Creation,
 		Send,
+		SitemapOutline,
 		SkillFormModal,
 		ThumbDown,
 		ThumbUp,
@@ -548,14 +615,14 @@ export default {
 			// the real image rather than render an initial.
 			currentUserId: getCurrentUser()?.uid || '',
 			currentUserName: getCurrentUser()?.displayName || '',
-			// Conversation lists
-			conversations: [],
-			archivedConversations: [],
+			// Session lists
+			sessions: [],
+			archivedSessions: [],
 			showArchive: false,
-			conversationsLoading: true,
+			sessionsLoading: true,
 
 			// Active thread
-			activeConversation: null,
+			activeSession: null,
 			messages: [],
 			messagesLoading: false,
 			currentAgent: null,
@@ -574,7 +641,7 @@ export default {
 			streamingText: '',
 			streamingTools: [],
 
-			// Per-conversation settings (rides on POST /api/chat/send)
+			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
 
 			// Modals
@@ -591,23 +658,75 @@ export default {
 
 	computed: {
 		/**
-		 * The conversations for the visible tab.
+		 * The sessions for the visible tab.
 		 *
-		 * @return {Array<object>} Active or archived conversations.
+		 * @return {Array<object>} Active or archived sessions.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
-		visibleConversations() {
-			return this.showArchive ? this.archivedConversations : this.conversations
+		visibleSessions() {
+			return this.showArchive ? this.archivedSessions : this.sessions
+		},
+
+		/**
+		 * The visible sessions, grouped for rendering.
+		 *
+		 * The Active tab splits into what a person started and what a cron, an
+		 * event or a flow started: they need different attention, and a list that
+		 * mixes them makes an overnight run look like an unread message. The
+		 * Archive tab is one flat list — there is nothing to triage there.
+		 *
+		 * A group with no sessions is dropped rather than rendered empty, and a
+		 * lone group renders without a heading, so an installation that has never
+		 * run an automated session sees exactly the list it saw before.
+		 *
+		 * @return {Array<{key: string, heading: string, sessions: Array<object>}>} The groups to render, in order.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+		 */
+		sessionGroups() {
+			if (this.showArchive) {
+				return [
+					{ key: 'archive', heading: '', sessions: this.visibleSessions },
+				]
+			}
+
+			const human = []
+			const automated = []
+			for (const session of this.visibleSessions) {
+				;(this.isAutomated(session) ? automated : human).push(session)
+			}
+
+			const groups = []
+			if (human.length > 0) {
+				groups.push({
+					key: 'human',
+					heading: this.t('hermiq', 'Started by you'),
+					sessions: human,
+				})
+			}
+			if (automated.length > 0) {
+				groups.push({
+					key: 'automated',
+					heading: this.t('hermiq', 'Started automatically'),
+					sessions: automated,
+				})
+			}
+			// One group needs no heading: the tab label already says what it is.
+			if (groups.length === 1) {
+				groups[0].heading = ''
+			}
+			return groups
 		},
 
 		/**
 		 * The thread header title.
 		 *
-		 * @return {string} Agent name, conversation title, or the page name.
+		 * @return {string} Agent name, session title, or the page name.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		headerTitle() {
 			return (
 				this.currentAgent?.name
-				|| this.activeConversation?.title
+				|| this.activeSession?.title
 				|| this.t('hermiq', 'Chat')
 			)
 		},
@@ -678,13 +797,18 @@ export default {
 		},
 	},
 
+	/**
+	 * Register the agent object type, then load the sessions and agents.
+	 *
+	 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+	 */
 	created() {
 		if (this.cnAiContext) {
 			this.cnAiContext.pageKind = 'chat'
 		}
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
-		this.loadConversations()
+		this.loadSessions()
 		this.loadAgents()
 	},
 
@@ -744,26 +868,27 @@ export default {
 		},
 
 		/**
-		 * Load the active conversation list (and the archive when visible).
+		 * Load the active session list (and the archive when visible).
 		 *
 		 * @param {boolean} soft True to skip the loading state.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
-		async loadConversations(soft = false) {
+		async loadSessions(soft = false) {
 			if (!soft) {
-				this.conversationsLoading = true
+				this.sessionsLoading = true
 			}
 			try {
-				const { results } = await listConversations({ archived: false })
-				this.conversations = results
+				const { results } = await listSessions({ archived: false })
+				this.sessions = results
 				if (this.showArchive) {
-					const archived = await listConversations({ archived: true })
-					this.archivedConversations = archived.results
+					const archived = await listSessions({ archived: true })
+					this.archivedSessions = archived.results
 				}
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not load conversations.'))
+				showError(this.t('hermiq', 'Could not load sessions.'))
 			} finally {
-				this.conversationsLoading = false
+				this.sessionsLoading = false
 			}
 		},
 
@@ -786,119 +911,202 @@ export default {
 		},
 
 		/**
-		 * Switch between the active and archive conversation tabs.
+		 * Switch between the active and archive session tabs.
 		 *
 		 * @param {boolean} archive True for the archive tab.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		async setArchiveTab(archive) {
 			this.showArchive = archive
 			if (archive) {
-				this.conversationsLoading = true
+				this.sessionsLoading = true
 				try {
-					const { results } = await listConversations({ archived: true })
-					this.archivedConversations = results
+					const { results } = await listSessions({ archived: true })
+					this.archivedSessions = results
 				} catch (e) {
-					showError(
-						this.t('hermiq', 'Could not load archived conversations.'),
-					)
+					showError(this.t('hermiq', 'Could not load archived sessions.'))
 				} finally {
-					this.conversationsLoading = false
+					this.sessionsLoading = false
 				}
 			}
 		},
 
 		/**
-		 * Whether a conversation is the active one.
+		 * Whether a session is the active one.
 		 *
-		 * @param {object} conversation The conversation to check.
+		 * @param {object} session The session to check.
 		 * @return {boolean} True when active.
 		 */
-		isActive(conversation) {
-			return this.activeConversation?.uuid === conversation.uuid
+		isActive(session) {
+			return this.activeSession?.uuid === session.uuid
 		},
 
 		/**
-		 * Clear the active thread so the agent selector shows.
+		 * Whether a session was started by something other than a person.
+		 *
+		 * The test is on the negative: an unrecognised origin, or a session
+		 * stored before the property existed, counts as human. Grouping the
+		 * unknown as automated would quietly move a person's own chat out of the
+		 * list they look at first.
+		 *
+		 * @param {object} session The session to classify.
+		 * @return {boolean} True for a cron, event or flow session.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+		 */
+		isAutomated(session) {
+			return AUTOMATED_ORIGINS.includes(session?.triggerOrigin)
+		},
+
+		/**
+		 * The icon for a session row, from what started the session.
+		 *
+		 * @param {object} session The session.
+		 * @return {string} The registered component name to render.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
+		 */
+		originIcon(session) {
+			return ORIGIN_ICONS[session?.triggerOrigin] || 'Creation'
+		},
+
+		/**
+		 * The agent's name for a session, when the agent is known.
+		 *
+		 * The agent list is loaded for the picker; a session whose agent has since
+		 * been deleted, or one read before that list lands, simply contributes no
+		 * name rather than an id the user cannot read.
+		 *
+		 * @param {object} session The session.
+		 * @return {string} The agent name, or an empty string.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
+		 */
+		agentNameFor(session) {
+			const id = session?.agentId
+			if (!id) {
+				return ''
+			}
+			const agent = this.agents.find(
+				(entry) => entry.id === id || entry.uuid === id,
+			)
+			return agent?.name || ''
+		},
+
+		/**
+		 * The row's second line: which agent, and when it was last active.
+		 *
+		 * @param {object} session The session.
+		 * @return {string} The meta line.
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
+		 */
+		rowMeta(session) {
+			const time = this.formatTime(session?.updated)
+			const agent = this.agentNameFor(session)
+			if (agent === '') {
+				return time
+			}
+			return `${agent} · ${time}`
+		},
+
+		/**
+		 * Return to the start-a-session surface.
+		 *
+		 * Clearing the thread is only visible when there was a thread. With none
+		 * open the control had nothing to do and read as broken, so it also moves
+		 * focus to the start surface: the click now always changes something the
+		 * user can see.
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
 		 */
-		newConversation() {
-			this.activeConversation = null
+		newSession() {
+			this.activeSession = null
 			this.messages = []
 			this.currentAgent = null
 			this.sendError = ''
 			this.settings = this.defaultSettings()
+			this.$nextTick(() => {
+				const surface = this.$refs.startSurface
+				if (!surface) {
+					return
+				}
+				surface.scrollTop = 0
+				const card = surface.querySelector(
+					'.agent-selector__card button, .agent-selector button',
+				)
+				if (card) {
+					card.focus()
+				}
+			})
 		},
 
 		/**
-		 * Open a conversation: load its messages and its agent, and seed the
-		 * per-conversation settings from the agent's capabilities.
+		 * Open a session: load its messages and its agent, and seed the
+		 * per-session settings from the agent's capabilities.
 		 *
-		 * @param {object} conversation The conversation to open.
+		 * @param {object} session The session to open.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
-		async selectConversation(conversation) {
-			this.activeConversation = conversation
+		async selectSession(session) {
+			this.activeSession = session
 			this.messages = []
 			this.sendError = ''
 			this.messagesLoading = true
 			try {
 				const [{ results }] = await Promise.all([
-					listMessages(conversation.uuid),
-					this.loadAgentFor(conversation),
+					listMessages(session.uuid),
+					this.loadAgentFor(session),
 				])
 				this.messages = results
 				this.settings = this.defaultSettingsFor(this.currentAgent)
 				this.scrollToBottom()
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not load the conversation.'))
+				showError(this.t('hermiq', 'Could not load the session.'))
 			} finally {
 				this.messagesLoading = false
 			}
 		},
 
 		/**
-		 * Load a conversation's agent (non-fatal on miss).
+		 * Load a session's agent (non-fatal on miss).
 		 *
-		 * @param {object} conversation The conversation whose agent to load.
+		 * @param {object} session The session whose agent to load.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
-		async loadAgentFor(conversation) {
+		async loadAgentFor(session) {
 			this.currentAgent = null
-			if (!conversation.agentId) {
+			if (!session.agentId) {
 				return
 			}
-			const agent = await this.agentStore.fetchObject(
-				'agent',
-				conversation.agentId,
-			)
+			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
 
 		/**
-		 * Create a conversation with the picked agent and activate it.
+		 * Create a session with the picked agent and activate it.
 		 *
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
 		 */
 		async startWithAgent(agent) {
 			const agentUuid = agent.uuid || agent.id
 			this.startingId = agentUuid
 			try {
-				const conversation = await createConversation(agentUuid)
+				const session = await createSession(agentUuid)
 				this.currentAgent = agent
-				this.activeConversation = conversation
+				this.activeSession = session
 				this.messages = []
 				this.settings = this.defaultSettingsFor(agent)
-				await this.loadConversations(true)
+				await this.loadSessions(true)
 				showSuccess(
-					this.t('hermiq', 'Conversation started with {agent}', {
+					this.t('hermiq', 'Session started with {agent}', {
 						agent: agent.name || agentUuid,
 					}),
 				)
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not start the conversation.'))
+				showError(this.t('hermiq', 'Could not start the session.'))
 			} finally {
 				this.startingId = ''
 			}
@@ -910,10 +1118,11 @@ export default {
 		 * transport failure (ADR-034 fallback ladder).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async handleSend() {
 			const text = this.currentMessage.trim()
-			if (!text || this.sending || !this.activeConversation) {
+			if (!text || this.sending || !this.activeSession) {
 				return
 			}
 			this.currentMessage = ''
@@ -929,7 +1138,7 @@ export default {
 			})
 			this.scrollToBottom()
 
-			const uuid = this.activeConversation.uuid
+			const uuid = this.activeSession.uuid
 			try {
 				if (this.settingsCustomised) {
 					await this.sendViaPost(text, uuid)
@@ -959,8 +1168,9 @@ export default {
 		 * server-side; retrying would duplicate the user message).
 		 *
 		 * @param {string} text The user message.
-		 * @param {string} uuid The conversation UUID.
+		 * @param {string} uuid The session UUID.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async sendViaStream(text, uuid) {
 			this.isStreaming = true
@@ -968,7 +1178,7 @@ export default {
 			this.streamingTools = []
 			try {
 				await streamChatMessage(
-					{ message: text, conversationUuid: uuid },
+					{ message: text, sessionUuid: uuid },
 					{
 						onToken: (delta) => {
 							this.streamingText += delta
@@ -1003,17 +1213,18 @@ export default {
 		},
 
 		/**
-		 * Send one turn over POST /api/chat/send with the per-conversation
+		 * Send one turn over POST /api/chat/send with the per-session
 		 * views/tools/RAG settings.
 		 *
 		 * @param {string} text The user message.
-		 * @param {string} uuid The conversation UUID.
+		 * @param {string} uuid The session UUID.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async sendViaPost(text, uuid) {
 			await sendChatMessage({
 				message: text,
-				conversationUuid: uuid,
+				sessionUuid: uuid,
 				views: this.settings.views,
 				tools: this.settings.tools,
 				ragSettings: {
@@ -1028,20 +1239,21 @@ export default {
 		/**
 		 * Re-read the thread and lists from the server after a turn.
 		 *
-		 * @param {string} uuid The conversation UUID.
+		 * @param {string} uuid The session UUID.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async refreshThread(uuid) {
 			try {
-				const [{ results }, conversation] = await Promise.all([
+				const [{ results }, session] = await Promise.all([
 					listMessages(uuid),
-					getConversation(uuid),
+					getSession(uuid),
 				])
-				if (this.activeConversation?.uuid === uuid) {
+				if (this.activeSession?.uuid === uuid) {
 					this.messages = results
-					this.activeConversation = conversation
+					this.activeSession = session
 				}
-				await this.loadConversations(true)
+				await this.loadSessions(true)
 			} catch (e) {
 				// Non-fatal: the optimistic thread stays; the next action re-syncs.
 			}
@@ -1054,6 +1266,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -1064,7 +1277,7 @@ export default {
 			}
 			try {
 				await sendMessageFeedback(
-					this.activeConversation.uuid,
+					this.activeSession.uuid,
 					message.uuid || message.id,
 					{ type },
 				)
@@ -1081,6 +1294,7 @@ export default {
 		 *
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
@@ -1088,7 +1302,7 @@ export default {
 			}
 			try {
 				await sendMessageFeedback(
-					this.activeConversation.uuid,
+					this.activeSession.uuid,
 					message.uuid || message.id,
 					{
 						type: message.feedback,
@@ -1134,80 +1348,85 @@ export default {
 		},
 
 		/**
-		 * Archive (soft delete) a conversation.
+		 * Archive (soft delete) a session.
 		 *
-		 * @param {object} conversation The conversation to archive.
+		 * @param {object} session The session to archive.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
-		async archive(conversation) {
+		async archive(session) {
 			try {
-				await archiveConversation(conversation.uuid)
-				if (this.isActive(conversation)) {
-					this.newConversation()
+				await archiveSession(session.uuid)
+				if (this.isActive(session)) {
+					this.newSession()
 				}
-				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Conversation archived'))
+				await this.loadSessions(true)
+				showSuccess(this.t('hermiq', 'Session archived'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not archive the conversation.'))
+				showError(this.t('hermiq', 'Could not archive the session.'))
 			}
 		},
 
 		/**
-		 * Restore an archived conversation.
+		 * Restore an archived session.
 		 *
-		 * @param {object} conversation The conversation to restore.
+		 * @param {object} session The session to restore.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
-		async restore(conversation) {
+		async restore(session) {
 			try {
-				await restoreConversation(conversation.uuid)
-				this.archivedConversations = this.archivedConversations.filter(
-					(entry) => entry.uuid !== conversation.uuid,
+				await restoreSession(session.uuid)
+				this.archivedSessions = this.archivedSessions.filter(
+					(entry) => entry.uuid !== session.uuid,
 				)
-				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Conversation restored'))
+				await this.loadSessions(true)
+				showSuccess(this.t('hermiq', 'Session restored'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not restore the conversation.'))
+				showError(this.t('hermiq', 'Could not restore the session.'))
 			}
 		},
 
 		/**
 		 * Open the permanent-delete confirmation modal.
 		 *
-		 * @param {object} conversation The archived conversation.
+		 * @param {object} session The archived session.
 		 * @return {void}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
-		openDelete(conversation) {
-			this.deleteTarget = conversation
+		openDelete(session) {
+			this.deleteTarget = session
 			this.showDelete = true
 		},
 
 		/**
 		 * Handle a completed permanent delete.
 		 *
-		 * @param {object} conversation The deleted conversation.
+		 * @param {object} session The deleted session.
 		 * @return {void}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
-		onDeleted(conversation) {
-			this.archivedConversations = this.archivedConversations.filter(
-				(entry) => entry.uuid !== conversation.uuid,
+		onDeleted(session) {
+			this.archivedSessions = this.archivedSessions.filter(
+				(entry) => entry.uuid !== session.uuid,
 			)
-			if (this.isActive(conversation)) {
-				this.newConversation()
+			if (this.isActive(session)) {
+				this.newSession()
 			}
-			showSuccess(this.t('hermiq', 'Conversation deleted'))
+			showSuccess(this.t('hermiq', 'Session deleted'))
 		},
 
 		/**
 		 * Handle a completed rename.
 		 *
-		 * @param {object} conversation The updated conversation.
+		 * @param {object} session The updated session.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
-		async onRenamed(conversation) {
-			this.activeConversation = conversation
-			await this.loadConversations(true)
-			showSuccess(this.t('hermiq', 'Conversation renamed'))
+		async onRenamed(session) {
+			this.activeSession = session
+			await this.loadSessions(true)
+			showSuccess(this.t('hermiq', 'Session renamed'))
 		},
 
 		/**
@@ -1299,7 +1518,7 @@ export default {
 	min-height: 0;
 }
 
-/* ── Conversation list column ─────────────────────────────────────── */
+/* ── Session list column ─────────────────────────────────────── */
 
 .chat-page__list {
 	display: flex;
@@ -1361,28 +1580,57 @@ export default {
 	);
 }
 
+.chat-page__group {
+	margin: 12px 0 2px;
+	padding: 0 12px;
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__group:first-child {
+	margin-top: 0;
+}
+
 .chat-page__row-main {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
+	align-items: center;
+	gap: 10px;
 	flex: 1;
 	min-width: 0;
 	cursor: pointer;
 }
 
-.chat-page__row-main strong {
+.chat-page__row-icon {
+	display: flex;
+	flex-shrink: 0;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__row-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.chat-page__row-text strong {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.chat-page__row-date {
+.chat-page__row-meta {
 	font-size: 12px;
 	color: var(--color-text-maxcontrast);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .chat-page__row-actions {
-	display: flex;
 	flex-shrink: 0;
 }
 
@@ -1424,11 +1672,22 @@ export default {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
 	padding: 32px 20px;
 	overflow-y: auto;
+}
+
+/* `margin: auto` centres while the content fits and resolves to 0 when it
+   does not, so the first row of agent cards is never pushed above the scroll
+   origin. `justify-content: center` on the scrolling element is the bug this
+   replaces: overflow past the start of a centred flex container cannot be
+   scrolled to. */
+.chat-page__empty-inner {
+	margin: auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
 }
 
 .chat-page__empty-icon {

@@ -147,6 +147,8 @@ class SeedAiFeaturesTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = [
@@ -225,7 +227,7 @@ class SeedAiFeaturesTest extends TestCase {
 	}//end testItNamesItself()
 
 	/**
-	 * A fresh install seeds all three governance rows, every one DISABLED.
+	 * A fresh install seeds every governance row, each one DISABLED.
 	 *
 	 * `lifecycle: disabled` is the whole point of the seed: the feature exists as
 	 * a governance record to be acknowledged, not as something switched on by an
@@ -238,11 +240,11 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(3, $objectService->saved);
+		$this->assertCount(4, $objectService->saved);
 
 		$slugs = array_map(static fn (array $row): string => (string)$row['object']['slug'], $objectService->saved);
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion'],
+			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake'],
 			$slugs
 		);
 
@@ -296,6 +298,7 @@ class SeedAiFeaturesTest extends TestCase {
 				'agentaifeature' => [
 					$this->object('existing-1', ['slug' => 'autonomous-agent-run']),
 					$this->object('existing-2', ['slug' => 'chat-companion']),
+					$this->object('existing-3', ['slug' => 'conversational-intake']),
 				],
 			]
 		);
@@ -319,6 +322,7 @@ class SeedAiFeaturesTest extends TestCase {
 					$this->object('existing-1', ['slug' => 'autonomous-agent-run']),
 					$this->object('existing-2', ['slug' => 'skill-code-execution']),
 					$this->object('existing-3', ['slug' => 'chat-companion']),
+					$this->object('existing-4', ['slug' => 'conversational-intake']),
 				],
 			]
 		);
@@ -343,7 +347,7 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(3, $objectService->saved);
+		$this->assertCount(4, $objectService->saved);
 
 	}//end testNonEntityRowsAreNotTreatedAsExisting()
 
@@ -409,6 +413,8 @@ class SeedAiFeaturesTest extends TestCase {
 				?\OCP\IUser $currentUser = null,
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->attempted[] = (string)($payload['slug'] ?? '');
@@ -417,12 +423,12 @@ class SeedAiFeaturesTest extends TestCase {
 		};
 
 		$output = $this->createMock(IOutput::class);
-		$output->expects($this->exactly(3))->method('warning');
+		$output->expects($this->exactly(4))->method('warning');
 
 		$this->step(objectService: $objectService)->run(output: $output);
 
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion'],
+			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake'],
 			$objectService->attempted,
 			'One failed write must not stop the seeds that follow it.'
 		);

@@ -450,6 +450,25 @@ return [
         ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // A provider and a place per AI feature (a-provider-and-a-place-per-ai-feature):
+        // bind one feature to a provider and model within the organisation's model policy,
+        // and read which provider each feature will use and where that provider runs.
+        ['name' => 'aiFeature#residencyOverview', 'url' => '/api/ai-features/residency', 'verb' => 'GET'],
+        ['name' => 'aiFeature#bind', 'url' => '/api/ai-features/{id}/binding', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'Settings\ProviderResidencySettings#get', 'url' => '/api/settings/provider-residency', 'verb' => 'GET'],
+
+        // What the model reads and what is kept (what-the-model-reads-and-what-is-kept):
+        // the instance retention for AI run records, and the report saying when the
+        // cleanup job last enforced it and how much it removed.
+        ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
+        ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        [
+            'name'         => 'Settings\ProviderResidencySettings#declareResidency',
+            'url'          => '/api/settings/provider-residency/{provider}',
+            'verb'         => 'PUT',
+            'requirements' => ['provider' => '[^/]+'],
+        ],
+
         // Algoritmeregister publication (algoritmeregister-publication): publish/withdraw a
         // high-risk feature to the national register, delegated to OpenCatalogi's publication
         // path via the runtime seam (action-auth-gated; NO direct national-portal call).
@@ -536,26 +555,81 @@ return [
         // reuse of it as-is.
         ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
 
-        // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
-        ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],
-        ['name' => 'conversation#create', 'url' => '/api/conversations', 'verb' => 'POST'],
-        ['name' => 'conversation#show', 'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        // Sessions: CRUD + turns + archive lifecycle (restore/permanent).
+        //
+        // 🔴 THE `/api/conversations/*` FAMILY BELOW IS THE SAME CONTROLLER METHODS, NOT
+        // COPIES. Pointing both path families at one method is what makes it impossible
+        // for them to drift: a fix to `show()` reaches both, and there is no second
+        // implementation to forget. Deleting the old family here would 404 every existing
+        // integration on deploy with no transition, which is why they stay as deprecated
+        // aliases rather than being removed with the rename.
+        ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
+        ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'conversation#messages',
+            'name'         => 'session#messages',
+            'url'          => '/api/sessions/{uuid}/messages',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'session#destroy', 'url' => '/api/sessions/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session#restore',
+            'url'          => '/api/sessions/{uuid}/restore',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#destroyPermanent',
+            'url'          => '/api/sessions/{uuid}/permanent',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+
+        // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
+        // traffic data (SessionController logs at info level when one is hit), not on
+        // optimism.
+        ['name' => 'session#index', 'url' => '/api/conversations', 'verb' => 'GET', 'postfix' => 'legacy'],
+        ['name' => 'session#create', 'url' => '/api/conversations', 'verb' => 'POST', 'postfix' => 'legacy'],
+        [
+            'name'         => 'session#show',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#messages',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/messages',
             'verb'         => 'GET',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'conversation#update', 'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#destroy', 'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'conversation#restore',
+            'name'         => 'session#update',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'PATCH',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#destroy',
+            'postfix'      => 'legacy',
+            'url'          => '/api/conversations/{uuid}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'session#restore',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/restore',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
         [
-            'name'         => 'conversation#destroyPermanent',
+            'name'         => 'session#destroyPermanent',
+            'postfix'      => 'legacy',
             'url'          => '/api/conversations/{uuid}/permanent',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
@@ -564,6 +638,73 @@ return [
         // Course recommendations (ai-course-recommendations): self-scoped, ranked,
         // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
         ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
+
+        // The declared tool surface (the-declared-tool-surface-and-the-prompt-library):
+        // what an AI agent outside this instance may call, and the call itself. Ordinary
+        // authenticated requests: the agent authenticates AS a person, and the owning app
+        // authorises every call for that person. Two gates, both must open.
+        ['name' => 'outsideAgent#tools', 'url' => '/api/outside-agent/tools', 'verb' => 'GET'],
+        ['name' => 'outsideAgent#call',  'url' => '/api/outside-agent/call',  'verb' => 'POST'],
+
+        // The prompt library (the-declared-tool-surface-and-the-prompt-library): the
+        // prompts the assistant offers on a record, as objects an administrator reads
+        // and edits. Disable-all is one act; re-enabling is per prompt, by design.
+        ['name' => 'assistantPrompt#index', 'url' => '/api/assistant-prompts', 'verb' => 'GET'],
+        ['name' => 'assistantPrompt#save',  'url' => '/api/assistant-prompts', 'verb' => 'POST'],
+        [
+            'name'         => 'assistantPrompt#save',
+            'postfix'      => 'update',
+            'url'          => '/api/assistant-prompts/{id}',
+            'verb'         => 'PUT',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        ['name' => 'assistantPrompt#disableAll', 'url' => '/api/assistant-prompts/disable-all', 'verb' => 'POST'],
+
+        // Identical reports collapse into one (identical-reports-collapse-into-one):
+        // which group an incoming report belongs to, why, and how to take one back out.
+        // hermiq answers; the owning app decides what a group means.
+        ['name' => 'reportSimilarity#evaluate', 'url' => '/api/report-similarity/evaluate', 'verb' => 'POST'],
+        [
+            'name'         => 'reportSimilarity#show',
+            'url'          => '/api/report-similarity/groups/{groupId}',
+            'verb'         => 'GET',
+            'requirements' => ['groupId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'reportSimilarity#removeMember',
+            'url'          => '/api/report-similarity/groups/{groupId}/members/{reportId}',
+            'verb'         => 'DELETE',
+            'requirements' => ['groupId' => '[^/]+', 'reportId' => '[^/]+'],
+        ],
+        ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
+        ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+
+        // A conversational intake that files for the citizen
+        // (a-conversational-intake-that-files-for-the-citizen): one conversation per
+        // person and subject, whichever channel it arrives on, ending in a filed request
+        // or in front of a person. Hermiq transports nothing: each channel arrives here
+        // through the app that owns it.
+        ['name' => 'intake#receive', 'url' => '/api/intake/messages', 'verb' => 'POST'],
+        [
+            'name'         => 'intake#show',
+            'url'          => '/api/intake/conversations/{conversationId}',
+            'verb'         => 'GET',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'intake#conclude',
+            'url'          => '/api/intake/conversations/{conversationId}/conclude',
+            'verb'         => 'POST',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'intake#review',
+            'url'          => '/api/intake/conversations/{conversationId}/review',
+            'verb'         => 'POST',
+            'requirements' => ['conversationId' => '[^/]+'],
+        ],
+        ['name' => 'Settings\IntakeSettings#get',    'url' => '/api/settings/intake', 'verb' => 'GET'],
+        ['name' => 'Settings\IntakeSettings#update', 'url' => '/api/settings/intake', 'verb' => 'PUT'],
 
         // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
         // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +

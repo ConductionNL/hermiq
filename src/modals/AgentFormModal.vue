@@ -295,7 +295,7 @@
 
 				<div class="agent-form__field">
 					<NcCheckboxRadioSwitch v-model="form.voiceConversationEnabled">
-						{{ t('hermiq', 'Allow spoken conversation') }}
+						{{ t('hermiq', 'Allow speaking with this agent') }}
 					</NcCheckboxRadioSwitch>
 					<p class="agent-form__hint">
 						{{

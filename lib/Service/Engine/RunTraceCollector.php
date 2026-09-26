@@ -75,6 +75,14 @@ class RunTraceCollector {
 	private array $steps = [];
 
 	/**
+	 * What this run used, and where it ran: the feature, the provider, the model,
+	 * and the residency and location as they stood when the run happened.
+	 *
+	 * @var array{feature: string, provider: string, model: string, residency: string, location: string}|null
+	 */
+	private ?array $providerDisclosure = null;
+
+	/**
 	 * Monotonic token counter for `startStep()`.
 	 *
 	 * @var integer
@@ -163,6 +171,44 @@ class RunTraceCollector {
 		);
 
 	}//end endStep()
+
+	/**
+	 * Record which AI feature this run belongs to, which provider and model it
+	 * actually used, and where that provider ran at the time.
+	 *
+	 * The residency is copied onto the run, never referenced, so relabelling a
+	 * provider next year cannot rewrite what this run says. "Which model saw this
+	 * case, and where" then becomes a read rather than an investigation.
+	 *
+	 * @param array{feature: string, provider: string, model: string, residency: string, location: string} $disclosure As resolved.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 */
+	public function recordProviderDisclosure(array $disclosure): void {
+		$this->providerDisclosure = [
+			'feature' => (string)($disclosure['feature'] ?? ''),
+			'provider' => (string)($disclosure['provider'] ?? ''),
+			'model' => (string)($disclosure['model'] ?? ''),
+			'residency' => (string)($disclosure['residency'] ?? ''),
+			'location' => (string)($disclosure['location'] ?? ''),
+		];
+
+	}//end recordProviderDisclosure()
+
+	/**
+	 * What this run recorded about the provider it used, or null when nothing was
+	 * recorded (a run that never reached a provider).
+	 *
+	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}|null
+	 *         The disclosure, or null.
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 */
+	public function providerDisclosure(): ?array {
+		return $this->providerDisclosure;
+	}//end providerDisclosure()
 
 	/**
 	 * Return every recorded step, in completion order (see class docblock).

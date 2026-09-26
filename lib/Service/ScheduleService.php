@@ -36,6 +36,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
+use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -121,7 +122,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * OpenRegister schema slug for message objects (run-replay-and-dry-run:
@@ -130,7 +131,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * IAppConfig key (app `hermiq`) gating which engine runAgentAsOwner()
@@ -288,6 +289,11 @@ class ScheduleService {
 	 *                          written (skill-learnings) — try/catch
 	 *                          wrapped; capture never sits on the run's
 	 *                          critical path.
+	 * @param RunRetentionPolicy|null $retentionPolicy Stamps each run entry with the
+	 *                          retention that applied when it was written
+	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
+	 *                          trailing: a service built by hand in a test writes the
+	 *                          entry it always wrote.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -313,6 +319,7 @@ class ScheduleService {
 		private readonly SkillVersionService $skillVersionService,
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
+		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 	) {
 	}//end __construct()
 
@@ -582,6 +589,48 @@ class ScheduleService {
 		$cache[$agentId] = $resolved;
 		return $resolved;
 	}//end rawAgentActingUser()
+
+	/**
+	 * The AI feature an agent's runs belong to, when it declares one.
+	 *
+	 * Read here rather than threaded through the run, because the retention stamp
+	 * is the only thing that needs it and a run that cannot resolve its agent still
+	 * has to be recorded with the instance default rather than with nothing.
+	 *
+	 * @param string $agentId The bound agent UUID.
+	 *
+	 * @return string|null The feature slug, or null when the agent names none.
+	 *
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-a-feature-may-keep-less
+	 */
+	private function aiFeatureForAgent(string $agentId): ?string {
+		if ($agentId === '') {
+			return null;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($agent === null) {
+			return null;
+		}
+
+		$slug = trim((string)($agent->getObject()['aiFeature'] ?? ''));
+		if ($slug === '') {
+			return null;
+		}
+
+		return $slug;
+	}//end aiFeatureForAgent()
 
 	/**
 	 * Flag an Agent for reassignment (agent-lifecycle-governance offboarding).
@@ -1775,11 +1824,7 @@ class ScheduleService {
 				'replayOf' => $replayOf,
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: $context
-			);
+			$this->persistRunAudit(schedule: $schedule, context: $context, agentId: $agentId);
 
 			// Skill-learnings: AFTER the run record is written, enqueue the post-run
 			// capture job for a REAL run that actually exposed skills. Never for a
@@ -1801,6 +1846,41 @@ class ScheduleService {
 		}//end try
 
 	}//end writeRunAudit()
+
+	/**
+	 * Stamp the retention this run was promised, then write the audit entry.
+	 *
+	 * Split out of writeRunAudit() to bring it under the method-length gate. It
+	 * is also the whole of the "persist" half: everything above it assembles the
+	 * context, and everything here writes it.
+	 *
+	 * What is kept, and for how long, is written ONTO the entry rather than
+	 * referenced, so changing the instance default later cannot shorten or
+	 * extend what this run was promised. A retention nobody set is a retention
+	 * of forever, so the policy always resolves to a number.
+	 *
+	 * @param ObjectEntity $schedule The schedule this run belongs to.
+	 * @param array<string, mixed> $context The assembled run context.
+	 * @param string $agentId The agent that ran, for the feature lookup.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude extracted verbatim from writeRunAudit(); covered by its tests
+	 */
+	private function persistRunAudit(ObjectEntity $schedule, array $context, string $agentId): void {
+		if ($this->retentionPolicy !== null) {
+			$context = $this->retentionPolicy->stamp(
+				context: $context,
+				featureSlug: $this->aiFeatureForAgent(agentId: $agentId)
+			);
+		}
+
+		$this->auditTrailMapper->createAuditTrailEntry(
+			object: $schedule,
+			action: 'run',
+			context: $context
+		);
+	}//end persistRunAudit()
 
 	/**
 	 * Enqueue the post-run learnings capture QueuedJob for the just-audited run
@@ -2701,7 +2781,7 @@ class ScheduleService {
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::MESSAGE_SCHEMA)
 				->findAll(
-					config: ['filters' => ['conversationId' => $conversationUuid]],
+					config: ['filters' => ['sessionId' => $conversationUuid]],
 					_rbac: false,
 					_multitenancy: false
 				);

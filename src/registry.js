@@ -193,7 +193,7 @@ export default {
 
 	/**
 	 * Chat — the AI chat page merged from OpenRegister's chat surface
-	 * (agent-engine-port task 5.1): conversation list + streaming thread +
+	 * (agent-engine-port task 5.1): session list + streaming thread +
 	 * composer + agent selector + feedback, against the Hermiq engine routes.
 	 * Standard nav page, not a dashboard.
 	 */

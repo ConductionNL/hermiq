@@ -16,7 +16,7 @@
       "hermiq": {
         "slug": "hermiq",
         "title": "Hermiq (demo)",
-        "version": "0.30.0",
+        "version": "0.31.0",
         "description": "Demo data for Hermiq. Generated from the register's own schemas — see hydra-gates/scripts/lib/generate_mock_register.py."
       }
     },
@@ -34,6 +34,7 @@
         "type": "Voorbeeld Type 1",
         "provider": "Voorbeeld Provider 1",
         "model": "Voorbeeld Model 1",
+        "aiFeature": "Voorbeeld Aifeature 1",
         "prompt": "Voorbeeld Prompt 1",
         "temperature": 1.0,
         "maxTokens": 1,
@@ -49,8 +50,7 @@
         "views": [],
         "searchFiles": true,
         "searchObjects": true,
-        "isPrivate": true,
-        "invitedUsers": []
+        "isPrivate": true
       },
       {
         "@self": {
@@ -65,6 +65,7 @@
         "type": "Voorbeeld Type 2",
         "provider": "Voorbeeld Provider 2",
         "model": "Voorbeeld Model 2",
+        "aiFeature": "Voorbeeld Aifeature 2",
         "prompt": "Voorbeeld Prompt 2",
         "temperature": 2.0,
         "maxTokens": 2,
@@ -80,8 +81,7 @@
         "views": [],
         "searchFiles": false,
         "searchObjects": false,
-        "isPrivate": true,
-        "invitedUsers": []
+        "isPrivate": true
       },
       {
         "@self": {
@@ -96,6 +96,7 @@
         "type": "Voorbeeld Type 3",
         "provider": "Voorbeeld Provider 3",
         "model": "Voorbeeld Model 3",
+        "aiFeature": "Voorbeeld Aifeature 3",
         "prompt": "Voorbeeld Prompt 3",
         "temperature": 3.0,
         "maxTokens": 3,
@@ -111,8 +112,7 @@
         "views": [],
         "searchFiles": true,
         "searchObjects": true,
-        "isPrivate": true,
-        "invitedUsers": []
+        "isPrivate": true
       },
       {
         "@self": {
@@ -300,6 +300,11 @@
         "slug": "Voorbeeld Slug 1",
         "name": "Voorbeeld Name 1",
         "description": "Voorbeeld Description 1",
+        "provider": "",
+        "model": "Voorbeeld Model 1",
+        "requiredResidency": "",
+        "requiresRedaction": false,
+        "retentionDays": 1,
         "riskCategory": "minimal",
         "lifecycle": "disabled",
         "tenantId": "Voorbeeld Tenantid 1",
@@ -332,6 +337,11 @@
         "slug": "Voorbeeld Slug 2",
         "name": "Voorbeeld Name 2",
         "description": "Voorbeeld Description 2",
+        "provider": "openai",
+        "model": "Voorbeeld Model 2",
+        "requiredResidency": "on-premise",
+        "requiresRedaction": false,
+        "retentionDays": 2,
         "riskCategory": "limited",
         "lifecycle": "enabled",
         "tenantId": "Voorbeeld Tenantid 2",
@@ -364,6 +374,11 @@
         "slug": "Voorbeeld Slug 3",
         "name": "Voorbeeld Name 3",
         "description": "Voorbeeld Description 3",
+        "provider": "ollama",
+        "model": "Voorbeeld Model 3",
+        "requiredResidency": "eu",
+        "requiresRedaction": false,
+        "retentionDays": 3,
         "riskCategory": "high",
         "lifecycle": "disabled",
         "tenantId": "Voorbeeld Tenantid 3",
@@ -410,6 +425,7 @@
         "decidedAt": "2026-03-01T09:00:00+00:00",
         "decidedBy": "Voorbeeld Decidedby 1",
         "reason": "Voorbeeld Reason 1",
+        "taskUuid": "Voorbeeld Taskuuid 1",
         "talkMessageId": "Voorbeeld Talkmessageid 1",
         "talkRoomToken": "Voorbeeld Talkroomtoken 1",
         "decidedVia": "Voorbeeld Decidedvia 1",
@@ -421,16 +437,6 @@
           "evalDelta": 1.0,
           "noEvalEvidence": true,
           "learningsSummary": "Voorbeeld Learningssummary 1"
-        },
-        "advisoryContext": {
-          "originApp": "Voorbeeld Originapp 1",
-          "suggestionType": "Voorbeeld Suggestiontype 1",
-          "action": "Voorbeeld Action 1",
-          "subjectType": "Voorbeeld Subjecttype 1",
-          "subjectId": "Voorbeeld Subjectid 1",
-          "model": "Voorbeeld Model 1",
-          "suggestion": "Voorbeeld Suggestion 1",
-          "confidence": 1.0
         }
       },
       {
@@ -456,6 +462,7 @@
         "decidedAt": "2026-03-02T09:00:00+00:00",
         "decidedBy": "Voorbeeld Decidedby 2",
         "reason": "Voorbeeld Reason 2",
+        "taskUuid": "Voorbeeld Taskuuid 2",
         "talkMessageId": "Voorbeeld Talkmessageid 2",
         "talkRoomToken": "Voorbeeld Talkroomtoken 2",
         "decidedVia": "Voorbeeld Decidedvia 2",
@@ -467,16 +474,6 @@
           "evalDelta": 2.0,
           "noEvalEvidence": false,
           "learningsSummary": "Voorbeeld Learningssummary 2"
-        },
-        "advisoryContext": {
-          "originApp": "Voorbeeld Originapp 2",
-          "suggestionType": "Voorbeeld Suggestiontype 2",
-          "action": "Voorbeeld Action 2",
-          "subjectType": "Voorbeeld Subjecttype 2",
-          "subjectId": "Voorbeeld Subjectid 2",
-          "model": "Voorbeeld Model 2",
-          "suggestion": "Voorbeeld Suggestion 2",
-          "confidence": 2.0
         }
       },
       {
@@ -502,6 +499,7 @@
         "decidedAt": "2026-03-03T09:00:00+00:00",
         "decidedBy": "Voorbeeld Decidedby 3",
         "reason": "Voorbeeld Reason 3",
+        "taskUuid": "Voorbeeld Taskuuid 3",
         "talkMessageId": "Voorbeeld Talkmessageid 3",
         "talkRoomToken": "Voorbeeld Talkroomtoken 3",
         "decidedVia": "Voorbeeld Decidedvia 3",
@@ -513,17 +511,49 @@
           "evalDelta": 3.0,
           "noEvalEvidence": true,
           "learningsSummary": "Voorbeeld Learningssummary 3"
-        },
-        "advisoryContext": {
-          "originApp": "Voorbeeld Originapp 3",
-          "suggestionType": "Voorbeeld Suggestiontype 3",
-          "action": "Voorbeeld Action 3",
-          "subjectType": "Voorbeeld Subjecttype 3",
-          "subjectId": "Voorbeeld Subjectid 3",
-          "model": "Voorbeeld Model 3",
-          "suggestion": "Voorbeeld Suggestion 3",
-          "confidence": 3.0
         }
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentassistantprompt",
+          "slug": "agentassistantprompt-assistantprompt-1-1"
+        },
+        "label": "Voorbeeld Label 1",
+        "prompt": "Voorbeeld Prompt 1",
+        "usageScope": "Voorbeeld Usagescope 1",
+        "order": 0,
+        "enabled": true,
+        "source": "Voorbeeld Source 1",
+        "administered": false
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentassistantprompt",
+          "slug": "agentassistantprompt-assistantprompt-2-2"
+        },
+        "label": "Voorbeeld Label 2",
+        "prompt": "Voorbeeld Prompt 2",
+        "usageScope": "Voorbeeld Usagescope 2",
+        "order": 0,
+        "enabled": true,
+        "source": "Voorbeeld Source 2",
+        "administered": false
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentassistantprompt",
+          "slug": "agentassistantprompt-assistantprompt-3-3"
+        },
+        "label": "Voorbeeld Label 3",
+        "prompt": "Voorbeeld Prompt 3",
+        "usageScope": "Voorbeeld Usagescope 3",
+        "order": 0,
+        "enabled": true,
+        "source": "Voorbeeld Source 3",
+        "administered": false
       },
       {
         "@self": {
@@ -1047,6 +1077,123 @@
       {
         "@self": {
           "register": "hermiq",
+          "schema": "agentintakeconversation",
+          "slug": "agentintakeconversation-intakeconversation-1-1"
+        },
+        "person": "Voorbeeld Person 1",
+        "subject": "Voorbeeld Subject 1",
+        "state": "open",
+        "messages": [
+          {
+            "channel": "Voorbeeld Channel 1",
+            "text": "Voorbeeld Text 1",
+            "at": "2026-03-01T09:00:00+00:00"
+          }
+        ],
+        "classification": {
+          "type": "Voorbeeld Type 1",
+          "confidence": 1.0,
+          "threshold": 1.0
+        },
+        "escalation": {
+          "level": "Voorbeeld Level 1",
+          "decidedBy": "deterministic",
+          "label": "Voorbeeld Label 1"
+        },
+        "reviews": [
+          {}
+        ],
+        "handover": {
+          "reason": "Voorbeeld Reason 1",
+          "at": "2026-03-01T09:00:00+00:00"
+        },
+        "filed": {
+          "tool": "Voorbeeld Tool 1",
+          "type": "Voorbeeld Type 1",
+          "at": "2026-03-01T09:00:00+00:00"
+        }
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentintakeconversation",
+          "slug": "agentintakeconversation-intakeconversation-2-2"
+        },
+        "person": "Voorbeeld Person 2",
+        "subject": "Voorbeeld Subject 2",
+        "state": "filed",
+        "messages": [
+          {
+            "channel": "Voorbeeld Channel 2",
+            "text": "Voorbeeld Text 2",
+            "at": "2026-03-02T09:00:00+00:00"
+          }
+        ],
+        "classification": {
+          "type": "Voorbeeld Type 2",
+          "confidence": 2.0,
+          "threshold": 2.0
+        },
+        "escalation": {
+          "level": "Voorbeeld Level 2",
+          "decidedBy": "model",
+          "label": "Voorbeeld Label 2"
+        },
+        "reviews": [
+          {}
+        ],
+        "handover": {
+          "reason": "Voorbeeld Reason 2",
+          "at": "2026-03-02T09:00:00+00:00"
+        },
+        "filed": {
+          "tool": "Voorbeeld Tool 2",
+          "type": "Voorbeeld Type 2",
+          "at": "2026-03-02T09:00:00+00:00"
+        }
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentintakeconversation",
+          "slug": "agentintakeconversation-intakeconversation-3-3"
+        },
+        "person": "Voorbeeld Person 3",
+        "subject": "Voorbeeld Subject 3",
+        "state": "handover",
+        "messages": [
+          {
+            "channel": "Voorbeeld Channel 3",
+            "text": "Voorbeeld Text 3",
+            "at": "2026-03-03T09:00:00+00:00"
+          }
+        ],
+        "classification": {
+          "type": "Voorbeeld Type 3",
+          "confidence": 3.0,
+          "threshold": 3.0
+        },
+        "escalation": {
+          "level": "Voorbeeld Level 3",
+          "decidedBy": "deterministic",
+          "label": "Voorbeeld Label 3"
+        },
+        "reviews": [
+          {}
+        ],
+        "handover": {
+          "reason": "Voorbeeld Reason 3",
+          "at": "2026-03-03T09:00:00+00:00"
+        },
+        "filed": {
+          "tool": "Voorbeeld Tool 3",
+          "type": "Voorbeeld Type 3",
+          "at": "2026-03-03T09:00:00+00:00"
+        }
+      },
+      {
+        "@self": {
+          "register": "hermiq",
           "schema": "memory",
           "slug": "memory-memory-1-1"
         },
@@ -1154,6 +1301,123 @@
           "provider": "fireworks",
           "model": "Voorbeeld Model 3"
         }
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentoutsideregistration",
+          "slug": "agentoutsideregistration-outsideagentregistration-1-1"
+        },
+        "label": "Voorbeeld Label 1",
+        "principal": "Voorbeeld Principal 1",
+        "tools": [
+          "Voorbeeld Tools 1"
+        ],
+        "fieldAllowlist": [
+          "Voorbeeld Fieldallowlist 1"
+        ],
+        "enabled": true
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentoutsideregistration",
+          "slug": "agentoutsideregistration-outsideagentregistration-2-2"
+        },
+        "label": "Voorbeeld Label 2",
+        "principal": "Voorbeeld Principal 2",
+        "tools": [
+          "Voorbeeld Tools 2"
+        ],
+        "fieldAllowlist": [
+          "Voorbeeld Fieldallowlist 2"
+        ],
+        "enabled": true
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentoutsideregistration",
+          "slug": "agentoutsideregistration-outsideagentregistration-3-3"
+        },
+        "label": "Voorbeeld Label 3",
+        "principal": "Voorbeeld Principal 3",
+        "tools": [
+          "Voorbeeld Tools 3"
+        ],
+        "fieldAllowlist": [
+          "Voorbeeld Fieldallowlist 3"
+        ],
+        "enabled": true
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentreportgroup",
+          "slug": "agentreportgroup-reportgroup-1-1"
+        },
+        "reportType": "Voorbeeld Reporttype 1",
+        "deterministicKey": "Voorbeeld Deterministickey 1",
+        "windowMinutes": 1,
+        "terms": [
+          "Voorbeeld Terms 1"
+        ],
+        "members": [
+          {
+            "reportId": "Voorbeeld Reportid 1",
+            "score": 1.0,
+            "decidedBy": "key",
+            "scorer": "Voorbeeld Scorer 1",
+            "uncertain": true,
+            "joinedAt": "2026-03-01T09:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentreportgroup",
+          "slug": "agentreportgroup-reportgroup-2-2"
+        },
+        "reportType": "Voorbeeld Reporttype 2",
+        "deterministicKey": "Voorbeeld Deterministickey 2",
+        "windowMinutes": 2,
+        "terms": [
+          "Voorbeeld Terms 2"
+        ],
+        "members": [
+          {
+            "reportId": "Voorbeeld Reportid 2",
+            "score": 2.0,
+            "decidedBy": "model",
+            "scorer": "Voorbeeld Scorer 2",
+            "uncertain": false,
+            "joinedAt": "2026-03-02T09:00:00+00:00"
+          }
+        ]
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentreportgroup",
+          "slug": "agentreportgroup-reportgroup-3-3"
+        },
+        "reportType": "Voorbeeld Reporttype 3",
+        "deterministicKey": "Voorbeeld Deterministickey 3",
+        "windowMinutes": 3,
+        "terms": [
+          "Voorbeeld Terms 3"
+        ],
+        "members": [
+          {
+            "reportId": "Voorbeeld Reportid 3",
+            "score": 3.0,
+            "decidedBy": "key",
+            "scorer": "Voorbeeld Scorer 3",
+            "uncertain": true,
+            "joinedAt": "2026-03-03T09:00:00+00:00"
+          }
+        ]
       },
       {
         "@self": {
@@ -1275,7 +1539,13 @@
         "agentId": "00000000-0000-4000-8000-000000000000",
         "title": "Voorbeeld Title 1",
         "startedAt": "2026-03-01T09:00:00+00:00",
-        "lastActivityAt": "2026-03-01T09:00:00+00:00"
+        "lastActivityAt": "2026-03-01T09:00:00+00:00",
+        "userId": "Voorbeeld Userid 1",
+        "metadata": {},
+        "talkRoomToken": "Voorbeeld Talkroomtoken 1",
+        "participants": [],
+        "talkRoomOrigin": "Voorbeeld Talkroomorigin 1",
+        "triggerOrigin": "human"
       },
       {
         "@self": {
@@ -1286,7 +1556,13 @@
         "agentId": "00000000-0000-4000-8000-000000000001",
         "title": "Voorbeeld Title 2",
         "startedAt": "2026-03-02T09:00:00+00:00",
-        "lastActivityAt": "2026-03-02T09:00:00+00:00"
+        "lastActivityAt": "2026-03-02T09:00:00+00:00",
+        "userId": "Voorbeeld Userid 2",
+        "metadata": {},
+        "talkRoomToken": "Voorbeeld Talkroomtoken 2",
+        "participants": [],
+        "talkRoomOrigin": "Voorbeeld Talkroomorigin 2",
+        "triggerOrigin": "cron"
       },
       {
         "@self": {
@@ -1297,7 +1573,13 @@
         "agentId": "00000000-0000-4000-8000-000000000002",
         "title": "Voorbeeld Title 3",
         "startedAt": "2026-03-03T09:00:00+00:00",
-        "lastActivityAt": "2026-03-03T09:00:00+00:00"
+        "lastActivityAt": "2026-03-03T09:00:00+00:00",
+        "userId": "Voorbeeld Userid 3",
+        "metadata": {},
+        "talkRoomToken": "Voorbeeld Talkroomtoken 3",
+        "participants": [],
+        "talkRoomOrigin": "Voorbeeld Talkroomorigin 3",
+        "triggerOrigin": "event"
       },
       {
         "@self": {
@@ -1307,9 +1589,13 @@
         },
         "sessionId": "00000000-0000-4000-8000-000000000000",
         "agentId": "00000000-0000-4000-8000-000000000000",
-        "role": "user",
+        "role": "system",
         "content": "Voorbeeld Content 1",
-        "createdAt": "2026-03-01T09:00:00+00:00"
+        "createdAt": "2026-03-01T09:00:00+00:00",
+        "sources": [],
+        "context": {},
+        "authorId": "Voorbeeld Authorid 1",
+        "authorDisplayName": "Voorbeeld Authordisplayname 1"
       },
       {
         "@self": {
@@ -1319,9 +1605,13 @@
         },
         "sessionId": "00000000-0000-4000-8000-000000000001",
         "agentId": "00000000-0000-4000-8000-000000000001",
-        "role": "assistant",
+        "role": "user",
         "content": "Voorbeeld Content 2",
-        "createdAt": "2026-03-02T09:00:00+00:00"
+        "createdAt": "2026-03-02T09:00:00+00:00",
+        "sources": [],
+        "context": {},
+        "authorId": "Voorbeeld Authorid 2",
+        "authorDisplayName": "Voorbeeld Authordisplayname 2"
       },
       {
         "@self": {
@@ -1331,9 +1621,13 @@
         },
         "sessionId": "00000000-0000-4000-8000-000000000002",
         "agentId": "00000000-0000-4000-8000-000000000002",
-        "role": "system",
+        "role": "assistant",
         "content": "Voorbeeld Content 3",
-        "createdAt": "2026-03-03T09:00:00+00:00"
+        "createdAt": "2026-03-03T09:00:00+00:00",
+        "sources": [],
+        "context": {},
+        "authorId": "Voorbeeld Authorid 3",
+        "authorDisplayName": "Voorbeeld Authordisplayname 3"
       },
       {
         "@self": {
