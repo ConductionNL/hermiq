@@ -7557,14 +7557,14 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "partial",
 			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the agent can loop over DuckDuckGo search and web_fetch and is told to fetch result pages (context_agent:ex_app/lib/agent.py:143-158, context_agent:ex_app/lib/all_tools/duckduckgo.py, web.py); no dedicated deep-research mode or cited report.",
 				"hermes-agent": "source read at v2026.9.24, not driven: skills/research/grounded-citations/SKILL.md:1-25 bundled skill: numbered citations from a retrieval ledger, verbatim quote checks, `verify --evidence` fails uncited claims, for reports; tools/web_tools.py:519,525 web_search and web_extract; tools/delegate_tool.py:738 delegate_task parallel sub-agents; optional-skills/research/parallel-cli adds a vendor deep-research service Note: No dedicated research button; the agent does it on its own with the bundled skill and tools.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow a workflow node can call Microsoft 365 Copilot's Researcher agent for research and audit drafting; no deep research tool native to Copilot Studio agents. Note: Needs Microsoft 365 Copilot.",
-				"dify": "not checked: demand row mined from the open-webui feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'deep.?research' in api/, web/app, web/i18n/en-US: no packaged mode, not among the built-in templates in api/constants/recommended_apps.json; an author can build one from the function-calling agent (api/core/agent/fc_agent_runner.py) or the workflow Agent node (api/core/workflow/nodes/agent/agent_node.py:30) with search tool plugins such as tavily or perplexity Note: Buildable, not shipped as a feature.",
 				"n8n": "source read at n8n@2.40.7, not driven: an Agents-module agent can be set up for research with web search (packages/@n8n/api-types/src/agents/agent-json-config.schema.ts:80-84), parallel sub-agents (:151-160) and cited knowledge reads (packages/cli/src/modules/agents/agent-knowledge-retrieval.ts:199); there is no research mode, and OpenAI deep-research models are switched off in chat (packages/cli/src/modules/chat-hub/chat-hub.constants.ts:226-231, 603-605) Note: Assembled from agent settings; no one-click deep research.",
 				"open-webui": "source read at v0.11.4, not driven: no research mode (searched 'deep.?research' in backend/open_webui and src/lib/components: hits only in stale locale files); pieces exist: tools/builtin.py:294 search_web, :333 fetch_url, :1680 delegate_task parallel sub-agents, citations in chat/Messages/Citations.svelte"
 			},
@@ -7587,14 +7587,14 @@
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
 			"copilot-studio": "yes",
-			"dify": "unknown",
+			"dify": "no",
 			"n8n": "yes",
 			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: sign-in is Nextcloud's own, where two-factor providers apply (server and twofactor apps, not read); every Assistant route requires that session (assistant:lib/Controller/ChattyLLMController.php NoAdminRequired, no PublicPage).",
 				"hermes-agent": "source read at v2026.9.24, not driven: searched 'totp|two.?factor|2fa|mfa|webauthn|passkey' in hermes_cli/, gateway/, web/src and agent/: the dashboard authorises with one session token (hermes_cli/web_server.py:318-324,405-416) and messaging users by platform id allowlists; TOTP hits are the credential vault that fills OTP codes on outside sites for the agent (agent/vault_store.py:75-87) Note: Sign-in to outside sites with 2FA is supported for the agent; signing in to Hermes itself has no second factor.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/security-conditional-access https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-use-entra-agent-identities sign-in goes through Microsoft Entra ID, where Conditional Access policies require MFA for Copilot Studio. Note: Entra ID P1 for Conditional Access.",
-				"dify": "not checked: demand row mined from the open-webui feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'totp|two.?factor|2fa|mfa|authenticator|pyotp' in api/, web/app, web/i18n/en-US: no second factor; api/controllers/console/auth/login.py:120,191 password or email-code login as alternatives; api/services/system_feature_service.py:163 SSO enforcement comes from the enterprise edition Note: An enterprise SSO IdP can impose MFA outside Dify.",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/mfa/totp.service.ts and packages/cli/src/controllers/mfa.controller.ts:73-115 authenticator-app setup (QR, enable) with a code at sign-in (en.json:6099 'Two-factor authentication'); forcing it on everyone is licence-gated, mfa.controller.ts:31 enforce-mfa with feat:mfaEnforcement (packages/@n8n/constants/src/index.ts:18) Note: Enforcement for all users is enterprise-licensed.",
 				"open-webui": "source read at v0.11.4, not driven: searched 'totp|two.?factor|2fa|mfa|webauthn|passkey' in backend/open_webui and src/lib/components: no second factor; MFA only through an outside OIDC provider (utils/oauth.py)"
 			},
@@ -7617,14 +7617,14 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
-			"dify": "unknown",
+			"dify": "no",
 			"n8n": "no",
 			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: messages are stored as plain text columns (assistant:lib/Migration/Version010010Date20240430083738.php:55-68); searched 'encrypt' in both repos: none.",
 				"hermes-agent": "source read at v2026.9.24, not driven: sessions live in the profile's SQLite state.db (hermes_state_dbfile.py:1-4); searched 'encrypt|sqlcipher|fernet' in hermes_state*.py, hermes_cli/, agent/, gateway/: hits are provider encrypted_content passthrough (agent/native_compaction.py:345) and peer transport (gateway/hosted_room_peer.py:510-545), no key a user holds over stored conversations Note: A single-user local install where the operator is usually the user; a shared gateway operator can read all sessions.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-customer-managed-keys CMK encrypts an environment with the organisation's key; searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"user.{0,10}key|end-to-end\": no per-user key that locks out admins.",
-				"dify": "not checked: demand row mined from the open-webui feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'end.to.end encrypt|e2ee|passphrase|client.side encrypt|user.?encryption.?key' in api/, web/app, web/i18n/en-US: none; api/core/helper/encrypter.py:17 and api/libs/rsa.py:47 encrypt provider credentials with a server-held tenant key, while messages are stored readable (api/models/model.py:1496 Message rows)",
 				"n8n": "source read at n8n@2.40.7, not driven: chat messages are stored as ordinary rows (packages/cli/src/modules/chat-hub/chat-hub-message.entity.ts); instance encryption covers credentials with an instance key (packages/cli/src/encryption/key-manager.service.ts, packages/core/src/encryption/cipher.ts); searched 'end-to-end|e2ee|user key' in packages/cli/src/modules/chat-hub and packages/cli/src/encryption: no per-user key",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/internal/db.py:289 whole-database encryption with sqlite+sqlcipher and DATABASE_PASSWORD, instance-wide; searched 'encrypt' in models/chats.py: chats stored readable to the server and admins, no per-user key"
 			},
@@ -7646,14 +7646,14 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "partial",
 			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the MCP client config is one admin JSON for all users (context_agent:ex_app/lib/main.py:103-110, context_agent:ex_app/lib/all_tools/mcp.py:14-20); no per-user login to outside MCP servers. The reverse direction (this instance as MCP server) does run as the caller (mcp_server.py:31-41).",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/mcp_oauth.py:1-9 OAuth 2.1 with PKCE per MCP server, tokens kept in HERMES_HOME/mcp-tokens/<server> (:412); hermes_cli/web_routers/mcp.py:21-37 dashboard OAuth flow; tools/mcp_tool_scope.py:1-14 each profile holds its own connection and credentials Note: Per profile (one login per agent owner), not per person: in a shared gateway chat every participant's tool calls run with the profile's login.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-add-existing-server-to-agent https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp MCP servers connect with OAuth 2.0 so \"individual users grant access to their data\"; tool calls then run with that user's rights.",
-				"dify": "not checked: demand row mined from the open-webui feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/models/tools.py:300-324 an MCP provider is stored per workspace (unique on tenant_id), so its OAuth token or header is shared; api/core/tools/mcp_tool/tool.py:276,318-321,340-372 forwards the calling user's identity as X-Dify-SSO-Token only when DEPLOYMENT_EDITION is ENTERPRISE and identity mode is on Note: Per-person identity on MCP calls is enterprise-licensed; the community edition connects with one workspace credential.",
 				"n8n": "source read at n8n@2.40.7, not driven: an agent's MCP server takes one OAuth or header credential chosen by its builder (packages/@n8n/api-types/src/agents/agent-json-config.schema.ts:243-252, McpOAuth2Api at packages/@n8n/nodes-langchain/credentials/McpOAuth2Api.credentials.ts); per-person MCP connections exist for n8n's own assistant (packages/cli/src/modules/instance-ai/entities/instance-ai-thread-grant.entity.ts) and per-user resolution in workflows needs licensed dynamic credentials (packages/cli/src/modules/dynamic-credentials.ee) Note: Per-person login only in the assistant or with an enterprise licence.",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/tools.py:137-158 tool server auth types bearer, session, system_oauth, oauth_2.1 and oauth_2.1_static; src/lib/components/AddToolServerModal.svelte:143 registers an OAuth client for MCP; per-user tokens encrypted in utils/oauth.py:269 Note: discussion still open, but the code has per-user OAuth 2.1 for MCP"
 			},
@@ -7676,14 +7676,14 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "yes",
 			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "not checked: source read at assistant v4.0.0 and context_agent v2.8.0, not driven: source read at these tags could not settle it: the agent calls TaskProcessing only (context_agent:ex_app/lib/nc_model.py:165-179); the provider protocol is chosen inside integration_openai, not read.",
 				"hermes-agent": "source read at v2026.9.24, not driven: agent/codex_responses_adapter.py:1-2 'OpenAI Responses API (OpenAI Codex, xAI, GitHub Models and other compatible endpoints)', agent/transports/codex.py:1 Responses transport; hermes_cli/main_provider_setup.py:418 custom provider setup asks for the api_mode, hermes_cli/model_setup_flows_custom.py:99,146 stores codex_responses; hermes_cli/config_defaults.py:747 api_mode chat_completions | anthropic_messages | codex_responses",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/bring-your-own-model-prompts \"If you use the model's Responses API endpoint ... the connection fails\"; only chat completions endpoints are supported.",
-				"dify": "not checked: demand row mined from the open-webui feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: core has no provider code (model providers are plugins); the official OpenAI model plugin (langgenius/dify-official-plugins models/openai/models/llm/llm.py:19-24,74-89,216-222, GitHub main) calls client.responses by default unless api_protocol is set to chat Note: Marketplace plugin per the lane rule, although every Dify model provider is a plugin. Stays partial: the plugin was read on GitHub main, not at a tag or named commit (lane ruling 2026-09-26).",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/llms/LMChatOpenAi/LmChatOpenAi.node.ts:255-260 'Use Responses API' option; chat hub providers carry responsesApiEnabled (packages/@n8n/api-types/src/chat-hub.ts:585)",
 				"open-webui": "source read at v0.11.4, not driven: src/lib/components/AddConnectionModal.svelte:51 apiType '' or 'responses'; backend/open_webui/routers/openai.py:1589 is_responses, :1618-1634 posts to {url}/responses with convert_to_responses_payload Note: discussion still open; the code ships it"
 			},
@@ -7705,14 +7705,14 @@
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "yes",
 			"copilot-studio": "unknown",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "yes",
 			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "not checked: source read at assistant v4.0.0 and context_agent v2.8.0, not driven: source read at these tags could not settle it: no caching in these repos; provider-side caching would be in integration_openai or the provider, not read.",
 				"hermes-agent": "source read at v2026.9.24, not driven: agent/prompt_caching.py:1-5 four cache_control breakpoints set automatically on the system prefix and last messages; hermes_cli/config_defaults.py:675-679 prompt_caching.cache_ttl 5m or 1h for Claude via OpenRouter or the native API; hermes_cli/cli_status_bar_mixin.py:991 status bar shows cache_hit Note: Anthropic-style caching is set by Hermes; other providers cache on their own side.",
 				"copilot-studio": "not checked: docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/prompt-model-settings https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-messages-management not checked: searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"prompt cach|caching\" and found nothing on provider-side prompt caching; billing is per Copilot Credit, so any caching is invisible to customers.",
-				"dify": "not checked: demand row mined from the open-webui feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'cache_control|prompt_cach|cached_tokens|cache_read' in api/ and dify-agent/src: nothing in core; the official Anthropic model plugin (langgenius/dify-official-plugins models/anthropic/models/llm/llm.py:68-124, GitHub main) adds cache_control only when enable_system_cache is on and the author wraps text in <cache> tags Note: Official plugin only and opt-in with markup, not automatic.",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/llms/LMChatAnthropic/LmChatAnthropic.node.ts:531-590 promptCaching option with 5m or 1h lifetime; Agents-module agents set promptCaching per agent (packages/@n8n/api-types/src/agents/agent-json-config.schema.ts:75-78, en.json:7904) Note: A switch per model node or agent, not on for every provider (an open request asks for it on OpenRouter).",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/anthropic.py:111 _copy_cache_control passes cache_control through when the caller sets it; searched 'cache_control|prompt.?cach' in utils/payload.py and routers/openai.py: nothing adds cache breakpoints automatically"
 			},
@@ -7735,14 +7735,14 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "yes",
 			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the run pauses before a sensitive action and asks Confirm or Cancel, with the option to reply with new instructions (assistant:src/components/ChattyLLM/AgencyConfirmation.vue:10-30,76); free questions end the turn. No suggested-answer buttons.",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/clarify_tool.py:1-3 'structured multiple-choice / open-ended questions to the user', :9 up to 4 choices plus 'Other', :16 first choice marked (Recommended), registered at :306-307; answered in the CLI, TUI and every gateway (gateway/run_turn_runner_clarify_delivery.py)",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-ask-a-question https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-generative-actions generative orchestration generates \"questions to ask the user for missing information\"; Question nodes offer multiple-choice options before continuing.",
-				"dify": "not checked: demand row mined from the open-webui changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: dify-agent/src/dify_agent/layers/ask_human/layer.py:1-60 ask_human deferred tool the model calls mid-run; ask_human/schema.py:21,85 buttons and select options; api/core/workflow/nodes/agent_v2/ask_human_hitl.py:1-7 maps it to a HITL form; api/tasks/app_generate/resume_agent_app_task.py:1-8 resumes the run with the answer Note: The agent tool is in the opt-in Agent v2 (web/env.ts:74). Workflows also have a GA Human Input node with select fields (api/core/workflow/nodes/human_input/enums.py:57).",
 				"n8n": "source read at n8n@2.40.7, not driven: workflows: the Chat node's 'Wait for User Reply' and approval response type pause the run for the person's answer (packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/Chat.node.ts:141,172); Agents module: a chat_action card with buttons or radio choices suspends the run until answered (packages/@n8n/api-types/src/agents/types.ts:379, packages/frontend/editor-ui/src/features/agents/components/interactive/InteractiveCard.vue:46-55, en.json:7684 'Waiting on the card above to continue')",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/tools/builtin.py:518 ask_user (1-3 questions with options and free text), resolved via utils/tool_approval.py:13 action 'answer'; src/lib/components/chat/AskUserCard.svelte mounted at chat/MessageInput.svelte:1776; survives reload (CHANGELOG.md:331)"
 			},
@@ -7765,14 +7765,14 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "partial",
 			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: TaskProcessing task types declare input shapes that the Assistant renders as fields, enums and numbers (assistant:src/components/fields/TaskTypeFields.vue, EnumField.vue, NumberField.vue); the agent chat has no such form.",
 				"hermes-agent": "source read at v2026.9.24, not driven: searched 'form|fields|inputs|variables' in agent/prompt_builder.py, tools/blueprints.py and hermes_cli/web_routers/profiles.py: a profile declares no start-of-chat form; skills can declare required environment variables captured at first use (tools/skills_tool_setup.py:46-56) and blueprints gather slot values conversationally (hermes_cli/blueprint_cmd.py:15-20), neither is a form filled before the conversation",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-ask-with-adaptive-card https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-bot-greeting an Adaptive Card form in the Conversation Start topic can collect fields at the start; agents do not declare typed start fields natively.",
-				"dify": "not checked: demand row mined from the open-webui changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/core/app/app_config/easy_ui_based_app/variables/manager.py:116-153 user_input_form accepts text-input, select, paragraph, number variables; web/app/components/base/chat/chat-with-history/inputs-form/content.tsx:98,114 renders paragraph and select fields; chat-with-history/chat-wrapper.tsx:353 mounts InputsForm before the first message",
 				"n8n": "source read at n8n@2.40.7, not driven: an n8n Form Trigger collects declared fields (text, dropdown and more) before a workflow runs and can hand them to an AI Agent (packages/nodes-base/nodes/Form/FormTrigger.node.ts); chat agents only offer suggested prompts (packages/cli/src/modules/chat-hub/chat-hub-agent.entity.ts:62-63); searched 'formFields|inputFields' in packages/cli/src/modules/chat-hub and nodes/trigger/ChatTrigger: no fields declared by the agent itself Note: Hand-built as a form in front of an agent workflow.",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/chat_variables.py:127 get_chat_variables_schema parses fields from the system prompt; routers/models.py:60 add_chat_variables_schema; ModelEditor.svelte:1084 'Chat Variables' (CHANGELOG.md:655)"
 			},
@@ -7794,14 +7794,14 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "no",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "yes",
 			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: message actions are copy, regenerate and delete (assistant:src/components/ChattyLLM/MessageActions.vue:9-32); searched 'fork|branch' in chat code: none.",
 				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/commands.py:76-77 /branch (alias /fork) clones the current session into a new one, the original stays; gateway/slash_commands_branch_thread.py:1-6 opens the clone as a sibling thread on Discord, Telegram, Slack and Matrix; hermes_cli/commands.py:71 /undo backs up N turns, so a branch followed by /undo reaches an earlier answer Note: Forks at the current end of the session; there is no fork button on an individual answer.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/preview-history searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"fork|branch the conversation|edit.{0,20}message\": nothing.",
-				"dify": "not checked: demand row mined from the open-webui changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/models/model.py:1496 messages carry parent_message_id, so editing a question or regenerating an answer adds a sibling branch; web/app/components/base/chat/chat/question.tsx:24,113-121 switchSibling to move between branches, :63 edit calls onRegenerate; searched 'fork|duplicate conversation|branch' in web/i18n/en-US share and common: no fork into a separate conversation Note: Branching stays inside the same conversation; the original path is kept and switchable.",
 				"n8n": "source read at n8n@2.40.7, not driven: editing or regenerating a message keeps the original and adds a branch (packages/cli/src/modules/chat-hub/chat-hub-message.entity.ts:103-114 previousMessageId, retryOfMessageId, revisionOfMessageId; chat-hub.controller.ts:224,283 edit and regenerate), and the user flips between branches (packages/frontend/editor-ui/src/features/ai/chatHub/components/ChatMessageActions.vue:119-136 '1/2' alternatives; en.json:658-659) Note: Branches live inside the same conversation rather than as a separate copy.",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/chats.py:1672 POST /chats/{id}/fork copies the chat up to a message and records the branch (utils/chat_fork.py:4 build_fork_history); fork button per response src/lib/components/chat/Messages/ResponseMessage.svelte:1528 (CHANGELOG.md:665)"
 			},
@@ -7823,16 +7823,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "no",
 			"n8n": "partial",
-			"open-webui": "unknown",
+			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: no flows in either repo (searched 'flow|workflow').",
 				"hermes-agent": "source read at v2026.9.24, not driven: scheduled work is cron jobs and blueprints (tools/blueprints.py:1-7, tools/cronjob_tools.py); searched 'review|approv|reviewer' in cron/ and tools/cronjob*.py: cron prompts are scanned for injection (tools/cronjob_prompt_scan.py) but no named person approves a change before it goes live Note: Hermes has no flows; its nearest equivalent, cron jobs, has no change review.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/power-platform/alm/extend-pipelines https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-solutions-overview Power Platform pipelines with delegated deployment require approval from an authorised identity before a solution (agent or flow) reaches the next stage.",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'publish.{0,20}(approv|review)|(approv|review).{0,20}publish|pending_review|reviewer' in api/services, api/controllers, api/models, api/enterprise, web/i18n/en-US: none; publishing a workflow is a direct action; api/core/rbac/entities.py:25 RBAC permissions gate who may act, not a named approver",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/workflow-reviews.ee/workflow-review-publish-guard.service.ts:8-22 blocks publishing while a review is open or changes are requested; reviewers per request in packages/@n8n/db/src/entities/workflow-review-request-reviewer.ee.ts; review inbox in packages/frontend/editor-ui/src/features/workflow-reviews/; licence flag feat:workflowReviews (packages/@n8n/constants/src/index.ts:58). Enterprise-licensed; workflows only, not Agents-module agents.",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: searched 'approv|review' in src/lib/i18n/locales/en-US/translation.json: only tool-call approval (:230, :1571, backend/open_webui/utils/tool_approval.py) and model reviews; no flow editor and no named approver for changes to automations, functions or pipelines"
 			},
 			"note": "Any publish or review gate would live in OpenRegister's flow store, not read here.",
 			"built": {
@@ -7853,16 +7853,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "no",
 			"n8n": "partial",
-			"open-webui": "unknown",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: context_agent logs task input text at INFO, skipping only the conversation token (context_agent:ex_app/lib/main.py:169-178); searched 'redact|mask' in both repos: no policy.",
 				"hermes-agent": "source read at v2026.9.24, not driven: agent/redact.py:1-5 regex secret redaction for logs and tool output; hermes_logging.py:6,234 every log handler uses RedactingFormatter 'so secrets never reach disk'; hermes_cli/config_defaults.py:1739 security.redact_secrets (default true) and :1045 privacy.redact_pii hashes user ids and strips phone numbers from model context; cron/scheduler_diagnostics.py:13-15 run errors redacted too Note: A per-profile setting (one profile is one agent install), masking secrets and PII by pattern.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-sensitive-data https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-transcript-controls per variable \"sensitive data\" keeps values out of transcripts and logs; admins turn transcript saving off per environment or environment group. No instance-wide redaction policy.",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'redact|mask_(input|output|sensitive)|hide.?(inputs|outputs)|privacy.?mode|sensitive.?data' in api/configs, api/services, api/core/workflow, api/core/ops, api/enterprise: api/clients/agent_backend/request_builder.py:644-657 only redacts credential keys in the agent backend request copy; api/configs/feature/__init__.py:1622-1624 log retention and cleanup, not hiding Note: Credential masking and retention exist; no policy that hides node inputs and outputs from run logs.",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/redaction/ (instance-redaction-enforcement.service.ts, redaction-policy.ts) redacts execution data by policy, a default module; redaction-context-hook.ts:53 skips unless isDataRedactionLicensed (feat:dataRedaction, packages/@n8n/constants/src/index.ts:56). Enterprise-licensed.",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/env.py:1236 AUDIT_LOG_LEVEL (NONE, METADATA, REQUEST, REQUEST_RESPONSE, utils/audit.py:53-57) and :1243-1246 AUDIT_EXCLUDED_PATHS default /chats,/chat,/folders set instance-wide by env; utils/audit.py:284-288 masks passwords in logged bodies Note: Instance-wide control over the audit log, by level and path; no field-level hiding of agent inputs and outputs, and chat history itself is not a run log."
 			},
 			"note": "The instance-wide part is a fixed secret and PII pattern set, always on for run logs; what else to hide is set per organisation, not per instance.",
 			"built": {
@@ -7883,16 +7883,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "partial",
-			"open-webui": "unknown",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the agent keeps its memories and skills under 'Context Agent/' in the user's Assistant folder (context_agent:ex_app/lib/all_tools/memory.py:26, assistant:lib/Service/AgentSkillsService.php:31) and task output files can be saved there (assistant:appinfo/routes.php:35,38); files it creates go wherever it writes in the user's Files. No per-session workspace.",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/terminal_tool.py:1489-1490 and tools/file_tools.py give the agent a writable working directory in its terminal backend (tools/environments/local.py, docker.py, modal.py, daytona.py); hermes_cli/commands.py:78-80 /worktree creates an isolated git worktree per session; tools/subagent_worktree.py:1-6 one worktree per delegated sub-agent; hermes_cli/web_routers/chat_workspaces.py:1-7 dashboard chats pick their working directory",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/created-files-overview agents create files during a conversation, stored with it so user and agent reference them across turns. Note: Preview, GitHub Copilot harness.",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/services/agent/workspace_service.py:1-60 AgentWorkspace and binding lifecycle backed by the dify-agent runtime; api/controllers/console/app/agent_app_sandbox.py:147-239 sandbox info, files list, read and download routes; web/features/agent-v2/agent-detail/configure/components/preview/working-directory-panel.tsx:268-475 working directory file browser Note: Agent v2 is opt-in: web/env.ts:74 NEXT_PUBLIC_ENABLE_AGENT_V2 defaults to false and it needs the agent_backend service (docker/docker-compose.yaml:240,259).",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/agents/src/workspace/tools/workspace-tools.ts:23-29 workspace_read_file, workspace_write_file, workspace_str_replace_file, workspace_execute_command; attached per agent in packages/cli/src/modules/agents/agent-runtime-reconstruction.service.ts:868-893 (agent-workspace.service.ts:42); only when a sandbox is configured (packages/@n8n/config/src/configs/agents.config.ts:84, default false) and in the opt-in Agents module.",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/terminals.py:1-6 proxies admin-configured terminal servers; utils/terminals.py:11-13,63-69 gives each chat or automation its own terminal context id; utils/tools.py:1357 get_terminal_tools exposes the file and shell tools; src/lib/components/chat/Settings/Integrations/Terminals.svelte connects one Note: The workspace lives in the separate Open Terminal server, not in the core release."
 			},
 			"note": "A per-step scratch checkout inside a flow, not a writable workspace an agent keeps for a session.",
 			"built": {
@@ -7913,16 +7913,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "yes",
-			"open-webui": "unknown",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: multimodal chat passes attached files as file parts by id (context_agent:ex_app/lib/nc_model.py:58-68, agent.py:222-224), so a PDF reaches the provider unconverted; whether the model reads it natively depends on the provider (not read). Text tasks parse files to text first (POST /api/v1/parse-file).",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/file_tools.py:422,1142 read_file turns PDFs into text ('PDF (text layer)'); agent/image_routing.py:31 'a PDF must never become a vision part'; agent/models_dev.py:74,81 supports_pdf only labels a model's modality in listings, nothing sends a PDF as a document part (searched 'application/pdf|document block|pdf' in agent/transports, agent/anthropic_adapter.py)",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-inputs-prompt https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/attachments-overview prompt document input accepts PDF directly; agent attachments extract PDF text (\"Text is extracted for the agent to reason over\").",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/core/agent/fc_agent_runner.py:98,523 and api/core/prompt/simple_prompt_transform.py:302-307 pass uploaded files through file_manager.to_prompt_message_content; api/tests/unit_tests/core/agent/test_fc_agent_runner.py:324 a PDF becomes DocumentPromptMessageContent; api/tests/unit_tests/core/workflow/nodes/llm/test_llm_utils.py:884 content is kept or filtered by the model's DOCUMENT feature Note: indirect: package not in the clone. The file-to-content mapping lives in the graphon dependency (api/pyproject.toml:48), read through its tests, not its source.",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/agents/Agent/agents/ToolsAgent/options.ts:43-48 'Automatically Passthrough Binary PDFs' on the AI Agent node for models with native PDF input, e.g. Gemini; OpenAI Responses API support for it per release 2.28.0.",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/openai.py:1364-1372 passes a 'file' content part through as input_file only on the OpenAI-compatible proxy path, the comment saying Open WebUI attachments go via metadata.files and RAG instead; src/lib/components/workspace/Models/Capabilities.svelte:13-59 has vision, file_upload and file_context but no native-file capability Note: API clients can hand a PDF through; the chat UI extracts attachments to text."
 			},
 			"built": {
 				"state": "none",
@@ -7942,16 +7942,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "yes",
-			"open-webui": "unknown",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: searched 'browser|playwright|selenium|click' in context_agent:ex_app: only HTTP GET via web_fetch (context_agent:ex_app/lib/all_tools/web.py).",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/browser_tool.py:469-512 browser_navigate, browser_snapshot, browser_click and browser_type tools, plus tools/browser_cdp_tool.py and browser_dialog_tool.py; local Chromium or cloud providers (tools/browser_tool_cloud.py, browser_camofox.py, browser_lightpanda.py) and the user's real profile (tools/browser_tool_real_profile.py)",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/computer-use https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new computer use (GA May 2026) lets agents automate web and desktop apps by controlling browsers: open pages, click, fill in forms.",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'playwright|browser_use|browser-use|headless|puppeteer' in api/, dify-agent/src, dify-agent-runtime/: nothing in core; api/core/tools/builtin_tool/providers/webscraper only fetches pages; langgenius/dify-official-plugins tools/ (GitHub main) has none; the community repo langgenius/dify-plugins (GitHub main) has browserless, anspire/browser_agent, logicober/browser-use-cloud, hjlarry playwright Note: Community marketplace plugins only, not official or core.",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/nodes-base/nodes/Airtop/Airtop.node.ts:23 usableAsTool with session, window, interaction, extraction and agent resources (:44-64) driving a cloud browser as an AI Agent tool (needs an Airtop account); n8n's own assistant drives the user's Chrome through packages/@n8n/mcp-browser (README.md:3-6), browser use on by default (packages/@n8n/config/src/configs/instance-ai.config.ts:65-66).",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/retrieval/web/utils.py:651 SafePlaywrightURLLoader renders pages for web search and the fetch_url tool (tools/builtin.py:333), wired by config.py:1311 PLAYWRIGHT_WS_URL and docker-compose.playwright.yaml; searched 'browser_use|browser-use|puppeteer|computer.use' in backend/open_webui: no clicking or form filling Note: Opens and reads pages only; interaction needs a community tool or an MCP server."
 			},
 			"built": {
 				"state": "none",
@@ -7971,16 +7971,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "partial",
-			"open-webui": "unknown",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: no cap in code; graph.astream runs without a recursion_limit (context_agent:ex_app/lib/agent.py:256), so LangGraph 1.0.1's default recursion limit is the only stop (context_agent:poetry.lock:2043-2050). Note: Needs a live check on the default value.",
 				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/config_defaults.py:53-56 agent.max_turns caps iterations per run (default unlimited), agent/iteration_budget.py:1-5 per-agent budget (sub-agents 50); :534-545 tool_loop_guardrails hard-stops after repeated failures or no progress (on by default for gateway and cron) with per-turn ceilings; agent/tool_guardrails.py:80-81 at most 50 web searches and 50 sub-agents per turn Note: The main cap counts model iterations, not individual tool calls; the per-tool ceilings count calls.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-generative-actions https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-quotas searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"maximum number of (tool|steps)|step limit|loop\": no maker setting that caps tool calls per run.",
-				"dify": "not checked: demand row mined from the n8n feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/core/app/app_config/easy_ui_based_app/agent/manager.py:82 max_iteration per agent (default 10); api/core/agent/cot_agent_runner.py:82,108-112,197-199 caps at 99 and raises AgentMaxIterationError; web/app/components/app/configuration/config/agent/agent-setting/index.tsx:19 the setting in the agent UI, bounded by web/config/index.ts:289 MAX_ITERATIONS_NUM",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/agents/Agent/agents/ToolsAgent/options.ts:22-25 maxIterations (default 10) and V3/helpers/checkMaxIterations.ts:6-14 stop the loop after that many iterations; Agents module maxIterations 1-200 (packages/@n8n/api-types/src/agents/agent-json-config.schema.ts:518); a turn with several parallel tool calls counts once, so there is no cap on tool calls as such, which the open request asks for.",
-				"open-webui": "not checked: demand row mined from the n8n feature requests on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/env.py:1084-1096 CHAT_RESPONSE_MAX_TOOL_CALL_ITERATIONS (default 256, old name CHAT_RESPONSE_MAX_TOOL_CALL_RETRIES); utils/middleware.py:5830-5835 the native tool-call loop counts iterations against it; config.py:2040 SUBAGENTS_MAX_ITERATIONS=30 for delegated subagents Note: Instance-wide env setting, not per agent in the UI."
 			},
 			"note": "A fixed round cap on one provider path, not a number the builder sets and not a count of tool calls.",
 			"built": {
@@ -8001,16 +8001,16 @@
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
+			"dify": "yes",
 			"n8n": "partial",
-			"open-webui": "unknown",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: tool nodes have a fallback that returns 'Error: ... please fix your mistakes' to the agent as a tool message (context_agent:ex_app/lib/graph.py:22-41), and tools return error objects the agent reads (context_agent:ex_app/lib/all_tools/skills.py:96-113).",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/registry.py:887-913 dispatch returns every tool exception as {\"error\": 'Tool execution failed: ...'} to the model instead of raising; agent/tool_executor.py:175 invalid arguments come back as an error result; agent/tool_guardrails.py:1-5 repeated failures turn into guidance before any halt",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/harnesses-overview https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-overview the GitHub Copilot harness \"retries and finds alternative paths automatically\"; standard harness follows the authored paths and error topics. Note: GitHub Copilot harness is a production-ready preview.",
-				"dify": "not checked: demand row mined from the n8n feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/core/tools/tool_engine.py:49 agent_invoke, :130-157 catches credential, not-found, parameter and invoke errors and returns 'tool invoke error: ...' as the tool response instead of raising; api/core/agent/fc_agent_runner.py:327 feeds that response back to the model as the tool result so the loop continues; workflow nodes also have fail branches (web/i18n/en-US/workflow.json:465)",
 				"n8n": "source read at n8n@2.40.7, not driven: the Agents-module runtime adds a failed tool call as an error result so the model can self-correct (packages/@n8n/agents/src/runtime/tools/tool-call-executor.ts:686-687); the workflow AI Agent node stops on a tool error unless the node is set to continue on fail (packages/@n8n/nodes-langchain/nodes/agents/Agent/agents/ToolsAgent/V3/helpers/executeBatch.ts:114-121), which the open request says ends reasoning.",
-				"open-webui": "not checked: demand row mined from the n8n feature requests on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/middleware.py:3378-3386 a raising tool returns {'error': str(e)} as its result, :1466 the same on the native path, then process_tool_result (:1468) hands it back to the model as the tool message so the turn continues; :3011 a failed MCP connection is reported rather than aborting"
 			},
 			"built": {
 				"state": "built",
@@ -8030,16 +8030,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
-			"dify": "unknown",
+			"dify": "no",
 			"n8n": "partial",
-			"open-webui": "unknown",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: no provider sign-in in these repos (models via TaskProcessing, context_agent:ex_app/lib/nc_model.py:165-179).",
 				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/auth_codex_browser.py:1-6 ChatGPT/Codex sign-in by browser with PKCE (`hermes auth add openai-codex --browser`); hermes_cli/web_routers/oauth.py:1 in-browser device-code login flows in the dashboard; hermes_cli/commands.py:284 /login with a Nous account; provider logins in hermes_cli/auth_nous.py, auth_qwen.py, auth_xai.py, auth_zai_kimi.py",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-external-response-model models come with the Copilot Studio licence; searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"subscription.{0,20}(login|sign in)\": no provider account sign-in.",
-				"dify": "not checked: demand row mined from the n8n feature requests on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'oauth' in api/controllers/console/workspace/: OAuth exists for tool_providers.py and trigger_providers.py only, none for model providers; langgenius/dify-official-plugins models/ (GitHub main) lists API-key providers, no ChatGPT, Claude or Copilot subscription sign-in",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/credentials/ holds API-key credentials for every model provider (OpenAiApi, AnthropicApi, MistralCloudApi ...); the only OAuth sign-in is Azure Entra for Azure OpenAI (AzureEntraCognitiveServicesOAuth2Api.credentials.ts); searched 'copilot|chatgpt oauth' in packages/@n8n/nodes-langchain: none.",
-				"open-webui": "not checked: demand row mined from the n8n feature requests on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/openai.py:183-211 a model connection can authenticate with a bearer key, the user's forwarded session or SSO OAuth token (system_oauth), or a Microsoft Entra ID token for Azure; searched 'codex|chatgpt.com|subscription|copilot|device.?code' in routers/openai.py, routers/configs.py, utils/anthropic.py, config.py: no ChatGPT, Claude or Copilot subscription sign-in Note: Keyless sign-in exists for Azure and SSO-fronted gateways, not for consumer AI subscriptions."
 			},
 			"note": "Uses a subscription instead of an API key, but the user pastes a subscription token; there is no provider sign-in flow, and only for Claude.",
 			"built": {
@@ -8060,16 +8060,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "no",
-			"dify": "unknown",
+			"dify": "partial",
 			"n8n": "yes",
-			"open-webui": "unknown",
+			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: a failed scheduled run posts a fixed error message (assistant:lib/Service/AssignmentsService.php:153-159); searched 'diagnos|fix' in both repos: none.",
 				"hermes-agent": "source read at v2026.9.24, not driven: cron/scheduler.py:287-312 a failed cron run gets a rule-based failure notice with remediation copy (cron/scheduler_failure_copy.py), :2849-2855 or the agent's own diagnosis when it declared the failure; agent/turn_explainers.py explains why a turn ended; the agent can read run output with its own tools when asked. Searched 'investigat|diagnos|suggest.*fix' in cron/ and hermes_cli/commands.py: no action that hands a failed run to an assistant to investigate Note: Classified hints and a capable agent, not a one-step investigate-and-propose-fix.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/flow-manage-monitor https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-activity-trace searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"Copilot.{0,40}(fix|troubleshoot|diagnos)\": failed runs are inspected by hand; no assistant that proposes a fix.",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: api/controllers/console/app/generator.py:327 POST /instruction-generate; api/core/llm_generator/llm_generator.py:826-868,872-890 instruction_modify reads the app's or node's last run (query, answer, error) and passes the error to the model to propose a revised prompt or code; searched 'diagnos|auto.?fix|troubleshoot' in web/i18n/en-US: no whole-run investigation Note: Per node, author-initiated from the prompt or code editor; it does not investigate a failed run across nodes.",
 				"n8n": "source read at n8n@2.40.7, not driven: n8n Assistant (Instance AI, default module at packages/@n8n/backend-common/src/modules/module-registry.ts:79) 'Debug failed executions and suggest fixes' (packages/frontend/@n8n/i18n/src/locales/en.json:5360); failed runs hand off to it from the editor (release 2.28.0 'Investigate failed executions on Instance AI editor hand-offs'); needs a model set up.",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/automations.py:14-15,149 automation runs are recorded with their last result; searched 'fix|diagnos|failed run|troubleshoot' in src/lib/i18n/locales/en-US/translation.json and backend/open_webui/routers: no assistant that investigates a failed run or proposes a fix"
 			},
 			"built": {
 				"state": "none",
@@ -8089,16 +8089,16 @@
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
 			"copilot-studio": "yes",
-			"dify": "unknown",
+			"dify": "no",
 			"n8n": "yes",
-			"open-webui": "unknown",
+			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: Tables tools create tables, columns and rows and read them back (context_agent:ex_app/lib/all_tools/tables.py:16-378), available when the Nextcloud Tables app is installed (tables.py:410-411).",
 				"hermes-agent": "source read at v2026.9.24, not driven: registered tools (tools/*.py registry.register names) include memory, todo_list, session_search, kanban tools and cronjob_manage, each fixed-purpose; searched 'table|records|sqlite tool|datastore' in tools/: no general table the agent can define and fill; it can reach SQLite only through terminal or execute_code (tools/code_execution_tool.py:924) Note: An agent can build a SQLite file with its shell, which is not a built-in table.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-add-dataverse https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-dataverse every environment has Dataverse; agents read tables as knowledge and create, read and update records (Dataverse connector, Dataverse MCP create_record/read_query). Note: MCP server preview.",
-				"dify": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending",
+				"dify": "source read at 1.17.1, not driven: searched 'data.?table|datatable|builtin.?table|structured.?records' in api/core, api/services, api/controllers, dify-agent/src, web/i18n/en-US: no built-in table store; knowledge bases hold documents for retrieval, and database access comes through plugins that connect to an outside DB Note: Chatflow conversation variables keep structured values, but only for one conversation.",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/nodes-base/nodes/DataTable/DataTable.node.ts:27 usableAsTool, so an AI Agent reads and writes rows in n8n's built-in data tables (data-table is a default module, packages/@n8n/backend-common/src/modules/module-registry.ts:51); outside agents read rows through the MCP data table tools (packages/cli/src/modules/mcp/mcp-scopes.ts dataTable:read, dataTable:write).",
-				"open-webui": "not checked: demand row mined from the n8n changelog on 2026-09-26, back-fill pending"
+				"open-webui": "source read at v0.11.4, not driven: searched 'datatable|data_table|builtin.?table|spreadsheet|structured.?records' in backend/open_webui: only spreadsheet loaders for RAG; backend/open_webui/models/ has no table store; the agent's writable stores are memories (tools/builtin.py:923), notes (:1286), tasks (:3593) and key-value chat variables (utils/chat_variables.py:8-10), none a table of records"
 			},
 			"note": "The table is an OpenRegister register and schema, created in OpenRegister, which hermiq requires; no outside database.",
 			"built": {
@@ -8119,16 +8119,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "no",
+			"n8n": "no",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the session list offers one Delete action per conversation (assistant:src/components/ChattyLLM/ChattyLLMInputForm.vue:36-42) and DELETE /chat/delete_session takes one sessionId (assistant:lib/Service/ChatService.php:142); no bulk delete.",
 				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/web_routers/sessions.py:414-428 POST /api/sessions/bulk-delete deletes a list of ids, driven by the selectable rows in web/src/pages/SessionsPage.tsx:1395 via web/src/lib/api.ts:504-505; hermes_cli/subcommands/sessions.py:105-109 `hermes sessions prune` deletes many by age, source or title",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-transcript-controls https://learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-transcripts-powerapps only admins bulk-delete transcript records in Dataverse; searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"delete.{0,40}conversations\": no end-user bulk delete of chats.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: api/controllers/web/conversation.py:101,116, console/app/conversation.py:216,385 and service_api/app/conversation.py:249 delete one conversation by id; searched '(batch|bulk).*conversation|deleteAllConversations|clear_conversations' in api/controllers, api/services, web/app, web/service, web/features: no multi-delete; web/i18n/en-US/share.json:5-6 only a single delete confirm",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/chat-hub/chat-hub.controller.ts:388 DELETE /conversations/:sessionId removes one conversation, called from features/ai/chatHub/components/ChatSidebarContent.vue:108; chat-hub.service.ts:339 deleteAllSessions exists but nothing calls it (searched packages/cli/src); searched 'bulk|deleteMany|delete.*all' in the chat-hub and agents controllers: no multi-delete route Note: A deleteAllSessions service method is written but unreached.",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/chats.py:707 DELETE / removes all of a user's chats, called from src/lib/components/chat/Settings/DataControls.svelte:110-135 'Delete All Chats'; src/lib/i18n/locales/en-US/translation.json:577 'Delete all contents inside this folder' and :209 archive all chats Note: All chats or a whole folder at once; no pick-several selection in the sidebar."
 			},
 			"built": {
 				"state": "none",
@@ -8148,16 +8148,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: '{user}' is replaced with the display name in chat user instructions (assistant:lib/Service/ChatService.php:71) and the agent prompt gets today's date (context_agent:ex_app/lib/agent.py:137,186); no other placeholders.",
 				"hermes-agent": "source read at v2026.9.24, not driven: agent/system_prompt.py:488-506 the system prompt always gets a 'Conversation started' and 'Today's date' line; gateway/session_context.py:37-43 the speaker's user name and id are passed as HERMES_SESSION_USER_NAME and _USER_ID to tools; searched 'placeholder|\\{\\{|substitut|template var' in agent/prompt_builder.py and agent/system_prompt.py: no placeholders an author writes into SOUL.md or instructions Note: Date and user are injected automatically; the author cannot place them in the instructions.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-child-agent https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-file-groups \"To reference tools, variables, or add Power Fx formulas in your instructions, enter a slash (/)\"; system variables such as User.DisplayName and Power Fx Today()/Now() fill in per user and date.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: api/core/workflow/system_variables.py:23-38 sys.user_id, sys.timestamp, sys.query and more; web/app/components/workflow/constants.ts:51,69 offered in the variable picker; web/app/components/base/prompt-editor/plugins/workflow-variable-block/component.tsx:58 inserts them into prompts; input-form variables become {{name}} placeholders too Note: The user id and a timestamp are automatic; a display name needs an input variable.",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/agents/Agent/agents/ToolsAgent/options.ts:5-18 the agent's System Message is an expression field; packages/workflow/src/workflow-data-proxy.ts:1690-1691 $now and $today, with $json fields for the user's name from the chat trigger; packages/cli/src/modules/chat-hub/chat-hub-workflow.service.ts:668 Chat Hub injects the current date and time",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/task.py:36-96 prompt_template replaces {{CURRENT_DATE}}, {{CURRENT_DATETIME}}, {{USER_NAME}} and more; utils/payload.py:38-41 applies them and custom variables to model and user system prompts; utils/chat_variables.py:9-10 {{chat.variables.x}} and {{user.variables.x}}"
 			},
 			"built": {
 				"state": "none",
@@ -8177,16 +8177,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "no",
+			"n8n": "partial",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: outputs of file actions and the new-file image menu get the system tag 'Generated using AI' (assistant:lib/Service/SystemTagService.php:18, lib/Listener/FileActionTaskSuccessfulListener.php:33); files the agent writes with upload_file are not tagged (context_agent:ex_app/lib/all_tools/files.py:148-165).",
 				"hermes-agent": "source read at v2026.9.24, not driven: searched 'ai.generated|generated by|c2pa|watermark|co-authored-by' in agent/, tools/, gateway/, hermes_cli/: files the agent writes (tools/file_tools.py) and images it generates (tools/image_generation_tool.py:894) carry no AI-generated mark",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent https://learn.microsoft.com/en-us/microsoft-copilot-studio/system-service-card-copilot-studio docs advise makers to \"inform your users that AI generated some of the conversation\" in the start topic; created Word/PowerPoint content inherits sensitivity labels. No automatic AI-generated label on outputs.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: searched 'ai.generated|generated by ai|c2pa|watermark|generatedByAI|disclaimer' in api/, web/app/, web/i18n/en-US/: only a per-app custom disclaimer shown in the text-generation info modal (web/app/components/share/text-generation/info-modal.tsx:59, api/models/model.py:959); no label on produced text or files",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/nodes-base/nodes/Telegram/GenericFunctions.ts:95-115 and Slack/V2/GenericFunctions.ts:596-600 append 'This message was sent automatically with n8n' (appendAttribution, on by default from Telegram v1.1), also in utils/sendAndWait/utils.ts:55; searched 'ai.generated|generated by ai|c2pa|watermark' in packages/@n8n/nodes-langchain, chat-hub, agents: no AI-specific label Note: Automation attribution on outgoing chat messages, not an AI-generated label and nothing on files.",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/config.py:1729 RESPONSE_WATERMARK, set in src/lib/components/admin/Settings/General.svelte:395-401; src/lib/components/chat/Messages/ResponseMessage.svelte:215-220 appends it only when a response is copied to the clipboard; searched 'c2pa|ai.generated' in backend/open_webui and src/lib: no label on generated files or images Note: Admin text watermark on copied answers only."
 			},
 			"note": "Notes, contacts and events are marked; chat text and other outputs are not labelled.",
 			"built": {
@@ -8207,16 +8207,16 @@
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "partial",
+			"n8n": "no",
+			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: every skill's name and description is put in the system prompt (context_agent:ex_app/lib/agent.py:165-177); searched 'search|rag' in skills.py: no skill search.",
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/skills_tool.py:656-690 skills_list takes an optional category filter, then skill_view loads one; agent/prompt_builder.py:1346-1370 the skills index collapses off-context categories to names only instead of dropping them; tools/tool_search.py:1-7 progressive disclosure with tool_search exists for tools, not skills; skills_hub search (tools/skills_hub_search.py) finds skills to install Note: Narrowing by category and a compact index, no query search over installed skills.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-overview skills \"implement a progressive disclosure pattern so agents load only the context they need\"; the runtime picks a skill by its description, but no search over a large skill set is documented. Note: Preview.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: dify-agent/src/dify_agent/layers/config/layer.py:113-127 only skills the author mentions are loaded into the prompt; dify-agent/src/dify_agent/layers/_agent_cli_help.json 'config skills pull' lets the agent pull one or all visible skills into ./.dify_conf/skills and read them with its shell; searched 'search_skill|skill_search|find_skill' in dify-agent/src, api/core, api/services: no query search Note: Agent v2 is opt-in (web/env.ts:74). Discovery by pulling and browsing files, not by a search tool.",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/agents/src/skills/prompt.ts:7-40 renderSkillCatalogPrompt lists every skill's name, description and id in the prompt, then load_skill (skills/types.ts:5) loads one by id; searched 'search' in packages/@n8n/agents/src/skills/: no skill search",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/middleware.py:2777-2902 lists every enabled skill in an <available_skills> manifest; tools/builtin.py:3482 view_skill loads one by id; searched 'search' in utils/skills.py and the skill tools in tools/builtin.py: no skill search, the model reads the full list Note: Scaling relies on attaching fewer skills per model, not on search."
 			},
 			"note": "Progressive disclosure exists for tools; skills are all loaded.",
 			"built": {
@@ -8237,16 +8237,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: each unified search provider becomes a tool automatically (context_agent:ex_app/lib/all_tools/search.py:11-30); other tools are fixed modules shipped in all_tools or admin-added MCP servers (context_agent:ex_app/lib/tools.py:19-50).",
 				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/plugins.py:6 plugins install as pip packages on the hermes_agent.plugins entry-point group or as directories with plugin.yaml, :456 register_tool adds their tools to the agent; tools/mcp_tool.py connects MCP servers as tool sources; plugins/ ships first-party examples",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-certification https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-connectors third parties add tools as certified connectors and certified MCP servers (certification preview) that appear in the tool picker; installed apps do not register tools with an agent on their own.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: api/core/tools/plugin_tool/provider.py:11 PluginToolProviderController registers tools from installed plugins; api/controllers/console/workspace/plugin.py:810,831,858 install from package, GitHub or marketplace; api/core/tools/workflow_as_tool/provider.py:45 and mcp_tool/provider.py:21 also turn published workflows and MCP servers into agent tools",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/community-packages/community-packages.controller.ts:11 POST installs a community node package; packages/workflow/src/interfaces.ts:2828 usableAsTool; packages/cli/src/node-types.ts:132-150 turns any node that declares it into an agent tool via tool-generation/ai-tools.ts:29 convertNodeToAiTool Note: Installed community packages and built-in nodes both become tools; MCP client and workflow tools add more.",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/tools.py:264 load a tool from a URL and :346 create one, loaded by utils/plugin.py:206; config.py:388 TOOL_SERVER_CONNECTIONS registers external OpenAPI and MCP tool servers, fetched by utils/tools.py:1170-1188,1519 and merged into the model's tools at utils/tools.py:267"
 			},
 			"built": {
 				"state": "built",
@@ -8266,16 +8266,16 @@
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the MCP server forwards the client's Authorization header to /ocs/v2.php/cloud/user to find the user (context_agent:ex_app/lib/mcp_server.py:17-41); searched 'oauth|well-known' in context_agent:ex_app: no OAuth discovery or flow.",
 				"hermes-agent": "source read at v2026.9.24, not driven: mcp_serve.py:1-6 `hermes mcp serve` is a stdio MCP server for a local client launched as a subprocess; searched 'oauth|bearer|token' in mcp_serve.py: no network transport and no OAuth sign-in for outside clients (the OAuth code in tools/mcp_oauth.py is Hermes as a client)",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-dataverse outside clients such as Claude Desktop sign in with Entra ID to the Dataverse MCP server (preview); there is no MCP server for Copilot Studio agents themselves.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant feature requests on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: api/controllers/mcp/mcp.py:44,87,117-119 each app can be published as an MCP server at /server/<server_code>/mcp, authorised only by the secret server_code in the URL; api/controllers/console/auth/oauth_server.py:120-175 an OAuth provider exists for account sign-in but the MCP endpoint does not check OAuth tokens Note: MCP server yes, OAuth sign-in for it no.",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/mcp/mcp.controller.ts:97,117 the instance MCP server; mcp-server-middleware.service.ts:28,45-61 accepts an API key or an OAuth access token verified for the audience; modules/oauth-server/oauth.controller.ts:177-306 authorization-server and protected-resource metadata, oauth-consent.controller.ts:20,80 consent screen; both are default modules (packages/@n8n/backend-common/src/modules/module-registry.ts:53-54)",
+				"open-webui": "source read at v0.11.4, not driven: searched 'FastMCP|mcp.server|streamable_http_app|/mcp' in backend/open_webui: Open WebUI is only an MCP client (utils/mcp/client.py, utils/middleware.py:2340 connect_mcp_server); main.py:632-644 registers OAuth 2.1 clients for outgoing MCP tool servers; no MCP server that outside AI clients could sign in to Note: OAuth exists in the opposite direction, Open WebUI signing in to MCP servers."
 			},
 			"built": {
 				"state": "none",
@@ -8295,16 +8295,16 @@
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: reasoning output is stored per message (assistant:lib/Listener/ChattyLLMTaskListener.php:130-131, lib/Migration/Version030500Date20260630083738.php:34) and shown in a 'Reasoning content' popover and while streaming (assistant:src/components/ChattyLLM/Message.vue:36-47,79-80).",
 				"hermes-agent": "source read at v2026.9.24, not driven: hermes_cli/commands.py:190-192 /reasoning show|hide|full; hermes_cli/config_defaults.py:830 display.show_reasoning (default true); agent/reasoning_summaries.py summaries shown beside the answer in CLI, TUI and gateways",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/preview-overview https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-activity-trace the maker view shows \"the reasoning card within the chat\" and the activity trace shows chain-of-thought steps; end users do not see the reasoning next to answers.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: web/app/components/base/chat/chat/answer/reasoning-panel.tsx:6-28 collapsible panel of streamed reasoning deltas per LLM node, mounted at chat/answer/index.tsx:264 above the answer; web/app/components/base/markdown-blocks/think-block.tsx:3,40 also folds <think> blocks from reasoning models",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/frontend/editor-ui/src/features/agents/components/AgentChatMessageList.vue:15-24,469,617 renders AiReasoningBlock and AiThinkingBlock with thinking segments and duration beside the answer; @n8n/i18n en.json:7899-7901 per-agent Reasoning toggle; searched 'reasoning|thinking' in features/ai/chatHub/components: none in Chat Hub Note: Opt-in Agents module (N8N_ENABLED_MODULES=agents), counted as shipped per the lane rule; Chat Hub does not show it.",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/middleware.py:2253-2260,3748-3760 captures reasoning_content, reasoning or thinking deltas into a reasoning block; src/lib/components/common/Collapsible.svelte and chat/Messages/Markdown/ConsecutiveDetailsGroup.svelte render it collapsible; translation.json:3218,3241 'Thinking...', 'Thought for {{DURATION}}'"
 			},
 			"built": {
 				"state": "none",
@@ -8322,18 +8322,18 @@
 			"originUrl": "https://github.com/nextcloud/assistant/pull/601",
 			"hermiq": "partial",
 			"nextcloud-assistant": "yes",
-			"hermes-agent": "unknown",
+			"hermes-agent": "partial",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "partial",
+			"n8n": "yes",
+			"open-webui": "partial",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the Assistant registers an audio-to-audio translate provider (assistant:lib/TaskProcessing/AudioToAudioTranslateProvider.php:32-43) chaining transcription, translation and speech.",
-				"hermes-agent": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: gateway/run_inbound.py:1505,2043-2074 voice messages are transcribed (tools/transcription_tools.py:512) before the turn; gateway/run_voice.py:291-303 and gateway/run_turn.py:1937-1944 voice mode sends the answer back as TTS audio (tools/tts_tool.py:550); searched 'translat' in tools/ and gateway/: no translation step, the model does it when asked Note: Works as voice in, model translates on request, voice out; no dedicated speech translation feature and only on messaging platforms.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-consent-based-record https://learn.microsoft.com/en-us/microsoft-copilot-studio/multilingual voice channels offer call recording, transcription and real-time translation (Dynamics 365 voice) and multilingual agents; no translation of an uploaded recording played back.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: api/controllers/web/audio.py:62 /audio-to-text and :119 /text-to-audio back the chat's speech-to-text input and read-aloud answers (api/core/app/app_config/features/text_to_speech/manager.py); searched 'translat' in api/controllers and api/core/app: no speech translation step, an app's prompt can translate the transcribed text Note: Composable in an app: speak, the model translates, the answer is read aloud. Not a dedicated feature.",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/vendors/OpenAi/v2/actions/audio/index.ts:22-33 'Transcribe a Recording' and 'Translate a Recording' (translate.operation.ts:74 POST /audio/translations), plus 'Generate Audio' (generate.operation.ts) to hear the result; packages/nodes-base/nodes/DeepL/DeepL.node.ts for other target languages Note: Built as a workflow; the one-step Whisper translation targets English only, other languages chain transcribe, translate and generate.",
+				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/audio.py:1251 /transcriptions and :601 /speech back voice input and read-aloud answers, plus the voice call overlay (src/lib/components/chat/MessageInput.svelte); audio.py:1040-1042 the transcription prompt says 'Do not translate'; translation happens only when the model is asked Note: Speak, the model translates on request, the answer is spoken. No dedicated speech translation."
 			},
 			"note": "A person can speak, ask the agent to translate and hear the reply; there is no action that translates a recording.",
 			"built": {
@@ -8352,18 +8352,18 @@
 			"originUrl": "https://github.com/nextcloud/assistant/pull/577",
 			"hermiq": "no",
 			"nextcloud-assistant": "yes",
-			"hermes-agent": "unknown",
+			"hermes-agent": "no",
 			"copilot-studio": "no",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "no",
+			"n8n": "no",
+			"open-webui": "no",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: Files action 'Generate subtitles using AI' posts to /api/v1/file-action/{fileId}/core:audio2text:subtitles (assistant:src/files/fileActions.js:164-190) with a notification when ready.",
-				"hermes-agent": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: searched 'subtitle|\\.srt|webvtt|\\.vtt' in tools/, gateway/, skills/, optional-skills/: only a Teams meeting transcript suffix (plugins/teams_pipeline/meetings.py:198) and file-type lists; tools/transcription_local.py:247 joins segments into plain text and drops timestamps; no transcription tool the agent can call on a file, no Nextcloud Files Note: The terminal tool could script ffmpeg/whisper by hand; nothing ships for it.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-overview searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"subtitle|caption|SRT|VTT\": nothing; no subtitle generation for recordings.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: searched 'subtitle|\\.srt|webvtt|\\.vtt' in api/, web/app, web/i18n/en-US: only a transitive webvtt-py lock entry (api/uv.lock:7672) and a template's article 'subtitles'; speech-to-text returns plain text (api/controllers/web/audio.py:62); no subtitle file output, no Nextcloud Files",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/vendors/OpenAi/v2/actions/audio/transcribe.operation.ts:60-95 sends no response_format, so it returns plain JSON text; searched '\\.srt|webvtt|srt|vtt|subtitles' in packages/@n8n/nodes-langchain/nodes and packages/nodes-base/nodes: only the Webex node downloading an existing meeting transcript as VTT (Cisco/Webex/descriptions/MeetingTranscript.ts:87-91) Note: A builder could call a speech API with srt output through the HTTP Request node and store it with the NextCloud node; nothing ships for it.",
+				"open-webui": "source read at v0.11.4, not driven: searched 'subtitle|\\.srt|webvtt|\\.vtt' in backend/open_webui and src/lib (locales excluded): only a Teams webhook field and docx and pptx preview styling; routers/audio.py:1251 /transcriptions returns text for voice input; no subtitle file output, no Nextcloud Files"
 			},
 			"note": "Nextcloud-phrased row: hermiq provides transcription to TaskProcessing, not subtitle files from Files.",
 			"built": {
@@ -8382,18 +8382,18 @@
 			"originUrl": "https://github.com/nextcloud/assistant/pull/602",
 			"hermiq": "no",
 			"nextcloud-assistant": "yes",
-			"hermes-agent": "unknown",
+			"hermes-agent": "yes",
 			"copilot-studio": "partial",
-			"dify": "unknown",
-			"n8n": "unknown",
-			"open-webui": "unknown",
+			"dify": "yes",
+			"n8n": "yes",
+			"open-webui": "yes",
 			"evidence": {
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: attachments go to the multimodal agent as file parts (context_agent:ex_app/lib/nc_model.py:58-68, agent.py:222-224) and output_attachments are saved on the answer (assistant:lib/Listener/ChattyLLMTaskListener.php:135-140, context_agent:ex_app/lib/agent.py:296-297).",
-				"hermes-agent": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
+				"hermes-agent": "source read at v2026.9.24, not driven: gateway/run_turn.py:2115 inbound user images are auto-analysed and passed with their local path; tools/vision_tools.py:787,858 vision_analyze tool; tools/image_generation_tool.py:417,554 image_generate tool; gateway/run_turn.py:2503-2513 images extracted from the answer are sent back with adapter.send_image on the chat platform",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/image-input-analysis https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/created-files-overview users send images that vision models analyse; the GitHub Copilot harness can return created files including an image or chart (preview); native image generation is not supported in agents.",
-				"dify": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"n8n": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending",
-				"open-webui": "not checked: demand row mined from the nextcloud-assistant changelog on 2026-09-26, back-fill pending"
+				"dify": "source read at 1.17.1, not driven: api/core/app/app_config/features/file_upload/manager.py:8,21-27 image upload with vision detail setting; web/app/components/base/chat/chat/answer/index.tsx:273-283 answers render generated files and message_files, fed by api/core/app/task_pipeline/message_cycle_manager.py:19,26 message file stream events from image tools or image-output models",
+				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/agents/agent-chat-attachment.service.ts:1-32 stores inbound image attachments, rendered by frontend features/agents/components/AgentChatMessageAttachments.vue:42-57,103; packages/@n8n/agents/src/sdk/provider-tools.ts:131-133 openai.image_generation tool; cli/src/modules/agents/types/components.ts:20 image elements in replies, shown by components/interactive/N8nChatActionCard.vue:207 Note: In the opt-in Agents module (N8N_ENABLED_MODULES=agents); Chat Hub also takes image uploads (chat-hub.types.ts:52).",
+				"open-webui": "source read at v0.11.4, not driven: src/lib/components/workspace/Models/Capabilities.svelte:13 vision capability for image input; backend/open_webui/routers/images.py:562 /generations and :858 /edit; tools/builtin.py:370 generate_image and :440 edit_image tools return images into the answer"
 			},
 			"built": {
 				"state": "none",
