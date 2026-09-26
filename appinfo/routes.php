@@ -639,6 +639,10 @@ return [
         // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
         ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
 
+        // Message translation (message-translation-delegate): gated, off-by-default
+        // delegate for parent-facing messages and news (EU AI Act, limited risk).
+        ['name' => 'messageTranslation#translate', 'url' => '/api/translate', 'verb' => 'POST'],
+
         // The declared tool surface (the-declared-tool-surface-and-the-prompt-library):
         // what an AI agent outside this instance may call, and the call itself. Ordinary
         // authenticated requests: the agent authenticates AS a person, and the owning app
