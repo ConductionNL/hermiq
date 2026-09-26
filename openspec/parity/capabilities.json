@@ -2475,11 +2475,17 @@
 			"area": "models",
 			"name": "Limit which models each organisation's agents may use.",
 			"source": "own-code",
-			"hermiq": "unknown",
+			"hermiq": "yes",
 			"built": {
-				"state": "none",
-				"evidence": "not read yet"
+				"state": "built",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "lib/Controller/TenantModelPolicyController.php:1-33 docblock: any authenticated org member may READ the effective policy, but create()/update() are admitted only for an instance admin (IGroupManager::isAdmin) or the Organisation's owner; appinfo/routes.php tenantModelPolicy#effective/#index/#create/#update (/api/model-policy...); src/views/TenantOps.vue:320-322 imports modelPolicy.js and tenantOps.js."
 			},
+			"reachedOn": "/tenant-ops TenantOps.vue -> model policy editor",
+			"provider": "hermiq",
+			"providerHow": "read-from-code",
+			"feature": "tenant-model-policy",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
