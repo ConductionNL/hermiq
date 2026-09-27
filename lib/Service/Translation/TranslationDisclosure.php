@@ -268,6 +268,8 @@ class TranslationDisclosure {
 	 * pin the endonym path and get a result that does not depend on the machine.
 	 *
 	 * @return bool True when `locale_get_display_language()` exists.
+	 *
+	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
 	 */
 	protected function intlAvailable(): bool {
 		return function_exists('locale_get_display_language');
