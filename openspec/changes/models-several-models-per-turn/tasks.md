@@ -59,10 +59,11 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 
 ### Task 7: The ensemble turn and its budget
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002`
-- **files**: `lib/Service/Engine/ResponseGenerationHandler.php`, `lib/Service/Engine/Engine.php`, `lib/Service/BudgetService.php` (read only), `lib/Service/ScheduleService.php`
+- **files**: `lib/Service/Engine/ResponseGenerationHandler.php`, `lib/Service/Engine/Engine.php`, `lib/Service/Llm/ProviderFactory.php` (return usage from callAnthropicChat and callFireworksChat), `lib/Service/ScheduleService.php`
 - **acceptance_criteria**:
   - GIVEN two reference models WHEN a turn runs THEN each is called without tools, the agent's model merges with its tools, and usageByModel sums into usage
   - GIVEN a reference outside the residency or a budget at its cap WHEN the turn runs THEN that call is skipped and recorded
+  - GIVEN an Anthropic, Fireworks or OpenAI call WHEN it returns THEN its input and output tokens are in the run's usage
 - [ ] Implement
 - [ ] Test (PHPUnit with stubbed drivers and BudgetService; one live chat turn on an ensemble agent)
 

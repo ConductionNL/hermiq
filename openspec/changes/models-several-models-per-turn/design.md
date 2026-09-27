@@ -61,7 +61,9 @@ Rejected: letting every reference model call tools. Two models each creating the
 
 ## D8. Budget
 
-Before each reference call, `BudgetService::isBlocked()` is checked for the organisation and agent. When it blocks, no more reference calls are made and the merge runs on what arrived. `lastUsage` becomes a sum over all calls, and the run gains `usageByModel`. Because `currentUsageTokens()` already sums `usage` from run audit entries, the budget counts the whole ensemble without a change in `BudgetService`. The agent form shows "Each answer costs up to four model calls."
+Before each reference call, `BudgetService::isBlocked()` is checked for the organisation and agent. When it blocks, no more reference calls are made and the merge runs on what arrived. `lastUsage` becomes a sum over all calls, and the run gains `usageByModel`. Because `currentUsageTokens()` already sums `usage` from run audit entries, the budget then counts the whole ensemble without a change in `BudgetService`. The agent form shows "Each answer costs up to four model calls."
+
+That only holds when every provider reports its tokens, and today only Ollama does. `parseAnthropicResponse()` reads `input_tokens` and `output_tokens` (`ProviderFactory.php:2160-2167`), but `callAnthropicChat()` returns the text alone, so `ResponseGenerationHandler` records latency only for Anthropic (`:450-453`) and for Fireworks (`:387-388`), and an empty usage for OpenAI (`:491-496`). This change returns the usage from the Anthropic, Fireworks and OpenAI calls and adds it to `lastUsage`. Without it an ensemble of hosted models would cost money and count zero tokens against the budget.
 
 ## Declarative versus imperative
 

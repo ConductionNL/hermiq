@@ -38,7 +38,7 @@ Demand and competitor cells rated yes, quoted from the pack:
 - `ResponseGenerationHandler::generateResponse()` calls `createChatDriver()` once (`lib/Service/Engine/ResponseGenerationHandler.php:283`) and then one provider: Fireworks (`:378`), Anthropic (`:436`), OpenAI and Ollama (`:478`). Any failure ends the turn with "Failed to generate response" (`:542-551`).
 - A rate limit is recognised and named, and nothing acts on it: `postToAnthropic()` turns HTTP 429 into "Rate limit exceeded" and reads `retry-after` (`ProviderFactory.php:2284-2307`); the Fireworks call does the same (`:828-829`).
 - `ModelPolicy` holds `allowed` and `defaultModel` only (`lib/Settings/hermiq_register.json:1172-1245`).
-- The run carries one provider disclosure (`RunTraceCollector::recordProviderDisclosure()`, `lib/Service/Engine/RunTraceCollector.php:189`) and one `usage` block (`lib/Service/ScheduleService.php:1783`). Budgets sum `promptTokens` and `completionTokens` from run audit entries (`lib/Service/BudgetService.php:956-990`).
+- The run carries one provider disclosure (`RunTraceCollector::recordProviderDisclosure()`, `lib/Service/Engine/RunTraceCollector.php:189`) and one `usage` block (`lib/Service/ScheduleService.php:1783`). Budgets sum `promptTokens` and `completionTokens` from run audit entries (`lib/Service/BudgetService.php:956-990`), but only Ollama reports tokens today: the Anthropic and Fireworks paths record latency only (`ResponseGenerationHandler.php:387-388`, `:450-453`) and OpenAI records nothing (`:491-496`).
 
 ## What this change builds
 
@@ -47,7 +47,7 @@ Demand and competitor cells rated yes, quoted from the pack:
 3. A short cooldown per organisation and provider, so the next turns start at the first healthy hop.
 4. Every attempt on the run record, and a disclosure that names the provider that answered and every provider that received the prompt.
 5. Ensemble answers on an agent: two or three reference models answer without tools, then the agent's own model merges their answers into one reply, with the agent's granted tools.
-6. Budget counting for the ensemble: usage per model on the run, summed into the run's `usage`, and the hard cap checked before each reference call.
+6. Budget counting for the ensemble: token usage returned by the Anthropic, Fireworks and OpenAI calls, usage per model on the run, summed into the run's `usage`, and the hard cap checked before each reference call.
 7. The screens for both settings: the model policy section on Tenant operations and the agent form.
 
 ## Out of scope
