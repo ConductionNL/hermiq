@@ -75,6 +75,12 @@ A development instance that ran #969 already holds a `message-translation` row w
 
 `targetLanguage` was interpolated into the prompt unchecked. A BCP-47 shape check (`^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$`) on both tags and a 512-character cap on `originalRef` run before the engine, as 400s, in line with the existing 400s for missing fields.
 
+### D8. The gate reads the feature without RBAC
+
+portaliq calls the engine in-process from a guardian's portal request, which carries a portal subject and no Nextcloud session. `findBySlug` reads under RBAC, and the `AiFeature` schema grants read to `authenticated`, so the row reads as absent and the gate answers `feature-not-enabled` after the DPO enabled it. A new `findBySlugForGate` reads with `_rbac: false` and keeps tenant scoping; the engine uses it. The row is never returned to a client, and the REST endpoint still refuses a request without a session.
+
+Alternative rejected: the consumer wrapping the call in OpenRegister's `runAsSystem()`. OpenRegister reserves that for install, migration, repair and seeding, pins its call sites in a boundary test, and would elevate the whole engine run, provider call included, instead of one read.
+
 ## Declarative-vs-imperative decision (ADR-031)
 
 | Behaviour | Path | Rationale |

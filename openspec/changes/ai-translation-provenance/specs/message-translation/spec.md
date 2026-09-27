@@ -112,3 +112,21 @@ The endpoint SHALL answer 400 when `targetLanguage` or a given `sourceLanguage` 
 - GIVEN an authenticated caller
 - WHEN it posts an `originalRef` of 513 characters
 - THEN the response MUST be 400
+
+### Requirement: REQ-011: The gate answers for a caller without a Nextcloud session
+
+The engine SHALL read the `message-translation` feature for its gate without RBAC, keeping tenant scoping, so a consuming app that serves a portal subject (no Nextcloud session) gets the feature's real state. The ordinary `AiFeatureService::findBySlug` read SHALL keep RBAC. The REST endpoint SHALL keep refusing a request without a session (REQ-005); only an in-process caller reaches the engine without one, and that caller owns the authorization of its own subject.
+
+#### Scenario: An enabled feature is found for a caller without a session
+
+- GIVEN the `message-translation` feature is enabled
+- AND the calling request has no Nextcloud user
+- WHEN the engine checks its gate
+- THEN it MUST read the feature with `_rbac: false`
+- AND MUST proceed to the provider
+
+#### Scenario: The ordinary read is unchanged
+
+- GIVEN a request with no Nextcloud user
+- WHEN `findBySlug` reads the feature
+- THEN it MUST read with RBAC and see no row

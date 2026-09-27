@@ -69,7 +69,8 @@ class MessageTranslationEngineTest extends TestCase {
 	 */
 	private function engine(?ObjectEntity $feature, ?ProviderFactory $providerFactory = null): MessageTranslationEngine {
 		$aiFeatureService = $this->createMock(AiFeatureService::class);
-		$aiFeatureService->method('findBySlug')->willReturn($feature);
+		$aiFeatureService->expects($this->never())->method('findBySlug');
+		$aiFeatureService->method('findBySlugForGate')->willReturn($feature);
 
 		return new MessageTranslationEngine(
 			aiFeatureService: $aiFeatureService,

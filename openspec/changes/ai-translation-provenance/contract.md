@@ -13,7 +13,7 @@ Both call through Nextcloud's internal API, duck-typed. A consumer on a hermiq w
 
 ### `POST /api/translate` (amended)
 
-**Auth**: unchanged, Nextcloud session (`@NoAdminRequired`).
+**Auth**: unchanged, Nextcloud session (`@NoAdminRequired`). An in-process caller (portaliq serving a portal subject) may call `MessageTranslationEngine::translate()` without a session; the gate then reads the feature without RBAC (REQ-011), and the caller owns its subject's authorization.
 
 **New optional request fields:**
 

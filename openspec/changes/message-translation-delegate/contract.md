@@ -15,6 +15,8 @@ Both are soft, optional consumers. This change does not modify either app; it on
 
 **Auth**: Nextcloud session (`#[NoAdminRequired]`) — any authenticated user of any co-installed app calling through the internal API. No admin privilege required; no per-object authorization applies (see design.md, Security Considerations).
 
+In-process callers without a session (portaliq serving a portal subject) call `MessageTranslationEngine::translate()` directly. Its gate reads the feature without RBAC (ai-translation-provenance REQ-011), and the caller owns the authorization of its own subject.
+
 **Request:**
 ```json
 {

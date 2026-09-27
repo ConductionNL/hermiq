@@ -65,6 +65,15 @@ Stacked on `message-translation-delegate` (hermiq PR #969).
 - [x] Implement
 - [x] Test
 
+### Task 7: The gate answers for a caller without a session
+- **spec_ref**: `openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session`
+- **files**: `lib/Service/AiFeatureService.php`, `lib/Service/MessageTranslationEngine.php`, `tests/Unit/Service/AiFeatureServiceGateTest.php`, `tests/Unit/Service/MessageTranslationEngineTest.php`
+- **acceptance_criteria**:
+  - GIVEN no Nextcloud user WHEN the engine gates THEN it reads the feature with `_rbac: false` and tenant scoping kept
+  - GIVEN no Nextcloud user WHEN `findBySlug` reads THEN RBAC still applies
+- [x] Implement
+- [x] Test
+
 ## Quality checklist
 
 - New and changed logic covered by PHPUnit unit tests (`tests/Unit/`)

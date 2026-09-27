@@ -127,6 +127,7 @@ class MessageTranslationEngine {
 	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-004-a-provider-failure-degrades-to-unavailable-never-an-unhandled-error
 	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
 	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
+	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
 	 */
 	public function translate(
 		string $sourceText,
@@ -136,7 +137,8 @@ class MessageTranslationEngine {
 		string $originalRef='',
 	): array {
 		// Gate (REQ-001): zero LLM-provider footprint when missing or not enabled.
-		$feature = $this->aiFeatureService->findBySlug(slug: self::AIFEATURE_SLUG);
+		// The gate read skips RBAC (REQ-011): a portal caller has no Nextcloud session.
+		$feature = $this->aiFeatureService->findBySlugForGate(slug: self::AIFEATURE_SLUG);
 		if ($feature === null || (string)($feature->getObject()['lifecycle'] ?? '') !== 'enabled') {
 			return $this->unavailableResult(reason: 'feature-not-enabled');
 		}
