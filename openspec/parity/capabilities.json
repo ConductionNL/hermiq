@@ -1173,9 +1173,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue for a file picker/attachment affordance and found none. The only file-related setting is a boolean RAG toggle (settings.includeFiles, Chat.vue:834,864) that widens the agent's own file search, not an explicit per-message attach-and-ask action.",
+				"evidence": "Searched src/views/Chat.vue for a file picker/attachment affordance and found none. The only file-related setting is a boolean RAG toggle (settings.includeFiles, Chat.vue:834,864) that widens the agent's own file search, not an explicit per-message attach-and-ask action. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
 				"readOn": "2026-09-26"
 			},
 			"reachedOn": "nothing",
@@ -1460,9 +1460,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/TaskProcessing/ for an image-generation provider and lib/AppInfo/Application.php's registerTaskProcessingProvider calls; only Audio-to-text, Text-to-speech, Text2Text (x3) and ContextAgent providers are registered. No Text2Image provider exists."
+				"evidence": "Searched lib/TaskProcessing/ for an image-generation provider and lib/AppInfo/Application.php's registerTaskProcessingProvider calls; only Audio-to-text, Text-to-speech, Text2Text (x3) and ContextAgent providers are registered. No Text2Image provider exists. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -1491,9 +1491,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue and src/api/chat.js for any search box or query parameter over sessions/messages and found none; the FTS/full-text references in the codebase (lib/Service/MemoryService.php, openspec/specs/agent-memory) are agent-memory recall, a different feature, not a session-history search."
+				"evidence": "Searched src/views/Chat.vue and src/api/chat.js for any search box or query parameter over sessions/messages and found none; the FTS/full-text references in the codebase (lib/Service/MemoryService.php, openspec/specs/agent-memory) are agent-memory recall, a different feature, not a session-history search. Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "A user can only browse the session list, not search across past conversations.",
@@ -1554,9 +1554,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue and lib/Controller/SessionController.php for a share-link/public-token mechanism and found none."
+				"evidence": "Searched src/views/Chat.vue and lib/Controller/SessionController.php for a share-link/public-token mechanism and found none. Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "A colleague can only join via a shared Talk room (ch-shared-session), not via a shareable conversation link.",
@@ -2807,9 +2807,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json and src/views/ have no knowledge-base management or document-upload page; RAG grounding (ContextRetrievalHandler.php) reads from the agent's declared 'views'/searchFiles flag over records already in OpenRegister/Nextcloud Files, not from a purpose-built upload-into-a-KB flow."
+				"evidence": "src/manifest.json and src/views/ have no knowledge-base management or document-upload page; RAG grounding (ContextRetrievalHandler.php) reads from the agent's declared 'views'/searchFiles flag over records already in OpenRegister/Nextcloud Files, not from a purpose-built upload-into-a-KB flow. Specified in openspec/changes/memory-knowledge-bases/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "This is a distinct capability from grounding-in-existing-files (me-rag-files): there is no dedicated 'create a knowledge base and upload documents into it' surface.",
@@ -2965,9 +2965,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Grepped lib/ and src/ for SharePoint/wiki/externalKb/'external knowledge' with no implementation hits. web-research-tool (webSearch/webFetch) reaches the open web, which is a different capability from a connected, authenticated external knowledge source such as SharePoint."
+				"evidence": "Grepped lib/ and src/ for SharePoint/wiki/externalKb/'external knowledge' with no implementation hits. web-research-tool (webSearch/webFetch) reaches the open web, which is a different capability from a connected, authenticated external knowledge source such as SharePoint. Specified in openspec/changes/memory-knowledge-bases/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -5607,9 +5607,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for 'Langfuse', 'langfuse', 'OpenTelemetry', 'otel', 'external trac*': zero hits anywhere in the app."
+				"evidence": "Searched lib/, src/, openspec/specs for 'Langfuse', 'langfuse', 'OpenTelemetry', 'otel', 'external trac*': zero hits anywhere in the app. Specified in openspec/changes/observability-export-traces/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "Hermiq's own observability spec (ADR-006) covers Prometheus metrics and a health endpoint, not exporting traces to a third-party APM/LLM-ops tool.",
@@ -6776,14 +6776,14 @@
 			"area": "operations",
 			"name": "Run many agents at once across several workers.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "partial",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/BackgroundJob/ScheduleTask.php:1-40 docblock: 'Hermiq registers exactly one job class; internal polling ... keeps the primitive idiomatic (ADR-002)' and explicitly 'Runs every 5 minutes, time-sensitive, never in parallel.' One TimedJob polls all due Schedule objects and dispatches them sequentially in a single PHP process/tick; no worker pool, queue fan-out, or multi-process dispatch was found."
+				"evidence": "Corrected 2026-09-27 (OpenSpec pass): flow, webhook and Talk runs are QueuedJobs that Nextcloud runs on several workers at once (lib/BackgroundJob/AgentRunRequestedJob.php:43, lib/BackgroundJob/WebhookAgentRunJob.php:44, lib/BackgroundJob/TalkTurnJob.php:45); scheduled runs are one TimedJob that never runs in parallel (lib/BackgroundJob/ScheduleTask.php:48,80). Before: lib/BackgroundJob/ScheduleTask.php:1-40 docblock: 'Hermiq registers exactly one job class; internal polling ... keeps the primitive idiomatic (ADR-002)' and explicitly 'Runs every 5 minutes, time-sensitive, never in parallel.' One TimedJob polls all due Schedule objects and dispatches them sequentially in a single PHP process/tick; no worker pool, queue fan-out, or multi-process dispatch was found. Specified in openspec/changes/operations-parallel-run-workers/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing (the dispatcher is deliberately single-threaded)",
-			"note": "Matches the hint's 'Context Agent: no scaling' branch, not Hermes's 8 parallel workers.",
+			"note": "Matches the hint's 'Context Agent: no scaling' branch, not Hermes's 8 parallel workers. Rating corrected to partial on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-schedule",
@@ -6922,9 +6922,9 @@
 				"open-webui": "source read at v0.11.4, not driven: answers show sources (Messages/Citations.svelte, ResponseMessage.svelte:910), reasoning and tool steps (Messages/Markdown/MarkdownTokens.svelte:63 groupable 'tool_calls', 'reasoning', 'code_interpreter'); searched 'explain|explanation' in backend/open_webui/utils: no generated plain-language account of how an outcome came about"
 			},
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/Chat.vue:266-288 each answer lists its RAG sources with match score, :384-396 'Used tool: {tool}' steps while streaming; src/widgets/AgentRunHistoryWidget.vue per-run trace -> src/api/agents.js:125 getRunTrace -> appinfo/routes.php:56-59 runHistory#trace; src/manifest.json AiOversight page records the human decision on AI suggestions. Searched 'explain|explanation|rationale' in src/ lib/Service: no plain-language account"
+				"evidence": "src/views/Chat.vue:266-288 each answer lists its RAG sources with match score, :384-396 'Used tool: {tool}' steps while streaming; src/widgets/AgentRunHistoryWidget.vue per-run trace -> src/api/agents.js:125 getRunTrace -> appinfo/routes.php:56-59 runHistory#trace; src/manifest.json AiOversight page records the human decision on AI suggestions. Searched 'explain|explanation|rationale' in src/ lib/Service: no plain-language account Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/chat -> answer Sources and tool steps; /agents/:id -> Run history -> trace; /ai-oversight",
 			"note": "Sources, tool steps and a step trace, not a generated plain-language explanation of how an outcome came about."
@@ -6953,9 +6953,9 @@
 				"open-webui": "source read at v0.11.4, not driven: an agent can be tied to curated knowledge bases (ModelEditor.svelte:1194) and the admin-editable RAG_TEMPLATE (backend/open_webui/config.py:1096) can forbid outside knowledge, but the default template tells the model to answer from its own knowledge when context lacks it (:1078); searched 'strict|only from|grounded only' in config.py and utils/middleware.py: no enforced sources-only mode Note: possible by prompt configuration, not enforced"
 			},
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/modals/AgentFormModal.vue:223-240 'Ground responses in your data (RAG)' and source count; lib/Service/Engine/ContextRetrievalHandler.php:134-138,321-339 retrieval scoped to the agent's views; lib/Service/Engine/ResponseGenerationHandler.php:357-358 prompt says 'If the context doesn't contain relevant information, say so honestly. Always cite which sources'. Searched 'validated|strictRag|sourcesOnly' in lib/Service: no enforced sources-only mode or validated flag"
+				"evidence": "src/modals/AgentFormModal.vue:223-240 'Ground responses in your data (RAG)' and source count; lib/Service/Engine/ContextRetrievalHandler.php:134-138,321-339 retrieval scoped to the agent's views; lib/Service/Engine/ResponseGenerationHandler.php:357-358 prompt says 'If the context doesn't contain relevant information, say so honestly. Always cite which sources'. Searched 'validated|strictRag|sourcesOnly' in lib/Service: no enforced sources-only mode or validated flag Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal) -> RAG settings",
 			"note": "Grounding and scope exist; the limit to validated documents is a prompt instruction, not enforced, and documents carry no validated status."
@@ -7158,9 +7158,9 @@
 				"open-webui": "source read at v0.11.4, not driven: manual only: backend/open_webui/routers/utils.py:74 GET /utils/db/download returns the raw SQLite file (admin, ENABLE_ADMIN_EXPORT config.py:2082, not for PostgreSQL), routers/configs.py:118 export and :100 import config, chat export and import (routers/chats.py:807); searched 'backup|snapshot|restore' in backend/open_webui/routers and utils: no automatic backup or point-in-time restore"
 			},
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup"
+				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup Specified in openspec/changes/operations-backup-and-restore/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/agents/:id AgentDetail -> Version history (AgentVersionHistoryDialog) -> Roll back"
 		},
@@ -7272,9 +7272,9 @@
 				"open-webui": "source read at v0.11.4, not driven: memories are per user with an optional path hierarchy (backend/open_webui/models/memories.py:24 path; tools/builtin.py:800 list_memory_paths, :831 read_memory_path), so a project path can hold its own facts; folders (projects) carry files and a system prompt (utils/middleware.py:2591) but searched 'folder' in utils/memory.py and routers/memories.py: no memory scoped to a project"
 			},
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property)"
+				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property) Specified in openspec/changes/memory-project-scopes/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/agents/:id -> Memory widget (AgentMemory)"
 		},
@@ -7475,9 +7475,9 @@
 				"open-webui": "source read at v0.11.4, not driven: src/lib/components/chat/MessageInput.svelte:1837 'Context usage' readout fed by :535 statusContextUsage; backend/open_webui/utils/context_compaction.py:254 get_chat_context_usage against the compaction threshold (:290 _build_context_usage), returned with chats at routers/chats.py:1308, :1344"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'context.?window|contextUsage|tokens used|token' in src/views/Chat.vue, src/components/CnAgentChatTab/ and src/api/chat.js: no readout of how full the context is (only request tokens); the one hit, src/views/TenantOps.vue, is an organisation budget page. The memory panel's character budget bar (src/registry.js agent-memory note) measures memory, not the context window"
+				"evidence": "searched 'context.?window|contextUsage|tokens used|token' in src/views/Chat.vue, src/components/CnAgentChatTab/ and src/api/chat.js: no readout of how full the context is (only request tokens); the one hit, src/views/TenantOps.vue, is an organisation budget page. The memory panel's character budget bar (src/registry.js agent-memory note) measures memory, not the context window Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7534,9 +7534,9 @@
 			},
 			"note": "Compares a replay against its original run for scheduled agent runs; there is no side-by-side of two chosen runs, and not for flow runs.",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentRunHistoryWidget.vue:112-126 per-run 'Replay this run as a dry run and compare', :238-248 says whether the replay produced the same or a different outcome, :253-256 lists the replay steps; src/api/agents.js:154 replayRun -> appinfo/routes.php:83-87 runHistory#replay -> lib/Controller/RunHistoryController.php:206 replay with a step diff against the original"
+				"evidence": "src/widgets/AgentRunHistoryWidget.vue:112-126 per-run 'Replay this run as a dry run and compare', :238-248 says whether the replay produced the same or a different outcome, :253-256 lists the replay steps; src/api/agents.js:154 replayRun -> appinfo/routes.php:83-87 runHistory#replay -> lib/Controller/RunHistoryController.php:206 replay with a step diff against the original Specified in openspec/changes/observability-compare-two-runs/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/agents/:id -> Run history -> Replay"
 		},
@@ -7829,9 +7829,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/chats.py:1672 POST /chats/{id}/fork copies the chat up to a message and records the branch (utils/chat_fork.py:4 build_fork_history); fork button per response src/lib/components/chat/Messages/ResponseMessage.svelte:1528 (CHANGELOG.md:665)"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'fork|branch|regenerat|edit message' in src/views/Chat.vue and src/api/chat.js: none; session routes are CRUD, archive, restore and permanent delete (appinfo/routes.php:566-587) with no copy-from-message"
+				"evidence": "searched 'fork|branch|regenerat|edit message' in src/views/Chat.vue and src/api/chat.js: none; session routes are CRUD, archive, restore and permanent delete (appinfo/routes.php:566-587) with no copy-from-message Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7948,9 +7948,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/openai.py:1364-1372 passes a 'file' content part through as input_file only on the OpenAI-compatible proxy path, the comment saying Open WebUI attachments go via metadata.files and RAG instead; src/lib/components/workspace/Models/Capabilities.svelte:13-59 has vision, file_upload and file_context but no native-file capability Note: API clients can hand a PDF through; the chat UI extracts attachments to text."
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:186-191 readFile reads 'the text content of a file' (:837 getContent), and web pages go through lib/Service/WebResearch/ReadableTextExtractor.php; searched 'pdf|document block|file part|multimodal' in lib/Service/Llm and lib/Service/Engine: no path that hands a PDF to the model as a file"
+				"evidence": "lib/Mcp/HermiqToolProvider.php:186-191 readFile reads 'the text content of a file' (:837 getContent), and web pages go through lib/Service/WebResearch/ReadableTextExtractor.php; searched 'pdf|document block|file part|multimodal' in lib/Service/Llm and lib/Service/Engine: no path that hands a PDF to the model as a file Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -8154,9 +8154,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/chats.py:707 DELETE / removes all of a user's chats, called from src/lib/components/chat/Settings/DataControls.svelte:110-135 'Delete All Chats'; src/lib/i18n/locales/en-US/translation.json:577 'Delete all contents inside this folder' and :209 archive all chats Note: All chats or a whole folder at once; no pick-several selection in the sidebar."
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/Chat.vue:461 SessionDeleteModal deletes one session (src/modals/SessionDeleteModal.vue:69 deleteSessionPermanent); appinfo/routes.php:576,584-587 DELETE /api/sessions/{uuid} and /permanent take one uuid; lib/Controller/ChatController.php:539-567 clearHistory archives one conversationId. Searched 'bulk|selected|deleteMany|select all' in src/views/Chat.vue: none"
+				"evidence": "src/views/Chat.vue:461 SessionDeleteModal deletes one session (src/modals/SessionDeleteModal.vue:69 deleteSessionPermanent); appinfo/routes.php:576,584-587 DELETE /api/sessions/{uuid} and /permanent take one uuid; lib/Controller/ChatController.php:539-567 clearHistory archives one conversationId. Searched 'bulk|selected|deleteMany|select all' in src/views/Chat.vue: none Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -8331,9 +8331,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/middleware.py:2253-2260,3748-3760 captures reasoning_content, reasoning or thinking deltas into a reasoning block; src/lib/components/common/Collapsible.svelte and chat/Messages/Markdown/ConsecutiveDetailsGroup.svelte render it collapsible; translation.json:3218,3241 'Thinking...', 'Thought for {{DURATION}}'"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'reasoning|thinking' in src/ and lib/ (php, js, vue): no hit outside a code comment; src/views/Chat.vue renders the answer, sources and tool steps only (:266-288, :384-396)"
+				"evidence": "searched 'reasoning|thinking' in src/ and lib/ (php, js, vue): no hit outside a code comment; src/views/Chat.vue renders the answer, sources and tool steps only (:266-288, :384-396) Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -8361,9 +8361,9 @@
 			},
 			"note": "A person can speak, ask the agent to translate and hear the reply; there is no action that translates a recording.",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/modals/AgentFormModal.vue:256-304 dictation engine and 'Allow speaking with this agent' (reply spoken back); lib/Controller/SpeechController.php transcribe and synthesise over lib/Service/Speech/SpeechClient.php (appinfo/routes.php:540-542); lib/TaskProcessing/AudioToTextProvider.php:68-69 and TextToSpeechProvider.php for other apps. Searched 'translat' in lib/ src/ exapp/speech-runner: no translate step"
+				"evidence": "src/modals/AgentFormModal.vue:256-304 dictation engine and 'Allow speaking with this agent' (reply spoken back); lib/Controller/SpeechController.php transcribe and synthesise over lib/Service/Speech/SpeechClient.php (appinfo/routes.php:540-542); lib/TaskProcessing/AudioToTextProvider.php:68-69 and TextToSpeechProvider.php for other apps. Searched 'translat' in lib/ src/ exapp/speech-runner: no translate step Specified in openspec/changes/chat-translate-a-recording/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/chat with a voice-enabled agent (microphone and spoken reply)"
 		},
@@ -8420,9 +8420,9 @@
 				"open-webui": "source read at v0.11.4, not driven: src/lib/components/workspace/Models/Capabilities.svelte:13 vision capability for image input; backend/open_webui/routers/images.py:562 /generations and :858 /edit; tools/builtin.py:370 generate_image and :440 edit_image tools return images into the answer"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'attach|image|upload|fileId|vision|multimodal' in src/views/Chat.vue, src/api/chat.js, lib/Service/Engine and lib/Service/Llm/ProviderFactory.php: the composer sends text only (the one Chat.vue hit, :615, is the agent avatar), messages are built as text (lib/Service/Engine/ResponseGenerationHandler.php:363 LLPhantMessage::user($userMessage)) and no answer carries images"
+				"evidence": "searched 'attach|image|upload|fileId|vision|multimodal' in src/views/Chat.vue, src/api/chat.js, lib/Service/Engine and lib/Service/Llm/ProviderFactory.php: the composer sends text only (the one Chat.vue hit, :615, is the agent avatar), messages are built as text (lib/Service/Engine/ResponseGenerationHandler.php:363 LLPhantMessage::user($userMessage)) and no answer carries images Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -8656,9 +8656,9 @@
 			},
 			"note": "object search can be narrowed by saved views; document (file) search cannot be narrowed by metadata, and Context bundles have no page of their own",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/Chat.vue:848-867 chat search is scoped per agent to OpenRegister views (saved object filters) plus on/off for files and objects, sent to OpenRegister chat; lib/Settings/hermiq_register.json:3026-3044 Context bundles pin named file paths and object queries with equality filters, resolved in lib/Service/Engine/ContextAssembler.php:354,394; no filter on files by owner, file name or modified date"
+				"evidence": "src/views/Chat.vue:848-867 chat search is scoped per agent to OpenRegister views (saved object filters) plus on/off for files and objects, sent to OpenRegister chat; lib/Settings/hermiq_register.json:3026-3044 Context bundles pin named file paths and object queries with equality filters, resolved in lib/Service/Engine/ContextAssembler.php:354,394; no filter on files by owner, file name or modified date Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "Chat page (/chat) agent settings; Context bundles via the generic objects API only"
 		},
