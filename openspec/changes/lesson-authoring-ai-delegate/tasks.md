@@ -49,15 +49,15 @@
 - [x] Test
 
 ## Verification
-- [ ] All tasks checked off
-- [ ] `openspec validate` passes
-- [ ] Code review against spec requirements
+- [x] All tasks checked off
+- [x] `openspec validate` passes
+- [x] Code review against spec requirements
 
 ## Quality checklist
 
 - All new business logic covered by PHPUnit unit tests (`tests/Unit/`).
 - Newman/Postman: not added. Hermiq has no Newman suite for any endpoint; the PHPUnit controller tests cover auth, validation and shape, as for every other Hermiq controller.
 - Playwright: not applicable, no UI ships in this change.
-- Documentation in `docs/`: not applicable, a server-to-server contract with no user-facing surface; `contract.md` is the consumer documentation.
+- Documentation: `docs/features/lesson-authoring.md` tells an admin and a DPO what they acknowledge; `contract.md` is the consumer documentation.
 - i18n: not applicable, no user-facing strings ship. `draftNotice` is an English API fallback; learniq renders its own translated label from `draft: true`.
 - `openspec validate` passes.

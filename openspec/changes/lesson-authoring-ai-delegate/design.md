@@ -80,6 +80,9 @@ tests/Unit/
   Controller/LessonAuthoringControllerTest.php  (new)
   Service/LessonAuthoringEngineTest.php          (new)
   Repair/SeedLessonAuthoringFeatureTest.php      (new)
+docs/features/
+  lesson-authoring.md                 (new, what an admin and a DPO acknowledge)
+  README.md                           (+1 row)
 CHANGELOG.md                          (+1 Unreleased entry)
 ```
 

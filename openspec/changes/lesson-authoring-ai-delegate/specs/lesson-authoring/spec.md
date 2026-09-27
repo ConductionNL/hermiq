@@ -144,7 +144,7 @@ The system SHALL catch every provider failure and return `{available: false, act
 
 ### Requirement: REQ-009: Every call is logged without its content
 
-The engine SHALL write one `info` log line per call through the PSR-3 logger, gated or not, successful or not. The line carries the action, the user id, the outcome (`ok`, `feature-not-enabled` or `provider-error`), the provider when known, the lesson text length and the goal count. It MUST NOT carry the lesson text, the goal titles or the model output.
+The engine SHALL write one `info` log line per call through the PSR-3 logger, gated or not, successful or not. The line carries the action, the user id, the outcome (`ok`, `feature-not-enabled` or `provider-error`), the provider when known, the lesson text length and the goal count. It MUST NOT carry the lesson text, the goal titles or the model output. A failure the engine does not handle, such as the gate lookup itself throwing when OpenRegister is unavailable, reaches the controller instead, which SHALL log one `error` line with the action, the exception class and its message, again without request content.
 
 #### Scenario: A gated call is logged
 
