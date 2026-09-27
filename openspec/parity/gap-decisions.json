@@ -635,7 +635,7 @@
 		"row": "mo-openai-compat",
 		"matrix": "hermiq",
 		"decision": "build",
-		"reason": "partial and built; three competitors rate yes for the missing half, a generic OpenAI-compatible provider and a base URL on the OpenAI provider.",
+		"reason": "three competitors rate yes; matrix corrected from partial to no: a typed Fireworks Base URL never reaches the network, because BrokerHttpClient reduces every request to a path under the broker host-lock (lib/Service/Llm/BrokerHttpClient.php:22-23,188-196), so no OpenAI-compatible endpoint of your own can be reached.",
 		"change": "models-provider-connections",
 		"decidedOn": "2026-09-27"
 	},
@@ -675,7 +675,7 @@
 		"row": "op-scale",
 		"matrix": "hermiq",
 		"decision": "build",
-		"reason": "five competitors rate yes.",
+		"reason": "five competitors rate yes; matrix corrected from no to partial: flow, webhook and Talk runs are QueuedJobs Nextcloud already runs on several workers (lib/BackgroundJob/AgentRunRequestedJob.php:43, WebhookAgentRunJob.php:44, TalkTurnJob.php:45), and the missing half is scheduled runs, one TimedJob that never runs in parallel (lib/BackgroundJob/ScheduleTask.php:80).",
 		"change": "operations-parallel-run-workers",
 		"decidedOn": "2026-09-27"
 	},

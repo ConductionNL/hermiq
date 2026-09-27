@@ -2242,9 +2242,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ and src/ for the Nextcloud Tasks app / VTODO / a core Assistant task-list integration ('Tasks', 'core:task', 'nctasks') with no relevant hits. The only similarly-named tools are createNote/updateNote/listNotes (NcNativeWriteToolDescriptors.php), which target the Notes app, a different Nextcloud app."
+				"evidence": "Searched lib/ and src/ for the Nextcloud Tasks app / VTODO / a core Assistant task-list integration ('Tasks', 'core:task', 'nctasks') with no relevant hits. The only similarly-named tools are createNote/updateNote/listNotes (NcNativeWriteToolDescriptors.php), which target the Notes app, a different Nextcloud app. Specified in openspec/changes/tools-nextcloud-tasks/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "Nothing in the codebase implements a Nextcloud Assistant tasks tool; Notes tools exist but are a different capability.",
@@ -2525,9 +2525,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Repair/SeedAiFeatures.php:169-175 seeds an ai-feature-governance-register entry 'skill-code-execution' (lifecycle: disabled by default) describing the RISK CATEGORY, but no tool in lib/Mcp/*, lib/Service/*, or src/ actually executes code in a sandbox. Searched for sandbox/codeInterpreter/OpenHands/runCode with no implementation hits."
+				"evidence": "lib/Repair/SeedAiFeatures.php:169-175 seeds an ai-feature-governance-register entry 'skill-code-execution' (lifecycle: disabled by default) describing the RISK CATEGORY, but no tool in lib/Mcp/*, lib/Service/*, or src/ actually executes code in a sandbox. Searched for sandbox/codeInterpreter/OpenHands/runCode with no implementation hits. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "A governance-register placeholder exists for the risk category; no runnable sandbox or code-exec tool exists in the tool catalog.",
@@ -2589,9 +2589,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "The only extension seam is another Nextcloud app implementing OCA\\OpenRegister\\Mcp\\IMcpToolProvider in PHP, exactly as HermiqToolProvider itself does (lib/Mcp/HermiqToolProvider.php class docblock) -- that is writing and shipping app code, not an end-user action. Grepped src/ for customTool/plugin/function-upload UI with no relevant hits."
+				"evidence": "The only extension seam is another Nextcloud app implementing OCA\\OpenRegister\\Mcp\\IMcpToolProvider in PHP, exactly as HermiqToolProvider itself does (lib/Mcp/HermiqToolProvider.php class docblock) -- that is writing and shipping app code, not an end-user action. Grepped src/ for customTool/plugin/function-upload UI with no relevant hits. Specified in openspec/changes/tools-custom-tools-without-code/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -3491,14 +3491,14 @@
 			"area": "models",
 			"name": "Point agents at any OpenAI-compatible endpoint.",
 			"source": "demand-derived",
-			"hermiq": "partial",
+			"hermiq": "no",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/modals/LlmProviderModal.vue:84-101 'Fireworks' provider exposes a free-text Base URL field (no domain restriction); lib/Service/Llm/ProviderFactory.php:2637-2651 posts to `${baseUrl}/chat/completions`, the OpenAI-compatible shape, at any base URL the admin types."
+				"evidence": "Corrected 2026-09-27 (OpenSpec pass): no own endpoint is reachable. BrokerHttpClient reduces every request to a path and the host is the broker host-lock (lib/Service/Llm/BrokerHttpClient.php:22-23,188-196), so the host typed in the Fireworks Base URL (lib/Service/Llm/ProviderFactory.php:762) is dropped. Before: src/modals/LlmProviderModal.vue:84-101 'Fireworks' provider exposes a free-text Base URL field (no domain restriction); lib/Service/Llm/ProviderFactory.php:2637-2651 posts to `${baseUrl}/chat/completions`, the OpenAI-compatible shape, at any base URL the admin types. Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI provider section -> Configure provider -> LlmProviderModal.vue provider=fireworks",
-			"note": "The capability exists but is labelled 'Fireworks AI' in the UI, not presented as a generic OpenAI-compatible endpoint option; the OpenAI provider itself is hardcoded to api.openai.com with no baseUrl override.",
+			"note": "The capability exists but is labelled 'Fireworks AI' in the UI, not presented as a generic OpenAI-compatible endpoint option; the OpenAI provider itself is hardcoded to api.openai.com with no baseUrl override. Rating corrected to no on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "taskprocessing-consume-ui",
@@ -3683,9 +3683,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/ for failover, fallbackProvider, backup provider, secondaryProvider, 'fail over', sovereign: no automatic-fallback-to-a-second-provider mechanism found anywhere. 'Sovereign'/'sovereignty' hits are all about local-inference/on-prem residency (multi-tenant-ops spec), not failover."
+				"evidence": "Searched lib/, src/, openspec/ for failover, fallbackProvider, backup provider, secondaryProvider, 'fail over', sovereign: no automatic-fallback-to-a-second-provider mechanism found anywhere. 'Sovereign'/'sovereignty' hits are all about local-inference/on-prem residency (multi-tenant-ops spec), not failover. Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "No backend code or spec describes automatic failover between providers when one fails.",
@@ -5924,9 +5924,9 @@
 			"source": "own-code",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n."
+				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n. Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "The n8n delegation described in ADR-001/app-config.json is architectural intent, not implemented code; only the reverse direction (an outside system, for-instance n8n, triggering hermiq) exists.",
@@ -5956,9 +5956,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Listed every node file in the sibling apps-extra/openregister/lib/Service/Flow/Nodes/ directory (AwaitSignalNode, DecisionTableNode, EndNode, ExplodeNode, FilterNode, FlowStateNode, IterateNode, LockObjectNode, LoopNode, MapNode, MergeNode, ObjectReadNode, ObjectWriteNode, PortalTaskNode, RouterNode, SendEmailNode, SendNotificationNode, SendTalkMessageNode, SetFieldsNode, SubFlowNode, SwitchNode, TriggerManualNode, TriggerObjectNode, TriggerScheduleNode, UnlockObjectNode, UserTaskNode, WaitNode): none execute arbitrary custom code."
+				"evidence": "Listed every node file in the sibling apps-extra/openregister/lib/Service/Flow/Nodes/ directory (AwaitSignalNode, DecisionTableNode, EndNode, ExplodeNode, FilterNode, FlowStateNode, IterateNode, LockObjectNode, LoopNode, MapNode, MergeNode, ObjectReadNode, ObjectWriteNode, PortalTaskNode, RouterNode, SendEmailNode, SendNotificationNode, SendTalkMessageNode, SetFieldsNode, SubFlowNode, SwitchNode, TriggerManualNode, TriggerObjectNode, TriggerScheduleNode, UnlockObjectNode, UserTaskNode, WaitNode): none execute arbitrary custom code. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nothing",
 			"note": "Rated from the OpenRegister sibling checkout's node list, which may be stale or incomplete; no code/script node was found there or in hermiq's own lib/Flow/.",
@@ -6891,9 +6891,9 @@
 				"open-webui": "source read at v0.11.4, not driven: self-hosted with local models (routers/ollama.py) keeps data in-house, and the only outward stats sync is opt-in without message content (src/lib/components/chat/Settings/SyncStatsModal.svelte:367); for remote providers nothing in the code sets or enforces a no-training term (searched 'training|opt.?out|zero retention' in routers/openai.py and utils/anthropic.py) Note: a guarantee only holds for local models"
 			},
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/TenantOps.vue:148-171 Model policy section; src/api/modelPolicy.js:47,59 -> appinfo/routes.php:291-294 TenantModelPolicyController; lib/Service/Llm/ProviderFactory.php:686 refuses a provider or model outside the organisation's allowlist, :470 ollama driver keeps calls local. Searched 'train|data.?collection|zero.?retention|opt.?out' in lib/ src/ exapp/: no no-training setting or guarantee"
+				"evidence": "src/views/TenantOps.vue:148-171 Model policy section; src/api/modelPolicy.js:47,59 -> appinfo/routes.php:291-294 TenantModelPolicyController; lib/Service/Llm/ProviderFactory.php:686 refuses a provider or model outside the organisation's allowlist, :470 ollama driver keeps calls local. Searched 'train|data.?collection|zero.?retention|opt.?out' in lib/ src/ exapp/: no no-training setting or guarantee Specified in openspec/changes/models-no-training-guarantee/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/tenant-ops -> Model policy",
 			"note": "An organisation can restrict agents to local models (ollama, nextcloud) through the model policy; for remote providers nothing sets or records a no-training term."
@@ -7101,9 +7101,9 @@
 				"open-webui": "source read at v0.11.4, not driven: several models answer one prompt side by side (permission chat.multiple_models; src/lib/components/chat/Messages/MultiResponseMessages.svelte) and 'Merge Responses' (:439) calls backend/open_webui/routers/tasks.py:610 POST /tasks/moa/completions to fuse them with moa_response_generation_template (:630)"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229)"
+				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229) Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27)."
 			}
 		},
 		{
@@ -7187,9 +7187,9 @@
 				"open-webui": "source read at v0.11.4, not driven: a remote agent server can be added as a model connection (OpenAI-compatible, routers/openai.py:865; README.md:94 Open WebUI Computer 'Connect it into Open WebUI as a model') or reached as an MCP/OpenAPI tool server (utils/middleware.py:2340); searched 'a2a|agent2agent|remote agent' in backend/open_webui: no agent-to-agent protocol, and delegate_task only spawns local clones (utils/subagents.py:317)"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only"
+				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27)."
 			}
 		},
 		{
@@ -7326,9 +7326,9 @@
 			},
 			"note": "Version is recorded and can be rolled back, but a run does not start from a frozen build; agents have no files or installed tools of their own.",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/ScheduleService.php:1814 records the agent's current version id on each run; lib/Service/AgentVersionService.php header: versions are audit-trail entries used for rollback; runs read the live agent config (lib/Service/Engine/ResponseGenerationHandler.php:327) and skillInstalls holds skill uuids, not versions (lib/Settings/hermiq_register.json:2609-2618). Searched 'snapshot|pinned|frozen' in lib/Service: no frozen build per published agent"
+				"evidence": "lib/Service/ScheduleService.php:1814 records the agent's current version id on each run; lib/Service/AgentVersionService.php header: versions are audit-trail entries used for rollback; runs read the live agent config (lib/Service/Engine/ResponseGenerationHandler.php:327) and skillInstalls holds skill uuids, not versions (lib/Settings/hermiq_register.json:2609-2618). Searched 'snapshot|pinned|frozen' in lib/Service: no frozen build per published agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7356,9 +7356,9 @@
 			},
 			"note": "Operator can widen the stage allowlist by environment variable; an agent cannot install a tool.",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'npm install|pip install|apt-get|installTool|package registry' in lib/ src/ exapp/: none. Agent turns run with shell tools denied (exapp/llm-runner/src/providers.js:140-142 DISALLOWED_BUILTIN_TOOLS includes Bash); the flow workload step runs only allowlisted commands (exapp/llm-runner/src/stage.js:137-141 RUNNER_STAGE_COMMANDS default 'scripts/run-hydra-gates.sh,claude'), set by the operator's container environment, not by the agent"
+				"evidence": "searched 'npm install|pip install|apt-get|installTool|package registry' in lib/ src/ exapp/: none. Agent turns run with shell tools denied (exapp/llm-runner/src/providers.js:140-142 DISALLOWED_BUILTIN_TOOLS includes Bash); the flow workload step runs only allowlisted commands (exapp/llm-runner/src/stage.js:137-141 RUNNER_STAGE_COMMANDS default 'scripts/run-hydra-gates.sh,claude'), set by the operator's container environment, not by the agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7386,9 +7386,9 @@
 			},
 			"note": "One self-hosted execution place, no choice between own server and a hosted sandbox.",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "the only place code runs is the hermiq-llm-runner ExApp on the instance's own AppAPI daemon (exapp/llm-runner/README.md 'Hardening guarantees'; lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step dispatches to it via lib/Service/StageDispatchService.php); agent chat turns have no shell. Searched 'e2b|daytona|cloud sandbox|sandbox' in lib/ src/ exapp/: no hosted sandbox option and no per-agent choice"
+				"evidence": "the only place code runs is the hermiq-llm-runner ExApp on the instance's own AppAPI daemon (exapp/llm-runner/README.md 'Hardening guarantees'; lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step dispatches to it via lib/Service/StageDispatchService.php); agent chat turns have no shell. Searched 'e2b|daytona|cloud sandbox|sandbox' in lib/ src/ exapp/: no hosted sandbox option and no per-agent choice Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7593,9 +7593,9 @@
 			},
 			"note": "Pieces exist; no deep-research mode that runs many searches and writes a cited report on its own.",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:468,490 hermiq.webSearch and hermiq.webFetch agent tools, enabled in src/modals/WebResearchSettingsModal.vue (AdminRoot); :514 hermiq.delegateAgent sub-agents; lib/Service/Engine/ResponseGenerationHandler.php:358 'Always cite which sources you used'; lib/Service/Llm/ProviderFactory.php:219 at most 10 tool rounds per turn. Searched 'deep.?research' in lib/ src/: no research mode or report"
+				"evidence": "lib/Mcp/HermiqToolProvider.php:468,490 hermiq.webSearch and hermiq.webFetch agent tools, enabled in src/modals/WebResearchSettingsModal.vue (AdminRoot); :514 hermiq.delegateAgent sub-agents; lib/Service/Engine/ResponseGenerationHandler.php:358 'Always cite which sources you used'; lib/Service/Llm/ProviderFactory.php:219 at most 10 tool rounds per turn. Searched 'deep.?research' in lib/ src/: no research mode or report Specified in openspec/changes/tools-deep-research-report/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/chat with an agent granted webSearch/webFetch; Admin settings -> Web research"
 		},
@@ -7711,9 +7711,9 @@
 				"open-webui": "source read at v0.11.4, not driven: src/lib/components/AddConnectionModal.svelte:51 apiType '' or 'responses'; backend/open_webui/routers/openai.py:1589 is_responses, :1618-1634 posts to {url}/responses with convert_to_responses_payload Note: discussion still open; the code ships it"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Llm/ProviderFactory.php:762 OpenAI-compatible calls post to {baseUrl}/chat/completions, :888 Anthropic to /v1/messages, :470 ollama native; searched 'responses api|/responses|responsesApi' in lib/ src/ exapp/: none"
+				"evidence": "lib/Service/Llm/ProviderFactory.php:762 OpenAI-compatible calls post to {baseUrl}/chat/completions, :888 Anthropic to /v1/messages, :470 ollama native; searched 'responses api|/responses|responsesApi' in lib/ src/ exapp/: none Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7741,9 +7741,9 @@
 			},
 			"note": "The claude CLI transport (exapp/llm-runner) may cache on its own; that is vendor CLI behaviour, not hermiq code, and was not read.",
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'cache_control|prompt.?cach' in lib/ src/ exapp/: none; lib/Service/Llm/ProviderFactory.php:1009-1023 builds each Anthropic payload with model, max_tokens, messages, system and tools only, no cache breakpoints"
+				"evidence": "searched 'cache_control|prompt.?cach' in lib/ src/ exapp/: none; lib/Service/Llm/ProviderFactory.php:1009-1023 builds each Anthropic payload with model, max_tokens, messages, system and tools only, no cache breakpoints Specified in openspec/changes/models-prompt-and-answer-cache/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -7919,9 +7919,9 @@
 			},
 			"note": "A per-step scratch checkout inside a flow, not a writable workspace an agent keeps for a session.",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step clones a ref into a throwaway checkout where the model with a shell can edit files (exapp/llm-runner/src/stage.js:31,161 scratch tree removed on exit), lib/Flow/HermiqWorkloadCollectNode.php collects the result and files, or a push phase commits them; chat and scheduled agent runs have no workspace, only tools into the user's own Files and Notes"
+				"evidence": "lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step clones a ref into a throwaway checkout where the model with a shell can edit files (exapp/llm-runner/src/stage.js:31,161 scratch tree removed on exit), lib/Flow/HermiqWorkloadCollectNode.php collects the result and files, or a push phase commits them; chat and scheduled agent runs have no workspace, only tools into the user's own Files and Notes Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "/flows/:id -> Hermiq workload step node"
 		},
@@ -7977,9 +7977,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/retrieval/web/utils.py:651 SafePlaywrightURLLoader renders pages for web search and the fetch_url tool (tools/builtin.py:333), wired by config.py:1311 PLAYWRIGHT_WS_URL and docker-compose.playwright.yaml; searched 'browser_use|browser-use|puppeteer|computer.use' in backend/open_webui: no clicking or form filling Note: Opens and reads pages only; interaction needs a community tool or an MCP server."
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:490 hermiq.webFetch fetches a page over HTTP (lib/Service/WebResearch/WebFetchService.php) and returns readable text; searched 'browser|playwright|puppeteer|selenium|click' in lib/ exapp/: no browser the agent can drive, and the runner denies the CLI's built-in tools (exapp/llm-runner/src/providers.js:140)"
+				"evidence": "lib/Mcp/HermiqToolProvider.php:490 hermiq.webFetch fetches a page over HTTP (lib/Service/WebResearch/WebFetchService.php) and returns readable text; searched 'browser|playwright|puppeteer|selenium|click' in lib/ exapp/: no browser the agent can drive, and the runner denies the CLI's built-in tools (exapp/llm-runner/src/providers.js:140) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "none"
 		},
@@ -8066,9 +8066,9 @@
 			},
 			"note": "Uses a subscription instead of an API key, but the user pastes a subscription token; there is no provider sign-in flow, and only for Claude.",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/credentials.json:24-31 personal credentials anthropic-oauth and anthropic-cli for a Claude Max subscription, declared to the credential broker from src/App.vue:153; src/modals/LlmProviderModal.vue:131-150,251 'Claude Max subscription (OAuth)' auth mode, personal only; lib/Service/Llm/ProviderFactory.php:876 oauth beta header on the http path, :1622 the cli path runs the official claude CLI in exapp/llm-runner with that token"
+				"evidence": "src/credentials.json:24-31 personal credentials anthropic-oauth and anthropic-cli for a Claude Max subscription, declared to the credential broker from src/App.vue:153; src/modals/LlmProviderModal.vue:131-150,251 'Claude Max subscription (OAuth)' auth mode, personal only; lib/Service/Llm/ProviderFactory.php:876 oauth beta header on the http path, :1622 the cli path runs the official claude CLI in exapp/llm-runner with that token Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "Personal settings credential (anthropic-cli) plus Admin settings -> LLM provider -> Claude subscription"
 		},
@@ -8449,9 +8449,9 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'computer.use|desktop|screenshot|vnc|pyautogui' in backend/open_webui and CHANGELOG.md: only a desktop client app and a camera screenshot in CallOverlay.svelte:125; routers/terminals.py proxies shell terminal servers, no screen-and-click control of Windows apps"
 			},
 			"built": {
-				"state": "none",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'computer.?use|screenshot|pyautogui|xdotool|mouse|click|vnc|rdp|desktop|windows' in lib/, src/ and exapp/llm-runner/src: no screen-reading or desktop-control tool; the runner executes repo stages and MCP tools (exapp/llm-runner/src/runner.js), and hits are UI copy only (lib/Listener/TalkApprovalReactionListener.php:10 one-click approval)"
+				"evidence": "searched 'computer.?use|screenshot|pyautogui|xdotool|mouse|click|vnc|rdp|desktop|windows' in lib/, src/ and exapp/llm-runner/src: no screen-reading or desktop-control tool; the runner executes repo stages and MCP tools (exapp/llm-runner/src/runner.js), and hits are UI copy only (lib/Listener/TalkApprovalReactionListener.php:10 one-click approval) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "nowhere"
 		},
@@ -8597,9 +8597,9 @@
 			},
 			"note": "the late result flows into the next flow node; there is no path where an agent calls a flow as a tool and receives its answer later in the same turn",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44"
+				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27)."
 			},
 			"reachedOn": "Flows page (/flows), workload step with async: true"
 		},
