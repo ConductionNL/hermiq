@@ -43,6 +43,7 @@ use RuntimeException;
  * Tests for the message-translation-delegate SeedMessageTranslationFeature step.
  *
  * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+ * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
  */
 class SeedMessageTranslationFeatureTest extends TestCase {
 
@@ -59,7 +60,7 @@ class SeedMessageTranslationFeatureTest extends TestCase {
 			private ?string $schema = null;
 
 			/**
-			 * @var array<int, array{schema: string, object: array, elevated: bool}>
+			 * @var array<int, array{schema: string, object: array, elevated: bool, uuid: string|null}>
 			 */
 			public array $saved = [];
 
@@ -142,6 +143,7 @@ class SeedMessageTranslationFeatureTest extends TestCase {
 					'schema' => (string)$schema,
 					'object' => $payload,
 					'elevated' => $this->elevated,
+					'uuid' => $uuid,
 				];
 
 				$entity = new ObjectEntity();
@@ -233,6 +235,9 @@ class SeedMessageTranslationFeatureTest extends TestCase {
 		$this->assertSame('', $seeded['tenantId'], 'The seed is fleet-wide so any DPO can acknowledge it.');
 		$this->assertNotSame('', trim((string)$seeded['name']));
 		$this->assertNotSame('', trim((string)$seeded['description']));
+		$this->assertTrue($seeded['outputsLabelled'], 'The register records that translations are labelled as AI-made.');
+		$this->assertStringContainsString('translatedByAi', (string)$seeded['outputLabelling']);
+		$this->assertNull($objectService->saved[0]['uuid'], 'A fresh seed creates, it does not update.');
 
 	}//end testFreshInstallSeedsTheFeatureDisabled()
 
@@ -253,13 +258,15 @@ class SeedMessageTranslationFeatureTest extends TestCase {
 	}//end testTheSeedRunsUnderTheSystemIdentity()
 
 	/**
-	 * A re-run writes nothing once the slug exists.
+	 * A re-run writes nothing once the row exists and records its labelling.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
 	 */
 	public function testReRunIsIdempotent(): void {
 		$objectService = $this->objectService(
-			['agentaifeature' => [$this->object('existing-1', ['slug' => 'message-translation'])]]
+			['agentaifeature' => [$this->object('existing-1', ['slug' => 'message-translation', 'outputsLabelled' => true])]]
 		);
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
@@ -267,6 +274,67 @@ class SeedMessageTranslationFeatureTest extends TestCase {
 		$this->assertCount(0, $objectService->saved);
 
 	}//end testReRunIsIdempotent()
+
+	/**
+	 * A row seeded before the labelling fields is back-filled once, under its
+	 * own uuid, with every other field (the DPO's enablement included) kept.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
+	 */
+	public function testAnOlderRowIsBackfilledOnce(): void {
+		$older = [
+			'id' => 'existing-1',
+			'@self' => ['register' => 'hermiq'],
+			'slug' => 'message-translation',
+			'name' => 'Message translation',
+			'riskCategory' => 'limited',
+			'lifecycle' => 'enabled',
+			'dpoAckBy' => 'dpo',
+			'tenantId' => '',
+		];
+		$objectService = $this->objectService(['agentaifeature' => [$this->object('existing-1', $older)]]);
+
+		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
+
+		$this->assertCount(1, $objectService->saved);
+		$saved = $objectService->saved[0];
+		$this->assertSame('existing-1', $saved['uuid'], 'The back-fill updates the row, it does not create a second one.');
+		$this->assertTrue($saved['object']['outputsLabelled']);
+		$this->assertNotSame('', (string)$saved['object']['outputLabelling']);
+		$this->assertSame('enabled', $saved['object']['lifecycle'], 'A back-fill must not move the lifecycle.');
+		$this->assertSame('dpo', $saved['object']['dpoAckBy']);
+		$this->assertArrayNotHasKey('id', $saved['object']);
+		$this->assertArrayNotHasKey('@self', $saved['object']);
+		$this->assertTrue($saved['elevated']);
+
+	}//end testAnOlderRowIsBackfilledOnce()
+
+	/**
+	 * A back-fill keeps a labelling text a DPO already wrote.
+	 *
+	 * @return void
+	 */
+	public function testABackfillKeepsAnExistingLabellingText(): void {
+		$objectService = $this->objectService(
+			[
+				'agentaifeature' => [
+					$this->object(
+						'existing-1',
+						['slug' => 'message-translation', 'outputsLabelled' => false, 'outputLabelling' => 'Our own words.']
+					),
+				],
+			]
+		);
+
+		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
+
+		$this->assertCount(1, $objectService->saved);
+		$this->assertTrue($objectService->saved[0]['object']['outputsLabelled']);
+		$this->assertSame('Our own words.', $objectService->saved[0]['object']['outputLabelling']);
+
+	}//end testABackfillKeepsAnExistingLabellingText()
 
 	/**
 	 * A different feature's row does not satisfy this seed.

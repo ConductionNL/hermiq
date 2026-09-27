@@ -44,6 +44,7 @@ use Throwable;
  * Seed the `message-translation` AiFeature via ObjectService (idempotent).
  *
  * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+ * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
  */
 class SeedMessageTranslationFeature implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -68,6 +69,17 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 * @var string
 	 */
 	private const FEATURE_SLUG = 'message-translation';
+
+	/**
+	 * How this feature tells its readers that AI made the output
+	 * (ai-translation-provenance). Recorded on the register entry so a DPO sees
+	 * the Art. 50 measure next to the risk category.
+	 *
+	 * @var string
+	 */
+	private const OUTPUT_LABELLING = 'Every translation carries translatedByAi, the source and target language, '
+		. 'a model label and a reference to the original. The reader sees a fixed disclosure sentence in their '
+		. 'language with a link to the original text.';
 
 	/**
 	 * Constructor.
@@ -124,17 +136,21 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	}//end run()
 
 	/**
-	 * Seed the message-translation feature when it is not present yet.
+	 * Seed the message-translation feature when it is not present yet, and
+	 * back-fill the output-labelling fields on a row seeded before them.
 	 *
 	 * @param object $objectService OpenRegister's ObjectService.
 	 * @param IOutput $output Progress reporting.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
 	 */
 	private function seedFeature(object $objectService, IOutput $output): void {
 		try {
-			if ($this->slugExists(objectService: $objectService) === true) {
-				$output->info('message-translation AI feature already exists — skipping.');
+			$existing = $this->findExisting(objectService: $objectService);
+			if ($existing !== null) {
+				$this->backfillLabelling(objectService: $objectService, existing: $existing, output: $output);
 				return;
 			}
 
@@ -150,6 +166,8 @@ class SeedMessageTranslationFeature implements IRepairStep {
 					'riskCategory' => 'limited',
 					'lifecycle' => 'disabled',
 					'tenantId' => '',
+					'outputsLabelled' => true,
+					'outputLabelling' => self::OUTPUT_LABELLING,
 				],
 				register: self::REGISTER_SLUG,
 				schema: self::AIFEATURE_SCHEMA,
@@ -165,13 +183,52 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	}//end seedFeature()
 
 	/**
-	 * Whether the `message-translation` AiFeature already exists (system context, no RBAC).
+	 * Record the output labelling on a row seeded before the fields existed.
+	 * The whole row is saved back under its own uuid with `lifecycle` as it
+	 * was, so the lifecycle engine sees no transition and a DPO's enablement
+	 * survives. A row that already says it is labelled is not touched.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param ObjectEntity $existing The existing message-translation row.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
+	 */
+	private function backfillLabelling(object $objectService, ObjectEntity $existing, IOutput $output): void {
+		$data = $existing->getObject();
+		if (($data['outputsLabelled'] ?? null) === true) {
+			$output->info('message-translation AI feature already exists — skipping.');
+			return;
+		}
+
+		unset($data['id'], $data['uuid'], $data['@self']);
+		$data['outputsLabelled'] = true;
+		if ((string)($data['outputLabelling'] ?? '') === '') {
+			$data['outputLabelling'] = self::OUTPUT_LABELLING;
+		}
+
+		$objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::AIFEATURE_SCHEMA,
+			uuid: (string)$existing->getUuid(),
+			_rbac: false,
+			_multitenancy: false
+		);
+		$output->info('message-translation AI feature already exists — back-filled output labelling.');
+
+	}//end backfillLabelling()
+
+	/**
+	 * The existing `message-translation` AiFeature, if any (system context, no RBAC).
 	 *
 	 * @param ObjectService $objectService The OpenRegister object service.
 	 *
-	 * @return bool True when the feature already exists.
+	 * @return ObjectEntity|null The existing row, or null when there is none.
 	 */
-	private function slugExists(ObjectService $objectService): bool {
+	private function findExisting(ObjectService $objectService): ?ObjectEntity {
 		$objects = $objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AIFEATURE_SCHEMA)
@@ -187,10 +244,10 @@ class SeedMessageTranslationFeature implements IRepairStep {
 			}
 
 			if ((string)($object->getObject()['slug'] ?? '') === self::FEATURE_SLUG) {
-				return true;
+				return $object;
 			}
 		}
 
-		return false;
-	}//end slugExists()
+		return null;
+	}//end findExisting()
 }//end class

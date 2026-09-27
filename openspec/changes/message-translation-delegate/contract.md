@@ -7,6 +7,8 @@
 
 Both are soft, optional consumers. This change does not modify either app; it only opens the contract they can call once their own changes land.
 
+> **Amended by `ai-translation-provenance`** (decision D24, "AI-made translations are visible"): two optional request fields (`sourceLanguage`, `originalRef`), a tag-shape check, and the provenance fields on every answer. The delta is in `openspec/changes/ai-translation-provenance/contract.md`; this page is the full current contract.
+
 ## Endpoints
 
 ### `POST /api/translate`
@@ -20,12 +22,18 @@ Both are soft, optional consumers. This change does not modify either app; it on
   "targetLanguage": "ar",
   "glossary": [
     { "term": "studiedag", "translation": "staff training day (school closed)" }
-  ]
+  ],
+  "sourceLanguage": "nl",
+  "originalRef": "portaliq:message:00000000-0000-0000-0000-000000000000"
 }
 ```
 - `sourceText` (string, required): the text to translate.
 - `targetLanguage` (string, required): a BCP-47 language tag (e.g. `ar`, `tr`, `pl`).
 - `glossary` (array of `{term, translation}`, optional): school-specific terms the model must render verbatim using the given translation rather than translating freely.
+- `sourceLanguage` (string, optional, ai-translation-provenance): a BCP-47 tag for the language of `sourceText`. When absent, hermiq asks the provider for the tag of the first 500 characters and marks the answer `sourceLanguageDetected: true`; an unusable answer becomes `und`.
+- `originalRef` (string, optional, at most 512 characters, ai-translation-provenance): whatever the caller uses to identify the original. Opaque to hermiq and echoed back unchanged, so the consumer can link the reader to the original text.
+
+`targetLanguage` and a given `sourceLanguage` MUST match `^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$`; both are interpolated into a prompt, so anything else is a 400.
 
 **Response (200, available):**
 ```json
@@ -34,13 +42,34 @@ Both are soft, optional consumers. This change does not modify either app; it on
   "translatedText": "...",
   "targetLanguage": "ar",
   "machineTranslationNotice": "This text was translated automatically and may contain errors.",
-  "provider": "openai"
+  "provider": "openai",
+  "translatedByAi": true,
+  "sourceLanguage": "nl",
+  "sourceLanguageDetected": false,
+  "model": "openai/gpt-4o-mini",
+  "originalRef": "portaliq:message:00000000-0000-0000-0000-000000000000",
+  "disclosure": "<the Arabic disclosure sentence>",
+  "disclosureLanguage": "ar"
 }
 ```
 
+Provenance fields (ai-translation-provenance):
+
+| Field | Meaning |
+|---|---|
+| `translatedByAi` | Always present. `true` on every success, `false` on every unavailable answer. A missing field (an older hermiq) means "not labelled", never "not AI". |
+| `sourceLanguage` | The caller's tag, else the detected tag, else `und`. |
+| `sourceLanguageDetected` | `true` when hermiq detected the source language. |
+| `model` | `<chatProvider>` or `<chatProvider>/<chat model id>`, filtered to a model-id character set, at most 120 characters. Never a credential id, organisation id, base URL or key. |
+| `originalRef` | The caller's reference, or `""`. |
+| `disclosure` | A fixed sentence ("Translated by AI from Dutch. This translation may contain errors.") from a reviewed per-language table, never model output. |
+| `disclosureLanguage` | The primary subtag of the language `disclosure` is written in; `en` when the table has no sentence for the target language. |
+
+`machineTranslationNotice` and `provider` stay for compatibility.
+
 **Response (200, unavailable — feature not enabled or provider failure):**
 ```json
-{ "available": false, "reason": "feature-not-enabled" }
+{ "available": false, "reason": "feature-not-enabled", "translatedByAi": false }
 ```
 `reason` is one of `feature-not-enabled` (the `message-translation` AiFeature is missing or `lifecycle: disabled`) or `provider-error` (the feature is enabled but the configured LLM provider failed). Both are 200 responses, not error statuses — an "unavailable" translation is a normal, expected outcome a caller must handle, not an exceptional one.
 
@@ -48,13 +77,15 @@ Both are soft, optional consumers. This change does not modify either app; it on
 | Code | Condition |
 |------|-----------|
 | 400  | `sourceText` or `targetLanguage` missing from the request body |
+| 400  | `targetLanguage` or a given `sourceLanguage` is not a BCP-47 shaped tag (ai-translation-provenance) |
+| 400  | `originalRef` given but not a string, or longer than 512 characters (ai-translation-provenance) |
 | 401  | No authenticated Nextcloud session |
 
 ## Error Codes
 
 | Code | Meaning | Condition |
 |------|---------|-----------|
-| 400  | Bad request | Required field missing before any gate check or provider call |
+| 400  | Bad request | Required field missing, a malformed language tag, or an invalid `originalRef`, before any gate check or provider call |
 | 401  | Unauthenticated | No Nextcloud session |
 | 200 + `available: false` | Feature unavailable | DPO has not enabled `message-translation`, or the provider failed |
 

@@ -1426,7 +1426,11 @@ OC.L10N.register(
         "Open settings": "Instellingen openen",
         "Last checked": "Laatst gecontroleerd",
         "All connections": "Alle verbindingen",
-        "Status message": "Statusmelding"
+        "Status message": "Statusmelding",
+        "Outputs labelled as AI-made": "Uitvoer gemarkeerd als door AI gemaakt",
+        "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).": "Of de mensen die de uitvoer van deze functie lezen, te zien krijgen dat AI die heeft gemaakt (EU AI-verordening art. 50).",
+        "How outputs are labelled": "Hoe de uitvoer is gemarkeerd",
+        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "Hoe lezers te zien krijgen dat AI de uitvoer heeft gemaakt, bijvoorbeeld met een melding met de brontaal en een link naar het origineel."
     },
     "nplurals=2; plural=(n != 1);"
 )

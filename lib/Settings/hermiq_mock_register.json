@@ -326,7 +326,9 @@
         },
         "publicatiecategorie": "Voorbeeld Publicatiecategorie 1",
         "algoritmeregisterStatus": "niet-gepubliceerd",
-        "algoritmeregisterRef": "Voorbeeld Algoritmeregisterref 1"
+        "algoritmeregisterRef": "Voorbeeld Algoritmeregisterref 1",
+        "outputsLabelled": true,
+        "outputLabelling": "Elke vertaling toont een melding met de brontaal en een link naar de oorspronkelijke tekst."
       },
       {
         "@self": {
@@ -363,7 +365,9 @@
         },
         "publicatiecategorie": "Voorbeeld Publicatiecategorie 2",
         "algoritmeregisterStatus": "gepubliceerd",
-        "algoritmeregisterRef": "Voorbeeld Algoritmeregisterref 2"
+        "algoritmeregisterRef": "Voorbeeld Algoritmeregisterref 2",
+        "outputsLabelled": false,
+        "outputLabelling": ""
       },
       {
         "@self": {
@@ -400,7 +404,9 @@
         },
         "publicatiecategorie": "Voorbeeld Publicatiecategorie 3",
         "algoritmeregisterStatus": "ingetrokken",
-        "algoritmeregisterRef": "Voorbeeld Algoritmeregisterref 3"
+        "algoritmeregisterRef": "Voorbeeld Algoritmeregisterref 3",
+        "outputsLabelled": false,
+        "outputLabelling": ""
       },
       {
         "@self": {
