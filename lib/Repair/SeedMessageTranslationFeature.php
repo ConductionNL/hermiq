@@ -199,7 +199,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	private function backfillLabelling(object $objectService, ObjectEntity $existing, IOutput $output): void {
 		$data = $existing->getObject();
 		if (($data['outputsLabelled'] ?? null) === true) {
-			$output->info('message-translation AI feature already exists — skipping.');
+			$output->info('message-translation AI feature already exists, skipping.');
 			return;
 		}
 
@@ -217,7 +217,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 			_rbac: false,
 			_multitenancy: false
 		);
-		$output->info('message-translation AI feature already exists — back-filled output labelling.');
+		$output->info('message-translation AI feature already exists: back-filled output labelling.');
 
 	}//end backfillLabelling()
 
