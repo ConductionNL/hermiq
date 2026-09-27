@@ -1,0 +1,882 @@
+[
+	{
+		"row": "wk-ai-chat",
+		"matrix": "filinq",
+		"decision": "existing",
+		"reason": "the open change requires the companion to carry the open document's id so a person can ask about the document on screen; hermiq already returns sources from chat#sendMessage (lib/Controller/ChatController.php:1161), and rendering them is nextcloud-vue's CnAiMessageList, not hermiq.",
+		"change": "companion-everywhere",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "12.23",
+		"matrix": "dossiq",
+		"decision": "existing",
+		"reason": "matrix corrected: rated yes with built.state none; re-read at dossiq development 08175c55, the assistant forwards to hermiq's tool-free case-assistant surface and DossiqToolProvider exposes two read-only tools (lib/Mcp/DossiqToolProvider.php:79,103), so the row is partial and built, owner ConductionNL/hermiq.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ai-in-app-assistant",
+		"matrix": "buildiq",
+		"decision": "build",
+		"reason": "partial and built; three competitors rate yes for the missing half, an assistant grounded in the built app's own data and chosen per app.",
+		"change": "agents-bound-to-their-app",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ai-record-summary",
+		"matrix": "buildiq",
+		"decision": "build",
+		"reason": "a roadmap demand row (Power Apps 2026 wave 1) and two competitors rate yes.",
+		"change": "agents-bound-to-their-app",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ai-streaming-chat",
+		"matrix": "buildiq",
+		"decision": "defer",
+		"reason": "partial, built, no demand; one competitor rates yes (nocobase), and the part that does not stream is buildiq's own copilot (CopilotService.php), not hermiq.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-app-slug",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); rated no while the Agent.applicationSlug field is built backend only with no screen to set it, and the archived hydra-flow-application-slug-backfill only seeds it.",
+		"change": "agents-bound-to-their-app",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-delete",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; four competitors rate yes, and the missing half is that deleting an agent leaves its schedules running.",
+		"change": "agents-switch-off-and-stop",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-enable",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); Agent.active exists but nothing lets a person switch an agent off.",
+		"change": "agents-switch-off-and-stop",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-import-export",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; four competitors rate yes, and the missing half is exporting a live agent, whose from-agent export endpoint has no caller.",
+		"change": "agents-export-import-and-git-sync",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-list",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; two competitors rate yes, and the missing half is the owner and status of each agent in the catalog.",
+		"change": "agents-sharing-and-catalog-columns",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-nl-builder",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); two competitors rate yes.",
+		"change": "agents-plain-language-builder",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-quota",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "partial, built, no demand; one competitor rates yes (copilot-studio) and the missing half is only that an agent owner, not an organisation admin, sets the cap.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ag-visibility",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); isPrivate, groups and invitedUsers exist on Agent but no screen sets them.",
+		"change": "agents-sharing-and-catalog-columns",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ch-attach",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); the companion attach control posts to /api/chat/attachments, which hermiq never registers (hermiq#950).",
+		"change": "chat-attachments-and-images",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ch-image-gen",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); four competitors rate yes.",
+		"change": "chat-attachments-and-images",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ch-prompt-library",
+		"matrix": "hermiq",
+		"decision": "existing",
+		"reason": "the open change requires the prompts offered on a record to be the administered, scoped and ordered library, and its task 6 points the case assistant surface at it: AssistantPromptController serves the library per usageScope (lib/Controller/AssistantPromptController.php:90, forScope). The picker on a record is drawn by the consuming app's assistant panel, so nothing new is specified here.",
+		"change": "the-declared-tool-surface-and-the-prompt-library",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ch-search-history",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); two competitors rate yes.",
+		"change": "chat-session-search-and-bulk-delete",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ch-share-link",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); one competitor rates yes (open-webui).",
+		"change": "chat-fork-and-share-link",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "co-authority-notify",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "no competitor rates yes and no demand row; outside the core area. Incidents are recorded internally by the archived agent-lifecycle-governance.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "co-disable-dept",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "partial, built, no demand.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "co-risk-class",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "partial, built, no demand.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "co-transparency",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "no competitor rates yes and no demand row; outside the core area. The archived compliance-control-packs factsheet is role-restricted and algoritmeregister-publication writes to the public register, neither is an explanation for employees.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dl-dashboard-widget",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "no competitor rates yes and no demand row; outside the core area. The archived dashboard-org-widgets is hermiq's own Dashboard page, a different surface.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dl-embed-web",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "three competitors rate yes; also the anonymous entry point portaliq's search-assistant-from-public-content waits on.",
+		"change": "delivery-public-web-chat",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dl-messengers",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "recorded non-goal: hermiq ADR-005 drops the multi-platform gateway and names outside chat platforms \"an explicit non-goal for now\", and the archived delivery-channels design lists every named chat platform as OpenConnector's catalogue, reached by the outbound webhook.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-agent-as-code",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; changelog demand and three competitors rate yes for the missing half, edits in git that sync back into the existing agent.",
+		"change": "agents-export-import-and-git-sync",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-agent-form-fields",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); changelog demand and two competitors rate yes.",
+		"change": "agents-instruction-variables",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-agent-workspace",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; changelog demand and two competitors rate yes for the missing half, a workspace that lasts a session.",
+		"change": "tools-agent-workspace-and-installed-tools",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-ai-label",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "partial and built; the demand row (nextcloud/assistant#387, tag AI-generated files) asks for the half that is built, file tagging, and no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-ask-mid-run",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; changelog demand and five competitors rate yes for the missing half, a question with suggested answers instead of approve or reject.",
+		"change": "oversight-ask-and-hold",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-async-flow-step",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; changelog demand and two competitors rate yes for the missing half, an agent that calls a flow and receives its late result.",
+		"change": "flows-hand-off-and-wait",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-backup-restore",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; the featureRequest demand row (hermes-agent#12238, automatic backup of agent data) asks for the missing half, a whole-data backup and a restore point.",
+		"change": "operations-backup-and-restore",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-browser-use",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and three competitors rate yes.",
+		"change": "tools-browser-and-computer-use",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-build-snapshot",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); changelog demand and two competitors rate yes; it only has meaning once an agent keeps files and installed tools, so it rides with the workspace change.",
+		"change": "tools-agent-workspace-and-installed-tools",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-builder-upgrade",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and two competitors rate yes; the upgrade path only exists once the plain-language builder does.",
+		"change": "agents-plain-language-builder",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-bulk-delete-chats",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); a featureRequest demand row and two competitors rate yes.",
+		"change": "chat-session-search-and-bulk-delete",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-call-consent",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (copilot-studio), changelog demand only; hermiq has no voice call channel.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-claimed-tool-call",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "a featureRequest demand row but no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-computer-use",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and two competitors rate yes.",
+		"change": "tools-browser-and-computer-use",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-context-meter",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); a featureRequest demand row and two competitors rate yes.",
+		"change": "chat-how-an-answer-came-about",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-custom-metrics",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "changelog demand only and no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-deep-research",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; the featureRequest demand row (open-webui discussion 9321, Deep Research) asks for the missing half, a research mode that writes a cited report.",
+		"change": "tools-deep-research-report",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-failed-run-fix",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (n8n), changelog demand only.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-flow-change-review",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "changelog demand only and no competitor rates yes; a publish gate would sit in OpenRegister's flow store.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-folders",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "a featureRequest demand row but no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-fork-chat",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); changelog demand and two competitors rate yes.",
+		"change": "chat-fork-and-share-link",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-image-chat",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (chat); changelog demand and five competitors rate yes.",
+		"change": "chat-attachments-and-images",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-install-cli-tool",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and two competitors rate yes.",
+		"change": "tools-agent-workspace-and-installed-tools",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-key-rotation",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "recorded non-goal: hermiq ADR-001 \"What Hermiq must NOT build\" lists no credential-pool; provider keys stay one credential per provider in the credential broker.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-mcp-oauth",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "recorded non-goal: hermiq ADR-001 \"What Hermiq must NOT build\" says no MCP server of its own, and hydra ADR-034 decisions 3 and 7 give the instance MCP server and its auth to OpenRegister; hermiq's only MCP endpoint is the run-scoped one for its own CLI runner.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-mcp-user-auth",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "recorded non-goal for the missing half: hermiq ADR-001 says no MCP client of its own, and the nc-native-tools spec requires remote systems to route through OpenConnector; tool calls already run with the person's own Nextcloud rights.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-metadata-filter",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; changelog demand and three competitors rate yes for the missing half, file metadata filters.",
+		"change": "memory-retrieval-scope",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-model-ensemble",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and two competitors rate yes.",
+		"change": "models-several-models-per-turn",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-native-pdf",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and two competitors rate yes; it is the PDF case of the same attachment pipeline.",
+		"change": "chat-attachments-and-images",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-project-memory",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; the featureRequest demand row (hermes-agent#16833, project-scoped memory pools, global plus per project) asks for exactly the missing half.",
+		"change": "memory-project-scopes",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-prompt-cache",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "a featureRequest demand row and two competitors rate yes.",
+		"change": "models-prompt-and-answer-cache",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-prompt-placeholders",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); a featureRequest demand row and four competitors rate yes.",
+		"change": "agents-instruction-variables",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-question-themes",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "changelog demand only and no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-rate-cap",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "a featureRequest demand row but no competitor rates yes; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-remote-agent",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "a featureRequest demand row (hermes-agent#689) and three competitors rate yes.",
+		"change": "flows-hand-off-and-wait",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-responses-api",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "a featureRequest demand row and three competitors rate yes.",
+		"change": "models-provider-connections",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-run-compare",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; the featureRequest demand row (dify#41864, a workflow run comparison view) asks for the missing half, two chosen runs side by side including flow runs.",
+		"change": "observability-compare-two-runs",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-sandbox-choice",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and three competitors rate yes.",
+		"change": "tools-code-sandbox",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-savings-tracking",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (copilot-studio), changelog demand only.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-show-reasoning",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "changelog demand and five competitors rate yes; shown next to the answer on the chat screen.",
+		"change": "chat-how-an-answer-came-about",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-skill-search",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "a featureRequest demand row but no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-speech-translate",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; changelog demand and two competitors rate yes for the missing half, a translate action on a recording.",
+		"change": "chat-translate-a-recording",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-standing-goal",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "core area (agents); changelog demand and one competitor rates yes.",
+		"change": "agents-standing-goal",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-subscription-login",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; the featureRequest demand row (n8n community 285451, OAuth2 sign-in for OpenAI) asks for the missing half, a sign-in flow beyond a pasted Claude token.",
+		"change": "models-provider-connections",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-subtitles",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (nextcloud-assistant), changelog demand only; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-task-board",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (hermes-agent), changelog demand only; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-tool-call-cap",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; a featureRequest demand row and three competitors rate yes for the missing half, a cap the builder sets on every provider path.",
+		"change": "agents-switch-off-and-stop",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "dm-user-key-encryption",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "a featureRequest demand row but no competitor rates yes; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "fl-code-step",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "two competitors rate yes (dify, n8n); built.owner is hermiq, and hermiq contributes flow nodes to the OpenRegister canvas.",
+		"change": "tools-code-sandbox",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "fl-n8n",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "two competitors rate yes (hermes-agent, n8n); built.owner is hermiq: the agent side, calling an n8n workflow as a tool, is hermiq's.",
+		"change": "flows-hand-off-and-wait",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "me-external-kb",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "four competitors rate yes.",
+		"change": "memory-knowledge-bases",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "me-kb-upload",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "five competitors rate yes.",
+		"change": "memory-knowledge-bases",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "mo-cli-runner",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "partial, built, no demand; the open cli-runner-text-turn-dispatch records that executionMode has no UI control and does not add one.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "mo-failover",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "two competitors rate yes.",
+		"change": "models-several-models-per-turn",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "mo-openai-compat",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; three competitors rate yes for the missing half, a generic OpenAI-compatible provider and a base URL on the OpenAI provider.",
+		"change": "models-provider-connections",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "mo-sensitivity-routing",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "no competitor rates yes and no demand row; outside the core area. The open a-provider-and-a-place-per-ai-feature routes by feature and residency, not by data sensitivity.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ob-drift",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "no competitor rates yes and no demand row; the archived compliance-control-packs defers drift to a future model-monitoring change.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ob-external-tracing",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "four competitors rate yes.",
+		"change": "observability-export-traces",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "op-outside-agent",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "partial, built, no demand; one competitor rates yes (n8n).",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "op-scale",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "five competitors rate yes.",
+		"change": "operations-parallel-run-workers",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ov-automation-bias",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "no competitor rates yes and no demand row.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ov-draft-hold",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "three competitors rate yes.",
+		"change": "oversight-ask-and-hold",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ov-kill-agent",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "four competitors rate yes.",
+		"change": "agents-switch-off-and-stop",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "re-template-cross-tenant",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (dify), no demand row; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "re-template-from-agent",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "the archived agent-template-gallery built the from-agent export endpoint and nothing calls it (the row's own evidence), so the change shipped without the capability; treated as build, in the same change as ag-import-export.",
+		"change": "agents-export-import-and-git-sync",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "sc-list",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; two competitors rate yes for the missing half, one list of every schedule.",
+		"change": "scheduling-overview-and-start-choice",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "sc-manual-event-choice",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; four competitors rate yes for the missing half, one per-agent choice between event, schedule and by hand.",
+		"change": "scheduling-overview-and-start-choice",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "sc-nl",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "four competitors rate yes.",
+		"change": "scheduling-overview-and-start-choice",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "sk-auto-create",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (hermes-agent), no demand row; outside the core area. The archived skill-self-improvement proposes versions of existing skills only.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "td-ai-literacy",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "tender demand (Molenlanden 415259 requirement 71423).",
+		"change": "compliance-ai-literacy",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "td-bias-test",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; tender demand (Molenlanden 415259 requirement 71423) for the missing half, a bias rubric run on a schedule.",
+		"change": "reuse-scheduled-bias-evals",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "td-explain",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; tender demand (Tilburg University 402469, Juridisch Loket 307676, Molenlanden 415259) for the missing half, a plain-language account of how an outcome came about.",
+		"change": "chat-how-an-answer-came-about",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "td-no-training",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; tender demand (Zaanstad 364027 requirement 17539, UWV 415648) for the missing half, a recorded no-training term per provider.",
+		"change": "models-no-training-guarantee",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "td-validated-sources",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "partial and built; tender demand (Veiligheidsregio Utrecht 371293 requirement 4339) for the missing half, an enforced sources-only mode over validated documents.",
+		"change": "memory-retrieval-scope",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "tl-code-exec",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "five competitors rate yes.",
+		"change": "tools-code-sandbox",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "tl-custom-tool",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "six competitors rate yes; the generic openregister.runFlow tool exists, but not a named tool of my own.",
+		"change": "tools-custom-tools-without-code",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "tl-deck",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (nextcloud-assistant), no demand row; outside the core area. The archived nc-native-write-tools covers calendar, contacts and notes, not Deck.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "tl-tasks",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "four competitors rate yes.",
+		"change": "tools-nextcloud-tasks",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "tl-unified-search",
+		"matrix": "hermiq",
+		"decision": "defer",
+		"reason": "single competitor (nextcloud-assistant), no demand row; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "gw-ai-proxy",
+		"matrix": "integriq",
+		"decision": "build",
+		"reason": "three competitors rate yes (apisix, mulesoft, wso2); the LLM call path is hermiq's under hydra ADR-034, and it is the same fallback as hermiq:mo-failover.",
+		"change": "models-several-models-per-turn",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "gw-ai-cache",
+		"matrix": "integriq",
+		"decision": "build",
+		"reason": "three competitors rate yes (apisix, mulesoft, wso2); caching model answers sits on hermiq's LLM call path under hydra ADR-034.",
+		"change": "models-prompt-and-answer-cache",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "gw-ai-guard",
+		"matrix": "integriq",
+		"decision": "existing",
+		"reason": "the archived change filters input before every LLM turn and output before persistence and delivery, per organisation policy; hermiq row ov-guardrail-input is yes and built.",
+		"change": "2026-07-13-agent-guardrails",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "acc-ai-token-quota",
+		"matrix": "integriq",
+		"decision": "existing",
+		"reason": "the archived change gives Budget a token limit per organisation or per agent with a soft threshold and a hard cap; hermiq rows ob-budget and op-tenant-quota are yes and built.",
+		"change": "2026-07-12-cost-guardrails",
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "auto-ai-builder",
+		"matrix": "integriq",
+		"decision": "defer",
+		"reason": "single competitor (mulesoft), changelog demand only; hermiq:ag-nl-builder is specified for agents, drafting a flow is not.",
+		"change": null,
+		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "auto-ai-evaluation",
+		"matrix": "integriq",
+		"decision": "existing",
+		"reason": "the archived change runs an agent over an EvalDataset and scores each case deterministically or with an LLM judge; hermiq row re-evals is yes and built.",
+		"change": "2026-07-14-agent-evals",
+		"decidedOn": "2026-09-27"
+	}
+]
