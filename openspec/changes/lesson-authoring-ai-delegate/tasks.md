@@ -10,6 +10,7 @@
   - GIVEN the slug already exists WHEN the step runs again THEN nothing is saved
   - GIVEN OpenRegister is missing or a write fails WHEN the step runs THEN it warns and returns, never throws
   - GIVEN `appinfo/info.xml` WHEN inspected THEN the step is in both `post-migration` and `install`, after `SeedCourseRecommendationFeature`
+  - GIVEN an existing install WHEN it upgrades THEN the new step runs, because `<version>` moved past the merge base (gate 110)
 - [x] Implement
 - [x] Test
 

@@ -336,6 +336,62 @@ class LessonAuthoringControllerTest extends TestCase {
 	}//end validRequests()
 
 	/**
+	 * The outline endpoint answers with the engine's draft envelope, unchanged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
+	 */
+	public function testTheOutlineEndpointReturnsTheDraftEnvelope(): void {
+		$envelope = [
+			'available' => true,
+			'action' => 'outline',
+			'draft' => true,
+			'draftNotice' => 'This is an AI-generated draft. Check and edit it before you use it.',
+			'provider' => 'nextcloud',
+			'draftText' => "1. Start\n2. Instructie",
+		];
+
+		$engine = $this->createMock(LessonAuthoringEngine::class);
+		$engine->expects($this->once())
+			->method('draftOutline')
+			->with(['Breuken vergelijken'], '', 'nl', 'teacher1')
+			->willReturn($envelope);
+
+		$response = $this->controller(params: ['goalTitles' => ['Breuken vergelijken']], engine: $engine)->outline();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame($envelope, $response->getData());
+
+	}//end testTheOutlineEndpointReturnsTheDraftEnvelope()
+
+	/**
+	 * The goal-suggestions endpoint passes an unavailable envelope through as a 200, not an error.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
+	 */
+	public function testTheGoalSuggestionsEndpointPassesUnavailableThroughAs200(): void {
+		$envelope = ['available' => false, 'action' => 'goal-suggestions', 'reason' => 'feature-not-enabled'];
+
+		$engine = $this->createMock(LessonAuthoringEngine::class);
+		$engine->expects($this->once())
+			->method('suggestGoals')
+			->with('Les', ['Een', 'Twee'], 'teacher1')
+			->willReturn($envelope);
+
+		$response = $this->controller(
+			params: ['lessonText' => 'Les', 'goalTitles' => ['Een', 'Twee']],
+			engine: $engine
+		)->goalSuggestions();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame($envelope, $response->getData());
+
+	}//end testTheGoalSuggestionsEndpointPassesUnavailableThroughAs200()
+
+	/**
 	 * An engine exception maps to a 500, and the log line carries no request content.
 	 *
 	 * @return void

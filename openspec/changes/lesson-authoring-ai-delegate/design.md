@@ -75,7 +75,7 @@ lib/
     SeedLessonAuthoringFeature.php    (new)
 appinfo/
   routes.php                          (+4 routes)
-  info.xml                            (+1 repair step, both blocks)
+  info.xml                            (+1 repair step, both blocks; <version> bump)
 tests/Unit/
   Controller/LessonAuthoringControllerTest.php  (new)
   Service/LessonAuthoringEngineTest.php          (new)

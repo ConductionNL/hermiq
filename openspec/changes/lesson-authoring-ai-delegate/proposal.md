@@ -65,7 +65,7 @@ None. Reuses `ProviderFactory`, `AiFeatureService`, the `agentaifeature` schema 
 - `lib/Service/LessonAuthoringEngine.php` (new): gate, prompts, parsers, provider call, call log.
 - `lib/Controller/LessonAuthoringController.php` (new): four endpoints.
 - `appinfo/routes.php`: four routes.
-- `appinfo/info.xml`: the repair step in the `install` and `post-migration` blocks, next to `SeedCourseRecommendationFeature`.
+- `appinfo/info.xml`: the repair step in the `install` and `post-migration` blocks, next to `SeedCourseRecommendationFeature`, and a `<version>` bump. Without the bump `occ upgrade` answers "No upgrade required" and existing installs never get the feature row (gate 110).
 - `CHANGELOG.md`: one Unreleased entry.
 
 ## Cross-Project Dependencies
