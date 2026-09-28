@@ -144,6 +144,9 @@ class ChatStreamController extends Controller {
 	 *                                                 requests for tools it lacks.
 	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
 	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
+	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
 	 */
 	public function __construct(
