@@ -215,10 +215,16 @@ class AssistantService {
 
 		$messageHistory = $this->historyHandler->buildMessageHistory(conversationId: $conversationId);
 
+		// _rbac false: the case-assistant agent is provisioned once per app as a
+		// private agent (so it stays out of the catalog), owned by whoever triggered
+		// the provisioning. The Agent read rule (hermiq#976) would hide it from every
+		// other user. resolveConversation() above already checked the session is the
+		// caller's own; tenancy still applies.
 		$agent = $this->objectService->find(
 			id: (string)$conversation->getObject()['agentId'],
 			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			schema: self::AGENT_SCHEMA,
+			_rbac: false
 		);
 
 		$ragContext = [
@@ -369,7 +375,10 @@ class AssistantService {
 		$existing = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1]);
+			// _rbac false: one shared, private, tool-locked agent per app. Under the
+			// Agent read rule (hermiq#976) each other user would miss it and
+			// provision a duplicate. Tenancy still applies.
+			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1], _rbac: false);
 
 		foreach ($existing as $candidate) {
 			if ($candidate instanceof ObjectEntity) {
@@ -579,7 +588,10 @@ class AssistantService {
 		$existing = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1]);
+			// _rbac false: one shared, private, tool-locked agent per app. Under the
+			// Agent read rule (hermiq#976) each other user would miss it and
+			// provision a duplicate. Tenancy still applies.
+			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1], _rbac: false);
 
 		foreach ($existing as $candidate) {
 			if ($candidate instanceof ObjectEntity) {

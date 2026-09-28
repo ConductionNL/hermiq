@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
@@ -146,7 +147,7 @@ class ToolOversightControllerTest extends TestCase {
 		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
 		// goes here and not on the end — appending would put the logger in its
 		// slot and the anonymous class's own `$richAvailable` in the logger's.
-		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), $richAvailable) extends ToolOversightController {
+		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
 			 */
@@ -161,6 +162,7 @@ class ToolOversightControllerTest extends TestCase {
 				IGroupManager $groupManager,
 				ToolAccessRequestService $accessRequests,
 				LoggerInterface $logger,
+				AgentAccessService $agentAccess,
 				private readonly bool $richAvailable,
 			) {
 				parent::__construct(
@@ -173,7 +175,8 @@ class ToolOversightControllerTest extends TestCase {
 					$userSession,
 					$groupManager,
 					$accessRequests,
-					$logger
+					$logger,
+					$agentAccess
 				);
 			}//end __construct()
 

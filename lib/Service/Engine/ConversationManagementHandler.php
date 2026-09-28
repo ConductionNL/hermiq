@@ -369,6 +369,9 @@ class ConversationManagementHandler {
 	 * @return array<int, ObjectEntity> The conversation's Message objects, ascending.
 	 */
 	private function fetchAllMessages(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and a
+		// summary of a shared session must cover every participant's turns. This runs
+		// inside the engine turn, after its owner-or-participant check on the session.
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema('agentsessionturn')
@@ -377,7 +380,8 @@ class ConversationManagementHandler {
 					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'ASC'],
 					'limit' => self::MAX_MESSAGES_FOR_SUMMARY,
-				]
+				],
+				_rbac: false
 			);
 
 		return array_values(array_filter($messages, static fn ($object): bool => $object instanceof ObjectEntity));
