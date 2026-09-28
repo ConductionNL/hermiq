@@ -2559,10 +2559,11 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/changes/hermiq-runner-git-capability/tasks.md: all 8 tasks unchecked ('[x]' count = 0). find lib -iname '*workspace*' and grep -rn 'workspace\\.' across lib/ and exapp/ return nothing; no WorkspaceProvider/WorkspaceToolset class exists, only contract.md/design.md/tasks.md."
+				"evidence": "openspec/changes/hermiq-runner-git-capability/tasks.md: all 8 tasks unchecked ('[x]' count = 0). find lib -iname '*workspace*' and grep -rn 'workspace\\.' across lib/ and exapp/ return nothing; no WorkspaceProvider/WorkspaceToolset class exists, only contract.md/design.md/tasks.md.",
+				"change": "openspec/changes/hermiq-runner-git-capability"
 			},
 			"reachedOn": "nothing",
-			"note": "Fully specified as a workspace.* MCP tool contract, but zero implementing code exists.",
+			"note": "Fully specified as a workspace.* MCP tool contract, but zero implementing code exists. corrections round 9 (2026-09-28): built.change names openspec/changes/hermiq-runner-git-capability, open on development at bfa5e5d6 with none of its 8 tasks started, whose proposal specifies governed workspace.* git and file tools (open, read, write, commit, push) for an agent run; source: the corrections-9 list of specified rows that named no change.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "hermiq-runner-git-capability",
@@ -2904,9 +2905,11 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/changes/knowledge-graph/tasks.md: 0 of 19 tasks checked. proposal.md describes a register-version bump (0.26.0 -> 0.27.0) that has not landed -- lib/Settings/hermiq_register.json is currently at 0.32.0 with no graph/entity/relation schema present, and no KnowledgeGraph-named class exists anywhere in lib/."
+				"evidence": "openspec/changes/knowledge-graph/tasks.md: 0 of 19 tasks checked. proposal.md describes a register-version bump (0.26.0 -> 0.27.0) that has not landed -- lib/Settings/hermiq_register.json is currently at 0.32.0 with no graph/entity/relation schema present, and no KnowledgeGraph-named class exists anywhere in lib/.",
+				"change": "openspec/changes/knowledge-graph"
 			},
 			"reachedOn": "nothing",
+			"note": "corrections round 9 (2026-09-28): built.change names openspec/changes/knowledge-graph, open on development at bfa5e5d6 with 0 of 19 tasks checked, whose proposal specifies GraphEntity and GraphRelation schemas and agent tools that follow those links; source: the corrections-9 list of specified rows that named no change.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "knowledge-graph",
