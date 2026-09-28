@@ -14,8 +14,9 @@
  * - Organisation is never taken from the request: ObjectService multitenancy
  *   assigns owner + organisation on create and scopes every read (OR set/
  *   preserved them explicitly against the entity).
- * - Visibility semantics mirror OR's AgentMapper::canUserAccessAgent():
- *   non-private OR owner OR invited; modification is owner-only.
+ * - Visibility is AgentAccessService's one predicate: non-private OR owner
+ *   OR invited OR a member of one of the agent's groups; modification is
+ *   owner-only.
  * - OR's `agents#page` TemplateResponse route is NOT mirrored — hermiq's SPA
  *   catch-all serves the page URL (see appinfo/routes.php).
  *
@@ -40,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
@@ -125,6 +127,7 @@ class AgentsController extends Controller {
 	 * @param ToolRegistryFacade $toolRegistry OR's public tool read surface (gate-27 contract).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
@@ -134,6 +137,7 @@ class AgentsController extends Controller {
 		private readonly ToolRegistryFacade $toolRegistry,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessService $agentAccess,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -142,8 +146,8 @@ class AgentsController extends Controller {
 	 * Get all agents accessible by the current user.
 	 *
 	 * Organisation scoping is applied by ObjectService multitenancy on the
-	 * read; the per-agent visibility rule (non-private OR owner OR invited)
-	 * is applied here, mirroring OR's mapper-layer RBAC filter.
+	 * read; the per-agent visibility rule (non-private OR owner OR invited OR
+	 * group member, AgentAccessService) is applied here.
 	 *
 	 * @return JSONResponse List of agents.
 	 *
@@ -188,7 +192,7 @@ class AgentsController extends Controller {
 					continue;
 				}
 
-				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
+				if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
 					$results[] = $this->serializeAgent(agent: $agent);
 				}
 			}
@@ -244,7 +248,7 @@ class AgentsController extends Controller {
 			}
 
 			// Per-object visibility check (gate-7).
-			if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+			if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
 				return new JSONResponse(
 					data: ['error' => 'Access denied to this agent'],
 					statusCode: Http::STATUS_FORBIDDEN
@@ -397,7 +401,7 @@ class AgentsController extends Controller {
 			}
 
 			// Owner-only modification guard (gate-7).
-			if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+			if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
 				return new JSONResponse(
 					data: ['error' => 'You do not have permission to modify this agent'],
 					statusCode: Http::STATUS_FORBIDDEN
@@ -505,7 +509,7 @@ class AgentsController extends Controller {
 			}
 
 			// Owner-only modification guard (gate-7).
-			if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+			if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
 				return new JSONResponse(
 					data: ['error' => 'You do not have permission to delete this agent'],
 					statusCode: Http::STATUS_FORBIDDEN
@@ -660,57 +664,6 @@ class AgentsController extends Controller {
 			);
 		}//end try
 	}//end tools()
-
-	/**
-	 * Whether the user may use an agent: non-private agents are open to the
-	 * organisation (multitenancy already scoped the read), private agents
-	 * only to their owner or explicitly invited users — mirrors OR's
-	 * AgentMapper::canUserAccessAgent().
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may access the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
-	 */
-	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $agent->getObject();
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		// Non-private agents are accessible to all users in the organisation.
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		// Owner always has access.
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		// Check if user is invited.
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-			return true;
-		}
-
-		return false;
-	}//end canUserAccessAgent()
-
-	/**
-	 * Whether the user may modify (or delete) an agent: owner-only, mirroring
-	 * OR's AgentMapper::canUserModifyAgent().
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may modify the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
-	 */
-	private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool {
-		return $agent->getOwner() === $userId && $userId !== '';
-	}//end canUserModifyAgent()
 
 	/**
 	 * Strip routing internals, identity fields, and the owner/organisation

@@ -37,6 +37,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -141,6 +142,10 @@ class ChatStreamController extends Controller {
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
+	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
 	 */
@@ -154,6 +159,7 @@ class ChatStreamController extends Controller {
 		private readonly IL10N $l10n,
 		private readonly RunStepBus $runStepBus,
 		private readonly ToolAccessRequestService $accessRequests,
+		private readonly AgentAccessService $agentAccess,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -642,8 +648,8 @@ class ChatStreamController extends Controller {
 	 * Find an agent the current user is allowed to start a conversation with.
 	 *
 	 * Iterates agents (bounded fetch) and returns the first uuid whose access
-	 * check passes — non-private OR owned-by-user OR invited (the same
-	 * semantics OR's AgentMapper::canUserAccessAgent applied). Falls back to
+	 * check passes (AgentAccessService: non-private, owner, invited or a
+	 * member of one of the agent's groups). Falls back to
 	 * '' when no accessible agent exists. NEVER returns "the first agent
 	 * regardless of owner": that caused cross-user data exposure in
 	 * multi-user deployments.
@@ -677,7 +683,7 @@ class ChatStreamController extends Controller {
 					continue;
 				}
 
-				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+				if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
 					continue;
 				}
 
@@ -708,42 +714,6 @@ class ChatStreamController extends Controller {
 
 		return '';
 	}//end pickFallbackAgentForUser()
-
-	/**
-	 * Whether the user may use an agent: non-private agents are open to the
-	 * organisation (multitenancy already scoped the read), private agents
-	 * only to their owner or explicitly invited users — mirrors OR's
-	 * AgentMapper::canUserAccessAgent() against the hermiq `agent` payload.
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may access the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-	 */
-	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $agent->getObject();
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		// Non-private agents are accessible to all users in the organisation.
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		// Owner always has access.
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		// Check if user is invited.
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-			return true;
-		}
-
-		return false;
-	}//end canUserAccessAgent()
 
 	/**
 	 * Resolve (load or create) the conversation referenced by the request.
@@ -797,7 +767,9 @@ class ChatStreamController extends Controller {
 			register: self::REGISTER_SLUG,
 			schema: self::AGENT_SCHEMA
 		);
-		if ($agent === null) {
+		// A private agent the caller may not use answers exactly like a missing
+		// one, so the stream cannot confirm it exists (hermiq#976).
+		if ($agent === null || $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
 			throw new RuntimeException('Agent not found: ' . $agentUuid);
 		}
 

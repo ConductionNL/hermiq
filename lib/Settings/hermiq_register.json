@@ -2,8 +2,8 @@
 	"openapi": "3.0.0",
 	"info": {
 		"title": "Hermiq Register",
-		"description": "Hermiq register v0.33.0, ai-translation-provenance: AiFeature gains the OPTIONAL outputsLabelled (boolean, default false) and outputLabelling (text), so the register records whether a feature tells the people who read its output that AI made it (EU AI Act Art. 50), and how. The message-translation feature is seeded with both. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.32.0, session-schema-declaration: Session and SessionTurn take over every property of Conversation and Message so the migration can copy field for field, and Session gains the OPTIONAL triggerOrigin (human|cron|event|flow, default human) that the Chat page splits human sessions from automated ones on. The slug stays `agentsession`, NOT `session`: the bare slug resolves to scholiq's schema, and this register already prefixes for exactly that reason (agentskill, agentbudget, agentwebhook). Conversation and Message stay declared and untouched until the migration is verified in production. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.31.0, schedules-onto-engine-triggers: Schedule gains the OPTIONAL, derived engineFlowId — the uuid of the OpenRegister flow that now owns this schedule's clock. Written by the ScheduleFlowBridge when a schedule is mirrored onto the engine's schedule trigger, cleared by occ hermiq:schedules:rollback-flow-mirror. While set, the app-local dispatcher no longer selects the schedule as due by nextRun (a pending retry still fires locally). ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
-		"version": "0.33.0"
+		"description": "Hermiq register v0.34.0, private-reads (hermiq#976): eight schemas stop granting read to every signed-in user. Agent is read by its owner, by anyone when it is not private (isPrivate false or unset), by a user in invitedUsers, and by a member of a group in groups, the same predicate as AgentAccessService::canUserAccessAgent(). Session and Conversation are read by the user in userId and by the users in participants. UserProfile is read by the user it describes (subjectUid). SessionTurn, Message, Memory and IntakeConversation are read by their owner only. Owners and admins are admitted before any rule, and write actions stay omitted, so writes stay owner-only. Every rule is conditional on the authenticated pseudo-group, so no rule opens a schema to anonymous callers. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a rule shipped without one is inert on every existing install. Previous v0.33.0, ai-translation-provenance: AiFeature gains the OPTIONAL outputsLabelled (boolean, default false) and outputLabelling (text), so the register records whether a feature tells the people who read its output that AI made it (EU AI Act Art. 50), and how. The message-translation feature is seeded with both. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.32.0, session-schema-declaration: Session and SessionTurn take over every property of Conversation and Message so the migration can copy field for field, and Session gains the OPTIONAL triggerOrigin (human|cron|event|flow, default human) that the Chat page splits human sessions from automated ones on. The slug stays `agentsession`, NOT `session`: the bare slug resolves to scholiq's schema, and this register already prefixes for exactly that reason (agentskill, agentbudget, agentwebhook). Conversation and Message stay declared and untouched until the migration is verified in production. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.31.0, schedules-onto-engine-triggers: Schedule gains the OPTIONAL, derived engineFlowId — the uuid of the OpenRegister flow that now owns this schedule's clock. Written by the ScheduleFlowBridge when a schedule is mirrored onto the engine's schedule trigger, cleared by occ hermiq:schedules:rollback-flow-mirror. While set, the app-local dispatcher no longer selects the schedule as due by nextRun (a pending retry still fires locally). ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
+		"version": "0.34.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -833,7 +833,7 @@
 			"IntakeConversation": {
 				"slug": "agentintakeconversation",
 				"icon": "ForumOutline",
-				"version": "0.1.0",
+				"version": "0.2.0",
 				"title": "Intake conversation",
 				"description": "One conversation with a person who has no record yet, keyed by the person and the subject rather than by the channel, so somebody who starts by e-mail and continues in the portal is not asked to repeat themselves. It ends in a filed request or in a handover to a person, and in nothing else.",
 				"type": "object",
@@ -843,7 +843,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {
@@ -1437,7 +1437,7 @@
 			"Memory": {
 				"slug": "memory",
 				"icon": "Brain",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Agent memory",
 				"description": "An agent's long-term memory (the MEMORY.md port): durable facts stored as JSON entries with a character budget. Exceeding the budget flags needsConsolidation — a nudge to summarise, never a silent truncation.",
 				"type": "object",
@@ -1446,7 +1446,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {
@@ -1509,7 +1509,7 @@
 			"UserProfile": {
 				"slug": "userprofile",
 				"icon": "AccountDetailsOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "User profile",
 				"description": "Facts an agent keeps about a subject user (the USER.md port): durable entries with a character budget and consolidation nudge, scoped to the owning organisation.",
 				"type": "object",
@@ -1518,7 +1518,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"subjectUid": "$userId"}}
 					]
 				},
 				"properties": {
@@ -1586,7 +1586,7 @@
 			"Session": {
 				"slug": "agentsession",
 				"icon": "ChatOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Session",
 				"description": "A chat thread between a person and an agent. The canonical name for what the UI, the API and the code all now call a session; `Conversation` is its retired predecessor and stays declared until the migration is verified in production. Tenant scope and soft-delete/timestamps are inherited from ObjectEntity and not declared here.",
 				"type": "object",
@@ -1595,7 +1595,8 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"userId": "$userId"}},
+						{"group": "authenticated", "match": {"participants": {"$contains": "$userId"}}}
 					]
 				},
 				"properties": {
@@ -1670,7 +1671,7 @@
 			"SessionTurn": {
 				"slug": "agentsessionturn",
 				"icon": "MessageOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Session turn",
 				"description": "One turn within a Session, optionally carrying RAG sources and an AI Chat Companion context snapshot. The canonical name for what was a Message. Each turn is a separate object so it is individually searchable and org-scoped.",
 				"type": "object",
@@ -1679,7 +1680,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {
@@ -2442,7 +2443,7 @@
 			"Agent": {
 				"slug": "agent",
 				"icon": "RobotOutline",
-				"version": "0.7.0",
+				"version": "0.8.0",
 				"title": "Agent",
 				"description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target). v0.5.0 (hermiq-agent-application-slug): gains the OPTIONAL applicationSlug. v0.6.0 (speech-services): gains the four voice* fields — which engine transcribes, which speaks, the silence that closes the microphone, and whether spoken conversation is offered. ⚠️ voice* is NOT talkEnabled: that one is about Nextcloud Talk rooms, this family is about microphones, and naming a voice flag 'talk*' would collide with it.",
 				"type": "object",
@@ -2728,14 +2729,17 @@
 				},
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"isPrivate": false}},
+						{"group": "authenticated", "match": {"isPrivate": null}},
+						{"group": "authenticated", "match": {"invitedUsers": {"$contains": "$userId"}}},
+						{"group": "authenticated", "match": {"groups": {"$contains": "$user.groups"}}}
 					]
 				}
 			},
 			"Conversation": {
 				"slug": "conversation",
 				"icon": "ForumOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Conversation",
 				"description": "A chat thread bound to one Agent. Tenant scope and soft-delete/timestamps are inherited from ObjectEntity and not declared here.",
 				"type": "object",
@@ -2744,7 +2748,8 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"userId": "$userId"}},
+						{"group": "authenticated", "match": {"participants": {"$contains": "$userId"}}}
 					]
 				},
 				"properties": {
@@ -2795,7 +2800,7 @@
 			"Message": {
 				"slug": "message",
 				"icon": "MessageTextOutline",
-				"version": "0.1.0",
+				"version": "0.2.0",
 				"title": "Message",
 				"description": "One turn within a Conversation, optionally carrying RAG sources and an AI Chat Companion context snapshot.",
 				"type": "object",
@@ -2805,7 +2810,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {

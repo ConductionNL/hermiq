@@ -42,6 +42,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -141,6 +142,7 @@ class ToolOversightController extends Controller {
 	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's requests
 	 *                                                 for tools it has not been granted.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -158,6 +160,7 @@ class ToolOversightController extends Controller {
 		private readonly IGroupManager $groupManager,
 		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessService $agentAccess,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -824,9 +827,9 @@ class ToolOversightController extends Controller {
 	}//end findAgent()
 
 	/**
-	 * Whether the user may view an agent: non-private OR owner OR invited —
-	 * mirrors `AgentsController::canUserAccessAgent()` (duplicated locally; no
-	 * cross-controller coupling for a small visibility rule).
+	 * Whether the user may view an agent's tool oversight: AgentAccessService's
+	 * one predicate (non-private, owner, invited or a member of one of the
+	 * agent's groups), plus the instance-admin oversight bypass below.
 	 *
 	 * @param ObjectEntity $agent Agent object.
 	 * @param string $userId Nextcloud user id.
@@ -834,19 +837,7 @@ class ToolOversightController extends Controller {
 	 * @return bool
 	 */
 	private function canAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $this->agentData(agent: $agent);
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
+		if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
 			return true;
 		}
 
@@ -858,18 +849,6 @@ class ToolOversightController extends Controller {
 		// widen general private-agent access elsewhere.
 		return $this->groupManager->isAdmin($userId);
 	}//end canAccessAgent()
-
-	/**
-	 * The agent entity's decoded object payload — a plain in-memory accessor
-	 * (`ObjectEntity::getObject()` never touches storage and cannot throw).
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function agentData(ObjectEntity $agent): array {
-		return $agent->getObject();
-	}//end agentData()
 
 	/**
 	 * The agent's raw `Agent.tools` grant strings, sanitized.

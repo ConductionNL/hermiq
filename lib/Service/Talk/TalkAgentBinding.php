@@ -348,10 +348,14 @@ class TalkAgentBinding {
 	 */
 	private function loadAgent(string $agentId): ?ObjectEntity {
 		try {
+			// _rbac false: an administrator bound this agent to the room, so everyone
+			// in the room talks to it, while the Agent read rule (hermiq#976) admits
+			// only its owner, invited users and group members. Tenancy still applies.
 			$agent = $this->objectService->find(
 				id: $agentId,
 				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				schema: self::AGENT_SCHEMA,
+				_rbac: false
 			);
 
 			if (($agent instanceof ObjectEntity) === false) {

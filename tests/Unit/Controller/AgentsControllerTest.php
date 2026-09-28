@@ -27,9 +27,11 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentsController;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -73,6 +75,13 @@ class AgentsControllerTest extends TestCase {
 	private IUserSession $userSession;
 
 	/**
+	 * Group ids per uid, read by the real AgentAccessService's group check.
+	 *
+	 * @var array<string, array<int, string>>
+	 */
+	private array $memberships = [];
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -98,12 +107,18 @@ class AgentsControllerTest extends TestCase {
 	 * @return AgentsController
 	 */
 	private function controller(): AgentsController {
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isInGroup')->willReturnCallback(
+			fn (string $uid, string $group): bool => in_array($group, ($this->memberships[$uid] ?? []), true)
+		);
+
 		return new AgentsController(
 			$this->request,
 			$this->objectService,
 			$this->toolRegistry,
 			$this->userSession,
-			$this->createMock(LoggerInterface::class)
+			$this->createMock(LoggerInterface::class),
+			new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $groupManager)
 		);
 
 	}//end controller()
@@ -179,6 +194,33 @@ class AgentsControllerTest extends TestCase {
 		$this->assertSame('alice', $response->getData()['owner']);
 
 	}//end testShowGuardsVisibility()
+
+	/**
+	 * A private agent shared with one of the caller's groups is listed and
+	 * opens; one shared with a group the caller is not in stays hidden
+	 * (hermiq#951, REQ-AGSHARE-002).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-group-sharing-is-enforced-wherever-an-agent-is-read-or-run-req-agshare-002
+	 */
+	public function testIndexAndShowHonourTheAgentsGroups(): void {
+		$this->memberships = ['alice' => ['staff', 'planning-desk']];
+		$shared = $this->agent('agent-group', ['name' => 'Planning desk helper', 'isPrivate' => true, 'groups' => ['planning-desk']], 'bob');
+		$other = $this->agent('agent-other-group', ['name' => 'Finance helper', 'isPrivate' => true, 'groups' => ['finance']], 'bob');
+
+		$this->request->method('getParams')->willReturn([]);
+		$this->objectService->method('findAll')->willReturn([$shared, $other]);
+		$this->objectService->method('find')->willReturnOnConsecutiveCalls($shared, $other);
+
+		$controller = $this->controller();
+
+		$uuids = array_column($controller->index()->getData()['results'], 'uuid');
+		$this->assertSame(['agent-group'], $uuids);
+		$this->assertSame(Http::STATUS_OK, $controller->show('agent-group')->getStatus());
+		$this->assertSame(Http::STATUS_FORBIDDEN, $controller->show('agent-other-group')->getStatus());
+
+	}//end testIndexAndShowHonourTheAgentsGroups()
 
 	/**
 	 * create() strips organisation/owner/_route from the request (they are

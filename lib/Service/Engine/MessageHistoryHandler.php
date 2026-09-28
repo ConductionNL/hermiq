@@ -96,6 +96,10 @@ class MessageHistoryHandler {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
 	public function buildMessageHistory(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and in
+		// a shared session the other participants' turns are owned by them, while the
+		// model needs the whole thread. Engine::processMessage() runs the
+		// owner-or-participant check on the session before it asks for this history.
 		$recent = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::MESSAGE_SCHEMA)
@@ -104,7 +108,8 @@ class MessageHistoryHandler {
 					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'DESC'],
 					'limit' => self::RECENT_MESSAGES_COUNT,
-				]
+				],
+				_rbac: false
 			);
 
 		// The findAll() fetch is most-recent-first; the LLM needs chronological order.

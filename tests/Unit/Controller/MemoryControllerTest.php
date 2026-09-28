@@ -39,6 +39,7 @@ use OCA\Hermiq\Service\MemoryService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -129,7 +130,7 @@ class MemoryControllerTest extends TestCase {
 	private function agentAccess(?ObjectEntity $agent): AgentAccessService {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturn($agent);
-		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class));
 	}//end agentAccess()
 
 	/**
