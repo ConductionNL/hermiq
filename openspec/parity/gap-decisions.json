@@ -878,5 +878,29 @@
 		"reason": "the archived change runs an agent over an EvalDataset and scores each case deterministically or with an LLM judge; hermiq row re-evals is yes and built.",
 		"change": "2026-07-14-agent-evals",
 		"decidedOn": "2026-09-27"
+	},
+	{
+		"row": "ai-smart-paste-into-forms",
+		"matrix": "buildiq",
+		"decision": "build",
+		"reason": "Smart-paste fill endpoint half, requested by buildiq's merged change ai-smart-paste-into-forms (its Sibling halves: 'hermiq: the fill endpoint ... No such endpoint exists on hermiq development') and by nextcloud-vue's merged change form-smart-paste, whose host-registered handler waits for a hermiq route. Hermiq has no fill route (appinfo/routes.php carries assistant#converse, assistant#detectPii and lessonAuthoring#*). Build: merged changes of two other products depend on it.",
+		"change": "forms-smart-paste-fill",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "platform-help-agent",
+		"matrix": "shillinq",
+		"decision": "existing",
+		"reason": "Agent template loading half, requested by shillinq's platform-help-agent (a listener offers the Shillinq helper template to hermiq's catalogue). hermiq's open change agents-bound-to-their-app D5 specifies CollectAgentTemplatesEvent: an app offers a package with $event->offer(appId, package), hermiq imports it quarantined with source app:<appId>, and an admin approves it (REQ-APPAG-005). Its design answers shillinq's task 1.1 by name.",
+		"change": "agents-bound-to-their-app",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "self-service-policy-assistant",
+		"matrix": "humaniq",
+		"decision": "existing",
+		"reason": "Agent template loading half, requested by humaniq's self-service-policy-assistant ('hermiq: loading an agent definition contributed by an app'). hermiq's open change agents-bound-to-their-app D5 specifies CollectAgentTemplatesEvent for exactly that (REQ-APPAG-005). The same humaniq change also names hermiq's 'forward-to-group tool' for the hand-off to HR; that half is not decided here.",
+		"change": "agents-bound-to-their-app",
+		"decidedOn": "2026-09-28"
 	}
 ]
