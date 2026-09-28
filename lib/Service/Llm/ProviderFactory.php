@@ -219,6 +219,18 @@ class ProviderFactory {
 	private const MAX_TOOL_ITERATIONS = 10;
 
 	/**
+	 * Tokens the most recent callFireworksChat()/callAnthropicChat() reported, as
+	 * `promptTokens` and `completionTokens`; empty when the provider reported none.
+	 *
+	 * Read by ResponseGenerationHandler right after the call and recorded as the
+	 * run's usage, which BudgetService sums against a token budget (hermiq#985).
+	 * Reset at the start of every call so one turn never inherits another's count.
+	 *
+	 * @var array<string, int>
+	 */
+	private array $lastCallUsage = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
@@ -375,6 +387,37 @@ class ProviderFactory {
 
 		return $this->container;
 	}//end serviceContainer()
+
+	/**
+	 * The tokens the most recent hosted chat call reported.
+	 *
+	 * @return array<string, int> `promptTokens` and `completionTokens`, or `[]` when the
+	 *                            provider reported no usage.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 */
+	public function lastCallUsage(): array {
+		return $this->lastCallUsage;
+	}//end lastCallUsage()
+
+	/**
+	 * Add one request's usage to a running total.
+	 *
+	 * @param array<string, int> $total The running total.
+	 * @param mixed $promptTokens This request's prompt (input) tokens.
+	 * @param mixed $completionTokens This request's completion (output) tokens.
+	 *
+	 * @return array<string, int> The new total; `[]` while nothing has been counted.
+	 */
+	private function addUsage(array $total, mixed $promptTokens, mixed $completionTokens): array {
+		$prompt = ((int)($total['promptTokens'] ?? 0) + (int)$promptTokens);
+		$completion = ((int)($total['completionTokens'] ?? 0) + (int)$completionTokens);
+		if (($prompt + $completion) === 0) {
+			return [];
+		}
+
+		return ['promptTokens' => $prompt, 'completionTokens' => $completion];
+	}//end addUsage()
 
 	/**
 	 * Read the current `hermiq.llm` configuration.
@@ -759,6 +802,7 @@ class ProviderFactory {
 		array $messageHistory,
 		array $functions = [],
 	): string {
+		$this->lastCallUsage = [];
 		$url = rtrim($baseUrl, '/') . '/chat/completions';
 
 		if (empty($functions) === false) {
@@ -836,6 +880,16 @@ class ProviderFactory {
 
 		if (isset($data['choices'][0]['message']['content']) === false) {
 			throw new Exception('Unexpected Fireworks API response format: ' . $response);
+		}
+
+		// The chat completions `usage` object, kept so a token budget counts this run.
+		$usage = ($data['usage'] ?? []);
+		if (is_array($usage) === true) {
+			$this->lastCallUsage = $this->addUsage(
+				total: [],
+				promptTokens: ($usage['prompt_tokens'] ?? 0),
+				completionTokens: ($usage['completion_tokens'] ?? 0)
+			);
 		}
 
 		return $data['choices'][0]['message']['content'];
@@ -965,6 +1019,8 @@ class ProviderFactory {
 		?string $agentId = null,
 		string $conversationId = '',
 	): string {
+		$this->lastCallUsage = [];
+
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
 		// below this point, and `http` must stay bit-for-bit unaffected.
@@ -1024,6 +1080,13 @@ class ProviderFactory {
 			$data = $this->postToAnthropic(credentialId: $credentialId, url: $url, headers: $headers, payload: $payload, model: $model);
 			$parsed = $this->parseAnthropicResponse(data: $data);
 			$text = $parsed['text'];
+
+			// Every request of the tool loop is billed, so every request counts.
+			$this->lastCallUsage = $this->addUsage(
+				total: $this->lastCallUsage,
+				promptTokens: ($parsed['usage']['promptTokens'] ?? 0),
+				completionTokens: ($parsed['usage']['completionTokens'] ?? 0)
+			);
 
 			// No tool call requested (or no executor to run one) — the turn is complete.
 			if ($tools === [] || $toolExecutor === null || $parsed['stopReason'] !== 'tool_use' || $parsed['toolCalls'] === []) {
@@ -1926,10 +1989,9 @@ class ProviderFactory {
 	 * - `toolCalls` is structurally ALWAYS `[]` — the runner's `pickToolCalls()` reads a key
 	 *   nothing populates, because `run()` has no `tools` — so it is ignored rather than
 	 *   treated as reachable behaviour.
-	 * - `usage` is the CLI's own object. It is deliberately NOT threaded: the `http` Anthropic
-	 *   branch records latency only (`ResponseGenerationHandler`'s `lastUsage`), and this path
-	 *   mirrors that shape exactly. Threading richer usage would close a pre-existing gap that
-	 *   is present on BOTH branches and is not this change's to close.
+	 * - `usage` is the CLI's own object. Its `input_tokens` and `output_tokens` are kept in
+	 *   `lastCallUsage`, the same shape the `http` branch records, so a token budget counts a
+	 *   `cli` turn too (hermiq#985).
 	 *
 	 * @param string $body The runner's raw 200 response body.
 	 *
@@ -1954,6 +2016,15 @@ class ProviderFactory {
 			throw new ProviderUnavailableException(
 				'Anthropic executionMode "cli" failed: the runner returned no completion text.',
 				503
+			);
+		}
+
+		$usage = ($decoded['usage'] ?? []);
+		if (is_array($usage) === true) {
+			$this->lastCallUsage = $this->addUsage(
+				total: [],
+				promptTokens: ($usage['input_tokens'] ?? 0),
+				completionTokens: ($usage['output_tokens'] ?? 0)
 			);
 		}
 
