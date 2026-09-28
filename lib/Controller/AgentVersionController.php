@@ -5,11 +5,10 @@
  *
  * Owner/invited-scoped REST endpoints over Agent-versioning's read + rollback
  * surface (AgentVersionService), itself a thin read/replay layer over
- * OpenRegister's existing hash-chained AuditTrail — no new storage. Mirrors
- * AgentsController's own private RBAC copies (`canUserAccessAgent()` for the
- * two read endpoints, `canUserModifyAgent()` for rollback) rather than
- * introducing a new shared abstraction — see design.md's Risks note on this
- * codebase's existing per-controller RBAC convention.
+ * OpenRegister's existing hash-chained AuditTrail — no new storage. Access
+ * is AgentAccessService's one predicate (`canUserAccessAgent()` for the two
+ * read endpoints, `canUserModifyAgent()` for rollback), the same one every
+ * other agent route uses (agents-sharing-and-catalog-columns, design D2).
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -31,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -75,6 +75,7 @@ class AgentVersionController extends Controller {
 	 * @param AgentVersionService $agentVersionService Reads/diffs/rolls back the agent's version history.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
 	 *
 	 * @spec openspec/specs/agent-versioning/spec.md
 	 */
@@ -84,6 +85,7 @@ class AgentVersionController extends Controller {
 		private readonly AgentVersionService $agentVersionService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessService $agentAccess,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -186,7 +188,7 @@ class AgentVersionController extends Controller {
 		}
 
 		// Owner-only modification guard (gate-7) — mirrors AgentsController::update().
-		if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+		if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
 			return new JSONResponse(
 				['error' => 'You do not have permission to roll back this agent'],
 				Http::STATUS_FORBIDDEN
@@ -243,59 +245,12 @@ class AgentVersionController extends Controller {
 			return null;
 		}
 
-		if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+		if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
 			return null;
 		}
 
 		return $agent;
 	}//end loadAccessibleAgent()
-
-	/**
-	 * Whether the user may read an agent's version history: non-private agents
-	 * are open to the organisation, private agents only to their owner or an
-	 * explicitly invited user — mirrors `AgentsController::canUserAccessAgent()`.
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may access the agent's version history.
-	 *
-	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
-	 */
-	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $agent->getObject();
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-			return true;
-		}
-
-		return false;
-	}//end canUserAccessAgent()
-
-	/**
-	 * Whether the user may roll back an agent: owner-only — mirrors
-	 * `AgentsController::canUserModifyAgent()`.
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may roll back the agent.
-	 *
-	 * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
-	 */
-	private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool {
-		return $agent->getOwner() === $userId && $userId !== '';
-	}//end canUserModifyAgent()
 
 	/**
 	 * Serialize an agent object to the OR-compatible response shape — mirrors

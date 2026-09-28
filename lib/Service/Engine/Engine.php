@@ -309,10 +309,16 @@ class Engine {
 			$agent = null;
 			$agentId = $conversationData['agentId'] ?? null;
 			if (is_string($agentId) === true && $agentId !== '') {
+				// _rbac false: the Agent read rule (hermiq#976) admits the owner, invited
+				// users and group members, but a participant the session owner added may
+				// take a turn with the session's agent without being any of those. The
+				// owner-or-participant check above is the gate for this turn; tenancy
+				// still applies.
 				$agent = $this->objectService->find(
 					id: $agentId,
 					register: self::REGISTER_SLUG,
-					schema: self::AGENT_SCHEMA
+					schema: self::AGENT_SCHEMA,
+					_rbac: false
 				);
 			}
 

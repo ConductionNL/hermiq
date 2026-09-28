@@ -324,6 +324,9 @@ class SessionController extends Controller {
 			$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
 
 			// Get messages with pagination (oldest-first, mirroring OR).
+			// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
+			// in a shared session the other participants' turns are owned by them. The
+			// ownership guard above already decided this caller may read the thread.
 			$messages = $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::MESSAGE_SCHEMA)
@@ -333,7 +336,8 @@ class SessionController extends Controller {
 						'sort' => ['created' => 'ASC'],
 						'limit' => $limit,
 						'offset' => $offset,
-					]
+					],
+					_rbac: false
 				);
 			$messages = array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
 
@@ -1028,7 +1032,8 @@ class SessionController extends Controller {
 				query: [
 					'sessionId' => $conversationId,
 					'_limit' => 1,
-				]
+				],
+				_rbac: false
 			);
 
 		return (int)($paginated['total'] ?? 0);

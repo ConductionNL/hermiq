@@ -656,11 +656,15 @@ class ChatController extends Controller {
 				);
 			}
 
-			// Get message and verify it belongs to this conversation.
+			// Get message and verify it belongs to this conversation. _rbac false: a
+			// turn is readable by its owner only (hermiq#976), and a participant may
+			// rate a turn somebody else's request produced. The participation check
+			// above and the sessionId check below scope it to this conversation.
 			$message = $this->objectService->find(
 				id: $messageId,
 				register: self::REGISTER_SLUG,
-				schema: self::MESSAGE_SCHEMA
+				schema: self::MESSAGE_SCHEMA,
+				_rbac: false
 			);
 			if ($message === null
 				|| ($message->getObject()['sessionId'] ?? null) !== $conversationUuid
@@ -1041,6 +1045,10 @@ class ChatController extends Controller {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findMessages(string $conversationId, int $limit, int $offset): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
+		// in a shared session the other participants' turns are owned by them. The
+		// caller ran verifyConversationAccess() first, which decided this caller may
+		// read the thread.
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::MESSAGE_SCHEMA)
@@ -1050,7 +1058,8 @@ class ChatController extends Controller {
 					'sort' => ['created' => 'ASC'],
 					'limit' => $limit,
 					'offset' => $offset,
-				]
+				],
+				_rbac: false
 			);
 
 		return array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
@@ -1073,7 +1082,8 @@ class ChatController extends Controller {
 				query: [
 					'conversationId' => $conversationId,
 					'_limit' => 1,
-				]
+				],
+				_rbac: false
 			);
 
 		return (int)($paginated['total'] ?? 0);

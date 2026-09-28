@@ -167,4 +167,34 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame('Second answer', $history[2]->content);
 
 	}//end testBuildMessageHistoryOrdersAndFiltersTurns()
+
+	/**
+	 * The history of a shared session includes the other participants' turns.
+	 *
+	 * A SessionTurn is readable by its owner only (hermiq#976), and in a Talk
+	 * shared session each speaker owns their own turns. The engine has already
+	 * run the owner-or-participant check on the session, so the history read
+	 * goes around RBAC and keeps tenancy.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testHistoryIsReadAroundTheOwnerOnlyTurnRule(): void {
+		$flags = null;
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config, bool $_rbac = true, bool $_multitenancy = true) use (&$flags): array {
+				$flags = ['rbac' => $_rbac, 'multitenancy' => $_multitenancy];
+				return [];
+			}
+		);
+
+		(new MessageHistoryHandler($objectService, new NullLogger()))->buildMessageHistory(conversationId: 'conv-1');
+
+		$this->assertSame(['rbac' => false, 'multitenancy' => true], $flags);
+
+	}//end testHistoryIsReadAroundTheOwnerOnlyTurnRule()
 }//end class
