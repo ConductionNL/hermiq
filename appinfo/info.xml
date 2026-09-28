@@ -98,6 +98,7 @@
             <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
             <step>OCA\Hermiq\Repair\SeedIncidents</step>
             <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
             <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
@@ -176,6 +177,7 @@
             <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
             <step>OCA\Hermiq\Repair\SeedIncidents</step>
             <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
             <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
