@@ -2158,7 +2158,11 @@ OC.L10N.register(
         "off = no check; redact = mask detected PII/secrets in the persisted/delivered text; block = withhold the raw output (replaced with a placeholder) from both persistence and delivery.": "off = no check; redact = mask detected PII/secrets in the persisted/delivered text; block = withhold the raw output (replaced with a placeholder) from both persistence and delivery.",
         "passRateWith minus passRateWithout. In joint mode this is the JOINT contribution of the whole linked set (shared across entries); in per-skill mode it is this skill's true marginal contribution.": "passRateWith minus passRateWithout. In joint mode this is the JOINT contribution of the whole linked set (shared across entries); in per-skill mode it is this skill's true marginal contribution.",
         "pending until the owner decides. A refusal stands until the owner reopens it.": "pending until the owner decides. A refusal stands until the owner reopens it.",
-        "xAPI statement count": "xAPI statement count"
+        "xAPI statement count": "xAPI statement count",
+        "Outputs labelled as AI-made": "Outputs labelled as AI-made",
+        "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).": "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).",
+        "How outputs are labelled": "How outputs are labelled",
+        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original."
     },
     "nplurals=2; plural=(n != 1);"
 )
