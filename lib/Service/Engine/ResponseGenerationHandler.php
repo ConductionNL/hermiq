@@ -588,7 +588,7 @@ class ResponseGenerationHandler {
 			return [];
 		}
 
-		$completion = (int)($chat->getLastResponse()?->usage?->completionTokens ?? 0);
+		$completion = (int)($chat->getLastResponse()?->usage->completionTokens ?? 0);
 		$completion = min($completion, $total);
 
 		return [
