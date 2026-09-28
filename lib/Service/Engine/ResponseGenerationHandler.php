@@ -82,8 +82,9 @@ class ResponseGenerationHandler {
 
 	/**
 	 * Token/latency usage from the last generateResponse() call, for per-run cost
-	 * recording (run-analytics). Populated from the LLPhant chat instance; empty
-	 * when the provider does not expose usage. Keys: promptTokens,
+	 * recording (run-analytics) and token budgets. Populated from the LLPhant chat
+	 * instance (Ollama, OpenAI) or from ProviderFactory::lastCallUsage() (Fireworks,
+	 * Anthropic); empty when the provider does not expose usage. Keys: promptTokens,
 	 * completionTokens, totalDurationMs, llmSeconds. PUBLIC and read by the
 	 * Engine facade after each call — the `usage` key in
 	 * `Engine::processMessage()`'s return shape depends on it (design.md risk:
@@ -384,8 +385,9 @@ class ResponseGenerationHandler {
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 
-				// Fireworks exposes no usage today (matches the ported original).
-				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+				// The tokens Fireworks reported, which a token budget counts (hermiq#985).
+				$this->lastUsage = $this->providerFactory->lastCallUsage();
+				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
 			} elseif ($driver->provider === 'anthropic') {
 				// Anthropic uses direct HTTP through the broker (ProviderFactory::
 				// callAnthropicChat) with the auth headers selected by authMode.
@@ -448,9 +450,10 @@ class ResponseGenerationHandler {
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 
-				// Anthropic usage (input/output tokens) is available on the response but not
-				// yet threaded here; record latency only, matching the Fireworks path.
-				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+				// The input and output tokens of every request of the turn, tool loop
+				// included, which a token budget counts (hermiq#985).
+				$this->lastUsage = $this->providerFactory->lastCallUsage();
+				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
 			} else {
 				// OpenAI / Ollama: LLPhant chat instance from the driver.
 				$chat = $driver->chat;
@@ -475,6 +478,11 @@ class ResponseGenerationHandler {
 					$chat->setTools($functionInfoObjects);
 				}
 
+				$tokensBefore = 0;
+				if ($chat instanceof OpenAIChat) {
+					$tokensBefore = $chat->getTotalTokens();
+				}
+
 				$response = $this->invokeChat(
 					chat: $chat,
 					messageHistory: $messageHistory,
@@ -485,12 +493,16 @@ class ResponseGenerationHandler {
 				$llmTime = microtime(true) - $llmStartTime;
 
 				// Expose the LLM token/latency usage for per-run cost recording
-				// (run-analytics). Only OllamaChat accumulates usage today (via the
-				// llphant-ollama-usage-capture vendor patch); other providers leave
-				// it empty.
+				// (run-analytics) and token budgets. OllamaChat accumulates usage via
+				// the llphant-ollama-usage-capture vendor patch; OpenAIChat keeps a
+				// running total, read as a before/after difference (hermiq#985).
 				$this->lastUsage = [];
 				if ($chat instanceof OllamaChat) {
 					$this->lastUsage = $chat->lastUsage;
+				}
+
+				if ($chat instanceof OpenAIChat) {
+					$this->lastUsage = $this->openAiUsage(chat: $chat, tokensBefore: $tokensBefore);
 				}
 
 				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
@@ -551,6 +563,39 @@ class ResponseGenerationHandler {
 			throw new Exception('Failed to generate response: ' . $e->getMessage(), (int)$e->getCode(), $e);
 		}//end try
 	}//end generateResponse()
+
+	/**
+	 * The tokens an OpenAI turn used, from LLPhant's running total.
+	 *
+	 * `OpenAIChat` adds each request's `usage.totalTokens` to a running total and
+	 * keeps the prompt/completion split of its LAST request only. The difference
+	 * in the total across the call is exact; the last request supplies the
+	 * completion tokens, and every other token of the turn (the earlier requests
+	 * of a tool loop) is counted as a prompt token. So the sum a token budget
+	 * reads is exact, and the split is exact for a turn of one request. A
+	 * streamed turn carries no usage in LLPhant, so it records none.
+	 *
+	 * @param OpenAIChat $chat The chat instance the turn ran on.
+	 * @param int $tokensBefore Its running total before the turn.
+	 *
+	 * @return array<string, int> `promptTokens` and `completionTokens`, or `[]`.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 */
+	private function openAiUsage(OpenAIChat $chat, int $tokensBefore): array {
+		$total = ($chat->getTotalTokens() - $tokensBefore);
+		if ($total <= 0) {
+			return [];
+		}
+
+		$completion = (int)($chat->getLastResponse()?->usage?->completionTokens ?? 0);
+		$completion = min($completion, $total);
+
+		return [
+			'promptTokens' => ($total - $completion),
+			'completionTokens' => $completion,
+		];
+	}//end openAiUsage()
 
 	/**
 	 * Invoke the configured chat client, preferring streaming where possible.
