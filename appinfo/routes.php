@@ -650,6 +650,14 @@ return [
         ['name' => 'outsideAgent#tools', 'url' => '/api/outside-agent/tools', 'verb' => 'GET'],
         ['name' => 'outsideAgent#call',  'url' => '/api/outside-agent/call',  'verb' => 'POST'],
 
+        // Lesson authoring (lesson-authoring-ai-delegate): gated, off-by-default drafts
+        // for learniq's lesson editor (EU AI Act, limited risk). Contract in
+        // openspec/changes/lesson-authoring-ai-delegate/contract.md.
+        ['name' => 'lessonAuthoring#outline',         'url' => '/api/lesson-authoring/outline',          'verb' => 'POST'],
+        ['name' => 'lessonAuthoring#questions',       'url' => '/api/lesson-authoring/questions',        'verb' => 'POST'],
+        ['name' => 'lessonAuthoring#simplify',        'url' => '/api/lesson-authoring/simplify',         'verb' => 'POST'],
+        ['name' => 'lessonAuthoring#goalSuggestions', 'url' => '/api/lesson-authoring/goal-suggestions', 'verb' => 'POST'],
+
         // The prompt library (the-declared-tool-surface-and-the-prompt-library): the
         // prompts the assistant offers on a record, as objects an administrator reads
         // and edits. Disable-all is one act; re-enabling is per prompt, by design.
