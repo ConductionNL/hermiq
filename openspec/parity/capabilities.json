@@ -5708,12 +5708,14 @@
 			"area": "observability",
 			"name": "See how people rated answers per agent.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json components.schemas.Feedback (messageId/conversationId/agentId/userId/type positive|negative, read: authenticated); src/views/Chat.vue and src/api/chat.js:446 are the only hits for 'Feedback' in src/; chat.js POSTs a rating on a message. No page, widget or dashboard reads Feedback objects back as per-agent stats; grepped registry.js/customComponents.js/manifest.json for a feedback widget, none found.",
-				"change": "openspec/changes/observability-feedback-per-agent"
+				"evidence": "lib/Service/AnalyticsService.php computeAnalytics() returns feedback {positive, negative, helpfulRate} and perAgent positive/negative, counted only on visible agents; latestLowRatings() and GET /api/analytics/agents/{agentId}/low-ratings (AnalyticsController::lowRatings, AgentAccessService read guard, 404 otherwise); src/widgets/AgentRatingsWidget.vue on AgentDetail (Rated helpful share with counts, latest low ratings); src/widgets/AnalyticsBreakdownWidget.vue Thumbs up/down columns on the dashboard.",
+				"reachedOn": "Agent detail page, Ratings widget; Dashboard, analytics breakdown per agent",
+				"change": "openspec/changes/archive/2026-09-29-observability-feedback-per-agent",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "nothing",
 			"note": "Feedback can be submitted (thumbs up/down in Chat) but there is no surface to see it aggregated per agent.",
