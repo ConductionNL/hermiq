@@ -1305,15 +1305,17 @@
 			"area": "chat",
 			"name": "Pick from ready-made prompts the organisation has set for a record type.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/settings/AssistantPromptLibrary.vue is the only caller of src/api/assistantPrompts.js (grepped), and it is mounted only as an admin Settings tab (src/customComponents.js); routes.php:658-667 assistantPrompt#index/save/disableAll. Searched Chat.vue and CnAgentChatTab.vue for a prompt picker and found none. Specified in openspec/changes/the-declared-tool-surface-and-the-prompt-library/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/the-declared-tool-surface-and-the-prompt-library"
+				"evidence": "src/components/CnAgentChatTab/CnAgentChatTab.vue (the record chat) reads GET /api/assistant-prompts?scope=<record type> through src/utils/readyMadePrompts.js loadReadyMadePrompts() and shows one button per prompt in the library order; pickPrompt() puts the prompt text in the message box without sending. The library itself: src/components/settings/AssistantPromptLibrary.vue, AssistantPromptController, AssistantPromptLibrary::forScope(). tests/record-chat-prompts.spec.js (check:specs).",
+				"reachedOn": "the agent chat tab on a record (CnAgentChatTab), \"Ready-made prompts\" above the message box",
+				"change": "openspec/changes/archive/2026-09-29-record-chat-ready-made-prompts",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "Settings -> Assistant prompts (admin CRUD only)",
-			"note": "Admins can author the prompt library, but no chat surface actually offers a user a 'pick from ready-made prompts' affordance while talking to an agent on a record.",
+			"note": "Admins author the prompt library; since 2026-09-29 the record chat offers the prompts for the record type, and picking one fills the message box without sending.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "the-declared-tool-surface-and-the-prompt-library",

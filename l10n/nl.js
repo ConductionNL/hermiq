@@ -1441,6 +1441,7 @@ OC.L10N.register(
         "Show %n forgotten fact": "%n vergeten feit tonen",
         "Show %n forgotten facts": "%n vergeten feiten tonen",
         "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "De agent gebruikt dit feit niet meer. Het blijft in de geschiedenis van het geheugen staan, gemarkeerd als vergeten.",
+        "Ready-made prompts": "Kant-en-klare prompts",
         "Listening, press to stop": "Luistert, druk om te stoppen",
         "Transcribing": "Bezig met uitschrijven",
         "Dictate a message": "Bericht inspreken",

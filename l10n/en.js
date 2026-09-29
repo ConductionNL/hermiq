@@ -2173,6 +2173,7 @@ OC.L10N.register(
         "Show %n forgotten fact": "Show %n forgotten fact",
         "Show %n forgotten facts": "Show %n forgotten facts",
         "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten.",
+        "Ready-made prompts": "Ready-made prompts",
         "Listening, press to stop": "Listening, press to stop",
         "Transcribing": "Transcribing",
         "Dictate a message": "Dictate a message",
