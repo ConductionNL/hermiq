@@ -290,6 +290,23 @@
 								</div>
 							</div>
 
+							<!-- Read aloud (chat-speak-and-listen): any answer, when the agent allows spoken replies. -->
+							<ReadAloudButton
+								v-if="
+									message.role === 'assistant'
+									&& message.content
+									&& speechControls.readAloud
+								"
+								class="chat-page__read-aloud"
+								:messageKey="
+									String(
+										message.uuid
+											|| message.id
+											|| message.created,
+									)
+								"
+								:text="message.content" />
+
 							<!-- Feedback (assistant messages with a persisted id) -->
 							<div
 								v-if="
@@ -429,6 +446,12 @@
 							:disabled="sending"
 							@keydown.enter.exact.prevent="handleSend"
 							@input="autoResize" />
+						<!-- Dictation (chat-speak-and-listen): fills the box, never sends. -->
+						<DictateButton
+							v-if="speechControls.dictate"
+							:disabled="sending"
+							@transcript="insertTranscript"
+							@error="sendError = $event" />
 						<NcButton
 							variant="primary"
 							:disabled="!currentMessage.trim() || sending"
@@ -524,6 +547,8 @@ import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
 import AgentSelector from '../components/AgentSelector.vue'
+import DictateButton from '../components/DictateButton.vue'
+import ReadAloudButton from '../components/ReadAloudButton.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
@@ -540,7 +565,9 @@ import {
 	sendMessageFeedback,
 	streamChatMessage,
 } from '../api/chat.js'
+import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
+import { appendTranscript, speechControls } from '../utils/speech.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -573,6 +600,7 @@ export default {
 		SessionRenameModal,
 		CubeOutline,
 		Delete,
+		DictateButton,
 		FileDocument,
 		FileDocumentOutline,
 		FlashOutline,
@@ -587,6 +615,7 @@ export default {
 		Pencil,
 		Plus,
 		PuzzlePlusOutline,
+		ReadAloudButton,
 		Restore,
 		Creation,
 		Send,
@@ -653,10 +682,28 @@ export default {
 			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
 			showSaveAsSkill: false,
 			saveAsSkillBody: '',
+
+			// chat-speak-and-listen: the on-instance speech service's answer, read once.
+			speechService: null,
 		}
 	},
 
 	computed: {
+		/**
+		 * The speech controls the chat's agent allows (dictation, read aloud).
+		 *
+		 * @return {{dictate: boolean, readAloud: boolean}} The controls to show.
+		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 */
+		speechControls() {
+			return speechControls(
+				this.currentAgent,
+				this.speechService,
+				typeof window.MediaRecorder === 'function'
+					&& Boolean(navigator.mediaDevices?.getUserMedia),
+			)
+		},
+
 		/**
 		 * The sessions for the visible tab.
 		 *
@@ -810,6 +857,7 @@ export default {
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadSessions()
 		this.loadAgents()
+		this.loadSpeechService()
 	},
 
 	beforeUnmount() {
@@ -821,6 +869,28 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Ask once whether the on-instance speech service answers.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 */
+		async loadSpeechService() {
+			this.speechService = await speechCapabilities()
+		},
+
+		/**
+		 * Put dictated words after what is in the message box, without sending.
+		 *
+		 * @param {string} words The transcript.
+		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 */
+		insertTranscript(words) {
+			this.sendError = ''
+			this.currentMessage = appendTranscript(this.currentMessage, words)
+			this.$nextTick(() => this.$refs.messageInput?.focus())
+		},
+
 		/**
 		 * The all-defaults settings object (no agent context).
 		 *
