@@ -606,7 +606,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json:169-198 AgentCatalog type:index, config.columns only name and model (no owner/status columns); rowRoute AgentDetail:187. Specified in openspec/changes/agents-sharing-and-catalog-columns/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/manifest.json:169-198 AgentCatalog type:index, config.columns only name and model (no owner/status columns); rowRoute AgentDetail:187. Specified in openspec/changes/agents-sharing-and-catalog-columns/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-sharing-and-catalog-columns"
 			},
 			"reachedOn": "/agents AgentCatalog",
 			"note": "The catalog lists every agent the caller can see, but the row itself carries no owner or status column; the manifest's own _note says the former Schedule/Last-run columns were dropped deliberately (OpenRegister's calculation engine has no reverse-FK join), so owner/status require opening AgentDetail or the admin-only TenantOps access review.",
@@ -700,7 +701,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:2566,2572,2581 declares isPrivate/invitedUsers/groups on Agent; src/modals/AgentFormModal.vue:13 docblock explicitly states 'views, groups, invitedUsers, quotas' do NOT survive the form (merged through from the existing object, never edited); AgentDetail disables its generic object sidebar (manifest.json:523 sidebar.enabled false), so no other edit surface exists. Specified in openspec/changes/agents-sharing-and-catalog-columns/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Settings/hermiq_register.json:2566,2572,2581 declares isPrivate/invitedUsers/groups on Agent; src/modals/AgentFormModal.vue:13 docblock explicitly states 'views, groups, invitedUsers, quotas' do NOT survive the form (merged through from the existing object, never edited); AgentDetail disables its generic object sidebar (manifest.json:523 sidebar.enabled false), so no other edit surface exists. Specified in openspec/changes/agents-sharing-and-catalog-columns/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-sharing-and-catalog-columns"
 			},
 			"reachedOn": "nothing",
 			"note": "Backend enforcement of isPrivate/invitedUsers/groups likely exists in AgentAccessService's read guard, but no screen lets a user set these fields; only reachable by a direct PATCH to /api/agents/{id}.",
@@ -764,7 +766,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:2504 Agent.active property; src/manifest.json:221-230 agent-core is a type:data widget (read-only display per its own pattern, see agent-eval-baseline's note at manifest.json justifying a bespoke widget because 'the built-in type:data widget renders values only') including active in its display list; src/modals/AgentFormModal.vue has no active field (grep found none). Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Settings/hermiq_register.json:2504 Agent.active property; src/manifest.json:221-230 agent-core is a type:data widget (read-only display per its own pattern, see agent-eval-baseline's note at manifest.json justifying a bespoke widget because 'the built-in type:data widget renders values only') including active in its display list; src/modals/AgentFormModal.vue has no active field (grep found none). Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-switch-off-and-stop"
 			},
 			"reachedOn": "nothing",
 			"note": "active is displayed read-only on AgentDetail's Configuration card; no button, toggle or form anywhere sets it, so a user cannot switch an agent off without deleting it today.",
@@ -859,7 +862,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/ and lib/ for a natural-language agent builder (nlBuilder, describe-and-generate, low-code studio equivalent to Copilot Studio/Dify) and found nothing; agent creation is exclusively the structured AgentFormModal form. Specified in openspec/changes/agents-plain-language-builder/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched src/ and lib/ for a natural-language agent builder (nlBuilder, describe-and-generate, low-code studio equivalent to Copilot Studio/Dify) and found nothing; agent creation is exclusively the structured AgentFormModal form. Specified in openspec/changes/agents-plain-language-builder/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-plain-language-builder"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -890,7 +894,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/hermiq-agent-application-slug/spec.md states explicitly, on every requirement, 'Backend-only repair-step write path with no UI surface'; lib/Settings/hermiq_register.json:2453 Agent.applicationSlug; lib/Repair/SeedHydraTriageAgent.php and lib/Repair/BackfillAgentApplicationSlug.php set it; lib/Controller/ChatStreamController.php:258,691-692 reads it for chat-agent fallback matching. src/modals/AgentFormModal.vue has no applicationSlug field. Specified in openspec/changes/agents-bound-to-their-app/ (OpenSpec pass 2026-09-27)."
+				"evidence": "openspec/specs/hermiq-agent-application-slug/spec.md states explicitly, on every requirement, 'Backend-only repair-step write path with no UI surface'; lib/Settings/hermiq_register.json:2453 Agent.applicationSlug; lib/Repair/SeedHydraTriageAgent.php and lib/Repair/BackfillAgentApplicationSlug.php set it; lib/Controller/ChatStreamController.php:258,691-692 reads it for chat-agent fallback matching. src/modals/AgentFormModal.vue has no applicationSlug field. Specified in openspec/changes/agents-bound-to-their-app/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-bound-to-their-app"
 			},
 			"reachedOn": "nothing",
 			"note": "The field exists and one backend consumer (chat's fallback-agent picker) reads it, but nothing lets a user set it on their own agent; the spec itself calls this backend-only.",
@@ -954,7 +959,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/AgentsController.php:485-540 destroy() deletes the Agent object (owner-only); searched lib/Service/ScheduleService.php and lib/AppInfo/Application.php for any agent-delete cascade or ObjectDeletedEvent handling of Schedule cleanup and found none (the only ObjectDeletedEvent listener registered, Application.php:147, is AgentBotLifecycleListener, which only removes the Talk bot). Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Controller/AgentsController.php:485-540 destroy() deletes the Agent object (owner-only); searched lib/Service/ScheduleService.php and lib/AppInfo/Application.php for any agent-delete cascade or ObjectDeletedEvent handling of Schedule cleanup and found none (the only ObjectDeletedEvent listener registered, Application.php:147, is AgentBotLifecycleListener, which only removes the Talk bot). Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-switch-off-and-stop"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> (no delete header action found on AgentDetail itself; deletion is via the generic AgentCatalog row action)",
 			"note": "Deleting an agent works, but its schedules are not stopped or cleaned up with it.",
@@ -987,7 +993,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json Store page 'Import template' header action opens TemplateImportModal (modals/TemplateImportModal.vue:80 calls agentTemplates.js); src/widgets/AgentTemplateRowActions.vue:255-262 doExport() calls exportAgentTemplate() for an existing AgentTemplate. But exportAgentToTemplate() (src/api/agentTemplates.js:88-90, routes.php agentTemplate#export 'from-agent/{agentId}/export') has zero callers anywhere in src/ (grepped). Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/manifest.json Store page 'Import template' header action opens TemplateImportModal (modals/TemplateImportModal.vue:80 calls agentTemplates.js); src/widgets/AgentTemplateRowActions.vue:255-262 doExport() calls exportAgentTemplate() for an existing AgentTemplate. But exportAgentToTemplate() (src/api/agentTemplates.js:88-90, routes.php agentTemplate#export 'from-agent/{agentId}/export') has zero callers anywhere in src/ (grepped). Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-export-import-and-git-sync"
 			},
 			"reachedOn": "/store Store page for template import/export; nothing reaches from-agent export",
 			"note": "You can import a template package and export an existing AgentTemplate, but there is no button anywhere that turns a live Agent directly into an exportable file; the one backend endpoint built for that has no frontend caller.",
@@ -1176,7 +1183,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Searched src/views/Chat.vue for a file picker/attachment affordance and found none. The only file-related setting is a boolean RAG toggle (settings.includeFiles, Chat.vue:834,864) that widens the agent's own file search, not an explicit per-message attach-and-ask action. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
-				"readOn": "2026-09-26"
+				"readOn": "2026-09-26",
+				"change": "openspec/changes/chat-attachments-and-images"
 			},
 			"reachedOn": "nothing",
 			"note": "includeFiles/searchFiles let the agent search the user's Nextcloud files as part of RAG, which is related but not the same as attaching one specific file to a message. Noted 2026-09-26, rating unchanged: the nextcloud-vue 2.55.1 companion's attach control (src/components/CnAiCompanion/CnAiInput.vue:259) posts to /apps/hermiq/api/chat/attachments, which hermiq never registers (appinfo/routes.php has no such route), so every attach fails: hermiq#950.",
@@ -1301,7 +1309,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/settings/AssistantPromptLibrary.vue is the only caller of src/api/assistantPrompts.js (grepped), and it is mounted only as an admin Settings tab (src/customComponents.js); routes.php:658-667 assistantPrompt#index/save/disableAll. Searched Chat.vue and CnAgentChatTab.vue for a prompt picker and found none. Specified in openspec/changes/the-declared-tool-surface-and-the-prompt-library/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/components/settings/AssistantPromptLibrary.vue is the only caller of src/api/assistantPrompts.js (grepped), and it is mounted only as an admin Settings tab (src/customComponents.js); routes.php:658-667 assistantPrompt#index/save/disableAll. Searched Chat.vue and CnAgentChatTab.vue for a prompt picker and found none. Specified in openspec/changes/the-declared-tool-surface-and-the-prompt-library/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/the-declared-tool-surface-and-the-prompt-library"
 			},
 			"reachedOn": "Settings -> Assistant prompts (admin CRUD only)",
 			"note": "Admins can author the prompt library, but no chat surface actually offers a user a 'pick from ready-made prompts' affordance while talking to an agent on a record.",
@@ -1334,7 +1343,8 @@
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/SpeechController.php and routes.php:546-548 speech#transcribe/synthesise/capabilities exist server-side; src/modals/AgentFormModal.vue:252 voiceInputEngineOption is editable on the Agent form. But src/views/Chat.vue has no microphone/dictate control at all (grepped for microphone/mic/speech/audio, no hits), and no component under src/ calls /api/speech/* (grepped). openspec/specs/speech-services/spec.md: the composer-facing 'voice-composer' delta is 'in-progress' and says the dictate/converse UI split lives in the shared nextcloud-vue lib, which Chat.vue's hand-rolled <textarea> composer does not use. Reached from the companion, not from hermiq's own /chat page (added 2026-09-26): @conduction/nextcloud-vue 2.55.1 src/components/CnAiCompanion/CnAiInput.vue:81-92 renders a microphone button and :215 imports speechTranscriptionsUrl, which targets hermiq's speech#transcribe (appinfo/routes.php:540).",
-				"readOn": "2026-09-26"
+				"readOn": "2026-09-26",
+				"change": "openspec/changes/chat-speak-and-listen"
 			},
 			"reachedOn": "the nextcloud-vue 2.55.1 AI companion (CnAiChatPanel with CnAiInput) microphone button; not hermiq's own /chat page",
 			"note": "Re-rated no to partial on 2026-09-26: speaking to an agent works through the companion panel from nextcloud-vue 2.55.1, backed by hermiq's transcription endpoint. hermiq's own chat page still has no microphone.",
@@ -1367,7 +1377,8 @@
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Same as ch-voice-in: lib/Controller/SpeechController.php speech#synthesise exists, voiceOutputEngine is editable in AgentFormModal.vue:269, but Chat.vue has no read-aloud/speaker control and no caller of /api/speech/speech under src/. Reached from the companion, not from hermiq's own /chat page (added 2026-09-26): @conduction/nextcloud-vue 2.55.1 src/components/CnAiCompanion/CnAiChatPanel.vue:113-121 renders the read-aloud control and :346-347 imports speechCapabilitiesUrl and speechSynthesisUrl, which target hermiq's speech#capabilities and speech#synthesise (appinfo/routes.php:541-542).",
-				"readOn": "2026-09-26"
+				"readOn": "2026-09-26",
+				"change": "openspec/changes/chat-speak-and-listen"
 			},
 			"reachedOn": "the nextcloud-vue 2.55.1 AI companion (CnAiChatPanel) read-aloud control; not hermiq's own /chat page",
 			"note": "Re-rated no to partial on 2026-09-26: read-aloud works through the companion panel from nextcloud-vue 2.55.1; hermiq's own chat page still has no speaker control.",
@@ -1462,7 +1473,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/TaskProcessing/ for an image-generation provider and lib/AppInfo/Application.php's registerTaskProcessingProvider calls; only Audio-to-text, Text-to-speech, Text2Text (x3) and ContextAgent providers are registered. No Text2Image provider exists. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched lib/TaskProcessing/ for an image-generation provider and lib/AppInfo/Application.php's registerTaskProcessingProvider calls; only Audio-to-text, Text-to-speech, Text2Text (x3) and ContextAgent providers are registered. No Text2Image provider exists. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-attachments-and-images"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -1493,7 +1505,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue and src/api/chat.js for any search box or query parameter over sessions/messages and found none; the FTS/full-text references in the codebase (lib/Service/MemoryService.php, openspec/specs/agent-memory) are agent-memory recall, a different feature, not a session-history search. Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched src/views/Chat.vue and src/api/chat.js for any search box or query parameter over sessions/messages and found none; the FTS/full-text references in the codebase (lib/Service/MemoryService.php, openspec/specs/agent-memory) are agent-memory recall, a different feature, not a session-history search. Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-session-search-and-bulk-delete"
 			},
 			"reachedOn": "nothing",
 			"note": "A user can only browse the session list, not search across past conversations.",
@@ -1556,7 +1569,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue and lib/Controller/SessionController.php for a share-link/public-token mechanism and found none. Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched src/views/Chat.vue and lib/Controller/SessionController.php for a share-link/public-token mechanism and found none. Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-fork-and-share-link"
 			},
 			"reachedOn": "nothing",
 			"note": "A colleague can only join via a shared Talk room (ch-shared-session), not via a shareable conversation link.",
@@ -1681,7 +1695,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/modals/ScheduleFormModal.vue and lib/Service/ScheduleService.php for any free-text/natural-language-to-cron parsing and found none; ScheduleFormModal offers exactly 3 kind options (once/interval/cron, lines 302-304) and cron is a raw cronExpr text field (line 83). Specified in openspec/changes/scheduling-overview-and-start-choice/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched src/modals/ScheduleFormModal.vue and lib/Service/ScheduleService.php for any free-text/natural-language-to-cron parsing and found none; ScheduleFormModal offers exactly 3 kind options (once/interval/cron, lines 302-304) and cron is a raw cronExpr text field (line 83). Specified in openspec/changes/scheduling-overview-and-start-choice/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/scheduling-overview-and-start-choice"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -1899,7 +1914,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "All three modes exist as separate surfaces: cron/interval/once via ScheduleFormModal.vue (kind picker, lines 300-356), event via a flow's agent action node (sc-event), and manual via the Run now button (RunNowController). Searched lib/Settings/hermiq_register.json's Agent and Schedule schemas for a single triggerMode-style field and found none. Specified in openspec/changes/scheduling-overview-and-start-choice/ (OpenSpec pass 2026-09-27)."
+				"evidence": "All three modes exist as separate surfaces: cron/interval/once via ScheduleFormModal.vue (kind picker, lines 300-356), event via a flow's agent action node (sc-event), and manual via the Run now button (RunNowController). Searched lib/Settings/hermiq_register.json's Agent and Schedule schemas for a single triggerMode-style field and found none. Specified in openspec/changes/scheduling-overview-and-start-choice/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/scheduling-overview-and-start-choice"
 			},
 			"reachedOn": "fragmented: ScheduleFormModal.vue for schedule, FlowIndex/FlowDetail for event, agent-run-operations 'Run now' for manual",
 			"note": "An agent can be started by schedule, by event-flow, or by hand, but there is no single per-agent selector that lets a user choose between the three; they are three independent surfaces rather than one choice.",
@@ -2025,7 +2041,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentRunOperationsWidget.vue:107-127 shows one schedule's trigger/deliver/enabled/next-run on its own AgentDetail page; searched src/manifest.json for a schedules index page or register:hermiq schema:schedule index and found none; only per-agent access exists (Schedule is 1:1 with its owning Agent per the widget's own design note). Specified in openspec/changes/scheduling-overview-and-start-choice/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/widgets/AgentRunOperationsWidget.vue:107-127 shows one schedule's trigger/deliver/enabled/next-run on its own AgentDetail page; searched src/manifest.json for a schedules index page or register:hermiq schema:schedule index and found none; only per-agent access exists (Schedule is 1:1 with its owning Agent per the widget's own design note). Specified in openspec/changes/scheduling-overview-and-start-choice/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/scheduling-overview-and-start-choice"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget (one schedule at a time, not a fleet-wide list)",
 			"note": "Next run and last status are visible, but only one agent's schedule at a time; there is no single list of every schedule across agents, so seeing them all means opening each AgentDetail page in turn.",
@@ -2148,9 +2165,9 @@
 			"source": "own-code",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:274-290,1133-1171 registers only listDeckBoards (read-only, boards not cards). Searched lib/ and src/ for createCard/updateCard/CardService: zero hits, and NcNativeWriteToolDescriptors.php (the write-tool class) has no Deck entries at all."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (nextcloud-assistant), no demand row; outside the core area. The archived nc-native-write-tools covers calendar, contacts and notes, not Deck. Code reading before the decision: lib/Mcp/HermiqToolProvider.php:274-290,1133-1171 registers only listDeckBoards (read-only, boards not cards). Searched lib/ and src/ for createCard/updateCard/CardService: zero hits, and NcNativeWriteToolDescriptors.php (the write-tool class) has no Deck entries at all."
 			},
 			"reachedOn": "Agent tool grant -> hermiq.listDeckBoards only",
 			"note": "The row asks for creating and updating cards; only listing boards exists, so the asked-for capability is not built even though Deck read access is.",
@@ -2244,7 +2261,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ and src/ for the Nextcloud Tasks app / VTODO / a core Assistant task-list integration ('Tasks', 'core:task', 'nctasks') with no relevant hits. The only similarly-named tools are createNote/updateNote/listNotes (NcNativeWriteToolDescriptors.php), which target the Notes app, a different Nextcloud app. Specified in openspec/changes/tools-nextcloud-tasks/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched lib/ and src/ for the Nextcloud Tasks app / VTODO / a core Assistant task-list integration ('Tasks', 'core:task', 'nctasks') with no relevant hits. The only similarly-named tools are createNote/updateNote/listNotes (NcNativeWriteToolDescriptors.php), which target the Notes app, a different Nextcloud app. Specified in openspec/changes/tools-nextcloud-tasks/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-nextcloud-tasks"
 			},
 			"reachedOn": "nothing",
 			"note": "Nothing in the codebase implements a Nextcloud Assistant tasks tool; Notes tools exist but are a different capability.",
@@ -2274,9 +2292,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ for an OCP\\Search\\IProvider-registered unified-search provider or an MCP tool calling one; the only IProvider hits are OCP TaskProcessing::IProvider (unrelated AI task types, lib/TaskProcessing/*) and a 'searchProvider' web-research config key (lib/Service/WebResearch/WebResearchSettingsHandler.php). No unified-search integration exists."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (nextcloud-assistant), no demand row; outside the core area. Code reading before the decision: Searched lib/ for an OCP\\Search\\IProvider-registered unified-search provider or an MCP tool calling one; the only IProvider hits are OCP TaskProcessing::IProvider (unrelated AI task types, lib/TaskProcessing/*) and a 'searchProvider' web-research config key (lib/Service/WebResearch/WebResearchSettingsHandler.php). No unified-search integration exists."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -2492,9 +2510,9 @@
 			"source": "own-code",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:334-362,738-744 registers hermiq.requestToolAccess, dispatching to lib/Service/ToolAccessRequestService.php::request(), which writes a ToolAccessRequest object; appinfo/routes.php:241-245 toolOversight#resolveToolAccessRequest (POST) lets the owner grant/refuse it (lib/Controller/ToolOversightController.php:293-356)."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): no competitor rates yes, no demand row, outside the core area. The built half: lib/Mcp/HermiqToolProvider.php:334-362,738-744 registers hermiq.requestToolAccess, dispatching to lib/Service/ToolAccessRequestService.php::request(), which writes a ToolAccessRequest object; appinfo/routes.php:241-245 toolOversight#resolveToolAccessRequest (POST) lets the owner grant/refuse it (lib/Controller/ToolOversightController.php:293-356)."
 			},
 			"reachedOn": "hermiq.requestToolAccess MCP tool (agent-initiated) -> ToolAccessRequest object; resolution only via POST /api/agents/{agentId}/tool-access-requests/{requestId}, no page calls it",
 			"note": "Grepped src/ for 'tool-access-request'/'AccessRequest': no component or page calls the resolve endpoint, so an owner can only approve/deny by calling the API directly.",
@@ -2527,7 +2545,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Repair/SeedAiFeatures.php:169-175 seeds an ai-feature-governance-register entry 'skill-code-execution' (lifecycle: disabled by default) describing the RISK CATEGORY, but no tool in lib/Mcp/*, lib/Service/*, or src/ actually executes code in a sandbox. Searched for sandbox/codeInterpreter/OpenHands/runCode with no implementation hits. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Repair/SeedAiFeatures.php:169-175 seeds an ai-feature-governance-register entry 'skill-code-execution' (lifecycle: disabled by default) describing the RISK CATEGORY, but no tool in lib/Mcp/*, lib/Service/*, or src/ actually executes code in a sandbox. Searched for sandbox/codeInterpreter/OpenHands/runCode with no implementation hits. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-code-sandbox"
 			},
 			"reachedOn": "nothing",
 			"note": "A governance-register placeholder exists for the risk category; no runnable sandbox or code-exec tool exists in the tool catalog.",
@@ -2592,7 +2611,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "The only extension seam is another Nextcloud app implementing OCA\\OpenRegister\\Mcp\\IMcpToolProvider in PHP, exactly as HermiqToolProvider itself does (lib/Mcp/HermiqToolProvider.php class docblock) -- that is writing and shipping app code, not an end-user action. Grepped src/ for customTool/plugin/function-upload UI with no relevant hits. Specified in openspec/changes/tools-custom-tools-without-code/ (OpenSpec pass 2026-09-27)."
+				"evidence": "The only extension seam is another Nextcloud app implementing OCA\\OpenRegister\\Mcp\\IMcpToolProvider in PHP, exactly as HermiqToolProvider itself does (lib/Mcp/HermiqToolProvider.php class docblock) -- that is writing and shipping app code, not an end-user action. Grepped src/ for customTool/plugin/function-upload UI with no relevant hits. Specified in openspec/changes/tools-custom-tools-without-code/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-custom-tools-without-code"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -2747,7 +2767,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/AgentMemoryPanel.vue shows the entry list and an add-a-fact action (src/api/memory.js addMemory). lib/Controller/MemoryController.php's public methods are memory(), addMemory(), userProfiles(), sessions(), consolidate(), recall() only -- no update/delete method, and appinfo/routes.php has no DELETE/PATCH route for one memory entry."
+				"evidence": "src/components/AgentMemoryPanel.vue shows the entry list and an add-a-fact action (src/api/memory.js addMemory). lib/Controller/MemoryController.php's public methods are memory(), addMemory(), userProfiles(), sessions(), consolidate(), recall() only -- no update/delete method, and appinfo/routes.php has no DELETE/PATCH route for one memory entry.",
+				"change": "openspec/changes/memory-correct-and-forget"
 			},
 			"reachedOn": "/memory page and the agent detail Memory widget (view + add only)",
 			"note": "A human can see what the agent remembers and add a new fact, but cannot correct or delete an existing one; only the agent itself can soft-delete via hermiq.forgetMemory, which the panel does not expose.",
@@ -2810,7 +2831,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json and src/views/ have no knowledge-base management or document-upload page; RAG grounding (ContextRetrievalHandler.php) reads from the agent's declared 'views'/searchFiles flag over records already in OpenRegister/Nextcloud Files, not from a purpose-built upload-into-a-KB flow. Specified in openspec/changes/memory-knowledge-bases/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/manifest.json and src/views/ have no knowledge-base management or document-upload page; RAG grounding (ContextRetrievalHandler.php) reads from the agent's declared 'views'/searchFiles flag over records already in OpenRegister/Nextcloud Files, not from a purpose-built upload-into-a-KB flow. Specified in openspec/changes/memory-knowledge-bases/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/memory-knowledge-bases"
 			},
 			"reachedOn": "nothing",
 			"note": "This is a distinct capability from grounding-in-existing-files (me-rag-files): there is no dedicated 'create a knowledge base and upload documents into it' surface.",
@@ -2840,9 +2862,9 @@
 			"source": "own-code",
 			"hermiq": "no",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Engine/ContextAssembler.php:167-191 fully implements Agent.contextRefs assembly (reads each Context object, prepends its text to the system prompt). grep -rn contextRefs src/ shows only a read-only label in src/dialogs/agents/AgentVersionDiffDialog.vue:192; src/modals/AgentFormModal.vue has no contextRefs field, and src/manifest.json has zero pages/routes mentioning 'context'."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): one competitor rates yes (open-webui), no demand row, outside the core area. The built half: lib/Service/Engine/ContextAssembler.php:167-191 fully implements Agent.contextRefs assembly (reads each Context object, prepends its text to the system prompt). grep -rn contextRefs src/ shows only a read-only label in src/dialogs/agents/AgentVersionDiffDialog.vue:192; src/modals/AgentFormModal.vue has no contextRefs field, and src/manifest.json has zero pages/routes mentioning 'context'."
 			},
 			"reachedOn": "nothing",
 			"note": "The assembly backend is fully built and spec'd DONE (openspec/specs/agent-context-system/spec.md, 14 of 14 tasks), but no page lets a user create a Context object or attach one to an agent -- only reachable via direct API/object writes.",
@@ -2936,9 +2958,9 @@
 			"source": "own-code",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/CnAgentChatTab/CnAgentChatTab.vue:1-45 grounds a chat reply in the on-screen OpenRegister object's x-openregister-agent-context allowlisted fields via POST /api/assistant/converse (appinfo/routes.php:550 assistant#converse), and visibly marks a reply 'not grounded' when the allowlist resolves to zero properties. Grepped lib/Service/Agent/AgentContextBuilder.php and src/utils/agentContext.js for 'relation'/'linked': no hits."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): no competitor rates yes, no demand row, outside the core area. The built half: src/components/CnAgentChatTab/CnAgentChatTab.vue:1-45 grounds a chat reply in the on-screen OpenRegister object's x-openregister-agent-context allowlisted fields via POST /api/assistant/converse (appinfo/routes.php:550 assistant#converse), and visibly marks a reply 'not grounded' when the allowlist resolves to zero properties. Grepped lib/Service/Agent/AgentContextBuilder.php and src/utils/agentContext.js for 'relation'/'linked': no hits."
 			},
 			"reachedOn": "Object detail page (a leaf app render) -> CnAgentChatTab -> POST /api/assistant/converse",
 			"note": "Grounding covers the record on screen; grepped for handling of records linked to it with no hits, so that half of the row is not built.",
@@ -2970,7 +2992,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Grepped lib/ and src/ for SharePoint/wiki/externalKb/'external knowledge' with no implementation hits. web-research-tool (webSearch/webFetch) reaches the open web, which is a different capability from a connected, authenticated external knowledge source such as SharePoint. Specified in openspec/changes/memory-knowledge-bases/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Grepped lib/ and src/ for SharePoint/wiki/externalKb/'external knowledge' with no implementation hits. web-research-tool (webSearch/webFetch) reaches the open web, which is a different capability from a connected, authenticated external knowledge source such as SharePoint. Specified in openspec/changes/memory-knowledge-bases/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/memory-knowledge-bases"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -3154,9 +3177,9 @@
 			"source": "competitor-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/skill-self-improvement/spec.md: the SkillDraft schema requires an existing skillId -- it proposes a new VERSION of an existing skill, never a brand-new one. Grepped lib/, src/, openspec/specs and openspec/changes for 'auto.*skill.*creat'/'createSkillFromRun': only an archived design doc 'hermiq-skill-conversational-authoring' about a HUMAN authoring a skill conversationally, not an agent creating one autonomously."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (hermes-agent), no demand row; outside the core area. The archived skill-self-improvement proposes versions of existing skills only. Code reading before the decision: openspec/specs/skill-self-improvement/spec.md: the SkillDraft schema requires an existing skillId -- it proposes a new VERSION of an existing skill, never a brand-new one. Grepped lib/, src/, openspec/specs and openspec/changes for 'auto.*skill.*creat'/'createSkillFromRun': only an archived design doc 'hermiq-skill-conversational-authoring' about a HUMAN authoring a skill conversationally, not an agent creating one autonomously."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -3498,7 +3521,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Corrected 2026-09-27 (OpenSpec pass): no own endpoint is reachable. BrokerHttpClient reduces every request to a path and the host is the broker host-lock (lib/Service/Llm/BrokerHttpClient.php:22-23,188-196), so the host typed in the Fireworks Base URL (lib/Service/Llm/ProviderFactory.php:762) is dropped. Before: src/modals/LlmProviderModal.vue:84-101 'Fireworks' provider exposes a free-text Base URL field (no domain restriction); lib/Service/Llm/ProviderFactory.php:2637-2651 posts to `${baseUrl}/chat/completions`, the OpenAI-compatible shape, at any base URL the admin types. Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Corrected 2026-09-27 (OpenSpec pass): no own endpoint is reachable. BrokerHttpClient reduces every request to a path and the host is the broker host-lock (lib/Service/Llm/BrokerHttpClient.php:22-23,188-196), so the host typed in the Fireworks Base URL (lib/Service/Llm/ProviderFactory.php:762) is dropped. Before: src/modals/LlmProviderModal.vue:84-101 'Fireworks' provider exposes a free-text Base URL field (no domain restriction); lib/Service/Llm/ProviderFactory.php:2637-2651 posts to `${baseUrl}/chat/completions`, the OpenAI-compatible shape, at any base URL the admin types. Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-provider-connections"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI provider section -> Configure provider -> LlmProviderModal.vue provider=fireworks",
 			"note": "The capability exists but is labelled 'Fireworks AI' in the UI, not presented as a generic OpenAI-compatible endpoint option; the OpenAI provider itself is hardcoded to api.openai.com with no baseUrl override. Rating corrected to no on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
@@ -3656,7 +3680,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php aiFeature#residencyOverview GET /api/ai-features/residency and aiFeature#bind PUT /api/ai-features/{id}/binding both registered; src/api/aiFeatures.js:126-149 listFeatureResidency() and bindAiFeature() both defined; src/views/AiFeatureRegister.vue:201-209 imports and calls listFeatureResidency (displays provider/model/residency per feature) but does NOT import bindAiFeature."
+				"evidence": "appinfo/routes.php aiFeature#residencyOverview GET /api/ai-features/residency and aiFeature#bind PUT /api/ai-features/{id}/binding both registered; src/api/aiFeatures.js:126-149 listFeatureResidency() and bindAiFeature() both defined; src/views/AiFeatureRegister.vue:201-209 imports and calls listFeatureResidency (displays provider/model/residency per feature) but does NOT import bindAiFeature.",
+				"change": "openspec/changes/models-bind-a-provider-per-feature"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI-feature governance register (AiFeatureRegister.vue, mounted via AdminRoot.vue) shows the residency table read-only",
 			"note": "grep -rn 'bindAiFeature(' src/ finds only the export in aiFeatures.js, no caller anywhere in src/views, src/modals or src/components: the write endpoint exists server-side with no UI control to invoke it.",
@@ -3688,7 +3713,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/ for failover, fallbackProvider, backup provider, secondaryProvider, 'fail over', sovereign: no automatic-fallback-to-a-second-provider mechanism found anywhere. 'Sovereign'/'sovereignty' hits are all about local-inference/on-prem residency (multi-tenant-ops spec), not failover. Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched lib/, src/, openspec/ for failover, fallbackProvider, backup provider, secondaryProvider, 'fail over', sovereign: no automatic-fallback-to-a-second-provider mechanism found anywhere. 'Sovereign'/'sovereignty' hits are all about local-inference/on-prem residency (multi-tenant-ops spec), not failover. Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-several-models-per-turn"
 			},
 			"reachedOn": "nothing",
 			"note": "No backend code or spec describes automatic failover between providers when one fails.",
@@ -3718,9 +3744,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for classification/sensitivity/data-class routing to a model: only hits are ToolClassificationService (dry-run side-effect classification) and IntakeController's document classification (a filing category, not a model-routing rule), and residency (geography, not data sensitivity). No mechanism routes a request to a model based on the sensitivity of the data in it."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): no competitor rates yes and no demand row; outside the core area. The open a-provider-and-a-place-per-ai-feature routes by feature and residency, not by data sensitivity. Code reading before the decision: Searched lib/, src/, openspec/specs for classification/sensitivity/data-class routing to a model: only hits are ToolClassificationService (dry-run side-effect classification) and IntakeController's document classification (a filing category, not a model-routing rule), and residency (geography, not data sensitivity). No mechanism routes a request to a model based on the sensitivity of the data in it."
 			},
 			"reachedOn": "nothing",
 			"note": "The closest existing concept, requiredResidency on an AI feature, routes by geography/instance, not by the sensitivity of the specific data being sent.",
@@ -4191,9 +4217,9 @@
 			"source": "own-code",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "grep -rln 'IDashboardWidget|IWidgetButton' lib/ found nothing: hermiq registers no OCP\\Dashboard\\IDashboardWidget for the Nextcloud home dashboard (/apps/dashboard). What exists instead is hermiq's OWN in-app 'Dashboard' page (src/manifest.json id 'Dashboard', DashboardController#page) covered by openspec/specs/dashboard-org-widgets, which is a same-named but different surface (a page inside hermiq, not a widget on Nextcloud's home dashboard)."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): no competitor rates yes and no demand row; outside the core area. The archived dashboard-org-widgets is hermiq's own Dashboard page, a different surface. Code reading before the decision: grep -rln 'IDashboardWidget|IWidgetButton' lib/ found nothing: hermiq registers no OCP\\Dashboard\\IDashboardWidget for the Nextcloud home dashboard (/apps/dashboard). What exists instead is hermiq's OWN in-app 'Dashboard' page (src/manifest.json id 'Dashboard', DashboardController#page) covered by openspec/specs/dashboard-org-widgets, which is a same-named but different surface (a page inside hermiq, not a widget on Nextcloud's home dashboard)."
 			},
 			"reachedOn": "nothing on the actual Nextcloud dashboard",
 			"note": "Do not confuse this with hermiq's in-app Dashboard page (/ route, DashboardController), which does show agent/run/quota data but is not the Nextcloud system dashboard.",
@@ -4225,7 +4251,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/SpeechController.php + appinfo/routes.php speech#transcribe/synthesise/capabilities (/api/speech/transcriptions, /api/speech/speech, /api/speech/capabilities) are fully implemented server-side; lib/Service/Speech/SpeechClient.php backs it. But grep -rn 'speech/transcriptions|MediaRecorder|getUserMedia|Microphone' src/ found zero hits: no chat composer component records audio or calls these endpoints, and src/views/Chat.vue has no voice/mic code at all."
+				"evidence": "lib/Controller/SpeechController.php + appinfo/routes.php speech#transcribe/synthesise/capabilities (/api/speech/transcriptions, /api/speech/speech, /api/speech/capabilities) are fully implemented server-side; lib/Service/Speech/SpeechClient.php backs it. But grep -rn 'speech/transcriptions|MediaRecorder|getUserMedia|Microphone' src/ found zero hits: no chat composer component records audio or calls these endpoints, and src/views/Chat.vue has no voice/mic code at all.",
+				"change": "openspec/changes/chat-speak-and-listen"
 			},
 			"reachedOn": "nothing; src/modals/AgentFormModal.vue:252-297 lets an admin pick a per-agent 'voice input engine' preference, but no page ever records audio to send to the transcribe endpoint",
 			"note": "The per-agent voice-engine setting is stored but has no consumer: the actual composer mic capture UI does not exist in src/.",
@@ -4258,7 +4285,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for embed, iframe, 'public chat widget', 'web channel': no hits describing an embeddable public chat widget. src/companion.js's 'embedding' references are about the Nextcloud Files app viewer, unrelated to a public website embed. Specified in openspec/changes/delivery-public-web-chat/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched lib/, src/, openspec/specs for embed, iframe, 'public chat widget', 'web channel': no hits describing an embeddable public chat widget. src/companion.js's 'embedding' references are about the Nextcloud Files app viewer, unrelated to a public website embed. Specified in openspec/changes/delivery-public-web-chat/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/delivery-public-web-chat"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -4351,7 +4379,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/ApprovalInbox.vue:52-90 the approval table shows only Schedule name, Agent name, Prompt text and Requested-at date; grep -n 'blastRadius|lineage|rollback' across lib/Settings/hermiq_register.json, src/views/ApprovalInbox.vue and src/modals/ApprovalDenyModal.vue found no such fields anywhere."
+				"evidence": "src/views/ApprovalInbox.vue:52-90 the approval table shows only Schedule name, Agent name, Prompt text and Requested-at date; grep -n 'blastRadius|lineage|rollback' across lib/Settings/hermiq_register.json, src/views/ApprovalInbox.vue and src/modals/ApprovalDenyModal.vue found no such fields anywhere.",
+				"change": "openspec/changes/oversight-what-an-approval-will-do"
 			},
 			"reachedOn": "/approvals ApprovalInbox.vue table row",
 			"note": "The prompt column gives some 'what will run' context, but there is no blast-radius, lineage or rollback preview before approving, unlike the canonical row's fuller shape.",
@@ -4445,7 +4474,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for draftReply, 'reply approval', 'held for approval', 'pending reply': no hits. lib/Controller/IntakeController.php's review()/conclude() gate FILING an intake conversation to a person, not holding an agent-drafted reply text for edit/approval before it is sent back to the requester. Specified in openspec/changes/oversight-ask-and-hold/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched lib/, src/, openspec/specs for draftReply, 'reply approval', 'held for approval', 'pending reply': no hits. lib/Controller/IntakeController.php's review()/conclude() gate FILING an intake conversation to a person, not holding an agent-drafted reply text for edit/approval before it is sent back to the requester. Specified in openspec/changes/oversight-ask-and-hold/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/oversight-ask-and-hold"
 			},
 			"reachedOn": "nothing",
 			"note": "The human-approval-gate holds an entire RUN before it executes (ov-approval), which is adjacent but different from holding an already-generated reply's text for human review before sending.",
@@ -4508,7 +4538,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched for a per-agent instant-stop: no AgentsController method, no route, and no UI control (src/modals/AgentFormModal.vue has enableRag/voiceConversationEnabled toggles but no agent-level 'enabled' or stop/disable switch; AgentDetail's headerActions in src/manifest.json are only edit-agent, version-history, view-factsheet). grep for abortRun/cancelRun/stopRun/killAgent/disableAgent across lib/ and src/ found nothing. Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched for a per-agent instant-stop: no AgentsController method, no route, and no UI control (src/modals/AgentFormModal.vue has enableRag/voiceConversationEnabled toggles but no agent-level 'enabled' or stop/disable switch; AgentDetail's headerActions in src/manifest.json are only edit-agent, version-history, view-factsheet). grep for abortRun/cancelRun/stopRun/killAgent/disableAgent across lib/ and src/ found nothing. Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-switch-off-and-stop"
 			},
 			"reachedOn": "nothing",
 			"note": "Only the organisation-wide kill switch (ov-kill-switch) exists; there is no single-agent equivalent.",
@@ -4725,9 +4756,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for 'automation bias', overseer warnings, 'approve without looking', 'rubber stamp': no hits describing a warning shown to a reviewer who approves everything without inspecting it."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): no competitor rates yes and no demand row. Code reading before the decision: Searched lib/, src/, openspec/specs for 'automation bias', overseer warnings, 'approve without looking', 'rubber stamp': no hits describing a warning shown to a reviewer who approves everything without inspecting it."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -4979,9 +5010,9 @@
 			"source": "own-code",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json page 'Compliance' route /compliance type index over schema hermiq/agentcompliancecontrol (columns controlId/title/frameworkSlug/evidenceSource), slots.below-header = compliance-operations; the computed coverage-percentage + gap-list dashboard lives in src/views/ComplianceDashboard.vue calling lib/Controller/ComplianceController.php:99-119 dashboard(), but src/customComponents.js:93-106 states verbatim that manifest-driven-pages moved the Compliance page off this component, so 'CnPageRenderer no longer resolves this key ... bundled but never mounted'."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): no competitor rates yes, no demand row, outside the core area. The built half: src/manifest.json page 'Compliance' route /compliance type index over schema hermiq/agentcompliancecontrol (columns controlId/title/frameworkSlug/evidenceSource), slots.below-header = compliance-operations; the computed coverage-percentage + gap-list dashboard lives in src/views/ComplianceDashboard.vue calling lib/Controller/ComplianceController.php:99-119 dashboard(), but src/customComponents.js:93-106 states verbatim that manifest-driven-pages moved the Compliance page off this component, so 'CnPageRenderer no longer resolves this key ... bundled but never mounted'."
 			},
 			"reachedOn": "/compliance page shows the raw Control list (framework/evidenceSource columns) plus compliance-operations widget (incidents/audit-export/retention); the computed per-framework coverage % + gap list is nothing (ComplianceDashboard.vue is unreachable)",
 			"note": "A user can see individual Control rows per framework but not the aggregated coverage/gap view the backend already computes.",
@@ -5043,9 +5074,9 @@
 			"source": "own-code",
 			"hermiq": "no",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:313 compliance#export GET /api/compliance/export is a live registered route (lib/Controller/ComplianceController.php:132-154 export()); its only caller, src/views/ComplianceDashboard.vue, is explicitly dead per src/customComponents.js:93-106 ('bundled but never mounted'). Searched registry.js, customComponents.js and every page in manifest.json for another caller of getComplianceExport() (src/api/compliance.js:32): none found."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): no competitor rates yes, no demand row, outside the core area. The built half: appinfo/routes.php:313 compliance#export GET /api/compliance/export is a live registered route (lib/Controller/ComplianceController.php:132-154 export()); its only caller, src/views/ComplianceDashboard.vue, is explicitly dead per src/customComponents.js:93-106 ('bundled but never mounted'). Searched registry.js, customComponents.js and every page in manifest.json for another caller of getComplianceExport() (src/api/compliance.js:32): none found."
 			},
 			"reachedOn": "nothing",
 			"note": "The route works if hit directly; no page a user can navigate to reaches it. co-audit-export (tenant-ops/audit-export, a different endpoint) IS reachable, so do not conflate the two.",
@@ -5107,9 +5138,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for 'authority', 'toezichthouder', 'serious incident', 'notify' near incidents: no code path sends an incident (or anything else) to an external regulator/authority. openspec/parity/capabilities.json:co-authority-notify itself is still built.state=none / 'not read yet', confirming it is unassessed, not previously built."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): no competitor rates yes and no demand row; outside the core area. Incidents are recorded internally by the archived agent-lifecycle-governance. Code reading before the decision: Searched lib/, src/, openspec/specs for 'authority', 'toezichthouder', 'serious incident', 'notify' near incidents: no code path sends an incident (or anything else) to an external regulator/authority. openspec/parity/capabilities.json:co-authority-notify itself is still built.state=none / 'not read yet', confirming it is unassessed, not previously built."
 			},
 			"reachedOn": "nothing",
 			"note": "Incidents are recorded internally (co-incident) but nothing transmits or drafts a notification to an external authority.",
@@ -5170,9 +5201,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for 'transparen*': only hits are ADR prose stating transparency (Art. 13) is 'inherited from OpenRegister, not rebuilt' (openspec/architecture/adr-004, adr-001) and unrelated CSS 'background: transparent'/BrokerHttpClient proxy comments. No page, controller or spec produces a plain-language explanation of employee-facing agents for a non-technical audience."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): no competitor rates yes and no demand row; outside the core area. The archived compliance-control-packs factsheet is role-restricted and algoritmeregister-publication writes to the public register, neither is an explanation for employees. Code reading before the decision: Searched lib/, src/, openspec/specs for 'transparen*': only hits are ADR prose stating transparency (Art. 13) is 'inherited from OpenRegister, not rebuilt' (openspec/architecture/adr-004, adr-001) and unrelated CSS 'background: transparent'/BrokerHttpClient proxy comments. No page, controller or spec produces a plain-language explanation of employee-facing agents for a non-technical audience."
 			},
 			"reachedOn": "nothing",
 			"note": "The ADRs assert the obligation is inherited from OpenRegister's own transparency features, but no hermiq-side page assembles or links to such a report for employees.",
@@ -5421,9 +5452,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/AnalyticsService.php:393-433 toRunRow() (used by /api/runs) returns id/agentName/status/trigger/startedAt/endedAt/durationMs/summary only, no token or cost field; lib/Service/RunHistoryService.php (getRunHistory()/getRunTrace(), used by /api/schedules/.../runs and /trace) also carries no token/cost field in its run or step records; token totals exist only AGGREGATED across every run in AnalyticsService::computeAnalytics()'s 'tokens' block (used by ob-analytics) and as a trailing-average estimate in BudgetService::estimateNextRun() (avgCostEur, used by ob-estimate)."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): one competitor rates yes (n8n), no demand row, outside the core area. The built half: lib/Service/AnalyticsService.php:393-433 toRunRow() (used by /api/runs) returns id/agentName/status/trigger/startedAt/endedAt/durationMs/summary only, no token or cost field; lib/Service/RunHistoryService.php (getRunHistory()/getRunTrace(), used by /api/schedules/.../runs and /trace) also carries no token/cost field in its run or step records; token totals exist only AGGREGATED across every run in AnalyticsService::computeAnalytics()'s 'tokens' block (used by ob-analytics) and as a trailing-average estimate in BudgetService::estimateNextRun() (avgCostEur, used by ob-estimate)."
 			},
 			"reachedOn": "nothing (per-run/per-step); the aggregate-only tokens are reachable via ob-analytics",
 			"note": "A user can see total tokens across all runs, or the trailing average cost per run, but not a specific run's or step's own token/cost figure.",
@@ -5547,9 +5578,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ and src/ for 'drift': every hit is a code-comment metaphor about two implementations diverging (e.g. lib/Service/DelegationService.php:308, lib/Service/ToolAccessRequestService.php:731) or unrelated timing text (lib/BackgroundJob/ScheduleTask.php:103); no service compares an agent's outputs over time or flags a change in result quality/shape with nothing having crashed."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): no competitor rates yes and no demand row; the archived compliance-control-packs defers drift to a future model-monitoring change. Code reading before the decision: Searched lib/ and src/ for 'drift': every hit is a code-comment metaphor about two implementations diverging (e.g. lib/Service/DelegationService.php:308, lib/Service/ToolAccessRequestService.php:731) or unrelated timing text (lib/BackgroundJob/ScheduleTask.php:103); no service compares an agent's outputs over time or flags a change in result quality/shape with nothing having crashed."
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -5612,7 +5643,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for 'Langfuse', 'langfuse', 'OpenTelemetry', 'otel', 'external trac*': zero hits anywhere in the app. Specified in openspec/changes/observability-export-traces/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Searched lib/, src/, openspec/specs for 'Langfuse', 'langfuse', 'OpenTelemetry', 'otel', 'external trac*': zero hits anywhere in the app. Specified in openspec/changes/observability-export-traces/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/observability-export-traces"
 			},
 			"reachedOn": "nothing",
 			"note": "Hermiq's own observability spec (ADR-006) covers Prometheus metrics and a health endpoint, not exporting traces to a third-party APM/LLM-ops tool.",
@@ -5676,7 +5708,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json components.schemas.Feedback (messageId/conversationId/agentId/userId/type positive|negative, read: authenticated); src/views/Chat.vue and src/api/chat.js:446 are the only hits for 'Feedback' in src/; chat.js POSTs a rating on a message. No page, widget or dashboard reads Feedback objects back as per-agent stats; grepped registry.js/customComponents.js/manifest.json for a feedback widget, none found."
+				"evidence": "lib/Settings/hermiq_register.json components.schemas.Feedback (messageId/conversationId/agentId/userId/type positive|negative, read: authenticated); src/views/Chat.vue and src/api/chat.js:446 are the only hits for 'Feedback' in src/; chat.js POSTs a rating on a message. No page, widget or dashboard reads Feedback objects back as per-agent stats; grepped registry.js/customComponents.js/manifest.json for a feedback widget, none found.",
+				"change": "openspec/changes/observability-feedback-per-agent"
 			},
 			"reachedOn": "nothing",
 			"note": "Feedback can be submitted (thumbs up/down in Chat) but there is no surface to see it aggregated per agent.",
@@ -5929,7 +5962,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n. Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27)."
+				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n. Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/flows-hand-off-and-wait"
 			},
 			"reachedOn": "nothing",
 			"note": "The n8n delegation described in ADR-001/app-config.json is architectural intent, not implemented code; only the reverse direction (an outside system, for-instance n8n, triggering hermiq) exists.",
@@ -5961,7 +5995,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Listed every node file in the sibling apps-extra/openregister/lib/Service/Flow/Nodes/ directory (AwaitSignalNode, DecisionTableNode, EndNode, ExplodeNode, FilterNode, FlowStateNode, IterateNode, LockObjectNode, LoopNode, MapNode, MergeNode, ObjectReadNode, ObjectWriteNode, PortalTaskNode, RouterNode, SendEmailNode, SendNotificationNode, SendTalkMessageNode, SetFieldsNode, SubFlowNode, SwitchNode, TriggerManualNode, TriggerObjectNode, TriggerScheduleNode, UnlockObjectNode, UserTaskNode, WaitNode): none execute arbitrary custom code. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Listed every node file in the sibling apps-extra/openregister/lib/Service/Flow/Nodes/ directory (AwaitSignalNode, DecisionTableNode, EndNode, ExplodeNode, FilterNode, FlowStateNode, IterateNode, LockObjectNode, LoopNode, MapNode, MergeNode, ObjectReadNode, ObjectWriteNode, PortalTaskNode, RouterNode, SendEmailNode, SendNotificationNode, SendTalkMessageNode, SetFieldsNode, SubFlowNode, SwitchNode, TriggerManualNode, TriggerObjectNode, TriggerScheduleNode, UnlockObjectNode, UserTaskNode, WaitNode): none execute arbitrary custom code. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-code-sandbox"
 			},
 			"reachedOn": "nothing",
 			"note": "Rated from the OpenRegister sibling checkout's node list, which may be stale or incomplete; no code/script node was found there or in hermiq's own lib/Flow/.",
@@ -6089,7 +6124,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:405-408 agentTemplate#fromAgentExport exists and src/api/agentTemplates.js:88-91 exportAgentToTemplate() wraps it, but exportAgentToTemplate() has zero callers in src/, the same finding row ag-import-export records. The earlier yes assumed an AgentDetail header action that nobody opened. Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27).",
-				"readOn": "2026-09-26"
+				"readOn": "2026-09-26",
+				"change": "openspec/changes/agents-export-import-and-git-sync"
 			},
 			"reachedOn": "nothing reaches it",
 			"note": "Re-rated yes to no on 2026-09-26: the row contradicted ag-import-export, which found the wrapper has no caller.",
@@ -6307,9 +6343,9 @@
 			"source": "demand-derived",
 			"hermiq": "no",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Grepped lib/ and src/ for 'transfer', 'cross-tenant', 'another organisation': every hit in controllers (AgentsController.php:569, TenantOpsController.php:11, AnalyticsController.php:9, SkillMarketplaceController.php:10, AiFeatureController.php:284,364, etc.) is about DENYING cross-tenant access/leaks, never about moving an object's own organisation. No endpoint changes an Agent/AgentTemplate/Skill's organisation field."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (dify), no demand row; outside the core area. Code reading before the decision: Grepped lib/ and src/ for 'transfer', 'cross-tenant', 'another organisation': every hit in controllers (AgentsController.php:569, TenantOpsController.php:11, AnalyticsController.php:9, SkillMarketplaceController.php:10, AiFeatureController.php:284,364, etc.) is about DENYING cross-tenant access/leaks, never about moving an object's own organisation. No endpoint changes an Agent/AgentTemplate/Skill's organisation field."
 			},
 			"reachedOn": "nothing",
 			"note": "Publishing a template/skill to GitHub and having another organisation install it from there (re-template-github, re-community) is the closest workaround, but that creates a new, separately-owned copy rather than transferring the original automation's ownership.",
@@ -6339,9 +6375,9 @@
 			"source": "own-code",
 			"hermiq": "no",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:640 courseRecommendation#index GET /api/recommendations; lib/Controller/CourseRecommendationController.php self-scoped (learnerId from IUserSession only), delegates to CourseRecommendationEngine (gated on AiFeature DPO-ack, tenant kill-switch, and learniq/Scholiq being installed). Searched src/ for 'course'/'Course'/'getRecommendations': only unrelated hits (src/main.js, src/utils/toolTaxonomy.js). No page, widget, modal or api/*.js wrapper calls /api/recommendations."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): no competitor rates yes, no demand row, outside the core area. The built half: appinfo/routes.php:640 courseRecommendation#index GET /api/recommendations; lib/Controller/CourseRecommendationController.php self-scoped (learnerId from IUserSession only), delegates to CourseRecommendationEngine (gated on AiFeature DPO-ack, tenant kill-switch, and learniq/Scholiq being installed). Searched src/ for 'course'/'Course'/'getRecommendations': only unrelated hits (src/main.js, src/utils/toolTaxonomy.js). No page, widget, modal or api/*.js wrapper calls /api/recommendations."
 			},
 			"reachedOn": "nothing",
 			"note": "The backend engine and its gating exist and depend on learniq being installed, but no hermiq frontend surface reads it, so a user has no way to see a recommendation today.",
@@ -6402,9 +6438,9 @@
 			"source": "demand-derived",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:976 provider enum includes 'ollama'/'nextcloud' (on-instance/local inference, no outbound call required for chat); lib/Controller/EgressAuthorizeController.php:13 'Default action is DENY' for outbound web calls. Against that: GitHub-backed features (agent-template-github-store, skills-marketplace github install/publish, re-community) and Algoritmeregister publication (co-algoritmeregister) call out to the internet with no offline substitute, and no single instance-wide switch was found that guarantees zero outbound calls across every feature."
+				"evidence": "decided-no on 2026-09-28 for the missing half (build-all pass, reversible): one competitor rates yes (open-webui), no demand row, outside the core area. The built half: lib/Settings/hermiq_register.json:976 provider enum includes 'ollama'/'nextcloud' (on-instance/local inference, no outbound call required for chat); lib/Controller/EgressAuthorizeController.php:13 'Default action is DENY' for outbound web calls. Against that: GitHub-backed features (agent-template-github-store, skills-marketplace github install/publish, re-community) and Algoritmeregister publication (co-algoritmeregister) call out to the internet with no offline substitute, and no single instance-wide switch was found that guarantees zero outbound calls across every feature."
 			},
 			"reachedOn": "Chat/agent execution can run fully offline against a local Ollama; several optional features (GitHub, web research, Algoritmeregister) cannot",
 			"note": "No dedicated 'air-gapped mode' toggle was found; searched for 'airgap'/'air-gap'/'offline' with zero hits.",
@@ -6625,7 +6661,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/agent-credentials/spec.md 'Run-time credential resolution precedence': personal (acting user) broker credential, else the agent's ORGANISATION's org-scope credential, else the instance-wide one. lib/Service/Credential/CredentialScopeResolver.php resolves by (provider, actingUser, organisation); there is no per-Agent-object credential scope in the precedence chain or in the Agent schema."
+				"evidence": "openspec/specs/agent-credentials/spec.md 'Run-time credential resolution precedence': personal (acting user) broker credential, else the agent's ORGANISATION's org-scope credential, else the instance-wide one. lib/Service/Credential/CredentialScopeResolver.php resolves by (provider, actingUser, organisation); there is no per-Agent-object credential scope in the precedence chain or in the Agent schema.",
+				"change": "openspec/changes/operations-a-credential-per-agent"
 			},
 			"reachedOn": "nothing (no per-agent scope exists to reach)",
 			"note": "Credentials are scoped to the acting user or the organisation, never to an individual agent instance, so two agents run by the same user in the same org always share the same resolved credential.",
@@ -6783,7 +6820,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Corrected 2026-09-27 (OpenSpec pass): flow, webhook and Talk runs are QueuedJobs that Nextcloud runs on several workers at once (lib/BackgroundJob/AgentRunRequestedJob.php:43, lib/BackgroundJob/WebhookAgentRunJob.php:44, lib/BackgroundJob/TalkTurnJob.php:45); scheduled runs are one TimedJob that never runs in parallel (lib/BackgroundJob/ScheduleTask.php:48,80). Before: lib/BackgroundJob/ScheduleTask.php:1-40 docblock: 'Hermiq registers exactly one job class; internal polling ... keeps the primitive idiomatic (ADR-002)' and explicitly 'Runs every 5 minutes, time-sensitive, never in parallel.' One TimedJob polls all due Schedule objects and dispatches them sequentially in a single PHP process/tick; no worker pool, queue fan-out, or multi-process dispatch was found. Specified in openspec/changes/operations-parallel-run-workers/ (OpenSpec pass 2026-09-27)."
+				"evidence": "Corrected 2026-09-27 (OpenSpec pass): flow, webhook and Talk runs are QueuedJobs that Nextcloud runs on several workers at once (lib/BackgroundJob/AgentRunRequestedJob.php:43, lib/BackgroundJob/WebhookAgentRunJob.php:44, lib/BackgroundJob/TalkTurnJob.php:45); scheduled runs are one TimedJob that never runs in parallel (lib/BackgroundJob/ScheduleTask.php:48,80). Before: lib/BackgroundJob/ScheduleTask.php:1-40 docblock: 'Hermiq registers exactly one job class; internal polling ... keeps the primitive idiomatic (ADR-002)' and explicitly 'Runs every 5 minutes, time-sensitive, never in parallel.' One TimedJob polls all due Schedule objects and dispatches them sequentially in a single PHP process/tick; no worker pool, queue fan-out, or multi-process dispatch was found. Specified in openspec/changes/operations-parallel-run-workers/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/operations-parallel-run-workers"
 			},
 			"reachedOn": "nothing (the dispatcher is deliberately single-threaded)",
 			"note": "Matches the hint's 'Context Agent: no scaling' branch, not Hermes's 8 parallel workers. Rating corrected to partial on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
@@ -6896,7 +6934,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/TenantOps.vue:148-171 Model policy section; src/api/modelPolicy.js:47,59 -> appinfo/routes.php:291-294 TenantModelPolicyController; lib/Service/Llm/ProviderFactory.php:686 refuses a provider or model outside the organisation's allowlist, :470 ollama driver keeps calls local. Searched 'train|data.?collection|zero.?retention|opt.?out' in lib/ src/ exapp/: no no-training setting or guarantee Specified in openspec/changes/models-no-training-guarantee/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/views/TenantOps.vue:148-171 Model policy section; src/api/modelPolicy.js:47,59 -> appinfo/routes.php:291-294 TenantModelPolicyController; lib/Service/Llm/ProviderFactory.php:686 refuses a provider or model outside the organisation's allowlist, :470 ollama driver keeps calls local. Searched 'train|data.?collection|zero.?retention|opt.?out' in lib/ src/ exapp/: no no-training setting or guarantee Specified in openspec/changes/models-no-training-guarantee/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-no-training-guarantee"
 			},
 			"reachedOn": "/tenant-ops -> Model policy",
 			"note": "An organisation can restrict agents to local models (ollama, nextcloud) through the model policy; for remote providers nothing sets or records a no-training term."
@@ -6927,7 +6966,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/Chat.vue:266-288 each answer lists its RAG sources with match score, :384-396 'Used tool: {tool}' steps while streaming; src/widgets/AgentRunHistoryWidget.vue per-run trace -> src/api/agents.js:125 getRunTrace -> appinfo/routes.php:56-59 runHistory#trace; src/manifest.json AiOversight page records the human decision on AI suggestions. Searched 'explain|explanation|rationale' in src/ lib/Service: no plain-language account Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/views/Chat.vue:266-288 each answer lists its RAG sources with match score, :384-396 'Used tool: {tool}' steps while streaming; src/widgets/AgentRunHistoryWidget.vue per-run trace -> src/api/agents.js:125 getRunTrace -> appinfo/routes.php:56-59 runHistory#trace; src/manifest.json AiOversight page records the human decision on AI suggestions. Searched 'explain|explanation|rationale' in src/ lib/Service: no plain-language account Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-how-an-answer-came-about"
 			},
 			"reachedOn": "/chat -> answer Sources and tool steps; /agents/:id -> Run history -> trace; /ai-oversight",
 			"note": "Sources, tool steps and a step trace, not a generated plain-language explanation of how an outcome came about."
@@ -6958,7 +6998,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/modals/AgentFormModal.vue:223-240 'Ground responses in your data (RAG)' and source count; lib/Service/Engine/ContextRetrievalHandler.php:134-138,321-339 retrieval scoped to the agent's views; lib/Service/Engine/ResponseGenerationHandler.php:357-358 prompt says 'If the context doesn't contain relevant information, say so honestly. Always cite which sources'. Searched 'validated|strictRag|sourcesOnly' in lib/Service: no enforced sources-only mode or validated flag Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/modals/AgentFormModal.vue:223-240 'Ground responses in your data (RAG)' and source count; lib/Service/Engine/ContextRetrievalHandler.php:134-138,321-339 retrieval scoped to the agent's views; lib/Service/Engine/ResponseGenerationHandler.php:357-358 prompt says 'If the context doesn't contain relevant information, say so honestly. Always cite which sources'. Searched 'validated|strictRag|sourcesOnly' in lib/Service: no enforced sources-only mode or validated flag Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/memory-retrieval-scope"
 			},
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal) -> RAG settings",
 			"note": "Grounding and scope exist; the limit to validated documents is a prompt instruction, not enforced, and documents carry no validated status."
@@ -6989,7 +7030,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'literacy|tutorial|course|hallucinat|can be wrong' in src/ lib/ (excluding the learniq course recommender, lib/Service/CourseRecommendationEngine.php, which ranks a learner's courses): only the product tour src/manifest.json:1650 walkthrough 'Getting started' (7 steps on agents, skills, settings, flows) and the setup wizard; nothing explains AI limits, risks or verification to users Specified in openspec/changes/compliance-ai-literacy/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'literacy|tutorial|course|hallucinat|can be wrong' in src/ lib/ (excluding the learniq course recommender, lib/Service/CourseRecommendationEngine.php, which ranks a learner's courses): only the product tour src/manifest.json:1650 walkthrough 'Getting started' (7 steps on agents, skills, settings, flows) and the setup wizard; nothing explains AI limits, risks or verification to users Specified in openspec/changes/compliance-ai-literacy/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/compliance-ai-literacy"
 			},
 			"reachedOn": "none",
 			"note": "A product tour teaches the app, not AI literacy."
@@ -7020,7 +7062,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json EvalDatasets /evals and EvalDatasetDetail; src/widgets/EvalRunPanelWidget.vue:424 runEval -> src/api/evals.js:37 -> appinfo/routes.php:96 evalRun#run; lib/Service/EvalScoringService.php header: contains, notContains, jsonPathEquals and an LLM-judge rubric; lib/Service/EvalRunService.php:1293 stores each EvalRun. Searched 'bias|fairness' in lib/ src/: none; no background job schedules evals (lib/BackgroundJob/) Specified in openspec/changes/reuse-scheduled-bias-evals/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/manifest.json EvalDatasets /evals and EvalDatasetDetail; src/widgets/EvalRunPanelWidget.vue:424 runEval -> src/api/evals.js:37 -> appinfo/routes.php:96 evalRun#run; lib/Service/EvalScoringService.php header: contains, notContains, jsonPathEquals and an LLM-judge rubric; lib/Service/EvalRunService.php:1293 stores each EvalRun. Searched 'bias|fairness' in lib/ src/: none; no background job schedules evals (lib/BackgroundJob/) Specified in openspec/changes/reuse-scheduled-bias-evals/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/reuse-scheduled-bias-evals"
 			},
 			"reachedOn": "/evals -> dataset -> Run evaluation (EvalRunPanelWidget)",
 			"note": "Results are kept, but a bias dataset and rubric must be written by hand and runs are started by hand."
@@ -7048,9 +7091,9 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'board|claim|assign|handoff' in backend/open_webui/tools/builtin.py and utils/subagents.py: create_tasks/update_task (tools/builtin.py:3593, :3643) keep a checklist inside one chat message; sub-agents return a summary to the lead (utils/subagents.py:511), no shared board agents claim from"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'kanban|task.?board|claim' in lib/, src/ and exapp/llm-runner/src at development 5277c0d: no shared task board; agents hand work on only through delegation (lib/Service/DelegationService.php) and flows"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (hermes-agent), changelog demand only; outside the core area. Code reading before the decision: searched 'kanban|task.?board|claim' in lib/, src/ and exapp/llm-runner/src at development 5277c0d: no shared task board; agents hand work on only through delegation (lib/Service/DelegationService.php) and flows"
 			}
 		},
 		{
@@ -7078,7 +7121,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'standing goal|goal' in lib/Service, lib/Controller, src/views and src/modals at 5277c0d: goal appears only in the course-recommendation feature (lib/Service/CourseRecommendationEngine.php); no goal an agent keeps working toward across turns Specified in openspec/changes/agents-standing-goal/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'standing goal|goal' in lib/Service, lib/Controller, src/views and src/modals at 5277c0d: goal appears only in the course-recommendation feature (lib/Service/CourseRecommendationEngine.php); no goal an agent keeps working toward across turns Specified in openspec/changes/agents-standing-goal/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-standing-goal"
 			}
 		},
 		{
@@ -7106,7 +7150,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229) Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229) Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-several-models-per-turn"
 			}
 		},
 		{
@@ -7163,7 +7208,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup Specified in openspec/changes/operations-backup-and-restore/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup Specified in openspec/changes/operations-backup-and-restore/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/operations-backup-and-restore"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> Version history (AgentVersionHistoryDialog) -> Roll back"
 		},
@@ -7192,7 +7238,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/flows-hand-off-and-wait"
 			}
 		},
 		{
@@ -7218,9 +7265,9 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'rate_limit|rpm|requests per minute|throttle' in backend/open_webui/routers/openai.py, routers/ollama.py, config.py and utils/middleware.py: the only RateLimiter use is sign-in (routers/auths.py:91); no per-agent cap on provider requests"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'rate.?limit|throttl|per.?minute' in lib/Service/BudgetService.php and lib/Service/Llm at 5277c0d: only provider 429 handling (lib/Service/Llm/ProviderFactory.php:829,2288-2300); budgets cap tokens and euros per period, not requests per minute"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes; outside the core area. Code reading before the decision: searched 'rate.?limit|throttl|per.?minute' in lib/Service/BudgetService.php and lib/Service/Llm at 5277c0d: only provider 429 handling (lib/Service/Llm/ProviderFactory.php:829,2288-2300); budgets cap tokens and euros per period, not requests per minute"
 			}
 		},
 		{
@@ -7277,7 +7324,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property) Specified in openspec/changes/memory-project-scopes/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property) Specified in openspec/changes/memory-project-scopes/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/memory-project-scopes"
 			},
 			"reachedOn": "/agents/:id -> Memory widget (AgentMemory)"
 		},
@@ -7331,7 +7379,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/ScheduleService.php:1814 records the agent's current version id on each run; lib/Service/AgentVersionService.php header: versions are audit-trail entries used for rollback; runs read the live agent config (lib/Service/Engine/ResponseGenerationHandler.php:327) and skillInstalls holds skill uuids, not versions (lib/Settings/hermiq_register.json:2609-2618). Searched 'snapshot|pinned|frozen' in lib/Service: no frozen build per published agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Service/ScheduleService.php:1814 records the agent's current version id on each run; lib/Service/AgentVersionService.php header: versions are audit-trail entries used for rollback; runs read the live agent config (lib/Service/Engine/ResponseGenerationHandler.php:327) and skillInstalls holds skill uuids, not versions (lib/Settings/hermiq_register.json:2609-2618). Searched 'snapshot|pinned|frozen' in lib/Service: no frozen build per published agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
 			},
 			"reachedOn": "none"
 		},
@@ -7361,7 +7410,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'npm install|pip install|apt-get|installTool|package registry' in lib/ src/ exapp/: none. Agent turns run with shell tools denied (exapp/llm-runner/src/providers.js:140-142 DISALLOWED_BUILTIN_TOOLS includes Bash); the flow workload step runs only allowlisted commands (exapp/llm-runner/src/stage.js:137-141 RUNNER_STAGE_COMMANDS default 'scripts/run-hydra-gates.sh,claude'), set by the operator's container environment, not by the agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'npm install|pip install|apt-get|installTool|package registry' in lib/ src/ exapp/: none. Agent turns run with shell tools denied (exapp/llm-runner/src/providers.js:140-142 DISALLOWED_BUILTIN_TOOLS includes Bash); the flow workload step runs only allowlisted commands (exapp/llm-runner/src/stage.js:137-141 RUNNER_STAGE_COMMANDS default 'scripts/run-hydra-gates.sh,claude'), set by the operator's container environment, not by the agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
 			},
 			"reachedOn": "none"
 		},
@@ -7391,7 +7441,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "the only place code runs is the hermiq-llm-runner ExApp on the instance's own AppAPI daemon (exapp/llm-runner/README.md 'Hardening guarantees'; lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step dispatches to it via lib/Service/StageDispatchService.php); agent chat turns have no shell. Searched 'e2b|daytona|cloud sandbox|sandbox' in lib/ src/ exapp/: no hosted sandbox option and no per-agent choice Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27)."
+				"evidence": "the only place code runs is the hermiq-llm-runner ExApp on the instance's own AppAPI daemon (exapp/llm-runner/README.md 'Hardening guarantees'; lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step dispatches to it via lib/Service/StageDispatchService.php); agent chat turns have no shell. Searched 'e2b|daytona|cloud sandbox|sandbox' in lib/ src/ exapp/: no hosted sandbox option and no per-agent choice Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-code-sandbox"
 			},
 			"reachedOn": "none"
 		},
@@ -7480,7 +7531,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'context.?window|contextUsage|tokens used|token' in src/views/Chat.vue, src/components/CnAgentChatTab/ and src/api/chat.js: no readout of how full the context is (only request tokens); the one hit, src/views/TenantOps.vue, is an organisation budget page. The memory panel's character budget bar (src/registry.js agent-memory note) measures memory, not the context window Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'context.?window|contextUsage|tokens used|token' in src/views/Chat.vue, src/components/CnAgentChatTab/ and src/api/chat.js: no readout of how full the context is (only request tokens); the one hit, src/views/TenantOps.vue, is an organisation budget page. The memory panel's character budget bar (src/registry.js agent-memory note) measures memory, not the context window Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-how-an-answer-came-about"
 			},
 			"reachedOn": "none"
 		},
@@ -7507,9 +7559,9 @@
 				"open-webui": "source read at v0.11.4, not driven: agents are grouped by tags, not folders (src/lib/components/workspace/Models.svelte:67 TagSelector, backend/open_webui/routers/models.py:270 /models/tags); folders exist for chats (routers/folders.py) and an automation's folder_id only files its generated chats (models/automations.py:25); there are no flows to sort"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'folder|tag|category' in the agent schema (lib/Settings/hermiq_register.json:2436 onward) and the AgentCatalog and FlowIndex pages in src/manifest.json: agents list by name and model only, flows by the shared flow index; no folder or grouping field for agents or flows"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes. Code reading before the decision: searched 'folder|tag|category' in the agent schema (lib/Settings/hermiq_register.json:2436 onward) and the AgentCatalog and FlowIndex pages in src/manifest.json: agents list by name and model only, flows by the shared flow index; no folder or grouping field for agents or flows"
 			},
 			"reachedOn": "none"
 		},
@@ -7539,7 +7591,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentRunHistoryWidget.vue:112-126 per-run 'Replay this run as a dry run and compare', :238-248 says whether the replay produced the same or a different outcome, :253-256 lists the replay steps; src/api/agents.js:154 replayRun -> appinfo/routes.php:83-87 runHistory#replay -> lib/Controller/RunHistoryController.php:206 replay with a step diff against the original Specified in openspec/changes/observability-compare-two-runs/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/widgets/AgentRunHistoryWidget.vue:112-126 per-run 'Replay this run as a dry run and compare', :238-248 says whether the replay produced the same or a different outcome, :253-256 lists the replay steps; src/api/agents.js:154 replayRun -> appinfo/routes.php:83-87 runHistory#replay -> lib/Controller/RunHistoryController.php:206 replay with a step diff against the original Specified in openspec/changes/observability-compare-two-runs/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/observability-compare-two-runs"
 			},
 			"reachedOn": "/agents/:id -> Run history -> Replay"
 		},
@@ -7566,9 +7619,9 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'hallucinat|claimed|without calling|verify tool' in backend/open_webui/utils/middleware.py and utils/tools.py: no check that flags an answer claiming a result the agent never fetched with a tool"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'claim|hallucinat|fabricat|without calling|expectedTool|toolsUsed' in lib/Service/Engine, lib/Service/*.php and src/: no check that flags an answer claiming a result no tool produced; lib/Service/Engine/FacadeToolInvoker.php:949-992 only handles calls to tools that were never offered, and eval scoring has no tool-called assertion (lib/Service/EvalScoringService.php header)"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes. Code reading before the decision: searched 'claim|hallucinat|fabricat|without calling|expectedTool|toolsUsed' in lib/Service/Engine, lib/Service/*.php and src/: no check that flags an answer claiming a result no tool produced; lib/Service/Engine/FacadeToolInvoker.php:949-992 only handles calls to tools that were never offered, and eval scoring has no tool-called assertion (lib/Service/EvalScoringService.php header)"
 			},
 			"reachedOn": "none"
 		},
@@ -7598,7 +7651,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:468,490 hermiq.webSearch and hermiq.webFetch agent tools, enabled in src/modals/WebResearchSettingsModal.vue (AdminRoot); :514 hermiq.delegateAgent sub-agents; lib/Service/Engine/ResponseGenerationHandler.php:358 'Always cite which sources you used'; lib/Service/Llm/ProviderFactory.php:219 at most 10 tool rounds per turn. Searched 'deep.?research' in lib/ src/: no research mode or report Specified in openspec/changes/tools-deep-research-report/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Mcp/HermiqToolProvider.php:468,490 hermiq.webSearch and hermiq.webFetch agent tools, enabled in src/modals/WebResearchSettingsModal.vue (AdminRoot); :514 hermiq.delegateAgent sub-agents; lib/Service/Engine/ResponseGenerationHandler.php:358 'Always cite which sources you used'; lib/Service/Llm/ProviderFactory.php:219 at most 10 tool rounds per turn. Searched 'deep.?research' in lib/ src/: no research mode or report Specified in openspec/changes/tools-deep-research-report/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-deep-research-report"
 			},
 			"reachedOn": "/chat with an agent granted webSearch/webFetch; Admin settings -> Web research"
 		},
@@ -7655,9 +7709,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/internal/db.py:289 whole-database encryption with sqlite+sqlcipher and DATABASE_PASSWORD, instance-wide; searched 'encrypt' in models/chats.py: chats stored readable to the server and admins, no per-user key"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "sessions and turns are OpenRegister objects (lib/Settings/hermiq_register.json agentsession schema); searched 'encrypt' in lib/ src/: only lib/Service/ScheduleWebhookSecretService.php, lib/Service/Llm/BrokerHttpClient.php and lib/Repair/RemoveLegacyLlmKeys.php (secrets and credentials); no per-user key over conversations"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes; outside the core area. Code reading before the decision: sessions and turns are OpenRegister objects (lib/Settings/hermiq_register.json agentsession schema); searched 'encrypt' in lib/ src/: only lib/Service/ScheduleWebhookSecretService.php, lib/Service/Llm/BrokerHttpClient.php and lib/Repair/RemoveLegacyLlmKeys.php (secrets and credentials); no per-user key over conversations"
 			},
 			"reachedOn": "none"
 		},
@@ -7716,7 +7770,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Llm/ProviderFactory.php:762 OpenAI-compatible calls post to {baseUrl}/chat/completions, :888 Anthropic to /v1/messages, :470 ollama native; searched 'responses api|/responses|responsesApi' in lib/ src/ exapp/: none Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Service/Llm/ProviderFactory.php:762 OpenAI-compatible calls post to {baseUrl}/chat/completions, :888 Anthropic to /v1/messages, :470 ollama native; searched 'responses api|/responses|responsesApi' in lib/ src/ exapp/: none Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-provider-connections"
 			},
 			"reachedOn": "none"
 		},
@@ -7746,7 +7801,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'cache_control|prompt.?cach' in lib/ src/ exapp/: none; lib/Service/Llm/ProviderFactory.php:1009-1023 builds each Anthropic payload with model, max_tokens, messages, system and tools only, no cache breakpoints Specified in openspec/changes/models-prompt-and-answer-cache/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'cache_control|prompt.?cach' in lib/ src/ exapp/: none; lib/Service/Llm/ProviderFactory.php:1009-1023 builds each Anthropic payload with model, max_tokens, messages, system and tools only, no cache breakpoints Specified in openspec/changes/models-prompt-and-answer-cache/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-prompt-and-answer-cache"
 			},
 			"reachedOn": "none"
 		},
@@ -7776,7 +7832,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "docs/approvals.md:24-33 scheduled, flow, webhook and confirm-classified tool calls pause for a person; src/views/ApprovalInbox.vue:90 approve, deny with a reason; lib/Service/ApprovalService.php:1231-1240 approval resumes the gated run. Searched 'ask_user|askUser|clarif|suggest' in lib/ src/: the only hit is exapp/llm-runner/src/providers.js:175 which DENIES the CLI's AskUserQuestion tool Specified in openspec/changes/oversight-ask-and-hold/ (OpenSpec pass 2026-09-27)."
+				"evidence": "docs/approvals.md:24-33 scheduled, flow, webhook and confirm-classified tool calls pause for a person; src/views/ApprovalInbox.vue:90 approve, deny with a reason; lib/Service/ApprovalService.php:1231-1240 approval resumes the gated run. Searched 'ask_user|askUser|clarif|suggest' in lib/ src/: the only hit is exapp/llm-runner/src/providers.js:175 which DENIES the CLI's AskUserQuestion tool Specified in openspec/changes/oversight-ask-and-hold/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/oversight-ask-and-hold"
 			},
 			"reachedOn": "/approvals (ApprovalInbox)"
 		},
@@ -7805,7 +7862,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'chat variable|formFields|input fields|startForm' in lib/ src/: only src/formFields/EmailField.vue (a register form field) and src/registry.js; the agent schema declares no start-of-chat fields and src/views/Chat.vue opens straight to the composer Specified in openspec/changes/agents-instruction-variables/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'chat variable|formFields|input fields|startForm' in lib/ src/: only src/formFields/EmailField.vue (a register form field) and src/registry.js; the agent schema declares no start-of-chat fields and src/views/Chat.vue opens straight to the composer Specified in openspec/changes/agents-instruction-variables/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-instruction-variables"
 			},
 			"reachedOn": "none"
 		},
@@ -7834,7 +7892,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'fork|branch|regenerat|edit message' in src/views/Chat.vue and src/api/chat.js: none; session routes are CRUD, archive, restore and permanent delete (appinfo/routes.php:566-587) with no copy-from-message Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'fork|branch|regenerat|edit message' in src/views/Chat.vue and src/api/chat.js: none; session routes are CRUD, archive, restore and permanent delete (appinfo/routes.php:566-587) with no copy-from-message Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-fork-and-share-link"
 			},
 			"reachedOn": "none"
 		},
@@ -7862,9 +7921,9 @@
 			},
 			"note": "Any publish or review gate would live in OpenRegister's flow store, not read here.",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "flows are edited on the shared OpenRegister flow page (src/manifest.json FlowDetail type flow, CnFlowEditorPage) and hermiq only contributes nodes (lib/Flow/HermiqFlowNodeListener.php:73-76); searched 'review|approv' in lib/Flow and lib/Service/Schedule: no reviewer gate on a flow change before it goes live (approvals gate runs, not edits)"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): changelog demand only and no competitor rates yes; a publish gate would sit in OpenRegister's flow store. Code reading before the decision: flows are edited on the shared OpenRegister flow page (src/manifest.json FlowDetail type flow, CnFlowEditorPage) and hermiq only contributes nodes (lib/Flow/HermiqFlowNodeListener.php:73-76); searched 'review|approv' in lib/Flow and lib/Service/Schedule: no reviewer gate on a flow change before it goes live (approvals gate runs, not edits)"
 			},
 			"reachedOn": "none"
 		},
@@ -7924,7 +7983,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step clones a ref into a throwaway checkout where the model with a shell can edit files (exapp/llm-runner/src/stage.js:31,161 scratch tree removed on exit), lib/Flow/HermiqWorkloadCollectNode.php collects the result and files, or a push phase commits them; chat and scheduled agent runs have no workspace, only tools into the user's own Files and Notes Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step clones a ref into a throwaway checkout where the model with a shell can edit files (exapp/llm-runner/src/stage.js:31,161 scratch tree removed on exit), lib/Flow/HermiqWorkloadCollectNode.php collects the result and files, or a push phase commits them; chat and scheduled agent runs have no workspace, only tools into the user's own Files and Notes Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
 			},
 			"reachedOn": "/flows/:id -> Hermiq workload step node"
 		},
@@ -7953,7 +8013,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:186-191 readFile reads 'the text content of a file' (:837 getContent), and web pages go through lib/Service/WebResearch/ReadableTextExtractor.php; searched 'pdf|document block|file part|multimodal' in lib/Service/Llm and lib/Service/Engine: no path that hands a PDF to the model as a file Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Mcp/HermiqToolProvider.php:186-191 readFile reads 'the text content of a file' (:837 getContent), and web pages go through lib/Service/WebResearch/ReadableTextExtractor.php; searched 'pdf|document block|file part|multimodal' in lib/Service/Llm and lib/Service/Engine: no path that hands a PDF to the model as a file Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-attachments-and-images"
 			},
 			"reachedOn": "none"
 		},
@@ -7982,7 +8043,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:490 hermiq.webFetch fetches a page over HTTP (lib/Service/WebResearch/WebFetchService.php) and returns readable text; searched 'browser|playwright|puppeteer|selenium|click' in lib/ exapp/: no browser the agent can drive, and the runner denies the CLI's built-in tools (exapp/llm-runner/src/providers.js:140) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Mcp/HermiqToolProvider.php:490 hermiq.webFetch fetches a page over HTTP (lib/Service/WebResearch/WebFetchService.php) and returns readable text; searched 'browser|playwright|puppeteer|selenium|click' in lib/ exapp/: no browser the agent can drive, and the runner denies the CLI's built-in tools (exapp/llm-runner/src/providers.js:140) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-browser-and-computer-use"
 			},
 			"reachedOn": "none"
 		},
@@ -8012,7 +8074,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Llm/ProviderFactory.php:219 MAX_TOOL_ITERATIONS = 10, :1009 the Anthropic tool loop stops after 10 rounds; other providers run the tool loop inside LLPhant (lib/Service/Engine/ResponseGenerationHandler.php:475 setTools, vendor loop not read); searched 'maxToolCalls|maxIterations|toolCallLimit' in lib/Settings/hermiq_register.json and src/modals/AgentFormModal.vue: no setting Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Service/Llm/ProviderFactory.php:219 MAX_TOOL_ITERATIONS = 10, :1009 the Anthropic tool loop stops after 10 rounds; other providers run the tool loop inside LLPhant (lib/Service/Engine/ResponseGenerationHandler.php:475 setTools, vendor loop not read); searched 'maxToolCalls|maxIterations|toolCallLimit' in lib/Settings/hermiq_register.json and src/modals/AgentFormModal.vue: no setting Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-switch-off-and-stop"
 			},
 			"reachedOn": "none (fixed in code)"
 		},
@@ -8071,7 +8134,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/credentials.json:24-31 personal credentials anthropic-oauth and anthropic-cli for a Claude Max subscription, declared to the credential broker from src/App.vue:153; src/modals/LlmProviderModal.vue:131-150,251 'Claude Max subscription (OAuth)' auth mode, personal only; lib/Service/Llm/ProviderFactory.php:876 oauth beta header on the http path, :1622 the cli path runs the official claude CLI in exapp/llm-runner with that token Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/credentials.json:24-31 personal credentials anthropic-oauth and anthropic-cli for a Claude Max subscription, declared to the credential broker from src/App.vue:153; src/modals/LlmProviderModal.vue:131-150,251 'Claude Max subscription (OAuth)' auth mode, personal only; lib/Service/Llm/ProviderFactory.php:876 oauth beta header on the http path, :1622 the cli path runs the official claude CLI in exapp/llm-runner with that token Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/models-provider-connections"
 			},
 			"reachedOn": "Personal settings credential (anthropic-cli) plus Admin settings -> LLM provider -> Claude subscription"
 		},
@@ -8098,9 +8162,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/automations.py:14-15,149 automation runs are recorded with their last result; searched 'fix|diagnos|failed run|troubleshoot' in src/lib/i18n/locales/en-US/translation.json and backend/open_webui/routers: no assistant that investigates a failed run or proposes a fix"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "failed runs are listed (src/views/Runs.vue) and a dead-letter run can be re-run or replayed (src/widgets/AgentRunHistoryWidget.vue); searched 'diagnos|investigat|suggest.*fix|propose.*fix' in lib/ src/: no assistant that investigates a failed run; lib/Repair/SeedHydraTriageFlow.php triages code findings for the Hydra pipeline, not failed hermiq runs"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (n8n), changelog demand only. Code reading before the decision: failed runs are listed (src/views/Runs.vue) and a dead-letter run can be re-run or replayed (src/widgets/AgentRunHistoryWidget.vue); searched 'diagnos|investigat|suggest.*fix|propose.*fix' in lib/ src/: no assistant that investigates a failed run; lib/Repair/SeedHydraTriageFlow.php triages code findings for the Hydra pipeline, not failed hermiq runs"
 			},
 			"reachedOn": "none"
 		},
@@ -8159,7 +8223,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/Chat.vue:461 SessionDeleteModal deletes one session (src/modals/SessionDeleteModal.vue:69 deleteSessionPermanent); appinfo/routes.php:576,584-587 DELETE /api/sessions/{uuid} and /permanent take one uuid; lib/Controller/ChatController.php:539-567 clearHistory archives one conversationId. Searched 'bulk|selected|deleteMany|select all' in src/views/Chat.vue: none Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/views/Chat.vue:461 SessionDeleteModal deletes one session (src/modals/SessionDeleteModal.vue:69 deleteSessionPermanent); appinfo/routes.php:576,584-587 DELETE /api/sessions/{uuid} and /permanent take one uuid; lib/Controller/ChatController.php:539-567 clearHistory archives one conversationId. Searched 'bulk|selected|deleteMany|select all' in src/views/Chat.vue: none Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-session-search-and-bulk-delete"
 			},
 			"reachedOn": "none"
 		},
@@ -8188,7 +8253,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Engine/ResponseGenerationHandler.php:326-358 the system prompt is the agent's prompt text plus context, app-context and RAG blocks, with no substitution; searched 'placeholder|str_replace|strtr|\\{user|\\{date|\\{\\{' in lib/Service/Engine and lib/Service/Agent: none (the only placeholders are conversation titles) Specified in openspec/changes/agents-instruction-variables/ (OpenSpec pass 2026-09-27)."
+				"evidence": "lib/Service/Engine/ResponseGenerationHandler.php:326-358 the system prompt is the agent's prompt text plus context, app-context and RAG blocks, with no substitution; searched 'placeholder|str_replace|strtr|\\{user|\\{date|\\{\\{' in lib/Service/Engine and lib/Service/Agent: none (the only placeholders are conversation titles) Specified in openspec/changes/agents-instruction-variables/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-instruction-variables"
 			},
 			"reachedOn": "none"
 		},
@@ -8246,9 +8312,9 @@
 			},
 			"note": "Progressive disclosure exists for tools; skills are all loaded.",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Engine/ContextAssembler.php header: every active installed skill's name, description and body is injected into the run context (assembleSkillsForRun), no lookup; searched 'searchSkill|skill.?search|findSkill' in lib/ src/: none. Tools, not skills, get search: lib/Service/Engine/ToolLoop.php:27 above tools.disclosureThreshold only hermiq.searchTools is offered (lib/Mcp/HermiqToolProvider.php:292)"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes. Code reading before the decision: lib/Service/Engine/ContextAssembler.php header: every active installed skill's name, description and body is injected into the run context (assembleSkillsForRun), no lookup; searched 'searchSkill|skill.?search|findSkill' in lib/ src/: none. Tools, not skills, get search: lib/Service/Engine/ToolLoop.php:27 above tools.disclosureThreshold only hermiq.searchTools is offered (lib/Mcp/HermiqToolProvider.php:292)"
 			},
 			"reachedOn": "none"
 		},
@@ -8336,7 +8402,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'reasoning|thinking' in src/ and lib/ (php, js, vue): no hit outside a code comment; src/views/Chat.vue renders the answer, sources and tool steps only (:266-288, :384-396) Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'reasoning|thinking' in src/ and lib/ (php, js, vue): no hit outside a code comment; src/views/Chat.vue renders the answer, sources and tool steps only (:266-288, :384-396) Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-how-an-answer-came-about"
 			},
 			"reachedOn": "none"
 		},
@@ -8366,7 +8433,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/modals/AgentFormModal.vue:256-304 dictation engine and 'Allow speaking with this agent' (reply spoken back); lib/Controller/SpeechController.php transcribe and synthesise over lib/Service/Speech/SpeechClient.php (appinfo/routes.php:540-542); lib/TaskProcessing/AudioToTextProvider.php:68-69 and TextToSpeechProvider.php for other apps. Searched 'translat' in lib/ src/ exapp/speech-runner: no translate step Specified in openspec/changes/chat-translate-a-recording/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/modals/AgentFormModal.vue:256-304 dictation engine and 'Allow speaking with this agent' (reply spoken back); lib/Controller/SpeechController.php transcribe and synthesise over lib/Service/Speech/SpeechClient.php (appinfo/routes.php:540-542); lib/TaskProcessing/AudioToTextProvider.php:68-69 and TextToSpeechProvider.php for other apps. Searched 'translat' in lib/ src/ exapp/speech-runner: no translate step Specified in openspec/changes/chat-translate-a-recording/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-translate-a-recording"
 			},
 			"reachedOn": "/chat with a voice-enabled agent (microphone and spoken reply)"
 		},
@@ -8394,9 +8462,9 @@
 			},
 			"note": "Nextcloud-phrased row: hermiq provides transcription to TaskProcessing, not subtitle files from Files.",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/TaskProcessing/AudioToTextProvider.php:68-69,92-93 registers hermiq:audio2text for the plain core audio-to-text task type only; searched 'subtitle|\\.srt|webvtt' in lib/ src/ exapp/: no subtitle output and no Files action"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (nextcloud-assistant), changelog demand only; outside the core area. Code reading before the decision: lib/TaskProcessing/AudioToTextProvider.php:68-69,92-93 registers hermiq:audio2text for the plain core audio-to-text task type only; searched 'subtitle|\\.srt|webvtt' in lib/ src/ exapp/: no subtitle output and no Files action"
 			},
 			"reachedOn": "none"
 		},
@@ -8425,7 +8493,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'attach|image|upload|fileId|vision|multimodal' in src/views/Chat.vue, src/api/chat.js, lib/Service/Engine and lib/Service/Llm/ProviderFactory.php: the composer sends text only (the one Chat.vue hit, :615, is the agent avatar), messages are built as text (lib/Service/Engine/ResponseGenerationHandler.php:363 LLPhantMessage::user($userMessage)) and no answer carries images Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'attach|image|upload|fileId|vision|multimodal' in src/views/Chat.vue, src/api/chat.js, lib/Service/Engine and lib/Service/Llm/ProviderFactory.php: the composer sends text only (the one Chat.vue hit, :615, is the agent avatar), messages are built as text (lib/Service/Engine/ResponseGenerationHandler.php:363 LLPhantMessage::user($userMessage)) and no answer carries images Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/chat-attachments-and-images"
 			},
 			"reachedOn": "none"
 		},
@@ -8454,7 +8523,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'computer.?use|screenshot|pyautogui|xdotool|mouse|click|vnc|rdp|desktop|windows' in lib/, src/ and exapp/llm-runner/src: no screen-reading or desktop-control tool; the runner executes repo stages and MCP tools (exapp/llm-runner/src/runner.js), and hits are UI copy only (lib/Listener/TalkApprovalReactionListener.php:10 one-click approval) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'computer.?use|screenshot|pyautogui|xdotool|mouse|click|vnc|rdp|desktop|windows' in lib/, src/ and exapp/llm-runner/src: no screen-reading or desktop-control tool; the runner executes repo stages and MCP tools (exapp/llm-runner/src/runner.js), and hits are UI copy only (lib/Listener/TalkApprovalReactionListener.php:10 one-click approval) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/tools-browser-and-computer-use"
 			},
 			"reachedOn": "nowhere"
 		},
@@ -8481,9 +8551,9 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/analytics.py:58-343 fixed endpoints (models, users, messages, summary, daily, tokens, model overview), admin UI src/lib/components/admin/Analytics/Dashboard.svelte; searched 'custom.?metric|measure' in routers/ and components/admin: no user-defined measures"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json:763-767 Dashboard shows fixed run metrics (success rate, latency, token usage) from lib/Controller/AnalyticsController.php:78 -> lib/Service/AnalyticsService.php:249-253; searched 'custom.?metric|metric.?defin|measure' in lib/, src/ and lib/Settings/hermiq_register.json: no user-defined measure, plain-language or otherwise"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): changelog demand only and no competitor rates yes. Code reading before the decision: src/manifest.json:763-767 Dashboard shows fixed run metrics (success rate, latency, token usage) from lib/Controller/AnalyticsController.php:78 -> lib/Service/AnalyticsService.php:249-253; searched 'custom.?metric|metric.?defin|measure' in lib/, src/ and lib/Settings/hermiq_register.json: no user-defined measure, plain-language or otherwise"
 			},
 			"reachedOn": "nowhere (built-in KPIs only, Dashboard /)"
 		},
@@ -8511,9 +8581,9 @@
 			},
 			"note": "report-similarity grouping is the nearest thing but answers a different question and has no drill-down view of agent questions",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'theme|cluster|topic|categori|intent' in lib/Service, lib/Controller and src/: no grouping of user questions into themes; hits are GitHub repo topics (lib/Service/GitHubTemplatePushService.php) and a conversation-summary prompt (lib/Service/Engine/ConversationManagementHandler.php:415); lib/Controller/ReportSimilarityController.php groups incoming citizen reports for an owning app, not questions asked of an agent"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): changelog demand only and no competitor rates yes. Code reading before the decision: searched 'theme|cluster|topic|categori|intent' in lib/Service, lib/Controller and src/: no grouping of user questions into themes; hits are GitHub repo topics (lib/Service/GitHubTemplatePushService.php) and a conversation-summary prompt (lib/Service/Engine/ConversationManagementHandler.php:415); lib/Controller/ReportSimilarityController.php groups incoming citizen reports for an owning app, not questions asked of an agent"
 			},
 			"reachedOn": "nowhere"
 		},
@@ -8540,9 +8610,9 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'time.?saved|savings|roi|cost' in backend/open_webui/routers and src/lib/components/admin: analytics.py:235 reports token usage only, no time or money saved measure"
 			},
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'saving|time.?saved|hours saved|roi|cost.?avoid|manual' in lib/ and src/: none; analytics and budgets track spend only (lib/Service/AnalyticsService.php:253 tokens, lib/Controller/BudgetController.php), with no baseline of manual effort to compare against"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (copilot-studio), changelog demand only. Code reading before the decision: searched 'saving|time.?saved|hours saved|roi|cost.?avoid|manual' in lib/ and src/: none; analytics and budgets track spend only (lib/Service/AnalyticsService.php:253 tokens, lib/Controller/BudgetController.php), with no baseline of manual effort to compare against"
 			},
 			"reachedOn": "nowhere"
 		},
@@ -8570,9 +8640,9 @@
 			},
 			"note": "the per-agent voiceInputEngine local/browser choice is a privacy control set by the agent owner, not caller consent",
 			"built": {
-				"state": "none",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'consent|phone|telephon|sip|voice call|record' in lib/Service/Speech, lib/Controller/SpeechController.php and src/: no calls and no consent prompt; voice is dictation and a hands-free conversation mode in the chat composer (lib/Settings/hermiq_register.json:2715 voiceConversationEnabled, src/modals/AgentFormModal.vue:283), governed by a per-agent engine choice, never by asking the speaker"
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (copilot-studio), changelog demand only; hermiq has no voice call channel. Code reading before the decision: searched 'consent|phone|telephon|sip|voice call|record' in lib/Service/Speech, lib/Controller/SpeechController.php and src/: no calls and no consent prompt; voice is dictation and a hands-free conversation mode in the chat composer (lib/Settings/hermiq_register.json:2715 voiceConversationEnabled, src/modals/AgentFormModal.vue:283), governed by a per-agent engine choice, never by asking the speaker"
 			},
 			"reachedOn": "nowhere"
 		},
@@ -8602,7 +8672,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/flows-hand-off-and-wait"
 			},
 			"reachedOn": "Flows page (/flows), workload step with async: true"
 		},
@@ -8631,7 +8702,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'builder|create_agent|createAgent|draft.?agent|upgrade|promote' in lib/Mcp, lib/Service/Engine, lib/Service/Intake and src/: there is one agent editor (src/modals/AgentFormModal.vue on /agents) and no lightweight in-chat builder whose agents could be carried over; lib/Service/Assistant/AssistantService.php:576 findOrCreateAgent makes a per-app assistant agent, not a user-built one Specified in openspec/changes/agents-plain-language-builder/ (OpenSpec pass 2026-09-27)."
+				"evidence": "searched 'builder|create_agent|createAgent|draft.?agent|upgrade|promote' in lib/Mcp, lib/Service/Engine, lib/Service/Intake and src/: there is one agent editor (src/modals/AgentFormModal.vue on /agents) and no lightweight in-chat builder whose agents could be carried over; lib/Service/Assistant/AssistantService.php:576 findOrCreateAgent makes a per-app assistant agent, not a user-built one Specified in openspec/changes/agents-plain-language-builder/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-plain-language-builder"
 			},
 			"reachedOn": "nowhere"
 		},
@@ -8661,7 +8733,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/Chat.vue:848-867 chat search is scoped per agent to OpenRegister views (saved object filters) plus on/off for files and objects, sent to OpenRegister chat; lib/Settings/hermiq_register.json:3026-3044 Context bundles pin named file paths and object queries with equality filters, resolved in lib/Service/Engine/ContextAssembler.php:354,394; no filter on files by owner, file name or modified date Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/views/Chat.vue:848-867 chat search is scoped per agent to OpenRegister views (saved object filters) plus on/off for files and objects, sent to OpenRegister chat; lib/Settings/hermiq_register.json:3026-3044 Context bundles pin named file paths and object queries with equality filters, resolved in lib/Service/Engine/ContextAssembler.php:354,394; no filter on files by owner, file name or modified date Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/memory-retrieval-scope"
 			},
 			"reachedOn": "Chat page (/chat) agent settings; Context bundles via the generic objects API only"
 		},
@@ -8721,7 +8794,8 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentTemplateRowActions.vue:261 export a template package; src/modals/AgentTemplatePublishModal.vue:198 -> lib/Controller/AgentTemplateController.php:629 publish to a NEW GitHub repo (lib/Service/GitHubTemplatePushService.php:14-17 re-publish to an existing repo is refused); src/widgets/AgentTemplateGithubStore.vue:449 -> AgentTemplateController.php:557 install from GitHub lands a new quarantined template Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27)."
+				"evidence": "src/widgets/AgentTemplateRowActions.vue:261 export a template package; src/modals/AgentTemplatePublishModal.vue:198 -> lib/Controller/AgentTemplateController.php:629 publish to a NEW GitHub repo (lib/Service/GitHubTemplatePushService.php:14-17 re-publish to an existing repo is refused); src/widgets/AgentTemplateGithubStore.vue:449 -> AgentTemplateController.php:557 install from GitHub lands a new quarantined template Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/agents-export-import-and-git-sync"
 			},
 			"reachedOn": "Store page (/store), template row actions and GitHub store"
 		}

@@ -902,5 +902,317 @@
 		"reason": "Agent template loading half, requested by humaniq's self-service-policy-assistant ('hermiq: loading an agent definition contributed by an app'). hermiq's open change agents-bound-to-their-app D5 specifies CollectAgentTemplatesEvent for exactly that (REQ-APPAG-005). The same humaniq change also names hermiq's 'forward-to-group tool' for the hand-off to HR; that half is not decided here.",
 		"change": "agents-bound-to-their-app",
 		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ch-voice-in",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, core area (chat) and 6 competitors rate yes (nextcloud-assistant, hermes-agent, copilot-studio, dify, n8n, open-webui). The change names what is built at c91e637a and what is not.",
+		"change": "chat-speak-and-listen",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ch-voice-out",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, core area (chat) and 5 competitors rate yes (nextcloud-assistant, hermes-agent, dify, n8n, open-webui). The change names what is built at c91e637a and what is not.",
+		"change": "chat-speak-and-listen",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "tl-deck",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (nextcloud-assistant), no demand row; outside the core area. The archived nc-native-write-tools covers calendar, contacts and notes, not Deck.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "tl-unified-search",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (nextcloud-assistant), no demand row; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "tl-request-access",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: no competitor rates yes, no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "me-view-edit",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, 2 competitors rate yes (nextcloud-assistant, open-webui). The change names what is built at c91e637a and what is not.",
+		"change": "memory-correct-and-forget",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "me-context",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: one competitor rates yes (open-webui), no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "me-object-grounding",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: no competitor rates yes, no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "sk-auto-create",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (hermes-agent), no demand row; outside the core area. The archived skill-self-improvement proposes versions of existing skills only.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "mo-per-feature",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, 6 competitors rate yes (nextcloud-assistant, hermes-agent, copilot-studio, dify, n8n, open-webui). The change names what is built at c91e637a and what is not.",
+		"change": "models-bind-a-provider-per-feature",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "mo-sensitivity-routing",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: no competitor rates yes and no demand row; outside the core area. The open a-provider-and-a-place-per-ai-feature routes by feature and residency, not by data sensitivity.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dl-dashboard-widget",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: no competitor rates yes and no demand row; outside the core area. The archived dashboard-org-widgets is hermiq's own Dashboard page, a different surface.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dl-transcribe",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, 5 competitors rate yes (nextcloud-assistant, hermes-agent, dify, n8n, open-webui). The change names what is built at c91e637a and what is not.",
+		"change": "chat-speak-and-listen",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ov-approval-context",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, 2 competitors rate yes (nextcloud-assistant, hermes-agent). The change names what is built at c91e637a and what is not.",
+		"change": "oversight-what-an-approval-will-do",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ov-automation-bias",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: no competitor rates yes and no demand row.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "co-control-packs",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: no competitor rates yes, no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "co-compliance-export",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: no competitor rates yes, no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "co-authority-notify",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: no competitor rates yes and no demand row; outside the core area. Incidents are recorded internally by the archived agent-lifecycle-governance.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "co-transparency",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: no competitor rates yes and no demand row; outside the core area. The archived compliance-control-packs factsheet is role-restricted and algoritmeregister-publication writes to the public register, neither is an explanation for employees.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ob-cost-per-run",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: one competitor rates yes (n8n), no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ob-drift",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: no competitor rates yes and no demand row; the archived compliance-control-packs defers drift to a future model-monitoring change.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ob-feedback-stats",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, 3 competitors rate yes (copilot-studio, dify, open-webui). The change names what is built at c91e637a and what is not.",
+		"change": "observability-feedback-per-agent",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "re-template-cross-tenant",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (dify), no demand row; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "re-course-recs",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: no competitor rates yes, no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "op-airgap",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row with no change for its missing half: one competitor rates yes (open-webui), no featureRequest, roadmap or tender demand row, and outside the core area (agents, chat); defer retired on 2026-09-28, so this is a refusal on the record, reversible. The built half stays as it is.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "op-agent-credential",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: build, 3 competitors rate yes (hermes-agent, copilot-studio, dify). The change names what is built at c91e637a and what is not.",
+		"change": "operations-a-credential-per-agent",
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-task-board",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (hermes-agent), changelog demand only; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-rate-cap",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: a featureRequest demand row but no competitor rates yes; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-folders",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: a featureRequest demand row but no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-claimed-tool-call",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: a featureRequest demand row but no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-user-key-encryption",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: a featureRequest demand row but no competitor rates yes; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-flow-change-review",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: changelog demand only and no competitor rates yes; a publish gate would sit in OpenRegister's flow store.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-failed-run-fix",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (n8n), changelog demand only.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-skill-search",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: a featureRequest demand row but no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-subtitles",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (nextcloud-assistant), changelog demand only; outside the core area.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-custom-metrics",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: changelog demand only and no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-question-themes",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: changelog demand only and no competitor rates yes.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-savings-tracking",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (copilot-studio), changelog demand only.",
+		"change": null,
+		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "dm-call-consent",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (copilot-studio), changelog demand only; hermiq has no voice call channel.",
+		"change": null,
+		"decidedOn": "2026-09-28"
 	}
 ]
