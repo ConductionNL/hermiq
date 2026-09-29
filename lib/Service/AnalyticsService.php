@@ -95,20 +95,6 @@ class AnalyticsService
     private const AGENT_SCHEMA = 'agent';
 
     /**
-     * Feedback schema slug (thumbs up or down on one answer).
-     *
-     * @var string
-     */
-    private const FEEDBACK_SCHEMA = 'feedback';
-
-    /**
-     * How many low ratings the agent page lists.
-     *
-     * @var integer
-     */
-    private const LOW_RATINGS_LIMIT = 10;
-
-    /**
      * The audit actions that represent an agent run, as ONE comma-joined filter value.
      *
      * AuditTrailMapper::findAll() turns a comma-bearing filter value into a SQL `IN`
@@ -127,6 +113,13 @@ class AnalyticsService
     private const AGENT_PAGE_SIZE = 500;
 
     /**
+     * The ratings read, on the same object service and so the same boundary.
+     *
+     * @var AgentFeedbackStats
+     */
+    private readonly AgentFeedbackStats $feedbackStats;
+
+    /**
      * The status value that counts as a successful run.
      *
      * @var string
@@ -143,6 +136,8 @@ class AnalyticsService
         private readonly ObjectService $objectService,
         private readonly AuditTrailMapper $auditTrailMapper,
     ) {
+        $this->feedbackStats = new AgentFeedbackStats(objectService: $objectService);
+
     }//end __construct()
 
     /**
@@ -251,37 +246,9 @@ class AnalyticsService
         }//end if
 
         // Ratings on the same boundary: only feedback on a visible agent counts.
-        $feedback = ['positive' => 0, 'negative' => 0];
-        foreach ($this->loadFeedback(visibleAgents: $visibleAgents, agentId: $agentId) as $row) {
-            $ratedAgent = (string) ($row['agentId'] ?? '');
-            $type       = (string) ($row['type'] ?? '');
-            if ($type !== 'positive' && $type !== 'negative') {
-                continue;
-            }
-
-            $feedback[$type]++;
-            if (isset($perAgent[$ratedAgent]) === false) {
-                $label = $visibleAgents[$ratedAgent];
-                if ($label === '') {
-                    $label = $ratedAgent;
-                }
-
-                $perAgent[$ratedAgent] = ['agentId' => $ratedAgent, 'name' => $label, 'runs' => 0, 'success' => 0];
-            }
-
-            $perAgent[$ratedAgent][$type] = (($perAgent[$ratedAgent][$type] ?? 0) + 1);
-        }
-
-        foreach (array_keys($perAgent) as $key) {
-            $perAgent[$key]['positive'] = ($perAgent[$key]['positive'] ?? 0);
-            $perAgent[$key]['negative'] = ($perAgent[$key]['negative'] ?? 0);
-        }
-
-        $rated = ($feedback['positive'] + $feedback['negative']);
-        $feedback['helpfulRate'] = null;
-        if ($rated > 0) {
-            $feedback['helpfulRate'] = round(($feedback['positive'] / $rated), 4);
-        }
+        $rated    = $this->feedbackStats->tally(visibleAgents: $visibleAgents, agentId: $agentId, perAgent: $perAgent);
+        $feedback = $rated['feedback'];
+        $perAgent = $rated['perAgent'];
 
         $scope = 'organisation';
         if ($agentId !== null && $agentId !== '') {
@@ -490,8 +457,7 @@ class AnalyticsService
     /**
      * The latest thumbs-down ratings with a comment on one agent, newest first.
      *
-     * The caller checks read access on the agent first. The rater's name is left
-     * out: the rating is about the answer, not the person.
+     * The caller checks read access on the agent first; see AgentFeedbackStats.
      *
      * @param string $agentId The agent UUID.
      *
@@ -501,92 +467,9 @@ class AnalyticsService
      */
     public function latestLowRatings(string $agentId): array
     {
-        $rows = [];
-        foreach ($this->loadFeedback(visibleAgents: [$agentId => ''], agentId: $agentId) as $row) {
-            $comment = trim((string) ($row['comment'] ?? ''));
-            if (($row['type'] ?? '') !== 'negative' || $comment === '') {
-                continue;
-            }
-
-            $rows[] = [
-                'comment'        => $comment,
-                'date'           => $row['@date'],
-                'conversationId' => (string) ($row['conversationId'] ?? ''),
-            ];
-        }
-
-        usort(
-            $rows,
-            static function (array $a, array $b): int {
-                return strcmp((string) $b['date'], (string) $a['date']);
-            }
-        );
-
-        return array_slice($rows, 0, self::LOW_RATINGS_LIMIT);
+        return $this->feedbackStats->latestLowRatings(agentId: $agentId);
 
     }//end latestLowRatings()
-
-    /**
-     * Feedback rows on the visible agents, paged to exhaustion.
-     *
-     * Read through ObjectService with multitenancy on, like the agent map, then
-     * narrowed to the visible agents so a rating on an agent the caller may not
-     * see is never counted.
-     *
-     * @param array<string, string> $visibleAgents Map of visible agent UUID to name.
-     * @param string|null           $agentId       Optional agent UUID to narrow to.
-     *
-     * @return array<int, array<string, mixed>> The feedback payloads, each with `@date` (created, ISO 8601 or null).
-     *
-     * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
-     */
-    private function loadFeedback(array $visibleAgents, ?string $agentId): array
-    {
-        if ($visibleAgents === []) {
-            return [];
-        }
-
-        $scoped = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::FEEDBACK_SCHEMA);
-
-        $query = ['_limit' => self::AGENT_PAGE_SIZE];
-        if ($agentId !== null && $agentId !== '') {
-            $query['agentId'] = $agentId;
-        }
-
-        $rows   = [];
-        $offset = 0;
-        do {
-            $query['_offset'] = $offset;
-            $result           = $scoped->searchObjectsPaginated(query: $query);
-            $page             = ($result['results'] ?? []);
-            foreach ($page as $object) {
-                if (($object instanceof ObjectEntity) === false) {
-                    continue;
-                }
-
-                $data = $object->getObject();
-                if (isset($visibleAgents[(string) ($data['agentId'] ?? '')]) === false) {
-                    continue;
-                }
-
-                $created       = $object->getCreated();
-                $data['@date'] = null;
-                if ($created !== null) {
-                    $data['@date'] = $created->format('c');
-                }
-
-                $rows[] = $data;
-            }
-
-            $offset += self::AGENT_PAGE_SIZE;
-            $total   = (int) ($result['total'] ?? 0);
-        } while ($page !== [] && $offset < $total);
-
-        return $rows;
-
-    }//end loadFeedback()
 
     /**
      * Load the caller's visible agent UUIDs mapped to their display name.
