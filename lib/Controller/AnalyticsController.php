@@ -52,6 +52,7 @@ class AnalyticsController extends Controller {
 	 * @param AnalyticsService $analyticsService The run-analytics read service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessService $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
 	 *
 	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
 	 */
