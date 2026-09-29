@@ -8861,7 +8861,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/talk-shared-sessions/spec.md status: in-progress; lib/Settings/hermiq_register.json Conversation.participants property; lib/Service/Talk/TalkRoomBinding.php:280-324 syncParticipants() from live Talk room membership, per-speaker file/credential scoping described in the spec; lib/Listener/TalkBotInvokeListener.php wired via Application.php's BotInvokeEvent registration."
+				"evidence": "openspec/specs/talk-shared-sessions/spec.md status: in-progress; lib/Settings/hermiq_register.json Conversation.participants property; lib/Service/Talk/TalkRoomBinding.php:280-324 syncParticipants() from live Talk room membership, per-speaker file/credential scoping described in the spec; lib/Listener/TalkBotInvokeListener.php wired via Application.php's BotInvokeEvent registration.",
+				"change": "chat-work-together-in-one-session"
 			},
 			"reachedOn": "a Nextcloud Talk room with the Hermiq bot invited (machine path: OCA\\Talk\\Events\\BotInvokeEvent -> TalkBotInvokeListener)",
 			"note": "Substantial code exists (participant roster sync, per-speaker authorship), but the spec itself is still marked in-progress, so full end-to-end behaviour could not be confirmed by reading alone.",
@@ -8960,7 +8961,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:1-24 states plainly that ragSearchMode semantic/hybrid 'DEGRADE GRACEFULLY to keyword search' (searchKeywordOnly, line 388, via ObjectService::searchObjectsPaginated); openspec/changes/vector-rag/tasks.md has 0 of 14 tasks checked and its proposal.md confirms no public OpenRegister vector-search facade exists yet."
+				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:1-24 states plainly that ragSearchMode semantic/hybrid 'DEGRADE GRACEFULLY to keyword search' (searchKeywordOnly, line 388, via ObjectService::searchObjectsPaginated); openspec/changes/vector-rag/tasks.md has 0 of 14 tasks checked and its proposal.md confirms no public OpenRegister vector-search facade exists yet.",
+				"change": "vector-rag"
 			},
 			"reachedOn": "Chat turn with an agent whose ragSearchMode/searchFiles is configured -> ContextRetrievalHandler::retrieveContext (keyword search only)",
 			"provider": "hermiq",
@@ -9025,7 +9027,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/context-documents/spec.md status line: 'partial (schema shipped, assembler and editor open)' -- states the inline 'documents' source kind is declared on the Context schema (hermiq-context-documents-schema DONE) but 'the run-start assembler that renders a document into the context preamble, and the authoring surface that edits one, are not built. A Context object can therefore hold documents that nothing yet reads.'"
+				"evidence": "openspec/specs/context-documents/spec.md status line: 'partial (schema shipped, assembler and editor open)' -- states the inline 'documents' source kind is declared on the Context schema (hermiq-context-documents-schema DONE) but 'the run-start assembler that renders a document into the context preamble, and the authoring surface that edits one, are not built. A Context object can therefore hold documents that nothing yet reads.'",
+				"change": "hermiq-context-documents"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -9055,9 +9058,9 @@
 			"source": "own-code",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/skills-marketplace/spec.md scenario 'An org installs a skill published by another tenant' is backed by SkillMarketplaceServiceTest::testInstallFromSourceQuarantines; installFromSource always quarantines pending OR's SecurityService scan + human approval (appinfo/routes.php:384-386 skillMarketplace#installFromSource/approve/publish)."
+				"evidence": "decided-no on 2026-09-29 (build-all pass, reversible): no competitor rates it yes and there is no tender or feature request row; skills is outside the core area (agents, chat). What exists stays: a skill package from another organisation installs by paste or from a hub source into quarantine and needs an approval (SkillMarketplaceService::installFromSource, appinfo/routes.php skillMarketplace#installFromSource/approve/publish). No live in-instance marketplace across organisations will be built. Code reading before the decision: openspec/specs/skills-marketplace/spec.md scenario 'An org installs a skill published by another tenant' is backed by SkillMarketplaceServiceTest::testInstallFromSourceQuarantines; installFromSource always quarantines pending OR's SecurityService scan + human approval (appinfo/routes.php:384-386 skillMarketplace#installFromSource/approve/publish)."
 			},
 			"reachedOn": "src/modals/SkillImportModal.vue (paste a package or install-from-hub) -> POST /api/skills/install-from-source -> quarantine -> Approve",
 			"provider": "hermiq",
@@ -9153,9 +9156,9 @@
 			"source": "demand-derived",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:1050-1071 AiFeature.impactAssessments (array of {kind: IAMA|DPIA|FRAIA, reference}), described as 'mandatory only to publish' to the Algoritmeregister; src/views/AiFeatureRegister.vue:213-217 MANDATORY_FIELDS reads impactAssessments only to compute the client-side publish-readiness hint, it renders no dedicated editor for the field."
+				"evidence": "decided-no on 2026-09-29 (build-all pass, reversible): no competitor rates it yes and there is no tender or feature request row; compliance is outside the core area (agents, chat). What exists stays: AiFeature.impactAssessments (kind IAMA, DPIA or FRAIA, with a reference) in lib/Settings/hermiq_register.json, required to publish to the Algoritmeregister, edited through the generic algorithm register form. No dedicated agent-to-assessment editor will be built. Code reading before the decision: lib/Settings/hermiq_register.json:1050-1071 AiFeature.impactAssessments (array of {kind: IAMA|DPIA|FRAIA, reference}), described as 'mandatory only to publish' to the Algoritmeregister; src/views/AiFeatureRegister.vue:213-217 MANDATORY_FIELDS reads impactAssessments only to compute the client-side publish-readiness hint, it renders no dedicated editor for the field."
 			},
 			"reachedOn": "Settings -> Algorithm register (/algorithm-register) generic index-page edit form for an AiFeature object, if that generic form renders array-of-object schema properties",
 			"note": "The linkage is AiFeature-to-assessment, not Agent-to-assessment directly, and an agent only reaches it through its aiFeature reference.",
