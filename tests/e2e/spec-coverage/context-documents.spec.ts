@@ -35,7 +35,10 @@ test.describe('hermiq contexts: author documents', () => {
 		await page.goto(`${root}/contexts`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
-		await page.getByRole('button', { name: /add|new/i }).first().click()
+		await page
+			.getByRole('button', { name: /add|new/i })
+			.first()
+			.click()
 		const dialog = page.getByRole('dialog')
 		await dialog.getByLabel('Name').first().fill(name)
 		await dialog.getByRole('button', { name: 'Add document' }).click()
@@ -48,7 +51,9 @@ test.describe('hermiq contexts: author documents', () => {
 
 	// @e2e context-documents::edit-preserves-unsurfaced-fields
 	// @e2e context-documents::add-rename-and-remove-document-entries
-	test('edit keeps charBudget and viewRefs and the remaining document', async ({ page }) => {
+	test('edit keeps charBudget and viewRefs and the remaining document', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
 		const seeded = await seedObject(page.request, token, 'context', {
 			name: `${TEST_PREFIX}-budgeted`,
@@ -69,11 +74,16 @@ test.describe('hermiq contexts: author documents', () => {
 		await dialog.getByRole('button', { name: 'Save' }).click()
 		await expect(dialog).toBeHidden({ timeout: 15_000 })
 
-		const res = await page.request.get(`${OR_API}/objects/hermiq/context/${seeded.id}`, {
-			headers: jsonHeaders(token),
-		})
+		const res = await page.request.get(
+			`${OR_API}/objects/hermiq/context/${seeded.id}`,
+			{
+				headers: jsonHeaders(token),
+			},
+		)
 		const body = await res.json()
 		expect(body.charBudget).toBe(1234)
-		expect(body.documents.map((d: { name: string }) => d.name)).toEqual(['new.md'])
+		expect(body.documents.map((d: { name: string }) => d.name)).toEqual([
+			'new.md',
+		])
 	})
 })

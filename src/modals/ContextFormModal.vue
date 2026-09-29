@@ -177,12 +177,20 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The dialog title.
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		heading() {
 			return this.item
 				? this.t('hermiq', 'Edit context')
 				: this.t('hermiq', 'New context')
 		},
 
+		/**
+		 * How many live data queries the stored Context carries.
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		queryCount() {
 			return Array.isArray(this.item?.objectQueries)
 				? this.item.objectQueries.length
@@ -191,6 +199,10 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Reset the form each time the dialog opens.
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		show(open) {
 			if (open) {
 				this.form = this.formFrom(this.item)
@@ -198,6 +210,10 @@ export default {
 			}
 		},
 
+		/**
+		 * Reload the form when the edited Context changes.
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		item(value) {
 			this.form = this.formFrom(value)
 		},
@@ -208,6 +224,7 @@ export default {
 		 * A fresh key for a list row.
 		 *
 		 * @return {number}
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
 		 */
 		nextKey() {
 			keySeed += 1
@@ -242,6 +259,10 @@ export default {
 			}
 		},
 
+		/**
+		 * Add an empty document entry.
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		addDocument() {
 			this.form.documents.push({
 				key: this.nextKey(),
@@ -251,6 +272,10 @@ export default {
 			})
 		},
 
+		/**
+		 * Remove one document entry.
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		removeDocument(index) {
 			this.form.documents.splice(index, 1)
 		},
@@ -315,6 +340,10 @@ export default {
 			}
 		},
 
+		/**
+		 * Close the dialog (slot contract: emit and call the close prop).
+		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+		 */
 		handleClose() {
 			this.$emit('close')
 			this.close?.()

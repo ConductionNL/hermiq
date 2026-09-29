@@ -472,9 +472,12 @@ class ContextAssembler {
 		foreach ($documents as $index => $document) {
 			$name = '';
 			$body = '';
-			if (is_array($document) === true) {
-				$name = (is_string($document['name'] ?? null) === true) ? trim($document['name']) : '';
-				$body = (is_string($document['body'] ?? null) === true) ? $document['body'] : '';
+			if (is_array($document) === true && is_string($document['name'] ?? null) === true) {
+				$name = trim($document['name']);
+			}
+
+			if (is_array($document) === true && is_string($document['body'] ?? null) === true) {
+				$body = $document['body'];
 			}
 
 			if ($name === '' || trim($body) === '') {
