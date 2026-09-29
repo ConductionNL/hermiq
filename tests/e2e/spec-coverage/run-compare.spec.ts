@@ -4,6 +4,9 @@
  *
  * Run comparison (observability-compare-two-runs).
  *
+ * Drives the RunCompare page (src/views/RunCompare.vue, /runs/compare) from the Runs
+ * list, and the FlowRunCompare page (src/views/FlowRunCompare.vue, /flow-runs/compare).
+ *
  * A run is an audit entry the run path writes and no API creates, so the run list,
  * the comparison and the flow runs are answered by `page.route` here: each scenario
  * controls its runs. The visibility boundary is asserted against the real endpoint
