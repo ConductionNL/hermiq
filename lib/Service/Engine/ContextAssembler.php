@@ -353,6 +353,7 @@ class ContextAssembler {
 		$sections = [];
 		$sections = array_merge($sections, $this->resolveObjectQueries(queries: ($data['objectQueries'] ?? [])));
 		$sections = array_merge($sections, $this->resolveFiles(files: ($data['files'] ?? []), actingUserId: $actingUserId));
+		$sections = array_merge($sections, $this->resolveDocuments(documents: ($data['documents'] ?? [])));
 
 		$this->logViewRefs(contextId: $contextId, viewRefs: ($data['viewRefs'] ?? []));
 
@@ -449,6 +450,43 @@ class ContextAssembler {
 
 		return $blocks;
 	}//end resolveObjectQueries()
+
+	/**
+	 * Render each inline `documents` entry as a `Document: {name}` block. An entry that
+	 * is not an object, or lacks a non-empty string `name` or `body`, is skipped
+	 * (logged); it never aborts the whole assembly. Reads nothing beyond the Context
+	 * object itself, so it adds no authorization path.
+	 *
+	 * @param mixed $documents The Context's `documents` value.
+	 *
+	 * @return array<int, string> One formatted block per valid document.
+	 *
+	 * @spec openspec/specs/context-documents/spec.md#requirement-contextassembler-renders-documents-into-the-budgeted-preamble
+	 */
+	private function resolveDocuments(mixed $documents): array {
+		if (is_array($documents) === false) {
+			return [];
+		}
+
+		$blocks = [];
+		foreach ($documents as $index => $document) {
+			$name = '';
+			$body = '';
+			if (is_array($document) === true) {
+				$name = (is_string($document['name'] ?? null) === true) ? trim($document['name']) : '';
+				$body = (is_string($document['body'] ?? null) === true) ? $document['body'] : '';
+			}
+
+			if ($name === '' || trim($body) === '') {
+				$this->logger->info(sprintf('Hermiq ContextAssembler: document %s has no name or body, skipping', (string)$index));
+				continue;
+			}
+
+			$blocks[] = sprintf("Document: %s\n%s", $name, $body);
+		}
+
+		return $blocks;
+	}//end resolveDocuments()
 
 	/**
 	 * Read each `files` entry from the acting user's Nextcloud folder. A missing file,
