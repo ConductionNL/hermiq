@@ -7574,7 +7574,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/langgenius/dify/issues/41864",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -7589,14 +7589,16 @@
 				"n8n": "source read at n8n@2.40.7, not driven: evaluation runs compare side by side with Cases, Outputs, Metrics and a 'Workflow diff' tab (en.json:6521-6524; packages/frontend/editor-ui/src/features/ai/evaluation.ee/components/Compare/) and workflow versions diff visually (packages/frontend/editor-ui/src/features/workflows/workflowDiff/WorkflowDiffView.vue); searched 'compare' in packages/frontend/editor-ui/src/features/execution/executions: no side-by-side of two ordinary executions Note: Comparison exists for evaluation runs and versions, not for two production runs.",
 				"open-webui": "source read at v0.11.4, not driven: searched 'compare|diff' in src/lib/components/automations and backend/open_webui/routers/automations.py: runs are listed one by one (AutomationEditor.svelte:355-400); side-by-side view exists only for different models answering one prompt (chat/Messages/MultiResponseMessages.svelte), not for two runs"
 			},
-			"note": "Compares a replay against its original run for scheduled agent runs; there is no side-by-side of two chosen runs, and not for flow runs.",
+			"note": "Since 2026-09-29 any two runs the caller may see compare side by side with aligned steps, and two runs of one flow compare node by node; the replay still compares against its original.",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentRunHistoryWidget.vue:112-126 per-run 'Replay this run as a dry run and compare', :238-248 says whether the replay produced the same or a different outcome, :253-256 lists the replay steps; src/api/agents.js:154 replayRun -> appinfo/routes.php:83-87 runHistory#replay -> lib/Controller/RunHistoryController.php:206 replay with a step diff against the original Specified in openspec/changes/observability-compare-two-runs/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/observability-compare-two-runs"
+				"evidence": "GET /api/runs/compare (appinfo/routes.php analytics#compare) -> AnalyticsController::compare -> AnalyticsService::compareRuns -> RunCompareService compares two run audit entries only when both agents are in the run list's visible set (else 404 per side), aligning steps with RunComparator (LCS; the replay diff uses the same alignment). src/views/Runs.vue ticks two runs (a third is refused) and opens src/views/RunCompare.vue (/runs/compare); AgentRunHistoryWidget 'Compare with…'. src/views/FlowRunCompare.vue (/flow-runs/compare) reads two flow runs from OpenRegister's /api/flow-runs as the person and lines nodes up by id, flagging a flow version difference. Tests: tests/Unit/Service/RunCompareTest.php, RunComparatorTest.php, AnalyticsControllerTest compare*, tests/run-compare.spec.js (check:specs), tests/e2e/spec-coverage/run-compare.spec.ts.",
+				"change": "openspec/changes/archive/2026-09-29-observability-compare-two-runs",
+				"reachedOn": "/runs -> tick two runs -> Compare; /runs -> Compare flow runs",
+				"readOn": "2026-09-29"
 			},
-			"reachedOn": "/agents/:id -> Run history -> Replay"
+			"reachedOn": "/runs -> tick two runs -> Compare"
 		},
 		{
 			"id": "dm-claimed-tool-call",
