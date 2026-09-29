@@ -223,6 +223,7 @@ return [
         // routinely lives in another register). This one shares the analytics tenant
         // boundary, so the list and the dashboard KPIs count the same set.
         ['name' => 'analytics#runs', 'url' => '/api/runs', 'verb' => 'GET'],
+        ['name' => 'analytics#compare', 'url' => '/api/runs/compare', 'verb' => 'GET'],
 
         // Tool governance + disclosure (agent-tool-governance-and-disclosure): grant editor
         // catalog/write + per-agent art.12/14 oversight read.

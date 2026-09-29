@@ -65,6 +65,39 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Run comparison",
+			"item": [
+				{
+					"name": "Compare two runs that do not exist",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/runs/compare?left=no-such-run&right=no-such-run-either",
+						"description": "REQ-RCMP-001: a run the caller may not see is answered like a run that does not exist (404 per side)."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Both sides are not found', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().missing).to.eql(['left', 'right']);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

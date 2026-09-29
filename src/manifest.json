@@ -576,6 +576,22 @@
 			"_note": "Custom page: the cross-agent run list. Not an index page, because runs are not OpenRegister objects — they are `action` in ('run','agent-run') AuditTrail entries, read through AnalyticsService so the list and the dashboard KPIs share one tenant boundary. Two things had no surface before it: the failures behind a dropped success rate (the only run listing was per-schedule), and flow-triggered runs, whose audit entries hang on the triggering object and so matched no schedule-scoped query at all. `?schedule=` narrows it to one schedule, which is where run-history and Talk delivery links now point — both previously built /apps/hermiq/schedules/<uuid>, a route this manifest never declared, so they answered 200 with the app shell and landed the reader on the dashboard. Standard nav page — not a dashboard."
 		},
 		{
+			"id": "RunCompare",
+			"route": "/runs/compare",
+			"type": "custom",
+			"component": "RunCompare",
+			"title": "Compare runs",
+			"_note": "Two agent runs side by side (observability-compare-two-runs). Opened from the Runs page with ?left=&right=; the server compares only runs of agents the caller may see in the run list and answers any other run 404, like a run that does not exist."
+		},
+		{
+			"id": "FlowRunCompare",
+			"route": "/flow-runs/compare",
+			"type": "custom",
+			"component": "FlowRunCompare",
+			"title": "Compare flow runs",
+			"_note": "Two runs of one flow, node by node (observability-compare-two-runs). Flows and runs are read from OpenRegister in the browser with the person's own session; hermiq stores no flow runs. Its own page because the flow detail page is the shared flow page type."
+		},
+		{
 			"id": "SkillsCatalog",
 			"route": "/skills",
 			"type": "index",
