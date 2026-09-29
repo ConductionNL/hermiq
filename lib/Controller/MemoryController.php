@@ -146,6 +146,85 @@ class MemoryController extends Controller {
 	}//end addMemory()
 
 	/**
+	 * Correct one fact the agent remembers (owner only).
+	 *
+	 * The old entry is kept with `deletedAt` set and the new text is stored as a
+	 * new entry, so the history shows both wordings.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $entryId The id of the entry to correct.
+	 *
+	 * @return JSONResponse The updated memory payload, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 */
+	public function correctEntry(string $agentId, string $entryId): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		$text = trim((string)$this->request->getParam('text', ''));
+		if ($text === '') {
+			return new JSONResponse(['error' => 'A non-empty text is required'], Http::STATUS_BAD_REQUEST);
+		}
+
+		try {
+			$memory = $this->memoryService->correctMemoryEntry(agentId: $agentId, entryId: $entryId, text: $text);
+			if ($memory === null) {
+				return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
+			}
+
+			return new JSONResponse($this->shape(object: $memory));
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq memory correction failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not correct memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end correctEntry()
+
+	/**
+	 * Make the agent forget one fact (owner only). A soft delete: the entry stays
+	 * in the history and is left out of recall.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $entryId The id of the entry to forget.
+	 *
+	 * @return JSONResponse The updated memory payload, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 */
+	public function forgetEntry(string $agentId, string $entryId): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		try {
+			$result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: null, entryId: $entryId);
+			if ($result['found'] === false) {
+				return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
+			}
+
+			return new JSONResponse($this->shape(object: $this->memoryService->getMemory(agentId: $agentId)));
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq memory forget failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not forget memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end forgetEntry()
+
+	/**
 	 * List an agent's UserProfile objects (tenant-scoped).
 	 *
 	 * @param string $agentId The agent UUID.

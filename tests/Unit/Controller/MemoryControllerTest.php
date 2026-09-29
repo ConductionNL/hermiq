@@ -421,4 +421,119 @@ class MemoryControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 
 	}//end testNonOwnerCanReadASharedAgentsMemory()
+	/**
+	 * The owner corrects a fact: 200 with the updated memory.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 */
+	public function testOwnerCorrectsAnEntry(): void {
+		$service = $this->createMock(MemoryService::class);
+		$service->expects($this->once())->method('correctMemoryEntry')
+			->with('agent-1', 'e1', 'The permit desk closes at 17:00')
+			->willReturn($this->memoryObject(['entries' => [['id' => 'e2', 'text' => 'The permit desk closes at 17:00']]]));
+		$request = $this->request(['text' => ' The permit desk closes at 17:00 ']);
+
+		$response = $this->controller($service, $this->session('alice'), $request)->correctEntry('agent-1', 'e1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('e2', $response->getData()['entries'][0]['id']);
+	}//end testOwnerCorrectsAnEntry()
+
+	/**
+	 * An empty correction is refused with 400 and nothing is written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 */
+	public function testAnEmptyCorrectionIsBadRequest(): void {
+		$service = $this->createMock(MemoryService::class);
+		$service->expects($this->never())->method('correctMemoryEntry');
+
+		$response = $this->controller($service, $this->session('alice'), $this->request(['text' => '  ']))->correctEntry('agent-1', 'e1');
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+	}//end testAnEmptyCorrectionIsBadRequest()
+
+	/**
+	 * Correcting an entry that does not exist answers 404.
+	 *
+	 * @return void
+	 */
+	public function testCorrectingAnUnknownEntryIsNotFound(): void {
+		$service = $this->createMock(MemoryService::class);
+		$service->method('correctMemoryEntry')->willReturn(null);
+
+		$response = $this->controller($service, $this->session('alice'), $this->request(['text' => 'x']))->correctEntry('agent-1', 'nope');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	}//end testCorrectingAnUnknownEntryIsNotFound()
+
+	/**
+	 * The owner forgets a fact: 200 with the reloaded memory.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 */
+	public function testOwnerForgetsAnEntry(): void {
+		$service = $this->createMock(MemoryService::class);
+		$service->expects($this->once())->method('forgetEntry')->with('agent-1', null, 'e1')
+			->willReturn(['found' => true, 'scope' => 'memory']);
+		$service->method('getMemory')->willReturn($this->memoryObject(['entries' => []]));
+
+		$response = $this->controller($service, $this->session('alice'))->forgetEntry('agent-1', 'e1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+	}//end testOwnerForgetsAnEntry()
+
+	/**
+	 * Forgetting an entry that does not exist answers 404.
+	 *
+	 * @return void
+	 */
+	public function testForgettingAnUnknownEntryIsNotFound(): void {
+		$service = $this->createMock(MemoryService::class);
+		$service->method('forgetEntry')->willReturn(['found' => false, 'scope' => null]);
+
+		$response = $this->controller($service, $this->session('alice'))->forgetEntry('agent-1', 'nope');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	}//end testForgettingAnUnknownEntryIsNotFound()
+
+	/**
+	 * Someone who does not own the agent gets 404 on both routes, even when the
+	 * agent is shared with them, and the memory is never touched.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 */
+	public function testANonOwnerCannotCorrectOrForget(): void {
+		$service = $this->createMock(MemoryService::class);
+		$service->expects($this->never())->method('forgetEntry');
+		$service->expects($this->never())->method('correctMemoryEntry');
+		$service->expects($this->never())->method('getMemory');
+
+		foreach ([$this->agent('alice', false), $this->agent('alice', true)] as $agent) {
+			$controller = $this->controller($service, $this->session('mallory'), $this->request(['text' => 'x']), $agent);
+			$this->assertSame(Http::STATUS_NOT_FOUND, $controller->forgetEntry('agent-1', 'e1')->getStatus());
+			$this->assertSame(Http::STATUS_NOT_FOUND, $controller->correctEntry('agent-1', 'e1')->getStatus());
+		}
+	}//end testANonOwnerCannotCorrectOrForget()
+
+	/**
+	 * Both routes refuse an unauthenticated caller.
+	 *
+	 * @return void
+	 */
+	public function testCorrectAndForgetRefuseUnauthenticated(): void {
+		$service = $this->createMock(MemoryService::class);
+		$controller = $this->controller($service, $this->session(null), $this->request(['text' => 'x']));
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->forgetEntry('agent-1', 'e1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->correctEntry('agent-1', 'e1')->getStatus());
+	}//end testCorrectAndForgetRefuseUnauthenticated()
 }//end class
