@@ -31,7 +31,7 @@ function run(id: string, created: string) {
 	}
 }
 
-test.describe('run comparison', () => {
+test.describe('run comparison on the RunCompare and FlowRunCompare pages', () => {
 	test("An operator compares last night's run with the night before", async ({
 		page,
 	}) => {
