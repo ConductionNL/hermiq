@@ -1227,72 +1227,31 @@ class ScheduleService {
 	}//end replayRun()
 
 	/**
-	 * Diff a replay's step timeline against the original run's, by tool-call
-	 * POSITION (run-replay-and-dry-run) — the ORIGINAL run's real tool
-	 * arguments/results were never persisted (`run-trace-observability` Risk
-	 * 4), so only the tool-NAME sequence and the final output text can be
-	 * compared, never a byte-for-byte replay of the original invocations.
+	 * Diff a replay's step timeline against the original run's (run-replay-and-dry-run).
+	 * The ORIGINAL run's real tool arguments/results were never persisted
+	 * (`run-trace-observability` Risk 4), so only the tool-name sequence, the
+	 * outcomes and the final output text can be compared. The steps are aligned by
+	 * RunComparator, the same alignment the run comparison uses, so one extra call
+	 * shows as one difference rather than shifting every later call.
 	 *
 	 * @param array<int,array<string,mixed>> $originalSteps The original run's step timeline.
 	 * @param array<int,array<string,mixed>> $replaySteps The replay's step timeline.
 	 * @param string $originalSummary The original run's redacted summary.
 	 * @param string $replaySummary The replay's redacted summary.
 	 *
-	 * @return array{toolSequenceMatches:bool,toolCalls:array<int,array{seq:int,original:?string,replay:?string,match:bool}>,outputChanged:bool}
+	 * @return array{toolSequenceMatches:bool,toolCalls:list<array>,outputChanged:bool}
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	private function diffTrace(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array {
-		$originalToolNames = $this->toolStepNames(steps: $originalSteps);
-		$replayToolNames = $this->toolStepNames(steps: $replaySteps);
-
-		$count = max(count($originalToolNames), count($replayToolNames));
-		$toolCalls = [];
-		$allMatch = true;
-		for ($i = 0; $i < $count; $i++) {
-			$originalName = ($originalToolNames[$i] ?? null);
-			$replayName = ($replayToolNames[$i] ?? null);
-			$match = ($originalName !== null && $originalName === $replayName);
-			if ($match === false) {
-				$allMatch = false;
-			}
-
-			$toolCalls[] = [
-				'seq' => $i,
-				'original' => $originalName,
-				'replay' => $replayName,
-				'match' => $match,
-			];
-		}
-
-		return [
-			'toolSequenceMatches' => $allMatch,
-			'toolCalls' => $toolCalls,
-			'outputChanged' => ($originalSummary !== $replaySummary),
-		];
-
+		return (new RunComparator())->toReplayDiff(
+			originalSteps: $originalSteps,
+			replaySteps: $replaySteps,
+			originalSummary: $originalSummary,
+			replaySummary: $replaySummary
+		);
 	}//end diffTrace()
-
-	/**
-	 * Extract the ordered `tool`-type step names from a step timeline
-	 * (run-replay-and-dry-run), for the position-by-position replay diff.
-	 *
-	 * @param array<int,array<string,mixed>> $steps The step timeline.
-	 *
-	 * @return array<int,string> The tool names, in timeline order.
-	 *
-	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
-	 */
-	private function toolStepNames(array $steps): array {
-		$names = [];
-		foreach ($steps as $step) {
-			if (is_array($step) === true && ($step['type'] ?? null) === 'tool') {
-				$names[] = (string)($step['name'] ?? '');
-			}
-		}
-
-		return $names;
-	}//end toolStepNames()
 
 	/**
 	 * Record a gate skip: advance nextRun, set the gate status, persist, and audit.
