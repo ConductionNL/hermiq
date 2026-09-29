@@ -120,7 +120,16 @@
 				<template #row-actions="{ row }">
 					<div class="ai-feature-register__actions">
 						<NcButton
-							type="secondary"
+							variant="secondary"
+							:disabled="busy"
+							:aria-label="
+								t('hermiq', 'Change the provider of this AI feature')
+							"
+							@click="bindingRow = row">
+							{{ t('hermiq', 'Change provider') }}
+						</NcButton>
+						<NcButton
+							variant="secondary"
 							:disabled="busy || row.acknowledged"
 							:aria-label="
 								t('hermiq', 'Acknowledge this AI feature as DPO')
@@ -129,7 +138,7 @@
 							{{ t('hermiq', 'Acknowledge (DPO)') }}
 						</NcButton>
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="
 								busy
 								|| !row.acknowledged
@@ -140,7 +149,7 @@
 							{{ t('hermiq', 'Enable') }}
 						</NcButton>
 						<NcButton
-							type="tertiary"
+							variant="tertiary"
 							:disabled="busy || row.lifecycle !== 'enabled'"
 							:aria-label="t('hermiq', 'Disable this AI feature')"
 							@click="doDisable(row.feature)">
@@ -155,7 +164,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus !== 'gepubliceerd'
 							"
-							type="secondary"
+							variant="secondary"
 							:disabled="busy || !publishReady(row)"
 							:title="
 								publishReady(row) ? '' : publishBlockedReason(row)
@@ -175,7 +184,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus === 'gepubliceerd'
 							"
-							type="tertiary"
+							variant="tertiary"
 							:disabled="busy"
 							:aria-label="
 								t(
@@ -190,6 +199,17 @@
 				</template>
 			</CnDataTable>
 		</section>
+		<AiFeatureBindingModal
+			v-if="bindingRow"
+			:featureId="bindingRow.id"
+			:featureName="bindingRow.name"
+			:current="{
+				provider: bindingRow.source === 'feature' ? bindingRow.provider : '',
+				model: bindingRow.source === 'feature' ? bindingRow.model : '',
+				requiredResidency: bindingRow.requiredResidency,
+			}"
+			@close="bindingRow = null"
+			@saved="onBindingSaved" />
 	</div>
 </template>
 
@@ -200,6 +220,7 @@ import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 // The AI sparkles, not a robot — the single mark for "the model" across the
 // nav, the launcher hex and the chat empty state.
 import AiIcon from 'vue-material-design-icons/Creation.vue'
+import AiFeatureBindingModal from '../modals/AiFeatureBindingModal.vue'
 import {
 	acknowledgeAiFeature,
 	disableAiFeature,
@@ -225,6 +246,7 @@ export default {
 	name: 'AiFeatureRegister',
 
 	components: {
+		AiFeatureBindingModal,
 		CnDataTable,
 		NcButton,
 		NcEmptyContent,
@@ -238,6 +260,8 @@ export default {
 			// One row per feature: which provider it will use and where that
 			// provider runs (a-provider-and-a-place-per-ai-feature).
 			residencyRows: [],
+			// The row whose provider binding is being changed, or null.
+			bindingRow: null,
 			loading: true,
 			busy: false,
 			error: '',
@@ -348,7 +372,20 @@ export default {
 				source: row?.source || 'instance',
 				residency: row?.residency || 'undeclared',
 				location: row?.location || '',
+				requiredResidency: row?.requiredResidency || '',
 			}
+		},
+
+		/**
+		 * After a binding is saved, close the dialog and reload the register so
+		 * the row shows what the server stored and resolved.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 */
+		async onBindingSaved() {
+			this.bindingRow = null
+			await this.load()
 		},
 
 		/**

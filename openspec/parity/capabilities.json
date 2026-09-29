@@ -3678,12 +3678,14 @@
 			"area": "models",
 			"name": "Choose a provider per AI feature, such as one for summaries and one for triage.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php aiFeature#residencyOverview GET /api/ai-features/residency and aiFeature#bind PUT /api/ai-features/{id}/binding both registered; src/api/aiFeatures.js:126-149 listFeatureResidency() and bindAiFeature() both defined; src/views/AiFeatureRegister.vue:201-209 imports and calls listFeatureResidency (displays provider/model/residency per feature) but does NOT import bindAiFeature.",
-				"change": "openspec/changes/models-bind-a-provider-per-feature"
+				"evidence": "src/views/AiFeatureRegister.vue 'Change provider' per row opens src/modals/AiFeatureBindingModal.vue: provider and model selects filled from getEffectiveModelPolicy() (a free model field when the policy allows any model), a residency select, 'Use the organisation default' clears; saves through bindAiFeature() PUT /api/ai-features/{id}/binding (AiFeatureController::bind, policy-checked, 422 shown in the dialog), then reloads the residency overview.",
+				"reachedOn": "Admin settings, Hermiq, AI features register, Change provider",
+				"change": "openspec/changes/archive/2026-09-29-models-bind-a-provider-per-feature",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI-feature governance register (AiFeatureRegister.vue, mounted via AdminRoot.vue) shows the residency table read-only",
 			"note": "grep -rn 'bindAiFeature(' src/ finds only the export in aiFeatures.js, no caller anywhere in src/views, src/modals or src/components: the write endpoint exists server-side with no UI control to invoke it.",
