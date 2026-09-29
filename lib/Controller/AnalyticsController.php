@@ -157,4 +157,47 @@ class AnalyticsController extends Controller {
 		}
 
 	}//end runs()
+	/**
+	 * Compare two runs the caller may see.
+	 *
+	 * Both ids are run audit entry uuids from the run list. A side that is missing,
+	 * a dry run, or a run of an agent the caller may not see is answered 404, the same
+	 * for all three, so the answer never tells a caller that a private run exists.
+	 *
+	 * @param string $left  The left run's id.
+	 * @param string $right The right run's id.
+	 *
+	 * @return JSONResponse Both runs and the aligned comparison, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+	 */
+	public function compare(string $left = '', string $right = ''): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$result = $this->analyticsService->compareRuns(leftId: $left, rightId: $right);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq run comparison failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not compare runs'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		$missing = [];
+		foreach (['left', 'right'] as $side) {
+			if ($result[$side] === null) {
+				$missing[] = $side;
+			}
+		}
+
+		if ($missing !== []) {
+			return new JSONResponse(['error' => 'Run not found', 'missing' => $missing], Http::STATUS_NOT_FOUND);
+		}
+
+		return new JSONResponse($result);
+
+	}//end compare()
 }//end class

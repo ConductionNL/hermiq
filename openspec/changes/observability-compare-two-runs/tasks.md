@@ -10,8 +10,8 @@ Kind: code. Size M. Row `hermiq:dm-run-compare`.
 - **acceptance_criteria**:
   - GIVEN sequences with one inserted step WHEN compared THEN exactly one step is `only-right`
   - GIVEN the existing replay test cases WHEN `diffTrace()` runs THEN its result is unchanged
-- [ ] Implement
-- [ ] Test (PHPUnit on the comparator; the existing replay tests stay green)
+- [x] Implement
+- [x] Test (PHPUnit on the comparator; the existing replay tests stay green)
 
 ### Task 2: The compare route on the run list's boundary
 - **spec_ref**: `openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001`
@@ -19,8 +19,8 @@ Kind: code. Size M. Row `hermiq:dm-run-compare`.
 - **acceptance_criteria**:
   - GIVEN two visible runs WHEN compared THEN both records, both step lists and the comparison come back
   - GIVEN one run of an invisible agent WHEN compared THEN that side is 404
-- [ ] Implement
-- [ ] Test (PHPUnit; Newman with a visible and an invisible run)
+- [x] Implement
+- [x] Test (PHPUnit; Newman with a visible and an invisible run)
 
 ### Task 3: Selection and the comparison view
 - **spec_ref**: `openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001`
