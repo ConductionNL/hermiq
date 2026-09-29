@@ -654,7 +654,7 @@ class DeliveryService {
 			if ($talkOk === true) {
 				$this->tryPostToNoteToSelf(
 					owner: $uid,
-					output: sprintf('Approval needed to run “%s”. Review it in Hermiq.', $toolId)
+					output: $this->toolApprovalTalkText(toolId: $toolId)
 				);
 			}
 		}//end foreach
@@ -955,6 +955,32 @@ class DeliveryService {
 		}//end try
 
 	}//end tryPostToTargetRoom()
+
+	/**
+	 * The Talk text for a held tool call: what needs approval, and one line
+	 * naming the tool and how far it reaches, so the reviewer knows before
+	 * opening Hermiq. Falls back to the text without that line when the preview
+	 * builder cannot be had; the approval itself is never affected.
+	 *
+	 * @param string $toolId The held tool id.
+	 *
+	 * @return string The message.
+	 *
+	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	private function toolApprovalTalkText(string $toolId): string {
+		$line = '';
+		try {
+			$builder = $this->container->get(ApprovalPreviewBuilder::class);
+			if ($builder instanceof ApprovalPreviewBuilder) {
+				$line = ' ' . $builder->toolLine(toolId: $toolId);
+			}
+		} catch (Throwable $e) {
+			$this->logger->debug('[DeliveryService] no tool line for the approval message: ' . $e->getMessage());
+		}
+
+		return sprintf('Approval needed to run “%s”.%s Review it in Hermiq.', $toolId, $line);
+	}//end toolApprovalTalkText()
 
 	/**
 	 * Attempt to post to the owner's Note-to-self conversation.
