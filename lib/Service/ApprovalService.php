@@ -1071,6 +1071,7 @@ class ApprovalService {
 			);
 
 		$records = [];
+		$previews = $this->previewBuilder();
 		foreach ($objects as $object) {
 			if (($object instanceof ObjectEntity) === false) {
 				continue;
@@ -1094,11 +1095,39 @@ class ApprovalService {
 				'reviewer' => (string)($data['reviewer'] ?? ''),
 				'reviewerType' => (string)($data['reviewerType'] ?? 'user'),
 				'status' => 'pending',
+				'sourceType' => (string)($data['sourceType'] ?? 'schedule'),
+				'toolId' => (string)($data['toolId'] ?? ''),
+				// As stored: redacted before persistence, never re-read unredacted.
+				'toolArguments' => (is_array($data['toolArguments'] ?? null) === true ? $data['toolArguments'] : null),
+				'preview' => $previews?->build(approval: $data),
 			];
 		}//end foreach
 
 		return $records;
 	}//end listPendingForReviewer()
+
+	/**
+	 * The preview builder, or null when it cannot be had (the inbox then lists
+	 * the approvals without their preview rather than failing).
+	 *
+	 * @return ApprovalPreviewBuilder|null The builder.
+	 *
+	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 */
+	private function previewBuilder(): ?ApprovalPreviewBuilder {
+		try {
+			$builder = $this->container->get(ApprovalPreviewBuilder::class);
+		} catch (Throwable $e) {
+			$this->logger->warning('[ApprovalService] approval preview unavailable: ' . $e->getMessage());
+			return null;
+		}
+
+		if (($builder instanceof ApprovalPreviewBuilder) === false) {
+			return null;
+		}
+
+		return $builder;
+	}//end previewBuilder()
 
 	/**
 	 * List every Approval visible in the caller's own tenant (RBAC + tenancy
