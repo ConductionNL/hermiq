@@ -279,6 +279,46 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testProviderUnavailableIsWrapped()
 
 	/**
+	 * The agent's pinned credentials reach the provider factory, and a refusal there
+	 * stops the turn before any model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testTheAgentsPinsReachTheFactoryAndARefusalStopsTheTurn(): void {
+		$seen = null;
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (...$args) use (&$seen): ChatDriver {
+				$seen = $args;
+				throw new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'fireworks');
+			}
+		);
+		$factory->expects($this->never())->method('callFireworksChat');
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+
+		try {
+			$handler->generateResponse(
+				userMessage: 'Hi',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $this->agent(['credentialIds' => ['fireworks' => 'cred-fw', 'openai' => '', 'bad' => 7]])
+			);
+			$this->fail('A refused pin must stop the turn.');
+		} catch (Exception $e) {
+			$this->assertInstanceOf(\OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException::class, $e->getPrevious());
+		}
+
+		// The eighth argument is agentCredentialIds, passed as stored; the resolver
+		// reads only non-empty string pins (CredentialScopeResolverTest).
+		$this->assertSame(['fireworks' => 'cred-fw', 'openai' => '', 'bad' => 7], $seen[7] ?? null);
+
+	}//end testTheAgentsPinsReachTheFactoryAndARefusalStopsTheTurn()
+
+	/**
 	 * When the agent defines no prompt, the default system prompt is used and
 	 * no APP CONTEXT block appears without a CnAiContext snapshot.
 	 *

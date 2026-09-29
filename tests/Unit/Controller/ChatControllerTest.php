@@ -304,6 +304,34 @@ class ChatControllerTest extends TestCase {
 	}//end testSendMessageServerFailureStillLogsError()
 
 	/**
+	 * A refused pinned credential reaches the person as its own sentence, not a masked error.
+	 *
+	 * The engine wraps the refusal ("Failed to generate response: ..."); the controller
+	 * finds it in the chain and answers with the reason and a stable code.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testARefusedPinnedCredentialTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$refused = new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'openai');
+		$this->engine->method('processMessage')->willThrowException(
+			new \Exception('Failed to generate response: ' . $refused->getMessage(), 403, $refused)
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('The credential pinned to this agent cannot be used for this run.', $response->getData()['message']);
+		$this->assertSame('pinned_credential_refused', $response->getData()['errorCode']);
+
+	}//end testARefusedPinnedCredentialTellsThePersonWhy()
+
+	/**
 	 * getHistory without a conversationId is a 400.
 	 *
 	 * @return void

@@ -151,6 +151,38 @@
 					</p>
 				</div>
 
+				<!-- The agent's own key per provider (operations-a-credential-per-agent).
+			     Only a reference is stored; the broker keeps the secret. When the
+			     pinned key cannot be used, the turn stops rather than use another. -->
+				<fieldset class="agent-form__credentials">
+					<legend>{{ t('hermiq', 'Credentials') }}</legend>
+					<div
+						v-for="provider in pinnableProviders"
+						:key="provider"
+						class="agent-form__field">
+						<NcSelect
+							:modelValue="pinOption(provider)"
+							:options="pinOptions(provider)"
+							:inputLabel="
+								t('hermiq', 'Credential for {provider}', {
+									provider,
+								})
+							"
+							:placeholder="t('hermiq', 'The organisation default')"
+							label="label"
+							trackBy="value"
+							@update:modelValue="pin(provider, $event)" />
+					</div>
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'A credential chosen here is used for this agent only. If it cannot be used for a run, the run stops and says why; it never falls back to another key.',
+							)
+						}}
+					</p>
+				</fieldset>
+
 				<NcTextArea
 					v-model="form.prompt"
 					:label="t('hermiq', 'System prompt')"
@@ -328,6 +360,8 @@
 
 <script>
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -344,6 +378,11 @@ import { updateToolGrants } from '../api/toolOversight.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import {
+	credentialOptions,
+	PINNABLE_PROVIDERS,
+	setPin,
+} from '../utils/agentCredentials.js'
 
 export default {
 	name: 'AgentFormModal',
@@ -414,6 +453,9 @@ export default {
 	data() {
 		return {
 			form: this.blankForm(),
+			// The broker credentials the owner may pin (operations-a-credential-per-agent).
+			credentials: [],
+			pinnableProviders: PINNABLE_PROVIDERS,
 			toolOptions: [],
 			toolsLoading: false,
 			saving: false,
@@ -786,6 +828,7 @@ export default {
 				}
 				this.loadTools()
 				this.loadPolicy()
+				this.loadCredentials()
 				this.loadAgentCatalog()
 			},
 		},
@@ -800,6 +843,71 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Load the broker credentials the owner may pin. A failed read leaves the
+		 * pickers empty; the agent still saves and resolves as before.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		async loadCredentials() {
+			try {
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
+				this.credentials = data?.results || []
+			} catch {
+				this.credentials = []
+			}
+		},
+
+		/**
+		 * The credentials the owner may pin for one provider.
+		 *
+		 * @param {string} provider The provider.
+		 * @return {Array<object>} The options.
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		pinOptions(provider) {
+			return credentialOptions(this.credentials, provider)
+		},
+
+		/**
+		 * The pinned credential for one provider, as its option.
+		 *
+		 * @param {string} provider The provider.
+		 * @return {object|null} The option, or null when nothing is pinned.
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		pinOption(provider) {
+			const id = this.form.credentialIds?.[provider]
+			if (!id) {
+				return null
+			}
+			return (
+				this.pinOptions(provider).find((option) => option.value === id) || {
+					label: id,
+					value: id,
+				}
+			)
+		},
+
+		/**
+		 * Pin or clear one provider's credential.
+		 *
+		 * @param {string} provider The provider.
+		 * @param {object|null} option The chosen option, or null to clear.
+		 * @return {void}
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		pin(provider, option) {
+			this.form.credentialIds = setPin(
+				this.form.credentialIds,
+				provider,
+				option?.value || null,
+			)
+		},
+
 		/**
 		 * Close the modal (agent-form-slot). Always emits `close` (the
 		 * existing registry `agent-form` open-modal path — AgentDetail's
@@ -872,6 +980,7 @@ export default {
 				voiceOutputEngine: 'auto',
 				voiceSilenceTimeout: '',
 				voiceConversationEnabled: false,
+				credentialIds: {},
 			}
 		},
 
@@ -951,6 +1060,7 @@ export default {
 				// onto every agent that is edited for an unrelated reason.
 				voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
 				voiceConversationEnabled: source.voiceConversationEnabled === true,
+				credentialIds: { ...(source.credentialIds || {}) },
 			}
 		},
 
@@ -1153,6 +1263,7 @@ export default {
 				voiceOutputEngine: this.form.voiceOutputEngine || 'auto',
 
 				voiceConversationEnabled: this.form.voiceConversationEnabled,
+				credentialIds: this.form.credentialIds,
 			}
 
 			const voiceSilenceTimeout = Number(this.form.voiceSilenceTimeout)
@@ -1265,6 +1376,12 @@ export default {
 </script>
 
 <style scoped>
+.agent-form__credentials {
+	border: none;
+	margin: 0;
+	padding: 0;
+}
+
 .agent-form {
 	display: flex;
 	flex-direction: column;

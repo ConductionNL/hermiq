@@ -63,6 +63,7 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
@@ -494,6 +495,7 @@ class ProviderFactory {
 	 * @param float|null $agentTemperature Temperature override, if set.
 	 * @param integer|null $agentMaxTokens Max-token override, if set.
 	 * @param string|null $organisation The organisation, for credential resolution.
+	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
 	 *
 	 * @return ChatDriver The driver for that provider.
 	 *
@@ -508,6 +510,7 @@ class ProviderFactory {
 		?float $agentTemperature,
 		?int $agentMaxTokens,
 		?string $organisation,
+		?array $pinned = null,
 	): ChatDriver {
 		return match ($chatProvider) {
 			'ollama' => $this->createOllamaDriver(
@@ -520,13 +523,13 @@ class ProviderFactory {
 				openaiConfig: $llmConfig['openaiConfig'] ?? [],
 				agentModel: $agentModel,
 				agentTemperature: $agentTemperature,
-				credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation),
+				credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation, pinned: $pinned),
 				agentMaxTokens: $agentMaxTokens
 			),
 			'fireworks' => $this->createFireworksDriver(
 				fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
 				agentModel: $agentModel,
-				credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation)
+				credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation, pinned: $pinned)
 			),
 			'anthropic' => $this->createAnthropicDriver(
 				anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
@@ -607,6 +610,9 @@ class ProviderFactory {
 	 *                               handed one. A feature declaring `requiresRedaction`
 	 *                               is refused unless filinq has redacted it; a run with
 	 *                               no document reference passes that gate untouched.
+	 * @param array<string, string>|null $agentCredentialIds The agent's own credential per
+	 *                               provider (`credentialIds`). A pin for the resolved
+	 *                               provider is used first and never bypassed.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -626,6 +632,7 @@ class ProviderFactory {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
 	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function createChatDriver(
 		array $llmConfig,
@@ -635,6 +642,7 @@ class ProviderFactory {
 		?int $agentMaxTokens = null,
 		?string $aiFeature = null,
 		?string $documentReference = null,
+		?array $agentCredentialIds = null,
 	): ChatDriver {
 		$chatProvider = $llmConfig['chatProvider'] ?? null;
 
@@ -664,7 +672,8 @@ class ProviderFactory {
 			agentModel: $agentModel,
 			agentTemperature: $agentTemperature,
 			agentMaxTokens: $agentMaxTokens,
-			organisation: $organisation
+			organisation: $organisation,
+			pinned: $agentCredentialIds
 		);
 
 		// Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3
@@ -749,21 +758,37 @@ class ProviderFactory {
 	 *
 	 * @param string $provider The provider identifier (e.g. "openai", "fireworks").
 	 * @param string|null $organisation The calling organisation, or null to skip resolution.
+	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
+	 *                     A pin for `$provider` is resolved even without an organisation,
+	 *                     and a pin nothing can check is refused, never ignored.
 	 *
 	 * @return string|null The overriding credential uuid, or null to keep the configured
 	 *                     `hermiq.llm.<provider>Config.credentialId` unchanged.
 	 *
+	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
+	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
-	private function resolveCredentialOverride(string $provider, ?string $organisation): ?string {
-		if ($organisation === null || $this->credentialResolver === null) {
+	private function resolveCredentialOverride(string $provider, ?string $organisation, ?array $pinned = null): ?string {
+		$hasPin = is_string($pinned[$provider] ?? null) === true && trim($pinned[$provider]) !== '';
+		if ($this->credentialResolver === null) {
+			if ($hasPin === true) {
+				throw new PinnedCredentialRefusedException(provider: $provider);
+			}
+
+			return null;
+		}
+
+		if ($organisation === null && $hasPin === false) {
 			return null;
 		}
 
 		return $this->credentialResolver->resolve(
 			provider: $provider,
 			actingUserId: $this->currentUid(),
-			organisation: $organisation
+			organisation: $organisation,
+			pinned: $pinned
 		);
 
 	}//end resolveCredentialOverride()

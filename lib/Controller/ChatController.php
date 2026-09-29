@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -396,6 +397,16 @@ class ChatController extends Controller {
 		// (agent-guardrails, GuardrailBlockedException docblock).
 		if ($exception instanceof GuardrailBlockedException) {
 			$data['errorCode'] = 'guardrail_blocked';
+		}
+
+		// A refused pinned credential stops the turn; the person reads why
+		// (operations-a-credential-per-agent), not the engine's wrapped text.
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof PinnedCredentialRefusedException) {
+				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
+				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
+				break;
+			}
 		}
 
 		return new JSONResponse(data: $data, statusCode: $statusCode);

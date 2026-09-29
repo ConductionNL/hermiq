@@ -16,5 +16,5 @@ A PHPUnit test builds the Agent object the form saves with `credentialIds` and v
 
 ## Decisions
 
-- D1. Fail closed on a refused pin. Falling back would run the agent with a wider credential than its owner chose, which is the opposite of the point. Recorded here as a security default.
+- D1. Fail closed on a refused pin. Falling back would run the agent with a wider credential than its owner chose, which is the opposite of the point. Confirmed by Ruben on 29 Sep 2026: the turn stops, no fallback, and the user sees why.
 - D2. The pin is a reference, never a secret. The broker keeps the secret and its guards.
