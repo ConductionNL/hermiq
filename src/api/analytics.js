@@ -74,3 +74,17 @@ export async function compareRuns(left, right) {
 	})
 	return response.data
 }
+
+/**
+ * The latest thumbs-down comments on one agent (read access on the agent required).
+ *
+ * @param {string} agentId The agent UUID.
+ * @return {Promise<Array<object>>} Rows of { comment, date, conversationId }, newest first.
+ * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+ */
+export async function listLowRatings(agentId) {
+	const response = await axios.get(
+		generateUrl(`/apps/hermiq/api/analytics/agents/${agentId}/low-ratings`),
+	)
+	return Array.isArray(response.data?.results) ? response.data.results : []
+}
