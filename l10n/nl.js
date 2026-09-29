@@ -1437,7 +1437,17 @@ OC.L10N.register(
         "No requirement": "Geen eis",
         "The policy allows any model of this provider.": "Het beleid staat elk model van deze provider toe.",
         "Use the organisation default": "De standaard van de organisatie gebruiken",
-        "Where the provider must run": "Waar de provider moet draaien"
+        "Where the provider must run": "Waar de provider moet draaien",
+        "Corrected fact": "Verbeterd feit",
+        "Correct": "Verbeteren",
+        "Correct this fact": "Dit feit verbeteren",
+        "Forget": "Vergeten",
+        "Forget this fact": "Dit feit vergeten",
+        "Forget this fact?": "Dit feit vergeten?",
+        "Forgotten facts are left out of recall and kept for the history.": "Vergeten feiten worden niet meer opgehaald en blijven bewaard in de geschiedenis.",
+        "Show %n forgotten fact": "%n vergeten feit tonen",
+        "Show %n forgotten facts": "%n vergeten feiten tonen",
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "De agent gebruikt dit feit niet meer. Het blijft in de geschiedenis van het geheugen staan, gemarkeerd als vergeten."
     },
     "nplurals=2; plural=(n != 1);"
 )

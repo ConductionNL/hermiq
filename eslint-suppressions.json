@@ -9,11 +9,6 @@
       "count": 1
     }
   },
-  "src/components/AgentMemoryPanel.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    }
-  },
   "src/components/CnAgentChatTab/CnAgentChatTab.vue": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
