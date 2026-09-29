@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for comparing two runs on the run list's boundary.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 class RunCompareTest extends TestCase {
 
@@ -107,7 +107,7 @@ class RunCompareTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 	 */
 	public function testTwoVisibleRunsAreCompared(): void {
 		$left  = $this->runEntry('run-a', 'agentA', 'ok', ['Search contacts', 'Read file', 'Send email']);
@@ -138,7 +138,7 @@ class RunCompareTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 	 */
 	public function testARunOfAnInvisibleAgentIsMissing(): void {
 		$mine    = $this->runEntry('run-a', 'agentA', 'ok', ['Read file']);
@@ -157,7 +157,7 @@ class RunCompareTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 	 */
 	public function testUnknownAndDryRunsAreMissingAndAgentsAreNamed(): void {
 		$dry = $this->runEntry('run-dry', 'agentA', 'ok', ['Read file']);

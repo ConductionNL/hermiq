@@ -390,7 +390,7 @@ export default {
 		 * @param {object} run The run.
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 		 */
 		compareWith(run) {
 			this.$router

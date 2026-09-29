@@ -1242,7 +1242,7 @@ class ScheduleService {
 	 * @return array{toolSequenceMatches:bool,toolCalls:list<array>,outputChanged:bool}
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	private function diffTrace(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array {
 		return (new RunComparator())->toReplayDiff(

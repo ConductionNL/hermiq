@@ -8,7 +8,7 @@
   runs of agents the caller may see in the run list; a run it may not see reads as
   "not found", the same as a run that does not exist.
 
-  @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+  @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 -->
 <template>
 	<div class="hermiq-run-compare">
@@ -139,7 +139,7 @@ export default {
 		 *
 		 * @return {Array<object>} The sides.
 		 *
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 		 */
 		sides() {
 			return [
@@ -157,7 +157,7 @@ export default {
 		 *
 		 * @return {string} The summary.
 		 *
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 		 */
 		summary() {
 			return summaryLine(
@@ -173,7 +173,7 @@ export default {
 	 * Load the comparison named in the query.
 	 *
 	 * @return {Promise<void>}
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 	 */
 	async created() {
 		const { left = '', right = '' } = this.$route?.query || {}
@@ -197,7 +197,7 @@ export default {
 		 * Back to the run list.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 		 */
 		back() {
 			this.$router.push('/runs').catch(() => {})
@@ -208,7 +208,7 @@ export default {
 		 *
 		 * @param {string|number|null|undefined} value The value.
 		 * @return {string} The text.
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 		 */
 		recorded(value) {
 			return value ? String(value) : t('hermiq', 'Not recorded for this run')
@@ -219,7 +219,7 @@ export default {
 		 *
 		 * @param {number|null} ms The duration in milliseconds.
 		 * @return {string} The text.
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
 		 */
 		duration(ms) {
 			return Number.isFinite(ms)
@@ -232,7 +232,7 @@ export default {
 		 *
 		 * @param {object|null} step The step.
 		 * @return {string} The text, or a dash when the run has no step here.
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 		 */
 		stepText(step) {
 			if (!step) {
@@ -246,7 +246,7 @@ export default {
 		 *
 		 * @param {string} mark The mark.
 		 * @return {string} The label.
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 		 */
 		markLabel(mark) {
 			return (

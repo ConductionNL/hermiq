@@ -66,7 +66,7 @@ export async function listRuns({
  * @param {string} right The right run id.
  * @return {Promise<object>} `{left, right, sameAgent, comparison}`.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 export async function compareRuns(left, right) {
 	const response = await axios.get(generateUrl('/apps/hermiq/api/runs/compare'), {

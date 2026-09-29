@@ -12,7 +12,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ class RunComparatorTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	public function testOneExtraLookupDoesNotMarkEverythingChanged(): void {
 		$left  = [$this->tool('Search contacts'), $this->tool('Read file'), $this->tool('Send email')];
@@ -64,7 +64,7 @@ class RunComparatorTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	public function testAStepWithAnotherOutcomeIsOneDifference(): void {
 		$left  = [$this->tool('Read file'), $this->tool('Send email', 'ok', 300)];
@@ -82,7 +82,7 @@ class RunComparatorTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	public function testOnlyToolStepsAreAligned(): void {
 		$left  = [['type' => 'guardrail', 'name' => 'Input check'], $this->tool('Read file')];

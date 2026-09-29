@@ -9,8 +9,8 @@
  * controls its runs. The visibility boundary is asserted against the real endpoint
  * (an unknown run is 404 on its side) and in RunCompareTest, which can construct entries.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
  */
 import { expect, test } from '@playwright/test'
 import { appRoot, dismissTour, harvestToken, jsonHeaders } from './_fixtures.ts'

@@ -7,7 +7,7 @@
  * Plain functions without Vue or Nextcloud imports, so `tests/run-compare.spec.js`
  * runs them under node. The views pass in their own `t` for every sentence.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 
 /** How many runs a comparison takes. */
@@ -23,7 +23,7 @@ export const COMPARE_SIZE = 2
  * @param {string} runId The run ticked or unticked.
  * @return {{selected: Array<string>, refused: boolean}} The new selection, and whether the tick was refused.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 export function toggleSelection(selected, runId) {
 	if (selected.includes(runId)) {
@@ -40,6 +40,8 @@ export function toggleSelection(selected, runId) {
  *
  * @param {number} ms The duration in milliseconds.
  * @return {string} The formatted duration.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 function seconds(ms) {
 	return `${(Math.abs(ms) / 1000).toFixed(1)} s`
@@ -57,7 +59,7 @@ function seconds(ms) {
  * @param {function(string, string, object=): string} t The translate function, called as t('hermiq', text, vars).
  * @return {string} The summary line.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 export function summaryLine(left, right, comparison, t) {
 	const parts = []
@@ -123,6 +125,8 @@ export function summaryLine(left, right, comparison, t) {
  *
  * @param {string} status The run status.
  * @return {boolean} True for a failed run.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 function isFailure(status) {
 	return ['error', 'failed', 'failure', 'timeout'].includes(
@@ -136,6 +140,8 @@ function isFailure(status) {
  * @param {object} comparison The comparison.
  * @param {string} side 'left' or 'right'.
  * @return {string} The step name, or ''.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 function lastStep(comparison, side) {
 	const steps = (comparison?.steps || []).filter((row) => row[side])
@@ -147,6 +153,8 @@ function lastStep(comparison, side) {
  *
  * @param {object} comparison The comparison.
  * @return {{left: object, right: object}} Tool name to count, per side.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 function extraCalls(comparison) {
 	const extra = { left: {}, right: {} }
@@ -171,7 +179,7 @@ function extraCalls(comparison) {
  * @param {object} run The flow run as `GET /apps/openregister/api/flow-runs/{uuid}` returns it.
  * @return {Array<{node: string, status: string, durationMs: (number|null)}>|null} The node entries.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
  */
 export function readFlowRunNodes(run) {
 	const log = Array.isArray(run?.log) ? run.log : []
@@ -195,7 +203,7 @@ export function readFlowRunNodes(run) {
  * @param {object} rightRun The right flow run.
  * @return {{rows: Array<object>, unreadable: Array<string>, versions: (Array<number>|null)}} The aligned rows, the sides that could not be read, and the two versions when they differ.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
  */
 export function compareFlowRuns(leftRun, rightRun) {
 	const left = readFlowRunNodes(leftRun)

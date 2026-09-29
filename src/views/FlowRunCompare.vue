@@ -12,7 +12,7 @@
   `flow` page type from @conduction/nextcloud-vue, which hermiq cannot extend, so the
   comparison is its own page, reached from the Runs page.
 
-  @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+  @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 -->
 <template>
 	<div class="hermiq-flow-compare">
@@ -174,7 +174,7 @@ export default {
 		 * The flows as select options.
 		 *
 		 * @return {Array<object>} The options.
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 		 */
 		flowOptions() {
 			return this.flows.map((flow) => ({
@@ -189,7 +189,7 @@ export default {
 		 * Load the chosen flow's runs.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 		 */
 		async flow() {
 			this.selected = []
@@ -208,7 +208,7 @@ export default {
 	 * Load the flows, and preselect `?flow=`.
 	 *
 	 * @return {Promise<void>}
-	 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 	 */
 	async created() {
 		await this.guard(async () => {
@@ -225,7 +225,7 @@ export default {
 		 *
 		 * @param {function(): Promise<void>} read The read.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 		 */
 		async guard(read) {
 			this.loading = true
@@ -244,7 +244,7 @@ export default {
 		 *
 		 * @param {string} uuid The run.
 		 * @return {void}
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 		 */
 		toggle(uuid) {
 			const next = toggleSelection(this.selected, uuid)
@@ -256,7 +256,7 @@ export default {
 		 * Read both runs and line their nodes up.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 		 */
 		async compare() {
 			await this.guard(async () => {
@@ -272,7 +272,7 @@ export default {
 		 *
 		 * @param {object|null} entry The node entry.
 		 * @return {string} The text, or "Not reached" when the run never got there.
-		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
 		 */
 		nodeText(entry) {
 			if (!entry) {

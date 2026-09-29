@@ -12,7 +12,7 @@ import { generateUrl } from '@nextcloud/router'
  *
  * @return {Promise<Array<object>>} The flows.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
  */
 export async function listFlows() {
 	const response = await axios.get(generateUrl('/apps/openregister/api/flows'))
@@ -26,7 +26,7 @@ export async function listFlows() {
  * @param {string} flowId The flow id.
  * @return {Promise<Array<object>>} The runs, newest first as OpenRegister returns them.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
  */
 export async function listFlowRuns(flowId) {
 	const response = await axios.get(
@@ -44,7 +44,7 @@ export async function listFlowRuns(flowId) {
  * @param {string} uuid The run uuid.
  * @return {Promise<object>} The run.
  *
- * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
  */
 export async function getFlowRun(uuid) {
 	const response = await axios.get(
