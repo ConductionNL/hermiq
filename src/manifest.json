@@ -376,6 +376,13 @@
 						"title": "Eval baseline mode",
 						"icon": "ClipboardCheckOutline",
 						"_note": "skill-evals: the data widget holding Agent.evalBaselineMode — edited here, with the register property's consequence-explaining description (joint vs per-skill, 2x vs (N+1)x cost) surfaced as an info affordance exactly where the value is changed (spec scenario). Resolved via page.slots.widget-agent-eval-baseline -> agent-eval-baseline."
+					},
+					{
+						"id": "agent-ratings",
+						"type": "custom",
+						"title": "Ratings",
+						"icon": "ThumbUpOutline",
+						"_note": "observability-feedback-per-agent: share rated helpful with the thumbs up and down counts, and the latest thumbs-down comments. Resolved via page.slots.widget-agent-ratings -> agent-ratings."
 					}
 				],
 				"layout": [
@@ -486,6 +493,15 @@
 						"gridWidth": 12,
 						"gridHeight": 4,
 						"showTitle": true
+					},
+					{
+						"id": "12",
+						"widgetId": "agent-ratings",
+						"gridX": 0,
+						"gridY": 33,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": true
 					}
 				],
 				"headerActions": [
@@ -531,7 +547,8 @@
 				"widget-agent-run-operations": "agent-run-operations",
 				"widget-agent-memory": "agent-memory",
 				"widget-agent-run-history": "agent-run-history",
-				"widget-agent-eval-baseline": "agent-eval-baseline"
+				"widget-agent-eval-baseline": "agent-eval-baseline",
+				"widget-agent-ratings": "agent-ratings"
 			}
 		},
 		{

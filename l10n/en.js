@@ -2162,7 +2162,15 @@ OC.L10N.register(
         "Outputs labelled as AI-made": "Outputs labelled as AI-made",
         "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).": "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).",
         "How outputs are labelled": "How outputs are labelled",
-        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original."
+        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original.",
+        "{up} up, {down} down": "{up} up, {down} down",
+        "Latest low ratings": "Latest low ratings",
+        "No ratings yet": "No ratings yet",
+        "No thumbs down with a comment yet.": "No thumbs down with a comment yet.",
+        "Rated helpful": "Rated helpful",
+        "Thumbs down": "Thumbs down",
+        "Thumbs up": "Thumbs up",
+        "Ratings": "Ratings"
     },
     "nplurals=2; plural=(n != 1);"
 )
