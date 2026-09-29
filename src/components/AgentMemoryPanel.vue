@@ -270,7 +270,7 @@ export default {
 		 * The entries the agent still uses.
 		 *
 		 * @return {Array<object>} The entries without a deletedAt.
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 		 */
 		activeEntries() {
 			return this.entries.filter((e) => !this.isForgotten(e))
@@ -280,7 +280,7 @@ export default {
 		 * How many entries were forgotten.
 		 *
 		 * @return {number} The count.
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 		 */
 		forgottenCount() {
 			return this.entries.length - this.activeEntries.length
@@ -290,7 +290,7 @@ export default {
 		 * The entries the list shows: forgotten ones only when asked for.
 		 *
 		 * @return {Array<object>} The visible entries.
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 		 */
 		visibleEntries() {
 			return this.showForgotten ? this.entries : this.activeEntries
@@ -439,7 +439,7 @@ export default {
 		 *
 		 * @param {object} entry The entry to correct.
 		 * @return {void}
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 		 */
 		startCorrection(entry) {
 			this.editingId = entry.id
@@ -450,7 +450,7 @@ export default {
 		 * Close the correction field without saving.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 		 */
 		cancelCorrection() {
 			this.editingId = ''
@@ -462,7 +462,7 @@ export default {
 		 *
 		 * @param {object} entry The entry being corrected.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 		 */
 		async saveCorrection(entry) {
 			const text = this.editText.trim()
@@ -488,7 +488,7 @@ export default {
 		 * Forget the entry the confirmation dialog was opened for.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 		 */
 		async confirmForget() {
 			if (!this.forgetTarget || !this.agentId) {

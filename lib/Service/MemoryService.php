@@ -507,7 +507,7 @@ class MemoryService {
 	 * @return ObjectEntity|null The persisted Memory object, or null when no live
 	 *                           entry carries `$entryId`.
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
 	public function correctMemoryEntry(string $agentId, string $entryId, string $text): ?ObjectEntity {
 		if (trim($entryId) === '') {
@@ -562,7 +562,7 @@ class MemoryService {
 	 *
 	 * @return array<int, array<string, string>> The same entries, each with an id.
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	private function withEntryIds(array $entries): array {
 		foreach ($entries as $index => $entry) {

@@ -158,7 +158,7 @@ class MemoryController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
 	public function correctEntry(string $agentId, string $entryId): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -199,7 +199,7 @@ class MemoryController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	public function forgetEntry(string $agentId, string $entryId): JSONResponse {
 		if ($this->userSession->getUser() === null) {

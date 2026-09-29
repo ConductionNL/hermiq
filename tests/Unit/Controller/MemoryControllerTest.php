@@ -426,7 +426,7 @@ class MemoryControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
 	public function testOwnerCorrectsAnEntry(): void {
 		$service = $this->createMock(MemoryService::class);
@@ -446,7 +446,7 @@ class MemoryControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
 	public function testAnEmptyCorrectionIsBadRequest(): void {
 		$service = $this->createMock(MemoryService::class);
@@ -476,7 +476,7 @@ class MemoryControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	public function testOwnerForgetsAnEntry(): void {
 		$service = $this->createMock(MemoryService::class);
@@ -509,7 +509,7 @@ class MemoryControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	public function testANonOwnerCannotCorrectOrForget(): void {
 		$service = $this->createMock(MemoryService::class);

@@ -87,7 +87,7 @@ export async function consolidateMemory(agentId, entries = null) {
  * @param {string} entryId The entry id.
  * @param {string} text The corrected text.
  * @return {Promise<object>} The updated memory.
- * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
  */
 export async function correctMemoryEntry(agentId, entryId, text) {
 	const response = await axios.put(
@@ -103,7 +103,7 @@ export async function correctMemoryEntry(agentId, entryId, text) {
  * @param {string} agentId The agent UUID.
  * @param {string} entryId The entry id.
  * @return {Promise<object>} The updated memory.
- * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
  */
 export async function forgetMemoryEntry(agentId, entryId) {
 	const response = await axios.delete(

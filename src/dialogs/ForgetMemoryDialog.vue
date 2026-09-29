@@ -39,7 +39,7 @@ import { NcButton, NcDialog } from '@nextcloud/vue'
  * ForgetMemoryDialog: the confirmation before an owner makes an agent forget one
  * fact. Emits `confirm` or `close`; the caller does the request.
  *
- * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
  */
 export default {
 	name: 'ForgetMemoryDialog',

@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/memory-correct-and-forget/tasks.md#task-1-service-correct-an-entry-and-give-old-entries-an-id
+ * @spec openspec/changes/archive/2026-09-29-memory-correct-and-forget/tasks.md#task-1-service-correct-an-entry-and-give-old-entries-an-id
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Correct and forget one memory entry, validated against the real schema.
  *
- * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
  */
 class MemoryCorrectionTest extends TestCase {
 
@@ -168,7 +168,7 @@ class MemoryCorrectionTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	public function testAWriteGivesOldEntriesAnId(): void {
 		$stored = $this->stored();
@@ -191,7 +191,7 @@ class MemoryCorrectionTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	public function testForgettingSoftDeletesAndValidates(): void {
 		$captured = null;
