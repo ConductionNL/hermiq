@@ -2183,7 +2183,15 @@
         "Forgotten facts are left out of recall and kept for the history.": "Forgotten facts are left out of recall and kept for the history.",
         "Show %n forgotten fact": "Show %n forgotten fact",
         "Show %n forgotten facts": "Show %n forgotten facts",
-        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten."
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten.",
+        "Listening, press to stop": "Listening, press to stop",
+        "Transcribing": "Transcribing",
+        "Dictate a message": "Dictate a message",
+        "Microphone access was refused.": "Microphone access was refused.",
+        "The speech service is unavailable.": "The speech service is unavailable.",
+        "Stop reading": "Stop reading",
+        "Read aloud": "Read aloud",
+        "This answer is too long to read aloud.": "This answer is too long to read aloud."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
