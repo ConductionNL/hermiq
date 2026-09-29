@@ -91,6 +91,13 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The button label for the current dictation state.
+		 *
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 */
 		label() {
 			if (this.state === 'listening') {
 				return this.t('hermiq', 'Listening, press to stop')
@@ -102,6 +109,13 @@ export default {
 		},
 	},
 
+	/**
+	 * Build the dictation controller over the recorder and the transcription endpoint.
+	 *
+	 * @return {void}
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+	 */
 	created() {
 		this.dictation = createDictation({
 			startRecording,

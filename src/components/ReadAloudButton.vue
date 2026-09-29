@@ -68,10 +68,24 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether this answer is the one being read aloud.
+		 *
+		 * @return {boolean} True while it plays.
+		 *
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+		 */
 		playing() {
 			return shared.playing === this.messageKey
 		},
 
+		/**
+		 * The button label: read aloud, or stop reading.
+		 *
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+		 */
 		label() {
 			return this.playing
 				? this.t('hermiq', 'Stop reading')
@@ -79,6 +93,13 @@ export default {
 		},
 	},
 
+	/**
+	 * Stop reading when the answer leaves the page.
+	 *
+	 * @return {void}
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+	 */
 	beforeUnmount() {
 		if (this.playing) {
 			speaker.stop()

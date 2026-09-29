@@ -93,6 +93,13 @@ export function createDictation(deps) {
 	}
 	return {
 		state: () => state,
+		/**
+		 * Start recording, or stop and transcribe; ignored while transcribing.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 */
 		async toggle() {
 			if (state === 'transcribing') {
 				return
