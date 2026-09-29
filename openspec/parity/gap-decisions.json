@@ -1214,5 +1214,45 @@
 		"reason": "defer retired on 2026-09-28, so the earlier deferral becomes a refusal on the record: single competitor (copilot-studio), changelog demand only; hermiq has no voice call channel.",
 		"change": null,
 		"decidedOn": "2026-09-28"
+	},
+	{
+		"row": "ch-shared-session",
+		"matrix": "hermiq",
+		"decision": "build",
+		"reason": "building row with no change for its missing half: core area (chat) and two competitors rate yes (open-webui, hermes-agent). The Talk path is built (roster, authorship, speaker scoping); the missing half is inviting colleagues and reading the shared session on /chat.",
+		"change": "chat-work-together-in-one-session",
+		"decidedOn": "2026-09-29"
+	},
+	{
+		"row": "me-context-docs",
+		"matrix": "hermiq",
+		"decision": "existing",
+		"reason": "building row: six competitors rate yes. The open change hermiq-context-documents covers the missing half (the run-start assembler that renders documents and the editor that writes them); the schema half shipped.",
+		"change": "hermiq-context-documents",
+		"decidedOn": "2026-09-29"
+	},
+	{
+		"row": "me-rag-files",
+		"matrix": "hermiq",
+		"decision": "existing",
+		"reason": "building row: the open change vector-rag covers the missing half (semantic and hybrid search over Nextcloud Files; today keyword search only). Blocked on OpenRegister: vector-rag's proposal records that no public vector-search facade exists yet.",
+		"change": "vector-rag",
+		"decidedOn": "2026-09-29"
+	},
+	{
+		"row": "sk-share-tenants",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row: no competitor rates it yes, no tender or feature request row, outside the core area (skills). Cross-organisation install by paste or hub source with quarantine stays.",
+		"change": null,
+		"decidedOn": "2026-09-29"
+	},
+	{
+		"row": "co-dpia",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "building row: no competitor rates it yes, no tender or feature request row, outside the core area (compliance). AiFeature.impactAssessments already links a feature to its IAMA, DPIA or FRAIA for the Algoritmeregister.",
+		"change": null,
+		"decidedOn": "2026-09-29"
 	}
 ]
