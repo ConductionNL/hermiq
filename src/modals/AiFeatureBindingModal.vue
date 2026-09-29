@@ -235,6 +235,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Preselect the current binding once the allowed providers are loaded.
+	 *
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+	 */
 	async created() {
 		this.residencyOption =
 			this.residencyOptions.find(
