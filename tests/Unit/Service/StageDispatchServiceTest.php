@@ -27,9 +27,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Llm\RunTokenService;
+use OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore;
 use OCA\Hermiq\Service\StageDispatchService;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -187,15 +187,12 @@ class StageDispatchServiceTest extends TestCase {
 		// call is made and nothing about the thing being made, which is where
 		// the TTL bug lives: the turn default is 150 seconds and a stage runs
 		// for thirty minutes.
-		$cacheFactory = $this->createMock(ICacheFactory::class);
-		$cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
-
 		$secureRandom = $this->createMock(ISecureRandom::class);
 		$secureRandom->method('generate')->willReturn('stub-run-token-for-the-mapping-tests');
 
 		$this->service = new ExposedStageDispatchService(
 			new NullLogger(),
-			new RunTokenService($cacheFactory, $secureRandom)
+			new RunTokenService(new InMemoryRunTokenStore(), $secureRandom, $this->createMock(ITimeFactory::class))
 		);
 
 	}//end setUp()

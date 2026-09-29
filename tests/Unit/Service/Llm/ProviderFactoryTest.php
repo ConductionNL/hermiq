@@ -1322,41 +1322,12 @@ class ProviderFactoryTest extends TestCase {
 	}//end governedFactory()
 
 	/**
-	 * A real `RunTokenService` backed by an in-memory cache and a deterministic CSPRNG stub,
+	 * A real `RunTokenService` backed by an in-memory store and a deterministic CSPRNG stub,
 	 * so mint→verify round-trips without a live Nextcloud cache.
 	 *
 	 * @return \OCA\Hermiq\Service\Llm\RunTokenService
 	 */
 	private function realRunTokenService(): \OCA\Hermiq\Service\Llm\RunTokenService {
-		$store = new class implements \OCP\ICache {
-			/** @var array<string, mixed> */
-			private array $data = [];
-			public function get($key) {
-				return ($this->data[$key] ?? null);
-			}
-			public function set($key, $value, $ttl = 0) {
-				$this->data[$key] = $value;
-				return true;
-			}
-			public function hasKey($key) {
-				return isset($this->data[$key]);
-			}
-			public function remove($key) {
-				unset($this->data[$key]);
-				return true;
-			}
-			public function clear($prefix = '') {
-				$this->data = [];
-				return true;
-			}
-			public static function isAvailable(): bool {
-				return true;
-			}
-		};
-
-		$cacheFactory = $this->createMock(\OCP\ICacheFactory::class);
-		$cacheFactory->method('createDistributed')->willReturn($store);
-
 		$secureRandom = $this->createMock(\OCP\Security\ISecureRandom::class);
 		$counter = 0;
 		$secureRandom->method('generate')->willReturnCallback(
@@ -1366,7 +1337,11 @@ class ProviderFactoryTest extends TestCase {
 			}
 		);
 
-		return new \OCA\Hermiq\Service\Llm\RunTokenService($cacheFactory, $secureRandom);
+		return new \OCA\Hermiq\Service\Llm\RunTokenService(
+			new \OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore(),
+			$secureRandom,
+			$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class)
+		);
 	}//end realRunTokenService()
 
 	/**
