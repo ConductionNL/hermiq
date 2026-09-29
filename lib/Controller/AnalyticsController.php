@@ -109,7 +109,7 @@ class AnalyticsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
 	 */
 	public function lowRatings(string $agentId): JSONResponse {
 		$user = $this->userSession->getUser();

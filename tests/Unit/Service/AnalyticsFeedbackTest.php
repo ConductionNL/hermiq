@@ -13,7 +13,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-feedback-per-agent/tasks.md#task-1-feedback-counts-in-the-analytics
+ * @spec openspec/changes/archive/2026-09-29-observability-feedback-per-agent/tasks.md#task-1-feedback-counts-in-the-analytics
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Feedback aggregation on the analytics tenant boundary.
  *
- * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+ * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
  */
 class AnalyticsFeedbackTest extends TestCase {
 
@@ -148,7 +148,7 @@ class AnalyticsFeedbackTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
 	 */
 	public function testThePerAgentRowsCarryTheCountsOnTheTenantBoundary(): void {
 		$result = $this->service(
@@ -184,7 +184,7 @@ class AnalyticsFeedbackTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
 	 */
 	public function testLatestLowRatingsAreNewestFirstWithoutTheRater(): void {
 		$feedback = [

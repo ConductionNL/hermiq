@@ -497,7 +497,7 @@ class AnalyticsService
      *
      * @return array<int, array{comment: string, date: string|null, conversationId: string}> At most ten rows.
      *
-     * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+     * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
      */
     public function latestLowRatings(string $agentId): array
     {
@@ -538,7 +538,7 @@ class AnalyticsService
      *
      * @return array<int, array<string, mixed>> The feedback payloads, each with `@date` (created, ISO 8601 or null).
      *
-     * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+     * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
      */
     private function loadFeedback(array $visibleAgents, ?string $agentId): array
     {

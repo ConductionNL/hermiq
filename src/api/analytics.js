@@ -62,7 +62,7 @@ export async function listRuns({
  *
  * @param {string} agentId The agent UUID.
  * @return {Promise<Array<object>>} Rows of { comment, date, conversationId }, newest first.
- * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+ * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
  */
 export async function listLowRatings(agentId) {
 	const response = await axios.get(

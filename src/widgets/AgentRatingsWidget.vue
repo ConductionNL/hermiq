@@ -7,7 +7,7 @@
   up and thumbs down counts, and the latest thumbs-down comments with their
   date. The rater is never named.
 
-  @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+  @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
 -->
 <template>
 	<div class="agent-ratings">
@@ -95,7 +95,7 @@ export default {
 		 * How many ratings there are.
 		 *
 		 * @return {number} Thumbs up plus thumbs down.
-		 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
 		 */
 		rated() {
 			return (
@@ -108,7 +108,7 @@ export default {
 		 * The share rated helpful as a whole percentage.
 		 *
 		 * @return {number} 0 to 100.
-		 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
 		 */
 		helpfulPercent() {
 			return Math.round(Number(this.feedback.helpfulRate || 0) * 100)
@@ -119,7 +119,7 @@ export default {
 		agentId: {
 			immediate: true,
 			/**
-			 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
+			 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
 			 */
 			handler() {
 				this.load()
@@ -132,7 +132,7 @@ export default {
 		 * Load the counts and the latest low ratings.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
 		 */
 		async load() {
 			if (!this.agentId) {
@@ -162,7 +162,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date.
-		 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+		 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
 		 */
 		formatDate(value) {
 			const date = new Date(value)

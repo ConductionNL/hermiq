@@ -262,7 +262,7 @@ class AnalyticsControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
 	 */
 	public function testLowRatingsForSomeoneWhoMayReadTheAgent(): void {
 		$service = $this->createMock(AnalyticsService::class);
@@ -283,7 +283,7 @@ class AnalyticsControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
 	 */
 	public function testLowRatingsAreRefusedWithoutReadAccess(): void {
 		$service = $this->createMock(AnalyticsService::class);
