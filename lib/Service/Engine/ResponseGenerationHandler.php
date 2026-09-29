@@ -288,7 +288,11 @@ class ResponseGenerationHandler {
 				organisation: $organisation,
 				agentMaxTokens: $agentMaxTokens,
 				aiFeature: $aiFeature,
-				documentReference: $documentReference
+				documentReference: $documentReference,
+				// The agent's own credential per provider (operations-a-credential-per-agent),
+				// as stored; the resolver reads only non-empty string pins. A refused pin
+				// stops the turn here, before any model is called.
+				agentCredentialIds: (array)($agentData['credentialIds'] ?? [])
 			);
 
 			// Which model saw this case, and where. Copied onto the run rather than

@@ -1500,7 +1500,13 @@
         "No requirement": "Geen eis",
         "The policy allows any model of this provider.": "Het beleid staat elk model van deze provider toe.",
         "Use the organisation default": "De standaard van de organisatie gebruiken",
-        "Where the provider must run": "Waar de provider moet draaien"
+        "Where the provider must run": "Waar de provider moet draaien",
+        "Credential for {provider}": "Inloggegevens voor {provider}",
+        "The organisation default": "De standaard van de organisatie",
+        "A credential chosen here is used for this agent only. If it cannot be used for a run, the run stops and says why; it never falls back to another key.": "Inloggegevens die je hier kiest, gebruikt alleen deze agent. Als ze voor een run niet bruikbaar zijn, stopt de run en zegt waarom; er wordt nooit een andere sleutel gebruikt.",
+        "The credential pinned to this agent cannot be used for this run.": "De inloggegevens die aan deze agent vastzitten, kunnen voor deze run niet worden gebruikt.",
+        "Credentials per provider": "Inloggegevens per aanbieder",
+        "This agent's own provider credential, per provider: the credential broker uuid of a key the owner may use for hermiq. A pinned credential is used before the personal and organisation ones, and when it cannot be used the turn stops rather than use another.": "De eigen inloggegevens van deze agent, per aanbieder: de uuid in de credential broker van een sleutel die de eigenaar voor hermiq mag gebruiken. Vastgezette inloggegevens gaan voor de persoonlijke en die van de organisatie; als ze niet bruikbaar zijn, stopt de beurt in plaats van andere te gebruiken."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

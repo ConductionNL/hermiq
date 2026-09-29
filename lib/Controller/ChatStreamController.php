@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -437,6 +438,20 @@ class ChatStreamController extends Controller {
 				]
 			);
 		} catch (Throwable $e) {
+			// A refused pinned credential is told as it is: the person can act on it
+			// (operations-a-credential-per-agent). Everything else stays masked.
+			for ($cause = $e; $cause !== null; $cause = $cause->getPrevious()) {
+				if ($cause instanceof PinnedCredentialRefusedException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => PinnedCredentialRefusedException::ERROR_CODE,
+							'message' => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+						]
+					);
+				}
+			}
+
 			$this->logger->error(
 				message: '[ChatStreamController] Stream failed',
 				context: [

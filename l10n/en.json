@@ -2220,7 +2220,13 @@
         "No requirement": "No requirement",
         "The policy allows any model of this provider.": "The policy allows any model of this provider.",
         "Use the organisation default": "Use the organisation default",
-        "Where the provider must run": "Where the provider must run"
+        "Where the provider must run": "Where the provider must run",
+        "Credential for {provider}": "Credential for {provider}",
+        "The organisation default": "The organisation default",
+        "A credential chosen here is used for this agent only. If it cannot be used for a run, the run stops and says why; it never falls back to another key.": "A credential chosen here is used for this agent only. If it cannot be used for a run, the run stops and says why; it never falls back to another key.",
+        "The credential pinned to this agent cannot be used for this run.": "The credential pinned to this agent cannot be used for this run.",
+        "Credentials per provider": "Credentials per provider",
+        "This agent's own provider credential, per provider: the credential broker uuid of a key the owner may use for hermiq. A pinned credential is used before the personal and organisation ones, and when it cannot be used the turn stops rather than use another.": "This agent's own provider credential, per provider: the credential broker uuid of a key the owner may use for hermiq. A pinned credential is used before the personal and organisation ones, and when it cannot be used the turn stops rather than use another."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
