@@ -57,7 +57,7 @@
 						)
 					}}</span>
 					<NcButton
-						type="secondary"
+						variant="secondary"
 						:disabled="busy"
 						:aria-label="t('hermiq', 'Consolidate memory')"
 						@click="consolidate">
@@ -77,7 +77,7 @@
 					:disabled="busy"
 					@keydown.enter="addFact" />
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="busy || !newEntry.trim()"
 					:aria-label="t('hermiq', 'Add fact')"
 					@click="addFact">
@@ -88,10 +88,23 @@
 			<!-- Memory entries -->
 			<section class="agent-memory-panel__section">
 				<h3 class="agent-memory-panel__subhead">
-					{{ t('hermiq', 'Memory entries') }} ({{ entries.length }})
+					{{ t('hermiq', 'Memory entries') }} ({{ activeEntries.length }})
 				</h3>
+				<NcCheckboxRadioSwitch
+					v-if="forgottenCount > 0"
+					v-model="showForgotten"
+					type="switch">
+					{{
+						n(
+							'hermiq',
+							'Show %n forgotten fact',
+							'Show %n forgotten facts',
+							forgottenCount,
+						)
+					}}
+				</NcCheckboxRadioSwitch>
 				<NcEmptyContent
-					v-if="entries.length === 0"
+					v-if="visibleEntries.length === 0"
 					:name="t('hermiq', 'No memory yet')"
 					:description="
 						t('hermiq', 'Facts the agent remembers will appear here.')
@@ -102,36 +115,82 @@
 				</NcEmptyContent>
 				<ul v-else class="agent-memory-panel__entries">
 					<li
-						v-for="(entry, i) in entries"
-						:key="i"
+						v-for="(entry, i) in visibleEntries"
+						:key="entry.id || i"
 						class="agent-memory-panel__entry"
 						:class="{
 							'agent-memory-panel__entry--forgotten':
 								isForgotten(entry),
 						}">
-						<span class="agent-memory-panel__entry-text">{{
-							entry.text
-						}}</span>
-						<span
-							v-if="isForgotten(entry)"
-							class="agent-memory-panel__entry-forgotten"
-							:title="
-								t(
-									'hermiq',
-									'The agent retracted this fact — it is excluded from recall but kept for audit history.',
-								)
-							">
-							<EyeOffIcon :size="14" />
-							{{ t('hermiq', 'Forgotten') }}
-						</span>
-						<span class="agent-memory-panel__entry-date">{{
-							/**
-							 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
-							 */
-							formatDate(entry.createdAt)
-						}}</span>
+						<template v-if="editingId && editingId === entry.id">
+							<NcTextField
+								v-model="editText"
+								class="agent-memory-panel__edit"
+								:label="t('hermiq', 'Corrected fact')"
+								:disabled="busy"
+								@keydown.enter="saveCorrection(entry)" />
+							<NcButton
+								variant="primary"
+								:disabled="busy || !editText.trim()"
+								@click="saveCorrection(entry)">
+								{{ t('hermiq', 'Save') }}
+							</NcButton>
+							<NcButton
+								variant="tertiary"
+								:disabled="busy"
+								@click="cancelCorrection">
+								{{ t('hermiq', 'Cancel') }}
+							</NcButton>
+						</template>
+						<template v-else>
+							<span class="agent-memory-panel__entry-text">{{
+								entry.text
+							}}</span>
+							<span
+								v-if="isForgotten(entry)"
+								class="agent-memory-panel__entry-forgotten"
+								:title="
+									t(
+										'hermiq',
+										'Forgotten facts are left out of recall and kept for the history.',
+									)
+								">
+								<EyeOffIcon :size="14" />
+								{{ t('hermiq', 'Forgotten') }}
+							</span>
+							<span class="agent-memory-panel__entry-date">{{
+								/**
+								 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+								 */
+								formatDate(entry.createdAt)
+							}}</span>
+							<span
+								v-if="entry.id && !isForgotten(entry)"
+								class="agent-memory-panel__entry-actions">
+								<NcButton
+									variant="tertiary"
+									:disabled="busy"
+									:aria-label="t('hermiq', 'Correct this fact')"
+									@click="startCorrection(entry)">
+									{{ t('hermiq', 'Correct') }}
+								</NcButton>
+								<NcButton
+									variant="tertiary"
+									:disabled="busy"
+									:aria-label="t('hermiq', 'Forget this fact')"
+									@click="forgetTarget = entry">
+									{{ t('hermiq', 'Forget') }}
+								</NcButton>
+							</span>
+						</template>
 					</li>
 				</ul>
+				<ForgetMemoryDialog
+					v-if="forgetTarget"
+					:text="forgetTarget.text"
+					:busy="busy"
+					@close="forgetTarget = null"
+					@confirm="confirmForget" />
 			</section>
 		</template>
 	</div>
@@ -140,6 +199,7 @@
 <script>
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcEmptyContent,
 	NcLoadingIcon,
 	NcNoteCard,
@@ -148,7 +208,14 @@ import {
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
-import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
+import ForgetMemoryDialog from '../dialogs/ForgetMemoryDialog.vue'
+import {
+	addMemory,
+	consolidateMemory,
+	correctMemoryEntry,
+	forgetMemoryEntry,
+	getMemory,
+} from '../api/memory.js'
 
 export default {
 	name: 'AgentMemoryPanel',
@@ -157,7 +224,9 @@ export default {
 		AlertIcon,
 		BrainIcon,
 		EyeOffIcon,
+		ForgetMemoryDialog,
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -179,6 +248,10 @@ export default {
 			loading: false,
 			busy: false,
 			error: '',
+			showForgotten: false,
+			editingId: '',
+			editText: '',
+			forgetTarget: null,
 		}
 	},
 
@@ -191,6 +264,36 @@ export default {
 		 */
 		entries() {
 			return Array.isArray(this.memory.entries) ? this.memory.entries : []
+		},
+
+		/**
+		 * The entries the agent still uses.
+		 *
+		 * @return {Array<object>} The entries without a deletedAt.
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		activeEntries() {
+			return this.entries.filter((e) => !this.isForgotten(e))
+		},
+
+		/**
+		 * How many entries were forgotten.
+		 *
+		 * @return {number} The count.
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		forgottenCount() {
+			return this.entries.length - this.activeEntries.length
+		},
+
+		/**
+		 * The entries the list shows: forgotten ones only when asked for.
+		 *
+		 * @return {Array<object>} The visible entries.
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		visibleEntries() {
+			return this.showForgotten ? this.entries : this.activeEntries
 		},
 
 		/**
@@ -332,6 +435,84 @@ export default {
 		},
 
 		/**
+		 * Open the inline correction field for one entry.
+		 *
+		 * @param {object} entry The entry to correct.
+		 * @return {void}
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 */
+		startCorrection(entry) {
+			this.editingId = entry.id
+			this.editText = entry.text
+		},
+
+		/**
+		 * Close the correction field without saving.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 */
+		cancelCorrection() {
+			this.editingId = ''
+			this.editText = ''
+		},
+
+		/**
+		 * Save the corrected text of one entry.
+		 *
+		 * @param {object} entry The entry being corrected.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 */
+		async saveCorrection(entry) {
+			const text = this.editText.trim()
+			if (!text || !this.agentId) {
+				return
+			}
+			this.busy = true
+			this.error = ''
+			try {
+				this.memory = await correctMemoryEntry(this.agentId, entry.id, text)
+				this.cancelCorrection()
+			} catch (e) {
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Forget the entry the confirmation dialog was opened for.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		async confirmForget() {
+			if (!this.forgetTarget || !this.agentId) {
+				return
+			}
+			this.busy = true
+			this.error = ''
+			try {
+				this.memory = await forgetMemoryEntry(
+					this.agentId,
+					this.forgetTarget.id,
+				)
+				this.forgetTarget = null
+			} catch (e) {
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
 		 * Human-friendly timestamp.
 		 *
 		 * @param {string} value The ISO timestamp.
@@ -462,6 +643,16 @@ export default {
 	gap: 12px;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--color-border);
+}
+
+.agent-memory-panel__entry-actions {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 4px;
+}
+
+.agent-memory-panel__edit {
+	flex: 1 1 auto;
 }
 
 .agent-memory-panel__entry-text {

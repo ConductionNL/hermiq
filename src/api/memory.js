@@ -80,6 +80,39 @@ export async function consolidateMemory(agentId, entries = null) {
 }
 
 /**
+ * Correct one memory entry (owner only). The old entry is kept as forgotten and
+ * the new text becomes a new entry.
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} entryId The entry id.
+ * @param {string} text The corrected text.
+ * @return {Promise<object>} The updated memory.
+ * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+ */
+export async function correctMemoryEntry(agentId, entryId, text) {
+	const response = await axios.put(
+		generateUrl(`${AGENTS_BASE}/${agentId}/memory/entries/${entryId}`),
+		{ text },
+	)
+	return response.data
+}
+
+/**
+ * Make the agent forget one memory entry (owner only, a soft delete).
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} entryId The entry id.
+ * @return {Promise<object>} The updated memory.
+ * @spec openspec/changes/memory-correct-and-forget/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+ */
+export async function forgetMemoryEntry(agentId, entryId) {
+	const response = await axios.delete(
+		generateUrl(`${AGENTS_BASE}/${agentId}/memory/entries/${entryId}`),
+	)
+	return response.data
+}
+
+/**
  * List an agent's UserProfiles (tenant-scoped).
  *
  * @param {string} agentId The agent UUID.
