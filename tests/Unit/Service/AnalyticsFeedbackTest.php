@@ -13,7 +13,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/archive/2026-09-29-observability-feedback-per-agent/tasks.md#task-1-feedback-counts-in-the-analytics
+ * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-sees-how-answers-were-rated-req-fbstat-001
  */
 
 declare(strict_types=1);
