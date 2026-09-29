@@ -592,10 +592,10 @@ return [
             'requirements' => ['uuid' => '[^/]+'],
         ],
         // chat-work-together-in-one-session: the owner invites colleagues into a web session.
-        ['name' => 'session_participant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'session_participant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionParticipant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionParticipant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
         [
-            'name'         => 'session_participant#destroy',
+            'name'         => 'sessionParticipant#destroy',
             'url'          => '/api/sessions/{uuid}/participants/{uid}',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],

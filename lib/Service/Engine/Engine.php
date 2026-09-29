@@ -309,7 +309,7 @@ class Engine {
 				throw new Exception('Access denied to conversation');
 			}
 
-			// chat-work-together-in-one-session: in a session with participants every
+			// Chat-work-together-in-one-session: in a session with participants every
 			// human turn names its speaker, whichever entry point sent it (the web chat
 			// and the stream pass none). A single-speaker session stays unchanged.
 			if ($authorId === null && $this->participation->roster(conversationData: $conversationData) !== []) {

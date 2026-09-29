@@ -62,13 +62,13 @@ class SessionParticipantController extends Controller {
 	 *
 	 * @param string $uuid The session uuid.
 	 *
-	 * @return JSONResponse {results: [{uid, displayName}]} or an error.
+	 * @return JSONResponse The roster (results: uid and displayName each) or an error.
 	 *
 	 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
 	 */
 	#[NoAdminRequired]
 	public function index(string $uuid): JSONResponse {
-		return $this->respond(fn (string $caller): array => $this->participants->list(uuid: $uuid, callerUid: $caller));
+		return $this->respond(action: fn (string $caller): array => $this->participants->list(uuid: $uuid, callerUid: $caller));
 	}//end index()
 
 	/**
@@ -76,14 +76,14 @@ class SessionParticipantController extends Controller {
 	 *
 	 * @param string $uuid The session uuid.
 	 *
-	 * @return JSONResponse {results: [{uid, displayName}]} or an error.
+	 * @return JSONResponse The roster (results: uid and displayName each) or an error.
 	 *
 	 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
 	 */
 	#[NoAdminRequired]
 	public function create(string $uuid): JSONResponse {
 		$uid = trim((string)$this->request->getParam('uid', ''));
-		return $this->respond(fn (string $caller): array => $this->participants->add(uuid: $uuid, callerUid: $caller, uid: $uid));
+		return $this->respond(action: fn (string $caller): array => $this->participants->add(uuid: $uuid, callerUid: $caller, uid: $uid));
 	}//end create()
 
 	/**
@@ -92,13 +92,13 @@ class SessionParticipantController extends Controller {
 	 * @param string $uuid The session uuid.
 	 * @param string $uid The colleague.
 	 *
-	 * @return JSONResponse {results: [{uid, displayName}]} or an error.
+	 * @return JSONResponse The roster (results: uid and displayName each) or an error.
 	 *
 	 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
 	 */
 	#[NoAdminRequired]
 	public function destroy(string $uuid, string $uid): JSONResponse {
-		return $this->respond(fn (string $caller): array => $this->participants->remove(uuid: $uuid, callerUid: $caller, uid: $uid));
+		return $this->respond(action: fn (string $caller): array => $this->participants->remove(uuid: $uuid, callerUid: $caller, uid: $uid));
 	}//end destroy()
 
 	/**

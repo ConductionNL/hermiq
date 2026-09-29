@@ -1035,6 +1035,7 @@ class SessionController extends Controller {
 	 * Serialize a conversation object to the OR-compatible response shape.
 	 *
 	 * @param ObjectEntity $conversation The conversation object.
+	 * @param string       $userId       The caller, to tell owner from participant.
 	 *
 	 * @return array<string, mixed> Serialized conversation.
 	 *
@@ -1061,7 +1062,7 @@ class SessionController extends Controller {
 			// predating the property was started by a person, which is what the
 			// `human` fallback records.
 			'triggerOrigin' => ($data['triggerOrigin'] ?? 'human'),
-			// chat-work-together-in-one-session: who else is in it, and whether the
+			// Chat-work-together-in-one-session: who else is in it, and whether the
 			// caller owns it or was invited, so /chat can group "Shared with me".
 			'participants' => $this->participation->roster(conversationData: $data),
 			'role' => $this->roleOf(data: $data, userId: $userId),
