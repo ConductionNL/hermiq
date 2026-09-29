@@ -204,6 +204,10 @@ class ApprovalPreviewBuilder {
 	 * @param array<string, mixed>|null $descriptor The catalog descriptor.
 	 *
 	 * @return string self, user, instance, external or unknown.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) ToolReachResolver::resolve() is
+	 *   OpenRegister's stateless reach classifier; the tool oversight matrix calls it
+	 *   the same way, so the preview and the matrix read one rule set.
 	 */
 	private function reach(string $id, ?array $descriptor): string {
 		$declared = (string)($descriptor[ToolReachResolver::REACH_KEY] ?? '');
