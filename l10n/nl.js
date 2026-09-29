@@ -1440,7 +1440,8 @@ OC.L10N.register(
         "Forgotten facts are left out of recall and kept for the history.": "Vergeten feiten worden niet meer opgehaald en blijven bewaard in de geschiedenis.",
         "Show %n forgotten fact": "%n vergeten feit tonen",
         "Show %n forgotten facts": "%n vergeten feiten tonen",
-        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "De agent gebruikt dit feit niet meer. Het blijft in de geschiedenis van het geheugen staan, gemarkeerd als vergeten."
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "De agent gebruikt dit feit niet meer. Het blijft in de geschiedenis van het geheugen staan, gemarkeerd als vergeten.",
+        "Ready-made prompts": "Kant-en-klare prompts"
     },
     "nplurals=2; plural=(n != 1);"
 )

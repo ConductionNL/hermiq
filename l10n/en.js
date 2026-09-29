@@ -2172,7 +2172,8 @@ OC.L10N.register(
         "Forgotten facts are left out of recall and kept for the history.": "Forgotten facts are left out of recall and kept for the history.",
         "Show %n forgotten fact": "Show %n forgotten fact",
         "Show %n forgotten facts": "Show %n forgotten facts",
-        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten."
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten.",
+        "Ready-made prompts": "Ready-made prompts"
     },
     "nplurals=2; plural=(n != 1);"
 )

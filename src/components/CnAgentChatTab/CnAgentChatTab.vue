@@ -77,6 +77,22 @@
 				</li>
 			</ul>
 
+			<div
+				v-if="readyMadePrompts.length > 0"
+				class="cn-agent-chat-tab__prompts"
+				role="group"
+				:aria-label="t('hermiq', 'Ready-made prompts')"
+				data-testid="cn-agent-chat-tab-prompts">
+				<NcButton
+					v-for="prompt in readyMadePrompts"
+					:key="prompt.id"
+					variant="tertiary"
+					:disabled="sending"
+					@click="pickPrompt(prompt)">
+					{{ prompt.label }}
+				</NcButton>
+			</div>
+
 			<form class="cn-agent-chat-tab__composer" @submit.prevent="send">
 				<NcTextArea
 					v-model="draft"
@@ -109,6 +125,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcLoadingIcon, NcNoteCard, NcTextArea } from '@nextcloud/vue'
 import { buildAgentContext } from '../../utils/agentContext.js'
+import { loadReadyMadePrompts, withPrompt } from '../../utils/readyMadePrompts.js'
 
 export default {
 	name: 'CnAgentChatTab',
@@ -137,6 +154,8 @@ export default {
 			// so the "no context" notice never flashes during the initial load and
 			// is never shown for an object that simply has not been read yet.
 			contextResolved: false,
+			// record-chat-ready-made-prompts: the library's prompts for this record type.
+			readyMadePrompts: [],
 		}
 	},
 
@@ -189,10 +208,25 @@ export default {
 			this.unavailable = false
 			this.boundedContext = {}
 			this.contextResolved = false
+			this.readyMadePrompts = []
 			if (this.objectId === '') {
 				return
 			}
 			await this.loadBoundedContext()
+			this.readyMadePrompts = await loadReadyMadePrompts(
+				this.objectType || this.schema,
+			)
+		},
+
+		/**
+		 * Put a ready-made prompt's text in the message box. It is not sent: the
+		 * person reads it, may change it, and sends it.
+		 *
+		 * @param {{prompt: string}} prompt The picked prompt.
+		 * @spec openspec/changes/record-chat-ready-made-prompts/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
+		 */
+		pickPrompt(prompt) {
+			this.draft = withPrompt(this.draft, prompt.prompt)
 		},
 
 		/**
@@ -376,6 +410,12 @@ export default {
 	font-size: 0.8em;
 	font-style: italic;
 	color: var(--color-text-maxcontrast);
+}
+
+.cn-agent-chat-tab__prompts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
 }
 
 .cn-agent-chat-tab__composer {
