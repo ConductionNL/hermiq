@@ -125,22 +125,10 @@ class EgressAuthorizeController extends Controller {
 	public function authorize(): JSONResponse {
 		// AUTH FIRST — the per-run token is the authorization. A missing/invalid/
 		// expired/consumed token is rejected before any policy is evaluated.
-		$binding = $this->runTokenService->verify(token: $this->bearerToken());
+		$token = $this->bearerToken();
+		$binding = $this->runTokenService->verify(token: $token);
 		if ($binding === null) {
-			// The per-run token IS the authorization, so a failed verify is a
-			// presented-secret failure. Counted here; the enforcing half is the
-			// #[BruteForceProtection] attribute above (ADR-082).
-			try {
-				$this->throttler->registerAttempt(
-					action: self::THROTTLE_ACTION,
-					ip: $this->request->getRemoteAddress()
-				);
-			} catch (\Throwable $throttlerFailure) {
-				// Bookkeeping must not turn a fail-closed 401 into a 500.
-				unset($throttlerFailure);
-			}
-
-			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+			return $this->refuseToken(token: $token);
 		}
 
 		$body = json_decode($this->readRawBody(), true);
@@ -184,6 +172,44 @@ class EgressAuthorizeController extends Controller {
 		);
 
 	}//end authorize()
+
+	/**
+	 * Refuse a token that failed verification, and count it with the brute-force
+	 * throttler only when this instance never issued it.
+	 *
+	 * @param string $token The presented bearer token. Never logged.
+	 *
+	 * @return JSONResponse The fail-closed 401.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	private function refuseToken(string $token): JSONResponse {
+		// The per-run token IS the authorization, so a failed verify is a
+		// presented-secret failure. Counted here; the enforcing half is the
+		// #[BruteForceProtection] attribute above (ADR-082).
+		//
+		// Only a token this instance never issued is counted. A spent or
+		// expired token that WAS issued is a legitimate component arriving
+		// late (a CLI flushing after its turn ended), and it is refused all
+		// the same. Counting it let one stale caller throttle this endpoint
+		// for every run behind the same proxy IP. A guesser cannot reach the
+		// uncounted branch: it needs the preimage of a stored digest.
+		if ($this->runTokenService->isKnown(token: $token) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->throttler->registerAttempt(
+				action: self::THROTTLE_ACTION,
+				ip: $this->request->getRemoteAddress()
+			);
+		} catch (\Throwable $throttlerFailure) {
+			// Bookkeeping must not turn a fail-closed 401 into a 500.
+			unset($throttlerFailure);
+		}
+
+		return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+	}//end refuseToken()
 
 	/**
 	 * Extract the bearer token from the `Authorization` header. Never logged.
