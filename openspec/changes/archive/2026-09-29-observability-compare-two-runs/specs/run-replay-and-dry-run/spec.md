@@ -43,6 +43,6 @@ Hermiq MUST let a person compare two runs of one flow, read from OpenRegister's 
 
 #### Scenario: A process owner sees where a flow run went different
 - GIVEN two runs of the flow "Vergunningaanvraag intake", one completed and one failed
-- WHEN the process owner compares them on the flow's run history
+- WHEN the process owner ticks both on the flow run comparison page (reached from the Runs page) and chooses "Compare"
 - THEN the view lines up the nodes, shows the node where the failed run stopped, and says "These runs used different versions of the flow (4 and 5)." when they did
 - e2e: `tests/e2e/spec-coverage/run-compare.spec.ts`
