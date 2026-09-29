@@ -2269,7 +2269,19 @@ OC.L10N.register(
         "New context": "New context",
         "The server did not accept the context.": "The server did not accept the context.",
         "This context also reads %n live data query, which stays as it is.": "This context also reads %n live data query, which stays as it is.",
-        "This context also reads %n live data queries, which stay as they are.": "This context also reads %n live data queries, which stay as they are."
+        "This context also reads %n live data queries, which stay as they are.": "This context also reads %n live data queries, which stay as they are.",
+        "Invite colleagues": "Invite colleagues",
+        "People you invite can read this session and ask the agent questions in it. Each question runs with their own files and rights.": "People you invite can read this session and ask the agent questions in it. Each question runs with their own files and rights.",
+        "Find a colleague": "Find a colleague",
+        "Invite": "Invite",
+        "Only you are in this session.": "Only you are in this session.",
+        "This session belongs to a Talk room. Invite the person to the room instead.": "This session belongs to a Talk room. Invite the person to the room instead.",
+        "There is no user with that name.": "There is no user with that name.",
+        "The change could not be saved.": "The change could not be saved.",
+        "Shared with me": "Shared with me",
+        "You were invited to a chat session": "You were invited to a chat session",
+        "%1$s invited you to the session %2$s": "%1$s invited you to the session %2$s",
+        "Open Chat and find it under Shared with me. You can ask the agent questions in it.": "Open Chat and find it under Shared with me. You can ask the agent questions in it."
     },
     "nplurals=2; plural=(n != 1);"
 )

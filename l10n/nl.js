@@ -1539,7 +1539,19 @@ OC.L10N.register(
         "New context": "Nieuwe context",
         "The server did not accept the context.": "De server heeft de context niet geaccepteerd.",
         "This context also reads %n live data query, which stays as it is.": ["Deze context leest ook %n live gegevensquery, die blijft zoals hij is.","Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn."],
-        "This context also reads %n live data queries, which stay as they are.": "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn."
+        "This context also reads %n live data queries, which stay as they are.": "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn.",
+        "Invite colleagues": "Collega's uitnodigen",
+        "People you invite can read this session and ask the agent questions in it. Each question runs with their own files and rights.": "Wie je uitnodigt, kan deze sessie lezen en de agent er vragen in stellen. Elke vraag draait met de eigen bestanden en rechten van die persoon.",
+        "Find a colleague": "Zoek een collega",
+        "Invite": "Uitnodigen",
+        "Only you are in this session.": "Alleen jij zit in deze sessie.",
+        "This session belongs to a Talk room. Invite the person to the room instead.": "Deze sessie hoort bij een Talk-gesprek. Nodig de persoon uit in dat gesprek.",
+        "There is no user with that name.": "Er is geen gebruiker met die naam.",
+        "The change could not be saved.": "De wijziging kon niet worden opgeslagen.",
+        "Shared with me": "Gedeeld met mij",
+        "You were invited to a chat session": "Je bent uitgenodigd voor een chatsessie",
+        "%1$s invited you to the session %2$s": "%1$s heeft je uitgenodigd voor de sessie %2$s",
+        "Open Chat and find it under Shared with me. You can ask the agent questions in it.": "Open Chat en kijk onder Gedeeld met mij. Je kunt de agent er vragen in stellen."
     },
     "nplurals=2; plural=(n != 1);"
 )

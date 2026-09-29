@@ -8857,12 +8857,14 @@
 			"area": "chat",
 			"name": "Work with the same agent in one conversation together with colleagues.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/talk-shared-sessions/spec.md status: in-progress; lib/Settings/hermiq_register.json Conversation.participants property; lib/Service/Talk/TalkRoomBinding.php:280-324 syncParticipants() from live Talk room membership, per-speaker file/credential scoping described in the spec; lib/Listener/TalkBotInvokeListener.php wired via Application.php's BotInvokeEvent registration.",
-				"change": "chat-work-together-in-one-session"
+				"evidence": "Talk path: TalkRoomBinding::syncParticipants, ConversationParticipation, per-turn authorship (archived talk-chat-bridge). Web path: lib/Service/SessionParticipantService.php and lib/Controller/SessionParticipantController.php (GET, POST, DELETE /api/sessions/{uuid}/participants, owner only, Talk-bound 409, notification session_participant_added); SessionController index lists sessions the caller is a participant in (role participant) and show/messages admit participants; Engine names the speaker on every turn of a shared session; src/modals/SessionParticipantsModal.vue from the session menu on /chat, 'Shared with me' group, the author's name above each colleague's turn.",
+				"reachedOn": "Chat (/chat), session menu, Invite colleagues; the colleague opens it under Shared with me",
+				"change": "openspec/changes/archive/2026-09-29-chat-work-together-in-one-session",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "a Nextcloud Talk room with the Hermiq bot invited (machine path: OCA\\Talk\\Events\\BotInvokeEvent -> TalkBotInvokeListener)",
 			"note": "Substantial code exists (participant roster sync, per-speaker authorship), but the spec itself is still marked in-progress, so full end-to-end behaviour could not be confirmed by reading alone.",

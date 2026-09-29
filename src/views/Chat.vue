@@ -133,20 +133,32 @@
 								{{ t('hermiq', 'Continue') }}
 							</NcActionButton>
 							<NcActionButton
-								v-if="!showArchive"
+								v-if="canInvite(session)"
+								@click="openParticipants(session)">
+								<template #icon>
+									<AccountMultiplePlus :size="20" />
+								</template>
+								{{ t('hermiq', 'Invite colleagues') }}
+							</NcActionButton>
+							<NcActionButton
+								v-if="!showArchive && session.role !== 'participant'"
 								@click="archive(session)">
 								<template #icon>
 									<Archive :size="20" />
 								</template>
 								{{ t('hermiq', 'Archive session') }}
 							</NcActionButton>
-							<NcActionButton v-else @click="restore(session)">
+							<NcActionButton
+								v-else-if="session.role !== 'participant'"
+								@click="restore(session)">
 								<template #icon>
 									<Restore :size="20" />
 								</template>
 								{{ t('hermiq', 'Restore session') }}
 							</NcActionButton>
-							<NcActionButton @click="openDelete(session)">
+							<NcActionButton
+								v-if="session.role !== 'participant'"
+								@click="openDelete(session)">
 								<template #icon>
 									<Delete :size="20" />
 								</template>
@@ -237,8 +249,8 @@
 						<div class="chat-page__avatar">
 							<NcAvatar
 								v-if="message.role === 'user'"
-								:user="currentUserId"
-								:displayName="currentUserName"
+								:user="message.authorId || currentUserId"
+								:displayName="authorName(message)"
 								:size="30"
 								:disableMenu="true"
 								:disableTooltip="true" />
@@ -249,7 +261,7 @@
 								<span class="chat-page__sender">
 									{{
 										message.role === 'user'
-											? t('hermiq', 'You')
+											? authorName(message)
 											: agentName
 									}}
 								</span>
@@ -476,6 +488,11 @@
 		</section>
 
 		<!-- Isolated modals (ADR-004) -->
+		<SessionParticipantsModal
+			:show="participantsTarget !== null"
+			:session="participantsTarget"
+			@close="participantsTarget = null"
+			@changed="onParticipantsChanged" />
 		<SessionRenameModal
 			:show="showRename"
 			:session="activeSession"
@@ -521,6 +538,7 @@ import {
 } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
+import AccountMultiplePlus from 'vue-material-design-icons/AccountMultiplePlus.vue'
 import Archive from 'vue-material-design-icons/Archive.vue'
 // One icon per session row, chosen by what started the session. A row that
 // always drew the same mark would leave the human/automated split visible only
@@ -551,6 +569,7 @@ import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
+import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import {
@@ -591,12 +610,14 @@ export default {
 	name: 'Chat',
 
 	components: {
+		AccountMultiplePlus,
 		AgentSelector,
 		Archive,
 		ChatSettingsModal,
 		ClockOutline,
 		CogOutline,
 		SessionDeleteModal,
+		SessionParticipantsModal,
 		SessionRenameModal,
 		CubeOutline,
 		Delete,
@@ -649,6 +670,9 @@ export default {
 			archivedSessions: [],
 			showArchive: false,
 			sessionsLoading: true,
+
+			// The session whose participants dialog is open (chat-work-together-in-one-session).
+			participantsTarget: null,
 
 			// Active thread
 			activeSession: null,
@@ -737,8 +761,13 @@ export default {
 			}
 
 			const human = []
+			const shared = []
 			const automated = []
 			for (const session of this.visibleSessions) {
+				if (session.role === 'participant') {
+					shared.push(session)
+					continue
+				}
 				;(this.isAutomated(session) ? automated : human).push(session)
 			}
 
@@ -748,6 +777,13 @@ export default {
 					key: 'human',
 					heading: this.t('hermiq', 'Started by you'),
 					sessions: human,
+				})
+			}
+			if (shared.length > 0) {
+				groups.push({
+					key: 'shared',
+					heading: this.t('hermiq', 'Shared with me'),
+					sessions: shared,
 				})
 			}
 			if (automated.length > 0) {
@@ -869,6 +905,58 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * The name shown on a person's turn: "You" for the caller, the author's name
+		 * captured at send time for a colleague in a shared session.
+		 *
+		 * @param {object} message The turn.
+		 * @return {string}
+		 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
+		 */
+		authorName(message) {
+			if (!message.authorId || message.authorId === this.currentUserId) {
+				return this.t('hermiq', 'You')
+			}
+			return message.authorDisplayName || message.authorId
+		},
+
+		/**
+		 * Whether the caller may invite colleagues: their own, active, web-only session.
+		 *
+		 * @param {object} session The session row.
+		 * @return {boolean}
+		 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+		 */
+		canInvite(session) {
+			return (
+				!this.showArchive
+				&& session.role !== 'participant'
+				&& !session.talkRoomToken
+			)
+		},
+
+		/**
+		 * Open the invite dialog for a session.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+		 */
+		openParticipants(session) {
+			this.participantsTarget = session
+		},
+
+		/**
+		 * Keep the row's roster in step after an invite or removal.
+		 *
+		 * @param {Array<{uid: string}>} participants The participants now.
+		 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+		 */
+		onParticipantsChanged(participants) {
+			if (this.participantsTarget) {
+				this.participantsTarget.participants = participants.map((p) => p.uid)
+			}
+		},
+
 		/**
 		 * Ask once whether the on-instance speech service answers.
 		 *

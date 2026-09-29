@@ -65,6 +65,7 @@ use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
+use OCP\IUserManager;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -153,6 +154,8 @@ class Engine {
 	 *                                                 Defaulted so every existing
 	 *                                                 caller constructs unchanged; the
 	 *                                                 class is dependency-free.
+	 * @param IUserManager|null $userManager Resolves a speaker's display name for a
+	 *                                       shared session's turn.
 	 *
 	 * @return void
 	 *
@@ -175,6 +178,7 @@ class Engine {
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
 		private readonly ?IJobList $jobList = null,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
+		private readonly ?IUserManager $userManager = null,
 	) {
 	}//end __construct()
 
@@ -303,6 +307,14 @@ class Engine {
 			// controller, so this is the only check on that path.
 			if ($this->participation->mayTakeTurn(conversationData: $conversationData, userId: $userId) === false) {
 				throw new Exception('Access denied to conversation');
+			}
+
+			// chat-work-together-in-one-session: in a session with participants every
+			// human turn names its speaker, whichever entry point sent it (the web chat
+			// and the stream pass none). A single-speaker session stays unchanged.
+			if ($authorId === null && $this->participation->roster(conversationData: $conversationData) !== []) {
+				$authorId = $userId;
+				$authorDisplayName = ($this->userManager?->get($userId)?->getDisplayName() ?? $userId);
 			}
 
 			// Get agent if configured.
