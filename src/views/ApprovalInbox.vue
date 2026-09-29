@@ -84,7 +84,13 @@
 					<td>{{ formatDate(approval.requestedAt) }}</td>
 					<td class="approval-inbox__row-actions">
 						<NcButton
-							type="primary"
+							variant="secondary"
+							:aria-label="t('hermiq', 'What this will do')"
+							@click="previewTarget = approval">
+							{{ t('hermiq', 'Details') }}
+						</NcButton>
+						<NcButton
+							variant="primary"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Approve run')"
 							@click="approve(approval)">
@@ -94,7 +100,7 @@
 							{{ t('hermiq', 'Approve') }}
 						</NcButton>
 						<NcButton
-							type="error"
+							variant="error"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Deny run')"
 							@click="openDeny(approval)">
@@ -105,6 +111,12 @@
 			</tbody>
 		</table>
 
+		<ApprovalPreviewModal
+			v-if="previewTarget"
+			:approval="previewTarget"
+			@close="previewTarget = null"
+			@approve="approveFromPreview"
+			@deny="denyFromPreview" />
 		<ApprovalDenyModal
 			:show="showDeny"
 			:approval="denyTarget"
@@ -118,6 +130,7 @@ import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
+import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
 
@@ -126,6 +139,7 @@ export default {
 
 	components: {
 		ApprovalDenyModal,
+		ApprovalPreviewModal,
 		CheckDecagram,
 		KillSwitchToggle,
 		NcButton,
@@ -144,6 +158,7 @@ export default {
 			showDeny: false,
 			denyTarget: null,
 			actioningId: '',
+			previewTarget: null,
 		}
 	},
 
@@ -247,6 +262,30 @@ export default {
 				return String(value)
 			}
 			return date.toLocaleString()
+		},
+
+		/**
+		 * Approve from the details dialog.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 */
+		async approveFromPreview() {
+			const approval = this.previewTarget
+			this.previewTarget = null
+			await this.approve(approval)
+		},
+
+		/**
+		 * Deny from the details dialog: opens the deny dialog for a reason.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 */
+		denyFromPreview() {
+			const approval = this.previewTarget
+			this.previewTarget = null
+			this.openDeny(approval)
 		},
 
 		/**

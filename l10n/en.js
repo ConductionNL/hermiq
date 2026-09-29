@@ -2162,7 +2162,20 @@ OC.L10N.register(
         "Outputs labelled as AI-made": "Outputs labelled as AI-made",
         "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).": "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).",
         "How outputs are labelled": "How outputs are labelled",
-        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original."
+        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original.",
+        "Changes": "Changes",
+        "Deletes": "Deletes",
+        "Everyone on this Nextcloud": "Everyone on this Nextcloud",
+        "No tools are named for this action.": "No tools are named for this action.",
+        "Only the agent itself": "Only the agent itself",
+        "Outside this Nextcloud": "Outside this Nextcloud",
+        "Reach unknown": "Reach unknown",
+        "Reads": "Reads",
+        "Sends": "Sends",
+        "This run needs a reviewer before it starts.": "This run needs a reviewer before it starts.",
+        "This tool needs a reviewer before the agent may call it.": "This tool needs a reviewer before the agent may call it.",
+        "What this will do": "What this will do",
+        "Your own files and data": "Your own files and data"
     },
     "nplurals=2; plural=(n != 1);"
 )
