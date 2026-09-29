@@ -56,6 +56,13 @@
 			"order": 18
 		},
 		{
+			"id": "Contexts",
+			"label": "Contexts",
+			"icon": "FileDocumentMultipleOutline",
+			"route": "Contexts",
+			"order": 19
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "ViewDashboardOutline",
@@ -628,6 +635,34 @@
 			"slots": {
 				"row-actions": "skill-row-actions",
 				"form-dialog": "SkillFormModal"
+			}
+		},
+		{
+			"id": "Contexts",
+			"route": "/contexts",
+			"type": "index",
+			"title": "Contexts",
+			"config": {
+				"register": "hermiq",
+				"schema": "context",
+				"_note": "hermiq-context-documents: create and edit Context bundles (documents, files, live data queries) that agents read at run start. The form-dialog slot mounts ContextFormModal in place of the generic dialog, so documents get a markdown editor per entry.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "needsConsolidation",
+						"label": "Over budget"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "ContextFormModal"
 			}
 		},
 		{

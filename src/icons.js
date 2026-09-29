@@ -40,6 +40,7 @@ import Creation from 'vue-material-design-icons/Creation.vue'
 import DatabaseOutline from 'vue-material-design-icons/DatabaseOutline.vue'
 import Eye from 'vue-material-design-icons/Eye.vue'
 import FileDocumentEditOutline from 'vue-material-design-icons/FileDocumentEditOutline.vue'
+import FileDocumentMultipleOutline from 'vue-material-design-icons/FileDocumentMultipleOutline.vue'
 import FileSign from 'vue-material-design-icons/FileSign.vue'
 import FlaskOutline from 'vue-material-design-icons/FlaskOutline.vue'
 import ForumOutline from 'vue-material-design-icons/ForumOutline.vue'
@@ -136,6 +137,7 @@ export default {
 	ScaleBalance,
 	School,
 	SchoolOutline,
+	FileDocumentMultipleOutline,
 	ShieldAlertOutline,
 	ShieldCheckOutline,
 	ShieldOutline,

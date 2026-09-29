@@ -9023,12 +9023,14 @@
 			"area": "memory",
 			"name": "Give an agent document-shaped instructions such as a coding standard or a design note.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/context-documents/spec.md status line: 'partial (schema shipped, assembler and editor open)' -- states the inline 'documents' source kind is declared on the Context schema (hermiq-context-documents-schema DONE) but 'the run-start assembler that renders a document into the context preamble, and the authoring surface that edits one, are not built. A Context object can therefore hold documents that nothing yet reads.'",
-				"change": "hermiq-context-documents"
+				"evidence": "lib/Service/Engine/ContextAssembler.php resolveDocuments() renders each Context.documents entry as a 'Document: {name}' section inside the charBudget accounting, skipping an entry without a name or body (tests/Unit/Service/Engine/ContextAssemblerDocumentsTest.php). The Contexts page (src/manifest.json page Contexts, /contexts) mounts src/modals/ContextFormModal.vue through slots.form-dialog: name, description, documents with a markdown editor per entry, files; saves through the context object store with the stored object spread first.",
+				"reachedOn": "Contexts (/contexts), New context or a row, Documents, Add document",
+				"change": "openspec/changes/archive/2026-09-29-hermiq-context-documents",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",

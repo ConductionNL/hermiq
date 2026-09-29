@@ -1545,7 +1545,27 @@
         "A credential chosen here is used for this agent only. If it cannot be used for a run, the run stops and says why; it never falls back to another key.": "Inloggegevens die je hier kiest, gebruikt alleen deze agent. Als ze voor een run niet bruikbaar zijn, stopt de run en zegt waarom; er wordt nooit een andere sleutel gebruikt.",
         "The credential pinned to this agent cannot be used for this run.": "De inloggegevens die aan deze agent vastzitten, kunnen voor deze run niet worden gebruikt.",
         "Credentials per provider": "Inloggegevens per aanbieder",
-        "This agent's own provider credential, per provider: the credential broker uuid of a key the owner may use for hermiq. A pinned credential is used before the personal and organisation ones, and when it cannot be used the turn stops rather than use another.": "De eigen inloggegevens van deze agent, per aanbieder: de uuid in de credential broker van een sleutel die de eigenaar voor hermiq mag gebruiken. Vastgezette inloggegevens gaan voor de persoonlijke en die van de organisatie; als ze niet bruikbaar zijn, stopt de beurt in plaats van andere te gebruiken."
+        "This agent's own provider credential, per provider: the credential broker uuid of a key the owner may use for hermiq. A pinned credential is used before the personal and organisation ones, and when it cannot be used the turn stops rather than use another.": "De eigen inloggegevens van deze agent, per aanbieder: de uuid in de credential broker van een sleutel die de eigenaar voor hermiq mag gebruiken. Vastgezette inloggegevens gaan voor de persoonlijke en die van de organisatie; als ze niet bruikbaar zijn, stopt de beurt in plaats van andere te gebruiken.",
+        "Contexts": "Contexten",
+        "Over budget": "Over budget",
+        "Could not save the context": "De context kon niet worden opgeslagen",
+        "Documents": "Documenten",
+        "Instructions the agent reads at the start of every run, such as a coding standard or a design note.": "Instructies die de agent aan het begin van elke run leest, zoals een codeerstandaard of een ontwerpnotitie.",
+        "Document name": "Documentnaam",
+        "Write the document in Markdown": "Schrijf het document in Markdown",
+        "Document text": "Documenttekst",
+        "Remove document": "Document verwijderen",
+        "Add document": "Document toevoegen",
+        "Files": "Bestanden",
+        "Path in the user's files": "Pad in de bestanden van de gebruiker",
+        "Edit context": "Context bewerken",
+        "New context": "Nieuwe context",
+        "The server did not accept the context.": "De server heeft de context niet geaccepteerd.",
+        "This context also reads %n live data query, which stays as it is.": [
+            "Deze context leest ook %n live gegevensquery, die blijft zoals hij is.",
+            "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn."
+        ],
+        "This context also reads %n live data queries, which stay as they are.": "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
