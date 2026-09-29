@@ -1086,6 +1086,11 @@ class ApprovalService {
 				continue;
 			}
 
+			$toolArguments = null;
+			if (is_array($data['toolArguments'] ?? null) === true) {
+				$toolArguments = $data['toolArguments'];
+			}
+
 			$records[] = [
 				'id' => (string)$object->getUuid(),
 				'scheduleId' => (string)($data['scheduleId'] ?? ''),
@@ -1098,7 +1103,7 @@ class ApprovalService {
 				'sourceType' => (string)($data['sourceType'] ?? 'schedule'),
 				'toolId' => (string)($data['toolId'] ?? ''),
 				// As stored: redacted before persistence, never re-read unredacted.
-				'toolArguments' => (is_array($data['toolArguments'] ?? null) === true ? $data['toolArguments'] : null),
+				'toolArguments' => $toolArguments,
 				'preview' => $previews?->build(approval: $data),
 			];
 		}//end foreach
