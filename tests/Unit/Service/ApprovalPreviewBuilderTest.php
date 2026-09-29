@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-what-an-approval-will-do/tasks.md#task-1-the-preview-builder
+ * @spec openspec/changes/archive/2026-09-29-oversight-what-an-approval-will-do/tasks.md#task-1-the-preview-builder
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use Psr\Log\LoggerInterface;
 /**
  * What a held action will do.
  *
- * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
  */
 class ApprovalPreviewBuilderTest extends TestCase {
 
@@ -140,7 +140,7 @@ class ApprovalPreviewBuilderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
 	public function testTheTalkLineNamesTheToolAndItsReach(): void {
 		$this->assertSame(

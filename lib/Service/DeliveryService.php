@@ -966,7 +966,7 @@ class DeliveryService {
 	 *
 	 * @return string The message.
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
 	private function toolApprovalTalkText(string $toolId): string {
 		$line = '';

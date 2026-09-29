@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * Builds the preview of a held action.
  *
- * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
  */
 class ApprovalPreviewBuilder {
 
@@ -93,7 +93,7 @@ class ApprovalPreviewBuilder {
 	 *
 	 * @return array{kind: string, heldBecause: string, tools: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 	 */
 	public function build(array $approval): array {
 		$sourceType = (string)($approval['sourceType'] ?? 'schedule');
@@ -128,7 +128,7 @@ class ApprovalPreviewBuilder {
 	 *
 	 * @return string E.g. "The tool files.delete deletes, and reaches your own files and data."
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
 	public function toolLine(string $toolId): string {
 		$tool = $this->describeTool(id: $toolId, arguments: null);

@@ -442,7 +442,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
 	public function testAToolApprovalInTalkNamesTheToolAndItsReach(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);

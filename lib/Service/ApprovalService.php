@@ -1112,7 +1112,7 @@ class ApprovalService {
 	 *
 	 * @return ApprovalPreviewBuilder|null The builder.
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 	 */
 	private function previewBuilder(): ?ApprovalPreviewBuilder {
 		try {

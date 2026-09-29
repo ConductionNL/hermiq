@@ -723,7 +723,7 @@ class ApprovalServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 	 */
 	public function testInboxRecordsCarryThePreview(): void {
 		$mine = $this->approval(['status' => 'pending', 'sourceType' => 'toolcall', 'toolId' => 'files.deleteFile', 'toolArguments' => ['path' => '/a.pdf'], 'agentId' => 'agent-1', 'reviewer' => 'bob', 'reviewerType' => 'user']);

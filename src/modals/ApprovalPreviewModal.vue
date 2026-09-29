@@ -10,7 +10,7 @@
   stored after redaction. For a held run, the prompt and the tools the agent
   may call. Approve and deny are available here; the caller does the request.
 
-  @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+  @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 -->
 <template>
 	<NcDialog
@@ -86,7 +86,7 @@ export default {
 		 * The tools the held action may call.
 		 *
 		 * @return {Array<object>} The preview's tools.
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		tools() {
 			return Array.isArray(this.approval.preview?.tools)
@@ -98,7 +98,7 @@ export default {
 		 * Why the action was held.
 		 *
 		 * @return {string} The reason, in the reader's language.
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		heldBecause() {
 			return this.approval.preview?.kind === 'toolcall'
@@ -116,7 +116,7 @@ export default {
 		 *
 		 * @param {string} effect reads, changes, sends or deletes.
 		 * @return {string} The label.
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		effectLabel(effect) {
 			const labels = {
@@ -133,7 +133,7 @@ export default {
 		 *
 		 * @param {string} reach self, user, instance or external.
 		 * @return {string} The label.
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		reachLabel(reach) {
 			const labels = {
@@ -150,7 +150,7 @@ export default {
 		 *
 		 * @param {object} args The arguments, as stored after redaction.
 		 * @return {string} Pretty JSON.
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		formatArguments(args) {
 			return JSON.stringify(args, null, 2)

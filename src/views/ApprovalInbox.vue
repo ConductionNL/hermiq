@@ -268,7 +268,7 @@ export default {
 		 * Approve from the details dialog.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		async approveFromPreview() {
 			const approval = this.previewTarget
@@ -280,7 +280,7 @@ export default {
 		 * Deny from the details dialog: opens the deny dialog for a reason.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/oversight-what-an-approval-will-do/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
 		 */
 		denyFromPreview() {
 			const approval = this.previewTarget
