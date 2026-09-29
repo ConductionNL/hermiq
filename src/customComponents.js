@@ -26,6 +26,9 @@
 
 import { generateUrl } from '@nextcloud/router'
 import AgentFormModal from './modals/AgentFormModal.vue'
+// Context form (hermiq-context-documents): resolved by the Contexts page's
+// `slots.form-dialog` -> "ContextFormModal".
+import ContextFormModal from './modals/ContextFormModal.vue'
 // Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
 // SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
 // CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
@@ -121,4 +124,6 @@ export default {
 	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
 	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
 	SkillFormModal,
+	// Context form (hermiq-context-documents).
+	ContextFormModal,
 }
