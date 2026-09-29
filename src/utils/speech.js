@@ -154,6 +154,15 @@ export function createSpeaker(deps) {
 	return {
 		playing: () => current,
 		stop,
+		/**
+		 * Read an answer aloud, or stop it when it is the one playing.
+		 *
+		 * @param {string} key The answer's key.
+		 * @param {string} text The plain text to speak.
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+		 */
 		async toggle(key, text) {
 			const wasPlaying = current === key
 			stop()
