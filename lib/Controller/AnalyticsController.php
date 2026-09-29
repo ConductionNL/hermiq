@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AnalyticsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -51,6 +52,7 @@ class AnalyticsController extends Controller {
 	 * @param AnalyticsService $analyticsService The run-analytics read service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessService $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
 	 *
 	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
 	 */
@@ -59,6 +61,7 @@ class AnalyticsController extends Controller {
 		private readonly AnalyticsService $analyticsService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessService $agentAccess,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -93,6 +96,40 @@ class AnalyticsController extends Controller {
 		}
 
 	}//end index()
+
+	/**
+	 * The latest thumbs-down comments on one agent, for someone who may read it.
+	 *
+	 * The rater is not named. A caller who may not read the agent gets 404, so
+	 * the answer does not tell whether the agent exists.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return JSONResponse `{results: [{comment, date, conversationId}]}`, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 */
+	public function lowRatings(string $agentId): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		if ($this->agentAccess->loadAccessibleAgent(agentId: $agentId, userId: $user->getUID()) === null) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		try {
+			return new JSONResponse(['results' => $this->analyticsService->latestLowRatings(agentId: $agentId)]);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq low ratings failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load the low ratings'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end lowRatings()
 
 	/**
 	 * List the caller's runs across every agent, newest first.

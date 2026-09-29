@@ -113,6 +113,13 @@ class AnalyticsService
     private const AGENT_PAGE_SIZE = 500;
 
     /**
+     * The ratings read, on the same object service and so the same boundary.
+     *
+     * @var AgentFeedbackStats
+     */
+    private readonly AgentFeedbackStats $feedbackStats;
+
+    /**
      * The status value that counts as a successful run.
      *
      * @var string
@@ -129,6 +136,8 @@ class AnalyticsService
         private readonly ObjectService $objectService,
         private readonly AuditTrailMapper $auditTrailMapper,
     ) {
+        $this->feedbackStats = new AgentFeedbackStats(objectService: $objectService);
+
     }//end __construct()
 
     /**
@@ -236,6 +245,11 @@ class AnalyticsService
             }//end foreach
         }//end if
 
+        // Ratings on the same boundary: only feedback on a visible agent counts.
+        $rated    = $this->feedbackStats->tally(visibleAgents: $visibleAgents, agentId: $agentId, perAgent: $perAgent);
+        $feedback = $rated['feedback'];
+        $perAgent = $rated['perAgent'];
+
         $scope = 'organisation';
         if ($agentId !== null && $agentId !== '') {
             $scope = 'agent';
@@ -250,6 +264,7 @@ class AnalyticsService
             'statusBreakdown' => $statusBreakdown,
             'latency'         => $this->latency(durations: $durations),
             'perAgent'        => array_values($perAgent),
+            'feedback'        => $feedback,
             'tokens'          => $this->tokens(
                 recorded: $tokensRecorded,
                 prompt: $promptTokens,
@@ -438,6 +453,23 @@ class AnalyticsService
         ];
 
     }//end toRunRow()
+
+    /**
+     * The latest thumbs-down ratings with a comment on one agent, newest first.
+     *
+     * The caller checks read access on the agent first; see AgentFeedbackStats.
+     *
+     * @param string $agentId The agent UUID.
+     *
+     * @return array<int, array{comment: string, date: string|null, conversationId: string}> At most ten rows.
+     *
+     * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+     */
+    public function latestLowRatings(string $agentId): array
+    {
+        return $this->feedbackStats->latestLowRatings(agentId: $agentId);
+
+    }//end latestLowRatings()
 
     /**
      * Load the caller's visible agent UUIDs mapped to their display name.

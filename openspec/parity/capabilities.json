@@ -1340,15 +1340,16 @@
 			"area": "chat",
 			"name": "Speak to an agent instead of typing.",
 			"source": "competitor-derived",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/SpeechController.php and routes.php:546-548 speech#transcribe/synthesise/capabilities exist server-side; src/modals/AgentFormModal.vue:252 voiceInputEngineOption is editable on the Agent form. But src/views/Chat.vue has no microphone/dictate control at all (grepped for microphone/mic/speech/audio, no hits), and no component under src/ calls /api/speech/* (grepped). openspec/specs/speech-services/spec.md: the composer-facing 'voice-composer' delta is 'in-progress' and says the dictate/converse UI split lives in the shared nextcloud-vue lib, which Chat.vue's hand-rolled <textarea> composer does not use. Reached from the companion, not from hermiq's own /chat page (added 2026-09-26): @conduction/nextcloud-vue 2.55.1 src/components/CnAiCompanion/CnAiInput.vue:81-92 renders a microphone button and :215 imports speechTranscriptionsUrl, which targets hermiq's speech#transcribe (appinfo/routes.php:540).",
-				"readOn": "2026-09-26",
-				"change": "openspec/changes/chat-speak-and-listen"
+				"evidence": "src/views/Chat.vue places src/components/DictateButton.vue beside Send when speechControls().dictate (src/utils/speech.js: agent voiceInputEngine not off, GET /api/speech/capabilities available, MediaRecorder present); createDictation() records, posts field audio to /api/speech/transcriptions (src/api/speech.js transcribe) and appends the words to the message box without sending. tests/chat-speech.spec.js (check:specs) and tests/e2e/spec-coverage/chat-speak-and-listen.spec.ts.",
+				"reachedOn": "/chat page composer, microphone button beside Send; also the nextcloud-vue AI companion",
+				"change": "openspec/changes/archive/2026-09-29-chat-speak-and-listen",
+				"readOn": "2026-09-29"
 			},
-			"reachedOn": "the nextcloud-vue 2.55.1 AI companion (CnAiChatPanel with CnAiInput) microphone button; not hermiq's own /chat page",
+			"reachedOn": "hermiq's /chat page composer (microphone beside Send) and the nextcloud-vue AI companion microphone",
 			"note": "Re-rated no to partial on 2026-09-26: speaking to an agent works through the companion panel from nextcloud-vue 2.55.1, backed by hermiq's transcription endpoint. hermiq's own chat page still has no microphone.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -1374,15 +1375,16 @@
 			"area": "chat",
 			"name": "Have the agent read its answer out loud.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Same as ch-voice-in: lib/Controller/SpeechController.php speech#synthesise exists, voiceOutputEngine is editable in AgentFormModal.vue:269, but Chat.vue has no read-aloud/speaker control and no caller of /api/speech/speech under src/. Reached from the companion, not from hermiq's own /chat page (added 2026-09-26): @conduction/nextcloud-vue 2.55.1 src/components/CnAiCompanion/CnAiChatPanel.vue:113-121 renders the read-aloud control and :346-347 imports speechCapabilitiesUrl and speechSynthesisUrl, which target hermiq's speech#capabilities and speech#synthesise (appinfo/routes.php:541-542).",
-				"readOn": "2026-09-26",
-				"change": "openspec/changes/chat-speak-and-listen"
+				"evidence": "src/views/Chat.vue places src/components/ReadAloudButton.vue on each assistant answer when speechControls().readAloud (voiceOutputEngine not off, speech service available); one shared player (src/utils/speech.js createSpeaker) posts the plain text to /api/speech/speech and plays the WAV, pressing again or another answer stops it. tests/chat-speech.spec.js.",
+				"reachedOn": "/chat page, \"Read aloud\" on each answer; also the nextcloud-vue AI companion",
+				"change": "openspec/changes/archive/2026-09-29-chat-speak-and-listen",
+				"readOn": "2026-09-29"
 			},
-			"reachedOn": "the nextcloud-vue 2.55.1 AI companion (CnAiChatPanel) read-aloud control; not hermiq's own /chat page",
+			"reachedOn": "hermiq's /chat page (\"Read aloud\" on each answer) and the nextcloud-vue AI companion read-aloud control",
 			"note": "Re-rated no to partial on 2026-09-26: read-aloud works through the companion panel from nextcloud-vue 2.55.1; hermiq's own chat page still has no speaker control.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -3680,12 +3682,14 @@
 			"area": "models",
 			"name": "Choose a provider per AI feature, such as one for summaries and one for triage.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php aiFeature#residencyOverview GET /api/ai-features/residency and aiFeature#bind PUT /api/ai-features/{id}/binding both registered; src/api/aiFeatures.js:126-149 listFeatureResidency() and bindAiFeature() both defined; src/views/AiFeatureRegister.vue:201-209 imports and calls listFeatureResidency (displays provider/model/residency per feature) but does NOT import bindAiFeature.",
-				"change": "openspec/changes/models-bind-a-provider-per-feature"
+				"evidence": "src/views/AiFeatureRegister.vue 'Change provider' per row opens src/modals/AiFeatureBindingModal.vue: provider and model selects filled from getEffectiveModelPolicy() (a free model field when the policy allows any model), a residency select, 'Use the organisation default' clears; saves through bindAiFeature() PUT /api/ai-features/{id}/binding (AiFeatureController::bind, policy-checked, 422 shown in the dialog), then reloads the residency overview.",
+				"reachedOn": "Admin settings, Hermiq, AI features register, Change provider",
+				"change": "openspec/changes/archive/2026-09-29-models-bind-a-provider-per-feature",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI-feature governance register (AiFeatureRegister.vue, mounted via AdminRoot.vue) shows the residency table read-only",
 			"note": "grep -rn 'bindAiFeature(' src/ finds only the export in aiFeatures.js, no caller anywhere in src/views, src/modals or src/components: the write endpoint exists server-side with no UI control to invoke it.",
@@ -4251,12 +4255,14 @@
 			"area": "delivery",
 			"name": "Turn a voice message or recording into text.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/SpeechController.php + appinfo/routes.php speech#transcribe/synthesise/capabilities (/api/speech/transcriptions, /api/speech/speech, /api/speech/capabilities) are fully implemented server-side; lib/Service/Speech/SpeechClient.php backs it. But grep -rn 'speech/transcriptions|MediaRecorder|getUserMedia|Microphone' src/ found zero hits: no chat composer component records audio or calls these endpoints, and src/views/Chat.vue has no voice/mic code at all.",
-				"change": "openspec/changes/chat-speak-and-listen"
+				"evidence": "A voice recording made on hermiq's own chat page is transcribed on the instance: src/components/DictateButton.vue records with MediaRecorder and src/api/speech.js transcribe() posts it to /api/speech/transcriptions (SpeechController::transcribe, faster-whisper sidecar); the transcript lands in the message box. tests/chat-speech.spec.js and tests/e2e/spec-coverage/chat-speak-and-listen.spec.ts.",
+				"reachedOn": "/chat page composer, microphone button beside Send",
+				"change": "openspec/changes/archive/2026-09-29-chat-speak-and-listen",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "nothing; src/modals/AgentFormModal.vue:252-297 lets an admin pick a per-agent 'voice input engine' preference, but no page ever records audio to send to the transcribe endpoint",
 			"note": "The per-agent voice-engine setting is stored but has no consumer: the actual composer mic capture UI does not exist in src/.",
@@ -4379,12 +4385,14 @@
 			"area": "oversight",
 			"name": "See what an action will do, why and what it touches before I approve it.",
 			"source": "demand-derived",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/ApprovalInbox.vue:52-90 the approval table shows only Schedule name, Agent name, Prompt text and Requested-at date; grep -n 'blastRadius|lineage|rollback' across lib/Settings/hermiq_register.json, src/views/ApprovalInbox.vue and src/modals/ApprovalDenyModal.vue found no such fields anywhere.",
-				"change": "openspec/changes/oversight-what-an-approval-will-do"
+				"evidence": "lib/Service/ApprovalPreviewBuilder.php build(): per held tool call the tool, its effect (reads/changes/sends/deletes from scope, readOnlyHint, reach), its reach and the redacted stored arguments; per held run the agent's grants resolved against the live catalog. ApprovalService::listPendingForReviewer() records carry sourceType, toolArguments and preview; src/views/ApprovalInbox.vue Details opens src/modals/ApprovalPreviewModal.vue with approve and deny; DeliveryService::toolApprovalTalkText() adds the tool and its reach to the Talk request.",
+				"reachedOn": "Approvals inbox, Details on a pending approval; Talk note for a held tool call",
+				"change": "openspec/changes/archive/2026-09-29-oversight-what-an-approval-will-do",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "/approvals ApprovalInbox.vue table row",
 			"note": "The prompt column gives some 'what will run' context, but there is no blast-radius, lineage or rollback preview before approving, unlike the canonical row's fuller shape.",
@@ -5708,12 +5716,14 @@
 			"area": "observability",
 			"name": "See how people rated answers per agent.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json components.schemas.Feedback (messageId/conversationId/agentId/userId/type positive|negative, read: authenticated); src/views/Chat.vue and src/api/chat.js:446 are the only hits for 'Feedback' in src/; chat.js POSTs a rating on a message. No page, widget or dashboard reads Feedback objects back as per-agent stats; grepped registry.js/customComponents.js/manifest.json for a feedback widget, none found.",
-				"change": "openspec/changes/observability-feedback-per-agent"
+				"evidence": "lib/Service/AnalyticsService.php computeAnalytics() returns feedback {positive, negative, helpfulRate} and perAgent positive/negative, counted only on visible agents; latestLowRatings() and GET /api/analytics/agents/{agentId}/low-ratings (AnalyticsController::lowRatings, AgentAccessService read guard, 404 otherwise); src/widgets/AgentRatingsWidget.vue on AgentDetail (Rated helpful share with counts, latest low ratings); src/widgets/AnalyticsBreakdownWidget.vue Thumbs up/down columns on the dashboard.",
+				"reachedOn": "Agent detail page, Ratings widget; Dashboard, analytics breakdown per agent",
+				"change": "openspec/changes/archive/2026-09-29-observability-feedback-per-agent",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "nothing",
 			"note": "Feedback can be submitted (thumbs up/down in Chat) but there is no surface to see it aggregated per agent.",
