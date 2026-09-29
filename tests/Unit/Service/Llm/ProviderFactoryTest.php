@@ -804,7 +804,7 @@ class ProviderFactoryTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function testAPinnedCredentialIsTheOneTheTurnUses(): void {
 		$factory = $this->factoryWithCredentialResolver(
@@ -833,7 +833,7 @@ class ProviderFactoryTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function testARefusedPinStopsTheTurnAndNoOtherIdentityIsUsed(): void {
 		$factory = $this->factoryWithCredentialResolver(
@@ -865,7 +865,7 @@ class ProviderFactoryTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function testAPinWithoutAResolverIsRefused(): void {
 		$this->expectException(\OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException::class);
@@ -883,7 +883,7 @@ class ProviderFactoryTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function testAnAgentWithoutAPinForTheProviderBehavesAsBefore(): void {
 		$factory = $this->factoryWithCredentialResolver(

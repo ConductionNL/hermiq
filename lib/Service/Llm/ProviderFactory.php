@@ -632,7 +632,7 @@ class ProviderFactory {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
 	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function createChatDriver(
 		array $llmConfig,
@@ -768,7 +768,7 @@ class ProviderFactory {
 	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
 	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	private function resolveCredentialOverride(string $provider, ?string $organisation, ?array $pinned = null): ?string {
 		$hasPin = is_string($pinned[$provider] ?? null) === true && trim($pinned[$provider]) !== '';

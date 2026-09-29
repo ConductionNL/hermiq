@@ -136,7 +136,7 @@ class CredentialScopeResolver {
 	 *   even when a predicate only inspects the entity.
 	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function resolve(string $provider, ?string $actingUserId, ?string $organisation, ?array $pinned = null): ?string {
 		$candidates = $this->loadCandidates();
@@ -235,7 +235,7 @@ class CredentialScopeResolver {
 	 *
 	 * @throws PinnedCredentialRefusedException When the pin cannot be used for this run.
 	 *
-	 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	private function usablePin(array $candidates, string $pin, string $provider, ?string $actingUserId, ?string $organisation): string {
 		foreach ($candidates as $candidate) {

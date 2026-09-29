@@ -8,7 +8,7 @@
  * them under node. The form stores only broker credential uuids: the broker keeps
  * the secret.
  *
- * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
  */
 
 /**
@@ -28,7 +28,7 @@ export const PINNABLE_PROVIDERS = ['openai', 'fireworks']
  * @param {string} provider The provider.
  * @return {Array<{label: string, value: string}>} The options.
  *
- * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
  */
 export function credentialOptions(credentials, provider) {
 	return (credentials || [])
@@ -55,7 +55,7 @@ export function credentialOptions(credentials, provider) {
  * @param {string|null} credentialId The chosen credential uuid, or null to clear.
  * @return {object} The new map.
  *
- * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
  */
 export function setPin(credentialIds, provider, credentialId) {
 	const next = { ...(credentialIds || {}) }

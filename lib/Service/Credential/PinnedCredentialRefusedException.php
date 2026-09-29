@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 /**
  * The credential pinned to the agent cannot be used, so the turn stops.
  *
- * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
  */
 class PinnedCredentialRefusedException extends ProviderUnavailableException
 {
@@ -62,7 +62,7 @@ class PinnedCredentialRefusedException extends ProviderUnavailableException
      *
      * @param string $provider The provider of the turn (logged, never shown).
      *
-     * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+     * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
      */
     public function __construct(
         private readonly string $provider,
@@ -76,7 +76,7 @@ class PinnedCredentialRefusedException extends ProviderUnavailableException
      *
      * @return string The provider identifier.
      *
-     * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+     * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
      */
     public function getProvider(): string
     {

@@ -12,7 +12,7 @@
 //   0 — every assertion holds.
 //   1 — one or more assertions failed.
 //
-// @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+// @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
 
 'use strict'
 

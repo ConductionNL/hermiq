@@ -848,7 +848,7 @@ export default {
 		 * pickers empty; the agent still saves and resolves as before.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
 		 */
 		async loadCredentials() {
 			try {
@@ -866,7 +866,7 @@ export default {
 		 *
 		 * @param {string} provider The provider.
 		 * @return {Array<object>} The options.
-		 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
 		 */
 		pinOptions(provider) {
 			return credentialOptions(this.credentials, provider)
@@ -877,7 +877,7 @@ export default {
 		 *
 		 * @param {string} provider The provider.
 		 * @return {object|null} The option, or null when nothing is pinned.
-		 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
 		 */
 		pinOption(provider) {
 			const id = this.form.credentialIds?.[provider]
@@ -898,7 +898,7 @@ export default {
 		 * @param {string} provider The provider.
 		 * @param {object|null} option The chosen option, or null to clear.
 		 * @return {void}
-		 * @spec openspec/changes/operations-a-credential-per-agent/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
 		 */
 		pin(provider, option) {
 			this.form.credentialIds = setPin(

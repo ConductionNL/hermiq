@@ -6671,14 +6671,16 @@
 			"area": "operations",
 			"name": "Give each agent its own scoped credential.",
 			"source": "demand-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/agent-credentials/spec.md 'Run-time credential resolution precedence': personal (acting user) broker credential, else the agent's ORGANISATION's org-scope credential, else the instance-wide one. lib/Service/Credential/CredentialScopeResolver.php resolves by (provider, actingUser, organisation); there is no per-Agent-object credential scope in the precedence chain or in the Agent schema.",
-				"change": "openspec/changes/operations-a-credential-per-agent"
+				"evidence": "Agent schema credentialIds (lib/Settings/hermiq_register.json, provider -> broker credential uuid). CredentialScopeResolver::resolve(pinned:) uses a pin for the turn's provider before the personal and organisation credentials; usablePin() applies the broker's tests and throws PinnedCredentialRefusedException instead of trying another. ProviderFactory::createChatDriver(agentCredentialIds:) from ResponseGenerationHandler; ChatController and ChatStreamController show 'The credential pinned to this agent cannot be used for this run.' (errorCode pinned_credential_refused). src/modals/AgentFormModal.vue 'Credentials' picks one per provider (openai, fireworks). Tests: CredentialScopeResolverTest, ProviderFactoryTest (real resolver), AgentCredentialIdsSchemaTest (real Agent schema, Opis), ResponseGenerationHandlerTest, ChatControllerTest, tests/agent-credentials.spec.js.",
+				"change": "openspec/changes/archive/2026-09-29-operations-a-credential-per-agent",
+				"reachedOn": "Agent form -> Credentials",
+				"readOn": "2026-09-29"
 			},
-			"reachedOn": "nothing (no per-agent scope exists to reach)",
+			"reachedOn": "Agent form -> Credentials",
 			"note": "Credentials are scoped to the acting user or the organisation, never to an individual agent instance, so two agents run by the same user in the same org always share the same resolved credential.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
