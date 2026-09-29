@@ -591,6 +591,15 @@ return [
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
         ],
+        // chat-work-together-in-one-session: the owner invites colleagues into a web session.
+        ['name' => 'session_participant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'session_participant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'session_participant#destroy',
+            'url'          => '/api/sessions/{uuid}/participants/{uid}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
+        ],
 
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on
         // traffic data (SessionController logs at info level when one is hit), not on
