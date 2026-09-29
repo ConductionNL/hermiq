@@ -263,6 +263,66 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end testAnAcceptedTokenRegistersNothing()
 
 	/**
+	 * A token this instance DID issue, now spent or expired, is refused but NOT counted.
+	 *
+	 * Measured 2026-09-29: eleven 401s from one run's CLI tripped the throttle,
+	 * and from then on the proxy's IP got 429 for every run on the host. A
+	 * genuinely issued token cannot be a guess, so it must not feed the counter
+	 * that punishes guessing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testASpentButGenuineTokenIsRefusedWithoutFeedingTheThrottler(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->never())->method('registerAttempt');
+		$this->throttlerOverride = $throttler;
+
+		$tokens = $this->tokens('good');
+		$tokens->method('isKnown')->willReturnCallback(static fn (string $token): bool => $token === 'spent');
+
+		$controller = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer spent',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->authorize()->getStatus());
+
+	}//end testASpentButGenuineTokenIsRefusedWithoutFeedingTheThrottler()
+
+	/**
+	 * The control for the test above: a presented token the instance never issued is still
+	 * counted, so the throttle keeps protecting against guessing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testAnUnknownPresentedTokenIsStillCounted(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->once())
+			->method('registerAttempt')
+			->with('hermiq_run_token', $this->anything());
+		$this->throttlerOverride = $throttler;
+
+		$tokens = $this->tokens('good');
+		$tokens->method('isKnown')->willReturnCallback(static fn (string $token): bool => $token === 'spent');
+
+		$controller = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer guessed',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->authorize()->getStatus());
+
+	}//end testAnUnknownPresentedTokenIsStillCounted()
+
+	/**
 	 * A throttler that BLOWS UP must not change the answer.
 	 *
 	 * If the counter fails (cache down, backend gone) the caller still gets the

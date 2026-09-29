@@ -188,21 +188,10 @@ class McpRunController extends Controller {
 	public function handle(): Response {
 		// AUTH FIRST — the per-run token is the authorization. Reject before any
 		// body is parsed or any tool is resolved.
-		$binding = $this->runTokenService->verify(token: $this->bearerToken());
+		$token = $this->bearerToken();
+		$binding = $this->runTokenService->verify(token: $token);
 		if ($binding === null) {
-			// Same run-token action as EgressAuthorizeController on purpose: an
-			// attacker guessing run tokens can probe either endpoint, so both
-			// must feed one counter (ADR-082).
-			try {
-				$this->throttler->registerAttempt(
-					action: self::THROTTLE_ACTION,
-					ip: $this->request->getRemoteAddress()
-				);
-			} catch (\Throwable $throttlerFailure) {
-				unset($throttlerFailure);
-			}
-
-			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+			return $this->refuseToken(token: $token);
 		}
 
 		$body = json_decode($this->readRawBody(), true);
@@ -254,6 +243,43 @@ class McpRunController extends Controller {
 		);
 
 	}//end handle()
+
+	/**
+	 * Refuse a token that failed verification, and count it with the brute-force
+	 * throttler only when this instance never issued it.
+	 *
+	 * @param string $token The presented bearer token. Never logged.
+	 *
+	 * @return JSONResponse The fail-closed 401.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	private function refuseToken(string $token): JSONResponse {
+		// Same run-token action as EgressAuthorizeController on purpose: an
+		// attacker guessing run tokens can probe either endpoint, so both
+		// must feed one counter (ADR-082).
+		//
+		// Only a token this instance never issued is counted. A spent or
+		// expired token that WAS issued is a legitimate component arriving
+		// late (a CLI flushing after its turn ended), and it is refused all
+		// the same. Counting it let one stale caller throttle this endpoint
+		// for every run behind the same proxy IP. A guesser cannot reach the
+		// uncounted branch: it needs the preimage of a stored digest.
+		if ($this->runTokenService->isKnown(token: $token) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->throttler->registerAttempt(
+				action: self::THROTTLE_ACTION,
+				ip: $this->request->getRemoteAddress()
+			);
+		} catch (\Throwable $throttlerFailure) {
+			unset($throttlerFailure);
+		}
+
+		return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+	}//end refuseToken()
 
 	/**
 	 * The MCP `initialize` handshake: return the negotiated protocol version,

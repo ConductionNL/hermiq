@@ -25,15 +25,28 @@
  *     (~150s). The CLI is SIGKILLed at `RUNNER_TIMEOUT_MS`, so a token outliving
  *     the turn has no legitimate caller. `RUNNER_TIMEOUT_MS` is a runner-container
  *     env var Hermiq cannot read, so this tracks the runner's DEFAULT.
- *   - **Storage**: `ICache` (distributed, TTL-native, auto-expiring). A token is a
- *     secret and ephemeral — wrong place for an OpenRegister object.
+ *   - **Storage**: the database, through `RunTokenStore` (hermiq ADR-025). A
+ *     token is a secret and ephemeral, which is why it is not an OpenRegister
+ *     object. It used to be the distributed `ICache`, and that was wrong in a way
+ *     that only shows on some instances: with no `memcache.distributed`
+ *     configured Nextcloud falls back to APCu, which is PER PROCESS POOL. A token
+ *     minted by a cron-mode background job (conversation titles, stages) lived in
+ *     the CLI's APCu, and the web server answering the egress proxy never saw it.
+ *     Every CONNECT of that run came back 401, and every 401 fed the brute-force
+ *     throttle until the whole egress path answered 429 for every run (measured
+ *     on a live instance, 2026-09-29).
+ *   - **Recognition after death**: a consumed or expired record is KEPT for
+ *     `RECOGNITION_SECONDS` after expiry. It authorises nothing in that window,
+ *     but `isKnown()` still says it was genuinely issued, so the endpoints can
+ *     tell a legitimate straggler (a CLI still flushing after its turn ended)
+ *     from a guess, and throttle only the guess.
  *   - **Comparison**: constant-time (`hash_equals`). No timing oracle.
  *   - **Consumption**: `consume()` is called in a `finally` when the run closes
  *     (success, error, timeout), so later use is rejected.
  *   - **Logging**: a token value is NEVER logged and NEVER placed in an error body.
  *
- * The cache is keyed by `sha256(token)` — never the raw token — so the store
- * cannot be enumerated to a live token even with cache-key visibility, and the
+ * The store is keyed by `sha256(token)`, never the raw token, so the store
+ * cannot be enumerated to a live token even with read access to it, and the
  * stored record additionally carries the same `sha256(token)` so `verify()` runs
  * a `hash_equals()` confirmation on every lookup (the code path never
  * short-circuits before that comparison).
@@ -57,8 +70,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use RuntimeException;
 
@@ -69,14 +81,6 @@ use RuntimeException;
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 class RunTokenService {
-
-	/**
-	 * Distributed-cache prefix for run tokens (mirrors OR's session-cache prefix
-	 * pattern).
-	 *
-	 * @var string
-	 */
-	private const CACHE_PREFIX = 'hermiq_run_tokens';
 
 	/**
 	 * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches
@@ -105,24 +109,26 @@ class RunTokenService {
 	private const TTL_SLACK_SECONDS = 30;
 
 	/**
-	 * The distributed token store (TTL-native, auto-expiring).
+	 * How long a spent or expired record is still RECOGNISED after its expiry.
+	 * It authorises nothing in this window; it only lets the endpoints tell a
+	 * legitimate straggler from a brute-force guess.
 	 *
-	 * @var ICache
+	 * @var int
 	 */
-	private ICache $cache;
+	private const RECOGNITION_SECONDS = 3600;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param ICacheFactory $cacheFactory Builds the distributed token store.
+	 * @param RunTokenStore $store        The token store every process shares.
 	 * @param ISecureRandom $secureRandom CSPRNG for the token entropy.
+	 * @param ITimeFactory  $timeFactory  The clock expiry is judged against.
 	 */
 	public function __construct(
-		ICacheFactory $cacheFactory,
+		private readonly RunTokenStore $store,
 		private readonly ISecureRandom $secureRandom,
+		private readonly ITimeFactory $timeFactory,
 	) {
-		$this->cache = $cacheFactory->createDistributed(prefix: self::CACHE_PREFIX);
-
 	}//end __construct()
 
 	/**
@@ -182,7 +188,18 @@ class RunTokenService {
 			$ttl = $ttlSeconds;
 		}
 
-		$this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $ttl);
+		$now = $this->timeFactory->getTime();
+
+		// Sweep first, on the one indexed column: records whose recognition
+		// window has closed. Minting is the only write path, so the table stays
+		// bounded by the tokens of roughly the last hour without a background job.
+		$this->store->purge(now: $now);
+		$this->store->put(
+			digest: $this->digest(token: $token),
+			record: $encoded,
+			expiresAt: ($now + $ttl),
+			retainUntil: ($now + $ttl + self::RECOGNITION_SECONDS)
+		);
 
 		return $token;
 	}//end mint()
@@ -205,12 +222,17 @@ class RunTokenService {
 		// the presence/absence of a token is not itself a timing signal.
 		$presentedDigest = $this->digest(token: $token);
 
-		$raw = $this->cache->get(key: $presentedDigest);
-		if (is_string($raw) === false) {
+		$stored = $this->store->find(digest: $presentedDigest);
+		if ($stored === null) {
 			return null;
 		}
 
-		$record = json_decode($raw, true);
+		// Consumed (the run closed) or past its TTL: recognised, not authorised.
+		if ($stored['consumed'] === true || $stored['expiresAt'] <= $this->timeFactory->getTime()) {
+			return null;
+		}
+
+		$record = json_decode($stored['record'], true);
 		if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
 			return null;
 		}
@@ -234,6 +256,43 @@ class RunTokenService {
 	}//end verify()
 
 	/**
+	 * Whether this token was genuinely issued by this instance, whatever its state
+	 * now: live, consumed or expired (within the recognition window).
+	 *
+	 * This is NOT an authorisation check, and callers must never treat it as one:
+	 * `verify()` is. It answers the throttler's question. A token that fails
+	 * `verify()` but `isKnown()` is a legitimate component presenting a spent
+	 * credential (a CLI still flushing telemetry after its turn ended, a pooled
+	 * process outliving its run), and counting that as a brute-force guess lets
+	 * one stale component throttle the egress path for every run on the host.
+	 * An attacker cannot reach this branch: it requires the preimage of a stored
+	 * digest, which is the token.
+	 *
+	 * @param string $token The presented bearer token.
+	 *
+	 * @return bool True when a record for this token exists.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function isKnown(string $token): bool {
+		if ($token === '') {
+			return false;
+		}
+
+		$stored = $this->store->find(digest: $this->digest(token: $token));
+		if ($stored === null) {
+			return false;
+		}
+
+		$record = json_decode($stored['record'], true);
+		if (is_array($record) === false || is_string($record['hash'] ?? null) === false) {
+			return false;
+		}
+
+		return hash_equals($record['hash'], $this->digest(token: $token));
+	}//end isKnown()
+
+	/**
 	 * Consume a token so any later use is rejected. Called in a `finally` when the
 	 * run closes (success, error, or timeout). Idempotent and safe on an unknown
 	 * token.
@@ -249,7 +308,7 @@ class RunTokenService {
 			return;
 		}
 
-		$this->cache->remove(key: $this->digest(token: $token));
+		$this->store->markConsumed(digest: $this->digest(token: $token));
 
 	}//end consume()
 
@@ -264,7 +323,7 @@ class RunTokenService {
 	}//end ttlSeconds()
 
 	/**
-	 * The cache key / stored digest for a token: a SHA-256 hex digest, so the
+	 * The store key / stored digest for a token: a SHA-256 hex digest, so the
 	 * store is keyed by an irreversible value and never by the raw token.
 	 *
 	 * @param string $token The token to digest.

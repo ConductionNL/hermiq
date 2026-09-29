@@ -245,6 +245,40 @@ final class McpRunControllerTest extends TestCase {
 	}//end testARejectedTokenIsRegisteredUnderTheSharedAction()
 
 	/**
+	 * A token this instance DID issue, now spent or expired, is refused but NOT counted, and a
+	 * presented token it never issued still is (the control).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testOnlyAnUnknownTokenFeedsTheThrottler(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->once())
+			->method('registerAttempt')
+			->with('hermiq_run_token', $this->anything());
+		$this->throttlerOverride = $throttler;
+
+		$tokens = $this->tokens('good');
+		$tokens->method('isKnown')->willReturnCallback(static fn (string $token): bool => $token === 'spent');
+
+		foreach (['Bearer spent', 'Bearer guessed'] as $auth) {
+			$controller = $this->controller(
+				$auth,
+				'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+				$tokens,
+				$this->createMock(ObjectService::class),
+				$this->createMock(ToolRegistryFacade::class),
+				$this->createMock(ToolLoop::class),
+				$this->createMock(ToolSearchService::class)
+			);
+
+			$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
+		}
+
+	}//end testOnlyAnUnknownTokenFeedsTheThrottler()
+
+	/**
 	 * A throttler that BLOWS UP must not change the answer.
 	 *
 	 * Brute-force bookkeeping is not the endpoint's job — if the counter fails
