@@ -2763,12 +2763,14 @@
 			"area": "memory",
 			"name": "See what an agent remembers and correct or delete it.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/AgentMemoryPanel.vue shows the entry list and an add-a-fact action (src/api/memory.js addMemory). lib/Controller/MemoryController.php's public methods are memory(), addMemory(), userProfiles(), sessions(), consolidate(), recall() only -- no update/delete method, and appinfo/routes.php has no DELETE/PATCH route for one memory entry.",
-				"change": "openspec/changes/memory-correct-and-forget"
+				"evidence": "lib/Controller/MemoryController.php correctEntry() PUT and forgetEntry() DELETE /api/agents/{agentId}/memory/entries/{entryId} (appinfo/routes.php), owner-only through requireAgentOwnership(); lib/Service/MemoryService.php correctMemoryEntry() soft-deletes the old entry and appends the new text in one save, withEntryIds() gives old entries an id on write; src/components/AgentMemoryPanel.vue Correct and Forget per entry, src/dialogs/ForgetMemoryDialog.vue confirms; tests/Unit/Service/MemoryCorrectionTest.php validates the saved payload against the real Memory schema.",
+				"reachedOn": "Agent detail page, Memory widget; Memory page",
+				"change": "openspec/changes/archive/2026-09-29-memory-correct-and-forget",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "/memory page and the agent detail Memory widget (view + add only)",
 			"note": "A human can see what the agent remembers and add a new fact, but cannot correct or delete an existing one; only the agent itself can soft-delete via hermiq.forgetMemory, which the panel does not expose.",

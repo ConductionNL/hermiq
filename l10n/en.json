@@ -2186,7 +2186,17 @@
         "This run needs a reviewer before it starts.": "This run needs a reviewer before it starts.",
         "This tool needs a reviewer before the agent may call it.": "This tool needs a reviewer before the agent may call it.",
         "What this will do": "What this will do",
-        "Your own files and data": "Your own files and data"
+        "Your own files and data": "Your own files and data",
+        "Corrected fact": "Corrected fact",
+        "Correct": "Correct",
+        "Correct this fact": "Correct this fact",
+        "Forget": "Forget",
+        "Forget this fact": "Forget this fact",
+        "Forget this fact?": "Forget this fact?",
+        "Forgotten facts are left out of recall and kept for the history.": "Forgotten facts are left out of recall and kept for the history.",
+        "Show %n forgotten fact": "Show %n forgotten fact",
+        "Show %n forgotten facts": "Show %n forgotten facts",
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
