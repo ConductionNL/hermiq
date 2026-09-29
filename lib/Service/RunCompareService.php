@@ -120,13 +120,8 @@ class RunCompareService
                 return null;
             }
 
-            $row = $toRunRow(
-                log: $log,
-                context: $context,
-                agentId: $runAgent,
-                agentName: $visibleAgents[$runAgent],
-                status: (string) ($context['status'] ?? 'unknown')
-            );
+            // Positional: a Closure has no declared parameter names to bind to.
+            $row = $toRunRow($log, $context, $runAgent, $visibleAgents[$runAgent], (string) ($context['status'] ?? 'unknown'));
             unset($row['createdSort']);
 
             // Null means "not recorded for this run", which the view says in words.
