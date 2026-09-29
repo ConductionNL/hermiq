@@ -381,7 +381,7 @@ export default {
 		 * the row shows what the server stored and resolved.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		async onBindingSaved() {
 			this.bindingRow = null

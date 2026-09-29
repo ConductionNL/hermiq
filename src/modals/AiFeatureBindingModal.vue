@@ -12,7 +12,7 @@
   offered. The server checks again on save, because the policy can change while
   the dialog is open; its refusal is shown here in its own words.
 
-  @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+  @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 -->
 <template>
 	<NcDialog
@@ -141,7 +141,7 @@ export default {
 		 * The providers the model policy allows.
 		 *
 		 * @return {Array<object>} Select options.
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		providerOptions() {
 			return this.allowed.map((entry) => ({
@@ -154,7 +154,7 @@ export default {
 		 * The models the policy allows for the chosen provider.
 		 *
 		 * @return {Array<object>} Select options.
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		modelOptions() {
 			const entry = this.allowed.find(
@@ -169,7 +169,7 @@ export default {
 		 * `models` list), so the model is typed rather than picked.
 		 *
 		 * @return {boolean} True when any model is allowed.
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		anyModel() {
 			return Boolean(this.providerOption) && this.modelOptions.length === 0
@@ -179,7 +179,7 @@ export default {
 		 * The model the form holds.
 		 *
 		 * @return {string} The model id, or ''.
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		chosenModel() {
 			return this.anyModel
@@ -191,7 +191,7 @@ export default {
 		 * The residencies a feature can require.
 		 *
 		 * @return {Array<object>} Select options.
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		residencyOptions() {
 			return [
@@ -206,7 +206,7 @@ export default {
 		 * Whether the form holds a complete binding.
 		 *
 		 * @return {boolean} True when it can be saved.
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		canSave() {
 			return (
@@ -220,7 +220,7 @@ export default {
 			/**
 			 * A model of another provider is never kept.
 			 *
-			 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+			 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 			 */
 			handler() {
 				if (
@@ -262,7 +262,7 @@ export default {
 		 * Save the binding; the caller reloads the register on `saved`.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/models-bind-a-provider-per-feature/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		async save() {
 			this.busy = true
