@@ -30,7 +30,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AnalyticsController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AnalyticsService;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
+use OCP\IGroupManager;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -74,12 +78,16 @@ class AnalyticsControllerTest extends TestCase {
 	 *
 	 * @return AnalyticsController
 	 */
-	private function controller(AnalyticsService $service, ?string $uid): AnalyticsController {
+	private function controller(AnalyticsService $service, ?string $uid, ?ObjectEntity $agent = null): AnalyticsController {
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturn($agent);
+
 		return new AnalyticsController(
 			$this->createMock(IRequest::class),
 			$service,
 			$this->session($uid),
-			$this->createMock(LoggerInterface::class)
+			$this->createMock(LoggerInterface::class),
+			new AgentAccessService($objects, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class))
 		);
 	}//end controller()
 
@@ -234,4 +242,55 @@ class AnalyticsControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $response->getStatus());
 		$this->assertArrayHasKey('error', $response->getData());
 	}//end testIndexReportsAServiceFailureAsFiveHundred()
+	/**
+	 * An Agent owned by alice.
+	 *
+	 * @param bool $isPrivate Whether the agent is private.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function agent(bool $isPrivate): ObjectEntity {
+		$e = new ObjectEntity();
+		$e->setUuid('agent-1');
+		$e->setOwner('alice');
+		$e->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => []]);
+		return $e;
+	}//end agent()
+
+	/**
+	 * Someone who may read the agent gets its low ratings.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 */
+	public function testLowRatingsForSomeoneWhoMayReadTheAgent(): void {
+		$service = $this->createMock(AnalyticsService::class);
+		$service->expects($this->exactly(2))->method('latestLowRatings')->with('agent-1')
+			->willReturn([['comment' => 'Gave the old opening hours', 'date' => '2026-09-20T10:00:00+00:00', 'conversationId' => 'c']]);
+
+		$owner = $this->controller($service, 'alice', $this->agent(true))->lowRatings('agent-1');
+		$this->assertSame(Http::STATUS_OK, $owner->getStatus());
+		$this->assertSame('Gave the old opening hours', $owner->getData()['results'][0]['comment']);
+
+		$shared = $this->controller($service, 'bob', $this->agent(false))->lowRatings('agent-1');
+		$this->assertSame(Http::STATUS_OK, $shared->getStatus());
+	}//end testLowRatingsForSomeoneWhoMayReadTheAgent()
+
+	/**
+	 * A private agent the caller may not read, or no agent at all: 404, and the
+	 * ratings are never read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/observability-feedback-per-agent/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+	 */
+	public function testLowRatingsAreRefusedWithoutReadAccess(): void {
+		$service = $this->createMock(AnalyticsService::class);
+		$service->expects($this->never())->method('latestLowRatings');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller($service, 'mallory', $this->agent(true))->lowRatings('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller($service, 'mallory', null)->lowRatings('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $this->controller($service, null, $this->agent(false))->lowRatings('agent-1')->getStatus());
+	}//end testLowRatingsAreRefusedWithoutReadAccess()
 }//end class

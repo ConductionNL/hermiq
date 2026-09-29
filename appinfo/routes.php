@@ -212,6 +212,7 @@ return [
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
+        ['name' => 'analytics#lowRatings', 'url' => '/api/analytics/agents/{agentId}/low-ratings', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
         // The cross-agent run list. `runHistory#index` below is addressed per SCHEDULE, so
         // it cannot answer "what did all my agents do last night" and never sees a
