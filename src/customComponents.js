@@ -35,8 +35,10 @@ import SkillFormModal from './modals/SkillFormModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import FlowRunCompare from './views/FlowRunCompare.vue'
 import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import McpTools from './views/McpTools.vue'
+import RunCompare from './views/RunCompare.vue'
 import Runs from './views/Runs.vue'
 import TenantOps from './views/TenantOps.vue'
 import { createConnectionHandlers } from './services/connectionRegistry.js'
@@ -71,6 +73,10 @@ export default {
 	// entry at all (those hang on the triggering object, so no schedule-scoped
 	// query matches one). Shares the analytics tenant boundary.
 	Runs,
+	// Run comparison (observability-compare-two-runs): two agent runs side by
+	// side, and two runs of one flow node by node.
+	RunCompare,
+	FlowRunCompare,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,

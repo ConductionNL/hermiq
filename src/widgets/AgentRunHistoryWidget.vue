@@ -125,6 +125,11 @@
 									</template>
 									{{ t('hermiq', 'Replay') }}
 								</NcButton>
+								<NcButton
+									variant="tertiary"
+									@click="compareWith(run)">
+									{{ t('hermiq', 'Compare with…') }}
+								</NcButton>
 							</td>
 						</tr>
 						<tr v-if="expandedRunId === run.id">
@@ -379,6 +384,20 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Open the Runs page with this run ticked, to choose the second run.
+		 *
+		 * @param {object} run The run.
+		 * @return {void}
+		 *
+		 * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 */
+		compareWith(run) {
+			this.$router
+				.push({ path: '/runs', query: { compareWith: run.id } })
+				.catch(() => {})
+		},
+
 		/**
 		 * Dismiss the replay preview.
 		 *

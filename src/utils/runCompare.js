@@ -54,7 +54,7 @@ function seconds(ms) {
  * @param {object} left The left run (status, durationMs).
  * @param {object} right The right run (status, durationMs).
  * @param {object} comparison The server's comparison ({steps: [{mark, left, right}]}).
- * @param {Function} t The translate function, called as t('hermiq', text, vars).
+ * @param {function(string, string, object=): string} t The translate function, called as t('hermiq', text, vars).
  * @return {string} The summary line.
  *
  * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
@@ -64,29 +64,55 @@ export function summaryLine(left, right, comparison, t) {
 	if (left.status === right.status) {
 		parts.push(t('hermiq', 'Same outcome.'))
 	} else if (isFailure(left.status) !== isFailure(right.status)) {
-		const [ok, failed, failedName] = isFailure(right.status) ? ['A', 'B', 'right'] : ['B', 'A', 'left']
+		const [ok, failed, failedName] = isFailure(right.status)
+			? ['A', 'B', 'right']
+			: ['B', 'A', 'left']
 		const stoppedAt = lastStep(comparison, failedName)
-		parts.push(stoppedAt
-			? t('hermiq', 'Different outcome. Run {ok} succeeded, run {failed} failed at {step}.', { ok, failed, step: stoppedAt })
-			: t('hermiq', 'Different outcome. Run {ok} succeeded, run {failed} failed.', { ok, failed }))
+		parts.push(
+			stoppedAt
+				? t(
+						'hermiq',
+						'Different outcome. Run {ok} succeeded, run {failed} failed at {step}.',
+						{ ok, failed, step: stoppedAt },
+					)
+				: t(
+						'hermiq',
+						'Different outcome. Run {ok} succeeded, run {failed} failed.',
+						{ ok, failed },
+					),
+		)
 	} else {
 		parts.push(t('hermiq', 'Different outcome.'))
 	}
 
 	const extra = extraCalls(comparison)
-	for (const [side, label] of [['right', 'B'], ['left', 'A']]) {
+	for (const [side, label] of [
+		['right', 'B'],
+		['left', 'A'],
+	]) {
 		for (const [name, count] of Object.entries(extra[side])) {
-			parts.push(count === 1
-				? t('hermiq', 'Run {run} called {tool} once more.', { run: label, tool: name })
-				: t('hermiq', 'Run {run} called {tool} {count} times more.', { run: label, tool: name, count }))
+			parts.push(
+				count === 1
+					? t('hermiq', 'Run {run} called {tool} once more.', {
+							run: label,
+							tool: name,
+						})
+					: t('hermiq', 'Run {run} called {tool} {count} times more.', {
+							run: label,
+							tool: name,
+							count,
+						}),
+			)
 		}
 	}
 
 	const diff = Number(right.durationMs) - Number(left.durationMs)
 	if (Number.isFinite(diff) && Math.abs(diff) >= 100) {
-		parts.push(diff > 0
-			? t('hermiq', 'Run B took {time} longer.', { time: seconds(diff) })
-			: t('hermiq', 'Run B took {time} less.', { time: seconds(diff) }))
+		parts.push(
+			diff > 0
+				? t('hermiq', 'Run B took {time} longer.', { time: seconds(diff) })
+				: t('hermiq', 'Run B took {time} less.', { time: seconds(diff) }),
+		)
 	}
 
 	return parts.join(' ')
@@ -99,7 +125,9 @@ export function summaryLine(left, right, comparison, t) {
  * @return {boolean} True for a failed run.
  */
 function isFailure(status) {
-	return ['error', 'failed', 'failure', 'timeout'].includes(String(status || '').toLowerCase())
+	return ['error', 'failed', 'failure', 'timeout'].includes(
+		String(status || '').toLowerCase(),
+	)
 }
 
 /**
@@ -172,10 +200,20 @@ export function readFlowRunNodes(run) {
 export function compareFlowRuns(leftRun, rightRun) {
 	const left = readFlowRunNodes(leftRun)
 	const right = readFlowRunNodes(rightRun)
-	const unreadable = [[left, 'left'], [right, 'right']].filter(([nodes]) => nodes === null).map(([, side]) => side)
+	const unreadable = [
+		[left, 'left'],
+		[right, 'right'],
+	]
+		.filter(([nodes]) => nodes === null)
+		.map(([, side]) => side)
 
 	let versions = null
-	if (leftRun?.flowVersion != null && rightRun?.flowVersion != null && leftRun.flowVersion !== rightRun.flowVersion) {
+	const known = (value) => value !== null && value !== undefined
+	if (
+		known(leftRun?.flowVersion)
+		&& known(rightRun?.flowVersion)
+		&& leftRun.flowVersion !== rightRun.flowVersion
+	) {
 		versions = [leftRun.flowVersion, rightRun.flowVersion]
 	}
 
@@ -186,11 +224,18 @@ export function compareFlowRuns(leftRun, rightRun) {
 	const byNode = (nodes) => new Map(nodes.map((entry) => [entry.node, entry]))
 	const leftBy = byNode(left)
 	const rightBy = byNode(right)
-	const order = [...new Set([...left.map((e) => e.node), ...right.map((e) => e.node)])]
+	const order = [
+		...new Set([...left.map((e) => e.node), ...right.map((e) => e.node)]),
+	]
 	const rows = order.map((node) => {
 		const l = leftBy.get(node) || null
 		const r = rightBy.get(node) || null
-		return { node, left: l, right: r, differs: !l || !r || l.status !== r.status }
+		return {
+			node,
+			left: l,
+			right: r,
+			differs: !l || !r || l.status !== r.status,
+		}
 	})
 	return { rows, unreadable, versions }
 }

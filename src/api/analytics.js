@@ -56,3 +56,21 @@ export async function listRuns({
 	const response = await axios.get(generateUrl(RUNS_BASE), { params })
 	return response.data
 }
+
+/**
+ * Compare two runs the caller may see (observability-compare-two-runs).
+ *
+ * A side the caller may not see answers 404 with `missing: ['left'|'right']`.
+ *
+ * @param {string} left The left run id.
+ * @param {string} right The right run id.
+ * @return {Promise<object>} `{left, right, sameAgent, comparison}`.
+ *
+ * @spec openspec/changes/observability-compare-two-runs/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ */
+export async function compareRuns(left, right) {
+	const response = await axios.get(generateUrl('/apps/hermiq/api/runs/compare'), {
+		params: { left, right },
+	})
+	return response.data
+}
