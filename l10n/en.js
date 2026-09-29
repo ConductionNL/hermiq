@@ -2170,7 +2170,17 @@ OC.L10N.register(
         "Rated helpful": "Rated helpful",
         "Thumbs down": "Thumbs down",
         "Thumbs up": "Thumbs up",
-        "Ratings": "Ratings"
+        "Ratings": "Ratings",
+        "Corrected fact": "Corrected fact",
+        "Correct": "Correct",
+        "Correct this fact": "Correct this fact",
+        "Forget": "Forget",
+        "Forget this fact": "Forget this fact",
+        "Forget this fact?": "Forget this fact?",
+        "Forgotten facts are left out of recall and kept for the history.": "Forgotten facts are left out of recall and kept for the history.",
+        "Show %n forgotten fact": "Show %n forgotten fact",
+        "Show %n forgotten facts": "Show %n forgotten facts",
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten."
     },
     "nplurals=2; plural=(n != 1);"
 )
