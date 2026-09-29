@@ -124,12 +124,10 @@ class AnalyticsService
      *
      * @param ObjectService    $objectService    OpenRegister object read (tenant-scoped agent set).
      * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (run entries).
-     * @param RunComparator    $runComparator    Aligns two runs' steps (observability-compare-two-runs).
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly AuditTrailMapper $auditTrailMapper,
-        private readonly RunComparator $runComparator=new RunComparator(),
     ) {
     }//end __construct()
 
@@ -375,10 +373,8 @@ class AnalyticsService
     /**
      * Compare two runs the caller may see, on the run list's own boundary.
      *
-     * Each side is a run audit entry (`run` or `agent-run`) whose agent is in the same
-     * visible set `listRuns()` filters on. Anything else (an unknown id, a dry run, a run
-     * of an agent the caller may not see) comes back as `null` for that side, so the
-     * controller answers it exactly like a run that does not exist.
+     * The visible agent set is the one `listRuns()` filters on; RunCompareService
+     * answers a run outside it exactly like a run that does not exist.
      *
      * @param string $leftId  The left run's audit entry uuid.
      * @param string $rightId The right run's audit entry uuid.
@@ -389,82 +385,14 @@ class AnalyticsService
      */
     public function compareRuns(string $leftId, string $rightId): array
     {
-        $visibleAgents = $this->loadVisibleAgents(agentId: null);
-
-        $left  = $this->loadComparableRun(runId: $leftId, visibleAgents: $visibleAgents);
-        $right = $this->loadComparableRun(runId: $rightId, visibleAgents: $visibleAgents);
-
-        $result = ['left' => $left, 'right' => $right, 'sameAgent' => false, 'comparison' => null];
-        if ($left === null || $right === null) {
-            return $result;
-        }
-
-        $result['sameAgent']  = ($left['agentId'] === $right['agentId']);
-        $result['comparison'] = $this->runComparator->compare(
-            leftSteps: $left['steps'],
-            rightSteps: $right['steps'],
-            leftSummary: (string) ($left['summary'] ?? ''),
-            rightSummary: (string) ($right['summary'] ?? '')
+        return (new RunCompareService(auditTrailMapper: $this->auditTrailMapper))->compare(
+            leftId: $leftId,
+            rightId: $rightId,
+            visibleAgents: $this->loadVisibleAgents(agentId: null),
+            toRunRow: $this->toRunRow(...)
         );
 
-        return $result;
-
     }//end compareRuns()
-
-    /**
-     * One run for the comparison, or null when the caller may not see it.
-     *
-     * @param string                $runId         The run's audit entry uuid.
-     * @param array<string, string> $visibleAgents The caller's visible agents (uuid => name).
-     *
-     * @return array<string, mixed>|null The run row with its steps and run-time facts.
-     */
-    private function loadComparableRun(string $runId, array $visibleAgents): ?array
-    {
-        $runId = trim($runId);
-        if ($runId === '' || $visibleAgents === []) {
-            return null;
-        }
-
-        $logs = $this->auditTrailMapper->findAll(filters: ['uuid' => $runId, 'action' => self::RUN_ACTIONS]);
-        foreach ($logs as $log) {
-            // Matched here as well: the filter narrows the read, this decides the answer.
-            if ($log->getUuid() !== $runId) {
-                continue;
-            }
-
-            $context  = ($log->getChanged() ?? []);
-            $runAgent = trim((string) ($context['agentId'] ?? ''));
-            if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false || ($context['dryRun'] ?? false) === true) {
-                return null;
-            }
-
-            $row = $this->toRunRow(
-                log: $log,
-                context: $context,
-                agentId: $runAgent,
-                agentName: $visibleAgents[$runAgent],
-                status: (string) ($context['status'] ?? 'unknown')
-            );
-            unset($row['createdSort']);
-
-            $steps = [];
-            if (is_array($context['steps'] ?? null) === true) {
-                $steps = array_values($context['steps']);
-            }
-
-            // Null means "not recorded for this run", which the view says in words.
-            $row['steps']        = $steps;
-            $row['agentVersion'] = ($context['agentVersion'] ?? null);
-            $row['provider']     = ($context['provider'] ?? null);
-            $row['model']        = ($context['model'] ?? null);
-
-            return $row;
-        }//end foreach
-
-        return null;
-
-    }//end loadComparableRun()
 
     /**
      * Shape one audit entry into a run row for the list.
@@ -472,6 +400,8 @@ class AnalyticsService
      * Split out of `listRuns()` so that method stays the tenant filter and the paging,
      * which is the part worth reading closely. Every value here comes from the entry
      * that has already passed that filter.
+     *
+     * RunCompareService shapes a compared run through this same method (handed over as a callable).
      *
      * `createdSort` rides along as an epoch-seconds sort key and is dropped before the
      * page is returned. Sorting on the ISO string would order `2026-09-06T09:00:00+02:00`

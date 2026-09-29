@@ -60,15 +60,15 @@ class RunComparator
 
         $rows        = [];
         $differences = 0;
-        foreach ($this->align(left: $left, right: $right) as [$i, $j]) {
+        foreach ($this->align(left: $left, right: $right) as [$leftIndex, $rightIndex]) {
             $leftStep  = null;
             $rightStep = null;
-            if ($i !== null) {
-                $leftStep = $left[$i];
+            if ($leftIndex !== null) {
+                $leftStep = $left[$leftIndex];
             }
 
-            if ($j !== null) {
-                $rightStep = $right[$j];
+            if ($rightIndex !== null) {
+                $rightStep = $right[$rightIndex];
             }
 
             $mark = $this->mark(leftStep: $leftStep, rightStep: $rightStep);
@@ -112,24 +112,7 @@ class RunComparator
             rightSummary: $replaySummary
         );
 
-        $pairs = [];
-        foreach ($compared['steps'] as $row) {
-            $last = (count($pairs) - 1);
-            if ($row['mark'] === 'only-right' && $last >= 0
-                && $pairs[$last]['replay'] === null && $pairs[$last]['open'] === true
-            ) {
-                $pairs[$last]['replay'] = $row['right']['name'];
-                $pairs[$last]['open']   = false;
-                continue;
-            }
-
-            $pairs[] = [
-                'original' => ($row['left']['name'] ?? null),
-                'replay'   => ($row['right']['name'] ?? null),
-                'match'    => ($row['left'] !== null && $row['right'] !== null && $row['left']['name'] === $row['right']['name']),
-                'open'     => ($row['mark'] === 'only-left'),
-            ];
-        }
+        $pairs = $this->replayPairs(rows: $compared['steps']);
 
         $toolCalls = [];
         $allMatch  = true;
@@ -153,6 +136,40 @@ class RunComparator
         ];
 
     }//end toReplayDiff()
+
+    /**
+     * Pair aligned rows the way the replay screen shows them.
+     *
+     * A step only in the original directly followed by a step only in the replay is
+     * one replaced call, so the two share a row.
+     *
+     * @param list<array{mark: string, left: ?array, right: ?array}> $rows The aligned rows.
+     *
+     * @return list<array{original: ?string, replay: ?string, match: bool, open: bool}> The replay rows.
+     */
+    private function replayPairs(array $rows): array
+    {
+        $pairs = [];
+        foreach ($rows as $row) {
+            $last = (count($pairs) - 1);
+            if ($row['mark'] === 'only-right' && $last >= 0 && $pairs[$last]['open'] === true) {
+                $pairs[$last]['replay'] = $row['right']['name'];
+                $pairs[$last]['match']  = false;
+                $pairs[$last]['open']   = false;
+                continue;
+            }
+
+            $pairs[] = [
+                'original' => ($row['left']['name'] ?? null),
+                'replay'   => ($row['right']['name'] ?? null),
+                'match'    => ($row['left'] !== null && $row['right'] !== null && $row['left']['name'] === $row['right']['name']),
+                'open'     => ($row['mark'] === 'only-left'),
+            ];
+        }
+
+        return $pairs;
+
+    }//end replayPairs()
 
     /**
      * The tool steps of a timeline, reduced to what is compared.
@@ -196,52 +213,65 @@ class RunComparator
      */
     private function align(array $left, array $right): array
     {
-        $rows = count($left);
-        $cols = count($right);
-        $lcs  = array_fill(0, ($rows + 1), array_fill(0, ($cols + 1), 0));
-        for ($i = ($rows - 1); $i >= 0; $i--) {
-            for ($j = ($cols - 1); $j >= 0; $j--) {
-                if ($left[$i]['name'] === $right[$j]['name']) {
-                    $lcs[$i][$j] = ($lcs[$i + 1][$j + 1] + 1);
-                    continue;
-                }
-
-                $lcs[$i][$j] = max($lcs[$i + 1][$j], $lcs[$i][$j + 1]);
-            }
-        }
-
+        $rows  = count($left);
+        $cols  = count($right);
+        $lcs   = $this->lcsTable(left: $left, right: $right);
         $pairs = [];
-        $i     = 0;
-        $j     = 0;
-        while ($i < $rows && $j < $cols) {
-            if ($left[$i]['name'] === $right[$j]['name']) {
-                $pairs[] = [$i, $j];
-                $i++;
-                $j++;
+        $row   = 0;
+        $col   = 0;
+        while ($row < $rows && $col < $cols) {
+            if ($left[$row]['name'] === $right[$col]['name']) {
+                $pairs[] = [$row++, $col++];
                 continue;
             }
 
-            if ($lcs[$i + 1][$j] >= $lcs[$i][$j + 1]) {
-                $pairs[] = [$i, null];
-                $i++;
+            if ($lcs[$row + 1][$col] >= $lcs[$row][$col + 1]) {
+                $pairs[] = [$row++, null];
                 continue;
             }
 
-            $pairs[] = [null, $j];
-            $j++;
+            $pairs[] = [null, $col++];
         }
 
-        for (; $i < $rows; $i++) {
-            $pairs[] = [$i, null];
+        for (; $row < $rows; $row++) {
+            $pairs[] = [$row, null];
         }
 
-        for (; $j < $cols; $j++) {
-            $pairs[] = [null, $j];
+        for (; $col < $cols; $col++) {
+            $pairs[] = [null, $col];
         }
 
         return $pairs;
 
     }//end align()
+
+    /**
+     * The longest-common-subsequence lengths of every suffix pair, by name.
+     *
+     * @param list<array{name: string}> $left  The left steps.
+     * @param list<array{name: string}> $right The right steps.
+     *
+     * @return array<int, array<int, int>> The table; [row][col] is the LCS of the suffixes.
+     */
+    private function lcsTable(array $left, array $right): array
+    {
+        $rows = count($left);
+        $cols = count($right);
+        $lcs  = array_fill(0, ($rows + 1), array_fill(0, ($cols + 1), 0));
+        for ($row = ($rows - 1); $row >= 0; $row--) {
+            for ($col = ($cols - 1); $col >= 0; $col--) {
+                if ($left[$row]['name'] === $right[$col]['name']) {
+                    $lcs[$row][$col] = ($lcs[$row + 1][$col + 1] + 1);
+                    continue;
+                }
+
+                $lcs[$row][$col] = max($lcs[$row + 1][$col], $lcs[$row][$col + 1]);
+            }
+        }
+
+        return $lcs;
+
+    }//end lcsTable()
 
     /**
      * The mark for one aligned row.
