@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/archive/2026-09-29-memory-correct-and-forget/tasks.md#task-1-service-correct-an-entry-and-give-old-entries-an-id
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
  */
 
 declare(strict_types=1);
