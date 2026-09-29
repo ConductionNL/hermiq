@@ -4379,12 +4379,14 @@
 			"area": "oversight",
 			"name": "See what an action will do, why and what it touches before I approve it.",
 			"source": "demand-derived",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/ApprovalInbox.vue:52-90 the approval table shows only Schedule name, Agent name, Prompt text and Requested-at date; grep -n 'blastRadius|lineage|rollback' across lib/Settings/hermiq_register.json, src/views/ApprovalInbox.vue and src/modals/ApprovalDenyModal.vue found no such fields anywhere.",
-				"change": "openspec/changes/oversight-what-an-approval-will-do"
+				"evidence": "lib/Service/ApprovalPreviewBuilder.php build(): per held tool call the tool, its effect (reads/changes/sends/deletes from scope, readOnlyHint, reach), its reach and the redacted stored arguments; per held run the agent's grants resolved against the live catalog. ApprovalService::listPendingForReviewer() records carry sourceType, toolArguments and preview; src/views/ApprovalInbox.vue Details opens src/modals/ApprovalPreviewModal.vue with approve and deny; DeliveryService::toolApprovalTalkText() adds the tool and its reach to the Talk request.",
+				"reachedOn": "Approvals inbox, Details on a pending approval; Talk note for a held tool call",
+				"change": "openspec/changes/archive/2026-09-29-oversight-what-an-approval-will-do",
+				"readOn": "2026-09-29"
 			},
 			"reachedOn": "/approvals ApprovalInbox.vue table row",
 			"note": "The prompt column gives some 'what will run' context, but there is no blast-radius, lineage or rollback preview before approving, unlike the canonical row's fuller shape.",

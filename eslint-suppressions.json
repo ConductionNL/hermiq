@@ -211,11 +211,6 @@
       "count": 2
     }
   },
-  "src/views/ApprovalInbox.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    }
-  },
   "src/views/Chat.vue": {
     "@typescript-eslint/no-unused-vars": {
       "count": 9
