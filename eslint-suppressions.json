@@ -216,11 +216,6 @@
       "count": 2
     }
   },
-  "src/views/AiFeatureRegister.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 5
-    }
-  },
   "src/views/ApprovalInbox.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 2

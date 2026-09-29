@@ -2162,7 +2162,14 @@ OC.L10N.register(
         "Outputs labelled as AI-made": "Outputs labelled as AI-made",
         "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).": "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50).",
         "How outputs are labelled": "How outputs are labelled",
-        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original."
+        "How readers are told that AI made the output, for example a notice with the source language and a link to the original.": "How readers are told that AI made the output, for example a notice with the source language and a link to the original.",
+        "Change provider": "Change provider",
+        "Change provider for {feature}": "Change provider for {feature}",
+        "Change the provider of this AI feature": "Change the provider of this AI feature",
+        "No requirement": "No requirement",
+        "The policy allows any model of this provider.": "The policy allows any model of this provider.",
+        "Use the organisation default": "Use the organisation default",
+        "Where the provider must run": "Where the provider must run"
     },
     "nplurals=2; plural=(n != 1);"
 )
