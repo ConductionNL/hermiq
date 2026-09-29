@@ -2185,7 +2185,22 @@ OC.L10N.register(
         "Forgotten facts are left out of recall and kept for the history.": "Forgotten facts are left out of recall and kept for the history.",
         "Show %n forgotten fact": "Show %n forgotten fact",
         "Show %n forgotten facts": "Show %n forgotten facts",
-        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten."
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "The agent stops using this fact. It stays in the memory history, marked as forgotten.",
+        "{up} up, {down} down": "{up} up, {down} down",
+        "Latest low ratings": "Latest low ratings",
+        "No ratings yet": "No ratings yet",
+        "No thumbs down with a comment yet.": "No thumbs down with a comment yet.",
+        "Rated helpful": "Rated helpful",
+        "Thumbs down": "Thumbs down",
+        "Thumbs up": "Thumbs up",
+        "Ratings": "Ratings",
+        "Change provider": "Change provider",
+        "Change provider for {feature}": "Change provider for {feature}",
+        "Change the provider of this AI feature": "Change the provider of this AI feature",
+        "No requirement": "No requirement",
+        "The policy allows any model of this provider.": "The policy allows any model of this provider.",
+        "Use the organisation default": "Use the organisation default",
+        "Where the provider must run": "Where the provider must run"
     },
     "nplurals=2; plural=(n != 1);"
 )

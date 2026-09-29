@@ -1453,7 +1453,22 @@ OC.L10N.register(
         "Forgotten facts are left out of recall and kept for the history.": "Vergeten feiten worden niet meer opgehaald en blijven bewaard in de geschiedenis.",
         "Show %n forgotten fact": "%n vergeten feit tonen",
         "Show %n forgotten facts": "%n vergeten feiten tonen",
-        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "De agent gebruikt dit feit niet meer. Het blijft in de geschiedenis van het geheugen staan, gemarkeerd als vergeten."
+        "The agent stops using this fact. It stays in the memory history, marked as forgotten.": "De agent gebruikt dit feit niet meer. Het blijft in de geschiedenis van het geheugen staan, gemarkeerd als vergeten.",
+        "{up} up, {down} down": "{up} omhoog, {down} omlaag",
+        "Latest low ratings": "Laatste lage beoordelingen",
+        "No ratings yet": "Nog geen beoordelingen",
+        "No thumbs down with a comment yet.": "Nog geen duim omlaag met een opmerking.",
+        "Rated helpful": "Beoordeeld als nuttig",
+        "Thumbs down": "Duim omlaag",
+        "Thumbs up": "Duim omhoog",
+        "Ratings": "Beoordelingen",
+        "Change provider": "Provider wijzigen",
+        "Change provider for {feature}": "Provider wijzigen voor {feature}",
+        "Change the provider of this AI feature": "De provider van deze AI-functie wijzigen",
+        "No requirement": "Geen eis",
+        "The policy allows any model of this provider.": "Het beleid staat elk model van deze provider toe.",
+        "Use the organisation default": "De standaard van de organisatie gebruiken",
+        "Where the provider must run": "Waar de provider moet draaien"
     },
     "nplurals=2; plural=(n != 1);"
 )
