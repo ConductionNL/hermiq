@@ -43,6 +43,7 @@ use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -132,8 +133,10 @@ class SessionController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param TalkSessionRoom $sessionRoom Creates and renames the Talk room a session owns.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
 	 */
 	public function __construct(
 		IRequest $request,
@@ -142,6 +145,7 @@ class SessionController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly TalkSessionRoom $sessionRoom,
 		private readonly LoggerInterface $logger,
+		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -174,22 +178,10 @@ class SessionController extends Controller {
 			// Fetch the caller's conversations (org-scoped by ObjectService
 			// multitenancy, user-scoped by the payload filter) and partition
 			// on the archive marker.
-			$all = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::CONVERSATION_SCHEMA)
-				->findAll(
-					config: [
-						'filters' => ['userId' => $userId],
-						'sort' => ['updated' => 'DESC'],
-						'limit' => self::MAX_CONVERSATION_SCAN,
-					]
-				);
+			$all = $this->listReadableSessions(userId: $userId);
 
 			$matching = [];
 			foreach ($all as $conversation) {
-				if (($conversation instanceof ObjectEntity) === false) {
-					continue;
-				}
 
 				if ($this->isArchived(conversation: $conversation) === $showDeleted) {
 					$matching[] = $conversation;
@@ -202,7 +194,7 @@ class SessionController extends Controller {
 			return new JSONResponse(
 				data: [
 					'results' => array_map(
-						fn (ObjectEntity $conv): array => $this->serializeConversation(conversation: $conv),
+						fn (ObjectEntity $conv): array => $this->serializeConversation(conversation: $conv, userId: $userId),
 						$page
 					),
 					'total' => $total,
@@ -256,13 +248,13 @@ class SessionController extends Controller {
 				return $this->notFoundResponse();
 			}
 
-			// Ownership guard (gate-7): only the owning user may read the thread.
-			if (($conversation->getObject()['userId'] ?? null) !== $userId) {
+			// Ownership guard (gate-7): only the owner or a listed participant may read the thread.
+			if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
 				return $this->accessDeniedResponse(action: 'access');
 			}
 
 			// Build response without messages; message count fetched separately.
-			$response = $this->serializeConversation(conversation: $conversation);
+			$response = $this->serializeConversation(conversation: $conversation, userId: $userId);
 
 			$response['messageCount'] = $this->countMessages(conversationId: $uuid);
 
@@ -313,8 +305,8 @@ class SessionController extends Controller {
 				return $this->notFoundResponse();
 			}
 
-			// Ownership guard (gate-7): only the owning user may read the thread.
-			if (($conversation->getObject()['userId'] ?? null) !== $userId) {
+			// Ownership guard (gate-7): only the owner or a listed participant may read the thread.
+			if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
 				return $this->accessDeniedResponse(action: 'access');
 			}
 
@@ -1043,12 +1035,13 @@ class SessionController extends Controller {
 	 * Serialize a conversation object to the OR-compatible response shape.
 	 *
 	 * @param ObjectEntity $conversation The conversation object.
+	 * @param string       $userId       The caller, to tell owner from participant.
 	 *
 	 * @return array<string, mixed> Serialized conversation.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
-	private function serializeConversation(ObjectEntity $conversation): array {
+	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
 		$deletedAt = null;
 		$metadata = ($data['metadata'] ?? null);
@@ -1069,12 +1062,78 @@ class SessionController extends Controller {
 			// predating the property was started by a person, which is what the
 			// `human` fallback records.
 			'triggerOrigin' => ($data['triggerOrigin'] ?? 'human'),
+			// Chat-work-together-in-one-session: who else is in it, and whether the
+			// caller owns it or was invited, so /chat can group "Shared with me".
+			'participants' => $this->participation->roster(conversationData: $data),
+			'role' => $this->roleOf(data: $data, userId: $userId),
+			'talkRoomToken' => ($data['talkRoomToken'] ?? null),
 			'metadata' => $metadata,
 			'deletedAt' => $deletedAt,
 			'created' => $conversation->getCreated()?->format('c'),
 			'updated' => $conversation->getUpdated()?->format('c'),
 		];
 	}//end serializeConversation()
+
+	/**
+	 * Every session the user may read: the ones they own, then the ones they are listed
+	 * in, de-duplicated, newest first. The participants filter is a JSON-array contains
+	 * match in OpenRegister; the permission is re-checked here, so a wider match can
+	 * never list a session the user may not read.
+	 *
+	 * @param string $userId The caller.
+	 *
+	 * @return ObjectEntity[] The sessions.
+	 *
+	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
+	 */
+	private function listReadableSessions(string $userId): array {
+		$sessions = [];
+		foreach (['userId', 'participants'] as $field) {
+			$found = $this->objectService
+				->setRegister(self::REGISTER_SLUG)
+				->setSchema(self::CONVERSATION_SCHEMA)
+				->findAll(
+					config: [
+						'filters' => [$field => $userId],
+						'sort' => ['updated' => 'DESC'],
+						'limit' => self::MAX_CONVERSATION_SCAN,
+					]
+				);
+			foreach ($found as $session) {
+				if (($session instanceof ObjectEntity) === true
+					&& $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $userId) === true
+				) {
+					$sessions[(string)$session->getUuid()] = $session;
+				}
+			}
+		}
+
+		$sessions = array_values($sessions);
+		usort(
+			$sessions,
+			static fn (ObjectEntity $a, ObjectEntity $b): int => ($b->getUpdated()?->getTimestamp() ?? 0) <=> ($a->getUpdated()?->getTimestamp() ?? 0)
+		);
+
+		return $sessions;
+	}//end listReadableSessions()
+
+	/**
+	 * Whether the caller owns a session or was invited into it.
+	 *
+	 * @param array<string, mixed> $data The session payload.
+	 * @param string $userId The caller ('' when unknown).
+	 *
+	 * @return string `owner` or `participant`.
+	 *
+	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
+	 */
+	private function roleOf(array $data, string $userId): string {
+		if ($userId !== '' && ($data['userId'] ?? null) !== $userId) {
+			return 'participant';
+		}
+
+		return 'owner';
+	}//end roleOf()
 
 	/**
 	 * Serialize a message object to the OR-compatible response shape.
@@ -1104,6 +1163,9 @@ class SessionController extends Controller {
 			'role' => ($data['role'] ?? null),
 			'content' => ($data['content'] ?? null),
 			'sources' => ($data['sources'] ?? []),
+			// Who asked this turn (null on the agent's own turns), so a shared session shows it.
+			'authorId' => ($data['authorId'] ?? null),
+			'authorDisplayName' => ($data['authorDisplayName'] ?? null),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()

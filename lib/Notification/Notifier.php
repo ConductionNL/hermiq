@@ -65,6 +65,7 @@ class Notifier implements INotifier {
 		'schedule_paused_circuit_breaker',
 		'skill_published_behind',
 		'skill_rollback_suggested',
+		'session_participant_added',
 	];
 
 	/**
@@ -178,6 +179,10 @@ class Notifier implements INotifier {
 
 		if ($subjectKey === 'skill_rollback_suggested') {
 			return $this->skillRollbackSuggestedText(name: $name, l: $l);
+		}
+
+		if ($subjectKey === 'session_participant_added') {
+			return $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l);
 		}
 
 		return $this->runCompleteText(name: $name, l: $l);
@@ -329,4 +334,24 @@ class Notifier implements INotifier {
 
 		return [$subject, $message];
 	}//end skillRollbackSuggestedText()
+
+	/**
+	 * Text for `session_participant_added`: an owner invited the recipient into a session.
+	 *
+	 * @param string $owner The owner's display name.
+	 * @param string $name The session title.
+	 * @param IL10N $l The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+	 */
+	private function sessionParticipantAddedText(string $owner, string $name, IL10N $l): array {
+		$subject = $l->t('You were invited to a chat session');
+		if ($owner !== '' && $name !== '') {
+			$subject = $l->t('%1$s invited you to the session %2$s', [$owner, $name]);
+		}
+
+		return [$subject, $l->t('Open Chat and find it under Shared with me. You can ask the agent questions in it.')];
+	}//end sessionParticipantAddedText()
 }//end class

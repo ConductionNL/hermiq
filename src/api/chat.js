@@ -38,7 +38,7 @@
 
 import { getRequestToken } from '@nextcloud/auth'
 import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
+import { generateOcsUrl, generateUrl } from '@nextcloud/router'
 
 /** Hermiq chat API base path (agent-engine-port routes). */
 const CHAT_BASE = '/apps/hermiq/api/chat'
@@ -136,6 +136,70 @@ export async function renameSession(uuid, title) {
 		title,
 	})
 	return response.data
+}
+
+/**
+ * The colleagues invited into a session (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @return {Promise<Array<{uid: string, displayName: string}>>} The participants.
+ * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+ */
+export async function listParticipants(uuid) {
+	const response = await axios.get(
+		generateUrl(`${SESSIONS_BASE}/${uuid}/participants`),
+	)
+	return response.data.results || []
+}
+
+/**
+ * Invite a colleague into a session (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} uid The colleague's user id.
+ * @return {Promise<Array<{uid: string, displayName: string}>>} The participants after the change.
+ * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+ */
+export async function addParticipant(uuid, uid) {
+	const response = await axios.post(
+		generateUrl(`${SESSIONS_BASE}/${uuid}/participants`),
+		{ uid },
+	)
+	return response.data.results || []
+}
+
+/**
+ * Take a colleague off a session (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} uid The colleague's user id.
+ * @return {Promise<Array<{uid: string, displayName: string}>>} The participants after the change.
+ * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+ */
+export async function removeParticipant(uuid, uid) {
+	const response = await axios.delete(
+		generateUrl(
+			`${SESSIONS_BASE}/${uuid}/participants/${encodeURIComponent(uid)}`,
+		),
+	)
+	return response.data.results || []
+}
+
+/**
+ * Search the instance's users by name, for the invite dialog.
+ *
+ * @param {string} search The typed text.
+ * @return {Promise<Array<{uid: string, displayName: string}>>} Matching users.
+ * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+ */
+export async function searchUsers(search) {
+	const response = await axios.get(generateOcsUrl('core/autocomplete/get'), {
+		params: { search, itemType: '', itemId: '', shareTypes: [0], limit: 10 },
+	})
+	return (response.data?.ocs?.data || []).map((user) => ({
+		uid: user.id,
+		displayName: user.label || user.id,
+	}))
 }
 
 /**

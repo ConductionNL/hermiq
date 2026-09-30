@@ -1565,7 +1565,20 @@
             "Deze context leest ook %n live gegevensquery, die blijft zoals hij is.",
             "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn."
         ],
-        "This context also reads %n live data queries, which stay as they are.": "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn."
+        "This context also reads %n live data queries, which stay as they are.": "Deze context leest ook %n live gegevensquery's, die blijven zoals ze zijn.",
+        "Invite colleagues": "Collega's uitnodigen",
+        "People you invite can read this session and ask the agent questions in it. Each question runs with their own files and rights.": "Wie je uitnodigt, kan deze sessie lezen en de agent er vragen in stellen. Elke vraag draait met de eigen bestanden en rechten van die persoon.",
+        "Find a colleague": "Zoek een collega",
+        "Invite": "Uitnodigen",
+        "Only you are in this session.": "Alleen jij zit in deze sessie.",
+        "This session belongs to a Talk room. Invite the person to the room instead.": "Deze sessie hoort bij een Talk-gesprek. Nodig de persoon uit in dat gesprek.",
+        "There is no user with that name.": "Er is geen gebruiker met die naam.",
+        "The change could not be saved.": "De wijziging kon niet worden opgeslagen.",
+        "Shared with me": "Gedeeld met mij",
+        "You were invited to a chat session": "Je bent uitgenodigd voor een chatsessie",
+        "%1$s invited you to the session %2$s": "%1$s heeft je uitgenodigd voor de sessie %2$s",
+        "Open Chat and find it under Shared with me. You can ask the agent questions in it.": "Open Chat en kijk onder Gedeeld met mij. Je kunt de agent er vragen in stellen.",
+        "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires), or a skill consolidation draft (skill-self-improvement: the pending→approved transition applies the draft onto the Skill as a new version from ANY surface; denial reconciles the draft to rejected)., or an ADVISORY AI decision recorded after the fact (ai-oversight — the only NON-BLOCKING variant: nothing was ever gated, the human already acted, and the record is Art. 14 evidence rather than a permission. Created terminal; an advisory Approval is never `pending`.), or a workspace-run pre-authorisation (hermiq-runner-git-capability: nothing auto-resumes; once approved it lets one run's governed workspace writes through, keyed by agentId and the run id in toolArguments, and no other run).": "Waar de bewaakte actie na goedkeuring in verdergaat: een Hermiq-planning (standaard), een door een flow of webhook gestarte agentrun, een niet-toegekende destructieve toolaanroep, een door het guardrailbeleid te bevestigen toolaanroep, een skill-concept, een achteraf vastgelegd AI-advies, of een voorafgaande toestemming voor de werkruimte van een run (hermiq-runner-git-capability: er wordt niets hervat; na goedkeuring laat deze de wijzigingen in de werkruimte van die ene run door, en van geen andere run)."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

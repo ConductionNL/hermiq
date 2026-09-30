@@ -49,7 +49,7 @@ class ApprovalPreviewBuilder {
 	 *
 	 * @var array<int, string>
 	 */
-	private const TOOL_SOURCES = ['tool', 'toolcall'];
+	private const TOOL_SOURCES = ['tool', 'toolcall', 'workspace-run'];
 
 	/**
 	 * English reach labels for text that leaves the UI (the Talk line).
