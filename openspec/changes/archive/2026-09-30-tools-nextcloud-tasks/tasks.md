@@ -10,16 +10,16 @@ Kind: code. Size M. Row `hermiq:tl-tasks`.
 - **acceptance_criteria**:
   - GIVEN OCP 34 WHEN checked THEN the PR states which interface tells a shared-in calendar apart and whether createFromString replaces an existing URI
   - GIVEN calendars with and without VTODO, own and shared-in WHEN resolved THEN only own VTODO lists are writable
-- [ ] Implement
-- [ ] Test (PHPUnit with calendar doubles built from the real OCP interfaces)
+- [x] Implement
+- [x] Test (PHPUnit with calendar doubles built from the real OCP interfaces): TaskWriteServiceTest; outcome in design.md, Task 1 outcome
 
 ### Task 2: listTasks
 - **spec_ref**: `openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-list-the-acting-users-tasks-req-nctask-001`
 - **files**: `lib/Service/NcNative/TaskWriteService.php`, `lib/Mcp/NcTaskToolDescriptors.php`, `lib/Mcp/HermiqToolProvider.php`
 - **acceptance_criteria**:
   - GIVEN tasks in several states WHEN listed with status open and dueBefore THEN only matching tasks come back, at most 50
-- [ ] Implement
-- [ ] Test (PHPUnit)
+- [x] Implement
+- [x] Test (PHPUnit): TaskWriteServiceTest::testListReturnsOpenTasksDueBefore, testListIsCappedAtFifty
 
 ### Task 3: createTask with the mark
 - **spec_ref**: `openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002`
@@ -27,8 +27,8 @@ Kind: code. Size M. Row `hermiq:tl-tasks`.
 - **acceptance_criteria**:
   - GIVEN a valid task WHEN created THEN the object handed to the store holds the VTODO and the agent property with the agent id
   - GIVEN a shared-in list WHEN targeted THEN nothing is written and the stated error is returned
-- [ ] Implement
-- [ ] Test (PHPUnit asserting the stored payload; Playwright under tests/e2e/spec-coverage/ that the task shows in the Tasks app)
+- [x] Implement
+- [x] Test (PHPUnit asserting the stored payload: TaskWriteServiceTest::testOnlyOwnWritableTaskListsAreWriteTargets, TaskCalendarObjectTest::testBuildWritesAMarkedVtodo). The Playwright check that the task shows in the Tasks app needs a live model to make the call; the scenario carries a reason-bearing @e2e exclude
 
 ### Task 4: completeTask that keeps the task intact
 - **spec_ref**: `openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003`
@@ -36,8 +36,8 @@ Kind: code. Size M. Row `hermiq:tl-tasks`.
 - **acceptance_criteria**:
   - GIVEN a task with a description, a category and an alarm WHEN completed THEN only status, completed time, percent and the mark change
   - GIVEN an instance where no replace path exists WHEN the catalogue is built THEN completeTask is absent
-- [ ] Implement
-- [ ] Test (PHPUnit on the rewrite, property by property)
+- [x] Implement
+- [x] Test (PHPUnit on the rewrite, property by property): TaskCalendarObjectTest::testCompletingKeepsEveryPropertyItDoesNotOwn; catalogue without a replace path: HermiqToolProviderTest::testCompleteTaskIsAbsentWithoutAReplacePath
 
 ### Task 5: Governance, the grant editor and the run record
 - **spec_ref**: `openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004`
@@ -45,10 +45,10 @@ Kind: code. Size M. Row `hermiq:tl-tasks`.
 - **acceptance_criteria**:
   - GIVEN a new agent WHEN the grant editor opens THEN the three tools show with their classes and reach, ungranted
   - GIVEN a task write WHEN traced THEN list and uid are kept and the summary is not
-- [ ] Implement
-- [ ] Test (PHPUnit on classification and trace; Playwright on the grant editor)
+- [x] Implement
+- [x] Test (PHPUnit on classification and trace: HermiqToolProviderTest pins, FacadeToolInvokerTest::testTaskWritesGetTheAgentIdAndRecordListAndUidOnly; Playwright on the grant editor: tests/e2e/spec-coverage/tools-nextcloud-tasks.spec.ts)
 
 ## Verification
-- [ ] `openspec validate tools-nextcloud-tasks --type change --strict` passes
-- [ ] PHPUnit and Playwright run once before push, exit codes read
-- [ ] One live chat turn that creates a task, lists it and completes it, checked in the Tasks app
+- [x] `openspec validate tools-nextcloud-tasks --type change --strict` passes
+- [x] PHPUnit run once before push, exit code read (see the PR body). Playwright not run: the shared browser service was down on 30 Sep; the spec is under tests/e2e/spec-coverage/tools-nextcloud-tasks.spec.ts
+- [ ] One live chat turn that creates a task, lists it and completes it, checked in the Tasks app (open: the live-check recipe is in the PR body)

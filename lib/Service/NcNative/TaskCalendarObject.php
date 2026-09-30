@@ -22,7 +22,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use DateTimeZone;
  * @category Service
  * @package  OCA\Hermiq\Service\NcNative
  *
- * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
  */
 class TaskCalendarObject {
 
@@ -64,7 +64,7 @@ class TaskCalendarObject {
 	 *
 	 * @return string The iCalendar object.
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function build(string $taskUid, array $fields, string $markValue, DateTimeImmutable $now): string {
 		$stamp = $this->utc(moment: $now);
@@ -114,7 +114,7 @@ class TaskCalendarObject {
 	 *
 	 * @return string|null The rewritten object, or null when there is no task to complete.
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function complete(string $ics, string $markValue, DateTimeImmutable $now): ?string {
 		$newline = "\n";

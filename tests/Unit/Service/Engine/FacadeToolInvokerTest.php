@@ -746,7 +746,7 @@ class FacadeToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
 	 */
 	public function testTaskWritesGetTheAgentIdAndRecordListAndUidOnly(): void {
 		$seen = [];

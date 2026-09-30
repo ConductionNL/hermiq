@@ -31,7 +31,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Building and completing VTODO objects.
  *
- * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
  */
 final class TaskCalendarObjectTest extends TestCase {
 
@@ -106,7 +106,7 @@ final class TaskCalendarObjectTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function testCompletingKeepsEveryPropertyItDoesNotOwn(): void {
 		$now = new DateTimeImmutable('2026-09-30T12:34:56', new DateTimeZone('Europe/Amsterdam'));
@@ -152,7 +152,7 @@ final class TaskCalendarObjectTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function testCompletingTwiceKeepsOneMark(): void {
 		$object = new TaskCalendarObject();
@@ -172,7 +172,7 @@ final class TaskCalendarObjectTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function testAnObjectWithoutATaskIsNotRewritten(): void {
 		$event = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:x\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
@@ -189,7 +189,7 @@ final class TaskCalendarObjectTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function testBuildWritesAMarkedVtodo(): void {
 		$ics = (new TaskCalendarObject())->build(
@@ -231,7 +231,7 @@ final class TaskCalendarObjectTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function testDueDateTimeIsUtcAndFoldingKeepsCharactersWhole(): void {
 		$summary = str_repeat('Één overleg met de wijkagent ', 5);

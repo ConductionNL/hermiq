@@ -669,7 +669,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	private function taskDescriptors(): array {
 		try {

@@ -42,7 +42,7 @@ use RuntimeException;
 /**
  * Task list resolution, listing, creating and completing.
  *
- * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
  */
 final class TaskWriteServiceTest extends TestCase {
 
@@ -272,7 +272,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function testASharedInListIsNotWritten(): void {
 		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
@@ -295,7 +295,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function testOnlyOwnWritableTaskListsAreWriteTargets(): void {
 		$calendars = [
@@ -336,7 +336,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function testNoOwnTaskListIsReportedHonestly(): void {
 		$service = $this->service(
@@ -357,7 +357,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
 	 */
 	public function testInvalidArgumentsAreRefused(): void {
 		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
@@ -377,7 +377,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-list-the-acting-users-tasks-req-nctask-001
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-list-the-acting-users-tasks-req-nctask-001
 	 */
 	public function testListReturnsOpenTasksDueBefore(): void {
 		$own = [
@@ -413,7 +413,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-list-the-acting-users-tasks-req-nctask-001
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-list-the-acting-users-tasks-req-nctask-001
 	 */
 	public function testListIsCappedAtFifty(): void {
 		$rows = [];
@@ -434,7 +434,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function testCompleteUpdatesTheObjectInPlace(): void {
 		$uid = '7c1e2a4b-5d6f-4a8b-9c0d-1e2f3a4b5c6d';
@@ -465,7 +465,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function testCompleteRefusesSharedInAndUnknownTasks(): void {
 		$shared = [$this->row(uid: 's1', summary: 'Vergunning Dorpsstraat')];
@@ -495,7 +495,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function testWithoutTheDavBackendCompleteIsNotOffered(): void {
 		$service = $this->service($this->standardCalendars(), null);
@@ -513,7 +513,7 @@ final class TaskWriteServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
 	 */
 	public function testAFailingCalendarNeverThrows(): void {
 		$broken = $this->createMockForIntersectionOfInterfaces(

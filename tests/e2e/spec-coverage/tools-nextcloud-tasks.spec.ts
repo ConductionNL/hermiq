@@ -15,7 +15,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 NC_USER=admin NC_PASS=admin \
  *       npx playwright test --project=chromium tools-nextcloud-tasks
  *
- * Covers openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md
+ * Covers openspec/specs/nc-native-tools/spec.md
  */
 
 import { expect, test } from '@playwright/test'
