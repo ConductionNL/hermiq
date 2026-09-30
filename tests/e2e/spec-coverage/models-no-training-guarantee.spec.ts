@@ -37,26 +37,34 @@ test.describe('models-no-training-guarantee: declarations and the policy switch'
 		page,
 	}) => {
 		const headers = { 'OCS-APIRequest': 'true', requesttoken: token }
-		const put = await page.request.put(`${API}/settings/provider-data-use/anthropic`, {
-			headers,
-			data: {
-				dataUse: 'no-training',
-				termsReference: 'Anthropic commercial terms, checked 2026-09-01',
+		const put = await page.request.put(
+			`${API}/settings/provider-data-use/anthropic`,
+			{
+				headers,
+				data: {
+					dataUse: 'no-training',
+					termsReference: 'Anthropic commercial terms, checked 2026-09-01',
+				},
 			},
-		})
+		)
 		expect(put.ok()).toBeTruthy()
 		const stored = await put.json()
 		expect(stored.dataUse).toBe('no-training')
 		expect(stored.declaredBy).not.toBe('')
 
 		// An unknown value is refused, not stored as something that reads safe.
-		const refused = await page.request.put(`${API}/settings/provider-data-use/anthropic`, {
-			headers,
-			data: { dataUse: 'sometimes' },
-		})
+		const refused = await page.request.put(
+			`${API}/settings/provider-data-use/anthropic`,
+			{
+				headers,
+				data: { dataUse: 'sometimes' },
+			},
+		)
 		expect(refused.status()).toBe(422)
 
-		const read = await page.request.get(`${API}/settings/provider-data-use`, { headers })
+		const read = await page.request.get(`${API}/settings/provider-data-use`, {
+			headers,
+		})
 		const body = await read.json()
 		expect(body.dataUse.anthropic.termsReference).toBe(
 			'Anthropic commercial terms, checked 2026-09-01',
@@ -69,7 +77,9 @@ test.describe('models-no-training-guarantee: declarations and the policy switch'
 	}) => {
 		await page.goto('/index.php/settings/admin/hermiq')
 		await page.getByRole('button', { name: /configure provider/i }).click()
-		await expect(page.getByRole('heading', { name: 'Where it runs' })).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: 'Where it runs' }),
+		).toBeVisible()
 		await expect(
 			page.getByRole('heading', { name: 'What it does with your data' }),
 		).toBeVisible()
@@ -82,7 +92,10 @@ test.describe('models-no-training-guarantee: declarations and the policy switch'
 		const headers = { 'OCS-APIRequest': 'true', requesttoken: token }
 		const list = await page.request.get(`${API}/model-policy`, { headers })
 		const payload = await list.json()
-		expect(payload.dataUse, 'the list carries each provider\'s data-use label').toBeTruthy()
+		expect(
+			payload.dataUse,
+			"the list carries each provider's data-use label",
+		).toBeTruthy()
 		const policies = payload.policies ?? []
 		test.skip(
 			policies.length === 0,
@@ -92,10 +105,16 @@ test.describe('models-no-training-guarantee: declarations and the policy switch'
 		await page.goto('/index.php/apps/hermiq/tenant-ops')
 		await page.getByRole('button', { name: 'Edit' }).first().click()
 		await page.getByLabel('Allowed providers and models').fill('openai')
-		await page.getByText('Only use providers that never train on our data').click()
-		const undeclared = payload.dataUse.openai !== 'no-training' && payload.dataUse.openai !== 'zero-retention'
+		await page
+			.getByText('Only use providers that never train on our data')
+			.click()
+		const undeclared =
+			payload.dataUse.openai !== 'no-training'
+			&& payload.dataUse.openai !== 'zero-retention'
 		if (undeclared) {
-			await expect(page.getByText('Runs on this provider will be refused.')).toBeVisible()
+			await expect(
+				page.getByText('Runs on this provider will be refused.'),
+			).toBeVisible()
 		}
 		// Leave without saving: this test must not change the instance's policy.
 		await page.getByRole('button', { name: 'Cancel' }).first().click()
