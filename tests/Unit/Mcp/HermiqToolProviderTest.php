@@ -261,8 +261,10 @@ class HermiqToolProviderTest extends TestCase {
 		//   (nc-mail-read-tools),
 		// + hermiq.listAvailableTools/requestToolAccess
 		//   (tool-discovery-and-access-requests),
+		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile
+		//   (hermiq-runner-git-capability),
 		// all registered through this same provider.
-		$this->assertCount(24, $tools);
+		$this->assertCount(30, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -340,10 +342,16 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listMailAccounts' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.listMailMessages' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.readMailMessage' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceOpen' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'create'],
+			'hermiq.workspaceStatus' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceDiff' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceLog' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceListFiles' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceReadFile' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(24, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(30, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -412,6 +420,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listMailAccounts' => ToolReachResolver::REACH_USER,
 			'hermiq.listMailMessages' => ToolReachResolver::REACH_USER,
 			'hermiq.readMailMessage' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceOpen' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.workspaceStatus' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceDiff' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceLog' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceListFiles' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceReadFile' => ToolReachResolver::REACH_USER,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -495,6 +509,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listMailAccounts' => ['mailAccount', 'list'],
 			'hermiq.listMailMessages' => ['mailMessage', 'list'],
 			'hermiq.readMailMessage' => ['mailMessage', 'get'],
+			'hermiq.workspaceOpen' => ['workspace', 'open'],
+			'hermiq.workspaceStatus' => ['workspace', 'status'],
+			'hermiq.workspaceDiff' => ['workspace', 'diff'],
+			'hermiq.workspaceLog' => ['workspace', 'log'],
+			'hermiq.workspaceListFiles' => ['workspace', 'list'],
+			'hermiq.workspaceReadFile' => ['workspace', 'get'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

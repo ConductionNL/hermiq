@@ -99,58 +99,6 @@ class WorkspacePathGuard {
 	}//end forWrite()
 
 	/**
-	 * Check every target of a unified diff before any of it is applied.
-	 *
-	 * Refuses renames, copies and symbolic-link modes outright: they create or
-	 * move paths in ways a per-target check cannot describe.
-	 *
-	 * @param string $root  The workspace root (absolute).
-	 * @param string $patch The unified diff.
-	 *
-	 * @return array<int, string> The workspace-relative targets, deduplicated.
-	 *
-	 * @throws WorkspaceException patch_rejected, path_outside_workspace or path_forbidden.
-	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
-	 */
-	public function patchTargets(string $root, string $patch): array {
-		if (preg_match('/^(rename|copy) (from|to) /m', $patch) === 1
-			|| preg_match('/^(new file mode|new mode|old mode|deleted file mode) 120000/m', $patch) === 1
-			|| preg_match('/^GIT binary patch/m', $patch) === 1
-		) {
-			throw new WorkspaceException(
-				errorCode: WorkspaceException::PATCH_REJECTED,
-				message: 'The patch renames, copies or links a file, or is binary. Send plain content changes only.'
-			);
-		}
-
-		$targets = [];
-		$matched = preg_match_all('/^(?:---|\+\+\+) (\S+)/m', $patch, $matches);
-		if ($matched === false || $matched === 0) {
-			throw new WorkspaceException(
-				errorCode: WorkspaceException::PATCH_REJECTED,
-				message: 'The patch names no file.'
-			);
-		}
-
-		foreach ($matches[1] as $raw) {
-			if ($raw === '/dev/null') {
-				continue;
-			}
-
-			$target = preg_replace('#^[ab]/#', '', $raw);
-			$targets[(string)$target] = true;
-		}
-
-		$targets = array_keys($targets);
-		foreach ($targets as $target) {
-			$this->forWrite(root: $root, relativePath: $target);
-		}
-
-		return $targets;
-	}//end patchTargets()
-
-	/**
 	 * Lexical refusal, then symlink-resolved containment.
 	 *
 	 * @param string $root         The workspace root.
@@ -161,18 +109,7 @@ class WorkspacePathGuard {
 	 * @throws WorkspaceException path_outside_workspace.
 	 */
 	private function contain(string $root, string $relativePath): string {
-		$path = str_replace('\\', '/', $relativePath);
-		if ($path === '' || str_contains($path, "\0") === true || str_starts_with($path, '/') === true
-			|| preg_match('/^[A-Za-z]:/', $path) === 1 || str_starts_with($path, '~') === true
-		) {
-			throw $this->outside();
-		}
-
-		$segments = array_values(array_filter(explode('/', $path), static fn (string $s): bool => $s !== '' && $s !== '.'));
-		if ($segments === [] || in_array('..', $segments, true) === true) {
-			throw $this->outside();
-		}
-
+		$segments = $this->segments(relativePath: $relativePath);
 		$realRoot = realpath($root);
 		if ($realRoot === false) {
 			throw new WorkspaceException(
@@ -213,6 +150,42 @@ class WorkspacePathGuard {
 	}//end contain()
 
 	/**
+	 * The lexical refusal: the path's segments, or a refusal for an absolute,
+	 * drive-letter, home-relative, NUL-carrying, empty or traversing path.
+	 *
+	 * @param string $relativePath The supplied path.
+	 *
+	 * @return array<int, string> The non-empty segments.
+	 *
+	 * @throws WorkspaceException path_outside_workspace.
+	 */
+	private function segments(string $relativePath): array {
+		$path = str_replace('\\', '/', $relativePath);
+		$absolute = (str_starts_with($path, '/') === true || str_starts_with($path, '~') === true || preg_match('/^[A-Za-z]:/', $path) === 1);
+		if ($path === '' || str_contains($path, "\0") === true || $absolute === true) {
+			throw $this->outside();
+		}
+
+		$segments = $this->split(path: $path);
+		if ($segments === [] || in_array('..', $segments, true) === true) {
+			throw $this->outside();
+		}
+
+		return $segments;
+	}//end segments()
+
+	/**
+	 * Split a path into its segments, dropping empty and `.` ones.
+	 *
+	 * @param string $path The path with forward slashes.
+	 *
+	 * @return array<int, string>
+	 */
+	private function split(string $path): array {
+		return array_values(array_filter(explode('/', $path), static fn (string $segment): bool => $segment !== '' && $segment !== '.'));
+	}//end split()
+
+	/**
 	 * Whether a workspace-relative path lies under the metadata directory.
 	 *
 	 * Case-insensitive, because on a case-insensitive filesystem `.GIT/config`
@@ -223,7 +196,7 @@ class WorkspacePathGuard {
 	 * @return bool
 	 */
 	private function namesMetadata(string $relativePath): bool {
-		$segments = array_values(array_filter(explode('/', str_replace('\\', '/', $relativePath)), static fn (string $s): bool => $s !== '' && $s !== '.'));
+		$segments = $this->split(path: str_replace('\\', '/', $relativePath));
 		return ($segments !== [] && strtolower($segments[0]) === self::METADATA_DIR);
 	}//end namesMetadata()
 

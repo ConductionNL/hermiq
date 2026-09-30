@@ -106,7 +106,9 @@ class GitRunner {
 		try {
 			return $this->spawn(command: $command, workingDir: $workingDir, env: $env, timeoutSeconds: $timeoutSeconds, stdin: $stdin);
 		} finally {
-			@rmdir($home);
+			if (is_dir($home) === true) {
+				rmdir($home);
+			}
 		}
 	}//end run()
 

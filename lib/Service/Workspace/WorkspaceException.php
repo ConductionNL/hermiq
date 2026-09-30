@@ -85,6 +85,8 @@ class WorkspaceException extends RuntimeException {
 	 * The stable contract error code.
 	 *
 	 * @return string The code.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function getErrorCode(): string {
 		return $this->errorCode;

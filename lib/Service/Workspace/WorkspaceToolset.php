@@ -83,17 +83,6 @@ class WorkspaceToolset {
 	}//end __construct()
 
 	/**
-	 * Whether a tool id belongs to this surface.
-	 *
-	 * @param string $toolId The tool id.
-	 *
-	 * @return bool
-	 */
-	public function handles(string $toolId): bool {
-		return in_array($toolId, WorkspaceToolDescriptors::IDS, true);
-	}//end handles()
-
-	/**
 	 * Run one workspace tool. Never throws: a refusal is an error envelope with
 	 * the contract's stable code.
 	 *
@@ -350,7 +339,10 @@ class WorkspaceToolset {
 		if ($ref === '' || preg_match('#^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$#', $ref) !== 1
 			|| str_contains($ref, '..') === true || str_ends_with($ref, '.lock') === true || str_ends_with($ref, '/') === true
 		) {
-			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'Name a branch or tag with letters, digits, dots, dashes and slashes.');
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::INVALID_ARGUMENT,
+				message: 'Name a branch or tag with letters, digits, dots, dashes and slashes.'
+			);
 		}
 
 		return $ref;

@@ -71,7 +71,7 @@ final class WorkspaceToolDescriptors {
 			'id' => self::OPEN,
 			'subject' => 'workspace',
 			'action' => 'open',
-			'reach' => ToolReachResolver::REACH_USER,
+			'reach' => ToolReachResolver::REACH_EXTERNAL,
 			'name' => 'Open a workspace',
 			'description' => 'Check out a repository for this run and return its workspace id and head commit. '
 				. 'Name the repository as owner/name; the forge host is set by the administrator.',

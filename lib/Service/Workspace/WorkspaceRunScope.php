@@ -52,6 +52,8 @@ class WorkspaceRunScope {
 	 * @param string $userId  The acting user (the run owner) from the token.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function enter(string $runId, string $agentId, string $userId): void {
 		$this->binding = ['runId' => $runId, 'agentId' => $agentId, 'userId' => $userId];
@@ -61,6 +63,8 @@ class WorkspaceRunScope {
 	 * Leave the run.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function leave(): void {
 		$this->binding = null;
@@ -72,6 +76,8 @@ class WorkspaceRunScope {
 	 * @return array{runId: string, agentId: string, userId: string}
 	 *
 	 * @throws WorkspaceException token_invalid outside a governed run.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function current(): array {
 		if ($this->binding === null || $this->binding['runId'] === '') {

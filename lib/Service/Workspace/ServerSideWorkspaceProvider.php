@@ -82,7 +82,17 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	}//end __construct()
 
 	/**
-	 * {@inheritDoc}
+	 * Materialise the run's workspace, or return the existing one.
+	 *
+	 * @param string $runKey     The run id from the verified token.
+	 * @param string $cloneUrl   The server-resolved clone URL.
+	 * @param string $repository The forge-relative slug.
+	 * @param string $ref        The branch or tag.
+	 * @param int    $depth      The history depth.
+	 *
+	 * @return array{workspaceId: string, repository: string, ref: string, headSha: string, fileCount: int}
+	 *
+	 * @throws WorkspaceException
 	 *
 	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
 	 */
@@ -107,7 +117,10 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 
 		mkdir($dir, 0700, true);
 		$result = $this->git->run(
-			arguments: ['clone', '--quiet', '--no-tags', '--single-branch', '--depth', (string)max(1, min($depth, 500)), '--branch', $ref, '--', $cloneUrl, $dir . '/repo'],
+			arguments: [
+				'clone', '--quiet', '--no-tags', '--single-branch',
+				'--depth', (string)max(1, min($depth, 500)), '--branch', $ref, '--', $cloneUrl, $dir . '/repo',
+			],
 			workingDir: $dir,
 			timeoutSeconds: self::CLONE_TIMEOUT_SECONDS
 		);
@@ -132,7 +145,15 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	}//end open()
 
 	/**
-	 * {@inheritDoc}
+	 * The opaque workspace id for a run key: an HMAC, so the run id is not recoverable.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function workspaceId(string $runKey): string {
 		$hash = hash_hmac('sha256', 'hermiq-workspace:' . $runKey, $this->config->getSystemValueString('secret', 'hermiq'));
@@ -140,7 +161,13 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	}//end workspaceId()
 
 	/**
-	 * {@inheritDoc}
+	 * The absolute repository root of the run's workspace, for the toolset only.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException
 	 *
 	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-tool-call-before-materialisation-is-refused
 	 */
@@ -159,7 +186,15 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	}//end root()
 
 	/**
-	 * {@inheritDoc}
+	 * The repository and ref the workspace was opened on.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return array{repository: string, ref: string}
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function describe(string $runKey): array {
 		$this->root(runKey: $runKey);
@@ -168,7 +203,17 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	}//end describe()
 
 	/**
-	 * {@inheritDoc}
+	 * Refuse a write that would take the workspace over its budget.
+	 *
+	 * @param string $runKey   The run id.
+	 * @param int    $addBytes The bytes the write adds.
+	 * @param int    $addFiles The files the write adds.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reserve(string $runKey, int $addBytes, int $addFiles): void {
 		$usage = $this->usage(root: $this->root(runKey: $runKey));
@@ -178,7 +223,15 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	}//end reserve()
 
 	/**
-	 * {@inheritDoc}
+	 * Remove the run's workspace.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function discard(string $runKey): void {
 		$dir = $this->dirFor(runKey: $runKey);
@@ -248,7 +301,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 			return rtrim($this->baseDir, '/');
 		}
 
-		$dataDir = rtrim($this->config->getSystemValueString('datadirectory', \OC::$SERVERROOT . '/data'), '/');
+		$dataDir = rtrim($this->config->getSystemValueString('datadirectory', '/var/www/html/data'), '/');
 		return $dataDir . '/appdata_' . $this->config->getSystemValueString('instanceid', '') . '/' . Application::APP_ID . '/workspaces';
 	}//end base()
 

@@ -52,6 +52,8 @@ interface WorkspaceProvider {
 	 * @return array{workspaceId: string, repository: string, ref: string, headSha: string, fileCount: int}
 	 *
 	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function open(string $runKey, string $cloneUrl, string $repository, string $ref, int $depth): array;
 
@@ -61,6 +63,8 @@ interface WorkspaceProvider {
 	 * @param string $runKey The run id.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function workspaceId(string $runKey): string;
 
@@ -72,6 +76,8 @@ interface WorkspaceProvider {
 	 * @return string
 	 *
 	 * @throws WorkspaceException workspace_absent when none was opened for this run.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function root(string $runKey): string;
 
@@ -83,6 +89,8 @@ interface WorkspaceProvider {
 	 * @return array{repository: string, ref: string}
 	 *
 	 * @throws WorkspaceException workspace_absent.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function describe(string $runKey): array;
 
@@ -96,6 +104,8 @@ interface WorkspaceProvider {
 	 * @return void
 	 *
 	 * @throws WorkspaceException workspace_quota.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reserve(string $runKey, int $addBytes, int $addFiles): void;
 
@@ -105,6 +115,8 @@ interface WorkspaceProvider {
 	 * @param string $runKey The run id.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function discard(string $runKey): void;
 }//end interface
