@@ -217,6 +217,29 @@ class CredentialScopeResolver {
 	}//end scopeOfCredential()
 
 	/**
+	 * The owner of ONE known credential id, or null when no such credential exists.
+	 *
+	 * The companion of {@see scopeOfCredential()} that the governed push needs: a run
+	 * that would assemble two people's personal credentials is refused, and only the
+	 * owners can tell (hermiq-runner-git-capability).
+	 *
+	 * @param string $credentialId The `credential` object UUID.
+	 *
+	 * @return string|null The owner's uid, or null.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 */
+	public function ownerOfCredential(string $credentialId): ?string {
+		foreach ($this->loadCandidates() as $candidate) {
+			if ((string)$candidate->getUuid() === $credentialId) {
+				return (string)($candidate->getOwner() ?? '');
+			}
+		}
+
+		return null;
+	}//end ownerOfCredential()
+
+	/**
 	 * The pinned credential, when the broker would admit it for this run; else a stop.
 	 *
 	 * The same tests the broker runs before it touches a secret, read from the same

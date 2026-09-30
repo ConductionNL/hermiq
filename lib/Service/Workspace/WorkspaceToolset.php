@@ -74,6 +74,7 @@ class WorkspaceToolset {
 	 * @param GitRunner                $git        The hardened git runner.
 	 * @param WorkspaceEditor          $editor     The in-workspace writes.
 	 * @param WorkspaceWriteAuthoriser $authoriser The run-scoped approval gate.
+	 * @param WorkspacePusher          $pusher     The governed push.
 	 */
 	public function __construct(
 		private readonly WorkspaceRunScope $scope,
@@ -83,6 +84,7 @@ class WorkspaceToolset {
 		private readonly GitRunner $git,
 		private readonly WorkspaceEditor $editor,
 		private readonly WorkspaceWriteAuthoriser $authoriser,
+		private readonly WorkspacePusher $pusher,
 	) {
 	}//end __construct()
 
@@ -167,9 +169,35 @@ class WorkspaceToolset {
 			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $run['runId'], root: $root, arguments: $arguments),
 			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $root, branch: $this->ref(value: (string)($arguments['branch'] ?? ''))),
 			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(root: $root, branch: $this->ref(value: (string)($arguments['branch'] ?? ''))),
+			WorkspaceToolDescriptors::PUSH => $this->push(run: $run, root: $root, arguments: $arguments),
 			default => $this->editor->commit(root: $root, ownerUid: $run['userId'], arguments: $arguments),
 		};
 	}//end dispatchWrite()
+
+	/**
+	 * `push`: the pinned repository must be the run's own; the credential id stays out of the result.
+	 *
+	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
+	 * @param string                                               $root      The workspace root.
+	 * @param array<string, mixed>                                 $arguments `repository`, `branch`.
+	 *
+	 * @return array{repository: string, branch: string, sha: string}
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-failed-push-does-not-leak-the-credential
+	 */
+	private function push(array $run, string $root, array $arguments): array {
+		$result = $this->pusher->push(
+			run: $run,
+			root: $root,
+			repository: $this->provider->describe(runKey: $run['runId'])['repository'],
+			branch: $this->ref(value: (string)($arguments['branch'] ?? '')),
+			arguments: $arguments
+		);
+
+		return ['repository' => $result['repository'], 'branch' => $result['branch'], 'sha' => $result['sha']];
+	}//end push()
 
 	/**
 	 * Refuse a workspace id that is not the caller's own.
