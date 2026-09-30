@@ -59,8 +59,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN an argument-scoped push grant pinning a repository and constraining a branch WHEN a branch outside the constraint is pushed THEN an argument-not-permitted error is returned before any network operation
   - GIVEN an argument-scoped grant over a destructive tool WHEN classification is resolved THEN it remains destructive and the approval requirement still applies
   - GIVEN an agent granted only inspection and read tools WHEN it attempts a write or push THEN the attempt is refused for want of a resolving grant while inspection keeps working
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: Approval gate wiring and run-scoped pre-authorisation
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form`
@@ -81,8 +81,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN a push the forge refuses WHEN the failure is returned THEN it carries a stable error code and a redacted message with no credential, credentialed remote URL or raw transport output
   - GIVEN a model credential and a forge credential owned by different users WHEN a push is attempted THEN a credential-scope-refused error is returned rather than a warning
   - GIVEN a run whose agent holds no resolving grant needing the forge WHEN egress to the forge host is attempted THEN the single policy source denies it and the denial is returned as an egress-denied code, not a timeout
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 8: Workspace write audit records and denylist-integrity regression guard
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval`
@@ -92,13 +92,13 @@ any task — task 8 exists to keep it that way.
   - GIVEN a write refused for a confinement, grant or approval reason WHEN the trail is read THEN the refusal and its reason are recorded
   - GIVEN any workspace audit record WHEN it is read THEN it contains no credential, filesystem path or internal host name, and no workspace is attached
   - GIVEN the runner's disallowed built-in tool list WHEN the guard runs THEN every shell and filesystem entry is still present and the tool-search built-in is still absent from it
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Verification
-- [ ] All tasks checked off and every acceptance criterion demonstrated
-- [ ] `openspec validate hermiq-runner-git-capability --strict` passes
-- [ ] The bounded milestone runs end to end: one small code-editing task materialises a workspace, edits a file, commits and pushes under an argument-scoped grant, with turn count and wall clock recorded
+- [x] All tasks checked off and every acceptance criterion demonstrated (unit tests named in the PR bodies of #1024, part 2 and part 3)
+- [x] `openspec validate hermiq-runner-git-capability --strict` passes
+- [ ] The bounded milestone runs end to end: one small code-editing task materialises a workspace, edits a file, commits and pushes under an argument-scoped grant, with turn count and wall clock recorded. NOT RUN at archive (2026-09-30): it needs a live runner, a forge and a personal forge credential. The end-to-end path is proven in unit tests against real git (WorkspaceToolsetWriteTest pushes into a file:// forge); the live run is an open follow-up.
 
 ## Quality checklist
 

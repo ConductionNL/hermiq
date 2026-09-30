@@ -2578,15 +2578,17 @@
 			"area": "tools",
 			"name": "Let an agent work in a git repository: read, change and commit code.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/changes/hermiq-runner-git-capability/tasks.md: all 8 tasks unchecked ('[x]' count = 0). find lib -iname '*workspace*' and grep -rn 'workspace\\.' across lib/ and exapp/ return nothing; no WorkspaceProvider/WorkspaceToolset class exists, only contract.md/design.md/tasks.md.",
-				"change": "openspec/changes/hermiq-runner-git-capability"
+				"evidence": "lib/Service/Workspace/: WorkspaceToolset serves 13 governed MCP tools (lib/Mcp/WorkspaceToolDescriptors.php) over a run-scoped server-side checkout (ServerSideWorkspaceProvider, WorkspacePathGuard). WorkspaceEditor writes, patches, branches and commits as the run owner; WorkspaceWriteAuthoriser requires a run-scoped Approval (sourceType workspace-run); WorkspacePusher pushes with the owner's personal forge credential (ForgeCredentialResolver) only from a grant pinning repository and branch (RepoEffectingGrants); WorkspaceAuditor writes a workspace-write audit record per write. Proven against real git in tests/Unit/Service/Workspace/WorkspaceToolsetWriteTest.php (push into a file:// forge).",
+				"reachedOn": "Agent tool list: grant hermiq.workspaceOpen and friends; the agent uses them in a governed CLI run",
+				"change": "openspec/changes/archive/2026-09-30-hermiq-runner-git-capability",
+				"readOn": "2026-09-30"
 			},
 			"reachedOn": "nothing",
-			"note": "Fully specified as a workspace.* MCP tool contract, but zero implementing code exists. corrections round 9 (2026-09-28): built.change names openspec/changes/hermiq-runner-git-capability, open on development at bfa5e5d6 with none of its 8 tasks started, whose proposal specifies governed workspace.* git and file tools (open, read, write, commit, push) for an agent run; source: the corrections-9 list of specified rows that named no change.",
+			"note": "Built 2026-09-30 by hermiq-runner-git-capability (stack #1024, part 2, part 3); the live end-to-end milestone with a real forge is not yet run. History: corrections round 9 (2026-09-28): built.change names openspec/changes/hermiq-runner-git-capability, open on development at bfa5e5d6 with none of its 8 tasks started, whose proposal specifies governed workspace.* git and file tools (open, read, write, commit, push) for an agent run; source: the corrections-9 list of specified rows that named no change.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "hermiq-runner-git-capability",

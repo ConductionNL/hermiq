@@ -41,7 +41,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 final class ApprovalServiceRunScopedTest extends TestCase {
 
@@ -71,7 +71,7 @@ final class ApprovalServiceRunScopedTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
 	 */
 	public function testTheRequestIsAValidApprovalPinningRunRepositoryAndRef(): void {
 		$result = $this->service(agentOwner: 'alice')->requestRunPreAuthorisation(
@@ -97,7 +97,7 @@ final class ApprovalServiceRunScopedTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
 	 */
 	public function testAnUnownedAgentAsksTheAdminGroup(): void {
 		$this->service(agentOwner: '')->requestRunPreAuthorisation(
@@ -118,7 +118,7 @@ final class ApprovalServiceRunScopedTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
 	 */
 	public function testAnApprovedDecisionNamesItsDeciderAndWins(): void {
 		$service = $this->service(agentOwner: 'alice');
@@ -138,7 +138,7 @@ final class ApprovalServiceRunScopedTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
 	 */
 	public function testAnotherRunIsNotCovered(): void {
 		$service = $this->service(agentOwner: 'alice');
@@ -159,7 +159,7 @@ final class ApprovalServiceRunScopedTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
 	 */
 	public function testADenialOutranksAPendingRequestAndOtherSourcesDoNotCount(): void {
 		$service = $this->service(agentOwner: 'alice');

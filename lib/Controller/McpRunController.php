@@ -63,6 +63,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
@@ -517,6 +518,8 @@ class McpRunController extends Controller {
 	 * @param ObjectEntity|null $agent The agent object, or null when unresolved.
 	 *
 	 * @return array<int, array<string, mixed>> The resolved descriptors.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	private function resolvedDescriptorsFor(?ObjectEntity $agent): array {
 		if ($agent === null) {
@@ -529,7 +532,12 @@ class McpRunController extends Controller {
 		}
 
 		$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
-		$resolvedIds = $this->grantResolver->resolve(grants: $grants, catalog: $catalog);
+		// Hermiq-runner-git-capability: a repo-effecting tool resolves only from a
+		// grant that pins the repository and constrains the branch.
+		$resolvedIds = RepoEffectingGrants::filterIds(
+			resolvedIds: $this->grantResolver->resolve(grants: $grants, catalog: $catalog),
+			constraints: $this->grantResolver->argumentConstraints(grants: $grants)
+		);
 		$allowed = array_flip($resolvedIds);
 
 		$out = [];

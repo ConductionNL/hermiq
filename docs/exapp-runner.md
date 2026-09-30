@@ -157,6 +157,38 @@ concluding "blocked".
 `cap_drop: ALL`, `no-new-privileges`, non-root (`ubuntu`, uid 1000), `mem_limit`
 so one model load cannot take the host down.
 
+## Letting an agent change code in a repository
+
+An agent in a governed run can check out a repository, change files, commit and push. It never gets a shell for this. The runner's denylist stays as it is. The agent calls named workspace tools, and Nextcloud does the git work on its own side.
+
+### What you set
+
+- `workspace_forge_base_url`: the forge the agent may use, for example `https://github.com`. The agent names a repository as `owner/name` and never sees a URL.
+- `workspace_forge_provider`: the credential provider of a push (default `github`).
+- Each person who lets an agent push stores a personal, inject-only forge credential in the credential broker, with `hermiq` in its allowed apps.
+
+### What you grant, per agent
+
+Reading, editing and pushing are three separate grants in the agent's tool list:
+
+- read: `hermiq.workspaceOpen`, `hermiq.workspaceStatus`, `hermiq.workspaceDiff`, `hermiq.workspaceLog`, `hermiq.workspaceListFiles`, `hermiq.workspaceReadFile`
+- edit: `hermiq.workspaceWriteFile`, `hermiq.workspaceDeleteFile`, `hermiq.workspaceApplyPatch`, `hermiq.workspaceCreateBranch`, `hermiq.workspaceCheckoutBranch`, `hermiq.workspaceCommit`
+- push: `hermiq.workspacePush?repository=owner/name&branch=in:feature-a,feature-b`
+
+The push grant must pin one repository and name the branches. A bare `hermiq.workspacePush` grant does nothing. The tool catalogue then shows it as not granted, so you see the mistake before a run needs it.
+
+### What a person approves
+
+The first edit in a run asks for approval. The request goes to the agent's owner, or to the `admin` group when the agent has none. It names the repository and the starting branch. Once approved, it covers the rest of that run and no other run. A refusal stops every edit in that run. No setting skips this step.
+
+### Who a commit and a push belong to
+
+A commit is authored by the person who owns the run. The agent cannot pass a name or e-mail address. A push uses that person's own forge credential. Nextcloud refuses the push when the run's model credential belongs to someone else. A run without an owner can read but cannot commit or push.
+
+### What is recorded
+
+Every edit, commit and push leaves a `workspace-write` entry in the agent's audit trail. The entry names the run, the tool, the owner, the credential a push used, the approval, the arguments and the outcome. A refused call is recorded with its reason. File contents, secrets and server paths never enter the record.
+
 ## Bringing one up
 
 ### 1. Build

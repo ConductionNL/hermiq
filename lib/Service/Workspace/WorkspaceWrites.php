@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 /**
  * Dispatches the write-shaped workspace tools behind the approval gate.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 class WorkspaceWrites {
 
@@ -45,6 +45,8 @@ class WorkspaceWrites {
 	 * @param WorkspacePathGuard       $guard      Branch name validation.
 	 * @param WorkspaceEditor          $editor     The in-workspace writes.
 	 * @param WorkspaceWriteAuthoriser $authoriser The run-scoped approval gate.
+	 * @param WorkspacePusher          $pusher     The governed push.
+	 * @param WorkspaceAuditor         $auditor    One audit record per write-shaped call.
 	 */
 	public function __construct(
 		private readonly WorkspaceRunScope $scope,
@@ -52,6 +54,8 @@ class WorkspaceWrites {
 		private readonly WorkspacePathGuard $guard,
 		private readonly WorkspaceEditor $editor,
 		private readonly WorkspaceWriteAuthoriser $authoriser,
+		private readonly WorkspacePusher $pusher,
+		private readonly WorkspaceAuditor $auditor,
 	) {
 	}//end __construct()
 
@@ -63,7 +67,7 @@ class WorkspaceWrites {
 	 *
 	 * @return array<string, mixed> The result, or `['error' => ['code', 'message']]`.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
 	 */
 	public function invoke(string $toolId, array $arguments): array {
 		try {
@@ -78,17 +82,48 @@ class WorkspaceWrites {
 			}
 
 			$root = $this->provider->root(runKey: $run['runId']);
-			$this->authoriser->assertAuthorised(
-				run: $run,
-				toolId: $toolId,
-				workspace: $this->provider->describe(runKey: $run['runId'])
-			);
 
-			return $this->dispatch(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
+			return $this->governed(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
 		} catch (WorkspaceException $e) {
 			return ['error' => ['code' => $e->getErrorCode(), 'message' => $e->getMessage()]];
 		}
 	}//end invoke()
+
+	/**
+	 * The approval gate first, before any argument is looked at, then the write;
+	 * either way one audit record. The credential id a push used goes into the
+	 * record and never into the result.
+	 *
+	 * @param string                                               $toolId    The tool id.
+	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
+	 * @param string                                               $root      The workspace root.
+	 * @param array<string, mixed>                                 $arguments The tool arguments.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
+	 */
+	private function governed(string $toolId, array $run, string $root, array $arguments): array {
+		$approval = null;
+		try {
+			$approval = $this->authoriser->assertAuthorised(
+				run: $run,
+				toolId: $toolId,
+				workspace: $this->provider->describe(runKey: $run['runId'])
+			);
+			$result = $this->dispatch(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
+		} catch (WorkspaceException $e) {
+			$this->auditor->record(run: $run, toolId: $toolId, arguments: $arguments, approval: $approval, result: null, outcome: $e->getErrorCode());
+			throw $e;
+		}
+
+		$this->auditor->record(run: $run, toolId: $toolId, arguments: $arguments, approval: $approval, result: $result, outcome: 'ok');
+		unset($result['credentialId']);
+
+		return $result;
+	}//end governed()
 
 	/**
 	 * Dispatch a write-shaped tool that has passed the approval gate.
@@ -102,7 +137,7 @@ class WorkspaceWrites {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
 	 */
 	private function dispatch(string $toolId, array $run, string $root, array $arguments): array {
 		return match ($toolId) {
@@ -111,6 +146,13 @@ class WorkspaceWrites {
 			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $run['runId'], root: $root, arguments: $arguments),
 			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $root, branch: $this->branch(arguments: $arguments)),
 			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(root: $root, branch: $this->branch(arguments: $arguments)),
+			WorkspaceToolDescriptors::PUSH => $this->pusher->push(
+				run: $run,
+				root: $root,
+				repository: $this->provider->describe(runKey: $run['runId'])['repository'],
+				branch: $this->branch(arguments: $arguments),
+				arguments: $arguments
+			),
 			default => $this->editor->commit(root: $root, ownerUid: $run['userId'], arguments: $arguments),
 		};
 	}//end dispatch()

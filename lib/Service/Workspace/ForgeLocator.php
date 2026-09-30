@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-repository-is-named-by-slug-never-by-url
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-repository-is-named-by-slug-never-by-url
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use OCP\IAppConfig;
 /**
  * Resolves the forge URL for a slug and asks the egress policy about it.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-forge-egress-is-authorised-per-run-by-the-single-policy-source
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-forge-egress-is-authorised-per-run-by-the-single-policy-source
  */
 class ForgeLocator {
 
@@ -79,7 +79,7 @@ class ForgeLocator {
 	 *
 	 * @throws WorkspaceException invalid_argument.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-repository-is-named-by-slug-never-by-url
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-repository-is-named-by-slug-never-by-url
 	 */
 	public function slug(string $repository): string {
 		$slug = trim($repository);
@@ -102,7 +102,7 @@ class ForgeLocator {
 	 *
 	 * @throws WorkspaceException invalid_argument or egress_denied.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-policy-denial-is-distinguishable-from-an-outage
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-policy-denial-is-distinguishable-from-an-outage
 	 */
 	public function cloneUrl(string $repository): string {
 		$slug = $this->slug(repository: $repository);

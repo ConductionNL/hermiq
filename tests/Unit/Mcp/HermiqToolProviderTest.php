@@ -262,10 +262,10 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.listAvailableTools/requestToolAccess
 		//   (tool-discovery-and-access-requests),
 		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile, and the write tools
-		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit
+		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit/Push
 		//   (hermiq-runner-git-capability),
 		// all registered through this same provider.
-		$this->assertCount(36, $tools);
+		$this->assertCount(37, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -355,10 +355,11 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.workspaceCheckoutBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
 			'hermiq.workspaceCommit' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(36, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(37, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -439,6 +440,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceCheckoutBranch' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceCommit' => ToolReachResolver::REACH_USER,
+			'hermiq.workspacePush' => ToolReachResolver::REACH_EXTERNAL,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -534,6 +536,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ['workspace', 'branch'],
 			'hermiq.workspaceCheckoutBranch' => ['workspace', 'checkout'],
 			'hermiq.workspaceCommit' => ['workspace', 'commit'],
+			'hermiq.workspacePush' => ['workspace', 'push'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

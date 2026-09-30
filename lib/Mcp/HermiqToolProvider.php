@@ -667,7 +667,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return class-string<WorkspaceWrites>|class-string<WorkspaceToolset>
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
 	 */
 	private function workspaceHalf(string $toolId): string {
 		if (in_array($toolId, WorkspaceToolDescriptors::WRITE_IDS, true) === true) {

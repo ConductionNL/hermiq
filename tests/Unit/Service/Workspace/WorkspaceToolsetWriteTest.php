@@ -25,27 +25,36 @@ namespace OCA\Hermiq\Tests\Unit\Service\Workspace;
 
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
+use OCA\Hermiq\Service\Workspace\ForgeCredentialResolver;
 use OCA\Hermiq\Service\Workspace\ForgeLocator;
 use OCA\Hermiq\Service\Workspace\GitRunner;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
+use OCA\Hermiq\Service\Workspace\WorkspaceAuditor;
 use OCA\Hermiq\Service\Workspace\WorkspaceEditor;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspacePathGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
+use OCA\Hermiq\Service\Workspace\WorkspacePusher;
 use OCA\Hermiq\Service\Workspace\WorkspaceWriteAuthoriser;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
+use OCA\OpenRegister\Db\AuditTrail;
+use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUser;
 use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 final class WorkspaceToolsetWriteTest extends TestCase {
 
@@ -68,6 +77,20 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 * @var array<int, string>
 	 */
 	private array $requested = [];
+
+	/**
+	 * Forge credentials the push resolved.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $forgeCredentialsUsed = [];
+
+	/**
+	 * Audit trail entries written.
+	 *
+	 * @var array<int, array{action: string, agent: string, context: array<string, mixed>}>
+	 */
+	private array $audits = [];
 
 	protected function setUp(): void {
 		$this->base = sys_get_temp_dir() . '/hermiq-wsw-' . bin2hex(random_bytes(4));
@@ -198,6 +221,162 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	}//end testAPatchThatRenamesOrLinksIsRejected()
 
 	/**
+	 * An approved run pushes its branch on the governed side; the result carries no credential and no path.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
+	 */
+	public function testAnApprovedRunPushesItsBranch(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$this->approve(runId: 'run-a');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::CREATE_BRANCH, arguments: ['branch' => 'feature-a']);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::WRITE_FILE, arguments: ['path' => 'lib/B.php', 'content' => "<?php\n"]);
+		$commit = $toolset->invoke(toolId: WorkspaceToolDescriptors::COMMIT, arguments: ['message' => 'feat: add B']);
+
+		$push = $toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'example-org/example-app', 'branch' => 'feature-a']);
+
+		self::assertSame(['repository' => 'example-org/example-app', 'branch' => 'feature-a', 'sha' => $commit['sha']], $push, (string)json_encode($push));
+		exec('git -C ' . escapeshellarg($this->base . '/forge/example-org/example-app.git') . ' rev-parse refs/heads/feature-a', $out);
+		self::assertSame($commit['sha'], $out[0] ?? null, 'The branch arrived on the forge.');
+		self::assertSame(['forge-alice'], $this->forgeCredentialsUsed);
+	}//end testAnApprovedRunPushesItsBranch()
+
+	/**
+	 * A push the forge refuses comes back as push_rejected with a fixed sentence: no URL, no path, no transport output.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-failed-push-does-not-leak-the-credential
+	 */
+	public function testARefusedPushIsRedacted(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$this->approve(runId: 'run-a');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::WRITE_FILE, arguments: ['path' => 'lib/B.php', 'content' => "<?php\n"]);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::COMMIT, arguments: ['message' => 'feat: add B']);
+
+		// The forge has `development` checked out, so git refuses to update it.
+		$push = $toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'example-org/example-app', 'branch' => 'development']);
+
+		self::assertSame(WorkspaceException::PUSH_REJECTED, $push['error']['code'] ?? null);
+		$encoded = (string)json_encode($push);
+		foreach ([$this->base, 'file:', 'secret-of', 'denyCurrentBranch', 'remote:', '.git'] as $leak) {
+			self::assertStringNotContainsString($leak, $encoded);
+		}
+	}//end testARefusedPushIsRedacted()
+
+	/**
+	 * The push needs the run's approval and names the repository the run opened.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
+	 */
+	public function testAPushNeedsTheApprovalAndTheRunsOwnRepository(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::CREATE_BRANCH, arguments: ['branch' => 'feature-a']);
+		$unapproved = $toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'example-org/example-app', 'branch' => 'feature-a']);
+		self::assertSame(WorkspaceException::APPROVAL_REQUIRED, $unapproved['error']['code'] ?? null);
+
+		$this->approve(runId: 'run-a');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::CREATE_BRANCH, arguments: ['branch' => 'feature-a']);
+		$other = $toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'other-org/other-app', 'branch' => 'feature-a']);
+		self::assertSame(WorkspaceException::INVALID_ARGUMENT, $other['error']['code'] ?? null);
+
+		exec('git -C ' . escapeshellarg($this->base . '/forge/example-org/example-app.git') . ' branch --list feature-a', $out);
+		self::assertSame([], $out, 'Nothing reached the forge.');
+		self::assertSame([], $this->forgeCredentialsUsed, 'No credential was fetched for a refused push.');
+	}//end testAPushNeedsTheApprovalAndTheRunsOwnRepository()
+
+	/**
+	 * A push leaves a record naming run, agent, tool, owner, credential, approval, arguments and outcome.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-push-produces-a-complete-attribution-record
+	 */
+	public function testAPushLeavesACompleteAttributionRecord(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$this->approve(runId: 'run-a');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::CREATE_BRANCH, arguments: ['branch' => 'feature-a']);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::WRITE_FILE, arguments: ['path' => 'lib/B.php', 'content' => "<?php // body\n"]);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::COMMIT, arguments: ['message' => 'feat: add B']);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'example-org/example-app', 'branch' => 'feature-a']);
+
+		$push = $this->auditFor(toolId: WorkspaceToolDescriptors::PUSH);
+		self::assertSame('workspace-write', $push['action']);
+		self::assertSame('agent-1', $push['agent']);
+		$context = $push['context'];
+		self::assertSame('run-a', $context['runId']);
+		self::assertSame('agent-1', $context['agentId']);
+		self::assertSame('destructive', $context['classification']);
+		self::assertSame('alice', $context['owner']);
+		self::assertSame('forge-alice', $context['credentialId']);
+		self::assertSame('appr-run-a', $context['approvalId']);
+		self::assertSame('carol', $context['decidedBy']);
+		self::assertSame(['repository' => 'example-org/example-app', 'branch' => 'feature-a'], $context['arguments']);
+		self::assertSame('ok', $context['outcome']);
+		self::assertSame(4, count($this->audits), 'One record per write-shaped call.');
+	}//end testAPushLeavesACompleteAttributionRecord()
+
+	/**
+	 * A refused write is recorded with its reason, not omitted.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-refused-write-is-audited-too
+	 */
+	public function testARefusedWriteIsAuditedToo(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::WRITE_FILE, arguments: ['path' => 'lib/B.php', 'content' => 'x']);
+		$this->approve(runId: 'run-a');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::WRITE_FILE, arguments: ['path' => '.git/hooks/pre-commit', 'content' => 'x']);
+
+		self::assertSame([WorkspaceException::APPROVAL_REQUIRED, WorkspaceException::PATH_FORBIDDEN], array_map(static fn (array $a): string => $a['context']['outcome'], $this->audits));
+		self::assertSame('', $this->audits[0]['context']['approvalId'], 'No approval permitted the first call.');
+		self::assertSame('.git/hooks/pre-commit', $this->audits[1]['context']['arguments']['path']);
+	}//end testARefusedWriteIsAuditedToo()
+
+	/**
+	 * Audit records carry no credential, no filesystem path, no host and no file content; reads are not audited.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-audit-records-carry-no-secrets-or-paths
+	 */
+	public function testAuditRecordsCarryNoSecretOrPath(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$this->approve(runId: 'run-a');
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::WRITE_FILE, arguments: ['path' => 'lib/B.php', 'content' => 'SECRET-BODY']);
+		$patch = "--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-hello\n+PATCH-BODY\n";
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::APPLY_PATCH, arguments: ['patch' => $patch]);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::COMMIT, arguments: ['message' => 'x']);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'example-org/example-app', 'branch' => 'development']);
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::STATUS, arguments: []);
+
+		self::assertCount(4, $this->audits, 'Reads are not write-audited.');
+		$encoded = (string)json_encode($this->audits);
+		foreach ([$this->base, 'file:', 'secret-of', 'SECRET-BODY', 'PATCH-BODY', sys_get_temp_dir()] as $leak) {
+			self::assertStringNotContainsString($leak, $encoded);
+		}
+
+		self::assertSame(['README.md'], $this->auditFor(toolId: WorkspaceToolDescriptors::APPLY_PATCH)['context']['arguments']['files']);
+	}//end testAuditRecordsCarryNoSecretOrPath()
+
+	/**
+	 * The one audit record for a tool.
+	 *
+	 * @param string $toolId The tool id.
+	 *
+	 * @return array{action: string, agent: string, context: array<string, mixed>}
+	 */
+	private function auditFor(string $toolId): array {
+		$found = array_values(array_filter($this->audits, static fn (array $a): bool => $a['context']['tool'] === $toolId));
+		self::assertCount(1, $found, $toolId);
+		return $found[0];
+	}//end auditFor()
+
+	/**
 	 * A toolset whose run has opened the example repository.
 	 *
 	 * @param string $runId The run id.
@@ -272,23 +451,45 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 			}
 		);
 
+		$credentials = $this->createMock(ForgeCredentialResolver::class);
+		$credentials->method('resolve')->willReturnCallback(
+			function (string $ownerUid): array {
+				$this->forgeCredentialsUsed[] = 'forge-' . $ownerUid;
+				return ['credentialId' => 'forge-' . $ownerUid, 'secret' => 'secret-of-' . $ownerUid];
+			}
+		);
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$agent->setObject(['name' => 'Coder']);
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturn($agent);
+		$trail = $this->createMock(AuditTrailMapper::class);
+		$trail->method('createAuditTrailEntry')->willReturnCallback(
+			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
+				$this->audits[] = ['action' => $action, 'agent' => (string)$object->getUuid(), 'context' => $context];
+				return new AuditTrail();
+			}
+		);
+		$forge = new ForgeLocator(appConfig: $appConfig, guard: $egress, settings: $settings);
+
 		$git = new GitRunner();
 		$guard = new WorkspacePathGuard();
 		$this->provider = new ServerSideWorkspaceProvider(config: $config, appConfig: $appConfig, git: $git, time: $time, baseDir: $this->base . '/workspaces');
 
-		$reads = new WorkspaceToolset(
-			scope: $this->scope,
-			provider: $this->provider,
-			guard: $guard,
-			forge: new ForgeLocator(appConfig: $appConfig, guard: $egress, settings: $settings),
-			git: $git
-		);
+		$reads = new WorkspaceToolset(scope: $this->scope, provider: $this->provider, guard: $guard, forge: $forge, git: $git);
 		$writes = new WorkspaceWrites(
 			scope: $this->scope,
 			provider: $this->provider,
 			guard: $guard,
 			editor: new WorkspaceEditor(provider: $this->provider, guard: $guard, git: $git, userManager: $users),
-			authoriser: new WorkspaceWriteAuthoriser(approvals: $approvals)
+			authoriser: new WorkspaceWriteAuthoriser(approvals: $approvals),
+			pusher: new WorkspacePusher(forge: $forge, credentials: $credentials, git: $git, objects: $objects),
+			auditor: new WorkspaceAuditor(
+				objects: $objects,
+				auditTrail: $trail,
+				redaction: new RedactionService($this->createMock(IConfig::class)),
+				logger: new NullLogger()
+			)
 		);
 
 		// Routed exactly as HermiqToolProvider routes (HermiqToolProviderWorkspaceRoutingTest).

@@ -25,6 +25,7 @@ use OCA\Hermiq\Controller\EgressAuthorizeController;
 use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
+use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
@@ -99,6 +100,13 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end throttlerStub()
 
 	/**
+	 * Whether the run's agent holds a resolving grant for a forge tool.
+	 *
+	 * @var bool
+	 */
+	private bool $forgeGranted = false;
+
+	/**
 	 * A guard double whose DNS resolution is deterministic (a public address), so allow/deny
 	 * turns purely on the allowlist/denylist without a real network.
 	 *
@@ -152,7 +160,11 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		// arguments to user-defined functions. Adding $throttler as a real 5th
 		// parameter made that stray argument bind, so it now has to be the
 		// thing the parent actually expects.
-		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $this->mcpEndpointStub(), $body) extends EgressAuthorizeController {
+		$forge = $this->createMock(ForgeEgressPolicy::class);
+		$forge->method('isForgeHost')->willReturnCallback(static fn (string $host): bool => $host === 'github.com');
+		$forge->method('permits')->willReturnCallback(fn (string $agentId): bool => $this->forgeGranted);
+
+		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $this->mcpEndpointStub(), $forge, $body) extends EgressAuthorizeController {
 			public function __construct(
 				$request,
 				$tokens,
@@ -160,9 +172,10 @@ final class EgressAuthorizeControllerTest extends TestCase {
 				$settings,
 				$throttler,
 				$mcpEndpoint,
+				$forge,
 				private string $rawBody,
 			) {
-				parent::__construct($request, $tokens, $guard, $settings, $throttler, $mcpEndpoint);
+				parent::__construct($request, $tokens, $guard, $settings, $throttler, $mcpEndpoint, $forge);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;
@@ -432,6 +445,31 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		$this->assertNull($data['code']);
 
 	}//end testAllowlistedHostIsAllowed()
+
+	/**
+	 * The forge host is denied, as egress_denied, to a run whose agent holds no forge tool grant,
+	 * even when the allowlist names it; with the grant the ordinary policy decides.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 */
+	public function testTheForgeHostIsDeniedWithoutTheGrant(): void {
+		$call = fn (): array => $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => ['github.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"github.com","port":443}'
+		)->authorize()->getData();
+
+		$denied = $call();
+		$this->assertFalse($denied['allowed']);
+		$this->assertSame('egress_denied', $denied['code']);
+
+		$this->forgeGranted = true;
+		$this->assertTrue($call()['allowed']);
+
+	}//end testTheForgeHostIsDeniedWithoutTheGrant()
 
 	/**
 	 * A denylisted host is refused, proving the deny path returns the guard's verdict verbatim.

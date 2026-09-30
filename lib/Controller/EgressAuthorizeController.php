@@ -51,6 +51,7 @@ use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
+use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -92,6 +93,9 @@ class EgressAuthorizeController extends Controller {
 	 *                                         web-research SSRF policy cannot judge,
 	 *                                         because it is the control plane rather
 	 *                                         than an internet host.
+	 * @param ForgeEgressPolicy   $forgePolicy The per-run rule for the forge host: reachable
+	 *                                         only for a run whose agent holds a resolving
+	 *                                         grant for a workspace tool that needs it.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -100,6 +104,7 @@ class EgressAuthorizeController extends Controller {
 		private readonly WebResearchSettingsHandler $settingsHandler,
 		private readonly IThrottler $throttler,
 		private readonly GovernedMcpEndpoint $mcpEndpoint,
+		private readonly ForgeEgressPolicy $forgePolicy,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -140,6 +145,21 @@ class EgressAuthorizeController extends Controller {
 		$port = (int)($body['port'] ?? 0);
 		if ($host === '' || $port <= 0) {
 			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+		}
+
+		// Hermiq-runner-git-capability: the forge is reachable only for a run whose
+		// agent holds a resolving grant for a tool that needs it, decided from the
+		// run's own token binding. A denial is a policy code, never a timeout.
+		if ($this->forgePolicy->isForgeHost(host: $host) === true
+			&& $this->forgePolicy->permits(agentId: (string)$binding['agentId']) === false
+		) {
+			return new JSONResponse(
+				[
+					'allowed' => false,
+					'code' => 'egress_denied',
+					'message' => 'This run holds no grant for a workspace tool that needs the forge.',
+				]
+			);
 		}
 
 		// The ONE destination this policy cannot judge: Hermiq's own governed MCP
