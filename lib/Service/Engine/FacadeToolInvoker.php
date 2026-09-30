@@ -232,6 +232,8 @@ class FacadeToolInvoker {
 	private const ARTEFACT_WRITE_TOOL_IDS = [
 		'hermiq.createCalendarEvent',
 		'hermiq.upsertContact',
+		'hermiq.createTask',
+		'hermiq.completeTask',
 	];
 
 	/**

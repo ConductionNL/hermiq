@@ -101,6 +101,7 @@ use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\Graph\GraphTools;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -657,9 +658,37 @@ class HermiqToolProvider implements IMcpToolProvider {
 			NcNativeWriteToolDescriptors::ALL,
 			NcMailToolDescriptors::ALL,
 			WorkspaceToolDescriptors::ALL,
-			GraphToolDescriptors::ALL
+			GraphToolDescriptors::ALL,
+			$this->taskDescriptors()
 		);
 	}//end getTools()
+
+	/**
+	 * The task tool descriptors this instance can honour: completeTask only when a
+	 * completed task can be written back (tools-nextcloud-tasks).
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/changes/tools-nextcloud-tasks/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 */
+	private function taskDescriptors(): array {
+		try {
+			$tasks = $this->container->get(TaskWriteService::class);
+		} catch (Throwable) {
+			$tasks = null;
+		}
+
+		if ($tasks instanceof TaskWriteService && $tasks->canComplete() === true) {
+			return NcTaskToolDescriptors::ALL;
+		}
+
+		return array_values(
+			array_filter(
+				NcTaskToolDescriptors::ALL,
+				static fn (array $tool): bool => $tool['id'] !== NcTaskToolDescriptors::COMPLETE_TASK
+			)
+		);
+	}//end taskDescriptors()
 
 	/**
 	 * The half of the workspace surface that serves a tool id: the write-shaped
@@ -699,6 +728,10 @@ class HermiqToolProvider implements IMcpToolProvider {
 	private function routed(string $toolId, string $uid, array $arguments): ?array {
 		if (in_array($toolId, GraphToolDescriptors::IDS, true) === true) {
 			return $this->container->get(GraphTools::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+		}
+
+		if (in_array($toolId, NcTaskToolDescriptors::IDS, true) === true) {
+			return $this->container->get(TaskWriteService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
 		}
 
 		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
