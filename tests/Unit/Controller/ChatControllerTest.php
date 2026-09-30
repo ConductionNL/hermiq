@@ -108,7 +108,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return ChatController
 	 */
-	private function controller(): ChatController {
+	private function controller(?\OCA\Hermiq\Service\Literacy\LiteracyRequirement $literacy = null): ChatController {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
@@ -127,7 +127,8 @@ class ChatControllerTest extends TestCase {
 			runStepBus: $this->createMock(RunStepBus::class),
 			providerFactory: $this->createMock(ProviderFactory::class),
 			accessRequests: $this->createMock(ToolAccessRequestService::class),
-			logger: $this->logger
+			logger: $this->logger,
+			literacy: $literacy
 		);
 
 	}//end controller()
@@ -330,6 +331,32 @@ class ChatControllerTest extends TestCase {
 		$this->assertSame('pinned_credential_refused', $response->getData()['errorCode']);
 
 	}//end testARefusedPinnedCredentialTellsThePersonWhy()
+
+	/**
+	 * compliance-ai-literacy: with the course required and not done, the message
+	 * is refused before the engine runs, with the course message and a link.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testAPersonWhoSkippedTheCourseIsSentToIt(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->expects($this->never())->method('processMessage');
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('assertMayUseAgents')->willThrowException(new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException());
+
+		$response = $this->controller(literacy: $literacy)->sendMessage();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('Finish the short course Working with AI first.', $response->getData()['message']);
+		$this->assertSame('ai_literacy_required', $response->getData()['errorCode']);
+		$this->assertStringEndsWith('/apps/hermiq/ai-literacy', $response->getData()['courseUrl']);
+
+	}//end testAPersonWhoSkippedTheCourseIsSentToIt()
 
 	/**
 	 * A run refused by the data-use check tells the chat user why, in plain words.

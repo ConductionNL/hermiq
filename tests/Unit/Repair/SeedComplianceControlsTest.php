@@ -144,7 +144,7 @@ class SeedComplianceControlsTest extends TestCase {
 	}//end container()
 
 	/**
-	 * A fresh install seeds all 3 ControlFramework rows and all 10 Control rows.
+	 * A fresh install seeds all 3 ControlFramework rows and all 11 Control rows (compliance-ai-literacy added art.4).
 	 *
 	 * @return void
 	 *
@@ -164,7 +164,7 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		$this->assertCount(3, $frameworks, 'EU AI Act, ISO/IEC 42001, and NIST AI RMF must all be seeded.');
-		$this->assertCount(10, $controls, 'All 10 seeded controls must be created.');
+		$this->assertCount(11, $controls, 'All 11 seeded controls must be created.');
 
 		$slugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertSame(['eu-ai-act', 'iso-42001', 'nist-ai-rmf'], array_values($slugs));
@@ -201,9 +201,9 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		// The eu-ai-act framework and its art.12 control are skipped (already exist);
-		// the remaining 2 frameworks and 9 controls are still created.
+		// the remaining 2 frameworks and 10 controls are still created.
 		$this->assertCount(2, $frameworks);
-		$this->assertCount(9, $controls);
+		$this->assertCount(10, $controls);
 
 		$newFrameworkSlugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertNotContains('eu-ai-act', $newFrameworkSlugs);

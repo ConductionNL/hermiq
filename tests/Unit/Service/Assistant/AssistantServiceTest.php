@@ -111,6 +111,26 @@ class AssistantServiceTest extends TestCase {
 	}//end service()
 
 	/**
+	 * compliance-ai-literacy: a person who must finish the course first is refused
+	 * before anything is stored or any model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testAPersonWhoSkippedTheCourseIsRefusedBeforeAnything(): void {
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('assertMayUseAgents')->with('alice')->willThrowException(new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException());
+		$this->historyHandler->expects($this->never())->method('storeMessage');
+		$this->responseHandler->expects($this->never())->method('generateResponse');
+
+		$service = new AssistantService($this->objectService, $this->historyHandler, $this->responseHandler, $this->logger, null, $literacy);
+
+		$this->expectException(\OCA\Hermiq\Service\Literacy\LiteracyRequiredException::class);
+		$service->converse(userId: 'alice', sessionId: null, message: 'hallo', context: ['app' => 'dossiq']);
+	}//end testAPersonWhoSkippedTheCourseIsRefusedBeforeAnything()
+
+	/**
 	 * Build an ObjectEntity fixture.
 	 *
 	 * @param string $uuid The object UUID.

@@ -467,6 +467,14 @@ return [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // Working with AI (compliance-ai-literacy): the lessons and answer check for the
+        // signed-in person, and the organisation report and requirement switch for its admin.
+        ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
+        ['name' => 'literacy#answer', 'url' => '/api/literacy/lessons/{slug}/answer', 'verb' => 'POST', 'requirements' => ['slug' => '[a-z0-9-]+']],
+        ['name' => 'literacy#overview', 'url' => '/api/literacy/overview', 'verb' => 'GET'],
+        ['name' => 'literacy#overviewCsv', 'url' => '/api/literacy/overview.csv', 'verb' => 'GET'],
+        ['name' => 'literacy#setRequirement', 'url' => '/api/literacy/requirement', 'verb' => 'PUT'],
+
         // What each provider does with the data it is sent (models-no-training-guarantee).
         ['name' => 'Settings\ProviderDataUseSettings#get', 'url' => '/api/settings/provider-data-use', 'verb' => 'GET'],
         [

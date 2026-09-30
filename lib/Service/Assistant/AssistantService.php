@@ -34,6 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Assistant;
 
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use Exception;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
@@ -149,6 +150,7 @@ class AssistantService {
 	 *                                                            fallback (mirrors
 	 *                                                            `Engine::resolveGuardrailPolicy()`);
 	 *                                                            real DI always provides it.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 *
 	 * @return void
 	 *
@@ -160,6 +162,7 @@ class AssistantService {
 		private readonly ResponseGenerationHandler $responseHandler,
 		private readonly LoggerInterface $logger,
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 	}//end __construct()
 
@@ -182,6 +185,8 @@ class AssistantService {
 	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
 	 */
 	public function converse(string $userId, ?string $sessionId, string $message, array $context): array {
+		// Compliance-ai-literacy: an organisation may require the course first.
+		$this->literacy?->assertMayUseAgents(uid: $userId);
 		$this->validateMessage(message: $message);
 		$app = $this->validateContext(context: $context);
 
