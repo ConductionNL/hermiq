@@ -39,6 +39,23 @@ export async function listModelPolicies() {
 }
 
 /**
+ * List the caller-visible policies together with what each provider declared
+ * about training (models-no-training-guarantee), so the editor can name the
+ * providers the no-training switch would refuse.
+ *
+ * @return {Promise<{policies: Array<object>, dataUse: object}>} Policies and `{provider: dataUse}`.
+ */
+export async function listModelPoliciesWithDataUse() {
+	const response = await axios.get(generateUrl(BASE))
+	return {
+		policies: Array.isArray(response.data?.policies)
+			? response.data.policies
+			: [],
+		dataUse: response.data?.dataUse || {},
+	}
+}
+
+/**
  * Create a ModelPolicy (instance-admin/org-owner-guarded server-side).
  *
  * @param {object} payload The policy fields (organisation, allowed, defaultModel).

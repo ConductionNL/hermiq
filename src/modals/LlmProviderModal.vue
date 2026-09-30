@@ -171,6 +171,13 @@
 					</NcNoteCard>
 				</template>
 
+				<!-- models-no-training-guarantee: where the provider runs and what it
+					does with the data it is sent, stated by the admin who configures it. -->
+				<ProviderDeclarations
+					v-if="providerValue"
+					ref="declarations"
+					:provider="providerValue" />
+
 				<div class="llm-provider__actions">
 					<NcButton @click="$emit('close')">
 						{{ t('hermiq', 'Cancel') }}
@@ -202,6 +209,7 @@ import {
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
+import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
 
 export default {
@@ -214,6 +222,7 @@ export default {
 		NcNoteCard,
 		NcSelect,
 		NcTextField,
+		ProviderDeclarations,
 	},
 
 	props: {
@@ -592,6 +601,8 @@ export default {
 			}
 			try {
 				await patchLlmSettings(payload)
+				// The residency and data-use statements are saved with the provider.
+				await this.$refs.declarations?.save()
 				this.$emit('saved', this.providerValue)
 				this.$emit('close')
 			} catch (e) {

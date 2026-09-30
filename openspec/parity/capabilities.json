@@ -6938,7 +6938,7 @@
 			"origin": "tender",
 			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/364027",
 			"originNote": "Gemeente Zaanstad zaaksysteem (2025-01-17) requirement 17539; also UWV 415648 requirement 123258",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -6954,13 +6954,15 @@
 				"open-webui": "source read at v0.11.4, not driven: self-hosted with local models (routers/ollama.py) keeps data in-house, and the only outward stats sync is opt-in without message content (src/lib/components/chat/Settings/SyncStatsModal.svelte:367); for remote providers nothing in the code sets or enforces a no-training term (searched 'training|opt.?out|zero retention' in routers/openai.py and utils/anthropic.py) Note: a guarantee only holds for local models"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/views/TenantOps.vue:148-171 Model policy section; src/api/modelPolicy.js:47,59 -> appinfo/routes.php:291-294 TenantModelPolicyController; lib/Service/Llm/ProviderFactory.php:686 refuses a provider or model outside the organisation's allowlist, :470 ollama driver keeps calls local. Searched 'train|data.?collection|zero.?retention|opt.?out' in lib/ src/ exapp/: no no-training setting or guarantee Specified in openspec/changes/models-no-training-guarantee/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/models-no-training-guarantee"
+				"evidence": "lib/Service/AiFeature/ProviderDataUseRegistry.php holds an administered data-use statement per provider (zero-retention, no-training, may-train, undeclared) with terms reference, declaredBy and declaredAt, set through PUT /api/settings/provider-data-use/{provider} (admin only) and the provider form (src/components/ProviderDeclarations.vue in LlmProviderModal.vue). ModelPolicy.requireNoTraining (register 0.38.0, switch on /tenant-ops listing the providers it refuses). DataUseGate refuses before any request on both ProviderFactory::createChatDriver() paths with step data-use (DataUseViolationException). The term is copied onto every run's providerDisclosure, written on the run record by ScheduleService and shown on the Runs page. Proven in tests/Unit/Service/AiFeature/ProviderDataUseTest.php, ProviderFactoryTest, FeatureProviderResolverTest, ScheduleServiceTest, AnalyticsServiceTest, ChatControllerTest.",
+				"reachedOn": "Admin settings, AI provider, Configure provider: What it does with your data; /tenant-ops Model policy: Only use providers that never train on our data; /runs AI provider column",
+				"change": "openspec/changes/archive/2026-09-30-models-no-training-guarantee",
+				"readOn": "2026-09-30"
 			},
 			"reachedOn": "/tenant-ops -> Model policy",
-			"note": "An organisation can restrict agents to local models (ollama, nextcloud) through the model policy; for remote providers nothing sets or records a no-training term."
+			"note": "Built 2026-09-30 by models-no-training-guarantee. History: before that an organisation could restrict agents to local models through the model policy, and for remote providers nothing set or recorded a no-training term."
 		},
 		{
 			"id": "td-explain",
@@ -7034,7 +7036,7 @@
 			"origin": "tender",
 			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/415259",
 			"originNote": "Gemeente Molenlanden zaaksysteem 2026 (2026-03-11) requirement 71423",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "no",
@@ -7050,13 +7052,15 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'literacy|training module|tutorial|course|learn' in src/lib/components and src/routes: only onboarding welcome (OnBoarding.svelte:82) and a docs link; no in-product AI literacy modules"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'literacy|tutorial|course|hallucinat|can be wrong' in src/ lib/ (excluding the learniq course recommender, lib/Service/CourseRecommendationEngine.php, which ranks a learner's courses): only the product tour src/manifest.json:1650 walkthrough 'Getting started' (7 steps on agents, skills, settings, flows) and the setup wizard; nothing explains AI limits, risks or verification to users Specified in openspec/changes/compliance-ai-literacy/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/compliance-ai-literacy"
+				"evidence": "Working with AI (/ai-literacy, src/views/AiLiteracy.vue): six lessons in English and Dutch (lib/Settings/literacy_lessons.json, seeded by lib/Repair/SeedLiteracyLessons.php into LiteracyLesson, register 0.39.0), each with a check question; a right answer writes a LiteracyCompletion for that lesson version (lib/Service/Literacy/LiteracyCourse.php). An organisation admin sees completion per person with a CSV export and can require the course (TenantControl.aiLiteracyRequired, LiteracyRequirement), which refuses chat, stream, assistant, Talk and run by hand until the course is done, never scheduled or flow runs. The seeded EU AI Act art.4 control reads its status from completions (LiteracyReport::evidence via ComplianceService, evidenceSource ai-literacy-completion). Proven in tests/Unit/Service/Literacy/LiteracyTest.php, LiteracyControllerTest, ChatControllerTest, AssistantServiceTest, TalkTurnLiteracyTest, RunNowControllerTest, ComplianceServiceTest.",
+				"reachedOn": "Menu: Working with AI (/ai-literacy); Settings, Compliance: EU AI Act art.4 AI literacy",
+				"change": "openspec/changes/archive/2026-09-30-compliance-ai-literacy",
+				"readOn": "2026-09-30"
 			},
 			"reachedOn": "none",
-			"note": "A product tour teaches the app, not AI literacy."
+			"note": "Built 2026-09-30 by compliance-ai-literacy. History: before that only a product tour existed, which teaches the app, not AI literacy."
 		},
 		{
 			"id": "td-bias-test",

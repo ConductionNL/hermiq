@@ -444,6 +444,13 @@
 				<div class="chat-page__composer">
 					<NcNoteCard v-if="sendError" type="error">
 						{{ sendError }}
+						<!-- compliance-ai-literacy: the organisation requires the course first. -->
+						<router-link
+							v-if="sendNeedsCourse"
+							class="chat-page__course-link"
+							:to="{ name: 'AiLiteracy' }">
+							{{ t('hermiq', 'Open Working with AI') }}
+						</router-link>
 					</NcNoteCard>
 					<div class="chat-page__composer-row">
 						<!-- Same reason as the feedback box: the placeholder is a hint,
@@ -690,6 +697,8 @@ export default {
 			currentMessage: '',
 			sending: false,
 			sendError: '',
+			// compliance-ai-literacy: the last send was refused until the course is done.
+			sendNeedsCourse: false,
 			isStreaming: false,
 			streamingText: '',
 			streamingTools: [],
@@ -1308,6 +1317,9 @@ export default {
 					e?.response?.data?.message
 					|| e?.message
 					|| this.t('hermiq', 'Failed to get a response.')
+				this.sendNeedsCourse =
+					(e?.code || e?.response?.data?.errorCode)
+					=== 'ai_literacy_required'
 			} finally {
 				this.isStreaming = false
 				this.streamingText = ''
@@ -2095,6 +2107,13 @@ export default {
 	gap: 6px;
 	padding: 12px 20px 16px;
 	border-top: 1px solid var(--color-border);
+}
+
+.chat-page__course-link {
+	display: inline-block;
+	margin-top: 4px;
+	font-weight: bold;
+	text-decoration: underline;
 }
 
 .chat-page__composer-row {

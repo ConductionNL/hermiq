@@ -41,7 +41,10 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -139,6 +142,7 @@ class ChatController extends Controller {
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard
 	 *                                                 (talk-shared-sessions). Defaulted so every
 	 *                                                 existing caller constructs unchanged.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -153,6 +157,7 @@ class ChatController extends Controller {
 		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -301,6 +306,9 @@ class ChatController extends Controller {
 			// Verify user has access to conversation (gate-7 ownership guard).
 			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
 
+			// Compliance-ai-literacy: an organisation may require the course first.
+			$this->literacy?->assertMayUseAgents(uid: $userId);
+
 			// Process message through the in-app Engine (conversation id is the UUID).
 			// Collect the run's step timeline so the chat can SHOW its work.
 			//
@@ -405,6 +413,23 @@ class ChatController extends Controller {
 			if ($cause instanceof PinnedCredentialRefusedException) {
 				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
 				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
+				break;
+			}
+
+			// The organisation requires the course Working with AI first
+			// (compliance-ai-literacy): the person gets the message and the link.
+			if ($cause instanceof LiteracyRequiredException) {
+				$data['message'] = $this->l10n->t('Finish the short course Working with AI first.');
+				$data['errorCode'] = LiteracyRequiredException::ERROR_CODE;
+				$data['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
+				break;
+			}
+
+			// The organisation only allows providers that never train on its data
+			// (models-no-training-guarantee); the person reads that, not the step text.
+			if ($cause instanceof DataUseViolationException) {
+				$data['message'] = $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.');
+				$data['errorCode'] = DataUseViolationException::ERROR_CODE;
 				break;
 			}
 		}

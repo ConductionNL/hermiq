@@ -473,12 +473,20 @@ class AnalyticsService
             'durationMs'  => ($context['durationMs'] ?? null),
             'summary'     => ($context['summary'] ?? null),
             'attempt'     => ($context['attempt'] ?? null),
+            // Models-no-training-guarantee: which provider saw this run and the
+            // data-use term in force then, as written onto the run record.
+            // Labels only, and an empty list for a run recorded before it was written.
+            'providerDisclosure' => array_intersect_key(
+                (array) ($context['providerDisclosure'] ?? []),
+                array_flip(['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'])
+            ),
             'user'        => $log->getUser(),
             'created'     => $createdIso,
             'createdSort' => $createdSort,
         ];
 
     }//end toRunRow()
+
 
     /**
      * The latest thumbs-down ratings with a comment on one agent, newest first.

@@ -295,12 +295,14 @@ class ResponseGenerationHandler {
 				agentCredentialIds: (array)($agentData['credentialIds'] ?? [])
 			);
 
-			// Which model saw this case, and where. Copied onto the run rather than
-			// referenced, so relabelling the provider later cannot rewrite it.
-			if ($aiFeature !== null && $trace !== null && $this->featureResolver !== null) {
+			// Which model saw this case, where, and what it declared about training.
+			// Copied onto the run rather than referenced, so relabelling the provider
+			// later cannot rewrite it. Recorded for every run, with `feature` empty
+			// when the run names none (models-no-training-guarantee).
+			if ($trace !== null && $this->featureResolver !== null) {
 				$trace->recordProviderDisclosure(
 					disclosure: $this->featureResolver->disclosureFor(
-						featureSlug: $aiFeature,
+						featureSlug: (string)$aiFeature,
 						provider: $driver->provider,
 						model: $driver->model
 					)

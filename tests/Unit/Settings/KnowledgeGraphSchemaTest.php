@@ -203,7 +203,7 @@ class KnowledgeGraphSchemaTest extends TestCase {
 		$this->assertContains('graphentity', $register->components->registers->hermiq->schemas);
 		$this->assertContains('graphrelation', $register->components->registers->hermiq->schemas);
 		$this->assertFalse($register->components->schemas->Agent->properties->graphEnabled->default);
-		$this->assertSame('0.37.0', $register->info->version);
+		$this->assertTrue(version_compare($register->info->version, '0.37.0', '>='), 'The knowledge-graph schemas ship with register 0.37.0 or later.');
 
 	}//end testTheSchemasRefuseIncompleteEntries()
 }//end class

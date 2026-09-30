@@ -38,7 +38,10 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -144,6 +147,7 @@ class ChatStreamController extends Controller {
 	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
 	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -161,6 +165,7 @@ class ChatStreamController extends Controller {
 		private readonly RunStepBus $runStepBus,
 		private readonly ToolAccessRequestService $accessRequests,
 		private readonly AgentAccessService $agentAccess,
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -333,6 +338,9 @@ class ChatStreamController extends Controller {
 			// never replayed against this one.
 			$this->runStepBus->clear(conversationId: (string)$conversation->getUuid());
 
+			// Compliance-ai-literacy: an organisation may require the course first.
+			$this->literacy?->assertMayUseAgents(uid: $userId);
+
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,
@@ -447,6 +455,29 @@ class ChatStreamController extends Controller {
 						payload: [
 							'code' => PinnedCredentialRefusedException::ERROR_CODE,
 							'message' => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+						]
+					);
+				}
+
+				// Compliance-ai-literacy: the person is sent to the course.
+				if ($cause instanceof LiteracyRequiredException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => LiteracyRequiredException::ERROR_CODE,
+							'message' => $this->l10n->t('Finish the short course Working with AI first.'),
+							'courseUrl' => LiteracyRequiredException::COURSE_PATH,
+						]
+					);
+				}
+
+				// Models-no-training-guarantee: the person reads why, not the step text.
+				if ($cause instanceof DataUseViolationException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => DataUseViolationException::ERROR_CODE,
+							'message' => $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.'),
 						]
 					);
 				}

@@ -163,7 +163,7 @@ class RunRetentionCleaner {
 		if (is_array($disclosure) === true) {
 			$tombstone['providerDisclosure'] = array_intersect_key(
 				$disclosure,
-				array_flip(['feature', 'provider', 'model', 'residency', 'location'])
+				array_flip(['feature', 'provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'])
 			);
 		}
 

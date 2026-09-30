@@ -187,6 +187,16 @@ class ScheduleService {
 	private array $lastRunSteps = [];
 
 	/**
+	 * The provider disclosure the last run's collector recorded: provider, model,
+	 * residency and the data-use term in force (models-no-training-guarantee).
+	 * Copied onto the run record so a later declaration cannot rewrite it. Null
+	 * when the run never reached a provider. Reset per run, read by writeRunAudit.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private ?array $lastRunDisclosure = null;
+
+	/**
 	 * The last (top-level or delegated) run's own fresh run identifier
 	 * (sub-agent-delegation), generated in `runAgentViaEngine()` and pushed
 	 * onto `DelegationContext` — empty on the legacy (flag-off) ChatService
@@ -956,6 +966,7 @@ class ScheduleService {
 		$this->lastRunAsUser = $owner;
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
 
@@ -1083,6 +1094,7 @@ class ScheduleService {
 
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1167,6 +1179,7 @@ class ScheduleService {
 
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1758,6 +1771,9 @@ class ScheduleService {
 				// step (only ever true on the in-app Engine path; never fabricated).
 				'steps' => $this->lastRunSteps,
 				'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
+				// Models-no-training-guarantee: which provider saw this run, where it
+				// runs and what it declared about training, as it stood at run time.
+				'providerDisclosure' => $this->lastRunDisclosure,
 				// Skill-evals: the skill uuids the run-loop seam actually exposed to
 				// this run's context — persisted for EVERY run (not just evals) so
 				// skill-learnings can later attribute run outcomes to skills.
@@ -2176,6 +2192,7 @@ class ScheduleService {
 		// tokens, step timeline, or exposed skill set.
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunAsUser = $owner;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
@@ -2694,6 +2711,7 @@ class ScheduleService {
 			// back to the envelope's `steps` key (identical content, per Engine's
 			// contract) only if a future engine swap ever stops accepting `$trace`.
 			$this->lastRunSteps = $trace->toArray();
+			$this->lastRunDisclosure = $trace->providerDisclosure();
 			if ($this->lastRunSteps === []) {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				$envelopeSteps = ($result['steps'] ?? []);

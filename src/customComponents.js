@@ -36,6 +36,7 @@ import ContextFormModal from './modals/ContextFormModal.vue'
 // create/edit dialog — the skills analogue of AgentFormModal above.
 import SkillFormModal from './modals/SkillFormModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
+import AiLiteracy from './views/AiLiteracy.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import FlowRunCompare from './views/FlowRunCompare.vue'
@@ -83,6 +84,10 @@ export default {
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,
+	// Working with AI (compliance-ai-literacy): six lessons with a check question,
+	// the organisation report and the course requirement. Custom because a lesson
+	// is read, answered and checked on one page, which no built-in page type does.
+	AiLiteracy,
 	// inapp-settings-section: the Settings page's `type: "settings"` tabs
 	// are rendered by CnSettingsPage, which resolves {type:"component"}
 	// widgets against THIS map (`cnCustomComponents`), never the v2

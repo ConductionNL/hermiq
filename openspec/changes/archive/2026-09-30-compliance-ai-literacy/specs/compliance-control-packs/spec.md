@@ -24,6 +24,7 @@ The system MUST offer a page "Working with AI" with six lessons in English and D
 - GIVEN a person who completed lesson 4 and an admin who then edits it
 - WHEN the person opens the page
 - THEN lesson 4 shows as not done for the new version
+- @e2e exclude needs an admin edit of a seeded lesson between two sessions; covered by LiteracyTest::testAChangedLessonIsAskedAgain
 
 ### Requirement: An organisation admin sees completion and may require the course (REQ-AILIT-002)
 
@@ -42,3 +43,4 @@ The system MUST seed an EU AI Act control `art.4` "AI literacy" whose status is 
 - GIVEN an organisation where 40 of 50 recent agent users completed the course
 - WHEN the compliance officer opens the compliance dashboard
 - THEN the control "AI literacy" shows partial with "40 of 50 people who used an agent in the last 90 days completed the course"
+- @e2e exclude needs 50 recorded agent users; the status is covered by LiteracyTest::testTheArticle4ControlReadsCompletions and ComplianceServiceTest::testTheAiLiteracyControlReadsTheLiteracyReport

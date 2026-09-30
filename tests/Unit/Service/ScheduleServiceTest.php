@@ -1869,6 +1869,86 @@ class ScheduleServiceTest extends TestCase {
 	}//end testEngineFlagOnCapturesToolStepsFromCollector()
 
 	/**
+	 * models-no-training-guarantee: the provider disclosure the run's collector
+	 * recorded, data-use term included, is written onto the run record, so a
+	 * later change to the declaration does not change what this run shows.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 */
+	public function testTheRunRecordKeepsTheProviderDisclosure(): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (
+				string $conversationId,
+				string $userId,
+				string $userMessage,
+				array $selectedViews = [],
+				array $selectedTools = [],
+				array $ragSettings = [],
+				array $context = [],
+				$channel = null,
+				$trace = null,
+			): array {
+				$trace?->recordProviderDisclosure(
+					disclosure: [
+						'feature' => '',
+						'provider' => 'anthropic',
+						'model' => 'claude-sonnet-5',
+						'residency' => 'eu',
+						'location' => 'Frankfurt',
+						'dataUse' => 'no-training',
+						'termsReference' => 'Anthropic commercial terms, checked 2026-09-01',
+					]
+				);
+
+				return ['message' => 'engine output', 'usage' => []];
+			}
+		);
+		$this->service = $this->makeService();
+
+		$agentObject = new ObjectEntity();
+		$agentObject->setUuid('agent-uuid');
+		$agentObject->setObject(['name' => 'Scheduled agent']);
+		$this->objectService->method('find')->willReturn($agentObject);
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setUuid('conv-uuid-1');
+				return $entity;
+			}
+		);
+
+		$this->service->runNow(
+			$this->schedule(
+				[
+					'kind' => 'interval',
+					'intervalMinutes' => 60,
+					'agentId' => 'agent-uuid',
+					'prompt' => 'go',
+					'deliver' => 'none',
+					'enabled' => true,
+					'nextRun' => '2020-01-01T00:00:00+00:00',
+					'repeat' => ['times' => 0, 'completed' => 0],
+				],
+				'disclosure-sched'
+			)
+		);
+
+		$this->assertCount(1, $this->auditCalls);
+		$disclosure = $this->auditCalls[0]['context']['providerDisclosure'];
+		$this->assertSame('anthropic', $disclosure['provider']);
+		$this->assertSame('no-training', $disclosure['dataUse']);
+		$this->assertSame('Anthropic commercial terms, checked 2026-09-01', $disclosure['termsReference']);
+
+	}//end testTheRunRecordKeepsTheProviderDisclosure()
+
+	/**
 	 * run-trace-observability (TC-2): on the default OpenRegister `ChatService`
 	 * path, coarse context/history/llm steps are derived from the `timings`
 	 * bucket the call already returns, a `delivery` step is appended, no

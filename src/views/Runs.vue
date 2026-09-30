@@ -122,6 +122,7 @@
 						<th scope="col">{{ t('hermiq', 'Status') }}</th>
 						<th scope="col">{{ t('hermiq', 'Trigger') }}</th>
 						<th scope="col">{{ t('hermiq', 'Duration') }}</th>
+						<th scope="col">{{ t('hermiq', 'AI provider') }}</th>
 						<th scope="col">{{ t('hermiq', 'Summary') }}</th>
 					</tr>
 				</thead>
@@ -152,6 +153,23 @@
 						</td>
 						<td>{{ triggerLabel(run.trigger) }}</td>
 						<td>{{ formatDuration(run.durationMs) }}</td>
+						<td>
+							<template
+								v-if="
+									run.providerDisclosure
+									&& run.providerDisclosure.provider
+								">
+								{{ run.providerDisclosure.provider }}
+								<span
+									class="hermiq-runs__data-use"
+									:title="run.providerDisclosure.termsReference">
+									{{
+										dataUseLabel(run.providerDisclosure.dataUse)
+									}}
+								</span>
+							</template>
+							<span v-else>—</span>
+						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
 						</td>
@@ -531,6 +549,27 @@ export default {
 		},
 
 		/**
+		 * The plain label for the data-use term a run recorded, as it stood then.
+		 *
+		 * @param {string} dataUse The recorded term.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+		 */
+		dataUseLabel(dataUse) {
+			switch (dataUse) {
+				case 'zero-retention':
+					return t('hermiq', 'Keeps nothing it is sent')
+				case 'no-training':
+					return t('hermiq', 'Never trains on your data')
+				case 'may-train':
+					return t('hermiq', 'May train on your data')
+				default:
+					return t('hermiq', 'Not declared')
+			}
+		},
+
+		/**
 		 * Map a run status onto one of three tones.
 		 *
 		 * Anything not recognised is neutral rather than an error: a status this
@@ -608,6 +647,11 @@ export default {
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--color-border);
 	white-space: nowrap;
+}
+
+.hermiq-runs__data-use {
+	display: block;
+	color: var(--color-text-maxcontrast);
 }
 
 .hermiq-runs__summary {
