@@ -17,7 +17,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use Throwable;
 /**
  * Switch an agent, read its state, count its schedules.
  *
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
 class AgentAvailabilityService {
 
@@ -97,7 +97,7 @@ class AgentAvailabilityService {
 	 *
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The switch IS a boolean.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 	 */
 	public function switchAgent(string $agentId, bool $active, string $reason, string $actorUid): ObjectEntity {
 		$agent = $this->findAgent(agentId: $agentId);
@@ -156,7 +156,7 @@ class AgentAvailabilityService {
 	 *
 	 * @return bool True when on.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
 	 */
 	public function isOn(string $agentId): bool {
 		return (new AgentAvailability())->isOn(agent: $this->findAgent(agentId: $agentId));
@@ -171,7 +171,7 @@ class AgentAvailabilityService {
 	 *
 	 * @return ObjectEntity|null The agent.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 	 */
 	public function readableAgent(string $agentId, string $uid): ?ObjectEntity {
 		$agent = $this->findAgent(agentId: $agentId);
@@ -198,7 +198,7 @@ class AgentAvailabilityService {
 	 *
 	 * @return bool True when allowed.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 	 */
 	public function mayModify(ObjectEntity $agent, string $uid): bool {
 		if ($uid === '') {
@@ -224,7 +224,7 @@ class AgentAvailabilityService {
 	 *
 	 * @return int The count.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
 	 */
 	public function scheduleCount(string $agentId): int {
 		try {

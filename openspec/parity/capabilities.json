@@ -762,14 +762,16 @@
 			"area": "agents",
 			"name": "Switch an agent off without deleting it.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:2504 Agent.active property; src/manifest.json:221-230 agent-core is a type:data widget (read-only display per its own pattern, see agent-eval-baseline's note at manifest.json justifying a bespoke widget because 'the built-in type:data widget renders values only') including active in its display list; src/modals/AgentFormModal.vue has no active field (grep found none). Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-switch-off-and-stop"
+				"evidence": "Agent page header action Switch off or on (src/dialogs/AgentAvailabilityDialog.vue) calls POST /api/agents/{id}/availability (lib/Controller/AgentAvailabilityController.php, lib/Service/Agent/AgentAvailabilityService.php): the owner, an instance admin or the organisation owner switches the agent, off only with a reason; Agent.active, availabilityChangedBy/At/Reason are stored and an agent.availability audit entry is written (register 0.40.0). The catalog shows a Switched on column. Proven in AgentAvailabilityServiceTest, AgentAvailabilityControllerTest, AgentSwitchSchemaTest.",
+				"reachedOn": "/agents/:id header action Switch off or on; /agents column Switched on",
+				"change": "openspec/changes/archive/2026-09-30-agents-switch-off-and-stop",
+				"readOn": "2026-09-30"
 			},
-			"reachedOn": "nothing",
+			"reachedOn": "/agents/:id header action Switch off or on; /agents column Switched on",
 			"note": "active is displayed read-only on AgentDetail's Configuration card; no button, toggle or form anywhere sets it, so a user cannot switch an agent off without deleting it today.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -955,14 +957,16 @@
 			"area": "agents",
 			"name": "Delete an agent and have its schedules stop with it.",
 			"source": "own-code",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/AgentsController.php:485-540 destroy() deletes the Agent object (owner-only); searched lib/Service/ScheduleService.php and lib/AppInfo/Application.php for any agent-delete cascade or ObjectDeletedEvent handling of Schedule cleanup and found none (the only ObjectDeletedEvent listener registered, Application.php:147, is AgentBotLifecycleListener, which only removes the Talk bot). Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-switch-off-and-stop"
+				"evidence": "Schedule.agentId declares onDelete CASCADE (lib/Settings/hermiq_register.json, register 0.40.0), so OpenRegister deletes an agent's schedules with it; the AgentCatalog delete confirmation (src/dialogs/AgentDeleteDialog.vue via slots.delete-dialog) names how many, read from GET /api/agents/{id}/availability scheduleCount. Proven in AgentSwitchSchemaTest and AgentAvailabilityServiceTest::testScheduleCountAsksForTheAgentsSchedules.",
+				"reachedOn": "/agents row action Delete",
+				"change": "openspec/changes/archive/2026-09-30-agents-switch-off-and-stop",
+				"readOn": "2026-09-30"
 			},
-			"reachedOn": "/agents/:id AgentDetail -> (no delete header action found on AgentDetail itself; deletion is via the generic AgentCatalog row action)",
+			"reachedOn": "/agents row action Delete",
 			"note": "Deleting an agent works, but its schedules are not stopped or cleaned up with it.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -4552,14 +4556,16 @@
 			"area": "oversight",
 			"name": "Stop one misbehaving agent instantly.",
 			"source": "demand-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched for a per-agent instant-stop: no AgentsController method, no route, and no UI control (src/modals/AgentFormModal.vue has enableRag/voiceConversationEnabled toggles but no agent-level 'enabled' or stop/disable switch; AgentDetail's headerActions in src/manifest.json are only edit-agent, version-history, view-factsheet). grep for abortRun/cancelRun/stopRun/killAgent/disableAgent across lib/ and src/ found nothing. Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-switch-off-and-stop"
+				"evidence": "A switched-off agent starts no turn on any path: AgentAvailability::assertRunnable in Engine::processMessage (chat, stream, Talk, ContextAgent, engine schedules), ScheduleService::runAgentAsOwner (schedules, run now, webhooks, flows, delegation) and AssistantService::converse; chat answers 409 This agent is switched off.; a due schedule is recorded skipped_agent_off and advances. A run in progress stops at its next tool call (TurnGuard in FacadeToolInvoker reads the switch before every call). Proven in EngineSwitchedOffTest (with the caller list), ScheduleServiceTest, AssistantServiceTest, ChatControllerTest, FacadeToolInvokerStopTest.",
+				"reachedOn": "/agents/:id header action Switch off or on",
+				"change": "openspec/changes/archive/2026-09-30-agents-switch-off-and-stop",
+				"readOn": "2026-09-30"
 			},
-			"reachedOn": "nothing",
+			"reachedOn": "/agents/:id header action Switch off or on",
 			"note": "Only the organisation-wide kill switch (ov-kill-switch) exists; there is no single-agent equivalent.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
@@ -8083,7 +8089,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://community.n8n.io/t/feat-ai-tools-add-max-tool-interactions-to-ai-agent-nodes-to-prevent-infinite-loops/295587",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
@@ -8100,12 +8106,14 @@
 			},
 			"note": "A fixed round cap on one provider path, not a number the builder sets and not a count of tool calls.",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Llm/ProviderFactory.php:219 MAX_TOOL_ITERATIONS = 10, :1009 the Anthropic tool loop stops after 10 rounds; other providers run the tool loop inside LLPhant (lib/Service/Engine/ResponseGenerationHandler.php:475 setTools, vendor loop not read); searched 'maxToolCalls|maxIterations|toolCallLimit' in lib/Settings/hermiq_register.json and src/modals/AgentFormModal.vue: no setting Specified in openspec/changes/agents-switch-off-and-stop/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-switch-off-and-stop"
+				"evidence": "Agent.maxToolCalls (1 to 100, default 10) on the agent form; enforced per turn by TurnGuard in FacadeToolInvoker (LLPhant providers), by ProviderFactory::callAnthropicChat maxToolCalls (Anthropic http) and by RunToolCallCounter per run id in McpRunController (Anthropic cli); the run trace records Tool call limit reached for this turn. Proven in FacadeToolInvokerStopTest, ProviderFactoryUsageTest::testAnthropicLoopStopsAtTheAgentsToolCallCap, RunToolCallCounterTest, McpRunControllerTest::testToolsCallPastTheRunsCapIsRefusedWithoutRunning.",
+				"reachedOn": "/agents/:id Edit agent: Maximum tool calls per answer",
+				"change": "openspec/changes/archive/2026-09-30-agents-switch-off-and-stop",
+				"readOn": "2026-09-30"
 			},
-			"reachedOn": "none (fixed in code)"
+			"reachedOn": "/agents/:id Edit agent: Maximum tool calls per answer"
 		},
 		{
 			"id": "dm-tool-error-recovery",

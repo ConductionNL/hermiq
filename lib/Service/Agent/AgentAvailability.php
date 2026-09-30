@@ -17,7 +17,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 /**
  * The availability rule and the tool call cap of one agent.
  *
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
  */
 class AgentAvailability {
 
@@ -55,7 +55,7 @@ class AgentAvailability {
 	 *
 	 * @return bool True unless `active` is exactly false.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	public function isOn(?ObjectEntity $agent): bool {
 		if ($agent === null) {
@@ -75,7 +75,7 @@ class AgentAvailability {
 	 *
 	 * @throws AgentSwitchedOffException When the agent is switched off.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	public function assertRunnable(?ObjectEntity $agent): void {
 		if ($this->isOn(agent: $agent) === false) {
@@ -91,7 +91,7 @@ class AgentAvailability {
 	 *
 	 * @return int The cap, from 1 to 100.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
 	 */
 	public function maxToolCalls(?ObjectEntity $agent): int {
 		$value = $agent?->getObject()['maxToolCalls'] ?? null;

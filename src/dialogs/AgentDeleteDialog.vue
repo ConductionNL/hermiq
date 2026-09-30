@@ -9,7 +9,7 @@
   generic one. Deleting an agent deletes its schedules (Schedule.agentId is
   onDelete CASCADE), so the confirmation says how many.
 
-  @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
 -->
 <template>
 	<CnDeleteDialog
@@ -70,7 +70,7 @@ export default {
 		 * The warning, with the schedules that go with the agent.
 		 *
 		 * @return {string} The warning; `{name}` is filled in by CnDeleteDialog.
-		 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
 		 */
 		warningText() {
 			const base = this.t('hermiq', 'Delete "{name}"? This cannot be undone.')
@@ -103,7 +103,7 @@ export default {
 			 * Count the agent's schedules when a row is picked for deletion.
 			 *
 			 * @return {Promise<void>}
-			 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+			 * @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
 			 */
 			async handler() {
 				this.scheduleCount = 0
@@ -129,7 +129,7 @@ export default {
 		 *
 		 * @param {string} id The agent.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
 		 */
 		async onConfirm(id) {
 			await this.confirm(id)

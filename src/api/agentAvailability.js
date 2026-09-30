@@ -11,7 +11,7 @@ import { generateUrl } from '@nextcloud/router'
  *
  * @param {string} agentId The agent.
  * @return {string} The URL.
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
 function availabilityUrl(agentId) {
 	return generateUrl(
@@ -24,7 +24,7 @@ function availabilityUrl(agentId) {
  *
  * @param {string} agentId The agent.
  * @return {Promise<object>} `{ active, changedBy, changedAt, reason, canSwitch, scheduleCount }`.
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
 export async function getAvailability(agentId) {
 	const { data } = await axios.get(availabilityUrl(agentId))
@@ -38,7 +38,7 @@ export async function getAvailability(agentId) {
  * @param {boolean} active On (true) or off (false).
  * @param {string} reason Why; required to switch off.
  * @return {Promise<object>} The new state.
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
  */
 export async function setAvailability(agentId, active, reason) {
 	const { data } = await axios.post(availabilityUrl(agentId), { active, reason })

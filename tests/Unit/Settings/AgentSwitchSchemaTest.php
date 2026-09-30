@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
  */
 
 declare(strict_types=1);
@@ -27,7 +27,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests the register declarations of the agent switch.
  *
- * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-deleting-an-agent-removes-its-schedules-req-agoff-004
  */
 class AgentSwitchSchemaTest extends TestCase {
 
@@ -74,7 +74,7 @@ class AgentSwitchSchemaTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
 	 */
 	public function testAgentDeclaresTheCapAndTheAvailabilityFields(): void {
 		$agent = $this->register(file: 'hermiq_register.json')->components->schemas->Agent;
@@ -97,7 +97,7 @@ class AgentSwitchSchemaTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 	 */
 	public function testTheSwitchedOffSeedAgentValidates(): void {
 		$agentSchema = $this->register(file: 'hermiq_register.json')->components->schemas->Agent;

@@ -9,7 +9,7 @@
   is off who switched it, when and why. The agent owner, an instance admin or
   the owner of the agent's organisation may switch; switching off needs a reason.
 
-  @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 -->
 <template>
 	<NcDialog
@@ -174,7 +174,7 @@ export default {
 		 * The agent uuid: the prop, else the route's `:id`.
 		 *
 		 * @return {string} The agent uuid.
-		 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 		 */
 		resolvedAgentId() {
 			return this.agentId || this.$route?.params?.id || ''
@@ -188,7 +188,7 @@ export default {
 			 * Load the state each time the dialog opens.
 			 *
 			 * @param {boolean} open Whether it is open.
-			 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+			 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 			 */
 			handler(open) {
 				if (open) {
@@ -203,7 +203,7 @@ export default {
 		 * Load the switch state; a 404 shows "not available".
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 		 */
 		async load() {
 			if (!this.resolvedAgentId) {
@@ -229,7 +229,7 @@ export default {
 		 *
 		 * @param {boolean} active On (true) or off (false).
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 		 */
 		async switchTo(active) {
 			this.saving = true
@@ -254,7 +254,7 @@ export default {
 		 *
 		 * @param {string} value An ISO-8601 timestamp.
 		 * @return {string} The formatted value.
-		 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
 		 */
 		formatDate(value) {
 			const date = new Date(value || '')

@@ -566,7 +566,7 @@ class ToolLoop {
 	 *
 	 * @return Closure|null The read, or null when there is no agent to switch.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
 	 */
 	private function agentStillOn(?string $agentId): ?Closure {
 		if ($agentId === null || $agentId === '' || $this->availabilityService === null) {

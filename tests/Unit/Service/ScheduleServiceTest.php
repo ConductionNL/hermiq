@@ -3650,7 +3650,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	public function testScheduleOfASwitchedOffAgentIsSkippedAndAdvances(): void {
 		$this->chatService = $this->createMock(ChatService::class);
@@ -3705,7 +3705,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	public function testRunAgentAsOwnerRefusesASwitchedOffAgent(): void {
 		$this->chatService = $this->createMock(ChatService::class);

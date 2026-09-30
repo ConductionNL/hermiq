@@ -281,7 +281,7 @@ class AssistantServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	public function testSwitchedOffAgentIsRefusedBeforeAnythingIsStored(): void {
 		$conversation = $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);

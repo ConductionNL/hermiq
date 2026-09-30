@@ -565,7 +565,7 @@ final class McpRunControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
 	 */
 	public function testToolsCallPastTheRunsCapIsRefusedWithoutRunning(): void {
 		$facade = $this->createMock(ToolRegistryFacade::class);

@@ -611,7 +611,7 @@ class ScheduleService {
 	 *
 	 * @return bool True when the stored agent's `active` is false.
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	private function agentIsSwitchedOff(string $agentId): bool {
 		if ($agentId === '') {

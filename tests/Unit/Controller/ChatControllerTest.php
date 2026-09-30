@@ -391,7 +391,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
 	 */
 	public function testASwitchedOffAgentAnswers409(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
