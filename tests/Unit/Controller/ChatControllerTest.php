@@ -332,6 +332,34 @@ class ChatControllerTest extends TestCase {
 	}//end testARefusedPinnedCredentialTellsThePersonWhy()
 
 	/**
+	 * A run refused by the data-use check tells the chat user why, in plain words.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function testARunRefusedOnDataUseTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$refused = new \OCA\Hermiq\Service\AiFeature\DataUseViolationException(organisation: 'Gemeente Voorbeeld', provider: 'openai', dataUse: 'undeclared');
+		$this->engine->method('processMessage')->willThrowException(
+			new \Exception('Failed to generate response: ' . $refused->getMessage(), 422, $refused)
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(422, $response->getStatus());
+		$this->assertSame(
+			'This assistant cannot answer: your organisation only allows AI providers that never train on its data.',
+			$response->getData()['message']
+		);
+		$this->assertSame('data_use_refused', $response->getData()['errorCode']);
+
+	}//end testARunRefusedOnDataUseTellsThePersonWhy()
+
+	/**
 	 * getHistory without a conversationId is a 400.
 	 *
 	 * @return void

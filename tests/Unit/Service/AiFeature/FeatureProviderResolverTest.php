@@ -28,7 +28,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\AiFeature;
 
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
 use OCA\Hermiq\Service\AiFeatureService;
@@ -303,6 +306,68 @@ class FeatureProviderResolverTest extends TestCase {
 		$this->assertSame('residency', $residencyStep);
 		$this->assertNotSame($policyStep, $residencyStep);
 	}//end testEachRefusalNamesTheCheckThatRefused()
+
+	/**
+	 * A data-use gate over a policy that requires no training and the given
+	 * declarations.
+	 *
+	 * @param array<string, array<string, string>> $declarations The data-use map, by provider.
+	 *
+	 * @return DataUseGate
+	 */
+	private function dataUse(array $declarations): DataUseGate {
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturn((string)json_encode($declarations));
+		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy->method('requiresNoTraining')->willReturn(true);
+
+		return new DataUseGate($policy, new ProviderDataUseRegistry($config));
+	}//end dataUse()
+
+	/**
+	 * On the feature path the data-use step runs after the model policy and
+	 * before residency, and refuses an undeclared provider with its own step name.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function testTheDataUseStepRefusesOnTheFeaturePath(): void {
+		$resolver = new FeatureProviderResolver(
+			$this->features(['vertalen' => ['provider' => 'openai', 'model' => 'gpt-4o', 'requiredResidency' => 'eu']]),
+			$this->policy([['openai', 'gpt-4o']]),
+			$this->residency(['openai' => ['residency' => 'outside-eu', 'location' => '']]),
+			null,
+			$this->dataUse([])
+		);
+
+		$this->expectException(DataUseViolationException::class);
+		$resolver->enforceForRun(featureSlug: 'vertalen', organisation: 'gemeente', provider: 'openai', model: 'gpt-4o');
+	}//end testTheDataUseStepRefusesOnTheFeaturePath()
+
+	/**
+	 * The disclosure copies the data-use term in force, so a later change to the
+	 * declaration does not rewrite what this run says.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 */
+	public function testTheDisclosureCarriesTheDataUseTerm(): void {
+		$resolver = new FeatureProviderResolver(
+			$this->features([]),
+			$this->policy([['anthropic', 'claude-sonnet-5']]),
+			$this->residency(['anthropic' => ['residency' => 'eu', 'location' => 'Frankfurt']]),
+			null,
+			$this->dataUse(['anthropic' => ['dataUse' => 'no-training', 'termsReference' => 'Anthropic commercial terms, checked 2026-09-01']])
+		);
+
+		$disclosure = $resolver->disclosureFor(featureSlug: '', provider: 'anthropic', model: 'claude-sonnet-5');
+
+		$this->assertSame('no-training', $disclosure['dataUse']);
+		$this->assertSame('Anthropic commercial terms, checked 2026-09-01', $disclosure['termsReference']);
+		$this->assertSame('', $disclosure['feature']);
+	}//end testTheDisclosureCarriesTheDataUseTerm()
 
 	/**
 	 * A feature with no required residency refuses nothing, whatever the provider's

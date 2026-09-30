@@ -207,6 +207,7 @@ class TenantModelPolicyService {
 			'source' => 'fallback',
 			'allowed' => $allowed,
 			'defaultModel' => null,
+			'requireNoTraining' => false,
 		];
 
 	}//end fallbackPolicy()
@@ -229,6 +230,21 @@ class TenantModelPolicyService {
 
 		return $this->matchesAllowed(allowed: $policy['allowed'], provider: $provider, model: $model);
 	}//end isAllowed()
+
+	/**
+	 * Whether an organisation's effective policy only allows providers that never
+	 * train on its data (models-no-training-guarantee). An organisation without a
+	 * policy of its own inherits the instance default's answer.
+	 *
+	 * @param string $organisation The organisation identifier (may be '').
+	 *
+	 * @return bool True when the requirement is on.
+	 *
+	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function requiresNoTraining(string $organisation): bool {
+		return ($this->effectivePolicyFor(organisation: $organisation)['requireNoTraining'] ?? false) === true;
+	}//end requiresNoTraining()
 
 	/**
 	 * Create-or-update the ModelPolicy for an organisation (at most one per
@@ -260,6 +276,7 @@ class TenantModelPolicyService {
 
 		$data['allowed'] = $allowed;
 		$data['defaultModel'] = $defaultModel;
+		$data['requireNoTraining'] = (($payload['requireNoTraining'] ?? ($data['requireNoTraining'] ?? false)) === true);
 
 		// Pin the policy to the TARGET organisation, not the actor's active
 		// organisation (mirrors TenantControlService::toggle()'s @self.organisation
@@ -321,6 +338,9 @@ class TenantModelPolicyService {
 		$allowed = $this->normaliseAllowed(raw: $allowedRaw);
 		$data['allowed'] = $allowed;
 		$data['defaultModel'] = $this->normaliseDefaultModel(raw: $defaultModelRaw, allowed: $allowed);
+		if (array_key_exists('requireNoTraining', $payload) === true) {
+			$data['requireNoTraining'] = ($payload['requireNoTraining'] === true);
+		}
 
 		$organisation = (string)($existing->getOrganisation() ?? '');
 
@@ -470,6 +490,7 @@ class TenantModelPolicyService {
 			'source' => $source,
 			'allowed' => $data['allowed'] ?? [],
 			'defaultModel' => $data['defaultModel'] ?? null,
+			'requireNoTraining' => (($data['requireNoTraining'] ?? false) === true),
 		];
 
 	}//end shape()

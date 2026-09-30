@@ -87,6 +87,7 @@ class FeatureProviderResolver {
 		private readonly TenantModelPolicyService $modelPolicy,
 		private readonly ProviderResidencyRegistry $residency,
 		private readonly ?RedactionOutcomeReader $redaction = null,
+		private readonly ?DataUseGate $dataUse = null,
 	) {
 	}//end __construct()
 
@@ -170,7 +171,7 @@ class FeatureProviderResolver {
 	 * @param string $model The resolved model id.
 	 * @param string|null $documentReference The document this run was handed, when there is one.
 	 *
-	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}
+	 * @return array<string, mixed>
 	 *         The disclosure to copy onto the run.
 	 *
 	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
@@ -205,6 +206,10 @@ class FeatureProviderResolver {
 				code: 422
 			);
 		}
+
+		// models-no-training-guarantee: data use is checked after the model policy
+		// and before residency, and refuses before any request is built.
+		$this->dataUse?->enforce(organisation: $organisation, provider: $provider);
 
 		$binding = $this->bindingFor(featureSlug: $featureSlug, organisation: $organisation);
 
@@ -315,7 +320,7 @@ class FeatureProviderResolver {
 	 * @param string $provider The provider actually used.
 	 * @param string $model The model actually used.
 	 *
-	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}
+	 * @return array<string, mixed>
 	 *         The disclosure to copy onto the run.
 	 *
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
@@ -339,7 +344,7 @@ class FeatureProviderResolver {
 	 * @param array{provider: string, residency: string, location: string} $declaration The provider's declaration.
 	 * @param array<string, mixed> $redaction What the redaction gate found, when the run passed through it.
 	 *
-	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}
+	 * @return array<string, mixed>
 	 *         The disclosure.
 	 */
 	private function disclosure(
@@ -356,6 +361,13 @@ class FeatureProviderResolver {
 			'residency' => $declaration['residency'],
 			'location' => $declaration['location'],
 		];
+
+		// The data-use term in force, copied so a later declaration cannot rewrite it.
+		if ($this->dataUse !== null) {
+			$terms = $this->dataUse->declaration(provider: $provider);
+			$disclosure['dataUse'] = $terms['dataUse'];
+			$disclosure['termsReference'] = $terms['termsReference'];
+		}
 
 		if ($redaction !== []) {
 			$disclosure['redaction'] = $redaction;

@@ -78,7 +78,7 @@ class RunTraceCollector {
 	 * What this run used, and where it ran: the feature, the provider, the model,
 	 * and the residency and location as they stood when the run happened.
 	 *
-	 * @var array{feature: string, provider: string, model: string, residency: string, location: string}|null
+	 * @var array<string, string>|null
 	 */
 	private ?array $providerDisclosure = null;
 
@@ -180,7 +180,7 @@ class RunTraceCollector {
 	 * provider next year cannot rewrite what this run says. "Which model saw this
 	 * case, and where" then becomes a read rather than an investigation.
 	 *
-	 * @param array{feature: string, provider: string, model: string, residency: string, location: string} $disclosure As resolved.
+	 * @param array<string, mixed> $disclosure As resolved: feature, provider, model, residency, location, dataUse, termsReference.
 	 *
 	 * @return void
 	 *
@@ -193,6 +193,8 @@ class RunTraceCollector {
 			'model' => (string)($disclosure['model'] ?? ''),
 			'residency' => (string)($disclosure['residency'] ?? ''),
 			'location' => (string)($disclosure['location'] ?? ''),
+			'dataUse' => (string)($disclosure['dataUse'] ?? ''),
+			'termsReference' => (string)($disclosure['termsReference'] ?? ''),
 		];
 
 	}//end recordProviderDisclosure()
@@ -201,7 +203,7 @@ class RunTraceCollector {
 	 * What this run recorded about the provider it used, or null when nothing was
 	 * recorded (a run that never reached a provider).
 	 *
-	 * @return array{feature: string, provider: string, model: string, residency: string, location: string}|null
+	 * @return array<string, string>|null
 	 *         The disclosure, or null.
 	 *
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force

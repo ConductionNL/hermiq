@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -405,6 +406,14 @@ class ChatController extends Controller {
 			if ($cause instanceof PinnedCredentialRefusedException) {
 				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
 				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
+				break;
+			}
+
+			// The organisation only allows providers that never train on its data
+			// (models-no-training-guarantee); the person reads that, not the step text.
+			if ($cause instanceof DataUseViolationException) {
+				$data['message'] = $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.');
+				$data['errorCode'] = DataUseViolationException::ERROR_CODE;
 				break;
 			}
 		}

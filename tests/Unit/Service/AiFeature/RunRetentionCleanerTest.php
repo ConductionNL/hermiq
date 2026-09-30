@@ -177,6 +177,8 @@ class RunRetentionCleanerTest extends TestCase {
 					'model' => 'llama3',
 					'residency' => 'on-premise',
 					'location' => 'Serverruimte Stadskantoor',
+					'dataUse' => 'zero-retention',
+					'termsReference' => 'Own server, Rekencentrum Gemeente Voorbeeld',
 					'input' => 'should never survive',
 				],
 			],
@@ -189,6 +191,9 @@ class RunRetentionCleanerTest extends TestCase {
 		$this->assertSame('2026-01-01T09:00:00+00:00', $tombstone['startedAt']);
 		$this->assertSame('ollama', $tombstone['providerDisclosure']['provider']);
 		$this->assertSame('on-premise', $tombstone['providerDisclosure']['residency']);
+		// models-no-training-guarantee: the data-use term in force stays answerable too.
+		$this->assertSame('zero-retention', $tombstone['providerDisclosure']['dataUse']);
+		$this->assertSame('Own server, Rekencentrum Gemeente Voorbeeld', $tombstone['providerDisclosure']['termsReference']);
 	}//end testTheProcessingIsStillRecordedAfterTheDataIsGone()
 
 	/**

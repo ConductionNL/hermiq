@@ -467,6 +467,14 @@ return [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // What each provider does with the data it is sent (models-no-training-guarantee).
+        ['name' => 'Settings\ProviderDataUseSettings#get', 'url' => '/api/settings/provider-data-use', 'verb' => 'GET'],
+        [
+            'name'         => 'Settings\ProviderDataUseSettings#declare',
+            'url'          => '/api/settings/provider-data-use/{provider}',
+            'verb'         => 'PUT',
+            'requirements' => ['provider' => '[^/]+'],
+        ],
         [
             'name'         => 'Settings\ProviderResidencySettings#declareResidency',
             'url'          => '/api/settings/provider-residency/{provider}',

@@ -65,6 +65,7 @@ use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -357,6 +358,7 @@ class ProviderFactory {
 		private readonly ?IAppConfig $appConfig = null,
 		private readonly ?ContainerInterface $container = null,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
+		private readonly ?DataUseGate $dataUseGate = null,
 	) {
 	}//end __construct()
 
@@ -700,6 +702,12 @@ class ProviderFactory {
 		}
 
 		$this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
+
+		// models-no-training-guarantee: the data-use step runs on this path too, so
+		// a run that names no AI feature cannot reach a provider that may train.
+		if ($organisation !== null) {
+			$this->dataUseGate?->enforce(organisation: $organisation, provider: $driver->provider);
+		}
 
 		return $driver;
 	}//end createChatDriver()

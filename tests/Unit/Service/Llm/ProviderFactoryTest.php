@@ -30,6 +30,9 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
@@ -37,6 +40,7 @@ use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\IUser;
 use OCP\IUserSession;
+use OCP\IAppConfig;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
@@ -246,6 +250,59 @@ class ProviderFactoryTest extends TestCase {
 		$this->assertSame('ollama', $driver->provider);
 
 	}//end testInPolicyPairResolvesTheDriver()
+
+	/**
+	 * On the path without an AI feature the data-use step still runs after the
+	 * model policy, and refuses before any request is built.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function testTheDataUseStepRefusesARunWithoutAFeature(): void {
+		$manager = $this->createMock(IManager::class);
+		$manager->expects($this->never())->method('scheduleTask');
+		$settings = $this->createMock(LlmSettingsHandler::class);
+		$userSession = $this->createMock(IUserSession::class);
+
+		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy->method('isAllowed')->willReturn(true);
+		$policy->method('requiresNoTraining')->willReturn(true);
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturn('');
+		$gate = new DataUseGate($policy, new ProviderDataUseRegistry($config));
+
+		$factory = new ProviderFactory(
+			$settings,
+			$manager,
+			$userSession,
+			new NullLogger(),
+			'hermiq',
+			$policy,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			$gate
+		);
+
+		$this->expectException(DataUseViolationException::class);
+		$this->expectExceptionMessage("Refused by the data-use check: organisation 'org-a' requires providers that never train on its data");
+		$factory->createChatDriver(
+			llmConfig: [
+				'chatProvider' => 'ollama',
+				'ollamaConfig' => [
+					'url' => 'http://localhost:11434',
+					'chatModel' => 'llama2',
+				],
+			],
+			organisation: 'org-a'
+		);
+
+	}//end testTheDataUseStepRefusesARunWithoutAFeature()
 
 	/**
 	 * Ollama resolves to an OllamaChat instance; the agent model override wins
