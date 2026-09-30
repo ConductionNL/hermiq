@@ -2382,7 +2382,13 @@ OC.L10N.register(
         "When on, a person who has not finished the course Working with AI cannot start a chat, a run by hand or a Talk session with an agent. Scheduled and flow runs are not blocked.": "When on, a person who has not finished the course Working with AI cannot start a chat, a run by hand or a Talk session with an agent. Scheduled and flow runs are not blocked.",
         "When the right answer was given.": "When the right answer was given.",
         "Why the right answer is right, shown after a wrong answer.": "Why the right answer is right, shown after a wrong answer.",
-        "Zero-based index of the right option.": "Zero-based index of the right option."
+        "Zero-based index of the right option.": "Zero-based index of the right option.",
+        "Click Approvals in the menu": "Click Approvals in the menu",
+        "Click Chat in the menu": "Click Chat in the menu",
+        "In a chat, the sources an agent used are listed under its answer. Open them before you use the answer.": "In a chat, the sources an agent used are listed under its answer. Open them before you use the answer.",
+        "Six short lessons on working with AI agents: what an agent is, why answers can be wrong, and when a person decides. Each ends with one question.": "Six short lessons on working with AI agents: what an agent is, why answers can be wrong, and when a person decides. Each ends with one question.",
+        "When an agent wants to change something that needs a person, the request waits here with what it will do. You decide.": "When an agent wants to change something that needs a person, the request waits here with what it will do. You decide.",
+        "A flow runs agents on a schedule or after an event, without anyone clicking. Read what a flow does before you switch it on.": "A flow runs agents on a schedule or after an event, without anyone clicking. Read what a flow does before you switch it on."
     },
     "nplurals=2; plural=(n != 1);"
 )

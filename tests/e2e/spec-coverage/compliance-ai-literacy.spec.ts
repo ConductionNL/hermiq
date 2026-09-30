@@ -29,7 +29,7 @@ import {
 
 const API = '/index.php/apps/hermiq/api'
 
-test.describe('compliance-ai-literacy: Working with AI', () => {
+test.describe('compliance-ai-literacy: Working with AI on the AiLiteracy page', () => {
 	let token = ''
 
 	test.beforeAll(async ({ browser }) => {

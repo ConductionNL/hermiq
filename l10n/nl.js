@@ -1655,7 +1655,13 @@ OC.L10N.register(
         "When on, a person who has not finished the course Working with AI cannot start a chat, a run by hand or a Talk session with an agent. Scheduled and flow runs are not blocked.": "Staat dit aan, dan kan iemand die de cursus Werken met AI niet heeft afgerond geen chat, handmatige run of Talk-sessie met een agent starten. Geplande runs en flowruns worden niet geblokkeerd.",
         "When the right answer was given.": "Wanneer het goede antwoord is gegeven.",
         "Why the right answer is right, shown after a wrong answer.": "Waarom het goede antwoord goed is, getoond na een fout antwoord.",
-        "Zero-based index of the right option.": "Index van de goede optie, vanaf nul geteld."
+        "Zero-based index of the right option.": "Index van de goede optie, vanaf nul geteld.",
+        "Click Approvals in the menu": "Klik op Goedkeuringen in het menu",
+        "Click Chat in the menu": "Klik op Chat in het menu",
+        "In a chat, the sources an agent used are listed under its answer. Open them before you use the answer.": "In een chat staan de bronnen die een agent gebruikte onder het antwoord. Open ze voordat je het antwoord gebruikt.",
+        "Six short lessons on working with AI agents: what an agent is, why answers can be wrong, and when a person decides. Each ends with one question.": "Zes korte lessen over werken met AI-agents: wat een agent is, waarom antwoorden fout kunnen zijn en wanneer een mens beslist. Elke les eindigt met één vraag.",
+        "When an agent wants to change something that needs a person, the request waits here with what it will do. You decide.": "Wil een agent iets veranderen waar een mens over beslist, dan wacht het verzoek hier, met wat het gaat doen. Jij beslist.",
+        "A flow runs agents on a schedule or after an event, without anyone clicking. Read what a flow does before you switch it on.": "Een flow laat agents werken op een schema of na een gebeurtenis, zonder dat iemand klikt. Lees wat een flow doet voordat je hem aanzet."
     },
     "nplurals=2; plural=(n != 1);"
 )

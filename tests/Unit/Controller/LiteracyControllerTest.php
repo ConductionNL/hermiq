@@ -28,6 +28,7 @@ use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * The person's own record, and the admin-only report.
@@ -57,6 +58,15 @@ final class LiteracyControllerTest extends TestCase {
 		$requirement = $this->createMock(LiteracyRequirement::class);
 		$requirement->method('organisationOf')->willReturn('org-a');
 		$requirement->method('mayAdminister')->willReturn($mayAdminister);
+		$requirement->method('setRequired')->willReturnCallback(
+			static function (string $organisation, bool $required) use ($mayAdminister): bool {
+				if ($mayAdminister === false) {
+					throw new RuntimeException('Only an admin of this organisation may change the course requirement.', 403);
+				}
+
+				return $required;
+			}
+		);
 		$report = $this->createMock(LiteracyReport::class);
 		$report->method('overview')->willReturn([['userId' => 'bob', 'done' => 1, 'total' => 6, 'complete' => false]]);
 
@@ -101,5 +111,24 @@ final class LiteracyControllerTest extends TestCase {
 		$this->assertSame('bob', $allowed->getData()['people'][0]['userId']);
 
 	}//end testTheReportIsForTheOrganisationAdminOnly()
+
+	/**
+	 * Only an organisation admin may switch the requirement; the stored value comes back.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testOnlyTheOrganisationAdminMaySetTheRequirement(): void {
+		$course = $this->createMock(LiteracyCourse::class);
+
+		$refused = $this->controller($course, false, ['required' => true])->setRequirement();
+		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
+
+		$stored = $this->controller($course, true, ['required' => true])->setRequirement();
+		$this->assertSame(Http::STATUS_OK, $stored->getStatus());
+		$this->assertSame(['organisation' => 'org-a', 'required' => true], $stored->getData());
+
+	}//end testOnlyTheOrganisationAdminMaySetTheRequirement()
 
 }//end class
