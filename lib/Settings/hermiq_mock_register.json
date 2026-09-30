@@ -143,6 +143,30 @@
       {
         "@self": {
           "register": "hermiq",
+          "schema": "agent",
+          "slug": "agent-planning-desk-helper"
+        },
+        "name": "Planning desk helper",
+        "description": "Answers questions about this week's planning for the planning desk.",
+        "prompt": "Answer questions about the planning of this week. Say when you are not sure.",
+        "temperature": 0.2,
+        "maxTokens": 1024,
+        "configuration": {},
+        "active": true,
+        "maxToolCalls": 10,
+        "enableRag": false,
+        "views": [],
+        "searchFiles": false,
+        "searchObjects": true,
+        "isPrivate": true,
+        "invitedUsers": [],
+        "groups": [
+          "planning-desk"
+        ]
+      },
+      {
+        "@self": {
+          "register": "hermiq",
           "schema": "agenttemplate",
           "slug": "agenttemplate-voorbeeld-name-1-1"
         },

@@ -191,7 +191,10 @@ async function main() {
 		const formatters = { ...builtIns.BUILT_IN_FORMATTERS, ...local }
 		assert.strictEqual(formatters.connectionStatus('disabled'), 'Switched off')
 		assert.strictEqual(libraryNl['Switched off'], 'Uitgeschakeld')
-		assert.doesNotMatch(appVue, /:formatters=/)
+		// The app's own formatters (agents-sharing-and-catalog-columns) may sit
+		// beside the built-ins but must never shadow a connection formatter.
+		const appFormatters = fs.readFileSync(path.join(ROOT, 'src/utils/agentSharing.js'), 'utf8')
+		assert.doesNotMatch(appFormatters, /connectionStatus|connectionSettingsLabel/)
 	})
 
 	check('the page strings are in the English and Dutch catalogues', () => {
