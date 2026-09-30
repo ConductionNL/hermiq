@@ -1875,7 +1875,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
 	 */
 	public function testTheRunRecordKeepsTheProviderDisclosure(): void {
 		$this->appConfig = $this->createMock(IAppConfig::class);

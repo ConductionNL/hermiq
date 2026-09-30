@@ -20,7 +20,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use OCA\Hermiq\Service\TenantModelPolicyService;
 /**
  * Refuses a run on a provider that may train, where the organisation forbids it.
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
  */
 class DataUseGate {
 
@@ -59,7 +59,7 @@ class DataUseGate {
 	 *
 	 * @throws DataUseViolationException When the provider may train or has declared nothing.
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function enforce(string $organisation, string $provider): void {
 		if ($this->policies->requiresNoTraining(organisation: $organisation) === false) {
@@ -85,7 +85,7 @@ class DataUseGate {
 	 *
 	 * @return array{provider: string, dataUse: string, termsReference: string, declaredBy: string, declaredAt: string}
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
 	 */
 	public function declaration(string $provider): array {
 		return $this->registry->forProvider(provider: $provider);

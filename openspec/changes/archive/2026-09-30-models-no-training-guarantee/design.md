@@ -60,3 +60,11 @@ The model policy section on Tenant operations gains the switch "Only use provide
 - An admin declares a term the contract does not give. Mitigation: `declaredBy`, `declaredAt` and `termsReference` are kept and shown on every run, so the statement has an owner.
 - Turning the switch on breaks running schedules. Mitigation: the policy section names the providers that will be refused before the admin saves, and the refusal message says exactly why.
 - A provider's terms change. Mitigation: the run copies the term in force, and the provider form shows when it was last declared.
+
+## As built (30 Sep 2026, at development 7175ff2b)
+
+- The gate is `DataUseGate`, injected into both `FeatureProviderResolver::enforceForRun()` (after the model policy, before residency) and `ProviderFactory::createChatDriver()` (after `enforceModelPolicy()` on the path without a feature). `DataUseViolationException` extends `ModelPolicyViolationException`, so every handler that already records a model-policy refusal as a failed run (schedules, flows, evals) records this one too; `step()` answers `data-use`.
+- The chat message sits in `ChatController` and `ChatStreamController`, beside the pinned-credential message, not in `ResponseGenerationHandler`: that is where the person-facing text for a refusal is chosen.
+- Finding: before this change the run's provider disclosure was recorded on the `RunTraceCollector` but never written to the run record, although `RunRetentionCleaner` already read `providerDisclosure` from it. `ScheduleService::writeRunAudit()` now writes it, and the Runs list (`AnalyticsService::listRuns()`) returns it, so the Runs page shows the provider and the term in force.
+- The policy editor needs each provider's data-use label, and the declaration route is admin-only. `GET /api/model-policy` therefore also returns `dataUse: {provider: label}`, labels only, never the terms reference or who declared.
+- The provider form saves the two declarations after the provider configuration itself, through one Save button (`ProviderDeclarations.vue`).

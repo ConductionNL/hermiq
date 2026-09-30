@@ -330,7 +330,7 @@ class FeatureProviderResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function testTheDataUseStepRefusesOnTheFeaturePath(): void {
 		$resolver = new FeatureProviderResolver(
@@ -351,7 +351,7 @@ class FeatureProviderResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
 	 */
 	public function testTheDisclosureCarriesTheDataUseTerm(): void {
 		$resolver = new FeatureProviderResolver(

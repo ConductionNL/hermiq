@@ -19,7 +19,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 /**
  * A run refused by the data-use check.
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
  */
 class DataUseViolationException extends ModelPolicyViolationException {
 
@@ -63,14 +63,14 @@ class DataUseViolationException extends ModelPolicyViolationException {
 		}
 
 		parent::__construct(
-			sprintf(
+			message: sprintf(
 				"Refused by the %s check: organisation '%s' requires providers that never train on its data, and provider '%s' has declared '%s'.",
 				self::STEP,
 				$label,
 				$provider,
 				$dataUse
 			),
-			422
+			code: 422
 		);
 
 	}//end __construct()
@@ -80,7 +80,7 @@ class DataUseViolationException extends ModelPolicyViolationException {
 	 *
 	 * @return string The step name.
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function step(): string {
 		return self::STEP;

@@ -452,7 +452,7 @@ class ChatStreamController extends Controller {
 					);
 				}
 
-				// models-no-training-guarantee: the person reads why, not the step text.
+				// Models-no-training-guarantee: the person reads why, not the step text.
 				if ($cause instanceof DataUseViolationException) {
 					$this->emitAndExit(
 						eventType: 'error',

@@ -336,7 +336,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function testARunRefusedOnDataUseTellsThePersonWhy(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);

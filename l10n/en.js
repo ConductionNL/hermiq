@@ -2320,7 +2320,26 @@ OC.L10N.register(
         "sourceType object: the object uuid.": "sourceType object: the object uuid.",
         "sourceType object: the register slug or id.": "sourceType object: the register slug or id.",
         "sourceType object: the schema slug or id.": "sourceType object: the schema slug or id.",
-        "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool.": "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool."
+        "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool.": "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool.",
+        "This assistant cannot answer: your organisation only allows AI providers that never train on its data.": "This assistant cannot answer: your organisation only allows AI providers that never train on its data.",
+        "Only providers that never train on our data": "Only providers that never train on our data",
+        "When on, a run on a provider that has not declared zero retention or no training is refused before any data is sent. An organisation without a policy of its own inherits the instance default's setting.": "When on, a run on a provider that has not declared zero retention or no training is refused before any data is sent. An organisation without a policy of its own inherits the instance default's setting.",
+        "Where it runs": "Where it runs",
+        "Residency": "Residency",
+        "Not declared yet": "Not declared yet",
+        "Location": "Location",
+        "What it does with your data": "What it does with your data",
+        "Data use": "Data use",
+        "Terms or contract that says so": "Terms or contract that says so",
+        "Declared by {user} on {date}.": "Declared by {user} on {date}.",
+        "On our own premises": "On our own premises",
+        "Keeps nothing it is sent": "Keeps nothing it is sent",
+        "Never trains on your data": "Never trains on your data",
+        "May train on your data": "May train on your data",
+        "only providers that never train on our data": "only providers that never train on our data",
+        "Only use providers that never train on our data": "Only use providers that never train on our data",
+        "Runs on this provider will be refused.": "Runs on this provider will be refused.",
+        "Not declared": "Not declared"
     },
     "nplurals=2; plural=(n != 1);"
 )

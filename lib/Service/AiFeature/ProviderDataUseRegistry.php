@@ -20,7 +20,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCP\IAppConfig;
 /**
  * Reads and writes the administered data-use statement of each provider.
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
  */
 class ProviderDataUseRegistry {
 
@@ -95,7 +95,7 @@ class ProviderDataUseRegistry {
 	 *
 	 * @return array<string, array{provider: string, dataUse: string, termsReference: string, declaredBy: string, declaredAt: string}>
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function all(): array {
 		$out = [];
@@ -113,7 +113,7 @@ class ProviderDataUseRegistry {
 	 *
 	 * @return array{provider: string, dataUse: string, termsReference: string, declaredBy: string, declaredAt: string}
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function forProvider(string $provider): array {
 		$entry = ($this->stored()[$provider] ?? null);
@@ -143,7 +143,7 @@ class ProviderDataUseRegistry {
 	 *
 	 * @return bool True for zero-retention or no-training.
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function neverTrains(string $provider): bool {
 		return in_array($this->forProvider(provider: $provider)['dataUse'], self::NEVER_TRAINS, true);
@@ -162,7 +162,7 @@ class ProviderDataUseRegistry {
 	 *
 	 * @throws InvalidArgumentException When the provider or the value is not supported.
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function declare(string $provider, string $dataUse, string $termsReference, string $declaredBy): array {
 		if (in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false) {

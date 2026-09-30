@@ -81,6 +81,8 @@ class FeatureProviderResolver {
 	 *                                               feature that requires redaction, which
 	 *                                               is the same fail-closed answer an
 	 *                                               absent filinq gives.
+	 * @param DataUseGate|null $dataUse The data-use step and each provider's term for the
+	 *                                  disclosure (models-no-training-guarantee).
 	 */
 	public function __construct(
 		private readonly AiFeatureService $features,
@@ -207,7 +209,7 @@ class FeatureProviderResolver {
 			);
 		}
 
-		// models-no-training-guarantee: data use is checked after the model policy
+		// Models-no-training-guarantee: data use is checked after the model policy
 		// and before residency, and refuses before any request is built.
 		$this->dataUse?->enforce(organisation: $organisation, provider: $provider);
 

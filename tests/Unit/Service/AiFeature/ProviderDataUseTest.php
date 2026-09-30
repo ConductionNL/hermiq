@@ -40,7 +40,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Declaration, policy requirement and gate.
  *
- * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+ * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
  */
 final class ProviderDataUseTest extends TestCase {
 
@@ -132,7 +132,7 @@ final class ProviderDataUseTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function testAnAdminDeclaresWhatAProviderDoesWithData(): void {
 		$registry = $this->registry();
@@ -170,7 +170,7 @@ final class ProviderDataUseTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function testNothingIsInferred(): void {
 		$this->assertSame('undeclared', $this->registry()->forProvider(provider: 'ollama')['dataUse']);
@@ -183,7 +183,7 @@ final class ProviderDataUseTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function testTheRequirementIsReadFromTheEffectivePolicy(): void {
 		$service = $this->policies([$this->policy('', true), $this->policy('org-own', false)]);
@@ -201,7 +201,7 @@ final class ProviderDataUseTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function testTheGateRefusesAProviderThatMayTrain(): void {
 		$registry = $this->registry();
@@ -235,7 +235,7 @@ final class ProviderDataUseTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function testThePolicyPayloadMatchesTheRegisterSchema(): void {
 		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../../lib/Settings/hermiq_register.json'));

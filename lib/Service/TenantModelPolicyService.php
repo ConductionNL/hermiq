@@ -240,7 +240,7 @@ class TenantModelPolicyService {
 	 *
 	 * @return bool True when the requirement is on.
 	 *
-	 * @spec openspec/changes/models-no-training-guarantee/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
 	 */
 	public function requiresNoTraining(string $organisation): bool {
 		return ($this->effectivePolicyFor(organisation: $organisation)['requireNoTraining'] ?? false) === true;

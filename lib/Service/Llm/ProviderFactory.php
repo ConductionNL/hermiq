@@ -332,6 +332,8 @@ class ProviderFactory {
 	 *                                                      backward-compat reason; a null
 	 *                                                      resolver leaves every existing
 	 *                                                      call site unchanged.
+	 * @param DataUseGate|null $dataUseGate The data-use step on the path without an AI
+	 *                                      feature (models-no-training-guarantee).
 	 *
 	 * @return void
 	 *
@@ -703,7 +705,7 @@ class ProviderFactory {
 
 		$this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
 
-		// models-no-training-guarantee: the data-use step runs on this path too, so
+		// Models-no-training-guarantee: the data-use step runs on this path too, so
 		// a run that names no AI feature cannot reach a provider that may train.
 		if ($organisation !== null) {
 			$this->dataUseGate?->enforce(organisation: $organisation, provider: $driver->provider);
