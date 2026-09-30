@@ -154,7 +154,11 @@
 						<td>{{ triggerLabel(run.trigger) }}</td>
 						<td>{{ formatDuration(run.durationMs) }}</td>
 						<td>
-							<template v-if="run.providerDisclosure && run.providerDisclosure.provider">
+							<template
+								v-if="
+									run.providerDisclosure
+									&& run.providerDisclosure.provider
+								">
 								{{ run.providerDisclosure.provider }}
 								<span
 									class="hermiq-runs__data-use"
