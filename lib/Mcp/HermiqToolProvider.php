@@ -91,6 +91,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
+use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
@@ -652,7 +653,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		return array_merge(
 			self::TOOL_DESCRIPTORS,
 			NcNativeWriteToolDescriptors::ALL,
-			NcMailToolDescriptors::ALL
+			NcMailToolDescriptors::ALL,
+			WorkspaceToolDescriptors::ALL
 		);
 	}//end getTools()
 
@@ -682,6 +684,14 @@ class HermiqToolProvider implements IMcpToolProvider {
 		// Run-injected by FacadeToolInvoker for the tools whose ADR-088 mark
 		// records an authoring agent; never a value the LLM supplies for itself.
 		$agentId = (string)($arguments['agentId'] ?? '');
+
+		// The governed workspace tools (hermiq-runner-git-capability) ride this
+		// same dispatch path; there is no second route to a workspace. The
+		// toolset reads the run from the scope the MCP endpoint set from the
+		// verified token and refuses every call made outside one.
+		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
+			return $this->container->get(WorkspaceToolset::class)->invoke(toolId: $toolId, arguments: $arguments);
+		}
 
 		try {
 			switch ($toolId) {

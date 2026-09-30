@@ -56,6 +56,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -144,6 +145,8 @@ class McpRunController extends Controller {
 	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
+	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
+	 *                                              workspace tools for the length of one dispatch.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -161,6 +164,7 @@ class McpRunController extends Controller {
 		private readonly IThrottler $throttler,
 		private readonly RunStepBus $runStepBus,
 		private readonly LoggerInterface $logger,
+		private readonly ?WorkspaceRunScope $workspaceScope = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -232,13 +236,24 @@ class McpRunController extends Controller {
 		return $this->withImpersonatedUser(
 			userId: $binding['userId'],
 			work: function () use ($id, $method, $params, $binding): Response {
-				return $this->dispatch(
-					id: $id,
-					method: $method,
-					params: $params,
+				// The workspace tools address the run's checkout by THIS run id,
+				// taken from the verified token, never from the body.
+				$this->workspaceScope?->enter(
+					runId: $binding['runId'],
 					agentId: $binding['agentId'],
-					conversationId: $binding['conversationId']
+					userId: $binding['userId']
 				);
+				try {
+					return $this->dispatch(
+						id: $id,
+						method: $method,
+						params: $params,
+						agentId: $binding['agentId'],
+						conversationId: $binding['conversationId']
+					);
+				} finally {
+					$this->workspaceScope?->leave();
+				}
 			}
 		);
 

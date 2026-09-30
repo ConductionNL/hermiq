@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
+use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
+use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
@@ -293,6 +295,13 @@ class Application extends App implements IBootstrap {
 		$context->registerServiceAlias(
 			ManageableOrganisations::class,
 			OpenRegisterManageableOrganisations::class
+		);
+
+		// The governed workspace seam (hermiq-runner-git-capability): Hermiq's
+		// runtime keeps run-keyed checkouts in app data on the governed side.
+		$context->registerServiceAlias(
+			WorkspaceProvider::class,
+			ServerSideWorkspaceProvider::class
 		);
 
 		// Run tokens live in the database, the one store every PHP process of the

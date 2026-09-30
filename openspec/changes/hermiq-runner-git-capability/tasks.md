@@ -15,8 +15,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN a workspace materialisation WHEN the result is built THEN it carries an opaque identifier, repository, ref and head commit, and no filesystem path
   - GIVEN a write exceeding the size or file-count budget WHEN it is attempted THEN a workspace-quota error code is returned and nothing is written
   - GIVEN a run token that has expired or been consumed WHEN the workspace is next addressed THEN it is no longer reachable
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Path confinement guard with repository-metadata deny-write
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution`
@@ -26,8 +26,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN a workspace-relative path resolving through a symbolic link to a target outside the root WHEN containment is checked THEN it is refused after symlink resolution, not on the lexical form
   - GIVEN any write-shaped target resolving under the repository metadata directory WHEN it is supplied THEN it is refused independently of the containment check, with no permitted-file allowlist consulted
   - GIVEN a patch whose targets include one refused path WHEN it is applied THEN the whole patch is rejected and no hunk is present afterwards
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Read-only tool surface over the existing governed MCP dispatch path
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface`
@@ -37,8 +37,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN a materialisation call WHEN the repository argument is supplied THEN it is a forge-relative slug and the host is resolved server-side
   - GIVEN a workspace tool invocation WHEN it is dispatched THEN it passes through the same invoker as every other governed tool, with no alternative route to the workspace
   - GIVEN a file or git tool called before materialisation WHEN it runs THEN a workspace-absent error code is returned and no filesystem operation occurs
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: In-workspace write tools with owner-derived commit identity
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner`
