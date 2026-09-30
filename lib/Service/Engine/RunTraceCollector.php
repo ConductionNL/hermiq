@@ -173,6 +173,36 @@ class RunTraceCollector {
 	}//end endStep()
 
 	/**
+	 * Record that the turn was stopped, as one step named by the reason
+	 * (agents-switch-off-and-stop).
+	 *
+	 * @param string $reason The stop reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function recordStop(string $reason): void {
+		$this->endStep(token: $this->startStep(type: 'guard', name: $reason), outcome: 'stopped');
+	}//end recordStop()
+
+	/**
+	 * Record the stop only when it happened.
+	 *
+	 * @param bool   $stopped Whether the turn stopped.
+	 * @param string $reason  The stop reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function recordStopWhen(bool $stopped, string $reason): void {
+		if ($stopped === true) {
+			$this->recordStop(reason: $reason);
+		}
+	}//end recordStopWhen()
+
+	/**
 	 * Record which AI feature this run belongs to, which provider and model it
 	 * actually used, and where that provider ran at the time.
 	 *

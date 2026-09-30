@@ -478,9 +478,26 @@ class FacadeToolInvoker {
 		// Agents-switch-off-and-stop: before anything else, the turn may be over.
 		$stopReason = $this->turnGuard->admit();
 		if ($stopReason !== null) {
-			return $this->handleTurnStopped(reason: $stopReason);
+			$this->trace?->recordStop(reason: $stopReason);
+			return $this->turnGuard->refusal(reason: $stopReason);
 		}
 
+		return $this->route(name: $name, arguments: $arguments);
+	}//end __call()
+
+	/**
+	 * Route one admitted tool call through the governance gates to the facade.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 */
+	private function route(string $name, array $arguments): string {
 		if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
@@ -524,29 +541,7 @@ class FacadeToolInvoker {
 		}
 
 		return $this->dispatchToFacade(name: $name, arguments: $arguments);
-	}//end __call()
-
-	/**
-	 * Refuse a tool call because the turn stopped, and record why on the trace.
-	 *
-	 * @param string $reason The stop reason (TurnGuard::SWITCHED_OFF or ::LIMIT_REACHED).
-	 *
-	 * @return string JSON-encoded error result for the model.
-	 *
-	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
-	 */
-	private function handleTurnStopped(string $reason): string {
-		if ($this->trace !== null) {
-			$this->trace->endStep(token: $this->trace->startStep(type: 'guard', name: $reason), outcome: 'stopped');
-		}
-
-		$envelope = [
-			'result' => ['error' => $reason . '. Do not call another tool; answer with what you have.'],
-			'isError' => true,
-		];
-
-		return (string)json_encode($envelope);
-	}//end handleTurnStopped()
+	}//end route()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).

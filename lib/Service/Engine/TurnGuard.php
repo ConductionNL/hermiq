@@ -101,6 +101,24 @@ class TurnGuard {
 	}//end admit()
 
 	/**
+	 * The tool result a refused call returns to the model.
+	 *
+	 * @param string $reason The stop reason.
+	 *
+	 * @return string JSON: an error result naming the reason.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function refusal(string $reason): string {
+		return (string)json_encode(
+			[
+				'result' => ['error' => $reason . '. Do not call another tool; answer with what you have.'],
+				'isError' => true,
+			]
+		);
+	}//end refusal()
+
+	/**
 	 * Whether the turn was stopped.
 	 *
 	 * @return bool True once a call was refused.
