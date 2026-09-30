@@ -25,7 +25,9 @@ const { PROVIDERS } = require('../src/providers.js')
  * @return {Array<string>}
  */
 function deniedBuiltins() {
-	const argv = PROVIDERS.anthropic.args('claude-sonnet', { mcpConfigPath: '/tmp/scratch/mcp.json' })
+	const argv = PROVIDERS.anthropic.args('claude-sonnet', {
+		mcpConfigPath: '/tmp/scratch/mcp.json',
+	})
 	const at = argv.indexOf('--disallowedTools')
 	assert.notEqual(at, -1, 'a governed turn passes --disallowedTools')
 	return argv[at + 1].split(',')
@@ -33,7 +35,19 @@ function deniedBuiltins() {
 
 test('every shell and filesystem built-in stays denied', () => {
 	const denied = deniedBuiltins()
-	for (const name of ['Bash', 'BashOutput', 'KillShell', 'Read', 'Write', 'Edit', 'NotebookEdit', 'Glob', 'Grep', 'WebFetch', 'WebSearch']) {
+	for (const name of [
+		'Bash',
+		'BashOutput',
+		'KillShell',
+		'Read',
+		'Write',
+		'Edit',
+		'NotebookEdit',
+		'Glob',
+		'Grep',
+		'WebFetch',
+		'WebSearch',
+	]) {
 		assert.ok(denied.includes(name), `${name} must stay on the denylist`)
 	}
 })
@@ -42,8 +56,10 @@ test('tool search stays available, or the governed tools become unreachable', ()
 	assert.equal(deniedBuiltins().includes('ToolSearch'), false)
 })
 
-test('a governed turn is locked to Hermiq\'s MCP server', () => {
-	const argv = PROVIDERS.anthropic.args('claude-sonnet', { mcpConfigPath: '/tmp/scratch/mcp.json' })
+test("a governed turn is locked to Hermiq's MCP server", () => {
+	const argv = PROVIDERS.anthropic.args('claude-sonnet', {
+		mcpConfigPath: '/tmp/scratch/mcp.json',
+	})
 	assert.ok(argv.includes('--strict-mcp-config'))
 	assert.equal(argv[argv.indexOf('--allowedTools') + 1], 'mcp__hermiq__*')
 	assert.equal(argv.includes('--tools'), false)

@@ -187,7 +187,7 @@ class WorkspaceAuditor {
 	 */
 	private function classification(string $toolId): string {
 		foreach (WorkspaceToolDescriptors::ALL as $descriptor) {
-			if ($descriptor['id'] === $toolId && ($descriptor['destructiveHint'] ?? false) === true) {
+			if ($descriptor['id'] === $toolId && $descriptor['destructiveHint'] === true) {
 				return 'destructive';
 			}
 		}
