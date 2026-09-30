@@ -19,6 +19,7 @@ Hermiq MUST expose `hermiq.listTasks`, which returns at most 50 tasks from the a
 - GIVEN a case handler with the task list "Werkvoorraad Burgerzaken" and an agent granted `hermiq.listTasks`
 - WHEN they ask "Welke taken staan nog open voor deze week?"
 - THEN the answer lists the open tasks due this week, including "Terugbellen mevrouw De Vries over parkeervergunning"
+- @e2e exclude turning the sentence into a tool call needs a live model; the listing behind it is covered by TaskWriteServiceTest::testListReturnsOpenTasksDueBefore and testListIsCappedAtFifty
 
 ### Requirement: An agent can create a task in the user's own list, marked as agent-authored (REQ-NCTASK-002)
 
@@ -28,13 +29,13 @@ Hermiq MUST expose `hermiq.createTask`, which writes a VTODO only into a task li
 - GIVEN an agent granted `hermiq.createTask`
 - WHEN a case handler says "Zet 'Besluit bezwaar Kerkstraat 12 versturen' op mijn takenlijst voor vrijdag"
 - THEN the task appears in their Tasks app with due date Friday, and its stored object carries `X-HERMIQ-AGENT-AUTHORED`
-- @e2e exclude reading the stored iCalendar bytes needs a CalDAV fetch; covered by PHPUnit on the payload handed to the store, and a Playwright check that the task shows in the Tasks app
+- @e2e exclude turning the sentence into a tool call needs a live model and reading the stored bytes needs a CalDAV fetch; the payload handed to the store is covered by TaskWriteServiceTest::testOnlyOwnWritableTaskListsAreWriteTargets
 
 #### Scenario: A list shared by a colleague is not written
 - GIVEN a list "Team Vergunningen" that a colleague shared with the case handler
 - WHEN the agent creates a task there
 - THEN nothing is written, and the tool answers "That task list is shared with you by someone else and cannot be written."
-- @e2e exclude needs two users and a shared list; covered by PHPUnit on list resolution
+- @e2e exclude needs two users and a shared list; covered by TaskWriteServiceTest::testASharedInListIsNotWritten
 
 ### Requirement: An agent can complete a task without losing what the user wrote (REQ-NCTASK-003)
 
@@ -44,6 +45,7 @@ Hermiq MUST expose `hermiq.completeTask`, which sets the task completed, keeps e
 - GIVEN the open task "Terugbellen mevrouw De Vries over parkeervergunning"
 - WHEN the case handler says "Die terugbeltaak is gedaan"
 - THEN the task shows as completed in the Tasks app with its description unchanged
+- @e2e exclude turning the sentence into a tool call needs a live model; the rewrite is covered by TaskCalendarObjectTest::testCompletingKeepsEveryPropertyItDoesNotOwn and TaskWriteServiceTest::testCompleteUpdatesTheObjectInPlace
 
 ### Requirement: Task tools are default-denied, never delete, and record identity without content (REQ-NCTASK-004)
 
@@ -58,4 +60,4 @@ Hermiq MUST expose `hermiq.completeTask`, which sets the task completed, keeps e
 - GIVEN a run in which the agent created a task
 - WHEN an auditor opens the run
 - THEN the tool step shows the list and the task uid, and not the task's summary
-- @e2e exclude reading the trace payload; covered by PHPUnit on the trace extra
+- @e2e exclude reading the trace payload has no browser surface; covered by FacadeToolInvokerTest::testTaskWritesGetTheAgentIdAndRecordListAndUidOnly
