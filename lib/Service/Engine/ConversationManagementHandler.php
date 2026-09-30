@@ -424,6 +424,23 @@ class ConversationManagementHandler {
 	}//end generateSummary()
 
 	/**
+	 * One completion from the configured model, under the organisation's model policy.
+	 *
+	 * The same path the conversation title uses, for other one-shot callers (the
+	 * knowledge-graph extractor). Throws when no provider is available.
+	 *
+	 * @param string $prompt The prompt.
+	 * @param string|null $organisation The organisation whose model policy applies.
+	 *
+	 * @return string The model's answer.
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 */
+	public function generateText(string $prompt, ?string $organisation = null): string {
+		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
+	}//end generateText()
+
+	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently
 	 * selects. Shared by title generation and summarisation.
 	 *

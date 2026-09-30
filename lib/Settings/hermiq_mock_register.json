@@ -2138,6 +2138,102 @@
         "entries": [],
         "charBudget": 4000,
         "needsConsolidation": false
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "graphentity",
+          "slug": "graphentity-voorbeeld-1"
+        },
+        "label": "Voorbeeld persoon 1",
+        "labelKey": "voorbeeld persoon 1",
+        "entityType": "person",
+        "sourceType": "object",
+        "sourceRef": {
+          "register": "hermiq",
+          "schema": "agent",
+          "uuid": "00000000-0000-4000-8000-000000000000"
+        },
+        "aliases": [],
+        "confidence": 0.9,
+        "extractedBy": "hermiq-graph-extractor@1"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "graphentity",
+          "slug": "graphentity-voorbeeld-2"
+        },
+        "label": "Voorbeeld organisatie 2",
+        "labelKey": "voorbeeld organisatie 2",
+        "entityType": "organisation",
+        "sourceType": "object",
+        "sourceRef": {
+          "register": "hermiq",
+          "schema": "agent",
+          "uuid": "00000000-0000-4000-8000-000000000000"
+        },
+        "aliases": [],
+        "confidence": 0.9,
+        "extractedBy": "hermiq-graph-extractor@1"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "graphentity",
+          "slug": "graphentity-voorbeeld-3"
+        },
+        "label": "Voorbeeld onderwerp 3",
+        "labelKey": "voorbeeld onderwerp 3",
+        "entityType": "topic",
+        "sourceType": "object",
+        "sourceRef": {
+          "register": "hermiq",
+          "schema": "agent",
+          "uuid": "00000000-0000-4000-8000-000000000000"
+        },
+        "aliases": [],
+        "confidence": 0.9,
+        "extractedBy": "hermiq-graph-extractor@1"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "graphrelation",
+          "slug": "graphrelation-voorbeeld-1"
+        },
+        "fromEntity": "11111111-1111-4111-8111-111111111111",
+        "predicate": "worksFor",
+        "toEntity": "22222222-2222-4222-8222-222222222222",
+        "custom": false,
+        "confidence": 0.8,
+        "extractedBy": "hermiq-graph-extractor@1"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "graphrelation",
+          "slug": "graphrelation-voorbeeld-2"
+        },
+        "fromEntity": "22222222-2222-4222-8222-222222222222",
+        "predicate": "about",
+        "toEntity": "33333333-3333-4333-8333-333333333333",
+        "custom": false,
+        "confidence": 0.8,
+        "extractedBy": "hermiq-graph-extractor@1"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "graphrelation",
+          "slug": "graphrelation-voorbeeld-3"
+        },
+        "fromEntity": "11111111-1111-4111-8111-111111111111",
+        "predicate": "mentions",
+        "toEntity": "33333333-3333-4333-8333-333333333333",
+        "custom": false,
+        "confidence": 0.8,
+        "extractedBy": "hermiq-graph-extractor@1"
       }
     ]
   }
