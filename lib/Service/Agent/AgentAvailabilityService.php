@@ -209,13 +209,50 @@ class AgentAvailabilityService {
 			return true;
 		}
 
+		return $this->mayAdministerOrganisation(organisation: (string)($agent->getOrganisation() ?? ''), uid: $uid);
+
+	}//end mayModify()
+
+	/**
+	 * Whether a user administers an organisation: an instance admin, or its owner.
+	 *
+	 * @param string $organisation The organisation uuid.
+	 * @param string $uid          The user.
+	 *
+	 * @return bool True when they administer it.
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-sees-every-agent-of-the-organisation-req-agshare-004
+	 */
+	public function mayAdministerOrganisation(string $organisation, string $uid): bool {
+		if ($uid === '') {
+			return false;
+		}
+
 		if ($this->groupManager->isAdmin($uid) === true) {
 			return true;
 		}
 
-		return $this->ownsOrganisation(organisation: (string)($agent->getOrganisation() ?? ''), uid: $uid);
+		return $this->ownsOrganisation(organisation: $organisation, uid: $uid);
 
-	}//end mayModify()
+	}//end mayAdministerOrganisation()
+
+	/**
+	 * The user's active organisation, or an empty string.
+	 *
+	 * @param string $uid The user.
+	 *
+	 * @return string The organisation uuid.
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-sees-every-agent-of-the-organisation-req-agshare-004
+	 */
+	public function activeOrganisation(string $uid): string {
+		try {
+			return (string)($this->organisationMapper->getActiveOrganisationWithFallback($uid) ?? '');
+		} catch (Throwable $e) {
+			return '';
+		}
+
+	}//end activeOrganisation()
 
 	/**
 	 * How many schedules the agent has, which the delete confirmation names.

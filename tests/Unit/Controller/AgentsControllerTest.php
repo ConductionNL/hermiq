@@ -27,6 +27,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentsController;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
+use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
@@ -34,6 +36,7 @@ use OCP\AppFramework\Http;
 use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
+use OCP\IUserManager;
 use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -82,6 +85,13 @@ class AgentsControllerTest extends TestCase {
 	private array $memberships = [];
 
 	/**
+	 * Users who administer the active organisation (agents-sharing-and-catalog-columns).
+	 *
+	 * @var array<int, string>
+	 */
+	private array $orgAdmins = [];
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -112,13 +122,26 @@ class AgentsControllerTest extends TestCase {
 			fn (string $uid, string $group): bool => in_array($group, ($this->memberships[$uid] ?? []), true)
 		);
 
+		$access = new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $groupManager);
+		$availability = $this->createMock(AgentAvailabilityService::class);
+		$availability->method('activeOrganisation')->willReturn('org-1');
+		$availability->method('mayAdministerOrganisation')->willReturnCallback(
+			fn (string $organisation, string $uid): bool => in_array($uid, $this->orgAdmins, true)
+		);
+
 		return new AgentsController(
 			$this->request,
 			$this->objectService,
 			$this->toolRegistry,
 			$this->userSession,
 			$this->createMock(LoggerInterface::class),
-			new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $groupManager)
+			$access,
+			new AgentCatalog(
+				objectService: $this->objectService,
+				agentAccess: $access,
+				availability: $availability,
+				userManager: $this->createMock(IUserManager::class),
+			)
 		);
 
 	}//end controller()
@@ -151,12 +174,15 @@ class AgentsControllerTest extends TestCase {
 	 */
 	public function testIndexFiltersByVisibility(): void {
 		$this->request->method('getParams')->willReturn([]);
-		$this->objectService->method('findAll')->willReturn(
+		$this->objectService->method('searchObjectsPaginated')->willReturn(
 			[
-				$this->agent('agent-public', ['name' => 'Public', 'isPrivate' => false], 'bob'),
-				$this->agent('agent-own', ['name' => 'Mine', 'isPrivate' => true], 'alice'),
-				$this->agent('agent-invited', ['name' => 'Invited', 'isPrivate' => true, 'invitedUsers' => ['alice']], 'bob'),
-				$this->agent('agent-foreign', ['name' => 'Hidden', 'isPrivate' => true], 'bob'),
+				'results' => [
+					$this->agent('agent-public', ['name' => 'Public', 'isPrivate' => false], 'bob'),
+					$this->agent('agent-own', ['name' => 'Mine', 'isPrivate' => true], 'alice'),
+					$this->agent('agent-invited', ['name' => 'Invited', 'isPrivate' => true, 'invitedUsers' => ['alice']], 'bob'),
+					$this->agent('agent-foreign', ['name' => 'Hidden', 'isPrivate' => true], 'bob'),
+				],
+				'total' => 4,
 			]
 		);
 
@@ -186,7 +212,7 @@ class AgentsControllerTest extends TestCase {
 		$controller = $this->controller();
 
 		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('ghost')->getStatus());
-		$this->assertSame(Http::STATUS_FORBIDDEN, $controller->show('agent-foreign')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('agent-foreign')->getStatus(), 'A colleague cannot confirm a private agent exists.');
 
 		$response = $controller->show('agent-own');
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
@@ -210,7 +236,7 @@ class AgentsControllerTest extends TestCase {
 		$other = $this->agent('agent-other-group', ['name' => 'Finance helper', 'isPrivate' => true, 'groups' => ['finance']], 'bob');
 
 		$this->request->method('getParams')->willReturn([]);
-		$this->objectService->method('findAll')->willReturn([$shared, $other]);
+		$this->objectService->method('searchObjectsPaginated')->willReturn(['results' => [$shared, $other], 'total' => 2]);
 		$this->objectService->method('find')->willReturnOnConsecutiveCalls($shared, $other);
 
 		$controller = $this->controller();
@@ -218,9 +244,34 @@ class AgentsControllerTest extends TestCase {
 		$uuids = array_column($controller->index()->getData()['results'], 'uuid');
 		$this->assertSame(['agent-group'], $uuids);
 		$this->assertSame(Http::STATUS_OK, $controller->show('agent-group')->getStatus());
-		$this->assertSame(Http::STATUS_FORBIDDEN, $controller->show('agent-other-group')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('agent-other-group')->getStatus());
 
 	}//end testIndexAndShowHonourTheAgentsGroups()
+
+	/**
+	 * An organisation admin opens a private agent they could not otherwise use:
+	 * name, owner, sharing and status, never its prompt or tools.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-sees-every-agent-of-the-organisation-req-agshare-004
+	 */
+	public function testAnOrganisationAdminGetsTheReducedAgent(): void {
+		$this->orgAdmins = ['alice'];
+		$this->objectService->method('find')->willReturn(
+			$this->agent('agent-salary', ['name' => 'Salary helper', 'isPrivate' => true, 'prompt' => 'secret', 'tools' => ['x.y']], 'bob')
+		);
+
+		$response = $this->controller()->show('agent-salary');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$data = $response->getData();
+		$this->assertSame('Salary helper', $data['name']);
+		$this->assertSame('organisation admin', $data['visibleBecause']);
+		$this->assertArrayNotHasKey('prompt', $data);
+		$this->assertArrayNotHasKey('tools', $data);
+
+	}//end testAnOrganisationAdminGetsTheReducedAgent()
 
 	/**
 	 * create() strips organisation/owner/_route from the request (they are

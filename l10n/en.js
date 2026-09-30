@@ -2419,7 +2419,17 @@ OC.L10N.register(
         "Who last switched the agent off or on.": "Who last switched the agent off or on.",
         "When the agent was last switched off or on.": "When the agent was last switched off or on.",
         "Why the agent was switched off.": "Why the agent was switched off.",
-        "Whether the agent is switched on. A switched-off agent does not run on any path; switch it on its agent page.": "Whether the agent is switched on. A switched-off agent does not run on any path; switch it on its agent page."
+        "Whether the agent is switched on. A switched-off agent does not run on any path; switch it on its agent page.": "Whether the agent is switched on. A switched-off agent does not run on any path; switch it on its agent page.",
+        "Who can use this agent": "Who can use this agent",
+        "Only me": "Only me",
+        "People and groups I choose": "People and groups I choose",
+        "Everyone in my organisation": "Everyone in my organisation",
+        "People": "People",
+        "Only the owner": "Only the owner",
+        "Chosen people and groups": "Chosen people and groups",
+        "Everyone in the organisation": "Everyone in the organisation",
+        "On": "On",
+        "Who can use it": "Who can use it"
     },
     "nplurals=2; plural=(n != 1);"
 )

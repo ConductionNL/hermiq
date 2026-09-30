@@ -194,12 +194,23 @@
 						"label": "Name"
 					},
 					{
-						"key": "model",
-						"label": "Model"
+						"key": "owner",
+						"label": "Owner"
+					},
+					{
+						"key": "isPrivate",
+						"label": "Who can use it",
+						"formatter": "agentSharing",
+						"sortable": false
 					},
 					{
 						"key": "active",
-						"label": "Switched on"
+						"label": "Status",
+						"formatter": "agentStatus"
+					},
+					{
+						"key": "model",
+						"label": "Model"
 					}
 				],
 				"rowRoute": "AgentDetail",

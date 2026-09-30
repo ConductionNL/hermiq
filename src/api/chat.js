@@ -186,6 +186,23 @@ export async function removeParticipant(uuid, uid) {
 }
 
 /**
+ * Search the instance's groups by name, for the agent form's sharing choice.
+ *
+ * @param {string} search The typed text.
+ * @return {Promise<Array<{gid: string, displayName: string}>>} Matching groups.
+ * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-agent-owner-decides-who-can-use-the-agent-req-agshare-001
+ */
+export async function searchGroups(search) {
+	const response = await axios.get(generateOcsUrl('core/autocomplete/get'), {
+		params: { search, itemType: '', itemId: '', shareTypes: [1], limit: 10 },
+	})
+	return (response.data?.ocs?.data || []).map((group) => ({
+		gid: group.id,
+		displayName: group.label || group.id,
+	}))
+}
+
+/**
  * Search the instance's users by name, for the invite dialog.
  *
  * @param {string} search The typed text.
