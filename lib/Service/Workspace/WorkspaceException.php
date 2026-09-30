@@ -4,7 +4,7 @@
  * Hermiq WorkspaceException.
  *
  * A refusal or failure of a governed workspace tool, carrying the stable error
- * code of the tool contract (`openspec/changes/hermiq-runner-git-capability/contract.md`,
+ * code of the tool contract (`openspec/changes/archive/2026-09-30-hermiq-runner-git-capability/contract.md`,
  * Error Codes). The message is written for the model and never carries a
  * credential, a filesystem path or an internal host name.
  *
@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use RuntimeException;
 /**
  * A workspace tool refusal with a stable contract error code.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
  */
 class WorkspaceException extends RuntimeException {
 
@@ -86,7 +86,7 @@ class WorkspaceException extends RuntimeException {
 	 *
 	 * @return string The code.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function getErrorCode(): string {
 		return $this->errorCode;

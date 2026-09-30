@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use RecursiveIteratorIterator;
 /**
  * Run-keyed workspaces in app data.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
  */
 class ServerSideWorkspaceProvider implements WorkspaceProvider {
 
@@ -94,7 +94,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
 	 */
 	public function open(string $runKey, string $cloneUrl, string $repository, string $ref, int $depth): array {
 		$dir = $this->dirFor(runKey: $runKey);
@@ -153,7 +153,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function workspaceId(string $runKey): string {
 		$hash = hash_hmac('sha256', 'hermiq-workspace:' . $runKey, $this->config->getSystemValueString('secret', 'hermiq'));
@@ -169,7 +169,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-tool-call-before-materialisation-is-refused
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-tool-call-before-materialisation-is-refused
 	 */
 	public function root(string $runKey): string {
 		$dir = $this->dirFor(runKey: $runKey);
@@ -194,7 +194,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function describe(string $runKey): array {
 		$this->root(runKey: $runKey);
@@ -213,7 +213,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reserve(string $runKey, int $addBytes, int $addFiles): void {
 		$usage = $this->usage(root: $this->root(runKey: $runKey));
@@ -231,7 +231,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function discard(string $runKey): void {
 		$dir = $this->dirFor(runKey: $runKey);
@@ -245,7 +245,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 *
 	 * @return int The number removed.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reap(): int {
 		$base = $this->base();

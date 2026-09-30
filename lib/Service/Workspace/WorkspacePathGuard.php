@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ namespace OCA\Hermiq\Service\Workspace;
 /**
  * Resolves a workspace-relative path to an absolute one, or refuses it.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
  */
 class WorkspacePathGuard {
 
@@ -62,7 +62,7 @@ class WorkspacePathGuard {
 	 *
 	 * @throws WorkspaceException path_outside_workspace.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
 	 */
 	public function forRead(string $root, string $relativePath): string {
 		return $this->contain(root: $root, relativePath: $relativePath);
@@ -78,7 +78,7 @@ class WorkspacePathGuard {
 	 *
 	 * @throws WorkspaceException path_outside_workspace or path_forbidden.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
 	 */
 	public function forWrite(string $root, string $relativePath): string {
 		// The metadata check runs on the supplied form too, so `.git/hooks/x` is
@@ -108,7 +108,7 @@ class WorkspacePathGuard {
 	 *
 	 * @throws WorkspaceException invalid_argument.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
 	 */
 	public function refName(string $value): string {
 		$ref = trim($value);
@@ -137,7 +137,7 @@ class WorkspacePathGuard {
 	 *
 	 * @throws WorkspaceException patch_rejected, path_outside_workspace or path_forbidden.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
 	 */
 	public function patchTargets(string $root, string $patch): array {
 		if (preg_match('/^(rename|copy) (from|to) /m', $patch) === 1

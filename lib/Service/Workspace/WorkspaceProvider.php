@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ namespace OCA\Hermiq\Service\Workspace;
 /**
  * Where a run's workspace lives, and its budget.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-toolset-is-a-contract-with-two-consumers-and-its-runtime-is-not-required-to-be-shared
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-toolset-is-a-contract-with-two-consumers-and-its-runtime-is-not-required-to-be-shared
  */
 interface WorkspaceProvider {
 
@@ -53,7 +53,7 @@ interface WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function open(string $runKey, string $cloneUrl, string $repository, string $ref, int $depth): array;
 
@@ -64,7 +64,7 @@ interface WorkspaceProvider {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function workspaceId(string $runKey): string;
 
@@ -77,7 +77,7 @@ interface WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException workspace_absent when none was opened for this run.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function root(string $runKey): string;
 
@@ -90,7 +90,7 @@ interface WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException workspace_absent.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function describe(string $runKey): array;
 
@@ -105,7 +105,7 @@ interface WorkspaceProvider {
 	 *
 	 * @throws WorkspaceException workspace_quota.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reserve(string $runKey, int $addBytes, int $addFiles): void;
 
@@ -116,7 +116,7 @@ interface WorkspaceProvider {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function discard(string $runKey): void;
 }//end interface

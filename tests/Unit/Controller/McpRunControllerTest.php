@@ -389,6 +389,55 @@ final class McpRunControllerTest extends TestCase {
 	}//end testToolsListReturnsGrantedToolsWithPropertiesAsObject()
 
 	/**
+	 * `tools/list` on the governed path offers the push only from a grant that
+	 * pins the repository and constrains the branch; a bare push grant is dropped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testToolsListOffersThePushOnlyFromAScopedGrant(): void {
+		$push = [
+			'name' => 'hermiq_workspacePush',
+			'mcpId' => 'hermiq.workspacePush',
+			'description' => 'Push a branch',
+			'parameters' => ['type' => 'object', 'properties' => ['branch' => ['type' => 'string']]],
+		];
+		$open = [
+			'name' => 'hermiq_workspaceOpen',
+			'mcpId' => 'hermiq.workspaceOpen',
+			'description' => 'Open a workspace',
+			'parameters' => ['type' => 'object', 'properties' => ['repository' => ['type' => 'string']]],
+		];
+		$listed = function (array $tools) use ($push, $open): array {
+			$facade = $this->createMock(ToolRegistryFacade::class);
+			$facade->method('listTools')->willReturn([$open, $push]);
+			$agent = new ObjectEntity();
+			$agent->setUuid('agent-1');
+			$agent->setObject(['tools' => $tools, 'organisation' => '']);
+			$objects = $this->createMock(ObjectService::class);
+			$objects->method('find')->willReturn($agent);
+			$data = $this->controller(
+				'Bearer good',
+				'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}',
+				$this->tokens('good'),
+				$objects,
+				$facade,
+				$this->createMock(ToolLoop::class),
+				$this->createMock(ToolSearchService::class)
+			)->handle()->getData();
+			return array_column($data['result']['tools'], 'name');
+		};
+
+		$this->assertSame(['hermiq_workspaceOpen'], $listed(['hermiq.workspaceOpen', 'hermiq.workspacePush']));
+		$this->assertSame(
+			['hermiq_workspaceOpen', 'hermiq_workspacePush'],
+			$listed(['hermiq.workspaceOpen', 'hermiq.workspacePush?repository=example-org/example-app&branch=feature-a'])
+		);
+
+	}//end testToolsListOffersThePushOnlyFromAScopedGrant()
+
+	/**
 	 * A THROWING agent lookup grants nothing — it does not 500.
 	 *
 	 * `ObjectService::find()` documents `@throws Exception If the object is not
