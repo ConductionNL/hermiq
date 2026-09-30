@@ -186,4 +186,15 @@ or that no longer fitted the code:
   `MailReadService::readMessage`; a conversation node contributes its label only.
   Each record adds at most 2,000 characters. The relations block uses
   `from -[predicate]-> to` lines.
+- **Extraction (built with the schemas, so the write methods have a caller).**
+  `GraphExtractionJob` is a pure wrapper; `GraphExtractionService` runs the batch
+  inside `ActingUserScope` as the enqueueing user, reads each record through
+  `GraphSourceReader` (object with RBAC, the user's own file, mail through
+  `MailReadService`, a conversation's turns only for its owner or a participant),
+  asks the configured model through `ConversationManagementHandler::generateText()`
+  under the record's organisation's model policy, redacts labels and aliases, and
+  writes only through `GraphService` with `extractedBy = hermiq-graph-extractor@1`.
+  An entity or relation takes the record it was found in as its `sourceRef`. The
+  manual enqueue point is `occ hermiq:graph:extract <user>` (`--register`/`--schema`,
+  `--file`, `--conversation`, `--batch`); it lists objects as that user.
 

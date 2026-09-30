@@ -39,17 +39,17 @@ owner-read only.
 
 ## 3. Extraction
 
-- [ ] 3.1 Create `lib/BackgroundJob/GraphExtractionJob.php` (`QueuedJob`, pure wrapper like
+- [x] 3.1 Create `lib/BackgroundJob/GraphExtractionJob.php` (`QueuedJob`, pure wrapper like
       `TalkTurnJob`) + an extraction service: job argument carries the enqueueing
       user; impersonate-and-restore around the whole run.
-- [ ] 3.2 Source readers: OpenRegister objects (`ObjectService`), files
+- [x] 3.2 Source readers: OpenRegister objects (`ObjectService`), files
       (`IRootFolder`), mail (shipped mail read tools' service layer), conversation
       history (Hermiq `Conversation`/`Message` objects, roster-checked).
-- [ ] 3.3 Entity/relation proposal via the existing LLM provider layer
+- [x] 3.3 Entity/relation proposal via the existing LLM provider layer
       (`ProviderFactory`); persist ONLY through `GraphService` with `extractedBy`
       (extractor id + version) and `confidence`; redaction before persist (existing
       redaction service) applies to labels.
-- [ ] 3.4 Enqueue points: manual (per register/schema selection), and incremental on
+- [x] 3.4 Enqueue points: manual (per register/schema selection), and incremental on
       extraction re-runs (idempotent upserts — re-running a batch must not duplicate
       nodes/edges).
 

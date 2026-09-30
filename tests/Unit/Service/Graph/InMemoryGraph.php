@@ -70,6 +70,20 @@ trait InMemoryGraph {
 	protected ?ObjectService $objects = null;
 
 	/**
+	 * Records only their owner may find with RBAC on: record uuid to uid.
+	 *
+	 * @var array<string, string>
+	 */
+	protected array $ownerOf = [];
+
+	/**
+	 * Who holds the session, for the RBAC check of find(); null means nobody is checked.
+	 *
+	 * @var \Closure|null
+	 */
+	protected ?\Closure $sessionUid = null;
+
+	/**
 	 * Build the service over the in-memory store.
 	 *
 	 * @param array<string, int> $config App config integers by key.
@@ -109,6 +123,10 @@ trait InMemoryGraph {
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schemaArg = null, bool $_rbac = true): ?ObjectEntity {
 				$this->readRbac[] = $_rbac;
 				$data = ($this->store[(string)$schemaArg][(string)$id] ?? null);
+				$owner = ($this->ownerOf[(string)$id] ?? null);
+				if ($_rbac === true && $owner !== null && $this->sessionUid !== null && ($this->sessionUid)() !== $owner) {
+					$data = null;
+				}
 
 				return ($data === null) ? null : $this->entity(uuid: (string)$id, data: $data);
 			}
