@@ -112,11 +112,15 @@ class WorkspaceEditor {
 		}
 
 		$oldBytes = 0;
+		$newFiles = 1;
+		$action = 'created';
 		if ($exists === true) {
 			$oldBytes = (int)filesize($absolute);
+			$newFiles = 0;
+			$action = 'modified';
 		}
 
-		$this->provider->reserve(runKey: $runKey, addBytes: (strlen($content) - $oldBytes), addFiles: ($exists === true ? 0 : 1));
+		$this->provider->reserve(runKey: $runKey, addBytes: (strlen($content) - $oldBytes), addFiles: $newFiles);
 
 		$folder = dirname($absolute);
 		if (is_dir($folder) === false) {
@@ -125,7 +129,7 @@ class WorkspaceEditor {
 
 		file_put_contents($absolute, $content);
 
-		return ['path' => $path, 'action' => ($exists === true ? 'modified' : 'created'), 'bytes' => strlen($content)];
+		return ['path' => $path, 'action' => $action, 'bytes' => strlen($content)];
 	}//end writeFile()
 
 	/**
@@ -219,7 +223,11 @@ class WorkspaceEditor {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
 	 */
 	public function checkoutBranch(string $root, string $branch): array {
-		$this->gitOk(root: $root, arguments: ['switch', '--no-guess', $branch], failure: 'That branch does not exist in the workspace, or uncommitted changes are in the way.');
+		$this->gitOk(
+			root: $root,
+			arguments: ['switch', '--no-guess', $branch],
+			failure: 'That branch does not exist in the workspace, or uncommitted changes are in the way.'
+		);
 		return ['branch' => $branch];
 	}//end checkoutBranch()
 
@@ -272,7 +280,11 @@ class WorkspaceEditor {
 			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'There is nothing to commit.');
 		}
 
-		$changed = $this->gitOk(root: $root, arguments: ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], failure: 'The commit could not be read back.');
+		$changed = $this->gitOk(
+			root: $root,
+			arguments: ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'],
+			failure: 'The commit could not be read back.'
+		);
 
 		return [
 			'sha' => trim($this->gitOk(root: $root, arguments: ['rev-parse', 'HEAD'], failure: 'The commit could not be read back.')),
