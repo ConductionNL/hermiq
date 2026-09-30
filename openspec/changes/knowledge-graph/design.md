@@ -142,3 +142,35 @@ authorization is never wider than what those tools already enforce.
   small seed vocabulary (`worksFor`, `partOf`, `relatesTo`, `mentions`, `authoredBy`,
   `about`) plus free-text predicates flagged `custom`; whether to harden into a closed
   vocabulary is a follow-on once real extractions exist to measure.
+
+## Built at HEAD (30 Sep 2026)
+
+What the first slice (schemas and GraphService) settled that the text above left open
+or that no longer fitted the code:
+
+- **Register version.** The register was at 0.36.0 when this was built; the graph
+  lands as 0.37.0 (Agent 0.9.0), not 0.27.0.
+- **Relation endpoint names.** `fromEntity` and `toEntity`, not `subject` and
+  `object`: `object` is the name of the stored record body in OpenRegister's object
+  handling, and a property with that name is asking for a collision.
+- **`labelKey`.** GraphEntity stores the trimmed, case-folded label, so entity
+  resolution and seed matching are one equality filter instead of a scan.
+- **Relation provenance is checked too.** GraphRelation carries `sourceType` next to
+  `sourceRef`. An edge extracted from a record the acting user cannot read stays
+  hidden even when both endpoints are visible: the relation itself is knowledge that
+  record holds. This is what makes "a path with a hidden link" possible between two
+  visible nodes.
+- **Who reads the graph objects.** Both schemas are owner-read only, so the plain
+  objects API never lists another user's labels. GraphService reads them without
+  their own RBAC (multitenancy stays on) and decides visibility from the records
+  only, so one organisation shares one graph and each reader sees the part their
+  records allow.
+- **Classes.** `GraphService` (writes, the public surface) sits on `GraphStore` (the
+  only ObjectService access) and `GraphTraversal` (neighbours and paths), with
+  `GraphVisibility` for the per-source checks and `ActingUserScope` for
+  impersonate-and-restore. `MailReadService::canRead()` is the mail check: Mail's own
+  user-scoped lookup, no body read.
+- **Caps.** App config `graph_max_depth` (default 2), `graph_max_nodes` (50),
+  `graph_max_edges` (100), `graph_min_confidence_percent` (0); a path is at most 6
+  hops.
+

@@ -2,33 +2,39 @@
 
 ## 1. Schema (register patch)
 
-- [ ] 1.1 Add `GraphEntity` schema to `lib/Settings/hermiq_register.json` (slug
+- [x] 1.1 Add `GraphEntity` schema to `lib/Settings/hermiq_register.json` (slug
       `graphentity`): required `label`, `entityType`; `sourceType` (enum `object` |
       `file` | `mail` | `conversation`); `sourceRef` (object, typed per design.md);
       `aliases` (array of string, default `[]`); `confidence` (number 0–1);
       `extractedBy` (string). Flat, no `if`/`then`.
-- [ ] 1.2 Add `GraphRelation` schema (slug `graphrelation`): required `subject`,
+- [x] 1.2 Add `GraphRelation` schema (slug `graphrelation`): required `subject`,
       `predicate`, `object` (subject/object = GraphEntity uuids); `sourceRef`;
       `confidence`; `extractedBy`.
-- [ ] 1.3 Add `Agent.graphEnabled` (bool, default false).
-- [ ] 1.4 Bump register `info.version` 0.26.0 → 0.27.0.
+- [x] 1.3 Add `Agent.graphEnabled` (bool, default false).
+- [x] 1.4 Bump register `info.version` (0.36.0 → 0.37.0 at HEAD; the 0.26.0 in this
+      task predates ten other bumps).
+
+Built differently from the text above, recorded in design.md ("Built at HEAD"): the
+relation endpoints are `fromEntity`/`toEntity` (not `subject`/`object`), GraphEntity
+carries `labelKey`, GraphRelation carries `sourceType`, and both schemas are
+owner-read only.
 
 ## 2. GraphService
 
-- [ ] 2.1 Create `lib/Service/Graph/GraphService.php` (SPDX docblock, `@spec` tags):
+- [x] 2.1 Create `lib/Service/Graph/GraphService.php` (SPDX docblock, `@spec` tags):
       all persistence via `ObjectService`; upsert with deterministic entity
       resolution (normalised `label`+`entityType` within the organisation; proposed
       aliases appended).
-- [ ] 2.2 Visibility check per `sourceType`, running as the acting user: `object` via
+- [x] 2.2 Visibility check per `sourceType`, running as the acting user: `object` via
       `ObjectService` find; `file` via `IRootFolder::getUserFolder()` (mirrors
       `HermiqToolProvider::readFile()` guards); `mail` via the mail read tools'
       account-scoped service; `conversation` via the owner-or-listed-participant rule
       (`talk-shared-sessions`). Unresolvable ⇒ not visible, logged at debug, never
       thrown.
-- [ ] 2.3 `neighbors(string $entityUuid, string $actingUserId, int $depth, array
+- [x] 2.3 `neighbors(string $entityUuid, string $actingUserId, int $depth, array
       $predicates = [])`: bounded traversal (depth + node/edge caps from `IAppConfig`
       with safe defaults); every returned edge passes the both-endpoints check.
-- [ ] 2.4 `path(string $fromUuid, string $toUuid, string $actingUserId, int
+- [x] 2.4 `path(string $fromUuid, string $toUuid, string $actingUserId, int
       $maxHops)`: shortest path over VISIBLE edges only; no path "with holes".
 
 ## 3. Extraction
