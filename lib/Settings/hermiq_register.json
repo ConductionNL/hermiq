@@ -4186,12 +4186,12 @@
 						"type": "string",
 						"minLength": 1,
 						"title": "Label",
-						"description": "The entity's name as the extractor found it. Entity resolution merges on the trimmed, case-folded label plus entityType."
+						"description": "The entity's name as the extractor found it."
 					},
 					"labelKey": {
 						"type": "string",
 						"title": "Label key",
-						"description": "The trimmed, case-folded label GraphService writes and matches on, so entity resolution and seed matching are one equality filter."
+						"description": "The label trimmed and in lower case, used to find the same entity again."
 					},
 					"entityType": {
 						"type": "string",
@@ -4213,7 +4213,7 @@
 					"sourceRef": {
 						"type": "object",
 						"title": "Source reference",
-						"description": "A typed pointer to the one record this node or relation came from, NEVER its content. object: register, schema, uuid. file: fileId (authoritative) and path (informational). mail: accountId, mailboxId, messageId. conversation: conversationUuid and optionally messageId. Visibility is decided by re-reading that record as the acting user, so an unreadable or deleted record hides the node.",
+						"description": "A pointer to the one record this entry came from, never its content. The entry is shown only while the reader can open that record.",
 						"properties": {
 							"register": {
 								"type": "string",
@@ -4279,12 +4279,12 @@
 						"minimum": 0,
 						"maximum": 1,
 						"title": "Confidence",
-						"description": "How sure the extractor was, from 0 to 1. Read paths can filter out low-confidence entries."
+						"description": "How sure the extractor was, from 0 to 1."
 					},
 					"extractedBy": {
 						"type": "string",
 						"title": "Extracted by",
-						"description": "The extractor identifier and version that wrote this entry, e.g. llm-extractor@1, so a bad extractor version can be found and swept."
+						"description": "The extractor and version that wrote this entry, so entries from a bad version can be found and removed."
 					}
 				}
 			},
@@ -4315,7 +4315,7 @@
 						"type": "string",
 						"format": "uuid",
 						"title": "From",
-						"description": "UUID of the GraphEntity the relation starts at (its subject).",
+						"description": "UUID of the graph entity the relation starts at.",
 						"$ref": "graphentity"
 					},
 					"predicate": {
@@ -4328,7 +4328,7 @@
 						"type": "string",
 						"format": "uuid",
 						"title": "To",
-						"description": "UUID of the GraphEntity the relation points to (its object). Named toEntity, not object, because object is the name of the stored record body in OpenRegister.",
+						"description": "UUID of the graph entity the relation points to.",
 						"$ref": "graphentity"
 					},
 					"custom": {
@@ -4351,7 +4351,7 @@
 					"sourceRef": {
 						"type": "object",
 						"title": "Source reference",
-						"description": "A typed pointer to the one record this node or relation came from, NEVER its content. object: register, schema, uuid. file: fileId (authoritative) and path (informational). mail: accountId, mailboxId, messageId. conversation: conversationUuid and optionally messageId. Visibility is decided by re-reading that record as the acting user, so an unreadable or deleted record hides the node.",
+						"description": "A pointer to the one record this entry came from, never its content. The entry is shown only while the reader can open that record.",
 						"properties": {
 							"register": {
 								"type": "string",
@@ -4408,12 +4408,12 @@
 						"minimum": 0,
 						"maximum": 1,
 						"title": "Confidence",
-						"description": "How sure the extractor was, from 0 to 1. Read paths can filter out low-confidence entries."
+						"description": "How sure the extractor was, from 0 to 1."
 					},
 					"extractedBy": {
 						"type": "string",
 						"title": "Extracted by",
-						"description": "The extractor identifier and version that wrote this entry, e.g. llm-extractor@1, so a bad extractor version can be found and swept."
+						"description": "The extractor and version that wrote this entry, so entries from a bad version can be found and removed."
 					}
 				}
 			}
