@@ -68,6 +68,8 @@ class GraphExtract extends Command {
 	 * Name, arguments and options.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	protected function configure(): void {
 		$this->setName(name: 'hermiq:graph:extract')
