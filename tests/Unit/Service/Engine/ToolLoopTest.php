@@ -659,7 +659,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
 	 */
 	public function testABarePushGrantIsNotOfferedAndAScopedOneIs(): void {
 		$open = ['name' => 'hermiq_workspaceOpen', 'mcpId' => 'hermiq.workspaceOpen'];
@@ -683,7 +683,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
 	 */
 	public function testAnAgentWithOnlyABarePushGrantFailsVisibly(): void {
 		$facade = $this->createMock(ToolRegistryFacade::class);

@@ -10,7 +10,7 @@
  *
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @copyright 2026 Conduction B.V.
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-cli-built-in-denylist-is-never-relaxed-to-provide-code-editing-capability
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-cli-built-in-denylist-is-never-relaxed-to-provide-code-editing-capability
  */
 
 'use strict'

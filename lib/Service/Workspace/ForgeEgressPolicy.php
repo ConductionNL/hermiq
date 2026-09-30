@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-forge-egress-is-authorised-per-run-by-the-single-policy-source
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-forge-egress-is-authorised-per-run-by-the-single-policy-source
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Decides forge egress for one run.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
  */
 class ForgeEgressPolicy {
 
@@ -75,7 +75,7 @@ class ForgeEgressPolicy {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
 	 */
 	public function isForgeHost(string $host): bool {
 		$base = $this->appConfig->getValueString(Application::APP_ID, 'workspace_forge_base_url', ForgeLocator::DEFAULT_BASE_URL);
@@ -90,7 +90,7 @@ class ForgeEgressPolicy {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
 	 */
 	public function permits(string $agentId): bool {
 		if ($agentId === '') {

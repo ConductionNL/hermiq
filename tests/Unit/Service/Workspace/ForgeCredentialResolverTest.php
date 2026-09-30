@@ -33,7 +33,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
  */
 final class ForgeCredentialResolverTest extends TestCase {
 
@@ -49,7 +49,7 @@ final class ForgeCredentialResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
 	 */
 	public function testTheOwnersPersonalForgeCredentialIsUsed(): void {
 		$resolver = $this->resolver(credentials: [
@@ -69,7 +69,7 @@ final class ForgeCredentialResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
 	 */
 	public function testMismatchedCredentialOwnersAreRefused(): void {
 		// A pinned model credential that is bob's personal key, on a run alice owns.
@@ -97,7 +97,7 @@ final class ForgeCredentialResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
 	 */
 	public function testOnlyThePersonalCredentialOfTheOwnerCounts(): void {
 		$resolver = $this->resolver(credentials: [
@@ -116,7 +116,7 @@ final class ForgeCredentialResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-unowned-run-cannot-author-or-push
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unowned-run-cannot-author-or-push
 	 */
 	public function testAnUnownedRunCannotPush(): void {
 		$this->assertRefused(
@@ -130,7 +130,7 @@ final class ForgeCredentialResolverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
 	 */
 	public function testAProxyOnlyCredentialCannotPush(): void {
 		$resolver = $this->resolver(credentials: [$this->credential(uuid: 'forge-alice', provider: 'github', owner: 'alice')], injectable: false);

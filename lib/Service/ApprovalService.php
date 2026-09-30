@@ -782,7 +782,7 @@ class ApprovalService {
 	 *
 	 * @return array{uuid: string, status: string, decidedBy: string}|null
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
 	 */
 	public function runPreAuthorisation(string $agentId, string $runId): ?array {
 		$found = null;
@@ -815,7 +815,7 @@ class ApprovalService {
 	 *
 	 * @return array{uuid: string, status: string, decidedBy: string}
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
 	 */
 	public function requestRunPreAuthorisation(string $agentId, string $runId, string $toolId, string $repository, string $ref): array {
 		$owner = $this->resolveAgentOwner(agentId: $agentId);

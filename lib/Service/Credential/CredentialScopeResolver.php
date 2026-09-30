@@ -227,7 +227,7 @@ class CredentialScopeResolver {
 	 *
 	 * @return string|null The owner's uid, or null.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
 	 */
 	public function ownerOfCredential(string $credentialId): ?string {
 		foreach ($this->loadCandidates() as $candidate) {

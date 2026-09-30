@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Pushes a workspace branch as the run owner.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-failed-push-does-not-leak-the-credential
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-failed-push-does-not-leak-the-credential
  */
 class WorkspacePusher {
 
@@ -81,7 +81,7 @@ class WorkspacePusher {
 	 *
 	 * @throws WorkspaceException invalid_argument, owner_unresolvable, credential_scope_refused, egress_denied or push_rejected.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
 	 */
 	public function push(array $run, string $root, string $repository, string $branch, array $arguments): array {
 		if ((string)($arguments['repository'] ?? '') !== $repository) {

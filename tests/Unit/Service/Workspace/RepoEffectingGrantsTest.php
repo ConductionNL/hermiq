@@ -27,7 +27,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant
  */
 final class RepoEffectingGrantsTest extends TestCase {
 
@@ -36,7 +36,7 @@ final class RepoEffectingGrantsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
 	 */
 	public function testABarePushGrantDoesNotResolve(): void {
 		self::assertSame([WorkspaceToolDescriptors::OPEN], $this->listed(grants: [WorkspaceToolDescriptors::OPEN, WorkspaceToolDescriptors::PUSH]));
@@ -47,7 +47,7 @@ final class RepoEffectingGrantsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-argument-scoped-push-grant-resolves-and-is-enforced
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-argument-scoped-push-grant-resolves-and-is-enforced
 	 */
 	public function testAScopedPushGrantResolvesAndItsBranchIsEnforced(): void {
 		$grants = [WorkspaceToolDescriptors::PUSH . '?repository=example-org/example-app&branch=in:feature-a,feature-b'];
@@ -64,7 +64,7 @@ final class RepoEffectingGrantsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
 	 */
 	public function testAHalfScopedOrWidenedGrantDoesNotResolve(): void {
 		self::assertSame([], $this->listed(grants: [WorkspaceToolDescriptors::PUSH . '?repository=example-org/example-app']));
@@ -81,7 +81,7 @@ final class RepoEffectingGrantsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-narrowing-does-not-downgrade-classification
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-narrowing-does-not-downgrade-classification
 	 */
 	public function testNarrowingDoesNotDowngradeClassification(): void {
 		$push = $this->descriptor(id: WorkspaceToolDescriptors::PUSH);
@@ -95,7 +95,7 @@ final class RepoEffectingGrantsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-read-edit-and-push-are-separately-grantable
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-read-edit-and-push-are-separately-grantable
 	 */
 	public function testReadEditAndPushAreSeparatelyGrantable(): void {
 		$read = [WorkspaceToolDescriptors::OPEN, WorkspaceToolDescriptors::STATUS, WorkspaceToolDescriptors::READ_FILE];

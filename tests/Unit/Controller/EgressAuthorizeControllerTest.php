@@ -452,7 +452,7 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
 	 */
 	public function testTheForgeHostIsDeniedWithoutTheGrant(): void {
 		$call = fn (): array => $this->controller(

@@ -31,7 +31,7 @@ use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-forge-egress-is-authorised-per-run-by-the-single-policy-source
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-forge-egress-is-authorised-per-run-by-the-single-policy-source
  */
 final class ForgeEgressPolicyTest extends TestCase {
 
@@ -40,7 +40,7 @@ final class ForgeEgressPolicyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
 	 */
 	public function testOnlyAResolvingForgeGrantOpensTheForge(): void {
 		self::assertTrue($this->policy(tools: [WorkspaceToolDescriptors::OPEN])->permits(agentId: 'agent-1'));
@@ -59,7 +59,7 @@ final class ForgeEgressPolicyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
 	 */
 	public function testTheForgeHostIsTheConfiguredOne(): void {
 		$policy = $this->policy(tools: []);

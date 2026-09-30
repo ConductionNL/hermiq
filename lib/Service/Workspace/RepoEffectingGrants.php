@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 /**
  * Drops a repo-effecting tool that no argument-scoped grant pins.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant
  */
 final class RepoEffectingGrants {
 
@@ -54,7 +54,7 @@ final class RepoEffectingGrants {
 	 *
 	 * @return array<int, string>
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
 	 */
 	public static function filterIds(array $resolvedIds, array $constraints): array {
 		return array_values(
@@ -73,7 +73,7 @@ final class RepoEffectingGrants {
 	 *
 	 * @return array<int, mixed>
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
 	 */
 	public static function filterDescriptors(array $descriptors, array $constraints): array {
 		return array_values(
@@ -103,7 +103,7 @@ final class RepoEffectingGrants {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-argument-scoped-push-grant-resolves-and-is-enforced
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-argument-scoped-push-grant-resolves-and-is-enforced
 	 */
 	public static function resolves(string $toolId, array $constraints): bool {
 		if (in_array($toolId, self::REPO_EFFECTING, true) === false) {

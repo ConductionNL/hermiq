@@ -53,7 +53,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 final class WorkspaceToolsetWriteTest extends TestCase {
 
@@ -224,7 +224,7 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
 	 */
 	public function testAnApprovedRunPushesItsBranch(): void {
 		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
@@ -246,7 +246,7 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-failed-push-does-not-leak-the-credential
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-failed-push-does-not-leak-the-credential
 	 */
 	public function testARefusedPushIsRedacted(): void {
 		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
@@ -269,7 +269,7 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
 	 */
 	public function testAPushNeedsTheApprovalAndTheRunsOwnRepository(): void {
 		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
@@ -292,7 +292,7 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-push-produces-a-complete-attribution-record
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-push-produces-a-complete-attribution-record
 	 */
 	public function testAPushLeavesACompleteAttributionRecord(): void {
 		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
@@ -323,7 +323,7 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-refused-write-is-audited-too
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-refused-write-is-audited-too
 	 */
 	public function testARefusedWriteIsAuditedToo(): void {
 		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
@@ -341,7 +341,7 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-audit-records-carry-no-secrets-or-paths
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-audit-records-carry-no-secrets-or-paths
 	 */
 	public function testAuditRecordsCarryNoSecretOrPath(): void {
 		$toolset = $this->opened(runId: 'run-a', owner: 'alice');

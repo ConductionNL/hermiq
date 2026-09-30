@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Records workspace writes.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
  */
 class WorkspaceAuditor {
 
@@ -105,7 +105,7 @@ class WorkspaceAuditor {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-refused-write-is-audited-too
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-refused-write-is-audited-too
 	 */
 	public function record(array $run, string $toolId, array $arguments, ?array $approval, ?array $result, string $outcome): void {
 		$recorded = $this->recordedArguments(toolId: $toolId, arguments: $arguments);
