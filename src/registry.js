@@ -37,6 +37,7 @@
 //
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 import { CnFlowSidebar } from '@conduction/nextcloud-vue'
+import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
@@ -133,6 +134,22 @@ export default {
 	'agent-version-history': {
 		kind: 'modal',
 		component: AgentVersionHistoryDialog,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+			},
+		},
+	},
+
+	/**
+	 * Switch one agent off and on, with who, when and why
+	 * (agents-switch-off-and-stop). Self-resolves the agent id from the route
+	 * when opened via AgentDetail's "Switch off or on" action.
+	 */
+	'agent-availability': {
+		kind: 'modal',
+		component: AgentAvailabilityDialog,
 		propsSchema: {
 			type: 'object',
 			properties: {

@@ -196,6 +196,10 @@
 					{
 						"key": "model",
 						"label": "Model"
+					},
+					{
+						"key": "active",
+						"label": "Switched on"
 					}
 				],
 				"rowRoute": "AgentDetail",
@@ -210,7 +214,8 @@
 				]
 			},
 			"slots": {
-				"form-dialog": "AgentFormModal"
+				"form-dialog": "AgentFormModal",
+				"delete-dialog": "AgentDeleteDialog"
 			}
 		},
 		{
@@ -241,7 +246,7 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"active"
+								"maxToolCalls"
 							]
 						}
 					},
@@ -525,6 +530,16 @@
 						"type": "open-modal",
 						"target": "agent-form",
 						"icon": "Pencil",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "switch-availability",
+						"label": "Switch off or on",
+						"type": "open-modal",
+						"target": "agent-availability",
+						"icon": "Power",
 						"props": {
 							"show": true
 						}

@@ -202,6 +202,21 @@
 						placeholder="2048" />
 				</div>
 
+				<NcTextField
+					v-model="form.maxToolCalls"
+					data-testid="agent-form-max-tool-calls"
+					type="number"
+					min="1"
+					max="100"
+					:label="t('hermiq', 'Maximum tool calls per answer')"
+					:helperText="
+						t(
+							'hermiq',
+							'The agent stops after this many tool calls in one answer.',
+						)
+					"
+					placeholder="10" />
+
 				<div class="agent-form__field">
 					<NcSelect
 						v-model="form.tools"
@@ -970,6 +985,7 @@ export default {
 				prompt: '',
 				temperature: '',
 				maxTokens: '',
+				maxToolCalls: 10,
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -1044,6 +1060,7 @@ export default {
 				prompt: source.prompt || '',
 				temperature: source.temperature ?? '',
 				maxTokens: source.maxTokens ?? '',
+				maxToolCalls: source.maxToolCalls ?? 10,
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
@@ -1282,6 +1299,10 @@ export default {
 			const maxTokens = Number(this.form.maxTokens)
 			if (this.form.maxTokens !== '' && Number.isInteger(maxTokens)) {
 				payload.maxTokens = maxTokens
+			}
+			const maxToolCalls = Number(this.form.maxToolCalls)
+			if (this.form.maxToolCalls !== '' && Number.isInteger(maxToolCalls)) {
+				payload.maxToolCalls = Math.min(100, Math.max(1, maxToolCalls))
 			}
 			const ragNumSources = Number(this.form.ragNumSources)
 			if (this.form.ragNumSources !== '' && Number.isInteger(ragNumSources)) {

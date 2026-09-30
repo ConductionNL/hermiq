@@ -135,6 +135,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use Closure;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
@@ -275,6 +276,13 @@ class FacadeToolInvoker {
 	private const FLOW_OWNER_ARGUMENT = 'triggeredBy';
 
 	/**
+	 * The stop rule of this turn (agents-switch-off-and-stop).
+	 *
+	 * @var TurnGuard
+	 */
+	private readonly TurnGuard $turnGuard;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ToolRegistryFacade $facade The OR public tool read/invoke surface.
@@ -389,6 +397,10 @@ class FacadeToolInvoker {
 	 *                                                             identically so the same pure checker
 	 *                                                             decides conformance. Empty (every
 	 *                                                             pre-existing caller) waives nothing.
+	 * @param int|null     $maxToolCalls Tool calls this turn may make (agents-switch-off-and-stop);
+	 *                                   null, every pre-existing caller, is no cap.
+	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
+	 *                                   null is always on.
 	 *
 	 * @return void
 	 *
@@ -421,8 +433,23 @@ class FacadeToolInvoker {
 		private readonly array $argumentConstraints = [],
 		private readonly ?string $ownerUid = null,
 		private readonly array $waivedConstraintSets = [],
+		?int $maxToolCalls = null,
+		?Closure $agentStillOn = null,
 	) {
+		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
+
+	/**
+	 * Whether this turn was stopped: its agent was switched off, or it used every
+	 * tool call its owner allows (agents-switch-off-and-stop).
+	 *
+	 * @return bool True once a tool call was refused for either reason.
+	 *
+	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 */
+	public function isStopped(): bool {
+		return $this->turnGuard->isStopped();
+	}//end isStopped()
 
 	/**
 	 * Catch LLPhant's `$instance->{$functionName}(...$args)` dispatch and route
@@ -448,6 +475,12 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 */
 	public function __call(string $name, array $arguments): string {
+		// Agents-switch-off-and-stop: before anything else, the turn may be over.
+		$stopReason = $this->turnGuard->admit();
+		if ($stopReason !== null) {
+			return $this->handleTurnStopped(reason: $stopReason);
+		}
+
 		if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
@@ -492,6 +525,28 @@ class FacadeToolInvoker {
 
 		return $this->dispatchToFacade(name: $name, arguments: $arguments);
 	}//end __call()
+
+	/**
+	 * Refuse a tool call because the turn stopped, and record why on the trace.
+	 *
+	 * @param string $reason The stop reason (TurnGuard::SWITCHED_OFF or ::LIMIT_REACHED).
+	 *
+	 * @return string JSON-encoded error result for the model.
+	 *
+	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	private function handleTurnStopped(string $reason): string {
+		if ($this->trace !== null) {
+			$this->trace->endStep(token: $this->trace->startStep(type: 'guard', name: $reason), outcome: 'stopped');
+		}
+
+		$envelope = [
+			'result' => ['error' => $reason . '. Do not call another tool; answer with what you have.'],
+			'isError' => true,
+		];
+
+		return (string)json_encode($envelope);
+	}//end handleTurnStopped()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).

@@ -117,7 +117,20 @@ class AgentsController extends Controller {
 	 *
 	 * @var array<int, string>
 	 */
-	private const PROTECTED_KEYS = ['_route', 'id', 'uuid', 'created', 'updated', 'organisation', 'owner'];
+	private const PROTECTED_KEYS = [
+		'_route',
+		'id',
+		'uuid',
+		'created',
+		'updated',
+		'organisation',
+		'owner',
+		// Agents-switch-off-and-stop: the switch has one write path, the availability endpoint.
+		'active',
+		'availabilityChangedBy',
+		'availabilityChangedAt',
+		'availabilityReason',
+	];
 
 	/**
 	 * Constructor.

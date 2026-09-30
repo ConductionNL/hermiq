@@ -40,6 +40,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\Engine;
@@ -455,6 +456,17 @@ class ChatStreamController extends Controller {
 						payload: [
 							'code' => PinnedCredentialRefusedException::ERROR_CODE,
 							'message' => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+						]
+					);
+				}
+
+				// Agents-switch-off-and-stop: the agent is switched off; no answer.
+				if ($cause instanceof AgentSwitchedOffException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => AgentSwitchedOffException::ERROR_CODE,
+							'message' => $this->l10n->t('This agent is switched off.'),
 						]
 					);
 				}

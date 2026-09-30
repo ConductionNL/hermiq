@@ -25,6 +25,7 @@
 // See hydra ADR-036 for the v2 registry design.
 
 import { generateUrl } from '@nextcloud/router'
+import AgentDeleteDialog from './dialogs/AgentDeleteDialog.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
 // Context form (hermiq-context-documents): resolved by the Contexts page's
 // `slots.form-dialog` -> "ContextFormModal".
@@ -126,6 +127,9 @@ export default {
 	// as the `agent-form` v2 modal in registry.js for AgentDetail's
 	// route-based "Edit agent" open-modal action.
 	AgentFormModal,
+	// Agent delete confirmation naming the schedules that go with the agent
+	// (agents-switch-off-and-stop): AgentCatalog's `slots.delete-dialog`.
+	AgentDeleteDialog,
 	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
 	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
 	SkillFormModal,

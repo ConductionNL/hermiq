@@ -2313,13 +2313,18 @@ class ScheduleServiceTest extends TestCase {
 	/**
 	 * agent-capability-profile: actingUser is never consulted on the flag-off (legacy
 	 * ChatService) path — a set actingUser has zero effect until the engine flag is on.
+	 * The agent itself IS read on this path since agents-switch-off-and-stop (is it
+	 * switched on?), so the proof is that its declared actingUser is not used.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
 	 */
 	public function testActingUserIgnoredOnFlagOffPath(): void {
-		$this->objectService->expects($this->never())->method('find');
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-uuid');
+		$agent->setObject(['name' => 'Digest', 'active' => true, 'actingUser' => 'bob']);
+		$this->objectService->method('find')->willReturn($agent);
 		$this->chatService->method('processMessage')->willReturn(['message' => 'or output', 'usage' => []]);
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());

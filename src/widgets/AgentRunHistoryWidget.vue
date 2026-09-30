@@ -687,6 +687,7 @@ export default {
 				|| status === 'awaiting_approval'
 				|| status === 'skipped_killswitch'
 				|| status === 'skipped_budget'
+				|| status === 'skipped_agent_off'
 			) {
 				return 'agent-run-history-widget__badge--warning'
 			}
@@ -707,6 +708,7 @@ export default {
 				running: this.t('hermiq', 'Running'),
 				skipped_killswitch: this.t('hermiq', 'Halted (kill-switch)'),
 				skipped_budget: this.t('hermiq', 'Halted (budget)'),
+				skipped_agent_off: this.t('hermiq', 'Halted (agent switched off)'),
 				awaiting_approval: this.t('hermiq', 'Awaiting approval'),
 				retry_pending: this.t('hermiq', 'Retrying…'),
 				dead_letter: this.t('hermiq', 'Dead-letter'),

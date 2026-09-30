@@ -34,6 +34,8 @@ use Cron\CronExpression;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
@@ -601,6 +603,37 @@ class ScheduleService {
 	}//end rawAgentActingUser()
 
 	/**
+	 * Whether the agent is switched off (agents-switch-off-and-stop). An agent
+	 * that cannot be read is not called switched off: the run path that loads it
+	 * reports that failure itself.
+	 *
+	 * @param string $agentId The bound agent UUID.
+	 *
+	 * @return bool True when the stored agent's `active` is false.
+	 *
+	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	private function agentIsSwitchedOff(string $agentId): bool {
+		if ($agentId === '') {
+			return false;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return false;
+		}
+
+		return (new AgentAvailability())->isOn(agent: $agent) === false;
+	}//end agentIsSwitchedOff()
+
+	/**
 	 * The AI feature an agent's runs belong to, when it declares one.
 	 *
 	 * Read here rather than threaded through the run, because the retention stamp
@@ -970,6 +1003,13 @@ class ScheduleService {
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
 
+		// GATE 0 — THE AGENT IS SWITCHED OFF (agents-switch-off-and-stop): recorded
+		// like a kill-switch skip, and the next run still advances.
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			$this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_agent_off');
+			return;
+		}
+
 		// GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
 		if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
 			$this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_killswitch');
@@ -1034,7 +1074,7 @@ class ScheduleService {
 	 *
 	 * @param ObjectEntity $schedule The schedule to evaluate.
 	 *
-	 * @return string|null One of `skipped_killswitch`|`skipped_budget`|`awaiting_approval`
+	 * @return string|null One of `skipped_agent_off`|`skipped_killswitch`|`skipped_budget`|`awaiting_approval`
 	 *                     when a gate blocks the run, or null when every gate passes.
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
@@ -1043,6 +1083,10 @@ class ScheduleService {
 		$data = $schedule->getObject();
 		$organisation = (string)($schedule->getOrganisation() ?? '');
 		$agentId = (string)($data['agentId'] ?? '');
+
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			return 'skipped_agent_off';
+		}
 
 		if ($this->isOrganisationEngaged(organisation: $organisation) === true) {
 			return 'skipped_killswitch';
@@ -2196,6 +2240,12 @@ class ScheduleService {
 		$this->lastRunAsUser = $owner;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
+
+		// Agents-switch-off-and-stop: the shared entry of schedules, run now, webhooks,
+		// flows and delegation refuses a switched-off agent before impersonating anyone.
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			throw new AgentSwitchedOffException();
+		}
 
 		// Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
 		$guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
