@@ -90,8 +90,9 @@ class TaskCalendarObject {
 			$lines[] = $this->dueLine(due: $due);
 		}
 
-		if (isset($fields['priority']) === true && $fields['priority'] !== '' && $fields['priority'] !== null) {
-			$lines[] = 'PRIORITY:' . (int)$fields['priority'];
+		$priority = ($fields['priority'] ?? null);
+		if (is_numeric($priority) === true) {
+			$lines[] = 'PRIORITY:' . (int)$priority;
 		}
 
 		// ADR-088: the mark sits inside the same object that is stored, so the task
@@ -122,6 +123,19 @@ class TaskCalendarObject {
 			$newline = "\r\n";
 		}
 
+		$logical = $this->logicalLines(physical: preg_split('/\r\n|\n/', $ics));
+		$start = null;
+		foreach ($logical as $index => $group) {
+			if (strtoupper($group[0]) === 'BEGIN:VTODO') {
+				$start = $index;
+				break;
+			}
+		}
+
+		if ($start === null) {
+			return null;
+		}
+
 		$added = [
 			'STATUS:COMPLETED',
 			'COMPLETED:' . $this->utc(moment: $now),
@@ -129,78 +143,90 @@ class TaskCalendarObject {
 			AgentArtefactMarker::OBJECT_PROPERTY . ':' . $markValue,
 		];
 
-		$output = [];
-		$state = ['inTodo' => false, 'depth' => 0, 'done' => false, 'dropping' => false];
-		foreach (preg_split('/\r\n|\n/', $ics) as $line) {
-			$output = array_merge($output, $this->rewriteLine(line: $line, state: $state, added: $added));
-		}
-
-		if ($state['done'] === false) {
+		$rewritten = $this->rewriteTask(logical: $logical, start: $start, added: $added);
+		if ($rewritten === null) {
 			return null;
 		}
 
-		return implode($newline, $output);
+		return implode($newline, array_merge(...$rewritten));
 
 	}//end complete()
 
 	/**
-	 * Decide what one physical line becomes while completing.
+	 * Group physical lines into logical content lines: a line that starts with a
+	 * space or tab continues the one above it.
 	 *
-	 * @param string $line The physical line.
-	 * @param array<string, bool|int> $state The walk state, updated in place.
-	 * @param array<int, string> $added The lines to add before the task ends.
+	 * @param array<int, string> $physical The physical lines.
 	 *
-	 * @return array<int, string> The lines to emit for this one.
+	 * @return array<int, array<int, string>> The logical lines, each its physical lines.
 	 */
-	private function rewriteLine(string $line, array &$state, array $added): array {
-		$isContinuation = ($line !== '' && ($line[0] === ' ' || $line[0] === "\t"));
-		if ($state['inTodo'] === false || $state['done'] === true) {
-			if ($isContinuation === false && strtoupper($line) === 'BEGIN:VTODO' && $state['done'] === false) {
-				$state['inTodo'] = true;
+	private function logicalLines(array $physical): array {
+		$logical = [];
+		foreach ($physical as $line) {
+			$continues = ($line !== '' && ($line[0] === ' ' || $line[0] === "\t"));
+			if ($continues === true && $logical !== []) {
+				$logical[(count($logical) - 1)][] = $line;
+				continue;
 			}
 
-			return [$line];
+			$logical[] = [$line];
 		}
 
-		// A folded continuation belongs to the property above it.
-		if ($isContinuation === true) {
-			if ($state['dropping'] === true) {
-				return [];
+		return $logical;
+
+	}//end logicalLines()
+
+	/**
+	 * Drop the completion properties of the task that begins at `$start` and add
+	 * the new ones before that task ends; every other logical line is kept whole.
+	 *
+	 * @param array<int, array<int, string>> $logical The logical lines.
+	 * @param int $start The index of BEGIN:VTODO.
+	 * @param array<int, string> $added The lines to add.
+	 *
+	 * @return array<int, array<int, string>>|null The rewritten lines, or null when the task never ends.
+	 */
+	private function rewriteTask(array $logical, int $start, array $added): ?array {
+		$depth = 0;
+		$count = count($logical);
+		for ($index = ($start + 1); $index < $count; $index++) {
+			$upper = strtoupper($logical[$index][0]);
+			if ($depth === 0 && $upper === 'END:VTODO') {
+				array_splice($logical, $index, 0, [$added]);
+
+				return array_values($logical);
 			}
 
-			return [$line];
+			$depth += $this->depthChange(upper: $upper);
+			$name = (string)preg_split('/[;:]/', $upper, 2)[0];
+			if ($depth === 0 && in_array($name, self::COMPLETION_PROPERTIES, true) === true) {
+				$logical[$index] = [];
+			}
 		}
 
-		$state['dropping'] = false;
-		$upper = strtoupper($line);
-		if ($state['depth'] === 0 && $upper === 'END:VTODO') {
-			$state['done'] = true;
+		return null;
 
-			return array_merge($added, [$line]);
-		}
+	}//end rewriteTask()
 
+	/**
+	 * How a content line changes the component nesting depth.
+	 *
+	 * @param string $upper The line, upper-cased.
+	 *
+	 * @return int 1 for BEGIN, -1 for END, 0 otherwise.
+	 */
+	private function depthChange(string $upper): int {
 		if (str_starts_with($upper, 'BEGIN:') === true) {
-			$state['depth'] = ((int)$state['depth'] + 1);
-
-			return [$line];
+			return 1;
 		}
 
 		if (str_starts_with($upper, 'END:') === true) {
-			$state['depth'] = max(0, ((int)$state['depth'] - 1));
-
-			return [$line];
+			return -1;
 		}
 
-		$name = strtoupper((string)preg_split('/[;:]/', $line, 2)[0]);
-		if ($state['depth'] === 0 && in_array($name, self::COMPLETION_PROPERTIES, true) === true) {
-			$state['dropping'] = true;
+		return 0;
 
-			return [];
-		}
-
-		return [$line];
-
-	}//end rewriteLine()
+	}//end depthChange()
 
 	/**
 	 * The DUE line: a date-only due stays a DATE, a date-time is stored in UTC.

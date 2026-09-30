@@ -5,7 +5,7 @@
  *
  * Calendars are doubles of the real OCP interfaces; the DAV backend is a double
  * with the three method signatures of OCA\DAV\CalDAV\CalDavBackend at v34.0.3,
- * substituted through the protected resolver the way NotesWriteServiceTest
+ * substituted by overriding TaskLists::davBackend() the way NotesWriteServiceTest
  * substitutes Notes. The refusals come first: a shared-in list that is not
  * written is the behaviour nobody watches fail.
  *
@@ -27,6 +27,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\NcNative;
 use DateTimeImmutable;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\TaskCalendarObject;
+use OCA\Hermiq\Service\NcNative\TaskLists;
+use OCA\Hermiq\Service\NcNative\TaskReader;
 use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCP\Calendar\ICalendarIsShared;
 use OCP\Calendar\ICalendarIsWritable;
@@ -193,21 +195,32 @@ final class TaskWriteServiceTest extends TestCase {
 			$this->createMock(LoggerInterface::class)
 		);
 
-		return new class($manager, $marker, new TaskCalendarObject(), $this->createMock(ContainerInterface::class), $this->createMock(LoggerInterface::class), $backend) extends TaskWriteService {
+		$lists = new class($manager, $this->createMock(ContainerInterface::class), $this->createMock(LoggerInterface::class), $backend) extends TaskLists {
 			/**
-			 * @param mixed ...$args Parent arguments, then the backend double.
+			 * @param ICalendarManager $m The calendar manager.
+			 * @param ContainerInterface $c The container.
+			 * @param LoggerInterface $l The logger.
+			 * @param object|null $double The backend double.
 			 */
-			public function __construct(ICalendarManager $m, AgentArtefactMarker $a, TaskCalendarObject $t, ContainerInterface $c, LoggerInterface $l, private ?object $double) {
-				parent::__construct($m, $a, $t, $c, $l);
+			public function __construct(ICalendarManager $m, ContainerInterface $c, LoggerInterface $l, private ?object $double) {
+				parent::__construct($m, $c, $l);
 			}
 
 			/**
 			 * @return object|null
 			 */
-			protected function davBackend(): ?object {
+			public function davBackend(): ?object {
 				return $this->double;
 			}
 		};
+
+		return new TaskWriteService(
+			$lists,
+			new TaskReader(),
+			new TaskCalendarObject(),
+			$marker,
+			$this->createMock(LoggerInterface::class)
+		);
 
 	}//end service()
 

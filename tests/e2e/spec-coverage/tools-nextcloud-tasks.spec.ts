@@ -74,8 +74,12 @@ test.describe('tools-nextcloud-tasks: grant surface', () => {
 		for (const id of TASK_WRITES) {
 			const entry = byId.get(id)
 			expect(entry, `${id} must appear in the catalogue`).toBeTruthy()
-			expect(entry?.reach, `${id} reaches whoever shares the list`).toBe('instance')
-			expect(entry?.granted, `${id} must not be granted by default`).toBe(false)
+			expect(entry?.reach, `${id} reaches whoever shares the list`).toBe(
+				'instance',
+			)
+			expect(entry?.granted, `${id} must not be granted by default`).toBe(
+				false,
+			)
 			expect(entry?.requiresExplicitGrant, `${id} is a write`).toBe(true)
 		}
 
@@ -83,7 +87,9 @@ test.describe('tools-nextcloud-tasks: grant surface', () => {
 		const root = await appRoot(page)
 		await page.goto(`${root}/agents/${agentId}`)
 		await dismissTour(page)
-		await expect(page.getByRole('heading', { name: /tool grants/i })).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: /tool grants/i }),
+		).toBeVisible()
 		const filter = page.getByPlaceholder('Filter by cluster, subject or tool')
 		await filter.fill('hermiq.createTask')
 		const headers = page.locator('.grant-matrix__cluster-header')
@@ -94,6 +100,8 @@ test.describe('tools-nextcloud-tasks: grant surface', () => {
 			}
 		}
 		await expect(page.locator('.grant-matrix tbody tr').first()).toBeVisible()
-		await expect(page.getByLabel(/requires explicit grant/i).first()).toBeVisible()
+		await expect(
+			page.getByLabel(/requires explicit grant/i).first(),
+		).toBeVisible()
 	})
 })
