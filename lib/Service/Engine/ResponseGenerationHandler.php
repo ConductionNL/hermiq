@@ -460,9 +460,7 @@ class ResponseGenerationHandler {
 
 				// Agents-switch-off-and-stop: the Anthropic loop stops at the agent's cap
 				// itself, so the run trace learns it here.
-				if ($trace !== null && $this->providerFactory->lastCallHitToolCap() === true) {
-					$trace->endStep(token: $trace->startStep(type: 'guard', name: TurnGuard::LIMIT_REACHED), outcome: 'stopped');
-				}
+				$trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
 
 				// The input and output tokens of every request of the turn, tool loop
 				// included, which a token budget counts (hermiq#985).

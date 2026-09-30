@@ -401,6 +401,38 @@ class McpRunController extends Controller {
 	}//end resolveMcpTools()
 
 	/**
+	 * The call's arguments, with the calling agent stamped in.
+	 *
+	 * WHO IS CALLING, decided here rather than trusted from the model. Several
+	 * tools need the calling agent's identity: memory, and the tool-access
+	 * request path, which cannot raise a request "from an agent" without knowing
+	 * which. They read it from `arguments['agentId']`, which on this transport
+	 * the MODEL would have to supply: it has no way to know its own uuid, so it
+	 * sent nothing and the request was refused with "an access request must come
+	 * from an agent". The token already binds this run to an agent, so the
+	 * identity is authoritative here and is stamped in. Overwriting rather than
+	 * defaulting is deliberate: a model-supplied agentId would otherwise let one
+	 * agent act as another.
+	 *
+	 * @param array<string, mixed> $params  The JSON-RPC params.
+	 * @param string               $agentId The agent from the verified token.
+	 *
+	 * @return array<string, mixed> The arguments.
+	 */
+	private function callArguments(array $params, string $agentId): array {
+		$arguments = $params['arguments'] ?? [];
+		if (is_array($arguments) === false) {
+			$arguments = [];
+		}
+
+		if ($agentId !== '') {
+			$arguments['agentId'] = $agentId;
+		}
+
+		return $arguments;
+	}//end callArguments()
+
+	/**
 	 * `tools/call`: dispatch through the SAME governed `FacadeToolInvoker` the
 	 * `http` tool loop uses. A tool outside the agent's grants, a guardrail deny
 	 * or a pending approval returns `result.isError: true` and executes nothing.
@@ -421,28 +453,7 @@ class McpRunController extends Controller {
 			return $this->jsonRpcError(id: $id, code: -32602, message: 'Invalid params', status: Http::STATUS_BAD_REQUEST);
 		}
 
-		$arguments = $params['arguments'] ?? [];
-		if (is_array($arguments) === false) {
-			$arguments = [];
-		}
-
-		// WHO IS CALLING, decided here rather than trusted from the model.
-		//
-		// Several tools need the calling agent's identity — memory, and the
-		// tool-access request path, which cannot raise a request "from an agent"
-		// without knowing which. They read it from `arguments['agentId']`, which
-		// on this transport the MODEL would have to supply: it has no way to know
-		// its own uuid, so it sent nothing and the request was refused with "an
-		// access request must come from an agent".
-		//
-		// The token already binds this run to an agent (see the binding above),
-		// so the identity is authoritative here and is stamped in. Overwriting
-		// rather than defaulting is deliberate: a model-supplied agentId would
-		// otherwise let one agent act as another.
-		if ($agentId !== '') {
-			$arguments['agentId'] = $agentId;
-		}
-
+		$arguments = $this->callArguments(params: $params, agentId: $agentId);
 		$agent = $this->loadAgent(agentId: $agentId);
 
 		// Agents-switch-off-and-stop: every call is its own request on this
