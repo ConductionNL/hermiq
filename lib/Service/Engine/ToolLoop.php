@@ -64,6 +64,7 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
@@ -236,7 +237,13 @@ class ToolLoop {
 			}
 		}//end if
 
-		$functions = $this->resolveFunctions(whitelist: $whitelist);
+		// Hermiq-runner-git-capability: a repo-effecting tool (the push) resolves
+		// only from a grant pinning the repository and constraining the branch, so
+		// a bare grant is never offered, and an agent with nothing else raises below.
+		$functions = RepoEffectingGrants::filterDescriptors(
+			descriptors: $this->resolveFunctions(whitelist: $whitelist),
+			constraints: $this->grantResolver->argumentConstraints(grants: $whitelist)
+		);
 
 		// An agent that WAS granted tools but resolved to none is broken, not
 		// tool-less: downstream both look like an empty function list, so the run

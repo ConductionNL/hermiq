@@ -260,6 +260,33 @@ class ToolOversightControllerTest extends TestCase {
 	}//end testToolCatalogAnnotatesGrantedAndRequiresExplicitGrant()
 
 	/**
+	 * The oversight catalogue shows a bare push grant as NOT granted, so an
+	 * operator sees the misconfiguration before a run needs it; a scoped one is granted.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testToolCatalogShowsABarePushGrantAsNotGranted(): void {
+		$this->toolRegistry->method('listTools')->willReturn(
+			[['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush', 'destructiveHint' => true]]
+		);
+		$this->objectService->method('find')->willReturnOnConsecutiveCalls(
+			$this->agent(['tools' => ['hermiq.workspacePush']]),
+			$this->agent(['tools' => ['hermiq.workspacePush?repository=example-org/example-app&branch=feature-a']])
+		);
+
+		$bare = $this->controller()->toolCatalog('agent-1')->getData();
+		$this->assertFalse($bare['tools'][0]['granted']);
+		$this->assertTrue($bare['tools'][0]['destructiveHint']);
+
+		$scoped = $this->controller()->toolCatalog('agent-1')->getData();
+		$this->assertTrue($scoped['tools'][0]['granted']);
+		$this->assertTrue($scoped['tools'][0]['destructiveHint'], 'Narrowing never downgrades the classification.');
+
+	}//end testToolCatalogShowsABarePushGrantAsNotGranted()
+
+	/**
 	 * toolCatalog refuses an agent the caller cannot view (private, non-owner,
 	 * not invited) with 403 — never leaking the catalog.
 	 *
