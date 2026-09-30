@@ -165,11 +165,24 @@ class WorkspaceToolset {
 			WorkspaceToolDescriptors::WRITE_FILE => $this->editor->writeFile(runKey: $run['runId'], root: $root, arguments: $arguments),
 			WorkspaceToolDescriptors::DELETE_FILE => $this->editor->deleteFile(root: $root, arguments: $arguments),
 			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $run['runId'], root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $root, branch: $this->ref(value: (string)($arguments['branch'] ?? ''))),
-			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(root: $root, branch: $this->ref(value: (string)($arguments['branch'] ?? ''))),
+			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $root, branch: $this->branchArgument(arguments: $arguments)),
+			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(root: $root, branch: $this->branchArgument(arguments: $arguments)),
 			default => $this->editor->commit(root: $root, ownerUid: $run['userId'], arguments: $arguments),
 		};
 	}//end dispatchWrite()
+
+	/**
+	 * The validated `branch` argument.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException invalid_argument.
+	 */
+	private function branchArgument(array $arguments): string {
+		return $this->ref(value: (string)($arguments['branch'] ?? ''));
+	}//end branchArgument()
 
 	/**
 	 * Refuse a workspace id that is not the caller's own.
