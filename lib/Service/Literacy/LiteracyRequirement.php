@@ -20,7 +20,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use Throwable;
 /**
  * The organisation's course requirement and its guard.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
  */
 class LiteracyRequirement {
 
@@ -69,7 +69,7 @@ class LiteracyRequirement {
 	 *
 	 * @throws LiteracyRequiredException When the organisation requires the course and it is not done.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function assertMayUseAgents(string $uid): void {
 		if ($this->isRequired(organisation: $this->organisationOf(uid: $uid)) === false) {
@@ -91,7 +91,7 @@ class LiteracyRequirement {
 	 *
 	 * @return array{message: string, errorCode: string, courseUrl: string}|null The refusal.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function refusal(string $uid): ?array {
 		try {
@@ -114,7 +114,7 @@ class LiteracyRequirement {
 	 *
 	 * @return bool True when required.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function isRequired(string $organisation): bool {
 		$control = $this->control(organisation: $organisation);
@@ -133,7 +133,7 @@ class LiteracyRequirement {
 	 *
 	 * @throws RuntimeException When the actor may not administer the organisation.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function setRequired(string $organisation, bool $required, IUser $actor): bool {
 		if ($this->mayAdminister(organisation: $organisation, uid: $actor->getUID()) === false) {
@@ -170,7 +170,7 @@ class LiteracyRequirement {
 	 *
 	 * @return bool True when allowed.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function mayAdminister(string $organisation, string $uid): bool {
 		if ($organisation === '') {
@@ -195,7 +195,7 @@ class LiteracyRequirement {
 	 *
 	 * @return string The organisation.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function organisationOf(string $uid): string {
 		try {

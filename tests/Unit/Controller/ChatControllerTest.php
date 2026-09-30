@@ -338,7 +338,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function testAPersonWhoSkippedTheCourseIsSentToIt(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);

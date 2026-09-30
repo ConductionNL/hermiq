@@ -17,7 +17,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use RuntimeException;
 /**
  * Lessons, answers, report and requirement.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
  */
 class LiteracyController extends Controller {
 
@@ -72,7 +72,7 @@ class LiteracyController extends Controller {
 	 *
 	 * @return JSONResponse The lessons.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	#[NoAdminRequired]
 	public function lessons(): JSONResponse {
@@ -102,7 +102,7 @@ class LiteracyController extends Controller {
 	 *
 	 * @return JSONResponse The result.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	#[NoAdminRequired]
 	public function answer(string $slug): JSONResponse {
@@ -131,7 +131,7 @@ class LiteracyController extends Controller {
 	 *
 	 * @return JSONResponse The rows, or 403.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	#[NoAdminRequired]
 	public function overview(): JSONResponse {
@@ -154,7 +154,7 @@ class LiteracyController extends Controller {
 	 *
 	 * @return DataDownloadResponse|JSONResponse The file, or 403.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	#[NoAdminRequired]
 	public function overviewCsv(): DataDownloadResponse|JSONResponse {
@@ -171,7 +171,7 @@ class LiteracyController extends Controller {
 	 *
 	 * @return JSONResponse The stored value, or 403.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	#[NoAdminRequired]
 	public function setRequirement(): JSONResponse {

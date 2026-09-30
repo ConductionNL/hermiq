@@ -43,7 +43,7 @@ use RuntimeException;
 /**
  * Working with AI.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
  */
 final class LiteracyTest extends TestCase {
 
@@ -140,7 +140,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function testSeedingIsIdempotentAndKeepsAdminEdits(): void {
 		$this->assertCount(12, $this->objects->bySchema['literacylesson']);
@@ -161,7 +161,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function testPayloadsMatchTheRegisterSchemas(): void {
 		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../../lib/Settings/hermiq_register.json'));
@@ -191,7 +191,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function testANewCaseHandlerCompletesALesson(): void {
 		$course = $this->course();
@@ -223,7 +223,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function testAChangedLessonIsAskedAgain(): void {
 		$course = $this->course();
@@ -248,7 +248,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function testAPersonWhoSkippedTheCourseIsSentToIt(): void {
 		$requirement = $this->requirement();
@@ -289,7 +289,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function testTheAdminSeesCompletionPerPerson(): void {
 		$this->completeAll('alice');
@@ -316,7 +316,7 @@ final class LiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
 	 */
 	public function testTheArticle4ControlReadsCompletions(): void {
 		$report = new LiteracyReport($this->objects, $this->course());

@@ -51,3 +51,12 @@ The six lessons above in `en` and `nl`, and the control `eu-ai-act/art.4`. Examp
 
 - A course people click through. Mitigation: a check question per lesson and a re-ask after content changes; the control reports honestly as partial.
 - Blocking a person who needs help now. Mitigation: the requirement is off by default and each lesson takes a few minutes.
+
+## As built (30 Sep 2026, stacked on models-no-training-guarantee)
+
+- Status words: the compliance dashboard's existing vocabulary is `satisfied`, `partial` and `unevidenced`, so "met" reads `satisfied` and "gap" reads `unevidenced`. The detail carries the counts: "40 of 50 people who used an agent in the last 90 days completed the course."
+- "Used an agent in the last 90 days" is a chat session (`agentsession`) with that person's `userId`, updated in the last 90 days, in the organisation.
+- A lesson counts as done in whichever language it was read: the guard and the report ask whether each lesson has a completion at least as new as that lesson's current version in the completion's language. A Dutch reader who finished in Dutch is not stopped by the English text.
+- The requirement lives on the organisation's `TenantControl` (`aiLiteracyRequired`), switched on the Working with AI page by an instance admin or the organisation's owner. It guards `ChatController`, `ChatStreamController`, `AssistantService::converse()`, `TalkTurnService::runTurn()` (the Talk turn, which tells the room) and `RunNowController` (a run by hand). `ScheduleService` and flows never call it. `Engine::processMessage()` is not guarded, because scheduled runs pass through it too.
+- The services are split as `LiteracyCourse` (lessons, answers, completion), `LiteracyRequirement` (the switch, the guard, the admin rule) and `LiteracyReport` (the admin report, CSV, article 4 evidence).
+- The tour `hermiq:ai-literacy` is declared with trigger `manual`. The walkthrough engine (nextcloud-vue `useWalkthrough`) has no trigger for "after another tour" and no way for a page to start a tour, so "offered once after Getting started" needs a library change; drafted for Ruben in `for-ruben/nextcloud-vue-tour-after-tour.md`. The page itself teaches the same three points.

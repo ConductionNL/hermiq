@@ -20,7 +20,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Lessons, answers and completion.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
  */
 class LiteracyCourse {
 
@@ -74,7 +74,7 @@ class LiteracyCourse {
 	 *
 	 * @return array{lessons: array<int, array<string, mixed>>, done: int, total: int}
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function lessons(string $uid, string $locale): array {
 		$language = $this->language(locale: $locale);
@@ -113,7 +113,7 @@ class LiteracyCourse {
 	 *
 	 * @throws InvalidArgumentException When the lesson does not exist.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function answer(string $uid, string $organisation, string $slug, string $locale, int $choice): array {
 		$language = $this->language(locale: $locale);
@@ -153,7 +153,7 @@ class LiteracyCourse {
 	 *
 	 * @return bool True when all lessons are done.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function isComplete(string $uid): bool {
 		$completions = [];
@@ -178,7 +178,7 @@ class LiteracyCourse {
 	 *
 	 * @return int The number of lessons done.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
 	 */
 	public function doneCount(array $completions): int {
 		$done = [];
@@ -198,7 +198,7 @@ class LiteracyCourse {
 	 *
 	 * @return int The count.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
 	 */
 	public function lessonCount(): int {
 		return count($this->lessonsIn(locale: 'en'));

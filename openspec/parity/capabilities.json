@@ -7034,7 +7034,7 @@
 			"origin": "tender",
 			"originUrl": "https://www.tenderned.nl/aankondigingen/overzicht/415259",
 			"originNote": "Gemeente Molenlanden zaaksysteem 2026 (2026-03-11) requirement 71423",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "no",
@@ -7050,13 +7050,15 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'literacy|training module|tutorial|course|learn' in src/lib/components and src/routes: only onboarding welcome (OnBoarding.svelte:82) and a docs link; no in-product AI literacy modules"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'literacy|tutorial|course|hallucinat|can be wrong' in src/ lib/ (excluding the learniq course recommender, lib/Service/CourseRecommendationEngine.php, which ranks a learner's courses): only the product tour src/manifest.json:1650 walkthrough 'Getting started' (7 steps on agents, skills, settings, flows) and the setup wizard; nothing explains AI limits, risks or verification to users Specified in openspec/changes/compliance-ai-literacy/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/compliance-ai-literacy"
+				"evidence": "Working with AI (/ai-literacy, src/views/AiLiteracy.vue): six lessons in English and Dutch (lib/Settings/literacy_lessons.json, seeded by lib/Repair/SeedLiteracyLessons.php into LiteracyLesson, register 0.39.0), each with a check question; a right answer writes a LiteracyCompletion for that lesson version (lib/Service/Literacy/LiteracyCourse.php). An organisation admin sees completion per person with a CSV export and can require the course (TenantControl.aiLiteracyRequired, LiteracyRequirement), which refuses chat, stream, assistant, Talk and run by hand until the course is done, never scheduled or flow runs. The seeded EU AI Act art.4 control reads its status from completions (LiteracyReport::evidence via ComplianceService, evidenceSource ai-literacy-completion). Proven in tests/Unit/Service/Literacy/LiteracyTest.php, LiteracyControllerTest, ChatControllerTest, AssistantServiceTest, TalkTurnLiteracyTest, RunNowControllerTest, ComplianceServiceTest.",
+				"reachedOn": "Menu: Working with AI (/ai-literacy); Settings, Compliance: EU AI Act art.4 AI literacy",
+				"change": "openspec/changes/archive/2026-09-30-compliance-ai-literacy",
+				"readOn": "2026-09-30"
 			},
 			"reachedOn": "none",
-			"note": "A product tour teaches the app, not AI literacy."
+			"note": "Built 2026-09-30 by compliance-ai-literacy. History: before that only a product tour existed, which teaches the app, not AI literacy."
 		},
 		{
 			"id": "td-bias-test",

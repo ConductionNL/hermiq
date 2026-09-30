@@ -19,7 +19,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Completion per person and the article 4 evidence.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
  */
 class LiteracyReport {
 
@@ -66,7 +66,7 @@ class LiteracyReport {
 	 *
 	 * @return array<int, array{userId: string, done: int, total: int, complete: bool}> The rows, by user id.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function overview(string $organisation): array {
 		$total = $this->course->lessonCount();
@@ -88,7 +88,7 @@ class LiteracyReport {
 	 *
 	 * @return string The CSV text.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function csv(string $organisation): string {
 		$lines = ['userId,done,total,complete'];
@@ -112,7 +112,7 @@ class LiteracyReport {
 	 *
 	 * @return array{status: string, detail: string} The status and the counts.
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
 	 */
 	public function evidence(string $organisation): array {
 		$recent = $this->recentAgentUsers(organisation: $organisation);

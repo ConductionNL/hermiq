@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * The person's own record, and the admin-only report.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
  */
 final class LiteracyControllerTest extends TestCase {
 
@@ -69,7 +69,7 @@ final class LiteracyControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
 	 */
 	public function testAnAnswerIsRecordedForTheSessionUser(): void {
 		$course = $this->createMock(LiteracyCourse::class);
@@ -88,7 +88,7 @@ final class LiteracyControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function testTheReportIsForTheOrganisationAdminOnly(): void {
 		$course = $this->createMock(LiteracyCourse::class);

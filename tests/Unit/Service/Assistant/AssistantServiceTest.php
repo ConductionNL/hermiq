@@ -116,7 +116,7 @@ class AssistantServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function testAPersonWhoSkippedTheCourseIsRefusedBeforeAnything(): void {
 		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);

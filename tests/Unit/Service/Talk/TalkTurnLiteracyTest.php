@@ -34,7 +34,7 @@ use Psr\Log\LoggerInterface;
 /**
  * The Talk turn refuses before the engine.
  *
- * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+ * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
  */
 final class TalkTurnLiteracyTest extends TestCase {
 
@@ -43,7 +43,7 @@ final class TalkTurnLiteracyTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
 	 */
 	public function testASpeakerWhoSkippedTheCourseIsToldInTheRoom(): void {
 		$engine = $this->createMock(Engine::class);

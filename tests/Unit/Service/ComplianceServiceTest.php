@@ -224,7 +224,7 @@ class ComplianceServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-ai-literacy/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
 	 */
 	public function testTheAiLiteracyControlReadsTheLiteracyReport(): void {
 		$report = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyReport::class);
