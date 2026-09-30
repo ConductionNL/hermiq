@@ -56,6 +56,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Engine\RunToolCallCounter;
+use OCA\Hermiq\Service\Engine\TurnGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\RunStepBus;
@@ -131,6 +134,13 @@ class McpRunController extends Controller {
 	private const DEFAULT_PROTOCOL_VERSION = '2025-06-18';
 
 	/**
+	 * The run id of this request, from the verified run token.
+	 *
+	 * @var string
+	 */
+	private string $runId = '';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
@@ -148,6 +158,8 @@ class McpRunController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
 	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
 	 *                                              workspace tools for the length of one dispatch.
+	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
+	 *                                                 for the agent's tool call cap.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -166,6 +178,7 @@ class McpRunController extends Controller {
 		private readonly RunStepBus $runStepBus,
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
+		private readonly ?RunToolCallCounter $toolCallCounter = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -239,6 +252,7 @@ class McpRunController extends Controller {
 			work: function () use ($id, $method, $params, $binding): Response {
 				// The workspace tools address the run's checkout by THIS run id,
 				// taken from the verified token, never from the body.
+				$this->runId = (string)$binding['runId'];
 				$this->workspaceScope?->enter(
 					runId: $binding['runId'],
 					agentId: $binding['agentId'],
@@ -430,6 +444,17 @@ class McpRunController extends Controller {
 		}
 
 		$agent = $this->loadAgent(agentId: $agentId);
+
+		// Agents-switch-off-and-stop: every call is its own request on this
+		// transport, so the turn's tool call cap is counted per run id.
+		$cap = (new AgentAvailability())->maxToolCalls(agent: $agent);
+		if ($this->toolCallCounter?->admit(runId: $this->runId, cap: $cap) === false) {
+			return $this->jsonRpcSuccess(
+				id: $id,
+				result: $this->toolError(text: TurnGuard::LIMIT_REACHED . '. Do not call another tool; answer with what you have.')
+			);
+		}
+
 		$descriptors = $this->resolvedDescriptorsFor(agent: $agent);
 
 		// An ungranted tool is a TOOL-level error (isError: true), never executed —

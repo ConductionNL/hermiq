@@ -23,6 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -101,6 +102,13 @@ final class McpRunControllerTest extends TestCase {
 	private ?IThrottler $throttlerOverride = null;
 
 	/**
+	 * Set by a test on the tool call cap (agents-switch-off-and-stop).
+	 *
+	 * @var RunToolCallCounter|null
+	 */
+	private ?RunToolCallCounter $toolCallCounter = null;
+
+	/**
 	 * The throttler to build the controller with.
 	 *
 	 * @return IThrottler
@@ -144,7 +152,7 @@ final class McpRunControllerTest extends TestCase {
 		$userManager->method('get')->willReturn($user);
 		$userSession = $this->createMock(IUserSession::class);
 
-		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), $this->createMock(RunStepBus::class), new NullLogger(), $body) extends McpRunController {
+		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), $this->createMock(RunStepBus::class), new NullLogger(), $body, $this->toolCallCounter) extends McpRunController {
 			// phpcs:ignore
 			public function __construct(
 				$request,
@@ -160,8 +168,9 @@ final class McpRunControllerTest extends TestCase {
 				$runStepBus,
 				$logger,
 				private string $rawBody,
+				$counter = null,
 			) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger);
+				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, null, $counter);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;
@@ -549,6 +558,44 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertSame('text', $data['result']['content'][0]['type']);
 
 	}//end testToolsCallGrantedToolDispatchesAndMapsRefusal()
+
+	/**
+	 * The agent's tool call cap holds on the CLI runner's MCP path: when the run
+	 * has used its calls, the next tools/call is a tool error and nothing runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-switch-off-and-stop/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function testToolsCallPastTheRunsCapIsRefusedWithoutRunning(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn($this->catalog());
+
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturn($this->agent());
+
+		$toolLoop = $this->createMock(ToolLoop::class);
+		$toolLoop->expects($this->never())->method('buildFunctionInfos');
+
+		$counter = $this->createMock(RunToolCallCounter::class);
+		$counter->expects($this->once())->method('admit')->with('r', 10)->willReturn(false);
+
+		$this->toolCallCounter = $counter;
+		$controller = $this->controller(
+			'Bearer good',
+			'{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"openregister_contact_search","arguments":{"q":"x"}}}',
+			$this->tokens('good'),
+			$objects,
+			$facade,
+			$toolLoop,
+			$this->createMock(ToolSearchService::class)
+		);
+
+		$data = $controller->handle()->getData();
+		$this->assertTrue($data['result']['isError']);
+		$this->assertStringContainsString('Tool call limit reached for this turn', $data['result']['content'][0]['text']);
+
+	}//end testToolsCallPastTheRunsCapIsRefusedWithoutRunning()
 
 	/**
 	 * A body naming a DIFFERENT agentId cannot redirect the run — identity comes from the
