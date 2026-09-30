@@ -4,7 +4,8 @@
  * The in-workspace write tools: approval first, the path guard on every write,
  * and commits authored as the run owner whatever the repository says.
  * Real git repositories in a temp dir; the ApprovalService is a double of the
- * real class (its own payload is proven against the real schema elsewhere).
+ * real class (its payload is validated against the real Approval schema in
+ * tests/Unit/Service/ApprovalServiceRunScopedTest.php).
  *
  * @category Tests
  * @package  OCA\Hermiq\Tests\Unit\Service\Workspace

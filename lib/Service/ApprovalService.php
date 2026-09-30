@@ -837,12 +837,11 @@ class ApprovalService {
 			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
 			'reviewer' => $reviewer,
 			'reviewerType' => $reviewerType,
-			'decidedAt' => null,
-			'decidedBy' => null,
-			'reason' => null,
-			'consumedAt' => null,
 		];
 
+		// The decision fields (decidedAt, decidedBy, reason) are OMITTED rather
+		// than null: the register types them string and date-time and refuses a
+		// null, and a pending record has none.
 		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
 
 		try {

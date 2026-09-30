@@ -48,8 +48,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN a workspace whose repository-local configuration names a different identity WHEN a commit is made THEN it is attributed to the resolved run owner
   - GIVEN a run with no resolvable owner WHEN commit is called THEN an owner-unresolvable error code is returned and inference for that run remains permitted
   - GIVEN every write-shaped tool WHEN a path argument is handled THEN it goes through the task 2 guard
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Repo-effecting grant rule and classification wiring
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-repo-effecting-tools-resolve-only-from-an-argument-scoped-grant`
@@ -70,8 +70,8 @@ any task — task 8 exists to keep it that way.
   - GIVEN a run-scoped pre-authorisation bounded by a grant WHEN the same agent starts a different run THEN it does not apply and the new run needs its own
   - GIVEN any configuration of the system WHEN a write-shaped tool in this surface is invoked THEN an approval or valid pre-authorisation is present and no setting permits the invocation without one
   - GIVEN a pre-authorisation record WHEN it is read THEN it names a human decision-maker and the pinned arguments it is bounded by
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: Forge credential resolution, push tool, egress authorisation and redaction
 - **spec_ref**: `openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model`
