@@ -99,6 +99,58 @@ class WorkspacePathGuard {
 	}//end forWrite()
 
 	/**
+	 * Check every target of a unified diff before any of it is applied.
+	 *
+	 * Refuses renames, copies and symbolic-link modes outright: they create or
+	 * move paths in ways a per-target check cannot describe.
+	 *
+	 * @param string $root  The workspace root (absolute).
+	 * @param string $patch The unified diff.
+	 *
+	 * @return array<int, string> The workspace-relative targets, deduplicated.
+	 *
+	 * @throws WorkspaceException patch_rejected, path_outside_workspace or path_forbidden.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
+	 */
+	public function patchTargets(string $root, string $patch): array {
+		if (preg_match('/^(rename|copy) (from|to) /m', $patch) === 1
+			|| preg_match('/^(new file mode|new mode|old mode|deleted file mode) 120000/m', $patch) === 1
+			|| preg_match('/^GIT binary patch/m', $patch) === 1
+		) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::PATCH_REJECTED,
+				message: 'The patch renames, copies or links a file, or is binary. Send plain content changes only.'
+			);
+		}
+
+		$targets = [];
+		$matched = preg_match_all('/^(?:---|\+\+\+) (\S+)/m', $patch, $matches);
+		if ($matched === false || $matched === 0) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::PATCH_REJECTED,
+				message: 'The patch names no file.'
+			);
+		}
+
+		foreach ($matches[1] as $raw) {
+			if ($raw === '/dev/null') {
+				continue;
+			}
+
+			$target = preg_replace('#^[ab]/#', '', $raw);
+			$targets[(string)$target] = true;
+		}
+
+		$targets = array_keys($targets);
+		foreach ($targets as $target) {
+			$this->forWrite(root: $root, relativePath: $target);
+		}
+
+		return $targets;
+	}//end patchTargets()
+
+	/**
 	 * Lexical refusal, then symlink-resolved containment.
 	 *
 	 * @param string $root         The workspace root.

@@ -771,6 +771,135 @@ class ApprovalService {
 	}//end findApprovedUnconsumedToolCallApproval()
 
 	/**
+	 * The run-scoped pre-authorisation for a governed workspace, if one was
+	 * requested for this agent and run (hermiq-runner-git-capability).
+	 *
+	 * An approved one wins over a pending or denied one, so a re-request after a
+	 * decision cannot shadow it; a denied one wins over a pending one.
+	 *
+	 * @param string $agentId The agent UUID, from the verified run token.
+	 * @param string $runId   The run id, from the verified run token.
+	 *
+	 * @return array{uuid: string, status: string, decidedBy: string}|null
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
+	 */
+	public function runPreAuthorisation(string $agentId, string $runId): ?array {
+		$found = null;
+		$rank = ['pending' => 1, 'denied' => 2, 'approved' => 3];
+		foreach ($this->runPreAuthorisations(correlationId: $this->runPreAuthorisationKey(agentId: $agentId, runId: $runId)) as $object) {
+			$data = $object->getObject();
+			$status = (string)($data['status'] ?? '');
+			if (isset($rank[$status]) === false) {
+				continue;
+			}
+
+			if ($found === null || $rank[$status] > $rank[$found['status']]) {
+				$found = ['uuid' => (string)$object->getUuid(), 'status' => $status, 'decidedBy' => (string)($data['decidedBy'] ?? '')];
+			}
+		}
+
+		return $found;
+	}//end runPreAuthorisation()
+
+	/**
+	 * Request a run-scoped pre-authorisation: one pending Approval naming the
+	 * agent, the run, the repository and the ref, routed to the agent's owner
+	 * (or the `admin` group for an agent without one).
+	 *
+	 * @param string $agentId    The agent UUID.
+	 * @param string $runId      The run id.
+	 * @param string $toolId     The write-shaped tool that asked first.
+	 * @param string $repository The workspace's repository slug.
+	 * @param string $ref        The workspace's starting ref.
+	 *
+	 * @return array{uuid: string, status: string, decidedBy: string}
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+	 */
+	public function requestRunPreAuthorisation(string $agentId, string $runId, string $toolId, string $repository, string $ref): array {
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+		$reviewer = $owner;
+		$reviewerType = 'user';
+		if ($reviewer === '') {
+			$reviewer = 'admin';
+			$reviewerType = 'group';
+		}
+
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'workspace-run',
+			'correlationId' => $this->runPreAuthorisationKey(agentId: $agentId, runId: $runId),
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'toolArguments' => ['runId' => $runId, 'repository' => $repository, 'ref' => $ref],
+			'prompt' => 'Let this agent change files and commit in ' . $repository . ' (from ' . $ref . ') for the rest of this run.',
+			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+			'reviewer' => $reviewer,
+			'reviewerType' => $reviewerType,
+			'decidedAt' => null,
+			'decidedBy' => null,
+			'reason' => null,
+			'consumedAt' => null,
+		];
+
+		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify the reviewer of workspace approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return ['uuid' => (string)$approval->getUuid(), 'status' => 'pending', 'decidedBy' => ''];
+	}//end requestRunPreAuthorisation()
+
+	/**
+	 * The correlation key of a run's pre-authorisation.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $runId   The run id.
+	 *
+	 * @return string
+	 */
+	private function runPreAuthorisationKey(string $agentId, string $runId): string {
+		return hash('sha256', 'workspace-run|' . $agentId . '|' . $runId);
+	}//end runPreAuthorisationKey()
+
+	/**
+	 * Every `workspace-run` Approval with the given correlation key.
+	 *
+	 * @param string $correlationId The key.
+	 *
+	 * @return array<int, ObjectEntity>
+	 */
+	private function runPreAuthorisations(string $correlationId): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::APPROVAL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['correlationId' => $correlationId, 'sourceType' => 'workspace-run']],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		return array_values(
+			array_filter(
+				$objects,
+				static fn ($object): bool => $object instanceof ObjectEntity
+					&& (string)($object->getObject()['correlationId'] ?? '') === $correlationId
+					&& (string)($object->getObject()['sourceType'] ?? '') === 'workspace-run'
+			)
+		);
+	}//end runPreAuthorisations()
+
+	/**
 	 * Mark an approved `toolcall` Approval as consumed (`consumedAt` set) so it
 	 * can never authorise a second invocation (design.md Decision 4 —
 	 * single-use). Idempotent: consuming an already-consumed Approval simply
@@ -1356,12 +1485,14 @@ class ApprovalService {
 			return ($versionId !== null);
 		}
 
-		if ($sourceType === 'toolcall' || $sourceType === 'tool') {
+		if ($sourceType === 'toolcall' || $sourceType === 'tool' || $sourceType === 'workspace-run') {
 			// Design.md Decision 5: approving authorises exactly one future
 			// matching retry (toolcall) or flips a permanent per-(agentId,toolId)
-			// decision (tool) — neither has a paused run to resume here. There
+			// decision (tool), or covers the rest of one run's workspace writes
+			// (workspace-run) — none has a paused run to resume here. There
 			// is deliberately no re-execution: `FacadeToolInvoker` is the ONLY
-			// place either decision is ever acted on.
+			// place the first two are acted on, `WorkspaceWriteAuthoriser` the
+			// only place the third is.
 			return false;
 		}
 

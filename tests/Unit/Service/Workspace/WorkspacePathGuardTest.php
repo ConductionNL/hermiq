@@ -138,4 +138,36 @@ final class WorkspacePathGuardTest extends TestCase {
 			self::assertSame(WorkspaceException::PATH_FORBIDDEN, $e->getErrorCode(), $path);
 		}
 	}//end assertForbidden()
+
+	public function testAPatchTouchingARefusedPathIsRejectedWhole(): void {
+		$patch = "--- a/lib/A.php\n+++ b/lib/A.php\n@@ -1 +1 @@\n-<?php\n+<?php // changed\n"
+			. "--- /dev/null\n+++ b/.git/hooks/pre-commit\n@@ -0,0 +1 @@\n+#!/bin/sh\n";
+
+		try {
+			(new WorkspacePathGuard())->patchTargets(root: $this->root, patch: $patch);
+			self::fail('The patch was accepted.');
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::PATH_FORBIDDEN, $e->getErrorCode());
+		}
+
+		self::assertSame('<?php', file_get_contents($this->root . '/lib/A.php'));
+	}//end testAPatchTouchingARefusedPathIsRejectedWhole()
+
+	public function testAPatchThatRenamesOrLinksIsRejected(): void {
+		$guard = new WorkspacePathGuard();
+		foreach (["diff --git a/x b/y\nrename from x\nrename to y\n", "diff --git a/l b/l\nnew file mode 120000\n--- /dev/null\n+++ b/l\n"] as $patch) {
+			try {
+				$guard->patchTargets(root: $this->root, patch: $patch);
+				self::fail('The patch was accepted.');
+			} catch (WorkspaceException $e) {
+				self::assertSame(WorkspaceException::PATCH_REJECTED, $e->getErrorCode());
+			}
+		}
+	}//end testAPatchThatRenamesOrLinksIsRejected()
+
+	public function testAPlainPatchListsItsTargets(): void {
+		$patch = "--- a/lib/A.php\n+++ b/lib/A.php\n@@ -1 +1 @@\n-<?php\n+<?php // changed\n--- /dev/null\n+++ b/lib/B.php\n@@ -0,0 +1 @@\n+<?php\n";
+
+		self::assertSame(['lib/A.php', 'lib/B.php'], (new WorkspacePathGuard())->patchTargets(root: $this->root, patch: $patch));
+	}//end testAPlainPatchListsItsTargets()
 }//end class

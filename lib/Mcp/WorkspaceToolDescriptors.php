@@ -51,12 +51,34 @@ final class WorkspaceToolDescriptors {
 
 	public const READ_FILE = Application::APP_ID . '.workspaceReadFile';
 
+	public const WRITE_FILE = Application::APP_ID . '.workspaceWriteFile';
+
+	public const DELETE_FILE = Application::APP_ID . '.workspaceDeleteFile';
+
+	public const APPLY_PATCH = Application::APP_ID . '.workspaceApplyPatch';
+
+	public const CREATE_BRANCH = Application::APP_ID . '.workspaceCreateBranch';
+
+	public const CHECKOUT_BRANCH = Application::APP_ID . '.workspaceCheckoutBranch';
+
+	public const COMMIT = Application::APP_ID . '.workspaceCommit';
+
 	/**
 	 * Every workspace tool id.
 	 *
 	 * @var array<int, string>
 	 */
-	public const IDS = [self::OPEN, self::STATUS, self::DIFF, self::LOG, self::LIST_FILES, self::READ_FILE];
+	public const IDS = [
+		self::OPEN, self::STATUS, self::DIFF, self::LOG, self::LIST_FILES, self::READ_FILE,
+		self::WRITE_FILE, self::DELETE_FILE, self::APPLY_PATCH, self::CREATE_BRANCH, self::CHECKOUT_BRANCH, self::COMMIT,
+	];
+
+	/**
+	 * The write-shaped tools: each passes the run-scoped approval gate first.
+	 *
+	 * @var array<int, string>
+	 */
+	public const WRITE_IDS = [self::WRITE_FILE, self::DELETE_FILE, self::APPLY_PATCH, self::CREATE_BRANCH, self::CHECKOUT_BRANCH, self::COMMIT];
 
 	/**
 	 * The descriptors, in catalogue order.
@@ -175,6 +197,115 @@ final class WorkspaceToolDescriptors {
 			'destructiveHint' => false,
 			'idempotentHint' => true,
 			'scope' => 'read',
+		],
+		[
+			'id' => self::WRITE_FILE,
+			'subject' => 'workspace',
+			'action' => 'write',
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Write a workspace file',
+			'description' => 'Create or overwrite one text file in this run\'s workspace. Needs a person\'s approval for the run.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'path' => ['type' => 'string', 'description' => 'A path relative to the repository root.'],
+					'content' => ['type' => 'string', 'description' => 'The full new file content (at most one megabyte).'],
+					'mode' => ['type' => 'string', 'enum' => ['overwrite', 'create'], 'description' => 'create refuses an existing file (default overwrite).'],
+				],
+				'required' => ['path', 'content'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => true,
+			'scope' => 'update',
+		],
+		[
+			'id' => self::DELETE_FILE,
+			'subject' => 'workspace',
+			'action' => 'delete',
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Delete a workspace file',
+			'description' => 'Delete one file in this run\'s workspace. Needs a person\'s approval for the run.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => ['path' => ['type' => 'string', 'description' => 'A path relative to the repository root.']],
+				'required' => ['path'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => true,
+			'scope' => 'delete',
+		],
+		[
+			'id' => self::APPLY_PATCH,
+			'subject' => 'workspace',
+			'action' => 'patch',
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Apply a patch',
+			'description' => 'Apply a unified diff to this run\'s workspace, whole or not at all. No renames, links or binary changes.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => ['patch' => ['type' => 'string', 'description' => 'The unified diff (at most one megabyte).']],
+				'required' => ['patch'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => false,
+			'scope' => 'update',
+		],
+		[
+			'id' => self::CREATE_BRANCH,
+			'subject' => 'workspace',
+			'action' => 'branch',
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Create a branch',
+			'description' => 'Start a new local branch at the current commit of this run\'s workspace and switch to it.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => ['branch' => ['type' => 'string', 'description' => 'The new branch name.']],
+				'required' => ['branch'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => false,
+			'scope' => 'create',
+		],
+		[
+			'id' => self::CHECKOUT_BRANCH,
+			'subject' => 'workspace',
+			'action' => 'checkout',
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Switch branch',
+			'description' => 'Switch this run\'s workspace to an existing local branch.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => ['branch' => ['type' => 'string', 'description' => 'The branch name.']],
+				'required' => ['branch'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => true,
+			'scope' => 'update',
+		],
+		[
+			'id' => self::COMMIT,
+			'subject' => 'workspace',
+			'action' => 'commit',
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Commit',
+			'description' => 'Commit the changes in this run\'s workspace. The commit is authored as the person who owns the run.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'message' => ['type' => 'string', 'description' => 'The commit message.'],
+					'paths' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Only these paths (default: every change).'],
+				],
+				'required' => ['message'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => false,
+			'scope' => 'create',
 		],
 	];
 }//end class

@@ -25,6 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Workspace;
 
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
+use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCA\Hermiq\Service\Workspace\ForgeLocator;
@@ -33,10 +34,13 @@ use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspacePathGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
+use OCA\Hermiq\Service\Workspace\WorkspaceEditor;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
+use OCA\Hermiq\Service\Workspace\WorkspaceWriteAuthoriser;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
+use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -206,7 +210,9 @@ final class WorkspaceToolsetReadTest extends TestCase {
 			provider: $this->provider,
 			guard: new WorkspacePathGuard(),
 			forge: new ForgeLocator(appConfig: $appConfig, guard: $guard, settings: $settings),
-			git: $git
+			git: $git,
+			editor: new WorkspaceEditor(provider: $this->provider, guard: new WorkspacePathGuard(), git: $git, userManager: $this->createMock(IUserManager::class)),
+			authoriser: new WorkspaceWriteAuthoriser(approvals: $this->createMock(ApprovalService::class))
 		);
 	}//end toolset()
 
