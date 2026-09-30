@@ -36,6 +36,7 @@ use OCA\Hermiq\Service\Workspace\WorkspacePathGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWriteAuthoriser;
+use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -202,9 +203,9 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	 * @param string $runId The run id.
 	 * @param string $owner The run owner.
 	 *
-	 * @return WorkspaceToolset
+	 * @return object The read and write halves, routed by tool id.
 	 */
-	private function opened(string $runId, string $owner): WorkspaceToolset {
+	private function opened(string $runId, string $owner): object {
 		$toolset = $this->toolset();
 		$this->scope->enter(runId: $runId, agentId: 'agent-1', userId: $owner);
 		$opened = $toolset->invoke(toolId: WorkspaceToolDescriptors::OPEN, arguments: ['repository' => 'example-org/example-app', 'ref' => 'development']);
@@ -238,9 +239,9 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	/**
 	 * The toolset under test, over real collaborators and a double of the approval service.
 	 *
-	 * @return WorkspaceToolset
+	 * @return object The read and write halves, routed by tool id.
 	 */
-	private function toolset(): WorkspaceToolset {
+	private function toolset(): object {
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueString')->willReturnCallback(static fn (string $key, string $default = ''): string => ($key === 'secret' ? 'test-secret' : $default));
 		$appConfig = $this->createMock(IAppConfig::class);
@@ -275,15 +276,34 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 		$guard = new WorkspacePathGuard();
 		$this->provider = new ServerSideWorkspaceProvider(config: $config, appConfig: $appConfig, git: $git, time: $time, baseDir: $this->base . '/workspaces');
 
-		return new WorkspaceToolset(
+		$reads = new WorkspaceToolset(
 			scope: $this->scope,
 			provider: $this->provider,
 			guard: $guard,
 			forge: new ForgeLocator(appConfig: $appConfig, guard: $egress, settings: $settings),
-			git: $git,
+			git: $git
+		);
+		$writes = new WorkspaceWrites(
+			scope: $this->scope,
+			provider: $this->provider,
+			guard: $guard,
 			editor: new WorkspaceEditor(provider: $this->provider, guard: $guard, git: $git, userManager: $users),
 			authoriser: new WorkspaceWriteAuthoriser(approvals: $approvals)
 		);
+
+		// Routed exactly as HermiqToolProvider routes (HermiqToolProviderWorkspaceRoutingTest).
+		return new class($reads, $writes) {
+			public function __construct(private WorkspaceToolset $reads, private WorkspaceWrites $writes) {
+			}
+
+			public function invoke(string $toolId, array $arguments): array {
+				if (in_array($toolId, WorkspaceToolDescriptors::WRITE_IDS, true) === true) {
+					return $this->writes->invoke(toolId: $toolId, arguments: $arguments);
+				}
+
+				return $this->reads->invoke(toolId: $toolId, arguments: $arguments);
+			}
+		};
 	}//end toolset()
 
 	/**

@@ -92,6 +92,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
+use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
@@ -659,6 +660,24 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end getTools()
 
 	/**
+	 * The half of the workspace surface that serves a tool id: the write-shaped
+	 * tools pass the run approval in WorkspaceWrites, the rest are read-only.
+	 *
+	 * @param string $toolId A workspace tool id.
+	 *
+	 * @return class-string<WorkspaceWrites>|class-string<WorkspaceToolset>
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
+	 */
+	private function workspaceHalf(string $toolId): string {
+		if (in_array($toolId, WorkspaceToolDescriptors::WRITE_IDS, true) === true) {
+			return WorkspaceWrites::class;
+		}
+
+		return WorkspaceToolset::class;
+	}//end workspaceHalf()
+
+	/**
 	 * Invoke a tool by id — authorises (scopes to the acting user) BEFORE any data access.
 	 *
 	 * Never throws: every failure returns `['error' => ['code', 'message']]`.
@@ -690,7 +709,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 		// toolset reads the run from the scope the MCP endpoint set from the
 		// verified token and refuses every call made outside one.
 		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
-			return $this->container->get(WorkspaceToolset::class)->invoke(toolId: $toolId, arguments: $arguments);
+			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $arguments);
 		}
 
 		try {

@@ -67,13 +67,11 @@ class WorkspaceToolset {
 	/**
 	 * Build the toolset.
 	 *
-	 * @param WorkspaceRunScope        $scope      The verified run.
-	 * @param WorkspaceProvider        $provider   Where the workspace lives.
-	 * @param WorkspacePathGuard       $guard      Path confinement.
-	 * @param ForgeLocator             $forge      Slug to URL, and the egress policy.
-	 * @param GitRunner                $git        The hardened git runner.
-	 * @param WorkspaceEditor          $editor     The in-workspace writes.
-	 * @param WorkspaceWriteAuthoriser $authoriser The run-scoped approval gate.
+	 * @param WorkspaceRunScope  $scope    The verified run.
+	 * @param WorkspaceProvider  $provider Where the workspace lives.
+	 * @param WorkspacePathGuard $guard    Path confinement.
+	 * @param ForgeLocator       $forge    Slug to URL, and the egress policy.
+	 * @param GitRunner          $git      The hardened git runner.
 	 */
 	public function __construct(
 		private readonly WorkspaceRunScope $scope,
@@ -81,8 +79,6 @@ class WorkspaceToolset {
 		private readonly WorkspacePathGuard $guard,
 		private readonly ForgeLocator $forge,
 		private readonly GitRunner $git,
-		private readonly WorkspaceEditor $editor,
-		private readonly WorkspaceWriteAuthoriser $authoriser,
 	) {
 	}//end __construct()
 
@@ -107,17 +103,6 @@ class WorkspaceToolset {
 			}
 
 			$root = $this->provider->root(runKey: $run['runId']);
-			if (in_array($toolId, WorkspaceToolDescriptors::WRITE_IDS, true) === true) {
-				// The gate comes before any argument is looked at: an unapproved
-				// run is refused before anything is written, staged or committed.
-				$this->authoriser->assertAuthorised(
-					run: $run,
-					toolId: $toolId,
-					workspace: $this->provider->describe(runKey: $run['runId'])
-				);
-				return $this->dispatchWrite(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
-			}
-
 			return $this->dispatch(toolId: $toolId, root: $root, arguments: $arguments);
 		} catch (WorkspaceException $e) {
 			return ['error' => ['code' => $e->getErrorCode(), 'message' => $e->getMessage()]];
@@ -145,44 +130,6 @@ class WorkspaceToolset {
 			default => throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'Unknown workspace tool.'),
 		};
 	}//end dispatch()
-
-	/**
-	 * Dispatch a write-shaped tool that has passed the approval gate.
-	 *
-	 * @param string                                               $toolId    The tool id.
-	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
-	 * @param string                                               $root      The workspace root.
-	 * @param array<string, mixed>                                 $arguments The tool arguments.
-	 *
-	 * @return array<string, mixed>
-	 *
-	 * @throws WorkspaceException
-	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
-	 */
-	private function dispatchWrite(string $toolId, array $run, string $root, array $arguments): array {
-		return match ($toolId) {
-			WorkspaceToolDescriptors::WRITE_FILE => $this->editor->writeFile(runKey: $run['runId'], root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::DELETE_FILE => $this->editor->deleteFile(root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::APPLY_PATCH => $this->editor->applyPatch(runKey: $run['runId'], root: $root, arguments: $arguments),
-			WorkspaceToolDescriptors::CREATE_BRANCH => $this->editor->createBranch(root: $root, branch: $this->branchArgument(arguments: $arguments)),
-			WorkspaceToolDescriptors::CHECKOUT_BRANCH => $this->editor->checkoutBranch(root: $root, branch: $this->branchArgument(arguments: $arguments)),
-			default => $this->editor->commit(root: $root, ownerUid: $run['userId'], arguments: $arguments),
-		};
-	}//end dispatchWrite()
-
-	/**
-	 * The validated `branch` argument.
-	 *
-	 * @param array<string, mixed> $arguments The tool arguments.
-	 *
-	 * @return string
-	 *
-	 * @throws WorkspaceException invalid_argument.
-	 */
-	private function branchArgument(array $arguments): string {
-		return $this->ref(value: (string)($arguments['branch'] ?? ''));
-	}//end branchArgument()
 
 	/**
 	 * Refuse a workspace id that is not the caller's own.
@@ -388,17 +335,7 @@ class WorkspaceToolset {
 	 * @throws WorkspaceException invalid_argument.
 	 */
 	private function ref(string $value): string {
-		$ref = trim($value);
-		if ($ref === '' || preg_match('#^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$#', $ref) !== 1
-			|| str_contains($ref, '..') === true || str_ends_with($ref, '.lock') === true || str_ends_with($ref, '/') === true
-		) {
-			throw new WorkspaceException(
-				errorCode: WorkspaceException::INVALID_ARGUMENT,
-				message: 'Name a branch or tag with letters, digits, dots, dashes and slashes.'
-			);
-		}
-
-		return $ref;
+		return $this->guard->refName(value: $value);
 	}//end ref()
 
 	/**

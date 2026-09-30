@@ -99,6 +99,32 @@ class WorkspacePathGuard {
 	}//end forWrite()
 
 	/**
+	 * Validate a branch or tag name the model supplied: letters, digits, dots,
+	 * dashes and slashes, no `..`, no trailing `/` or `.lock`, never an option.
+	 *
+	 * @param string $value The name.
+	 *
+	 * @return string The trimmed name.
+	 *
+	 * @throws WorkspaceException invalid_argument.
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+	 */
+	public function refName(string $value): string {
+		$ref = trim($value);
+		if ($ref === '' || preg_match('#^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$#', $ref) !== 1
+			|| str_contains($ref, '..') === true || str_ends_with($ref, '.lock') === true || str_ends_with($ref, '/') === true
+		) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::INVALID_ARGUMENT,
+				message: 'Name a branch or tag with letters, digits, dots, dashes and slashes.'
+			);
+		}
+
+		return $ref;
+	}//end refName()
+
+	/**
 	 * Check every target of a unified diff before any of it is applied.
 	 *
 	 * Refuses renames, copies and symbolic-link modes outright: they create or

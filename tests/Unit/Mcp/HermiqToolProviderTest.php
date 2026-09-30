@@ -261,10 +261,11 @@ class HermiqToolProviderTest extends TestCase {
 		//   (nc-mail-read-tools),
 		// + hermiq.listAvailableTools/requestToolAccess
 		//   (tool-discovery-and-access-requests),
-		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile
+		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile, and the write tools
+		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit
 		//   (hermiq-runner-git-capability),
 		// all registered through this same provider.
-		$this->assertCount(30, $tools);
+		$this->assertCount(36, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -348,10 +349,16 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceLog' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.workspaceListFiles' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.workspaceReadFile' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceWriteFile' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
+			'hermiq.workspaceDeleteFile' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'scope' => 'delete'],
+			'hermiq.workspaceApplyPatch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.workspaceCreateBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.workspaceCheckoutBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
+			'hermiq.workspaceCommit' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(30, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(36, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -426,6 +433,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceLog' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceListFiles' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceReadFile' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceWriteFile' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceDeleteFile' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceApplyPatch' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceCreateBranch' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceCheckoutBranch' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceCommit' => ToolReachResolver::REACH_USER,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -515,6 +528,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceLog' => ['workspace', 'log'],
 			'hermiq.workspaceListFiles' => ['workspace', 'list'],
 			'hermiq.workspaceReadFile' => ['workspace', 'get'],
+			'hermiq.workspaceWriteFile' => ['workspace', 'write'],
+			'hermiq.workspaceDeleteFile' => ['workspace', 'delete'],
+			'hermiq.workspaceApplyPatch' => ['workspace', 'patch'],
+			'hermiq.workspaceCreateBranch' => ['workspace', 'branch'],
+			'hermiq.workspaceCheckoutBranch' => ['workspace', 'checkout'],
+			'hermiq.workspaceCommit' => ['workspace', 'commit'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
