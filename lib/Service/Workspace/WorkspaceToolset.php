@@ -75,6 +75,7 @@ class WorkspaceToolset {
 	 * @param WorkspaceEditor          $editor     The in-workspace writes.
 	 * @param WorkspaceWriteAuthoriser $authoriser The run-scoped approval gate.
 	 * @param WorkspacePusher          $pusher     The governed push.
+	 * @param WorkspaceAuditor         $auditor    One audit record per write-shaped call.
 	 */
 	public function __construct(
 		private readonly WorkspaceRunScope $scope,
@@ -85,6 +86,7 @@ class WorkspaceToolset {
 		private readonly WorkspaceEditor $editor,
 		private readonly WorkspaceWriteAuthoriser $authoriser,
 		private readonly WorkspacePusher $pusher,
+		private readonly WorkspaceAuditor $auditor,
 	) {
 	}//end __construct()
 
@@ -110,14 +112,7 @@ class WorkspaceToolset {
 
 			$root = $this->provider->root(runKey: $run['runId']);
 			if (in_array($toolId, WorkspaceToolDescriptors::WRITE_IDS, true) === true) {
-				// The gate comes before any argument is looked at: an unapproved
-				// run is refused before anything is written, staged or committed.
-				$this->authoriser->assertAuthorised(
-					run: $run,
-					toolId: $toolId,
-					workspace: $this->provider->describe(runKey: $run['runId'])
-				);
-				return $this->dispatchWrite(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
+				return $this->governedWrite(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
 			}
 
 			return $this->dispatch(toolId: $toolId, root: $root, arguments: $arguments);
@@ -149,6 +144,42 @@ class WorkspaceToolset {
 	}//end dispatch()
 
 	/**
+	 * A write-shaped call: the approval gate first, before any argument is looked
+	 * at, then the write; either way one audit record. The credential id a push
+	 * used goes into the record and never into the result.
+	 *
+	 * @param string                                               $toolId    The tool id.
+	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
+	 * @param string                                               $root      The workspace root.
+	 * @param array<string, mixed>                                 $arguments The tool arguments.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-governed-workspace-write-is-audited-with-owner-credential-and-approval
+	 */
+	private function governedWrite(string $toolId, array $run, string $root, array $arguments): array {
+		$approval = null;
+		try {
+			$approval = $this->authoriser->assertAuthorised(
+				run: $run,
+				toolId: $toolId,
+				workspace: $this->provider->describe(runKey: $run['runId'])
+			);
+			$result = $this->dispatchWrite(toolId: $toolId, run: $run, root: $root, arguments: $arguments);
+		} catch (WorkspaceException $e) {
+			$this->auditor->record(run: $run, toolId: $toolId, arguments: $arguments, approval: $approval, result: null, outcome: $e->getErrorCode());
+			throw $e;
+		}
+
+		$this->auditor->record(run: $run, toolId: $toolId, arguments: $arguments, approval: $approval, result: $result, outcome: 'ok');
+		unset($result['credentialId']);
+
+		return $result;
+	}//end governedWrite()
+
+	/**
 	 * Dispatch a write-shaped tool that has passed the approval gate.
 	 *
 	 * @param string                                               $toolId    The tool id.
@@ -175,13 +206,13 @@ class WorkspaceToolset {
 	}//end dispatchWrite()
 
 	/**
-	 * `push`: the pinned repository must be the run's own; the credential id stays out of the result.
+	 * `push`: the pinned repository must be the run's own. The credential id is for the audit record only.
 	 *
 	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
 	 * @param string                                               $root      The workspace root.
 	 * @param array<string, mixed>                                 $arguments `repository`, `branch`.
 	 *
-	 * @return array{repository: string, branch: string, sha: string}
+	 * @return array{repository: string, branch: string, sha: string, credentialId: string}
 	 *
 	 * @throws WorkspaceException
 	 *
@@ -196,7 +227,7 @@ class WorkspaceToolset {
 			arguments: $arguments
 		);
 
-		return ['repository' => $result['repository'], 'branch' => $result['branch'], 'sha' => $result['sha']];
+		return $result;
 	}//end push()
 
 	/**

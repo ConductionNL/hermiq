@@ -36,6 +36,7 @@ use OCA\Hermiq\Service\Workspace\WorkspacePathGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\Service\Workspace\WorkspaceEditor;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
+use OCA\Hermiq\Service\Workspace\WorkspaceAuditor;
 use OCA\Hermiq\Service\Workspace\WorkspacePusher;
 use OCA\Hermiq\Service\Workspace\WorkspaceWriteAuthoriser;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -214,7 +215,8 @@ final class WorkspaceToolsetReadTest extends TestCase {
 			git: $git,
 			editor: new WorkspaceEditor(provider: $this->provider, guard: new WorkspacePathGuard(), git: $git, userManager: $this->createMock(IUserManager::class)),
 			authoriser: new WorkspaceWriteAuthoriser(approvals: $this->createMock(ApprovalService::class)),
-			pusher: $this->createMock(WorkspacePusher::class)
+			pusher: $this->createMock(WorkspacePusher::class),
+			auditor: $this->createMock(WorkspaceAuditor::class)
 		);
 	}//end toolset()
 
