@@ -45,6 +45,7 @@ import FileSign from 'vue-material-design-icons/FileSign.vue'
 import FlaskOutline from 'vue-material-design-icons/FlaskOutline.vue'
 import ForumOutline from 'vue-material-design-icons/ForumOutline.vue'
 import Gauge from 'vue-material-design-icons/Gauge.vue'
+import GraphOutline from 'vue-material-design-icons/GraphOutline.vue'
 import History from 'vue-material-design-icons/History.vue'
 import KeyOutline from 'vue-material-design-icons/KeyOutline.vue'
 import LinkVariant from 'vue-material-design-icons/LinkVariant.vue'
@@ -76,6 +77,7 @@ import ThumbUpOutline from 'vue-material-design-icons/ThumbUpOutline.vue'
 import Timeline from 'vue-material-design-icons/Timeline.vue'
 import TrayArrowDown from 'vue-material-design-icons/TrayArrowDown.vue'
 import Tune from 'vue-material-design-icons/Tune.vue'
+import VectorLine from 'vue-material-design-icons/VectorLine.vue'
 import ViewDashboard from 'vue-material-design-icons/ViewDashboard.vue'
 import ViewDashboardOutline from 'vue-material-design-icons/ViewDashboardOutline.vue'
 import Webhook from 'vue-material-design-icons/Webhook.vue'
@@ -113,6 +115,7 @@ export default {
 	FlaskOutline,
 	ForumOutline,
 	Gauge,
+	GraphOutline,
 	History,
 	KeyOutline,
 	LinkVariant,
@@ -150,6 +153,7 @@ export default {
 	Timeline,
 	TrayArrowDown,
 	Tune,
+	VectorLine,
 	ViewDashboard,
 	ViewDashboardOutline,
 	Webhook,

@@ -142,3 +142,59 @@ authorization is never wider than what those tools already enforce.
   small seed vocabulary (`worksFor`, `partOf`, `relatesTo`, `mentions`, `authoredBy`,
   `about`) plus free-text predicates flagged `custom`; whether to harden into a closed
   vocabulary is a follow-on once real extractions exist to measure.
+
+## Built at HEAD (30 Sep 2026)
+
+What the first slice (schemas and GraphService) settled that the text above left open
+or that no longer fitted the code:
+
+- **Register version.** The register was at 0.36.0 when this was built; the graph
+  lands as 0.37.0 (Agent 0.9.0), not 0.27.0.
+- **Relation endpoint names.** `fromEntity` and `toEntity`, not `subject` and
+  `object`: `object` is the name of the stored record body in OpenRegister's object
+  handling, and a property with that name is asking for a collision.
+- **`labelKey`.** GraphEntity stores the trimmed, case-folded label, so entity
+  resolution and seed matching are one equality filter instead of a scan.
+- **Relation provenance is checked too.** GraphRelation carries `sourceType` next to
+  `sourceRef`. An edge extracted from a record the acting user cannot read stays
+  hidden even when both endpoints are visible: the relation itself is knowledge that
+  record holds. This is what makes "a path with a hidden link" possible between two
+  visible nodes.
+- **Who reads the graph objects.** Both schemas are owner-read only, so the plain
+  objects API never lists another user's labels. GraphService reads them without
+  their own RBAC (multitenancy stays on) and decides visibility from the records
+  only, so one organisation shares one graph and each reader sees the part their
+  records allow.
+- **Classes.** `GraphService` (writes, the public surface) sits on `GraphStore` (the
+  only ObjectService access) and `GraphTraversal` (neighbours and paths), with
+  `GraphVisibility` for the per-source checks and `ActingUserScope` for
+  impersonate-and-restore. `MailReadService::canRead()` is the mail check: Mail's own
+  user-scoped lookup, no body read.
+- **Caps.** App config `graph_max_depth` (default 2), `graph_max_nodes` (50),
+  `graph_max_edges` (100), `graph_min_confidence_percent` (0); a path is at most 6
+  hops.
+- **Seeds and tool arguments (second slice).** `GraphLookup` matches the one to three
+  word phrases of a query against `labelKey` (one equality filter each), and a tool
+  argument by uuid or exact label in any case. Aliases are not matched yet. An
+  entity the user cannot see is "not found" to the tools, exactly like one that does
+  not exist.
+- **Tools and `graphEnabled`.** The two tools are governed by grants alone, like
+  every other tool; `graphEnabled` gates the retrieval mode only. The provider routes
+  both ids to `GraphTools` next to the workspace routing.
+- **Graph mode hydration.** `GraphContextRetriever` reads objects with RBAC as the
+  session user, files from the user's own folder (at most 1 MB), mail through
+  `MailReadService::readMessage`; a conversation node contributes its label only.
+  Each record adds at most 2,000 characters. The relations block uses
+  `from -[predicate]-> to` lines.
+- **Extraction (built with the schemas, so the write methods have a caller).**
+  `GraphExtractionJob` is a pure wrapper; `GraphExtractionService` runs the batch
+  inside `ActingUserScope` as the enqueueing user, reads each record through
+  `GraphSourceReader` (object with RBAC, the user's own file, mail through
+  `MailReadService`, a conversation's turns only for its owner or a participant),
+  asks the configured model through `ConversationManagementHandler::generateText()`
+  under the record's organisation's model policy, redacts labels and aliases, and
+  writes only through `GraphService` with `extractedBy = hermiq-graph-extractor@1`.
+  An entity or relation takes the record it was found in as its `sourceRef`. The
+  manual enqueue point is `occ hermiq:graph:extract <user>` (`--register`/`--schema`,
+  `--file`, `--conversation`, `--batch`); it lists objects as that user.
+

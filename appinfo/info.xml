@@ -204,6 +204,8 @@
         <command>OCA\Hermiq\Command\RollbackApprovalTaskMirror</command>
         <!-- @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back -->
         <command>OCA\Hermiq\Command\RollbackScheduleFlowMirror</command>
+        <!-- @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs -->
+        <command>OCA\Hermiq\Command\GraphExtract</command>
     </commands>
 
     <settings>

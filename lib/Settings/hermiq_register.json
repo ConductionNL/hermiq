@@ -2,8 +2,8 @@
 	"openapi": "3.0.0",
 	"info": {
 		"title": "Hermiq Register",
-		"description": "Hermiq register v0.34.0, private-reads (hermiq#976): eight schemas stop granting read to every signed-in user. Agent is read by its owner, by anyone when it is not private (isPrivate false or unset), by a user in invitedUsers, and by a member of a group in groups, the same predicate as AgentAccessService::canUserAccessAgent(). Session and Conversation are read by the user in userId and by the users in participants. UserProfile is read by the user it describes (subjectUid). SessionTurn, Message, Memory and IntakeConversation are read by their owner only. Owners and admins are admitted before any rule, and write actions stay omitted, so writes stay owner-only. Every rule is conditional on the authenticated pseudo-group, so no rule opens a schema to anonymous callers. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a rule shipped without one is inert on every existing install. Previous v0.33.0, ai-translation-provenance: AiFeature gains the OPTIONAL outputsLabelled (boolean, default false) and outputLabelling (text), so the register records whether a feature tells the people who read its output that AI made it (EU AI Act Art. 50), and how. The message-translation feature is seeded with both. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.32.0, session-schema-declaration: Session and SessionTurn take over every property of Conversation and Message so the migration can copy field for field, and Session gains the OPTIONAL triggerOrigin (human|cron|event|flow, default human) that the Chat page splits human sessions from automated ones on. The slug stays `agentsession`, NOT `session`: the bare slug resolves to scholiq's schema, and this register already prefixes for exactly that reason (agentskill, agentbudget, agentwebhook). Conversation and Message stay declared and untouched until the migration is verified in production. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.31.0, schedules-onto-engine-triggers: Schedule gains the OPTIONAL, derived engineFlowId — the uuid of the OpenRegister flow that now owns this schedule's clock. Written by the ScheduleFlowBridge when a schedule is mirrored onto the engine's schedule trigger, cleared by occ hermiq:schedules:rollback-flow-mirror. While set, the app-local dispatcher no longer selects the schedule as due by nextRun (a pending retry still fires locally). ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
-		"version": "0.36.0"
+		"description": "Hermiq register v0.37.0, knowledge-graph: adds the GraphEntity (graphentity) and GraphRelation (graphrelation) schemas and the OPTIONAL Agent.graphEnabled (boolean, default false). A node is a typed reference to one record (object, file, mail or conversation) and never a copy of it; an edge joins two node uuids. Direct reads of both schemas are owner-only; every other reader goes through GraphService, which shows a node only while the acting user can read its record and an edge only when both endpoints are visible. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install. Previous v0.34.0, private-reads (hermiq#976): eight schemas stop granting read to every signed-in user. Agent is read by its owner, by anyone when it is not private (isPrivate false or unset), by a user in invitedUsers, and by a member of a group in groups, the same predicate as AgentAccessService::canUserAccessAgent(). Session and Conversation are read by the user in userId and by the users in participants. UserProfile is read by the user it describes (subjectUid). SessionTurn, Message, Memory and IntakeConversation are read by their owner only. Owners and admins are admitted before any rule, and write actions stay omitted, so writes stay owner-only. Every rule is conditional on the authenticated pseudo-group, so no rule opens a schema to anonymous callers. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a rule shipped without one is inert on every existing install. Previous v0.33.0, ai-translation-provenance: AiFeature gains the OPTIONAL outputsLabelled (boolean, default false) and outputLabelling (text), so the register records whether a feature tells the people who read its output that AI made it (EU AI Act Art. 50), and how. The message-translation feature is seeded with both. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.32.0, session-schema-declaration: Session and SessionTurn take over every property of Conversation and Message so the migration can copy field for field, and Session gains the OPTIONAL triggerOrigin (human|cron|event|flow, default human) that the Chat page splits human sessions from automated ones on. The slug stays `agentsession`, NOT `session`: the bare slug resolves to scholiq's schema, and this register already prefixes for exactly that reason (agentskill, agentbudget, agentwebhook). Conversation and Message stay declared and untouched until the migration is verified in production. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.31.0, schedules-onto-engine-triggers: Schedule gains the OPTIONAL, derived engineFlowId — the uuid of the OpenRegister flow that now owns this schedule's clock. Written by the ScheduleFlowBridge when a schedule is mirrored onto the engine's schedule trigger, cleared by occ hermiq:schedules:rollback-flow-mirror. While set, the app-local dispatcher no longer selects the schedule as due by nextRun (a pending retry still fires locally). ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
+		"version": "0.37.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -41,6 +41,8 @@
 					"evaldataset",
 					"evalrun",
 					"feedback",
+					"graphentity",
+					"graphrelation",
 					"guardrailpolicy",
 					"incident",
 					"memory",
@@ -2444,7 +2446,7 @@
 			"Agent": {
 				"slug": "agent",
 				"icon": "RobotOutline",
-				"version": "0.8.0",
+				"version": "0.9.0",
 				"title": "Agent",
 				"description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target). v0.5.0 (hermiq-agent-application-slug): gains the OPTIONAL applicationSlug. v0.6.0 (speech-services): gains the four voice* fields — which engine transcribes, which speaks, the silence that closes the microphone, and whether spoken conversation is offered. ⚠️ voice* is NOT talkEnabled: that one is about Nextcloud Talk rooms, this family is about microphones, and naming a voice flag 'talk*' would collide with it.",
 				"type": "object",
@@ -2693,6 +2695,12 @@
 						"default": false,
 						"title": "Requires approval",
 						"description": "When true, this agent cannot be reached as a sub-agent-delegation target — a delegation attempt is refused outright (delegation_requires_approval) rather than creating a pending Approval, since a delegate call has no synchronous pause/resume mechanism. The agent remains runnable via its own schedule or flow trigger, which enforce the full pending/approved/denied gate (mirrors Schedule.requiresApproval's EU AI Act Art. 14 semantics, applied here at the agent level for delegation targets)."
+					},
+					"graphEnabled": {
+						"type": "boolean",
+						"default": false,
+						"title": "Knowledge graph",
+						"description": "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool."
 					},
 					"talkEnabled": {
 						"type": "boolean",
@@ -4147,6 +4155,265 @@
 						"format": "date-time",
 						"title": "Decided at",
 						"description": "When the owner resolved it. Empty while the request is pending; together with decidedBy it is the audit record of who widened the agent's tool grants and when."
+					}
+				}
+			},
+			"GraphEntity": {
+				"slug": "graphentity",
+				"icon": "GraphOutline",
+				"version": "0.1.0",
+				"title": "Graph entity",
+				"description": "A knowledge-graph node (knowledge-graph): a typed reference to exactly one record Hermiq can reach, an OpenRegister object, a Nextcloud file, a mail message or a Hermiq conversation. It stores a label, a type, aliases and provenance, never the record's content. Direct reads are owner-only; every other reader goes through GraphService, which shows a node only while the acting user can read the record in sourceRef.",
+				"type": "object",
+				"required": [
+					"label",
+					"entityType",
+					"sourceType",
+					"sourceRef"
+				],
+				"authorization": {
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"_owner": "$userId"
+							}
+						}
+					]
+				},
+				"properties": {
+					"label": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Label",
+						"description": "The entity's name as the extractor found it."
+					},
+					"labelKey": {
+						"type": "string",
+						"title": "Label key",
+						"description": "The label trimmed and in lower case, used to find the same entity again."
+					},
+					"entityType": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Entity type",
+						"description": "What the entity is, e.g. person, organisation, case, document or topic."
+					},
+					"sourceType": {
+						"type": "string",
+						"enum": [
+							"object",
+							"file",
+							"mail",
+							"conversation"
+						],
+						"title": "Source type",
+						"description": "Which kind of record sourceRef points at."
+					},
+					"sourceRef": {
+						"type": "object",
+						"title": "Source reference",
+						"description": "A pointer to the one record this entry came from, never its content. The entry is shown only while the reader can open that record.",
+						"properties": {
+							"register": {
+								"type": "string",
+								"title": "Register",
+								"description": "sourceType object: the register slug or id."
+							},
+							"schema": {
+								"type": "string",
+								"title": "Schema",
+								"description": "sourceType object: the schema slug or id."
+							},
+							"uuid": {
+								"type": "string",
+								"title": "Object",
+								"description": "sourceType object: the object uuid."
+							},
+							"fileId": {
+								"type": "integer",
+								"title": "File id",
+								"description": "sourceType file: the Nextcloud file id, the authoritative pointer."
+							},
+							"path": {
+								"type": "string",
+								"title": "Path",
+								"description": "sourceType file: the path when extracted, informational only."
+							},
+							"accountId": {
+								"type": "integer",
+								"title": "Mail account",
+								"description": "sourceType mail: the Mail account id."
+							},
+							"mailboxId": {
+								"type": "integer",
+								"title": "Mailbox",
+								"description": "sourceType mail: the Mail mailbox id."
+							},
+							"messageId": {
+								"type": [
+									"integer",
+									"string"
+								],
+								"title": "Message",
+								"description": "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid."
+							},
+							"conversationUuid": {
+								"type": "string",
+								"title": "Conversation",
+								"description": "sourceType conversation: the session or conversation uuid."
+							}
+						}
+					},
+					"aliases": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"title": "Aliases",
+						"description": "Other names an extractor explicitly proposed for this entity."
+					},
+					"confidence": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 1,
+						"title": "Confidence",
+						"description": "How sure the extractor was, from 0 to 1."
+					},
+					"extractedBy": {
+						"type": "string",
+						"title": "Extracted by",
+						"description": "The extractor and version that wrote this entry, so entries from a bad version can be found and removed."
+					}
+				}
+			},
+			"GraphRelation": {
+				"slug": "graphrelation",
+				"icon": "VectorLine",
+				"version": "0.1.0",
+				"title": "Graph relation",
+				"description": "A knowledge-graph edge (knowledge-graph): fromEntity, predicate, toEntity between two GraphEntity uuids, with the record it was extracted from as provenance. GraphService returns an edge only when the acting user can read the records behind BOTH endpoints.",
+				"type": "object",
+				"required": [
+					"fromEntity",
+					"predicate",
+					"toEntity"
+				],
+				"authorization": {
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"_owner": "$userId"
+							}
+						}
+					]
+				},
+				"properties": {
+					"fromEntity": {
+						"type": "string",
+						"format": "uuid",
+						"title": "From",
+						"description": "UUID of the graph entity the relation starts at.",
+						"$ref": "graphentity"
+					},
+					"predicate": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Predicate",
+						"description": "The relation label. The seed vocabulary is worksFor, partOf, relatesTo, mentions, authoredBy and about; anything else is stored with custom set to true."
+					},
+					"toEntity": {
+						"type": "string",
+						"format": "uuid",
+						"title": "To",
+						"description": "UUID of the graph entity the relation points to.",
+						"$ref": "graphentity"
+					},
+					"custom": {
+						"type": "boolean",
+						"default": false,
+						"title": "Custom predicate",
+						"description": "True when the predicate is outside the seed vocabulary."
+					},
+					"sourceType": {
+						"type": "string",
+						"enum": [
+							"object",
+							"file",
+							"mail",
+							"conversation"
+						],
+						"title": "Source type",
+						"description": "Which kind of record sourceRef points at. A relation whose source record the acting user cannot read is hidden, even when both endpoints are visible."
+					},
+					"sourceRef": {
+						"type": "object",
+						"title": "Source reference",
+						"description": "A pointer to the one record this entry came from, never its content. The entry is shown only while the reader can open that record.",
+						"properties": {
+							"register": {
+								"type": "string",
+								"title": "Register",
+								"description": "sourceType object: the register slug or id."
+							},
+							"schema": {
+								"type": "string",
+								"title": "Schema",
+								"description": "sourceType object: the schema slug or id."
+							},
+							"uuid": {
+								"type": "string",
+								"title": "Object",
+								"description": "sourceType object: the object uuid."
+							},
+							"fileId": {
+								"type": "integer",
+								"title": "File id",
+								"description": "sourceType file: the Nextcloud file id, the authoritative pointer."
+							},
+							"path": {
+								"type": "string",
+								"title": "Path",
+								"description": "sourceType file: the path when extracted, informational only."
+							},
+							"accountId": {
+								"type": "integer",
+								"title": "Mail account",
+								"description": "sourceType mail: the Mail account id."
+							},
+							"mailboxId": {
+								"type": "integer",
+								"title": "Mailbox",
+								"description": "sourceType mail: the Mail mailbox id."
+							},
+							"messageId": {
+								"type": [
+									"integer",
+									"string"
+								],
+								"title": "Message",
+								"description": "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid."
+							},
+							"conversationUuid": {
+								"type": "string",
+								"title": "Conversation",
+								"description": "sourceType conversation: the session or conversation uuid."
+							}
+						}
+					},
+					"confidence": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 1,
+						"title": "Confidence",
+						"description": "How sure the extractor was, from 0 to 1."
+					},
+					"extractedBy": {
+						"type": "string",
+						"title": "Extracted by",
+						"description": "The extractor and version that wrote this entry, so entries from a bad version can be found and removed."
 					}
 				}
 			}

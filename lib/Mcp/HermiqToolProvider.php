@@ -98,6 +98,7 @@ use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\Graph\GraphTools;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
@@ -655,7 +656,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			self::TOOL_DESCRIPTORS,
 			NcNativeWriteToolDescriptors::ALL,
 			NcMailToolDescriptors::ALL,
-			WorkspaceToolDescriptors::ALL
+			WorkspaceToolDescriptors::ALL,
+			GraphToolDescriptors::ALL
 		);
 	}//end getTools()
 
@@ -676,6 +678,35 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		return WorkspaceToolset::class;
 	}//end workspaceHalf()
+
+	/**
+	 * The tools served by their own class, or null for the ones invokeTool() dispatches.
+	 *
+	 * The governed workspace tools (hermiq-runner-git-capability) ride this same
+	 * dispatch path; there is no second route to a workspace. The toolset reads the
+	 * run from the scope the MCP endpoint set from the verified token and refuses
+	 * every call made outside one. The knowledge-graph tools answer as the session
+	 * user; GraphTools never throws.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param string $uid The session user.
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when not routed here.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 */
+	private function routed(string $toolId, string $uid, array $arguments): ?array {
+		if (in_array($toolId, GraphToolDescriptors::IDS, true) === true) {
+			return $this->container->get(GraphTools::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+		}
+
+		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
+			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $arguments);
+		}
+
+		return null;
+	}//end routed()
 
 	/**
 	 * Invoke a tool by id — authorises (scopes to the acting user) BEFORE any data access.
@@ -704,12 +735,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 		// records an authoring agent; never a value the LLM supplies for itself.
 		$agentId = (string)($arguments['agentId'] ?? '');
 
-		// The governed workspace tools (hermiq-runner-git-capability) ride this
-		// same dispatch path; there is no second route to a workspace. The
-		// toolset reads the run from the scope the MCP endpoint set from the
-		// verified token and refuses every call made outside one.
-		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
-			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $arguments);
+		$routed = $this->routed(toolId: $toolId, uid: $uid, arguments: $arguments);
+		if ($routed !== null) {
+			return $routed;
 		}
 
 		try {
