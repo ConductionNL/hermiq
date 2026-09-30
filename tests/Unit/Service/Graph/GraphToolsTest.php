@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for GraphTools and the graph tools' governance.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
  */
 class GraphToolsTest extends TestCase {
 
@@ -68,7 +68,7 @@ class GraphToolsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-graphneighbors-returns-an-rbac-filtered-neighborhood
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-graphneighbors-returns-an-rbac-filtered-neighborhood
 	 */
 	public function testNeighboursAreFilteredAndReferenceOnly(): void {
 		[$tools, $ids] = $this->tools();
@@ -94,7 +94,7 @@ class GraphToolsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-one-protected-endpoint-hides-the-edge
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-one-protected-endpoint-hides-the-edge
 	 */
 	public function testAHiddenEntityIsNotFound(): void {
 		[$tools, $ids] = $this->tools();
@@ -113,7 +113,7 @@ class GraphToolsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-a-path-with-a-hidden-link-is-not-returned
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-path-with-a-hidden-link-is-not-returned
 	 */
 	public function testPathIsVisibleOrAbsent(): void {
 		[$tools, $ids] = $this->tools();
@@ -137,7 +137,7 @@ class GraphToolsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-an-ungranted-graph-tool-is-not-invocable
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-an-ungranted-graph-tool-is-not-invocable
 	 */
 	public function testTheGraphToolsReachAnAgentOnlyThroughItsGrants(): void {
 		foreach (GraphToolDescriptors::ALL as $descriptor) {

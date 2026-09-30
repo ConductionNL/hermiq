@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use OCP\BackgroundJob\QueuedJob;
 /**
  * Runs one extraction batch as its user.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 class GraphExtractionJob extends QueuedJob {
 
@@ -58,7 +58,7 @@ class GraphExtractionJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	protected function run($argument): void {
 		if (is_array($argument) === false) {

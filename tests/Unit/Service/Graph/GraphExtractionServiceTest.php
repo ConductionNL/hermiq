@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Tests for GraphExtractionService and GraphSourceReader.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 class GraphExtractionServiceTest extends TestCase {
 
@@ -162,7 +162,7 @@ class GraphExtractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-a-graph-write-is-audit-trailed
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-graph-write-is-audit-trailed
 	 */
 	public function testAnExtractionWritesReferencesWithProvenance(): void {
 		[$service] = $this->service(llmAnswer: $this->answer());
@@ -192,7 +192,7 @@ class GraphExtractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-extraction-cannot-read-beyond-its-user
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-extraction-cannot-read-beyond-its-user
 	 */
 	public function testExtractionCannotReadBeyondItsUser(): void {
 		[$service] = $this->service(llmAnswer: $this->answer());
@@ -212,7 +212,7 @@ class GraphExtractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-conversation-extraction-respects-the-session-roster
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-conversation-extraction-respects-the-session-roster
 	 */
 	public function testConversationExtractionRespectsTheRoster(): void {
 		[$service] = $this->service(llmAnswer: '{"entities": [{"label": "Budget", "type": "topic"}], "relations": []}');
@@ -232,7 +232,7 @@ class GraphExtractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function testReRunsAreIdempotentAndGarbageIsHarmless(): void {
 		[$service] = $this->service(llmAnswer: $this->answer());

@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Validates graph payloads against the register.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
  */
 class KnowledgeGraphSchemaTest extends TestCase {
 
@@ -92,7 +92,7 @@ class KnowledgeGraphSchemaTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function testThePayloadsGraphServiceWritesAreValid(): void {
 		$saved = [];
@@ -181,7 +181,7 @@ class KnowledgeGraphSchemaTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function testTheSchemasRefuseIncompleteEntries(): void {
 		$this->assertFalse($this->valid('GraphEntity', ['label' => 'X', 'entityType' => 'topic']));

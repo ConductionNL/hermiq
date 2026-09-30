@@ -314,7 +314,7 @@ class ContextRetrievalHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-a-graph-mode-turn-assembles-a-neighborhood
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-graph-mode-turn-assembles-a-neighborhood
 	 */
 	public function testGraphModeUsesTheGraph(): void {
 		$objectService = $this->createMock(ObjectService::class);
@@ -344,7 +344,7 @@ class ContextRetrievalHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-an-empty-graph-degrades-to-keyword-retrieval
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-an-empty-graph-degrades-to-keyword-retrieval
 	 */
 	public function testGraphModeDegradesToKeyword(): void {
 		$cases = [

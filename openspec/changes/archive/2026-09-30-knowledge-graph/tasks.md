@@ -74,7 +74,7 @@ owner-read only.
 
 ## 6. Verify
 
-- [ ] 6.1 Unit tests (php:8.3-cli, the CI way): `GraphServiceTest` (upsert/resolution
+- [x] 6.1 Unit tests (php:8.3-cli, the CI way): `GraphServiceTest` (upsert/resolution
       idempotency; both-endpoints edge filtering; hidden-link path refusal;
       unresolvable-sourceRef fail-closed), extraction test (user who cannot read a
       record produces no nodes from it; roster-refused conversation), handler test

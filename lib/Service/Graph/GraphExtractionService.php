@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * Acting-user graph extraction.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 class GraphExtractionService {
 
@@ -91,7 +91,7 @@ class GraphExtractionService {
 	 *
 	 * @return array{entities: int, relations: int, skipped: int} What was written, and how many records could not be read.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-extraction-cannot-read-beyond-its-user
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-extraction-cannot-read-beyond-its-user
 	 */
 	public function extract(string $uid, array $sources): array {
 		try {

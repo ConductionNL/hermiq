@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * ObjectService access for graph objects.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 class GraphStore {
 	use SanitizesForSaveTrait;
@@ -71,7 +71,7 @@ class GraphStore {
 	 *
 	 * @return string The new uuid.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function create(string $schema, array $payload): string {
 		$saved = $this->objectService->saveObject(object: $payload, register: self::REGISTER, schema: $schema);
@@ -89,7 +89,7 @@ class GraphStore {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function update(string $schema, string $uuid, array $payload): void {
 		unset($payload['@self'], $payload['id']);
@@ -110,7 +110,7 @@ class GraphStore {
 	 *
 	 * @return ObjectEntity|null The entity.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function entity(string $uuid): ?ObjectEntity {
 		try {
@@ -131,7 +131,7 @@ class GraphStore {
 	 *
 	 * @return ObjectEntity|null The object.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function first(string $schema, array $filters): ?ObjectEntity {
 		return ($this->find(schema: $schema, filters: $filters, limit: 1)[0] ?? null);
@@ -147,7 +147,7 @@ class GraphStore {
 	 *
 	 * @return array<int, ObjectEntity> The objects.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function find(string $schema, array $filters, int $limit = 200): array {
 		try {

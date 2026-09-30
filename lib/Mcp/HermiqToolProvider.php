@@ -694,7 +694,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed>|null The result, or null when not routed here.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
 	private function routed(string $toolId, string $uid, array $arguments): ?array {
 		if (in_array($toolId, GraphToolDescriptors::IDS, true) === true) {

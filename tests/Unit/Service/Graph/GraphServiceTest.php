@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for GraphService.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
  */
 class GraphServiceTest extends TestCase {
 
@@ -43,7 +43,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function testANodeIsAReferenceNeverACopy(): void {
 		$this->graph()->upsertEntity(
@@ -78,7 +78,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function testUpsertsAreIdempotent(): void {
 		$graph = $this->graph();
@@ -116,7 +116,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function testAnIncompleteProposalIsRefused(): void {
 		$this->expectException(InvalidArgumentException::class);
@@ -133,7 +133,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testBothEndpointsReadableReturnsTheEdge(): void {
 		$graph = $this->graph();
@@ -158,7 +158,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testOneProtectedEndpointHidesTheEdge(): void {
 		$graph = $this->graph();
@@ -187,7 +187,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testAnEdgeFromAnUnreadableSourceIsHidden(): void {
 		$graph = $this->graph();
@@ -211,7 +211,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testAPathWithAHiddenLinkIsNotReturned(): void {
 		$graph = $this->graph();
@@ -241,7 +241,7 @@ class GraphServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
 	 */
 	public function testTraversalIsBounded(): void {
 		$graph = $this->graph(['graph_max_depth' => 1, 'graph_max_nodes' => 3]);

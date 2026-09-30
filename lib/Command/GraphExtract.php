@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Queue knowledge-graph extraction for one user.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
  */
 class GraphExtract extends Command {
 
@@ -99,7 +99,7 @@ class GraphExtract extends Command {
 	 *
 	 * @return int 0 when something was queued.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-extraction-cannot-read-beyond-its-user
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-extraction-cannot-read-beyond-its-user
 	 */
 	protected function execute(InputInterface $input, OutputInterface $output): int {
 		$uid = (string)$input->getArgument('user');

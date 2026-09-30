@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Reference-only graph writes and record-derived traversal.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
  */
 class GraphService {
 
@@ -124,7 +124,7 @@ class GraphService {
 	 *
 	 * @throws InvalidArgumentException When the proposal lacks a label, type or usable pointer.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function upsertEntity(array $proposal): string {
 		$label = trim((string)($proposal['label'] ?? ''));
@@ -167,7 +167,7 @@ class GraphService {
 	 *
 	 * @throws InvalidArgumentException When an endpoint or the predicate is missing.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function upsertRelation(array $proposal): string {
 		$from = (string)($proposal['fromEntity'] ?? '');
@@ -215,7 +215,7 @@ class GraphService {
 	 *
 	 * @return array{nodes: array<string, array<string, mixed>>, edges: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function neighbors(string $entityUuid, string $actingUserId, int $depth = 1, array $predicates = []): array {
 		return $this->traversal->neighbors(entityUuid: $entityUuid, uid: $actingUserId, depth: $depth, predicates: $predicates);
@@ -232,7 +232,7 @@ class GraphService {
 	 *
 	 * @return array{nodes: array<int, array<string, mixed>>, edges: array<int, array<string, mixed>>}|null Null when no visible path exists.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function path(string $fromUuid, string $toUuid, string $actingUserId, int $maxHops = 4): ?array {
 		return $this->traversal->path(fromUuid: $fromUuid, toUuid: $toUuid, uid: $actingUserId, maxHops: $maxHops);
@@ -247,7 +247,7 @@ class GraphService {
 	 *
 	 * @return array<string, mixed>|null The node view, or null when none is visible.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
 	public function named(string $entity, string $actingUserId): ?array {
 		return $this->lookup->named(entity: $entity, uid: $actingUserId);
@@ -263,7 +263,7 @@ class GraphService {
 	 *
 	 * @return array<int, array<string, mixed>> Node views.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
 	 */
 	public function seeds(string $query, string $actingUserId, int $limit = 5): array {
 		return $this->lookup->seeds(query: $query, uid: $actingUserId, limit: $limit);

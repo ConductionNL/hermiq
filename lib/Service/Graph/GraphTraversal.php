@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use OCP\IAppConfig;
 /**
  * Record-derived, bounded graph traversal.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
  */
 class GraphTraversal {
 
@@ -91,7 +91,7 @@ class GraphTraversal {
 	 *
 	 * @return array{nodes: array<string, array<string, mixed>>, edges: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function neighbors(string $entityUuid, string $uid, int $depth, array $predicates): array {
 		$this->seen = [];
@@ -127,7 +127,7 @@ class GraphTraversal {
 	 *
 	 * @return array{nodes: array<int, array<string, mixed>>, edges: array<int, array<string, mixed>>}|null
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function path(string $fromUuid, string $toUuid, string $uid, int $maxHops): ?array {
 		$this->seen = [];
@@ -336,7 +336,7 @@ class GraphTraversal {
 	 *
 	 * @return array<string, mixed>|null The node view, or null when hidden or gone.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function visible(string $uuid, string $uid): ?array {
 		$this->seen = [];

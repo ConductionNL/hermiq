@@ -5,8 +5,8 @@
  *
  * The `graph` value of an agent's ragSearchMode. It matches seed entities in the
  * query, walks their bounded visible neighbourhood through GraphService, reads each
- * visible node's record LIVE as the session user (objects with RBAC, files from the
- * user's own folder, mail through the mail read service), and returns rows in the
+ * visible node's record LIVE as the session user through GraphSourceReader, and
+ * returns rows in the
  * superset shape ContextRetrievalHandler already formats, plus a compact
  * `Relations:` block. Traversal starts from named seeds, never from a scan.
  *
@@ -26,25 +26,19 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Graph;
 
-use OCA\Hermiq\Service\NcNative\MailReadService;
-use OCA\OpenRegister\Service\ObjectService;
-use OCP\Files\File;
-use OCP\Files\IRootFolder;
 use OCP\IUserSession;
-use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * Graph-mode context retrieval.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
  */
 class GraphContextRetriever {
 
@@ -52,11 +46,6 @@ class GraphContextRetriever {
 	 * The most characters one record contributes.
 	 */
 	private const MAX_TEXT = 2000;
-
-	/**
-	 * The largest file read into context, in bytes.
-	 */
-	private const MAX_FILE_BYTES = 1048576;
 
 	/**
 	 * The most seeds matched in one query.
@@ -67,19 +56,13 @@ class GraphContextRetriever {
 	 * Constructor.
 	 *
 	 * @param GraphService $graph The graph.
-	 * @param ObjectService $objectService OpenRegister's object service.
-	 * @param IRootFolder $rootFolder The root folder.
-	 * @param MailReadService $mail The mail read service.
+	 * @param GraphSourceReader $reader Live, user-scoped record reads.
 	 * @param IUserSession $session The user session (the acting user).
-	 * @param LoggerInterface $logger The logger.
 	 */
 	public function __construct(
 		private readonly GraphService $graph,
-		private readonly ObjectService $objectService,
-		private readonly IRootFolder $rootFolder,
-		private readonly MailReadService $mail,
+		private readonly GraphSourceReader $reader,
 		private readonly IUserSession $session,
-		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
 
@@ -91,7 +74,7 @@ class GraphContextRetriever {
 	 *
 	 * @return array{results: array<int, array<string, mixed>>, relations: string}|null
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
 	 */
 	public function retrieve(string $query, int $limit): ?array {
 		$uid = (string)$this->session->getUser()?->getUID();
@@ -147,20 +130,13 @@ class GraphContextRetriever {
 			'metadata' => $metadata,
 		];
 
-		try {
-			$live = match ((string)$node['sourceType']) {
-				'object' => $this->objectText(ref: $ref),
-				'file' => $this->fileText(ref: $ref, uid: $uid),
-				'mail' => $this->mailText(ref: $ref, uid: $uid),
-				default => null,
-			};
-		} catch (Throwable $e) {
-			$this->logger->debug('Hermiq graph: a record could not be read into context', ['exception' => $e]);
-			$live = null;
+		$live = null;
+		if ((string)$node['sourceType'] !== 'conversation') {
+			$live = $this->reader->read(sourceType: (string)$node['sourceType'], ref: $ref, uid: $uid);
 		}
 
-		if ($live !== null && $live !== '') {
-			$row['text'] = mb_substr($live, 0, self::MAX_TEXT);
+		if ($live !== null) {
+			$row['text'] = mb_substr($live['text'], 0, self::MAX_TEXT);
 		}
 
 		if ($row['entity_type'] === 'object') {
@@ -170,66 +146,6 @@ class GraphContextRetriever {
 		return $row;
 
 	}//end row()
-
-	/**
-	 * An object's current data, found with RBAC as the session user.
-	 *
-	 * @param array<string, mixed> $ref The pointer.
-	 *
-	 * @return string|null The data as JSON.
-	 */
-	private function objectText(array $ref): ?string {
-		$object = $this->objectService->find(
-			id: (string)($ref['uuid'] ?? ''),
-			register: (string)($ref['register'] ?? ''),
-			schema: (string)($ref['schema'] ?? '')
-		);
-		if ($object === null) {
-			return null;
-		}
-
-		$data = $object->getObject();
-		unset($data['@self']);
-
-		return (string)json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-	}//end objectText()
-
-	/**
-	 * A small file's current content, from the user's own folder.
-	 *
-	 * @param array<string, mixed> $ref The pointer.
-	 * @param string $uid The acting user.
-	 *
-	 * @return string|null The content.
-	 */
-	private function fileText(array $ref, string $uid): ?string {
-		$file = $this->rootFolder->getUserFolder($uid)->getFirstNodeById((int)($ref['fileId'] ?? 0));
-		if (($file instanceof File) === false || $file->getSize() > self::MAX_FILE_BYTES) {
-			return null;
-		}
-
-		return $file->getContent();
-
-	}//end fileText()
-
-	/**
-	 * A mail message's current plain body, through the mail read service.
-	 *
-	 * @param array<string, mixed> $ref The pointer.
-	 * @param string $uid The acting user.
-	 *
-	 * @return string|null The body.
-	 */
-	private function mailText(array $ref, string $uid): ?string {
-		$message = $this->mail->readMessage(uid: $uid, arguments: ['id' => (int)($ref['messageId'] ?? 0)]);
-		if (isset($message['error']) === true) {
-			return null;
-		}
-
-		return trim((string)($message['subject'] ?? '') . "\n" . (string)($message['body'] ?? ''));
-
-	}//end mailText()
 
 	/**
 	 * The visible relations as one compact block, one `from -[predicate]-> to` per line.

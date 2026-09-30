@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use RuntimeException;
 /**
  * Tests for GraphVisibility and ActingUserScope.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
  */
 class GraphVisibilityTest extends TestCase {
 
@@ -128,7 +128,7 @@ class GraphVisibilityTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testAnObjectIsCheckedAsTheActingUserWithRbac(): void {
 		$this->sessionUser = $this->user('admin');
@@ -155,7 +155,7 @@ class GraphVisibilityTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-nodes-reference-records-and-never-copy-them
 	 */
 	public function testUnresolvableRecordsFailClosed(): void {
 		$this->sessionUser = $this->user('admin');
@@ -184,7 +184,7 @@ class GraphVisibilityTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testAFileIsCheckedInTheUsersOwnFolder(): void {
 		$visibility = $this->visibility(static fn (): ?ObjectEntity => null, [42]);
@@ -201,7 +201,7 @@ class GraphVisibilityTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testMailUsesTheAccountScopedLookup(): void {
 		$mail = $this->createMock(MailReadService::class);
@@ -218,7 +218,7 @@ class GraphVisibilityTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function testAConversationFollowsTheRoster(): void {
 		$visibility = $this->visibility(

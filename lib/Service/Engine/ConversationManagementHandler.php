@@ -434,7 +434,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return string The model's answer.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
 	 */
 	public function generateText(string $prompt, ?string $organisation = null): string {
 		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);

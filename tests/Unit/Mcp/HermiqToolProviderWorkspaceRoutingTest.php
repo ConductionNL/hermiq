@@ -104,7 +104,7 @@ final class HermiqToolProviderWorkspaceRoutingTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
 	public function testGraphToolsAreListedAndReachGraphToolsAsTheSessionUser(): void {
 		$calls = [];

@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
  */
 
 declare(strict_types=1);
@@ -25,6 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Graph;
 
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
+use OCA\Hermiq\Service\Graph\GraphSourceReader;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -37,7 +38,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Tests for GraphContextRetriever.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
  */
 class GraphContextRetrieverTest extends TestCase {
 
@@ -78,14 +79,14 @@ class GraphContextRetrieverTest extends TestCase {
 		$root = $this->createMock(IRootFolder::class);
 		$root->method('getUserFolder')->willReturn($folder);
 
-		return new GraphContextRetriever(
-			$graph,
+		$reader = new GraphSourceReader(
 			$this->objects,
 			$root,
 			$this->createMock(MailReadService::class),
-			$session,
 			$this->createMock(LoggerInterface::class)
 		);
+
+		return new GraphContextRetriever($graph, $reader, $session);
 
 	}//end retriever()
 
@@ -95,7 +96,7 @@ class GraphContextRetrieverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-a-graph-mode-turn-assembles-a-neighborhood
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-graph-mode-turn-assembles-a-neighborhood
 	 */
 	public function testAGraphTurnAssemblesTheVisibleNeighbourhood(): void {
 		$context = $this->retriever()->retrieve(query: 'What does Jan Jansen buy?', limit: 10);
@@ -119,7 +120,7 @@ class GraphContextRetrieverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-the-underlying-record-changes-after-extraction
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-the-underlying-record-changes-after-extraction
 	 */
 	public function testTheRecordIsReadLive(): void {
 		$retriever = $this->retriever();
@@ -138,7 +139,7 @@ class GraphContextRetrieverTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#scenario-an-empty-graph-degrades-to-keyword-retrieval
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-an-empty-graph-degrades-to-keyword-retrieval
 	 */
 	public function testNoVisibleSeedMeansNoGraphContext(): void {
 		$retriever = $this->retriever();

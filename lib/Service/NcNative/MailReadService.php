@@ -294,7 +294,7 @@ class MailReadService {
 	 *
 	 * @return bool True when the message is the user's.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
 	 */
 	public function canRead(string $uid, int $messageId): bool {
 		$manager = $this->mail(key: 'manager');

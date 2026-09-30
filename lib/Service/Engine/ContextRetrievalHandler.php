@@ -309,7 +309,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return array{results: array<int, array<string, mixed>>, relations: string}|null
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
 	 */
 	private function graphContext(string $query, array $agentData, int $limit): ?array {
 		$reason = 'the agent has not enabled the knowledge graph';

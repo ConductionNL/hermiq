@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\Graph;
 /**
  * Visible entity lookup by uuid, label or query phrase.
  *
- * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+ * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
  */
 class GraphLookup {
 
@@ -60,7 +60,7 @@ class GraphLookup {
 	 *
 	 * @return array<string, mixed>|null The node view, or null when none is visible.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
 	public function named(string $entity, string $uid): ?array {
 		$entity = trim($entity);
@@ -81,7 +81,7 @@ class GraphLookup {
 	 *
 	 * @return array<int, array<string, mixed>> Node views.
 	 *
-	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
 	 */
 	public function seeds(string $query, string $uid, int $limit): array {
 		$words = preg_split('/[^\p{L}\p{N}@._-]+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY);
