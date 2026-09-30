@@ -2261,15 +2261,17 @@
 			"area": "tools",
 			"name": "Let an agent create and complete tasks.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ and src/ for the Nextcloud Tasks app / VTODO / a core Assistant task-list integration ('Tasks', 'core:task', 'nctasks') with no relevant hits. The only similarly-named tools are createNote/updateNote/listNotes (NcNativeWriteToolDescriptors.php), which target the Notes app, a different Nextcloud app. Specified in openspec/changes/tools-nextcloud-tasks/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-nextcloud-tasks"
+				"evidence": "lib/Service/NcNative/TaskWriteService.php lists, creates and completes VTODO tasks in the acting user's CalDAV task lists (calendars whose component set holds VTODO, read from the DAV backend); writes go only to lists the user owns and can write (ICalendarIsShared false, ICalendarIsWritable true); every write carries X-HERMIQ-AGENT-AUTHORED in the same object (TaskCalendarObject); completing rewrites only STATUS, COMPLETED, PERCENT-COMPLETE and the mark and stores through CalDavBackend::updateCalendarObject, because createFromString does not replace (verified at server v34.0.3). Descriptors lib/Mcp/NcTaskToolDescriptors.php: listTasks read/user, createTask and completeTask write/instance. Proven in tests/Unit/Service/NcNative/TaskWriteServiceTest.php and TaskCalendarObjectTest.php.",
+				"reachedOn": "Agent tool list: grant hermiq.listTasks, hermiq.createTask or hermiq.completeTask; the tasks show in the Tasks app",
+				"change": "openspec/changes/archive/2026-09-30-tools-nextcloud-tasks",
+				"readOn": "2026-09-30"
 			},
-			"reachedOn": "nothing",
-			"note": "Nothing in the codebase implements a Nextcloud Assistant tasks tool; Notes tools exist but are a different capability.",
+			"reachedOn": "Agent tool list: hermiq.listTasks, hermiq.createTask, hermiq.completeTask",
+			"note": "Built 2026-09-30 by tools-nextcloud-tasks. History: before that nothing in the codebase implemented a tasks tool; the Notes tools are a different capability.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "nc-tasks-tool",
