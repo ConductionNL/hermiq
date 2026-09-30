@@ -44,9 +44,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
+use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Handles context retrieval for RAG chat responses against OpenRegister's
@@ -62,6 +64,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @param ObjectService $objectService OpenRegister object search (public surface).
 	 * @param LoggerInterface $logger Logger.
+	 * @param GraphContextRetriever|null $graphRetriever The graph mode (knowledge-graph); null keeps graph mode on the keyword path.
 	 *
 	 * @return void
 	 *
@@ -70,6 +73,7 @@ class ContextRetrievalHandler {
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
+		private readonly ?GraphContextRetriever $graphRetriever = null,
 	) {
 	}//end __construct()
 
@@ -146,6 +150,13 @@ class ContextRetrievalHandler {
 			// Fetch more results than needed for type filtering.
 			$fetchLimit = $totalSources * 2;
 
+			// Graph mode (knowledge-graph): the graph's live-hydrated neighbourhood,
+			// or null, in which case the keyword path below runs as before.
+			$graph = null;
+			if ($searchMode === 'graph') {
+				$graph = $this->graphContext(query: $query, agentData: $agentData, limit: $fetchLimit);
+			}
+
 			// Semantic/hybrid degrade to keyword — see the class docblock's
 			// ground-truth adaptation note.
 			if ($searchMode === 'semantic' || $searchMode === 'hybrid') {
@@ -161,11 +172,15 @@ class ContextRetrievalHandler {
 				);
 			}
 
-			$results = $this->searchScoped(
-				query: $query,
-				limit: $fetchLimit,
-				viewFilters: $viewFilters
-			);
+			$results = ($graph['results'] ?? []);
+			$contextText = ($graph['relations'] ?? '');
+			if ($graph === null) {
+				$results = $this->searchScoped(
+					query: $query,
+					limit: $fetchLimit,
+					viewFilters: $viewFilters
+				);
+			}
 
 			// Filter and build context - track file and object counts separately.
 			$fileSourceCount = 0;
@@ -281,6 +296,43 @@ class ContextRetrievalHandler {
 			];
 		}//end try
 	}//end retrieveContext()
+
+	/**
+	 * The graph mode's context, or null to degrade to the keyword path.
+	 *
+	 * Null when the agent has not enabled the graph, no retriever is wired, the graph
+	 * names no visible seed, or it fails; each is logged at info, never thrown.
+	 *
+	 * @param string $query The user's query.
+	 * @param array<string, mixed> $agentData The agent payload.
+	 * @param int $limit The most records to hydrate.
+	 *
+	 * @return array{results: array<int, array<string, mixed>>, relations: string}|null
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 */
+	private function graphContext(string $query, array $agentData, int $limit): ?array {
+		$reason = 'the agent has not enabled the knowledge graph';
+		$graph = null;
+		if (($agentData['graphEnabled'] ?? false) === true && $this->graphRetriever !== null) {
+			$reason = 'the graph names no visible entity in the query';
+			try {
+				$graph = $this->graphRetriever->retrieve(query: $query, limit: $limit);
+			} catch (Throwable $e) {
+				$reason = 'the graph could not be read: ' . $e->getMessage();
+			}
+		}
+
+		if ($graph === null) {
+			$this->logger->info(
+				message: '[ContextRetrievalHandler] graph RAG mode degrades to keyword search: ' . $reason,
+				context: ['file' => __FILE__, 'line' => __LINE__]
+			);
+		}
+
+		return $graph;
+
+	}//end graphContext()
 
 	/**
 	 * Resolve the effective view filter set from agent views + user selection.

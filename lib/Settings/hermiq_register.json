@@ -2700,7 +2700,7 @@
 						"type": "boolean",
 						"default": false,
 						"title": "Knowledge graph",
-						"description": "When true, this agent may use the knowledge graph: the graph retrieval mode (ragSearchMode graph) and the graph tools. Defaults to false; the graph tools still need a grant."
+						"description": "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool."
 					},
 					"talkEnabled": {
 						"type": "boolean",

@@ -1606,7 +1606,6 @@
         "UUID of the graph entity the relation points to.": "UUID van de graafentiteit waar de relatie naar wijst.",
         "UUID of the graph entity the relation starts at.": "UUID van de graafentiteit waar de relatie begint.",
         "What the entity is, e.g. person, organisation, case, document or topic.": "Wat de entiteit is, bijvoorbeeld een persoon, organisatie, zaak, document of onderwerp.",
-        "When true, this agent may use the knowledge graph: the graph retrieval mode (ragSearchMode graph) and the graph tools. Defaults to false; the graph tools still need a grant.": "Als dit aan staat mag deze agent de kennisgraaf gebruiken: de graafzoekmodus (ragSearchMode graph) en de graaftools. Staat standaard uit; de graaftools hebben daarnaast een toekenning nodig.",
         "Which kind of record sourceRef points at.": "Naar welk soort record sourceRef verwijst.",
         "Which kind of record sourceRef points at. A relation whose source record the acting user cannot read is hidden, even when both endpoints are visible.": "Naar welk soort record sourceRef verwijst. Een relatie waarvan de gebruiker het bronrecord niet kan lezen blijft verborgen, ook als beide uiteinden zichtbaar zijn.",
         "sourceType conversation: the session or conversation uuid.": "sourceType conversation: de uuid van de sessie of het gesprek.",
@@ -1617,7 +1616,8 @@
         "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid.": "sourceType mail: het id van het Mail-bericht. sourceType conversation: de optionele uuid van het bericht.",
         "sourceType object: the object uuid.": "sourceType object: de uuid van het object.",
         "sourceType object: the register slug or id.": "sourceType object: de slug of het id van het register.",
-        "sourceType object: the schema slug or id.": "sourceType object: de slug of het id van het schema."
+        "sourceType object: the schema slug or id.": "sourceType object: de slug of het id van het schema.",
+        "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool.": "Als dit aan staat en de zoekmodus graph is, komt de context van deze agent uit de kennisgraaf. Staat standaard uit. De graaftools worden apart toegekend, net als elke andere tool."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

@@ -173,4 +173,17 @@ or that no longer fitted the code:
 - **Caps.** App config `graph_max_depth` (default 2), `graph_max_nodes` (50),
   `graph_max_edges` (100), `graph_min_confidence_percent` (0); a path is at most 6
   hops.
+- **Seeds and tool arguments (second slice).** `GraphLookup` matches the one to three
+  word phrases of a query against `labelKey` (one equality filter each), and a tool
+  argument by uuid or exact label in any case. Aliases are not matched yet. An
+  entity the user cannot see is "not found" to the tools, exactly like one that does
+  not exist.
+- **Tools and `graphEnabled`.** The two tools are governed by grants alone, like
+  every other tool; `graphEnabled` gates the retrieval mode only. The provider routes
+  both ids to `GraphTools` next to the workspace routing.
+- **Graph mode hydration.** `GraphContextRetriever` reads objects with RBAC as the
+  session user, files from the user's own folder (at most 1 MB), mail through
+  `MailReadService::readMessage`; a conversation node contributes its label only.
+  Each record adds at most 2,000 characters. The relations block uses
+  `from -[predicate]-> to` lines.
 

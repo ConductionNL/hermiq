@@ -90,6 +90,13 @@ class GraphService {
 	private GraphTraversal $traversal;
 
 	/**
+	 * Visible entity lookup.
+	 *
+	 * @var GraphLookup
+	 */
+	private GraphLookup $lookup;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister's object service.
@@ -105,6 +112,7 @@ class GraphService {
 	) {
 		$this->store = new GraphStore(objectService: $objectService, logger: $logger);
 		$this->traversal = new GraphTraversal(store: $this->store, visibility: $visibility, appConfig: $appConfig);
+		$this->lookup = new GraphLookup(store: $this->store, traversal: $this->traversal);
 	}//end __construct()
 
 	/**
@@ -230,6 +238,37 @@ class GraphService {
 		return $this->traversal->path(fromUuid: $fromUuid, toUuid: $toUuid, uid: $actingUserId, maxHops: $maxHops);
 
 	}//end path()
+
+	/**
+	 * The visible entity a tool argument names: a uuid, or an exact label in any case.
+	 *
+	 * @param string $entity A uuid or a label.
+	 * @param string $actingUserId The acting user.
+	 *
+	 * @return array<string, mixed>|null The node view, or null when none is visible.
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 */
+	public function named(string $entity, string $actingUserId): ?array {
+		return $this->lookup->named(entity: $entity, uid: $actingUserId);
+
+	}//end named()
+
+	/**
+	 * Visible entities the query names, as seeds for the graph retrieval mode.
+	 *
+	 * @param string $query The user's query.
+	 * @param string $actingUserId The acting user.
+	 * @param int $limit The most seeds to return.
+	 *
+	 * @return array<int, array<string, mixed>> Node views.
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 */
+	public function seeds(string $query, string $actingUserId, int $limit = 5): array {
+		return $this->lookup->seeds(query: $query, uid: $actingUserId, limit: $limit);
+
+	}//end seeds()
 
 	/**
 	 * Merge proposed aliases into an existing entity; writes only when something is new.

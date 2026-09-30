@@ -264,8 +264,9 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile, and the write tools
 		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit
 		//   (hermiq-runner-git-capability),
+		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// all registered through this same provider.
-		$this->assertCount(36, $tools);
+		$this->assertCount(38, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -355,10 +356,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.workspaceCheckoutBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
 			'hermiq.workspaceCommit' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(36, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(38, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -439,6 +442,9 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceCheckoutBranch' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceCommit' => ToolReachResolver::REACH_USER,
+			// `user`: reads the graph as the acting user and returns pointers only.
+			'hermiq.graphNeighbors' => ToolReachResolver::REACH_USER,
+			'hermiq.graphPath' => ToolReachResolver::REACH_USER,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -534,6 +540,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ['workspace', 'branch'],
 			'hermiq.workspaceCheckoutBranch' => ['workspace', 'checkout'],
 			'hermiq.workspaceCommit' => ['workspace', 'commit'],
+			'hermiq.graphNeighbors' => ['graphEntity', 'list'],
+			'hermiq.graphPath' => ['graphEntity', 'get'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

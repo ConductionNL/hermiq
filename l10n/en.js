@@ -2309,7 +2309,6 @@ OC.L10N.register(
         "UUID of the graph entity the relation points to.": "UUID of the graph entity the relation points to.",
         "UUID of the graph entity the relation starts at.": "UUID of the graph entity the relation starts at.",
         "What the entity is, e.g. person, organisation, case, document or topic.": "What the entity is, e.g. person, organisation, case, document or topic.",
-        "When true, this agent may use the knowledge graph: the graph retrieval mode (ragSearchMode graph) and the graph tools. Defaults to false; the graph tools still need a grant.": "When true, this agent may use the knowledge graph: the graph retrieval mode (ragSearchMode graph) and the graph tools. Defaults to false; the graph tools still need a grant.",
         "Which kind of record sourceRef points at.": "Which kind of record sourceRef points at.",
         "Which kind of record sourceRef points at. A relation whose source record the acting user cannot read is hidden, even when both endpoints are visible.": "Which kind of record sourceRef points at. A relation whose source record the acting user cannot read is hidden, even when both endpoints are visible.",
         "sourceType conversation: the session or conversation uuid.": "sourceType conversation: the session or conversation uuid.",
@@ -2320,7 +2319,8 @@ OC.L10N.register(
         "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid.": "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid.",
         "sourceType object: the object uuid.": "sourceType object: the object uuid.",
         "sourceType object: the register slug or id.": "sourceType object: the register slug or id.",
-        "sourceType object: the schema slug or id.": "sourceType object: the schema slug or id."
+        "sourceType object: the schema slug or id.": "sourceType object: the schema slug or id.",
+        "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool.": "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool."
     },
     "nplurals=2; plural=(n != 1);"
 )

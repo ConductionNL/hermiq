@@ -329,6 +329,23 @@ class GraphTraversal {
 	}//end sourceReadable()
 
 	/**
+	 * The node view of an entity while the acting user can read its record, fresh.
+	 *
+	 * @param string $uuid The entity uuid.
+	 * @param string $uid The acting user.
+	 *
+	 * @return array<string, mixed>|null The node view, or null when hidden or gone.
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 */
+	public function visible(string $uuid, string $uid): ?array {
+		$this->seen = [];
+
+		return $this->node(uuid: $uuid, uid: $uid);
+
+	}//end visible()
+
+	/**
 	 * The node view of an entity while the acting user can read its record, cached per read.
 	 *
 	 * @param string $uuid The entity uuid.

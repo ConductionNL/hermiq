@@ -21,10 +21,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Mcp\GraphToolDescriptors;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
+use OCA\Hermiq\Service\Graph\GraphTools;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
@@ -95,6 +97,40 @@ final class HermiqToolProviderWorkspaceRoutingTest extends TestCase {
 		self::assertSame($expected, $calls);
 		self::assertContains('writes:' . WorkspaceToolDescriptors::COMMIT, $calls);
 	}//end testWriteToolsReachTheWriteHalfAndReadToolsTheReadHalf()
+
+	/**
+	 * The graph tools are listed by the provider and dispatched to GraphTools as the
+	 * session user (knowledge-graph).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/knowledge-graph/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 */
+	public function testGraphToolsAreListedAndReachGraphToolsAsTheSessionUser(): void {
+		$calls = [];
+		$graph = $this->createMock(GraphTools::class);
+		$graph->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = $uid . ':' . $toolId . ':' . (string)($arguments['entity'] ?? $arguments['from'] ?? '');
+				return ['nodes' => [], 'edges' => []];
+			}
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): object => ($id === GraphTools::class ? $graph : new \stdClass())
+		);
+
+		$provider = $this->provider(container: $container);
+		$ids = array_column($provider->getTools(), 'id');
+		foreach (GraphToolDescriptors::IDS as $id) {
+			self::assertContains($id, $ids);
+		}
+
+		$provider->invokeTool(toolId: GraphToolDescriptors::NEIGHBORS, arguments: ['entity' => 'Acme']);
+		$provider->invokeTool(toolId: GraphToolDescriptors::PATH, arguments: ['from' => 'Acme', 'to' => 'Jan']);
+
+		self::assertSame(['alice:hermiq.graphNeighbors:Acme', 'alice:hermiq.graphPath:Acme'], $calls);
+	}//end testGraphToolsAreListedAndReachGraphToolsAsTheSessionUser()
 
 	/**
 	 * The provider, signed in as alice, over this container.

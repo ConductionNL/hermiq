@@ -55,21 +55,21 @@ owner-read only.
 
 ## 4. Context retrieval graph mode
 
-- [ ] 4.1 `ContextRetrievalHandler::retrieveContext()`: add the `graph` mode branch —
+- [x] 4.1 `ContextRetrievalHandler::retrieveContext()`: add the `graph` mode branch —
       seed matching on labels/aliases, `GraphService` traversal, live hydration of
       visible records into the existing superset result shape, plus a compact
       `Relations:` text block.
-- [ ] 4.2 Degradation: empty graph / no seeds / GraphService failure falls through to
+- [x] 4.2 Degradation: empty graph / no seeds / GraphService failure falls through to
       the existing keyword path with a `LoggerInterface::info()` note; the
       never-throws contract of `retrieveContext()` is preserved.
 
 ## 5. Tools
 
-- [ ] 5.1 Register `hermiq.graphNeighbors` (`{entity, depth?, predicates?}`) and
+- [x] 5.1 Register `hermiq.graphNeighbors` (`{entity, depth?, predicates?}`) and
       `hermiq.graphPath` (`{from, to, maxHops?}`) through the same registration path
       as the existing `hermiq.*` domain tools (read-only hints; local reach); results
       carry labels, predicates, `sourceRef` pointers — never record content.
-- [ ] 5.2 Verify both tools flow through the grant-filtered, default-denied resolved
+- [x] 5.2 Verify both tools flow through the grant-filtered, default-denied resolved
       set (`ToolSearchService` invariant untouched).
 
 ## 6. Verify
