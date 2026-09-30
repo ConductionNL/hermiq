@@ -2260,6 +2260,105 @@
         "custom": false,
         "confidence": 0.8,
         "extractedBy": "hermiq-graph-extractor@1"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "literacylesson",
+          "slug": "literacylesson-what-an-agent-is-nl"
+        },
+        "slug": "what-an-agent-is",
+        "order": 1,
+        "locale": "nl",
+        "version": 1,
+        "title": "Wat een agent is en wat niet",
+        "body": "Een agent is een programma dat leest wat je typt, een taalmodel aanroept en tools kan gebruiken die je organisatie heeft toegestaan, zoals bestanden doorzoeken of een e-mail opstellen. Een agent kent je zaak niet zoals jij die kent. Hij voorspelt waarschijnlijke tekst op basis van wat hij kreeg en wat hij eerder leerde.\n\nEen agent is geen collega die verantwoordelijkheid neemt. Jij beslist wat er met het antwoord gebeurt. Heeft een tool goedkeuring nodig, dan keurt een mens die goed voordat er iets verandert.",
+        "checkQuestion": "Wie is verantwoordelijk voor wat je met het antwoord van een agent doet?",
+        "checkOptions": [
+          "De agent",
+          "Jij, degene die het antwoord gebruikt",
+          "De leverancier van het taalmodel"
+        ],
+        "checkAnswer": 1,
+        "explanation": "De agent doet alleen een voorstel. Jij beslist wat je met het antwoord doet, en jij bent daarop aanspreekbaar."
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "literacylesson",
+          "slug": "literacylesson-answers-can-be-wrong-nl"
+        },
+        "slug": "answers-can-be-wrong",
+        "order": 2,
+        "locale": "nl",
+        "version": 1,
+        "title": "Antwoorden kunnen fout zijn: waarom, en hoe je het merkt",
+        "body": "Een taalmodel schrijft tekst die klopt lijkt. Het kan namen door elkaar halen, een regel verzinnen, een recente wijziging missen of een getal noemen dat niet bestaat. Dat zegt het met dezelfde stelligheid als een goed antwoord.\n\nLet op antwoorden zonder bron, heel precieze getallen, citaten die je niet terugvindt en antwoorden die ingaan tegen wat je weet. Doet het antwoord ertoe, controleer het dan.",
+        "checkQuestion": "Een antwoord klinkt zeker en gedetailleerd. Wat zegt dat over of het klopt?",
+        "checkOptions": [
+          "Dan klopt het vrijwel zeker",
+          "Niets: stelligheid is geen bewijs",
+          "Het klopt als de agent een tool gebruikte"
+        ],
+        "checkAnswer": 1,
+        "explanation": "Een model klinkt net zo zeker als het ernaast zit. Alleen een controle in de bron vertelt je of het klopt."
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "literacylesson",
+          "slug": "literacylesson-check-the-sources-nl"
+        },
+        "slug": "check-the-sources",
+        "order": 3,
+        "locale": "nl",
+        "version": 1,
+        "title": "Controleer de bronnen voordat je een antwoord gebruikt",
+        "body": "Gebruikte een agent documenten of dossiers, dan toont hij die als bronnen onder het antwoord. Open ze. Controleer of de bron zegt wat het antwoord beweert, en of het de actuele versie is.\n\nGeen bron betekent dat het antwoord alleen uit het model komt. Behandel het als concept en zoek het gegeven op in het systeem waar het staat, voordat je het in een besluit of brief gebruikt.",
+        "checkQuestion": "Een agent geeft je een getal zonder bron. Wat doe je?",
+        "checkOptions": [
+          "Gebruiken, de agent heeft meestal gelijk",
+          "Het getal in het bronsysteem controleren voordat je het gebruikt",
+          "De agent vragen het te herhalen"
+        ],
+        "checkAnswer": 1,
+        "explanation": "Opnieuw vragen geeft je een nieuwe gok, geen controle. Zoek het getal op waar het wordt bijgehouden."
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "literacycompletion",
+          "slug": "literacycompletion-voorbeeld-1"
+        },
+        "userId": "voorbeeld-gebruiker-1",
+        "lessonSlug": "what-an-agent-is",
+        "lessonVersion": 1,
+        "locale": "nl",
+        "completedAt": "2026-09-01T10:00:00+00:00"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "literacycompletion",
+          "slug": "literacycompletion-voorbeeld-2"
+        },
+        "userId": "voorbeeld-gebruiker-2",
+        "lessonSlug": "answers-can-be-wrong",
+        "lessonVersion": 1,
+        "locale": "nl",
+        "completedAt": "2026-09-02T10:00:00+00:00"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "literacycompletion",
+          "slug": "literacycompletion-voorbeeld-3"
+        },
+        "userId": "voorbeeld-gebruiker-3",
+        "lessonSlug": "check-the-sources",
+        "lessonVersion": 1,
+        "locale": "nl",
+        "completedAt": "2026-09-03T10:00:00+00:00"
       }
     ]
   }

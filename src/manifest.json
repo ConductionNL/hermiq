@@ -1901,6 +1901,23 @@
 						}
 					},
 					{
+						"id": "see-flows",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"optional": true,
+						"allowManualNext": true,
+						"body": "A flow runs agents on a schedule or after an event, without anyone clicking. Read what a flow does before you switch it on.",
+						"task": "Open Flows in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "FlowIndex"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "FlowIndex"
+						}
+					},
+					{
 						"id": "go-approvals",
 						"sinceVersion": "0.2.17",
 						"placement": "right",
