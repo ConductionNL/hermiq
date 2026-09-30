@@ -91,6 +91,8 @@ class ForgeEgressPolicy {
 	 * @return bool
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	public function permits(string $agentId): bool {
 		if ($agentId === '') {

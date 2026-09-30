@@ -518,6 +518,8 @@ class McpRunController extends Controller {
 	 * @param ObjectEntity|null $agent The agent object, or null when unresolved.
 	 *
 	 * @return array<int, array<string, mixed>> The resolved descriptors.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	private function resolvedDescriptorsFor(?ObjectEntity $agent): array {
 		if ($agent === null) {

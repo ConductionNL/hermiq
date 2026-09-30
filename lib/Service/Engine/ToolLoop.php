@@ -192,6 +192,8 @@ class ToolLoop {
 	 *                                          optional `mcpId`).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	public function listAgentFunctions(?ObjectEntity $agent, array $selectedTools = []): array {
 		if ($agent === null) {
