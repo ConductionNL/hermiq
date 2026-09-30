@@ -44,6 +44,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -203,7 +204,10 @@ class ToolOversightController extends Controller {
 		try {
 			$grants = $this->agentGrants(agent: $agent);
 			$catalog = $this->toolRegistry->listTools();
-			$resolvedIds = $this->grantResolver->resolve(grants: $grants, catalog: $catalog);
+			$resolvedIds = RepoEffectingGrants::filterIds(
+				resolvedIds: $this->grantResolver->resolve(grants: $grants, catalog: $catalog),
+				constraints: $this->grantResolver->argumentConstraints(grants: $grants)
+			);
 			$resolvedSet = array_flip($resolvedIds);
 
 			$tools = [];

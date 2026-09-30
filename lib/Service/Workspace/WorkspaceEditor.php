@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCP\IUserManager;
 /**
  * Performs the in-workspace writes.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-commits-are-authored-and-pushes-authorised-as-the-resolved-run-owner
  */
 class WorkspaceEditor {
 
@@ -89,7 +89,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
 	 */
 	public function writeFile(string $runKey, string $root, array $arguments): array {
 		$path = (string)($arguments['path'] ?? '');
@@ -142,7 +142,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-every-path-argument-is-confined-to-the-workspace-after-symlink-resolution
 	 */
 	public function deleteFile(string $root, array $arguments): array {
 		$path = (string)($arguments['path'] ?? '');
@@ -167,7 +167,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
 	 */
 	public function applyPatch(string $runKey, string $root, array $arguments): array {
 		$patch = (string)($arguments['patch'] ?? '');
@@ -203,7 +203,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
 	 */
 	public function createBranch(string $root, string $branch): array {
 		$this->gitOk(root: $root, arguments: ['switch', '--no-guess', '-c', $branch], failure: 'That branch could not be created. It may exist already.');
@@ -220,7 +220,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
 	 */
 	public function checkoutBranch(string $root, string $branch): array {
 		$this->gitOk(
@@ -242,7 +242,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException owner_unresolvable when the run has no owner.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-commit-identity-comes-from-the-owner-not-the-model
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-commit-identity-comes-from-the-owner-not-the-model
 	 */
 	public function commit(string $root, string $ownerUid, array $arguments): array {
 		$identity = $this->identity(ownerUid: $ownerUid);
@@ -303,7 +303,7 @@ class WorkspaceEditor {
 	 *
 	 * @throws WorkspaceException owner_unresolvable.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-unowned-run-cannot-author-or-push
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unowned-run-cannot-author-or-push
 	 */
 	private function identity(string $ownerUid): array {
 		$user = null;

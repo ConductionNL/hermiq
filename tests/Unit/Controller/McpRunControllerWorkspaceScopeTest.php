@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
  */
 final class McpRunControllerWorkspaceScopeTest extends TestCase {
 

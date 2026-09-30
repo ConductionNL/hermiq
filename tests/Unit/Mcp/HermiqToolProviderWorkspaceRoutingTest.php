@@ -47,7 +47,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
  */
 final class HermiqToolProviderWorkspaceRoutingTest extends TestCase {
 
@@ -56,7 +56,7 @@ final class HermiqToolProviderWorkspaceRoutingTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
 	 */
 	public function testWriteToolsReachTheWriteHalfAndReadToolsTheReadHalf(): void {
 		$calls = [];

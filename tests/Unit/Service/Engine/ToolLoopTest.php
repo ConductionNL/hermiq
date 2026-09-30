@@ -653,4 +653,44 @@ class ToolLoopTest extends TestCase {
 		);
 
 	}//end testBuildFunctionInfosDryRunNeutralisesAnEgressReadTool()
+	/**
+	 * The push is offered only from a grant that pins the repository and the branch;
+	 * a bare push grant beside other tools drops the push and keeps the rest.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testABarePushGrantIsNotOfferedAndAScopedOneIs(): void {
+		$open = ['name' => 'hermiq_workspaceOpen', 'mcpId' => 'hermiq.workspaceOpen'];
+		$push = ['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush', 'destructiveHint' => true];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn([$open, $push]);
+
+		$bare = $this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.workspaceOpen', 'hermiq.workspacePush']));
+		$this->assertSame(['hermiq.workspaceOpen'], array_column($bare, 'mcpId'));
+
+		$scoped = $this->loop(facade: $facade)->listAgentFunctions(
+			agent: $this->agent(tools: ['hermiq.workspaceOpen', 'hermiq.workspacePush?repository=example-org/example-app&branch=in:feature-a,feature-b'])
+		);
+		$this->assertSame(['hermiq.workspaceOpen', 'hermiq.workspacePush'], array_column($scoped, 'mcpId'));
+
+	}//end testABarePushGrantIsNotOfferedAndAScopedOneIs()
+
+	/**
+	 * An agent whose only grant is a bare push resolves to nothing and says so,
+	 * at configuration time rather than mid-run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testAnAgentWithOnlyABarePushGrantFailsVisibly(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn([['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush']]);
+
+		$this->expectException(ToolGrantResolutionException::class);
+		$this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.workspacePush']));
+
+	}//end testAnAgentWithOnlyABarePushGrantFailsVisibly()
 }//end class

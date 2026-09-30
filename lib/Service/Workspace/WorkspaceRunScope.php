@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service\Workspace;
 /**
  * Request-scoped holder of the verified run binding.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
  */
 class WorkspaceRunScope {
 
@@ -53,7 +53,7 @@ class WorkspaceRunScope {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function enter(string $runId, string $agentId, string $userId): void {
 		$this->binding = ['runId' => $runId, 'agentId' => $agentId, 'userId' => $userId];
@@ -64,7 +64,7 @@ class WorkspaceRunScope {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function leave(): void {
 		$this->binding = null;
@@ -77,7 +77,7 @@ class WorkspaceRunScope {
 	 *
 	 * @throws WorkspaceException token_invalid outside a governed run.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	public function current(): array {
 		if ($this->binding === null || $this->binding['runId'] === '') {

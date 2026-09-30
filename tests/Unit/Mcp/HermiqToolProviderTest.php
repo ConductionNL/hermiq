@@ -262,11 +262,11 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.listAvailableTools/requestToolAccess
 		//   (tool-discovery-and-access-requests),
 		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile, and the write tools
-		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit
+		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit/Push
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// all registered through this same provider.
-		$this->assertCount(38, $tools);
+		$this->assertCount(39, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -356,12 +356,13 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.workspaceCheckoutBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
 			'hermiq.workspaceCommit' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(38, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(39, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -442,6 +443,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceCheckoutBranch' => ToolReachResolver::REACH_USER,
 			'hermiq.workspaceCommit' => ToolReachResolver::REACH_USER,
+			'hermiq.workspacePush' => ToolReachResolver::REACH_EXTERNAL,
 			// `user`: reads the graph as the acting user and returns pointers only.
 			'hermiq.graphNeighbors' => ToolReachResolver::REACH_USER,
 			'hermiq.graphPath' => ToolReachResolver::REACH_USER,
@@ -540,6 +542,7 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspaceCreateBranch' => ['workspace', 'branch'],
 			'hermiq.workspaceCheckoutBranch' => ['workspace', 'checkout'],
 			'hermiq.workspaceCommit' => ['workspace', 'commit'],
+			'hermiq.workspacePush' => ['workspace', 'push'],
 			'hermiq.graphNeighbors' => ['graphEntity', 'list'],
 			'hermiq.graphPath' => ['graphEntity', 'get'],
 		];

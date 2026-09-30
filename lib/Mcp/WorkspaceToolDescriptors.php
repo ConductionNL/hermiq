@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 /**
  * Descriptor source for the workspace tools.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
  */
 final class WorkspaceToolDescriptors {
 
@@ -63,6 +63,8 @@ final class WorkspaceToolDescriptors {
 
 	public const COMMIT = Application::APP_ID . '.workspaceCommit';
 
+	public const PUSH = Application::APP_ID . '.workspacePush';
+
 	/**
 	 * Every workspace tool id.
 	 *
@@ -71,6 +73,7 @@ final class WorkspaceToolDescriptors {
 	public const IDS = [
 		self::OPEN, self::STATUS, self::DIFF, self::LOG, self::LIST_FILES, self::READ_FILE,
 		self::WRITE_FILE, self::DELETE_FILE, self::APPLY_PATCH, self::CREATE_BRANCH, self::CHECKOUT_BRANCH, self::COMMIT,
+		self::PUSH,
 	];
 
 	/**
@@ -78,7 +81,9 @@ final class WorkspaceToolDescriptors {
 	 *
 	 * @var array<int, string>
 	 */
-	public const WRITE_IDS = [self::WRITE_FILE, self::DELETE_FILE, self::APPLY_PATCH, self::CREATE_BRANCH, self::CHECKOUT_BRANCH, self::COMMIT];
+	public const WRITE_IDS = [
+		self::WRITE_FILE, self::DELETE_FILE, self::APPLY_PATCH, self::CREATE_BRANCH, self::CHECKOUT_BRANCH, self::COMMIT, self::PUSH,
+	];
 
 	/**
 	 * The descriptors, in catalogue order.
@@ -306,6 +311,27 @@ final class WorkspaceToolDescriptors {
 			'destructiveHint' => false,
 			'idempotentHint' => false,
 			'scope' => 'create',
+		],
+		[
+			'id' => self::PUSH,
+			'subject' => 'workspace',
+			'action' => 'push',
+			'reach' => ToolReachResolver::REACH_EXTERNAL,
+			'name' => 'Push a branch',
+			'description' => 'Push a local branch of this run\'s workspace to the same branch on the forge, as the person who owns the run. '
+				. 'Only the repository and branches the agent\'s grant names; needs a person\'s approval for the run.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'repository' => ['type' => 'string', 'description' => 'The repository this run opened, as owner/name.'],
+					'branch' => ['type' => 'string', 'description' => 'The local branch to push; it lands on the branch of the same name.'],
+				],
+				'required' => ['repository', 'branch'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => true,
+			'idempotentHint' => false,
+			'scope' => 'update',
 		],
 	];
 }//end class

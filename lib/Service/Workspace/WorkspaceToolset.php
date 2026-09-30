@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use RecursiveIteratorIterator;
 /**
  * Dispatches the workspace tools.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-workspace-and-git-capability-is-exposed-only-as-a-closed-named-mcp-tool-surface
  */
 class WorkspaceToolset {
 
@@ -91,7 +91,7 @@ class WorkspaceToolset {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
 	 */
 	public function invoke(string $toolId, array $arguments): array {
 		try {
@@ -141,7 +141,7 @@ class WorkspaceToolset {
 	 *
 	 * @throws WorkspaceException workspace_mismatch.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
 	 */
 	private function assertOwnWorkspace(string $runKey, array $arguments): void {
 		if (isset($arguments['workspaceId']) === false) {
@@ -166,7 +166,7 @@ class WorkspaceToolset {
 	 *
 	 * @throws WorkspaceException
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
 	 */
 	private function open(string $runKey, array $arguments): array {
 		$repository = $this->forge->slug(repository: (string)($arguments['repository'] ?? ''));

@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ namespace OCA\Hermiq\Service\Workspace;
 /**
  * A hardened, shell-free git process runner.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
  */
 class GitRunner {
 
@@ -80,7 +80,7 @@ class GitRunner {
 	 *
 	 * @throws WorkspaceException tool_timeout when the budget runs out, git_failed when git cannot start.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
 	 */
 	public function run(array $arguments, ?string $workingDir, int $timeoutSeconds, array $extraEnv = [], ?string $stdin = null): array {
 		$home = sys_get_temp_dir() . '/hermiq-git-home-' . bin2hex(random_bytes(6));

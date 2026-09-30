@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCA\Hermiq\Service\ApprovalService;
 /**
  * Refuses a workspace write that no person has authorised for this run.
  *
- * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
  */
 class WorkspaceWriteAuthoriser {
 
@@ -63,7 +63,7 @@ class WorkspaceWriteAuthoriser {
 	 *
 	 * @throws WorkspaceException approval_required or approval_denied.
 	 *
-	 * @spec openspec/changes/hermiq-runner-git-capability/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
 	 */
 	public function assertAuthorised(array $run, string $toolId, array $workspace): array {
 		if ($run['agentId'] === '') {
