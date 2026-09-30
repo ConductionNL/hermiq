@@ -1092,12 +1092,6 @@ export default {
 		},
 
 		/**
-		 * Seed the form from `effectiveAgent` (edit) or blank (create).
-		 *
-		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
-		 */
-		/**
 		 * Offer the users matching the typed text (agents-sharing-and-catalog-columns).
 		 *
 		 * @param {string} search The typed text.
@@ -1139,6 +1133,12 @@ export default {
 			}
 		},
 
+		/**
+		 * Seed the form from `effectiveAgent` (edit) or blank (create).
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 */
 		resetForm() {
 			this.error = ''
 			if (!this.effectiveAgent) {
