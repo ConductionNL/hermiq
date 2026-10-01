@@ -28,7 +28,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Hermiq\Event\CollectAgentTemplatesEvent;
+use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ContentScanService;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use OCP\EventDispatcher\IEventDispatcher;
 use Psr\Log\LoggerInterface;
@@ -40,6 +46,7 @@ use Throwable;
  * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
  */
 class AppTemplateOffers {
+	use SanitizesForSaveTrait;
 
 	/**
 	 * What a Nextcloud app id looks like.
@@ -52,13 +59,17 @@ class AppTemplateOffers {
 	 * Constructor.
 	 *
 	 * @param IEventDispatcher $dispatcher Carries the collect event to the offering apps.
-	 * @param AgentTemplateService $templates Imports each offer quarantined and scanned.
+	 * @param ObjectService $objectService Reads and writes the AgentTemplate objects.
+	 * @param AgentTemplateSerializer $serializer Parses an offered package.
+	 * @param ContentScanService $contentScanService Scans an offered system prompt.
 	 * @param IAppManager $appManager Tells whether the offering app is installed.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		private readonly IEventDispatcher $dispatcher,
-		private readonly AgentTemplateService $templates,
+		private readonly ObjectService $objectService,
+		private readonly AgentTemplateSerializer $serializer,
+		private readonly ContentScanService $contentScanService,
 		private readonly IAppManager $appManager,
 		private readonly LoggerInterface $logger,
 	) {
@@ -115,7 +126,7 @@ class AppTemplateOffers {
 		}
 
 		try {
-			$saved = $this->templates->importAppOffer(
+			$saved = $this->save(
 				parsed: $parsed,
 				appId: $appId,
 				offerHash: $hash,
@@ -155,7 +166,7 @@ class AppTemplateOffers {
 			return null;
 		}
 
-		$parsed = $this->templates->parsePackage(package: $package);
+		$parsed = $this->serializer->fromPackage(package: $package);
 		if (trim((string)$parsed['name']) === '') {
 			$this->logger->warning('[hermiq] Refused an agent template from ' . $appId . ': the package has no name.');
 			return null;
@@ -171,7 +182,7 @@ class AppTemplateOffers {
 	 */
 	private function knownOffers(): array {
 		$known = [];
-		foreach ($this->templates->appOffers() as $template) {
+		foreach ($this->appOffers() as $template) {
 			$data = $template->getObject();
 			$key = (string)($data['offeredBy'] ?? '') . '/' . (string)($data['name'] ?? '');
 			$known[$key] = ['uuid' => (string)$template->getUuid(), 'hash' => (string)($data['offerHash'] ?? '')];
@@ -179,4 +190,103 @@ class AppTemplateOffers {
 
 		return $known;
 	}//end knownOffers()
+
+	/**
+	 * Every template an installed app offered for itself, across organisations.
+	 *
+	 * Offered templates are written instance-wide by the collect (like the seeded
+	 * starters), so the lookup that keeps a second collect from duplicating them
+	 * must not be narrowed to the caller's organisation.
+	 *
+	 * @return array<int, ObjectEntity> The templates with an `offeredBy`.
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	private function appOffers(): array {
+		$objects = $this->objectService
+			->setRegister(AgentTemplateService::REGISTER_SLUG)
+			->setSchema(AgentTemplateService::TEMPLATE_SCHEMA)
+			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+
+		$out = [];
+		foreach ($objects as $object) {
+			if ($object instanceof ObjectEntity && (string)($object->getObject()['offeredBy'] ?? '') !== '') {
+				$out[] = $object;
+			}
+		}
+
+		return $out;
+	}//end appOffers()
+
+	/**
+	 * Import a package an installed app offered for itself: always quarantined and
+	 * scanned, with the offering app in `offeredBy` and the package's hash in
+	 * `offerHash`. With `$replaceUuid` the earlier template of that offer is
+	 * overwritten and goes back to review, because its content changed.
+	 *
+	 * @param array<string, mixed> $parsed The package, parsed by AgentTemplateSerializer::fromPackage().
+	 * @param string $appId The offering app.
+	 * @param string $offerHash The sha256 of the offered package.
+	 * @param string|null $replaceUuid The earlier template of this offer, or null for a new one.
+	 *
+	 * @return ObjectEntity The persisted template.
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	private function save(array $parsed, string $appId, string $offerHash, ?string $replaceUuid = null): ObjectEntity {
+		$scan = $this->scan(systemPrompt: (string)$parsed['systemPrompt']);
+
+		$reason = 'Offered by the app ' . $appId . '. Review before use.';
+		$flagged = count($scan['findings'] ?? []);
+		if ($flagged > 0) {
+			$reason .= ' The content scan flagged ' . $flagged . ' pattern(s).';
+		}
+
+		$data = [
+			'name' => (string)$parsed['name'],
+			'description' => (string)$parsed['description'],
+			'category' => (string)$parsed['category'],
+			'systemPrompt' => (string)$parsed['systemPrompt'],
+			'suggestedProvider' => (string)$parsed['suggestedProvider'],
+			'suggestedModel' => (string)$parsed['suggestedModel'],
+			'tools' => $parsed['tools'],
+			'skillRefs' => $parsed['skillRefs'],
+			'version' => (string)$parsed['version'],
+			'source' => 'app',
+			'offeredBy' => $appId,
+			'offerHash' => $offerHash,
+			'createdBy' => '',
+			'state' => 'quarantined',
+			'quarantineReason' => $reason,
+			'scanReport' => $scan,
+		];
+		if ($parsed['suggestedSchedule'] !== []) {
+			$data['suggestedSchedule'] = $parsed['suggestedSchedule'];
+		}
+
+		return $this->objectService->saveObject(
+			object: $this->sanitizeForSave(data: $data),
+			register: AgentTemplateService::REGISTER_SLUG,
+			schema: AgentTemplateService::TEMPLATE_SCHEMA,
+			uuid: $replaceUuid,
+			_rbac: false,
+			_multitenancy: false
+		);
+
+	}//end save()
+
+	/**
+	 * Scan an offered system prompt with OpenRegister's content scanner, as every
+	 * outside template import is scanned.
+	 *
+	 * @param string $systemPrompt The prompt.
+	 *
+	 * @return array<string, mixed> The scan report, with `scannedAt`.
+	 */
+	private function scan(string $systemPrompt): array {
+		$report = $this->contentScanService->scan(content: $systemPrompt, metadata: []);
+		$report['scannedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+
+		return $report;
+	}//end scan()
 }//end class

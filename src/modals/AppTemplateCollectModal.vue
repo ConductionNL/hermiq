@@ -83,6 +83,7 @@ export default {
 		 * The counts of the last check, in words.
 		 *
 		 * @return {string} The summary line.
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 		 */
 		summary() {
 			return this.t(
