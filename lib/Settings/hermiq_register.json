@@ -4632,7 +4632,7 @@
 			},
 			"RecordSummary": {
 				"slug": "agentrecordsummary",
-				"icon": "TextBoxCheckOutline",
+				"icon": "TextBoxOutline",
 				"version": "0.1.0",
 				"title": "Record summary",
 				"description": "An AI-written summary of one OpenRegister record, kept for the record as it was when the summary was written, so it shows again without a model call until the record changes. A summary repeats what its record says, so only an admin reads it through the object API: everyone else reads it through POST and GET /api/assistant/summar*, which first reads the record as the caller.",
