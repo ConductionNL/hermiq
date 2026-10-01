@@ -149,7 +149,7 @@ export default {
 		 * Whether this is the catalog's "Import agent".
 		 *
 		 * @return {boolean}
-		 @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
 		 */
 		agentMode() {
 			return this.mode === 'agent'

@@ -188,7 +188,7 @@ export default {
 		 * The agent uuid: the prop, else the route's `:id`.
 		 *
 		 * @return {string}
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 		 */
 		resolvedAgentId() {
 			return this.agentId || this.$route?.params?.id || ''
@@ -198,7 +198,7 @@ export default {
 		 * The actions on offer for this agent.
 		 *
 		 * @return {Array<string>}
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 		 */
 		actions() {
 			return gitActions(this.agent)
@@ -208,7 +208,7 @@ export default {
 		 * The stamped repository's URL.
 		 *
 		 * @return {string}
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 		 */
 		link() {
 			return repoLink(this.agent)
@@ -218,7 +218,7 @@ export default {
 		 * The caller's GitHub credentials in the broker.
 		 *
 		 * @return {Array<object>} NcSelect options.
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 		 */
 		githubCredentials() {
 			return this.credentials
@@ -235,7 +235,7 @@ export default {
 			 *
 			 * @param {boolean} open Whether it is open.
 			 * @return {void}
-			 @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+			 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 			 */
 			handler(open) {
 				if (open) {
@@ -354,7 +354,7 @@ export default {
 		 *
 		 * @param {Function} action The action.
 		 * @return {Promise<void>}
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 		 */
 		async attempt(action) {
 			this.busy = true
@@ -376,7 +376,7 @@ export default {
 		 *
 		 * @param {string} field The agent field.
 		 * @return {string}
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
 		 */
 		fieldLabel(field) {
 			const labels = {
@@ -396,7 +396,7 @@ export default {
 		 *
 		 * @param {*} value The value.
 		 * @return {string}
-		 @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
 		 */
 		asText(value) {
 			return Array.isArray(value) ? value.join(', ') : String(value ?? '')
