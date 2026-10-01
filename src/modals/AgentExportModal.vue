@@ -121,6 +121,7 @@ export default {
 		 * Whether this is Save as template.
 		 *
 		 * @return {boolean}
+		 @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
 		 */
 		saveMode() {
 			return this.mode === 'save'
@@ -130,6 +131,7 @@ export default {
 		 * The agent uuid: the prop, else the route's `:id`.
 		 *
 		 * @return {string}
+		 @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
 		 */
 		resolvedAgentId() {
 			return this.agentId || this.$route?.params?.id || ''
