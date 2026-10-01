@@ -6,7 +6,7 @@ Your app can offer Hermiq an agent template for itself. A finance app can offer 
 
 1. Hermiq asks every installed app for templates. It does this on install, on every upgrade, and when an admin chooses "Check apps for templates" on the Store page.
 2. Your app answers with one or more template packages.
-3. Each package lands in the Store as quarantined, with the reason "Offered by the app <your app id>. Review before use." Hermiq scans its system prompt, as it does for any imported template.
+3. Each package lands in the Store as quarantined, with the reason "Offered by the app `your-app-id`. Review before use." (with your own app id) Hermiq scans its system prompt, as it does for any imported template.
 4. After approval, "Use this template" creates an agent tied to your app. Its `applicationSlug` is your app id, so it answers in your app.
 
 An unchanged package is skipped on the next check. A changed package replaces your earlier template and sends it back to review.
