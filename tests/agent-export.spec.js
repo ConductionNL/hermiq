@@ -34,11 +34,17 @@ const ROOT = path.resolve(__dirname, '..')
 	}
 
 	check('the file is named after the agent', () => {
-		assert.strictEqual(exportFileName('Complaint router'), 'complaint-router.hermiq-agent.json')
+		assert.strictEqual(
+			exportFileName('Complaint router'),
+			'complaint-router.hermiq-agent.json',
+		)
 	})
 
 	check('accents and punctuation do not reach the file name', () => {
-		assert.strictEqual(exportFileName('Één klachten-router!'), 'een-klachten-router.hermiq-agent.json')
+		assert.strictEqual(
+			exportFileName('Één klachten-router!'),
+			'een-klachten-router.hermiq-agent.json',
+		)
 	})
 
 	check('an agent without a usable name still gets a file name', () => {
@@ -47,7 +53,8 @@ const ROOT = path.resolve(__dirname, '..')
 	})
 
 	check('an exported package is accepted as it is', () => {
-		const text = '{"name": "Complaint router", "systemPrompt": "Route complaints."}'
+		const text =
+			'{"name": "Complaint router", "systemPrompt": "Route complaints."}'
 		assert.strictEqual(packageFromFile(text), text)
 	})
 

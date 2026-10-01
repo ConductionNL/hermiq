@@ -10,16 +10,16 @@ Kind: code. Size M. Rows `hermiq:ag-import-export`, `dm-agent-as-code`, `re-temp
 - **acceptance_criteria**:
   - GIVEN a reader WHEN they export THEN the file holds no user, group, quota or credential field
   - GIVEN the owner WHEN they save as template THEN an active local template with `derivedFrom` exists; a non-owner gets 403
-- [ ] Implement
-- [ ] Test (PHPUnit on the save route guard; Playwright for both actions)
+- [x] Implement (part A: `AgentExportModal.vue` opened by the AgentDetail header actions "Export" and "Save as template", `POST /api/agent-templates/from-agent/{agentId}` (`AgentTemplateController::saveFromAgent`, `AgentTemplateService::saveAgentAsTemplate`), `AgentTemplate.derivedFrom`, register 0.45.0)
+- [x] Test (PHPUnit: `AgentTemplateControllerTest::testSaveFromAgent*` for 401, 404, 403 and 201; `tests/Unit/Service/AgentTemplateSaveFromAgentTest.php` for the package fields, `derivedFrom` and the real AgentTemplate fragment with a negative control; the file name in `tests/agent-export.spec.js`. Playwright not run in the lane: no live instance, the PR's live-check recipe covers both actions)
 
 ### Task 2: Import agent from a file
 - **spec_ref**: `openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002`
 - **files**: `src/modals/TemplateImportModal.vue`, `src/manifest.json` (AgentCatalog header action)
 - **acceptance_criteria**:
   - GIVEN an uploaded file WHEN imported THEN it is a quarantined template with a scan report
-- [ ] Implement
-- [ ] Test (Playwright: export on one agent, import, approve, use)
+- [x] Implement (part A: the catalog header action "Import agent" opens `TemplateImportModal.vue` in agent mode, with a file input; a file import uses source `org`, so it lands quarantined and scanned)
+- [x] Test (`tests/agent-export.spec.js` for the file check; the quarantine of an `org` import is `AgentTemplateServiceTest::testImportPackage*`. Playwright not run in the lane: the live-check recipe covers export, import, approve, use)
 
 ### Task 3: Git coordinates, publish and push
 - **spec_ref**: `openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004`

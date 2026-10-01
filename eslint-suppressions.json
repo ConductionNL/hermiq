@@ -164,11 +164,6 @@
       "count": 1
     }
   },
-  "src/modals/TemplateImportModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 4
-    }
-  },
   "src/modals/WebResearchSettingsModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1

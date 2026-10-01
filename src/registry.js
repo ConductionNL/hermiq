@@ -41,6 +41,7 @@ import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
+import AgentExportModal from './modals/AgentExportModal.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
@@ -183,7 +184,23 @@ export default {
 	'template-import': {
 		kind: 'modal',
 		component: TemplateImportModal,
-		propsSchema: { type: 'object', properties: {} },
+		propsSchema: { type: 'object', properties: { mode: { type: 'string' } } },
+	},
+
+	/**
+	 * The agent page's "Export" and "Save as template" (agents-export-import-and-git-sync):
+	 * one modal, the mode prop picks which.
+	 */
+	'agent-export': {
+		kind: 'modal',
+		component: AgentExportModal,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+				mode: { type: 'string' },
+			},
+		},
 	},
 
 	/**

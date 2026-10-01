@@ -221,6 +221,17 @@
 						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
+					},
+					{
+						"id": "import-agent",
+						"label": "Import agent",
+						"type": "open-modal",
+						"target": "template-import",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true,
+							"mode": "agent"
+						}
 					}
 				]
 			},
@@ -563,6 +574,28 @@
 						"icon": "History",
 						"props": {
 							"show": true
+						}
+					},
+					{
+						"id": "export-agent",
+						"label": "Export",
+						"type": "open-modal",
+						"target": "agent-export",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true,
+							"mode": "export"
+						}
+					},
+					{
+						"id": "save-as-template",
+						"label": "Save as template",
+						"type": "open-modal",
+						"target": "agent-export",
+						"icon": "PackageVariant",
+						"props": {
+							"show": true,
+							"mode": "save"
 						}
 					},
 					{

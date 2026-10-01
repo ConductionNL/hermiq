@@ -416,6 +416,12 @@ return [
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        [
+            'name'         => 'agentTemplate#saveFromAgent',
+            'url'          => '/api/agent-templates/from-agent/{agentId}',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
         // GitHub-backed template store (agent-template-github-store): search/install are
         // registered before the {id} routes, same reasoning as 'import'/'from-agent' above —
         // the literal 'github' path segment must never fall into the {id} matcher.
