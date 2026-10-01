@@ -1,5 +1,13 @@
 {
     "translations": {
+        "Assistant for this app": "Assistant for this app",
+        "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.": "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.",
+        "App this agent serves": "App this agent serves",
+        "Only in Hermiq": "Only in Hermiq",
+        "In that app, the assistant can answer with this agent and search the app's own data.": "In that app, the assistant can answer with this agent and search the app's own data.",
+        "Answer in this app's assistant": "Answer in this app's assistant",
+        "An admin of the organisation chooses this. One agent answers per app.": "An admin of the organisation chooses this. One agent answers per app.",
+        "The agent was saved, but it was not made this app's assistant.": "The agent was saved, but it was not made this app's assistant.",
         "Batch binding": "Batch binding",
         "The sha256 binding of a batch another app staged (integriq: proposal, tool and sorted target ids). Stored as given when the batch is staged and only compared when that app asks Hermiq for a signed verdict. Present only for a staged-batch sourceType=toolcall approval.": "The sha256 binding of a batch another app staged (integriq: proposal, tool and sorted target ids). Stored as given when the batch is staged and only compared when that app asks Hermiq for a signed verdict. Present only for a staged-batch sourceType=toolcall approval.",
         "Load example data?": "Load example data?",

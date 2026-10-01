@@ -65,6 +65,7 @@ class ContextRetrievalHandler {
 	 * @param ObjectService $objectService OpenRegister object search (public surface).
 	 * @param LoggerInterface $logger Logger.
 	 * @param GraphContextRetriever|null $graphRetriever The graph mode (knowledge-graph); null keeps graph mode on the keyword path.
+	 * @param AppRegisterScope|null $appScope The registers of an agent's app (agents-bound-to-their-app).
 	 *
 	 * @return void
 	 *
@@ -378,7 +379,6 @@ class ContextRetrievalHandler {
 	 * @param string $query Query text.
 	 * @param int $limit Result limit.
 	 * @param array<string> $viewFilters Resolved view UUIDs; empty disables retrieval.
-	 *
 	 * @param string $applicationSlug The app the agent is tied to; with no views, its registers are the scope.
 	 *
 	 * @return array Search rows, or an empty list when out of scope.

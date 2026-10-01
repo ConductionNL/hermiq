@@ -27,7 +27,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
-use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
@@ -134,6 +133,7 @@ class AppAssistantService
                 ->setRegister('hermiq')
                 ->setSchema('agent')
                 ->findAll(config: ['limit' => self::PAGE_SIZE, 'offset' => $offset], _rbac: false, _multitenancy: false);
+            $fetched = count($page);
             foreach ($page as $other) {
                 if (($other instanceof ObjectEntity) === false
                     || (string) $other->getUuid() === $agentId
@@ -143,13 +143,13 @@ class AppAssistantService
                 }
 
                 $data = $other->getObject();
-                if (AppAssistantResolver::answersIn(data: $data, app: $app) === true) {
+                if ((new AppAssistantChoice())->answersIn(data: $data, app: $app) === true) {
                     return true;
                 }
             }
 
             $offset += self::PAGE_SIZE;
-        } while (count($page) === self::PAGE_SIZE);
+        } while ($fetched === self::PAGE_SIZE);
 
         return false;
 

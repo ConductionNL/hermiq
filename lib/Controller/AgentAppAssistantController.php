@@ -27,7 +27,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Agent\AppAssistantService;
-use OCA\Hermiq\Service\AppAssistantResolver;
+use OCA\Hermiq\Service\Agent\AppAssistantChoice;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -87,7 +87,8 @@ class AgentAppAssistantController extends Controller
             );
         } catch (RuntimeException $e) {
             $status = (int) $e->getCode();
-            if (in_array($status, [Http::STATUS_FORBIDDEN, Http::STATUS_NOT_FOUND, Http::STATUS_CONFLICT, Http::STATUS_UNPROCESSABLE_ENTITY], true) === false) {
+            $known  = [Http::STATUS_FORBIDDEN, Http::STATUS_NOT_FOUND, Http::STATUS_CONFLICT, Http::STATUS_UNPROCESSABLE_ENTITY];
+            if (in_array($status, $known, true) === false) {
                 $status = Http::STATUS_INTERNAL_SERVER_ERROR;
             }
 
@@ -95,10 +96,11 @@ class AgentAppAssistantController extends Controller
         }
 
         $data = $agent->getObject();
+        $app  = strtolower(trim((string) ($data['applicationSlug'] ?? '')));
         return new JSONResponse(
             [
-                'appAssistant'    => AppAssistantResolver::answersIn(data: $data, app: strtolower(trim((string) ($data['applicationSlug'] ?? '')))),
-                'applicationSlug' => (string) ($data['applicationSlug'] ?? ''),
+                'appAssistant'    => (new AppAssistantChoice())->answersIn(data: $data, app: $app),
+                'applicationSlug' => $app,
             ]
         );
 

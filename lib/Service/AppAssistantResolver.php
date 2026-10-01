@@ -28,7 +28,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use Generator;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Agent\AppAssistantChoice;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -72,50 +74,30 @@ class AppAssistantResolver
      */
     public function resolve(string $userId, string $appId): string
     {
-        $appId          = strtolower(trim($appId));
+        $appId           = strtolower(trim($appId));
+        $choice          = new AppAssistantChoice();
         $firstAccessible = '';
         $firstOfApp      = '';
 
         try {
-            $offset = 0;
-            do {
-                $page = $this->objectService
-                    ->setRegister('hermiq')
-                    ->setSchema('agent')
-                    ->findAll(config: ['limit' => $this->pageSize, 'offset' => $offset]);
-                foreach ($page as $agent) {
-                    if ($this->usable(agent: $agent, userId: $userId) === false) {
-                        continue;
-                    }
+            foreach ($this->usableAgents(userId: $userId) as $agent) {
+                $uuid = (string) $agent->getUuid();
+                $data = $agent->getObject();
+                if ($appId === '' || $choice->answersIn(data: $data, app: $appId) === true) {
+                    return $uuid;
+                }
 
-                    $uuid = (string) $agent->getUuid();
-                    if ($firstAccessible === '') {
-                        $firstAccessible = $uuid;
-                    }
+                if ($firstAccessible === '') {
+                    $firstAccessible = $uuid;
+                }
 
-                    if ($appId === '') {
-                        return $uuid;
-                    }
-
-                    $data = $agent->getObject();
-                    if (strtolower(trim((string) ($data['applicationSlug'] ?? ''))) !== $appId) {
-                        continue;
-                    }
-
-                    if (self::answersIn(data: $data, app: $appId) === true) {
-                        return $uuid;
-                    }
-
-                    if ($firstOfApp === '') {
-                        $firstOfApp = $uuid;
-                    }
-                }//end foreach
-
-                $offset += $this->pageSize;
-            } while (count($page) === $this->pageSize);
+                if ($firstOfApp === '' && $choice->appOf(data: $data) === $appId) {
+                    $firstOfApp = $uuid;
+                }
+            }
         } catch (Throwable $e) {
             $this->logger->warning('[AppAssistantResolver] Agent lookup failed: '.$e->getMessage(), ['exception' => $e]);
-        }//end try
+        }
 
         if ($firstOfApp !== '') {
             return $firstOfApp;
@@ -126,23 +108,33 @@ class AppAssistantResolver
     }//end resolve()
 
     /**
-     * Whether an agent answers in an app's assistant: it serves that app and was
-     * chosen for that same app. Moving the agent to another app ends the choice.
+     * Every agent the user may chat with now, page by page, in register order.
      *
-     * @param array<string, mixed> $data The agent.
-     * @param string               $app  The app slug, lower case.
+     * @param string $userId The user.
      *
-     * @return bool
+     * @return Generator<int, ObjectEntity>
      *
      * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
      */
-    public static function answersIn(array $data, string $app): bool
+    private function usableAgents(string $userId): Generator
     {
-        $for = strtolower(trim((string) ($data['appAssistantFor'] ?? '')));
+        $offset = 0;
+        do {
+            $page    = $this->objectService
+                ->setRegister('hermiq')
+                ->setSchema('agent')
+                ->findAll(config: ['limit' => $this->pageSize, 'offset' => $offset]);
+            $fetched = count($page);
+            foreach ($page as $agent) {
+                if ($this->usable(agent: $agent, userId: $userId) === true) {
+                    yield $agent;
+                }
+            }
 
-        return $app !== '' && $for === $app && strtolower(trim((string) ($data['applicationSlug'] ?? ''))) === $app;
+            $offset += $this->pageSize;
+        } while ($fetched === $this->pageSize);
 
-    }//end answersIn()
+    }//end usableAgents()
 
     /**
      * Whether the user may chat with this agent now: it is an agent, the user may

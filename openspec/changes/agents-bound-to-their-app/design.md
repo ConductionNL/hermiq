@@ -39,6 +39,14 @@ hermiq dispatches `OCA\Hermiq\Event\CollectAgentTemplatesEvent` from a repair st
 
 Answer for shillinq's task 1.1: today no app can offer a template; after this change the listener route in shillinq's design D2 is the one that works.
 
+## As built (part 1, 1 Oct 2026)
+
+The change ships in three PRs: part 1 is tasks 2 to 4 with the schema half they need; part 2 the record summary (task 5, with RecordSummary and the feature and prompt seed); part 3 the app template offer (task 6, with AgentTemplate.offeredBy). Where part 1 differs from D1 to D3:
+
+- D2, the flag. The agent form saves through OpenRegister's object API, not through `AgentsController`, so a save guard there would not run. The choice therefore has its own endpoint, `POST /api/agents/{id}/app-assistant` (`AgentAppAssistantController`, `AppAssistantService`): 404 when the caller cannot read the agent, 403 when they do not administer its organisation, 422 when the agent serves no app, 409 "Another agent already answers in this app". The stored property is `appAssistantFor` (string, the app it was chosen for) instead of a boolean, and it holds only while it equals `applicationSlug`: an owner who moves the agent to another app ends the choice instead of carrying it there past the uniqueness rule. The property carries an `authorization.update` rule for the `admin` group, so through the object API only an instance admin can change it. The form shows the switch on an existing agent with an app and calls the endpoint. The "Assistant per app" settings list is not built in part 1.
+- D2, picking. `AppAssistantResolver` pages through every agent (no 20-row cap) and skips agents the user may not use or that are switched off. `ChatController::sendMessage()` uses it when a fresh chat names no agent.
+- D3, the app's registers. OpenRegister's Application record has no slug, and a built app keeps its data under buildiq's version records. What every app does have is the `application` field OpenRegister sets on each register it imports to the app id, so an agent tied to an app with no views of its own searches the registers whose `application` is that app, read with the caller's RBAC and organisation (`AppRegisterScope`). Hits from all of them are merged by score, and each source names its register ("Source: ... (register: ...)"). The App field offers the instance's enabled apps and accepts a typed slug for a built app.
+
 ## Declarative versus imperative
 
 | behaviour | path | why |
