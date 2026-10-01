@@ -44,7 +44,7 @@ final class ChatControllerAppAssistantTest extends TestCase {
 		$assistant = new ObjectEntity();
 		$assistant->setUuid('subsidy-assistant');
 		$assistant->setOwner('admin');
-		$assistant->setObject(['isPrivate' => false, 'applicationSlug' => 'subsidies', 'appAssistant' => true]);
+		$assistant->setObject(['isPrivate' => false, 'applicationSlug' => 'subsidies', 'appAssistantFor' => 'subsidies']);
 		$other = new ObjectEntity();
 		$other->setUuid('hydra');
 		$other->setOwner('admin');

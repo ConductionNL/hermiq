@@ -102,7 +102,7 @@ class AppAssistantResolver
                         continue;
                     }
 
-                    if (($data['appAssistant'] ?? false) === true) {
+                    if (self::answersIn(data: $data, app: $appId) === true) {
                         return $uuid;
                     }
 
@@ -124,6 +124,25 @@ class AppAssistantResolver
         return $firstAccessible;
 
     }//end resolve()
+
+    /**
+     * Whether an agent answers in an app's assistant: it serves that app and was
+     * chosen for that same app. Moving the agent to another app ends the choice.
+     *
+     * @param array<string, mixed> $data The agent.
+     * @param string               $app  The app slug, lower case.
+     *
+     * @return bool
+     *
+     * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+     */
+    public static function answersIn(array $data, string $app): bool
+    {
+        $for = strtolower(trim((string) ($data['appAssistantFor'] ?? '')));
+
+        return $app !== '' && $for === $app && strtolower(trim((string) ($data['applicationSlug'] ?? ''))) === $app;
+
+    }//end answersIn()
 
     /**
      * Whether the user may chat with this agent now: it is an agent, the user may

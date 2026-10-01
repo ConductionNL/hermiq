@@ -251,6 +251,46 @@
 						placeholder="2048" />
 				</div>
 
+				<!-- agents-bound-to-their-app: the app this agent serves, and whether it
+			     answers in that app's assistant (an organisation admin decides). -->
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="form.applicationSlug"
+						data-testid="agent-form-app"
+						:inputLabel="t('hermiq', 'App this agent serves')"
+						:options="appChoices"
+						:taggable="true"
+						label="label"
+						trackBy="value"
+						:placeholder="t('hermiq', 'Only in Hermiq')" />
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								"In that app, the assistant can answer with this agent and search the app's own data.",
+							)
+						}}
+					</p>
+				</div>
+				<div
+					v-if="isEdit() && appSlugOf(form.applicationSlug) !== ''"
+					class="agent-form__field">
+					<NcCheckboxRadioSwitch
+						v-model="form.appAssistant"
+						data-testid="agent-form-app-assistant"
+						type="switch">
+						{{ t('hermiq', "Answer in this app's assistant") }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'An admin of the organisation chooses this. One agent answers per app.',
+							)
+						}}
+					</p>
+				</div>
+
 				<NcTextField
 					v-model="form.maxToolCalls"
 					data-testid="agent-form-max-tool-calls"
@@ -436,13 +476,14 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { listTools } from '../api/agents.js'
+import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
 import {
 	credentialOptions,
 	PINNABLE_PROVIDERS,
@@ -853,6 +894,19 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 		 */
+		/**
+		 * The apps the agent can serve (agents-bound-to-their-app).
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+		 */
+		appChoices() {
+			return appOptions(
+				window.OC?.appswebroots,
+				appSlugOf(this.form.applicationSlug),
+			)
+		},
+
 		delegationAllowlistOptions() {
 			const editingId =
 				this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
@@ -1040,6 +1094,8 @@ export default {
 				temperature: '',
 				maxTokens: '',
 				maxToolCalls: 10,
+				applicationSlug: null,
+				appAssistant: false,
 				sharing: 'only-me',
 				invitedUsers: [],
 				groups: [],
@@ -1160,6 +1216,14 @@ export default {
 				temperature: source.temperature ?? '',
 				maxTokens: source.maxTokens ?? '',
 				maxToolCalls: source.maxToolCalls ?? 10,
+				applicationSlug: appSlugOf(source.applicationSlug)
+					? {
+							label: appSlugOf(source.applicationSlug),
+							value: appSlugOf(source.applicationSlug),
+						}
+					: null,
+
+				appAssistant: answersInItsApp(source),
 				sharing: sharingOf(source),
 				invitedUsers: (Array.isArray(source.invitedUsers)
 					? source.invitedUsers
@@ -1374,6 +1438,8 @@ export default {
 					(option) => option.value,
 				),
 
+				applicationSlug: appSlugOf(this.form.applicationSlug),
+
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,
@@ -1432,6 +1498,8 @@ export default {
 			}
 			return payload
 		},
+
+		appSlugOf,
 
 		/**
 		 * Whether this modal is editing an existing agent (as opposed to creating one).
@@ -1498,6 +1566,25 @@ export default {
 							"The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.",
 						)
 						return
+					}
+
+					// The assistant flag has its own endpoint: an organisation
+					// admin decides it, one agent per app (agents-bound-to-their-app).
+					if (
+						this.form.appAssistant
+						!== answersInItsApp(this.effectiveAgent || {})
+					) {
+						try {
+							await setAppAssistant(agentId, this.form.appAssistant)
+						} catch (assistantError) {
+							this.error =
+								assistantError?.response?.data?.error
+								|| this.t(
+									'hermiq',
+									"The agent was saved, but it was not made this app's assistant.",
+								)
+							return
+						}
 					}
 				}
 

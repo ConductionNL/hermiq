@@ -48,7 +48,7 @@ final class AppAssistantResolverTest extends TestCase {
 		}
 
 		if ($assistant === true) {
-			$data['appAssistant'] = true;
+			$data['appAssistantFor'] = strtolower($slug);
 		}
 
 		$entity->setObject($data);
@@ -116,6 +116,15 @@ final class AppAssistantResolverTest extends TestCase {
 
 		self::assertSame('plain', $chosen, 'access is decided before the app preference, and slugs match case-insensitively');
 	}//end testAnAssistantTheUserMayNotUseFallsBackToAnAgentOfTheApp()
+
+	public function testAnAssistantMovedToAnotherAppNoLongerAnswersThere(): void {
+		$moved = $this->agent('moved', 'pipelinq');
+		$moved->setObject(array_merge($moved->getObject(), ['appAssistantFor' => 'subsidies']));
+
+		$chosen = $this->resolve([$moved, $this->agent('plain', 'subsidies')], 'subsidies');
+
+		self::assertSame('plain', $chosen, 'the choice holds only while the agent serves the app it was chosen for');
+	}//end testAnAssistantMovedToAnotherAppNoLongerAnswersThere()
 
 	public function testASwitchedOffAssistantIsPassedOver(): void {
 		$chosen = $this->resolve(

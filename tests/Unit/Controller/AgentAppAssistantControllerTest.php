@@ -44,7 +44,7 @@ final class AgentAppAssistantControllerTest extends TestCase {
 
 	public function testMarksTheAgentAsTheCaller(): void {
 		$agent = new ObjectEntity();
-		$agent->setObject(['applicationSlug' => 'subsidies', 'appAssistant' => true]);
+		$agent->setObject(['applicationSlug' => 'subsidies', 'appAssistantFor' => 'subsidies']);
 		$service = $this->createMock(AppAssistantService::class);
 		$service->expects($this->once())->method('mark')->with('a1', true, 'carol')->willReturn($agent);
 

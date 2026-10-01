@@ -83,16 +83,16 @@ final class AppAssistantServiceTest extends TestCase {
 	public function testAnOrganisationAdminMarksTheAppsAssistant(): void {
 		$stored = $this->service(target: $this->target(), admin: true)->mark(agentId: self::AGENT, assistant: true, uid: 'carol');
 
-		self::assertTrue($stored->getObject()['appAssistant']);
+		self::assertSame('subsidies', $stored->getObject()['appAssistantFor']);
 		self::assertCount(1, $this->saved);
 		self::assertTrue($this->validAgent($this->saved[0]), 'The saved agent must be valid against the register Agent schema.');
 		$bad = $this->saved[0];
-		$bad['appAssistant'] = 'yes';
-		self::assertFalse($this->validAgent($bad), 'negative control: the validator refuses a non-boolean flag');
+		$bad['appAssistantFor'] = ['subsidies'];
+		self::assertFalse($this->validAgent($bad), 'negative control: the validator refuses a non-string app');
 	}//end testAnOrganisationAdminMarksTheAppsAssistant()
 
 	public function testASecondAssistantForTheSameAppIsRefusedWith409(): void {
-		$taken = $this->agent('other', 'org-1', ['applicationSlug' => 'Subsidies', 'appAssistant' => true]);
+		$taken = $this->agent('other', 'org-1', ['applicationSlug' => 'Subsidies', 'appAssistantFor' => 'subsidies']);
 
 		try {
 			$this->service(target: $this->target(), admin: true, others: [$taken])->mark(agentId: self::AGENT, assistant: true, uid: 'carol');
@@ -106,7 +106,7 @@ final class AppAssistantServiceTest extends TestCase {
 	}//end testASecondAssistantForTheSameAppIsRefusedWith409()
 
 	public function testAnAssistantInAnotherOrganisationDoesNotBlock(): void {
-		$elsewhere = $this->agent('other', 'org-2', ['applicationSlug' => 'subsidies', 'appAssistant' => true]);
+		$elsewhere = $this->agent('other', 'org-2', ['applicationSlug' => 'subsidies', 'appAssistantFor' => 'subsidies']);
 
 		$this->service(target: $this->target(), admin: true, others: [$elsewhere])->mark(agentId: self::AGENT, assistant: true, uid: 'carol');
 
@@ -114,11 +114,11 @@ final class AppAssistantServiceTest extends TestCase {
 	}//end testAnAssistantInAnotherOrganisationDoesNotBlock()
 
 	public function testUnmarkingIsNeverBlocked(): void {
-		$taken = $this->agent('other', 'org-1', ['applicationSlug' => 'subsidies', 'appAssistant' => true]);
+		$taken = $this->agent('other', 'org-1', ['applicationSlug' => 'subsidies', 'appAssistantFor' => 'subsidies']);
 
-		$this->service(target: $this->target(['appAssistant' => true]), admin: true, others: [$taken])->mark(agentId: self::AGENT, assistant: false, uid: 'carol');
+		$this->service(target: $this->target(['appAssistantFor' => 'subsidies']), admin: true, others: [$taken])->mark(agentId: self::AGENT, assistant: false, uid: 'carol');
 
-		self::assertFalse($this->saved[0]['appAssistant']);
+		self::assertSame('', $this->saved[0]['appAssistantFor']);
 	}//end testUnmarkingIsNeverBlocked()
 
 	public function testTheOwnerWhoIsNoAdminIsRefusedWith403(): void {
@@ -138,9 +138,9 @@ final class AppAssistantServiceTest extends TestCase {
 
 	public function testTheRegisterLetsOnlyAnAdminWriteTheFlagThroughTheObjectApi(): void {
 		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../../lib/Settings/hermiq_register.json'), true);
-		$property = $register['components']['schemas']['Agent']['properties']['appAssistant'];
+		$property = $register['components']['schemas']['Agent']['properties']['appAssistantFor'];
 
-		self::assertSame('boolean', $property['type']);
+		self::assertSame('string', $property['type']);
 		self::assertSame([['group' => 'admin']], $property['authorization']['update']);
 	}//end testTheRegisterLetsOnlyAnAdminWriteTheFlagThroughTheObjectApi()
 

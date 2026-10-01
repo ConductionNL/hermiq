@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
@@ -98,7 +99,10 @@ class AppAssistantService
             throw new RuntimeException('Another agent already answers in this app', 409);
         }
 
-        $data['appAssistant'] = $assistant;
+        $data['appAssistantFor'] = '';
+        if ($assistant === true) {
+            $data['appAssistantFor'] = $app;
+        }
 
         return $this->objectService->saveObject(
             object: $data,
@@ -139,7 +143,7 @@ class AppAssistantService
                 }
 
                 $data = $other->getObject();
-                if (($data['appAssistant'] ?? false) === true && strtolower(trim((string) ($data['applicationSlug'] ?? ''))) === $app) {
+                if (AppAssistantResolver::answersIn(data: $data, app: $app) === true) {
                     return true;
                 }
             }
