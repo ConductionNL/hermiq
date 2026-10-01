@@ -352,7 +352,11 @@ class RecordSummaryService {
 			return null;
 		}
 
-		return $agent instanceof ObjectEntity ? $agent : null;
+		if (($agent instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		return $agent;
 	}//end answeringAgent()
 
 	/**

@@ -575,6 +575,9 @@ return [
         // synchronous conversational endpoint for leaf apps — deliberately
         // separate from chat#sendMessage, see design.md.
         ['name' => 'assistant#converse', 'url' => '/api/assistant/converse', 'verb' => 'POST'],
+        // Agents-bound-to-their-app task 5: the record summary on the agent leaf.
+        ['name' => 'recordSummary#show', 'url' => '/api/assistant/summary', 'verb' => 'GET'],
+        ['name' => 'recordSummary#summarise', 'url' => '/api/assistant/summarise', 'verb' => 'POST'],
 
         // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
         // stateless, tool-free, reuses the case-assistant-surface plumbing —
