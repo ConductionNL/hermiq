@@ -2383,6 +2383,57 @@
         "lessonVersion": 1,
         "locale": "nl",
         "completedAt": "2026-09-03T10:00:00+00:00"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentrecordsummary",
+          "slug": "agentrecordsummary-aanvraag-speeltuin"
+        },
+        "objectUuid": "8f1c2a6e-4b7d-4e2a-9c3f-1d5e7a9b0c21",
+        "register": "subsidies",
+        "schema": "aanvraag",
+        "objectVersion": "1.0.4",
+        "contentHash": "0000000000000000000000000000000000000000000000000000001f3a5c7e9b",
+        "summary": "Aanvraag van buurtvereniging De Linde voor een subsidie van 12.500 euro voor een speeltuin. De aanvraag is compleet en wacht op een besluit van de teamleider. De laatste wijziging was het toevoegen van de begroting op 28 september. Actie nodig: het advies van de wijkregisseur ontbreekt nog.",
+        "agentId": "",
+        "agentName": "Hydra Triage",
+        "promptId": "",
+        "generatedAt": "2026-10-01T09:01:00+00:00"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentrecordsummary",
+          "slug": "agentrecordsummary-bezwaar-parkeervergunning"
+        },
+        "objectUuid": "3a9e5d1b-7c2f-4a8e-b6d4-2e1f0a9c8b73",
+        "register": "subsidies",
+        "schema": "aanvraag",
+        "objectVersion": "1.2.0",
+        "contentHash": "0000000000000000000000000000000000000000000000000000003e74b8fd36",
+        "summary": "Bezwaar tegen de weigering van een parkeervergunning voor een tweede auto. De hoorzitting is gepland op 14 oktober. De laatste wijziging was de uitnodiging aan de bezwaarmaker. Geen actie nodig tot na de hoorzitting.",
+        "agentId": "",
+        "agentName": "Hydra Triage",
+        "promptId": "",
+        "generatedAt": "2026-10-02T09:02:00+00:00"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentrecordsummary",
+          "slug": "agentrecordsummary-melding-straatverlichting"
+        },
+        "objectUuid": "c4d2e8f0-1a3b-4c5d-8e7f-6a9b0c1d2e34",
+        "register": "subsidies",
+        "schema": "aanvraag",
+        "objectVersion": "1.0.1",
+        "contentHash": "0000000000000000000000000000000000000000000000000000005daf157bd1",
+        "summary": "Melding van een kapotte lantaarnpaal aan de Kerkstraat. De melding is doorgezet naar de aannemer. De laatste wijziging was de statuswijziging naar in behandeling. Actie nodig: de melder heeft nog geen bevestiging gekregen.",
+        "agentId": "",
+        "agentName": "Hydra Triage",
+        "promptId": "",
+        "generatedAt": "2026-10-03T09:03:00+00:00"
       }
     ]
   }

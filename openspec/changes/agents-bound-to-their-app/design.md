@@ -47,6 +47,19 @@ The change ships in three PRs: part 1 is tasks 2 to 4 with the schema half they 
 - D2, picking. `AppAssistantResolver` pages through every agent (no 20-row cap) and skips agents the user may not use or that are switched off. `ChatController::sendMessage()` uses it when a fresh chat names no agent.
 - D3, the app's registers. OpenRegister's Application record has no slug, and a built app keeps its data under buildiq's version records. What every app does have is the `application` field OpenRegister sets on each register it imports to the app id, so an agent tied to an app with no views of its own searches the registers whose `application` is that app, read with the caller's RBAC and organisation (`AppRegisterScope`). Hits from all of them are merged by score, and each source names its register ("Source: ... (register: ...)"). The App field offers the instance's enabled apps and accepts a typed slug for a built app.
 
+## As built (part 2, 1 Oct 2026)
+
+Task 5, the record summary. Where it differs from D4:
+
+- The endpoints live on a controller of their own, `RecordSummaryController`, not on `AssistantController`: `GET /api/assistant/summary` answers what the leaf may show (`{enabled, agent, summary}`) without a model call, `POST /api/assistant/summarise` returns the summary. Both read the record as the caller first, so an unreadable or missing record is 404 before any agent, feature or model is consulted.
+- The app is the app that imported the record's register (OpenRegister's `application` on the register, `AppRegisterScope::appOf()`), not a parameter the page sends, so a page cannot ask another app's assistant to read a record.
+- The summary is kept per record content: `RecordSummary.contentHash` is the sha256 of the record's key-sorted data, and `objectVersion` records OpenRegister's version beside it. A matching hash shows the stored summary with no model call; a different one writes a new summary over the stored one (one summary per record per organisation).
+- The `RecordSummary` schema lets only an admin read or write it through the object API, because a summary repeats what its record says; the service writes and reads it with `_rbac: false` after the record check.
+- Tool-free by construction: the call passes the `__none__` sentinel as the selected tools, which the tool loop intersects with any agent's grants to nothing, so the app's assistant writes the summary without its tools.
+- The `record-summary` AI feature is seeded limited risk and **disabled**, like every other seeded feature: a DPO enables it in the AI feature register. While it is disabled the leaf shows no summary section and the endpoint answers 403. Seeding it enabled would skip the DPO acknowledgement every other feature passes.
+- The prompt is the library prompt whose `usageScope` is exactly `record-summary`; an unscoped prompt (offered everywhere) does not count. Without one the design's text is used, and `SeedRecordSummary` ships that text as the "Record summary" prompt.
+- The organisation's guardrail input and output filters run on the record text and the reply, as on `converse`.
+
 ## Declarative versus imperative
 
 | behaviour | path | why |
