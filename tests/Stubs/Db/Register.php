@@ -34,6 +34,13 @@ class Register {
 	private ?string $slug = null;
 
 	/**
+	 * The title.
+	 *
+	 * @var string|null
+	 */
+	private ?string $title = null;
+
+	/**
 	 * The schema ids linked to this register.
 	 *
 	 * @var array<int, int|string>
@@ -79,6 +86,26 @@ class Register {
 	public function setSlug(?string $slug): void {
 		$this->slug = $slug;
 	}//end setSlug()
+
+	/**
+	 * Get the title.
+	 *
+	 * @return string|null
+	 */
+	public function getTitle(): ?string {
+		return $this->title;
+	}//end getTitle()
+
+	/**
+	 * Set the title.
+	 *
+	 * @param string|null $title The title.
+	 *
+	 * @return void
+	 */
+	public function setTitle(?string $title): void {
+		$this->title = $title;
+	}//end setTitle()
 
 	/**
 	 * Get the linked schema ids.

@@ -530,6 +530,7 @@ return [
         // Agents-switch-off-and-stop: switch one agent off and on, with who and why.
         ['name' => 'agentAvailability#show', 'url' => '/api/agents/{id}/availability', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentAvailability#update', 'url' => '/api/agents/{id}/availability', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentAppAssistant#update', 'url' => '/api/agents/{id}/app-assistant', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agents#show',    'url' => '/api/agents/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agents#update',  'url' => '/api/agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agents#patch',   'url' => '/api/agents/{id}', 'verb' => 'PATCH', 'requirements' => ['id' => '[^/]+']],

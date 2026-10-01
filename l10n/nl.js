@@ -1,6 +1,14 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Assistant for this app": "Assistent voor deze app",
+        "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.": "De app waarin deze agent als assistent antwoordt wanneer een chat geen agent noemt. Dit geldt alleen zolang het gelijk is aan applicationSlug, dus de agent naar een andere app verplaatsen beëindigt het. Eén per app per organisatie, gekozen door een beheerder van de organisatie via POST /api/agents/{id}/app-assistant; via de object-API mag alleen een instantiebeheerder het wijzigen.",
+        "App this agent serves": "App waarvoor deze agent werkt",
+        "Only in Hermiq": "Alleen in Hermiq",
+        "In that app, the assistant can answer with this agent and search the app's own data.": "In die app kan de assistent met deze agent antwoorden en in de eigen gegevens van de app zoeken.",
+        "Answer in this app's assistant": "Antwoorden in de assistent van deze app",
+        "An admin of the organisation chooses this. One agent answers per app.": "Een beheerder van de organisatie kiest dit. Per app antwoordt één agent.",
+        "The agent was saved, but it was not made this app's assistant.": "De agent is opgeslagen, maar is niet de assistent van deze app geworden.",
         "Batch binding": "Batchbinding",
         "The sha256 binding of a batch another app staged (integriq: proposal, tool and sorted target ids). Stored as given when the batch is staged and only compared when that app asks Hermiq for a signed verdict. Present only for a staged-batch sourceType=toolcall approval.": "De sha256-binding van een batch die een andere app klaarzette (integriq: voorstel, tool en gesorteerde doel-id's). Bewaard zoals ontvangen wanneer de batch wordt klaargezet, en alleen vergeleken wanneer die app Hermiq om een ondertekend oordeel vraagt. Alleen aanwezig bij een sourceType=toolcall-goedkeuring voor een klaargezette batch.",
         "Load example data?": "Voorbeeldgegevens laden?",

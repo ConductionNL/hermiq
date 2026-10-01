@@ -22,7 +22,7 @@ The system MUST let an agent owner choose on the agent form the app the agent se
 
 ### Requirement: An organisation admin picks the agent that answers in an app (REQ-APPAG-002)
 
-The system MUST let an organisation admin mark one agent per app per organisation as the app's assistant. When a chat request names no agent, both chat endpoints MUST answer with that app's assistant if the user may use it, else with an accessible agent of that app, else with the first accessible agent. A second assistant for the same app MUST be refused with HTTP 409.
+The system MUST let an organisation admin mark one agent per app per organisation as the app's assistant, and the choice MUST hold only while the agent serves that app. When a chat request names no agent, both chat endpoints MUST answer with that app's assistant if the user may use it, else with an accessible agent of that app, else with the first accessible agent. A second assistant for the same app MUST be refused with HTTP 409.
 
 #### Scenario: The companion in a built app answers with that app's agent
 - GIVEN the agent "Subsidy desk helper" marked as the assistant for "subsidies"
@@ -36,7 +36,7 @@ The system MUST let an organisation admin mark one agent per app per organisatio
 
 ### Requirement: An app's agent answers from the app's data first (REQ-APPAG-003)
 
-The system MUST scope object retrieval of an agent tied to an OpenBuild application, and with no views of its own, to that application's registers. Each source in the answer MUST name the register it came from.
+The system MUST scope object retrieval of an agent tied to an app, and with no views of its own, to that app's registers (the registers OpenRegister records as imported by that app). Each source in the answer MUST name the register it came from.
 
 #### Scenario: A question in a built app is answered from its records
 - GIVEN a built app "subsidies" with a register of applications and an agent tied to it
