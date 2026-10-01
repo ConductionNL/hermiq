@@ -969,6 +969,12 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * A new session or a different agent starts the answers again from the defaults.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
 		startFieldsKey() {
 			this.startAnswers = initialAnswers(this.startFields)
 			this.startProblems = {}
