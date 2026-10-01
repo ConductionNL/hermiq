@@ -106,6 +106,7 @@
             <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
             <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\CollectAppAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
@@ -188,6 +189,7 @@
             <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
             <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\CollectAppAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>

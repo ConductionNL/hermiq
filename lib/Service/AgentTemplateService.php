@@ -102,6 +102,8 @@ class AgentTemplateService {
 		'quarantineReason',
 		'scanReport',
 		'createdBy',
+		'offeredBy',
+		'offerHash',
 	];
 
 	/**
@@ -351,6 +353,104 @@ class AgentTemplateService {
 	}//end importPackage()
 
 	/**
+	 * Parse a package in the AgentTemplateSerializer format (tolerant: a malformed
+	 * package parses to empty fields).
+	 *
+	 * @param string $package The JSON package.
+	 *
+	 * @return array<string, mixed> The parsed fields.
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	public function parsePackage(string $package): array {
+		return $this->serializer->fromPackage(package: $package);
+	}//end parsePackage()
+
+	/**
+	 * Every template an installed app offered for itself, across organisations.
+	 *
+	 * Offered templates are written instance-wide by the collect (like the seeded
+	 * starters), so the lookup that keeps a second collect from duplicating them
+	 * must not be narrowed to the caller's organisation.
+	 *
+	 * @return array<int, ObjectEntity> The templates with an `offeredBy`.
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	public function appOffers(): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::TEMPLATE_SCHEMA)
+			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+
+		$out = [];
+		foreach ($objects as $object) {
+			if ($object instanceof ObjectEntity && (string)($object->getObject()['offeredBy'] ?? '') !== '') {
+				$out[] = $object;
+			}
+		}
+
+		return $out;
+	}//end appOffers()
+
+	/**
+	 * Import a package an installed app offered for itself: always quarantined and
+	 * scanned, with the offering app in `offeredBy` and the package's hash in
+	 * `offerHash`. With `$replaceUuid` the earlier template of that offer is
+	 * overwritten and goes back to review, because its content changed.
+	 *
+	 * @param array<string, mixed> $parsed The package, parsed by AgentTemplateSerializer::fromPackage().
+	 * @param string $appId The offering app.
+	 * @param string $offerHash The sha256 of the offered package.
+	 * @param string|null $replaceUuid The earlier template of this offer, or null for a new one.
+	 *
+	 * @return ObjectEntity The persisted template.
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	public function importAppOffer(array $parsed, string $appId, string $offerHash, ?string $replaceUuid = null): ObjectEntity {
+		$scan = $this->scanSystemPrompt(systemPrompt: (string)$parsed['systemPrompt']);
+
+		$reason = 'Offered by the app ' . $appId . '. Review before use.';
+		$flagged = count($scan['findings'] ?? []);
+		if ($flagged > 0) {
+			$reason .= ' The content scan flagged ' . $flagged . ' pattern(s).';
+		}
+
+		$data = [
+			'name' => (string)$parsed['name'],
+			'description' => (string)$parsed['description'],
+			'category' => (string)$parsed['category'],
+			'systemPrompt' => (string)$parsed['systemPrompt'],
+			'suggestedProvider' => (string)$parsed['suggestedProvider'],
+			'suggestedModel' => (string)$parsed['suggestedModel'],
+			'tools' => $parsed['tools'],
+			'skillRefs' => $parsed['skillRefs'],
+			'version' => (string)$parsed['version'],
+			'source' => 'app',
+			'offeredBy' => $appId,
+			'offerHash' => $offerHash,
+			'createdBy' => '',
+			'state' => 'quarantined',
+			'quarantineReason' => $reason,
+			'scanReport' => $scan,
+		];
+		if ($parsed['suggestedSchedule'] !== []) {
+			$data['suggestedSchedule'] = $parsed['suggestedSchedule'];
+		}
+
+		return $this->objectService->saveObject(
+			object: $this->sanitizeForSave(data: $data),
+			register: self::REGISTER_SLUG,
+			schema: self::TEMPLATE_SCHEMA,
+			uuid: $replaceUuid,
+			_rbac: false,
+			_multitenancy: false
+		);
+
+	}//end importAppOffer()
+
+	/**
 	 * The review gate: transition a quarantined template to active.
 	 *
 	 * A `dangerous` content-scan verdict blocks one-click approval — the template stays
@@ -460,6 +560,7 @@ class AgentTemplateService {
 				'searchFiles' => true,
 				'searchObjects' => true,
 			],
+			$this->offeringApp(template: $data),
 			$this->stripProtectedKeys(data: $overrides)
 		);
 
@@ -486,6 +587,25 @@ class AgentTemplateService {
 		];
 
 	}//end instantiate()
+
+	/**
+	 * The app an offered template ties its agents to: `applicationSlug` set to the
+	 * offering app, or nothing for a template no app offered.
+	 *
+	 * @param array<string, mixed> $template The template data.
+	 *
+	 * @return array<string, string> Either `['applicationSlug' => <appId>]` or empty.
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	private function offeringApp(array $template): array {
+		$appId = (string)($template['offeredBy'] ?? '');
+		if ($appId === '') {
+			return [];
+		}
+
+		return ['applicationSlug' => $appId];
+	}//end offeringApp()
 
 	/**
 	 * Resolve the (provider, model) to apply to the created Agent: the suggestion verbatim

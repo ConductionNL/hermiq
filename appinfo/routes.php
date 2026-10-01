@@ -409,6 +409,7 @@ return [
         ['name' => 'agentTemplate#index',   'url' => '/api/agent-templates', 'verb' => 'GET'],
         ['name' => 'agentTemplate#create',  'url' => '/api/agent-templates', 'verb' => 'POST'],
         ['name' => 'agentTemplate#import',  'url' => '/api/agent-templates/import', 'verb' => 'POST'],
+        ['name' => 'appTemplateOffers#collect', 'url' => '/api/agent-templates/collect-from-apps', 'verb' => 'POST'],
         [
             'name'         => 'agentTemplate#export',
             'url'          => '/api/agent-templates/from-agent/{agentId}/export',
