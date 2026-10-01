@@ -132,6 +132,22 @@ final class ApprovalServiceStagedBatchTest extends TestCase {
 	}//end testAnotherBatchHasAnotherKey()
 
 	/**
+	 * Negative control: the same validator refuses a payload the register does
+	 * not allow, so the positive assertion above can fail.
+	 *
+	 * @return void
+	 */
+	public function testTheValidatorRefusesABadPayload(): void {
+		$this->service(agentOwner: 'alice')->ensurePendingApprovalForStagedBatch(agentId: self::AGENT, toolId: 'integriq.replayDeadLetters', proposalId: 'p1', binding: self::BINDING, targetIds: ['d1']);
+		$bad = $this->saved[0];
+		$bad['binding'] = 42;
+		self::assertFalse($this->validApproval($bad));
+		$bad = $this->saved[0];
+		$bad['decidedAt'] = null;
+		self::assertFalse($this->validApproval($bad));
+	}//end testTheValidatorRefusesABadPayload()
+
+	/**
 	 * The real ApprovalService over a recording ObjectService.
 	 *
 	 * @param string $agentOwner The agent's owner ('' for none).
