@@ -1788,6 +1788,73 @@ class ScheduleServiceTest extends TestCase {
 	}//end testEngineFlagOnUsesInAppEngine()
 
 	/**
+	 * Agents-instruction-variables: a schedule's own start values travel onto the
+	 * session its run creates, limited to the fields the agent declares, so the
+	 * engine fills {{field.<key>}} from them; a field the schedule leaves out is
+	 * not written and falls back to its default at turn time.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	public function testAScheduledRunCarriesTheSchedulesStartValues(): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturn(['message' => 'engine output', 'usage' => []]);
+		$this->service = $this->makeService();
+
+		$agentObject = new ObjectEntity();
+		$agentObject->setUuid('agent-uuid');
+		$agentObject->setObject(
+			[
+				'name' => 'Vergunningen helper',
+				'startFields' => [
+					['key' => 'department', 'label' => 'Department', 'type' => 'select', 'options' => ['Permits', 'Taxes'], 'default' => 'Permits'],
+					['key' => 'channel', 'label' => 'Channel', 'type' => 'text', 'default' => 'counter'],
+				],
+			]
+		);
+		$this->objectService->method('find')->willReturn($agentObject);
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$savedSessions = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedSessions): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved-' . count($savedSessions));
+				if ($schema === 'agentsession') {
+					$savedSessions[] = $object;
+					$entity->setUuid('conv-uuid-1');
+				}
+
+				return $entity;
+			}
+		);
+
+		$this->service->runNow(
+			$this->schedule(
+				[
+					'kind' => 'interval',
+					'intervalMinutes' => 60,
+					'agentId' => 'agent-uuid',
+					'prompt' => 'go',
+					'deliver' => 'none',
+					'enabled' => true,
+					'nextRun' => '2020-01-01T00:00:00+00:00',
+					'repeat' => ['times' => 0, 'completed' => 0],
+					'startValues' => ['department' => 'Taxes', 'undeclared' => 'dropped'],
+				],
+				'vars-sched'
+			)
+		);
+
+		$this->assertCount(1, $savedSessions);
+		$this->assertSame(['department' => 'Taxes'], ($savedSessions[0]['startValues'] ?? null));
+
+	}//end testAScheduledRunCarriesTheSchedulesStartValues()
+
+	/**
 	 * run-trace-observability (TC-1): on the in-app Engine path, the persisted
 	 * run audit entry's `changed.steps` includes the tool step the Engine's
 	 * RunTraceCollector recorded (threaded in via the `trace` argument

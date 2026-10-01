@@ -1068,6 +1068,9 @@ class SessionController extends Controller {
 			'role' => $this->roleOf(data: $data, userId: $userId),
 			'talkRoomToken' => ($data['talkRoomToken'] ?? null),
 			'metadata' => $metadata,
+			// Agents-instruction-variables: the answers to the agent's start fields,
+			// shown in the session header.
+			'startValues' => (array)($data['startValues'] ?? []),
 			'deletedAt' => $deletedAt,
 			'created' => $conversation->getCreated()?->format('c'),
 			'updated' => $conversation->getUpdated()?->format('c'),
