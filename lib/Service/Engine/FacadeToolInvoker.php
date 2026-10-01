@@ -209,6 +209,23 @@ class FacadeToolInvoker {
 	private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
 
 	/**
+	 * The six integriq agent tools (approval-verification-contract, hermiq#1045)
+	 * that get the running agent's id as `agentId`, overwriting whatever the model
+	 * sent: integriq records it on a staged batch and names it as `actingAgent`
+	 * when it asks Hermiq for a verdict.
+	 *
+	 * @var array<int, string>
+	 */
+	private const INTEGRIQ_AGENT_TOOL_IDS = [
+		'integriq.runSynchronization',
+		'integriq.replayDeadLetters',
+		'integriq.discardDeadLetters',
+		'integriq.testSynchronization',
+		'integriq.testSource',
+		'integriq.listDeadLetters',
+	];
+
+	/**
 	 * The two web-research-tool ids whose trace step carries an additional redacted
 	 * `target` (see class docblock and `resolveWebResearchTarget()`).
 	 *
@@ -1218,6 +1235,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
 	 */
 	private function withAgentId(string $name, array $arguments): array {
 		if ($this->agentId === null) {
@@ -1227,6 +1245,7 @@ class FacadeToolInvoker {
 		$toolId = $this->resolveToolId(name: $name);
 		if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false
 			&& in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === false
+			&& in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === false
 			&& $toolId !== self::DELEGATE_AGENT_TOOL_ID
 		) {
 			return $arguments;
@@ -1261,6 +1280,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
 		$this->channel?->emitToolCall(
@@ -1294,6 +1314,7 @@ class FacadeToolInvoker {
 				arguments: $this->withAgentId(name: $name, arguments: $arguments)
 			)
 		);
+		$envelope['result'] = $this->withStagedBatchApproval(name: $name, result: $envelope['result'], isError: $envelope['isError']);
 
 		if ($this->trace !== null && $traceToken !== null) {
 			$outcome = 'ok';
@@ -1327,6 +1348,46 @@ class FacadeToolInvoker {
 
 		return $encoded;
 	}//end dispatchToFacade()
+
+	/**
+	 * When an integriq agent tool staged a batch (`status: staged` with a proposal
+	 * and a binding), raise the pending approval that keeps the binding and hand its
+	 * id back to the agent as `approvalId`. Every other result is returned as is.
+	 *
+	 * @param string $name    The LLPhant-side function name.
+	 * @param mixed  $result  The facade's result.
+	 * @param bool   $isError Whether the facade reported an error.
+	 *
+	 * @return mixed The result, with `approvalId` on a staged batch.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 */
+	private function withStagedBatchApproval(string $name, mixed $result, bool $isError): mixed {
+		$toolId = $this->resolveToolId(name: $name);
+		if ($isError === true
+			|| $this->approvalService === null
+			|| $this->agentId === null
+			|| str_starts_with($toolId, 'integriq.') === false
+			|| is_array($result) === false
+			|| ($result['status'] ?? null) !== 'staged'
+			|| is_string($result['binding'] ?? null) === false
+			|| $result['binding'] === ''
+		) {
+			return $result;
+		}
+
+		$targetIds = array_values(array_filter((array)($result['targetIds'] ?? []), 'is_string'));
+		$approval = $this->approvalService->ensurePendingApprovalForStagedBatch(
+			agentId: $this->agentId,
+			toolId: $toolId,
+			proposalId: (string)($result['proposal'] ?? ''),
+			binding: $result['binding'],
+			targetIds: $targetIds
+		);
+		$result['approvalId'] = (string)$approval->getUuid();
+
+		return $result;
+	}//end withStagedBatchApproval()
 
 	/**
 	 * The `endStep()` `$extra` payload for `$name`'s trace step — `['target' =>

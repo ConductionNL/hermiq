@@ -1,6 +1,8 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Batch binding": "Batch binding",
+        "The sha256 binding of a batch another app staged (integriq: proposal, tool and sorted target ids). Stored as given when the batch is staged and only compared when that app asks Hermiq for a signed verdict. Present only for a staged-batch sourceType=toolcall approval.": "The sha256 binding of a batch another app staged (integriq: proposal, tool and sorted target ids). Stored as given when the batch is staged and only compared when that app asks Hermiq for a signed verdict. Present only for a staged-batch sourceType=toolcall approval.",
         "Load example data?": "Load example data?",
         "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install.": "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install.",
         "Load the example data": "Load the example data",

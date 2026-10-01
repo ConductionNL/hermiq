@@ -157,7 +157,7 @@ class ApprovalService {
 	 *
 	 * @var int
 	 */
-	private const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
+	public const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
 
 	/**
 	 * Constructor.
@@ -556,6 +556,78 @@ class ApprovalService {
 
 		return $approval;
 	}//end ensurePendingApprovalForToolCall()
+
+	/**
+	 * Idempotently raise one pending `toolcall` Approval for a batch another app
+	 * staged (integriq's agent tools answer `status: staged` with a binding).
+	 *
+	 * The approval stores the binding as given: Hermiq never recomputes it, it
+	 * only compares it when the staging app asks for a verdict. The key is
+	 * sha256 over agent, tool and binding, so the same batch is raised once and
+	 * another batch, tool or agent gets its own approval. The decision fields are
+	 * omitted rather than null: the register types them and refuses a null.
+	 *
+	 * @param string            $agentId    The agent that staged the batch.
+	 * @param string            $toolId     The staging tool id.
+	 * @param string            $proposalId The staging app's proposal id.
+	 * @param string            $binding    The staging app's sha256 batch binding.
+	 * @param array<int,string> $targetIds  The ids the batch would act on.
+	 *
+	 * @return ObjectEntity The pending (or already pending) Approval.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 */
+	public function ensurePendingApprovalForStagedBatch(
+		string $agentId,
+		string $toolId,
+		string $proposalId,
+		string $binding,
+		array $targetIds,
+	): ObjectEntity {
+		$correlationId = hash('sha256', (string)json_encode([$agentId, $toolId, 'batch', $binding]));
+		$existing = $this->findPendingApprovalForToolCall(correlationId: $correlationId);
+		if ($existing !== null) {
+			return $existing;
+		}
+
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+		$reviewer = $owner;
+		$reviewerType = 'user';
+		if ($reviewer === '') {
+			$reviewer = 'admin';
+			$reviewerType = 'group';
+		}
+
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'toolcall',
+			'correlationId' => $correlationId,
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'binding' => $binding,
+			'toolArguments' => ['proposalId' => $proposalId, 'targetIds' => array_values($targetIds)],
+			'prompt' => 'Run ' . $toolId . ' on ' . count($targetIds) . ' records (proposal ' . $proposalId . ').',
+			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+			'reviewer' => $reviewer,
+			'reviewerType' => $reviewerType,
+		];
+
+		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify the reviewer of staged batch approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return $approval;
+	}//end ensurePendingApprovalForStagedBatch()
 
 	/**
 	 * Idempotently ensure a single pending Approval exists for a pre-qualified
