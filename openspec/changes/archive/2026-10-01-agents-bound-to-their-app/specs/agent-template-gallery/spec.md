@@ -13,7 +13,7 @@ Let an installed app offer an agent template for itself, reviewed before use. Ro
 
 ### Requirement: An installed app can offer an agent template for itself (REQ-APPAG-005)
 
-The system MUST dispatch `CollectAgentTemplatesEvent` on install, on upgrade and from the Store's "Check apps for templates" action. A package an app offers MUST be imported quarantined and scanned, with `source` `app:<appId>` and the reason "Offered by the app <appId>. Review before use." An unchanged package MUST NOT be imported twice. An agent created from it MUST carry the offering app as its `applicationSlug`.
+The system MUST dispatch `CollectAgentTemplatesEvent` on install, on upgrade and from the Store's "Check apps for templates" action. A package an app offers MUST be imported quarantined and scanned, with `source` `app`, the offering app in `offeredBy`, and the reason "Offered by the app <appId>. Review before use." An unchanged package MUST NOT be imported twice; a changed package MUST replace the earlier template and send it back to review. An offer naming an app that is not installed, or a package without a name, MUST be refused without stopping the other offers. An agent created from it MUST carry the offering app as its `applicationSlug`.
 
 #### Scenario: An admin approves a help agent a finance app offers
 - GIVEN an installed app that offers the template "Finance helper" through the event

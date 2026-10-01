@@ -1,6 +1,16 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Check apps for templates": "Check apps for templates",
+        "Installed apps can offer an agent template for themselves. An offered template starts quarantined: review and approve it before anyone can use it.": "Installed apps can offer an agent template for themselves. An offered template starts quarantined: review and approve it before anyone can use it.",
+        "Check now": "Check now",
+        "{imported} new, {updated} updated, {unchanged} unchanged, {refused} refused.": "{imported} new, {updated} updated, {unchanged} unchanged, {refused} refused.",
+        "Could not check the apps for templates": "Could not check the apps for templates",
+        "Offered by": "Offered by",
+        "Offer hash": "Offer hash",
+        "The id of the installed app that offered this template for itself through CollectAgentTemplatesEvent. An agent created from it is tied to that app (applicationSlug). Empty for a template no app offered.": "The id of the installed app that offered this template for itself through CollectAgentTemplatesEvent. An agent created from it is tied to that app (applicationSlug). Empty for a template no app offered.",
+        "The sha256 of the package the app offered, so a collect skips an unchanged offer instead of importing it twice.": "The sha256 of the package the app offered, so a collect skips an unchanged offer instead of importing it twice.",
+        "Where the template came from: locally authored, another organisation, an external hub, or an installed app that offered it for itself (see offeredBy). Mirrors Skill.source.": "Where the template came from: locally authored, another organisation, an external hub, or an installed app that offered it for itself (see offeredBy). Mirrors Skill.source.",
         "Assistant for this app": "Assistant for this app",
         "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.": "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.",
         "App this agent serves": "App this agent serves",

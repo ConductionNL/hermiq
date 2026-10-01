@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Seeds the record-summary AI feature and its shipped prompt.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 class SeedRecordSummary implements IRepairStep {
 	use RunsUnderSystemIdentity;
@@ -75,7 +75,7 @@ class SeedRecordSummary implements IRepairStep {
 	 * @param ContainerInterface $container Resolves OpenRegister's services lazily (absent during a broken install).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -88,7 +88,7 @@ class SeedRecordSummary implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	public function getName(): string {
 		return 'Seed the record-summary AI feature and its prompt (agents-bound-to-their-app)';
@@ -101,7 +101,7 @@ class SeedRecordSummary implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -130,7 +130,7 @@ class SeedRecordSummary implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function seedFeature(ObjectService $objectService, IOutput $output): void {
 		try {
@@ -171,7 +171,7 @@ class SeedRecordSummary implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function seedPrompt(AssistantPromptLibrary $library, IOutput $output): void {
 		try {
@@ -201,7 +201,7 @@ class SeedRecordSummary implements IRepairStep {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function featureExists(ObjectService $objectService): bool {
 		$objects = $objectService

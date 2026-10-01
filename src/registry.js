@@ -44,6 +44,7 @@ import EmailField from './formFields/EmailField.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
+import AppTemplateCollectModal from './modals/AppTemplateCollectModal.vue'
 import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
 import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
@@ -182,6 +183,17 @@ export default {
 	'template-import': {
 		kind: 'modal',
 		component: TemplateImportModal,
+		propsSchema: { type: 'object', properties: {} },
+	},
+
+	/**
+	 * "Check apps for templates": asks the installed apps for the agent templates
+	 * they offer for themselves (agents-bound-to-their-app). Opened via the Store
+	 * page's header action of the same name.
+	 */
+	'app-template-collect': {
+		kind: 'modal',
+		component: AppTemplateCollectModal,
 		propsSchema: { type: 'object', properties: {} },
 	},
 

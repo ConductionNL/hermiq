@@ -102,6 +102,8 @@ class AgentTemplateService {
 		'quarantineReason',
 		'scanReport',
 		'createdBy',
+		'offeredBy',
+		'offerHash',
 	];
 
 	/**
@@ -460,6 +462,7 @@ class AgentTemplateService {
 				'searchFiles' => true,
 				'searchObjects' => true,
 			],
+			$this->offeringApp(template: $data),
 			$this->stripProtectedKeys(data: $overrides)
 		);
 
@@ -486,6 +489,25 @@ class AgentTemplateService {
 		];
 
 	}//end instantiate()
+
+	/**
+	 * The app an offered template ties its agents to: `applicationSlug` set to the
+	 * offering app, or nothing for a template no app offered.
+	 *
+	 * @param array<string, mixed> $template The template data.
+	 *
+	 * @return array<string, string> Either `['applicationSlug' => <appId>]` or empty.
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	private function offeringApp(array $template): array {
+		$appId = (string)($template['offeredBy'] ?? '');
+		if ($appId === '') {
+			return [];
+		}
+
+		return ['applicationSlug' => $appId];
+	}//end offeringApp()
 
 	/**
 	 * Resolve the (provider, model) to apply to the created Agent: the suggestion verbatim

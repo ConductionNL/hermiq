@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use OCP\IUserSession;
  * a record the caller cannot read answers 404 before any agent or model is
  * involved.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 class RecordSummaryController extends Controller {
 
@@ -71,7 +71,7 @@ class RecordSummaryController extends Controller {
 	 * @param RecordSummaryService $summaries Reads, writes and keeps record summaries.
 	 * @param IUserSession $userSession The signed-in user.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	public function __construct(
 		IRequest $request,
@@ -87,7 +87,7 @@ class RecordSummaryController extends Controller {
 	 *
 	 * @return JSONResponse `{enabled, agent, summary}`, or `{error}` with the refusal's status.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
 	 */
 	#[NoAdminRequired]
 	public function show(): JSONResponse {
@@ -107,8 +107,8 @@ class RecordSummaryController extends Controller {
 	 *
 	 * @return JSONResponse `{summary, generatedAt, objectVersion, agentId, agentName, cached}`, or `{error}`.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
 	 */
 	#[NoAdminRequired]
 	public function summarise(): JSONResponse {

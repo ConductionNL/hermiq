@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * RecordSummaryService writes, keeps and reads the summary of one record.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) It joins the record read, the
  * feature gate, the agent choice, the prompt library and the model call: each
@@ -131,7 +131,7 @@ class RecordSummaryService {
 	 * @param GuardrailPolicyService|null $guardrailPolicyService The organisation's input and output filters.
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -158,7 +158,7 @@ class RecordSummaryService {
 	 *
 	 * @throws RuntimeException 404 when the caller cannot read the record.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
 	 */
 	public function status(string $userId, string $register, string $schema, string $objectId): array {
 		$record = $this->readRecord(register: $register, schema: $schema, objectId: $objectId);
@@ -195,8 +195,8 @@ class RecordSummaryService {
 	 * @throws RuntimeException 404 unreadable record, 403 feature off, 409 no agent answers.
 	 * @throws GuardrailBlockedException When the organisation's guardrail refuses the record text.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
 	 */
 	public function summarise(string $userId, string $register, string $schema, string $objectId): array {
 		$this->literacy?->assertMayUseAgents(uid: $userId);
@@ -256,7 +256,7 @@ class RecordSummaryService {
 	 *
 	 * @return string The sha256 of the key-sorted data.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
 	 */
 	public static function contentHash(ObjectEntity $object): string {
 		$data = $object->getObject();
@@ -296,7 +296,7 @@ class RecordSummaryService {
 	 *
 	 * @throws RuntimeException 400 on a missing reference, 404 when it cannot be read.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
 	 */
 	private function readRecord(string $register, string $schema, string $objectId): ObjectEntity {
 		if ($register === '' || $schema === '' || $objectId === '') {
@@ -321,7 +321,7 @@ class RecordSummaryService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function featureOn(): bool {
 		$feature = $this->features->findBySlugForGate(slug: self::FEATURE_SLUG);
@@ -336,7 +336,7 @@ class RecordSummaryService {
 	 *
 	 * @return ObjectEntity|null
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function answeringAgent(string $userId, ObjectEntity $record): ?ObjectEntity {
 		$app = $this->registerScope->appOf(register: (string)($record->getRegister() ?? ''));
@@ -367,7 +367,7 @@ class RecordSummaryService {
 	 *
 	 * @return array{id: string, text: string}
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function prompt(): array {
 		foreach ($this->prompts->forScope(usageScope: self::PROMPT_SCOPE) as $prompt) {
@@ -392,7 +392,7 @@ class RecordSummaryService {
 	 *
 	 * @throws GuardrailBlockedException When the input filter refuses the record.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function writeSummary(ObjectEntity $record, ObjectEntity $agent, string $prompt, string $schema): string {
 		$policy = $this->guardrailPolicyService?->effectivePolicyFor(organisation: (string)($agent->getOrganisation() ?? ''));
@@ -438,7 +438,7 @@ class RecordSummaryService {
 	 *
 	 * @return ObjectEntity|null
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
 	 */
 	private function storedFor(ObjectEntity $record): ?ObjectEntity {
 		$uuid = (string)$record->getUuid();
@@ -464,7 +464,7 @@ class RecordSummaryService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
+	 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-the-summary-is-not-rewritten-until-the-record-changes
 	 */
 	private function isCurrent(ObjectEntity $stored, ObjectEntity $record): bool {
 		return (string)($stored->getObject()['contentHash'] ?? '') === self::contentHash(object: $record);
@@ -478,7 +478,7 @@ class RecordSummaryService {
 	 *
 	 * @return array{summary: string, generatedAt: string, objectVersion: string, agentId: string, agentName: string, cached: bool}
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function view(array $data, bool $cached): array {
 		return [

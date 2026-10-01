@@ -851,6 +851,16 @@
 						"props": {
 							"show": true
 						}
+					},
+					{
+						"id": "collect-app-templates",
+						"label": "Check apps for templates",
+						"type": "open-modal",
+						"target": "app-template-collect",
+						"icon": "PuzzleOutline",
+						"props": {
+							"show": true
+						}
 					}
 				]
 			},

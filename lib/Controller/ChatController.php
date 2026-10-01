@@ -916,7 +916,7 @@ class ChatController extends Controller {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
 	 */
 	private function agentForRequest(array $params, string $userId): string {
 		$agentUuid = (string)($params['agentUuid'] ?? '');

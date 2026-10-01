@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 
 /**
@@ -15,7 +15,7 @@
  *
  * @param {object|null} status The answer of GET /api/assistant/summary, null when the record is unreadable.
  * @return {boolean}
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 export function showsSummarySection(status) {
 	if (!status || status.enabled !== true) {
@@ -30,7 +30,7 @@ export function showsSummarySection(status) {
  *
  * @param {object|null} status The answer of GET /api/assistant/summary.
  * @return {boolean}
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 export function offersSummaryButton(status) {
 	return showsSummarySection(status) && Boolean(status.agent) && !status.summary
@@ -42,7 +42,7 @@ export function offersSummaryButton(status) {
  * @param {string} iso The ISO 8601 time the summary was written.
  * @param {string|undefined} locale The reader's locale.
  * @return {string} The date, or '' when there is none.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
  */
 export function summaryDate(iso, locale) {
 	if (!iso) {
@@ -65,7 +65,7 @@ export function summaryDate(iso, locale) {
  *
  * @param {number} status The HTTP status.
  * @return {string} not-found, switched-off, no-agent, blocked or failed.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+ * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
  */
 export function summaryRefusal(status) {
 	const reasons = {
