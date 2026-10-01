@@ -161,7 +161,7 @@ export default {
 		 *
 		 * @param {Event} event The file input's change event.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
 		 */
 		async readFile(event) {
 			const file = event?.target?.files?.[0]

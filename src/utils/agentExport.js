@@ -10,7 +10,7 @@
  *
  * @param {string} name The agent's name.
  * @return {string} The file name.
- * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
  */
 export function exportFileName(name) {
 	const slug = String(name || '')
@@ -28,7 +28,7 @@ export function exportFileName(name) {
  * @param {string} text The file's contents.
  * @return {string} The package text, unchanged.
  * @throws {Error} When the file is not a JSON object or has no name.
- * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
  */
 export function packageFromFile(text) {
 	let parsed

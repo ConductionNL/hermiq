@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use RuntimeException;
 /**
  * Publish, push and pull an agent to and from its GitHub repository.
  *
- * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
  */
 class AgentGitController extends Controller {
 
@@ -81,7 +81,7 @@ class AgentGitController extends Controller {
 	 *
 	 * @return JSONResponse 201 with the repository URL, or an error status.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 	 */
 	#[NoAdminRequired]
 	public function publish(string $id): JSONResponse {
@@ -105,7 +105,7 @@ class AgentGitController extends Controller {
 	 *
 	 * @return JSONResponse The repository URL and commit, or an error status.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 	 */
 	#[NoAdminRequired]
 	public function push(string $id): JSONResponse {
@@ -125,7 +125,7 @@ class AgentGitController extends Controller {
 	 *
 	 * @return JSONResponse The changed fields and the scan report, or an error status.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
 	 */
 	#[NoAdminRequired]
 	public function pullPreview(string $id): JSONResponse {
@@ -145,7 +145,7 @@ class AgentGitController extends Controller {
 	 *
 	 * @return JSONResponse The saved agent, or an error status.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
 	 */
 	#[NoAdminRequired]
 	public function pullApply(string $id): JSONResponse {

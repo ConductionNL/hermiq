@@ -982,7 +982,7 @@ class AgentTemplateControllerTest extends TestCase {
 	/**
 	 * "Save as template" needs a signed-in user.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
 	 *
 	 * @return void
 	 */

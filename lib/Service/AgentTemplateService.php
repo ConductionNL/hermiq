@@ -276,7 +276,7 @@ class AgentTemplateService {
 	 *
 	 * @return ObjectEntity|null The new template, or null when the agent does not resolve.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
 	 */
 	public function saveAgentAsTemplate(string $agentId, string $createdBy): ?ObjectEntity {
 		$package = $this->exportFromAgent(agentId: $agentId);

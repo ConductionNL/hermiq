@@ -995,15 +995,17 @@
 			"area": "agents",
 			"name": "Export an agent to a file and import it into another Nextcloud.",
 			"source": "demand-derived",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json Store page 'Import template' header action opens TemplateImportModal (modals/TemplateImportModal.vue:80 calls agentTemplates.js); src/widgets/AgentTemplateRowActions.vue:255-262 doExport() calls exportAgentTemplate() for an existing AgentTemplate. But exportAgentToTemplate() (src/api/agentTemplates.js:88-90, routes.php agentTemplate#export 'from-agent/{agentId}/export') has zero callers anywhere in src/ (grepped). Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-export-import-and-git-sync"
+				"evidence": "On the agent page, Export downloads the agent's secret-free package as <agent-name>.hermiq-agent.json (src/modals/AgentExportModal.vue, src/utils/agentExport.js, the existing agentTemplate#export route, readers only). On the agent catalog, Import agent opens TemplateImportModal in agent mode with a file input; the file lands in the Store quarantined and content-scanned (source org) and becomes an agent only after approval and Use this template. Proven in tests/agent-export.spec.js and AgentTemplateServiceTest.",
+				"reachedOn": "Agent page: Export; Agents: Import agent",
+				"change": "openspec/changes/archive/2026-10-01-agents-export-import-and-git-sync",
+				"readOn": "2026-10-01"
 			},
-			"reachedOn": "/store Store page for template import/export; nothing reaches from-agent export",
-			"note": "You can import a template package and export an existing AgentTemplate, but there is no button anywhere that turns a live Agent directly into an exportable file; the one backend endpoint built for that has no frontend caller.",
+			"reachedOn": "Agent page: Export; Agents: Import agent",
+			"note": "Built 2026-10-01 by agents-export-import-and-git-sync. History: before that a template could be imported and exported in the Store, but no button turned a live agent into a file.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-template-gallery",
@@ -6147,16 +6149,17 @@
 			"area": "reuse",
 			"name": "Turn an agent I built into a template others can reuse.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:405-408 agentTemplate#fromAgentExport exists and src/api/agentTemplates.js:88-91 exportAgentToTemplate() wraps it, but exportAgentToTemplate() has zero callers in src/, the same finding row ag-import-export records. The earlier yes assumed an AgentDetail header action that nobody opened. Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27).",
-				"readOn": "2026-09-26",
-				"change": "openspec/changes/agents-export-import-and-git-sync"
+				"evidence": "On the agent page, Save as template (POST /api/agent-templates/from-agent/{agentId}, AgentTemplateController::saveFromAgent, AgentTemplateService::saveAgentAsTemplate) turns the agent into an active local template in the Store with derivedFrom set to the agent; owner only (404 unreadable, 403 not the owner). Proven in tests/Unit/Service/AgentTemplateSaveFromAgentTest.php (real AgentTemplate fragment with Opis) and AgentTemplateControllerTest::testSaveFromAgent*.",
+				"reachedOn": "Agent page: Save as template",
+				"change": "openspec/changes/archive/2026-10-01-agents-export-import-and-git-sync",
+				"readOn": "2026-10-01"
 			},
-			"reachedOn": "nothing reaches it",
-			"note": "Re-rated yes to no on 2026-09-26: the row contradicted ag-import-export, which found the wrapper has no caller.",
+			"reachedOn": "Agent page: Save as template",
+			"note": "Built 2026-10-01 by agents-export-import-and-git-sync. History: re-rated yes to no on 2026-09-26 because the from-agent wrapper had no caller.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-template-gallery",
@@ -8813,7 +8816,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -8828,14 +8831,16 @@
 				"n8n": "source read at n8n@2.40.7, not driven: packages/cli/src/modules/source-control.ee/source-control.controller.ee.ts:196,226 push and pull a git work folder, constants.ts:4-11 exports workflows, credential stubs, projects, folders and data tables but no agents, licence feat:sourceControl (packages/@n8n/constants/src/index.ts:22); agents/agents-config.controller.ts:25,62 GET and PUT an agent's JSON config Note: enterprise-licensed git sync covers workflows, not the opt-in Agents module; an agent round-trips as JSON over the REST config endpoint only",
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/models.py:381 GET /models/export and :441 POST /models/import (JSON), :685 POST /models/sync admin-only; src/lib/components/workspace/Models.svelte:288,498 export and import buttons; routers/tools.py:264 POST /tools/load/url pulls a tool from a GitHub URL one way. Searched 'git|repo|sync' in routers/: no git link or two-way sync Note: an agent (model) round-trips as a JSON file you can edit and keep in git by hand; no built-in git sync or file-per-agent layout"
 			},
-			"note": "one-way publish and install of templates; edits made in git do not sync back into the existing agent, they arrive as a new template to instantiate",
+			"note": "Built 2026-10-01 by agents-export-import-and-git-sync. History: before that publish and install were one-way; edits in git arrived as a new template, not in the same agent.",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/widgets/AgentTemplateRowActions.vue:261 export a template package; src/modals/AgentTemplatePublishModal.vue:198 -> lib/Controller/AgentTemplateController.php:629 publish to a NEW GitHub repo (lib/Service/GitHubTemplatePushService.php:14-17 re-publish to an existing repo is refused); src/widgets/AgentTemplateGithubStore.vue:449 -> AgentTemplateController.php:557 install from GitHub lands a new quarantined template Specified in openspec/changes/agents-export-import-and-git-sync/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-export-import-and-git-sync"
+				"evidence": "Keep in git on the agent page (src/modals/AgentGitModal.vue): Publish to GitHub creates a repository and stamps gitOwner and gitRepo on the agent; Push changes goes to the stamped repository only; Pull from git shows a field diff, content-scans the prompt (a dangerous verdict refuses it) and on confirm saves the package fields as a new version of the same agent, never sharing, schedules or credentials (AgentGitService, AgentGitController, register 0.46.0). Proven in tests/Unit/Service/Agent/AgentGitServiceTest.php, tests/Unit/Controller/AgentGitControllerTest.php and tests/agent-git.spec.js.",
+				"reachedOn": "Agent page: Keep in git",
+				"change": "openspec/changes/archive/2026-10-01-agents-export-import-and-git-sync",
+				"readOn": "2026-10-01"
 			},
-			"reachedOn": "Store page (/store), template row actions and GitHub store"
+			"reachedOn": "Agent page: Keep in git"
 		}
 	],
 	"pending": [

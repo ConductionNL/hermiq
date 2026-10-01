@@ -9,7 +9,7 @@
   active template in the Store (owner only, the server says 403 otherwise). One modal,
   two modes, because a header action can only open a modal with static props.
 
-  @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
+  @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
 -->
 <template>
 	<NcModal v-if="show" size="normal" :noClose="busy" @close="$emit('close')">
@@ -141,7 +141,7 @@ export default {
 		 * Export or save, by mode.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
 		 */
 		async run() {
 			this.busy = true
@@ -181,7 +181,7 @@ export default {
 		 *
 		 * @param {string} pkg The package text.
 		 * @return {void}
-		 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
 		 */
 		download(pkg) {
 			let name

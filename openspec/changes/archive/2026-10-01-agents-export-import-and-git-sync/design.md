@@ -41,6 +41,17 @@ Tasks 1 and 2 ship first; the git tasks (D3, tasks 3 to 5) follow in their own P
 - "Import agent" reuses `TemplateImportModal` with `mode: agent`: a file input beside the paste box, one button, source `org`.
 - Found while testing against the real fragment: a `local` import and `create()` wrote `null` into `quarantineReason`, `scanReport` and (for a package without one) `suggestedSchedule`. The fragment types them as string and object and refuses null, so these keys are now left out instead.
 
+## As built (part B, 1 Oct 2026)
+
+Tasks 3 to 5. Where they differ from D3:
+
+- No `gitPath`. The package file is the one `GitHubTemplatePushService` already writes for an agent template, `hermiq-agent-template.json`, and `GitHubTemplateCatalogService::fetchPackageFile()` reads the same name, so a configurable path would have nothing to configure.
+- `gitLastPulledHash` instead of `gitLastPulledSha`. `fetchPackageFile()` returns the file's content and not the commit, so the pull records the sha256 of the package it wrote. A commit sha needs a second GitHub call this change does not make.
+- The four git properties carry an `authorization.update` rule for the `admin` group, like `appAssistantFor`: an owner cannot point the stamp at another repository through the object API. `AgentGitService` writes them for the checked owner with RBAC off.
+- A confirmed pull fetches and scans the package again instead of trusting the preview, because a commit may land between the two.
+- The modal publishes private repositories; the publish route accepts `visibility: public` for a later form field.
+- `store-through-federated-config` has not landed, so the existing GitHub push and catalog services are the engine.
+
 ## Declarative versus imperative
 
 | behaviour | path | why |

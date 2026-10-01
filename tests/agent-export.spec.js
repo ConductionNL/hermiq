@@ -8,7 +8,7 @@
 // Usage:
 //   node tests/agent-export.spec.js
 //
-// @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
+// @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-exported-to-a-file-from-its-page-req-agexp-001
 
 'use strict'
 

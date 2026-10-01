@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use RuntimeException;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One collaborator per stage of the
  * round trip: access, package, GitHub out, GitHub in, scan.
  *
- * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
  */
 class AgentGitService {
 
@@ -110,7 +110,7 @@ class AgentGitService {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) The publish form's fields, each a distinct input.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 	 */
 	public function publish(string $agentId, string $uid, string $githubOwner, string $repo, string $visibility, string $credentialId): array {
 		$agent = $this->ownedAgent(agentId: $agentId, uid: $uid);
@@ -149,7 +149,7 @@ class AgentGitService {
 	 *
 	 * @throws RuntimeException 404, 403, 409 (not kept in git) or 502.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
 	 */
 	public function push(string $agentId, string $uid, string $credentialId): array {
 		$data = $this->stampedAgent(agentId: $agentId, uid: $uid)->getObject();
@@ -177,7 +177,7 @@ class AgentGitService {
 	 *
 	 * @throws RuntimeException 404, 403, 409, 422 (dangerous scan) or 502.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
 	 */
 	public function pullPreview(string $agentId, string $uid, string $credentialId): array {
 		$agent = $this->stampedAgent(agentId: $agentId, uid: $uid);
@@ -200,7 +200,7 @@ class AgentGitService {
 	 *
 	 * @throws RuntimeException 404, 403, 409, 422 (dangerous scan) or 502.
 	 *
-	 * @spec openspec/changes/agents-export-import-and-git-sync/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-edits-made-in-git-come-back-into-the-same-agent-after-a-diff-req-agexp-005
 	 */
 	public function pullApply(string $agentId, string $uid, string $credentialId): ObjectEntity {
 		$agent = $this->stampedAgent(agentId: $agentId, uid: $uid);

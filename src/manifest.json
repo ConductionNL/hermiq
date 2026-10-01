@@ -599,6 +599,16 @@
 						}
 					},
 					{
+						"id": "keep-in-git",
+						"label": "Keep in git",
+						"type": "open-modal",
+						"target": "agent-git",
+						"icon": "SourceBranch",
+						"props": {
+							"show": true
+						}
+					},
+					{
 						"id": "view-factsheet",
 						"label": "View compliance factsheet",
 						"type": "open-modal",
