@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
@@ -149,6 +150,7 @@ class ChatStreamController extends Controller {
 	 *                                                 requests for tools it lacks.
 	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -167,6 +169,7 @@ class ChatStreamController extends Controller {
 		private readonly ToolAccessRequestService $accessRequests,
 		private readonly AgentAccessService $agentAccess,
 		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?AppAssistantResolver $assistants = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -703,74 +706,28 @@ class ChatStreamController extends Controller {
 	}//end emitSseHeaders()
 
 	/**
-	 * Find an agent the current user is allowed to start a conversation with.
-	 *
-	 * Iterates agents (bounded fetch) and returns the first uuid whose access
-	 * check passes (AgentAccessService: non-private, owner, invited or a
-	 * member of one of the agent's groups). Falls back to
-	 * '' when no accessible agent exists. NEVER returns "the first agent
-	 * regardless of owner": that caused cross-user data exposure in
-	 * multi-user deployments.
+	 * Find the agent the current user starts a conversation with when the
+	 * request names none: the app's assistant, else an agent of that app, else
+	 * the first agent the user may use (AppAssistantResolver, shared with
+	 * ChatController). Never "the first agent regardless of owner": that caused
+	 * cross-user data exposure in multi-user deployments.
 	 *
 	 * @param string $userId Nextcloud user id.
-	 * @param string $applicationSlug The app the caller is sitting in, or '' when
-	 *                                unknown. An agent whose own `applicationSlug`
-	 *                                matches wins over one that merely comes first.
+	 * @param string $applicationSlug The app the caller is sitting in, or '' when unknown.
 	 *
 	 * @return string The accessible agent uuid, or '' when none is found.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
 	 */
 	private function pickFallbackAgentForUser(string $userId, string $applicationSlug = ''): string {
-		// The first agent the user may use, whatever app it belongs to. It is the
-		// answer only when nothing matches the app, because an agent from the
-		// wrong app still beats no agent at all.
-		$firstAccessible = '';
+		$resolver = $this->assistants ?? new AppAssistantResolver(
+			objectService: $this->objectService,
+			agentAccess: $this->agentAccess,
+			logger: $this->logger
+		);
 
-		try {
-			// Cheap cap — twenty rows is enough headroom for any realistic
-			// instance. The whole page is walked rather than stopped at the first
-			// hit, because the app's own agent is frequently not first: the one
-			// that made a Hydra agent answer inside Buildiq sat at position 7.
-			$agents = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::AGENT_SCHEMA)
-				->findAll(config: ['limit' => 20]);
-			foreach ($agents as $agent) {
-				if (($agent instanceof ObjectEntity) === false) {
-					continue;
-				}
-
-				if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
-					continue;
-				}
-
-				$uuid = (string)$agent->getUuid();
-				if ($firstAccessible === '') {
-					$firstAccessible = $uuid;
-				}
-
-				// With no app to match on, the first accessible agent stands, which
-				// is exactly the previous behaviour.
-				$slug = (string)(($agent->getObject()['applicationSlug'] ?? ''));
-				if ($applicationSlug === '' || strtolower(trim($slug)) === strtolower($applicationSlug)) {
-					return $uuid;
-				}
-			}
-
-			return $firstAccessible;
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[ChatStreamController] Agent fallback lookup failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-		}//end try
-
-		return '';
+		return $resolver->resolve(userId: $userId, appId: $applicationSlug);
 	}//end pickFallbackAgentForUser()
 
 	/**

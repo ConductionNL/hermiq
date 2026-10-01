@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\AppAssistantResolver;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
@@ -144,6 +145,7 @@ class ChatController extends Controller {
 	 *                                                 (talk-shared-sessions). Defaulted so every
 	 *                                                 existing caller constructs unchanged.
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -159,6 +161,7 @@ class ChatController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?AppAssistantResolver $assistants = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -300,7 +303,7 @@ class ChatController extends Controller {
 			// Resolve conversation (load existing or create new).
 			$conversation = $this->resolveConversation(
 				conversationUuid: $params['conversationUuid'],
-				agentUuid: $params['agentUuid'],
+				agentUuid: $this->agentForRequest(params: $params, userId: $userId),
 				userId: $userId
 			);
 
@@ -901,6 +904,28 @@ class ChatController extends Controller {
 			'context' => $context,
 		];
 	}//end extractMessageRequestParams()
+
+	/**
+	 * The agent a new conversation starts with: the one the request names, else
+	 * the app's agent when the request opens a fresh chat in an app (the same
+	 * AppAssistantResolver the streaming endpoint uses), else '' and the request
+	 * is refused as before.
+	 *
+	 * @param array<string, mixed> $params The extracted request parameters.
+	 * @param string               $userId The user.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+	 */
+	private function agentForRequest(array $params, string $userId): string {
+		$agentUuid = (string)($params['agentUuid'] ?? '');
+		if ($agentUuid !== '' || (string)($params['conversationUuid'] ?? '') !== '' || $this->assistants === null) {
+			return $agentUuid;
+		}
+
+		return $this->assistants->resolve(userId: $userId, appId: (string)(($params['context']['appId'] ?? '')));
+	}//end agentForRequest()
 
 	/**
 	 * Resolve conversation from UUID or create a new one with the agent.
