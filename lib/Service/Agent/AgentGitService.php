@@ -120,7 +120,7 @@ class AgentGitService {
 		}
 
 		$result = $this->callGitHub(
-			fn (): array => $this->push->push(
+			call: fn (): array => $this->push->push(
 				package: $this->package(agentId: $agentId),
 				owner: $githubOwner,
 				repo: $repo,
@@ -155,7 +155,7 @@ class AgentGitService {
 		$data = $this->stampedAgent(agentId: $agentId, uid: $uid)->getObject();
 
 		return $this->callGitHub(
-			fn (): array => $this->push->pushUpdate(
+			call: fn (): array => $this->push->pushUpdate(
 				package: $this->package(agentId: $agentId),
 				owner: (string)$data['gitOwner'],
 				repo: (string)$data['gitRepo'],
@@ -228,12 +228,16 @@ class AgentGitService {
 	 * @throws RuntimeException 422 on a dangerous verdict, 502 when the package cannot be read.
 	 */
 	private function pulledFields(array $data, string $uid, string $credentialId): array {
-		$gitRef = (string)($data['gitRef'] ?? '');
+		$gitRef = null;
+		if ((string)($data['gitRef'] ?? '') !== '') {
+			$gitRef = (string)$data['gitRef'];
+		}
+
 		$package = $this->catalog->fetchPackageFile(
 			kind: GitHubTemplateCatalogService::KIND_AGENT_TEMPLATE,
 			owner: (string)$data['gitOwner'],
 			repo: (string)$data['gitRepo'],
-			ref: ($gitRef === '') ? null : $gitRef,
+			ref: $gitRef,
 			actingUserId: $uid,
 			credentialId: $credentialId
 		);
