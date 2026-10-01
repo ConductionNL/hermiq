@@ -91,6 +91,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
+use DateInterval;
+use DateTimeImmutable;
+use DateTimeInterface;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\Hermiq\AppInfo\Application;
@@ -982,18 +985,42 @@ class HermiqToolProvider implements IMcpToolProvider {
 		$principal = 'principals/users/' . $uid;
 		$calendars = $this->calendarManager->getCalendarsForPrincipal($principal);
 
+		$start = new DateTimeImmutable();
+		$range = ['timerange' => ['start' => $start, 'end' => $start->add(new DateInterval('P' . $window . 'D'))]];
+
 		$events = [];
 		foreach ($calendars as $calendar) {
-			foreach ($calendar->search('', [], [], 50) as $event) {
+			foreach ($calendar->search('', [], $range, 50) as $event) {
+				$object = ($event['objects'][0] ?? []);
 				$events[] = [
 					'calendar' => $calendar->getDisplayName(),
-					'summary' => (string)($event['objects'][0]['SUMMARY'][0][0] ?? ($event['summary'] ?? '')),
+					'summary' => (string)($object['SUMMARY'][0] ?? ''),
+					'start' => $this->eventStart(value: ($object['DTSTART'][0] ?? null)),
 				];
 			}
 		}
 
 		return ['windowDays' => $window, 'events' => $events];
 	}//end listCalendarEvents()
+
+	/**
+	 * An event's start as ISO 8601, or '' when it has none.
+	 *
+	 * CalDAV search returns a once-only property as ONE `[value, parameters]` pair
+	 * (CalDavBackend::transformSearchData()), and a date-time value as a
+	 * DateTimeInterface, so the value is index 0, not `[0][0]`.
+	 *
+	 * @param mixed $value The DTSTART value from the search result.
+	 *
+	 * @return string The start, or ''.
+	 */
+	private function eventStart(mixed $value): string {
+		if ($value instanceof DateTimeInterface) {
+			return $value->format(DateTimeInterface::ATOM);
+		}
+
+		return '';
+	}//end eventStart()
 
 	/**
 	 * Send an email from the acting user (IDOR: From is the caller's own identity).
