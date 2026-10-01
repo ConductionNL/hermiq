@@ -74,6 +74,7 @@ class ContextRetrievalHandler {
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
 		private readonly ?GraphContextRetriever $graphRetriever = null,
+		private readonly ?AppRegisterScope $appScope = null,
 	) {
 	}//end __construct()
 
@@ -178,7 +179,8 @@ class ContextRetrievalHandler {
 				$results = $this->searchScoped(
 					query: $query,
 					limit: $fetchLimit,
-					viewFilters: $viewFilters
+					viewFilters: $viewFilters,
+					applicationSlug: (string)($agentData['applicationSlug'] ?? '')
 				);
 			}
 
@@ -224,7 +226,7 @@ class ContextRetrievalHandler {
 				// For objects: add UUID, register, schema.
 				if ($source['type'] === 'object') {
 					$source['uuid'] = $metadata['uuid'] ?? null;
-					$source['register'] = $metadata['register_id'] ?? $metadata['register'] ?? null;
+					$source['register'] = $result['register_name'] ?? $metadata['register_id'] ?? $metadata['register'] ?? null;
 					$source['schema'] = $metadata['schema_id'] ?? $metadata['schema'] ?? null;
 					$source['uri'] = $metadata['uri'] ?? null;
 				}
@@ -246,7 +248,7 @@ class ContextRetrievalHandler {
 				}
 
 				// Add to context text.
-				$contextText .= "Source: {$source['name']}\n";
+				$contextText .= $this->sourceLine(name: $source['name'], registerName: ($result['register_name'] ?? null));
 				$contextText .= "{$source['text']}\n\n";
 
 				// Stop if we've reached limits for both types.
@@ -377,13 +379,20 @@ class ContextRetrievalHandler {
 	 * @param int $limit Result limit.
 	 * @param array<string> $viewFilters Resolved view UUIDs; empty disables retrieval.
 	 *
+	 * @param string $applicationSlug The app the agent is tied to; with no views, its registers are the scope.
+	 *
 	 * @return array Search rows, or an empty list when out of scope.
 	 *
 	 * @psalm-return list<array<string, mixed>>
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
-	private function searchScoped(string $query, int $limit, array $viewFilters): array {
+	private function searchScoped(string $query, int $limit, array $viewFilters, string $applicationSlug = ''): array {
+		if (empty($viewFilters) === true && trim($applicationSlug) !== '' && $this->appScope !== null) {
+			return $this->searchAppRegisters(query: $query, limit: $limit, applicationSlug: $applicationSlug);
+		}
+
 		if (empty($viewFilters) === true) {
 			$this->logger->info(
 				message: '[ContextRetrievalHandler] object retrieval skipped: the agent resolved to no views, '
@@ -448,8 +457,54 @@ class ContextRetrievalHandler {
 			views: $views
 		);
 
+		return $this->transform(results: ($results['results'] ?? []), registerName: null);
+	}//end searchKeywordOnly()
+
+	/**
+	 * Search each of the app's registers and merge the hits by score
+	 * (agents-bound-to-their-app): an agent tied to an app, with no views of its
+	 * own, answers from that app's data, and each hit names its register.
+	 *
+	 * @param string $query           The query.
+	 * @param int    $limit           The maximum number of hits.
+	 * @param string $applicationSlug The app.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 */
+	private function searchAppRegisters(string $query, int $limit, string $applicationSlug): array {
+		$hits = [];
+		foreach ($this->appScope?->registersFor(app: $applicationSlug) ?? [] as $register) {
+			$results = $this->objectService->searchObjectsPaginated(
+				query: [
+					'_search' => $query,
+					'_limit' => $limit,
+					'_register' => $register['id'],
+					'_schema' => null,
+				]
+			);
+			array_push($hits, ...$this->transform(results: ($results['results'] ?? []), registerName: $register['name']));
+		}
+
+		usort($hits, fn (array $left, array $right): int => ((float)$right['score'] <=> (float)$left['score']));
+
+		return array_slice($hits, 0, $limit);
+	}//end searchAppRegisters()
+
+	/**
+	 * Turn search results into retrieval hits.
+	 *
+	 * @param array<int, mixed> $results      The search results.
+	 * @param string|null       $registerName The register they came from, when known.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 */
+	private function transform(array $results, ?string $registerName): array {
 		$transformed = [];
-		foreach ($results['results'] ?? [] as $result) {
+		foreach ($results as $result) {
 			if (($result instanceof ObjectEntity) === true) {
 				$result = array_merge(
 					['id' => $result->getUuid()],
@@ -467,11 +522,30 @@ class ContextRetrievalHandler {
 				'text' => $result['_source']['data'] ?? json_encode($result),
 				'score' => $result['_score'] ?? 1.0,
 				'name' => $result['name'] ?? $result['title'] ?? null,
+				'register_name' => $registerName,
 			];
 		}
 
 		return $transformed;
-	}//end searchKeywordOnly()
+	}//end transform()
+
+	/**
+	 * One source line of the context text, naming the register when known.
+	 *
+	 * @param string      $name         The source name.
+	 * @param string|null $registerName The register.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 */
+	private function sourceLine(string $name, ?string $registerName): string {
+		if ($registerName === null || $registerName === '') {
+			return "Source: {$name}\n";
+		}
+
+		return "Source: {$name} (register: {$registerName})\n";
+	}//end sourceLine()
 
 	/**
 	 * Extract a human-readable name from a search result.
