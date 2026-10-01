@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use RuntimeException;
 /**
  * Marks and unmarks an app's assistant.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
  */
 class AppAssistantService
 {
@@ -52,7 +52,7 @@ class AppAssistantService
      * @param ObjectService            $objectService Reads and writes agents.
      * @param AgentAvailabilityService $availability  Who may read an agent and who administers an organisation.
      *
-     * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+     * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -74,7 +74,7 @@ class AppAssistantService
      *
      * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The flag IS a boolean.
      *
-     * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+     * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
      */
     public function mark(string $agentId, bool $assistant, string $uid): ObjectEntity
     {
@@ -123,7 +123,7 @@ class AppAssistantService
      *
      * @return bool
      *
-     * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+     * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
      */
     private function otherAssistant(string $app, string $organisation, string $agentId): bool
     {

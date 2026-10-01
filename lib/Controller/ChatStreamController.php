@@ -718,7 +718,7 @@ class ChatStreamController extends Controller {
 	 * @return string The accessible agent uuid, or '' when none is found.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
 	 */
 	private function pickFallbackAgentForUser(string $userId, string $applicationSlug = ''): string {
 		$resolver = $this->assistants ?? new AppAssistantResolver(

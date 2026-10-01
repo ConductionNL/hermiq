@@ -8,7 +8,7 @@
 // Usage:
 //   node tests/agent-app.spec.js
 //
-// @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+// @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
 
 'use strict'
 

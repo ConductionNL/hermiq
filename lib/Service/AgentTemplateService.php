@@ -360,7 +360,7 @@ class AgentTemplateService {
 	 *
 	 * @return array<string, mixed> The parsed fields.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
 	public function parsePackage(string $package): array {
 		return $this->serializer->fromPackage(package: $package);
@@ -375,7 +375,7 @@ class AgentTemplateService {
 	 *
 	 * @return array<int, ObjectEntity> The templates with an `offeredBy`.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
 	public function appOffers(): array {
 		$objects = $this->objectService
@@ -406,7 +406,7 @@ class AgentTemplateService {
 	 *
 	 * @return ObjectEntity The persisted template.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
 	public function importAppOffer(array $parsed, string $appId, string $offerHash, ?string $replaceUuid = null): ObjectEntity {
 		$scan = $this->scanSystemPrompt(systemPrompt: (string)$parsed['systemPrompt']);
@@ -596,7 +596,7 @@ class AgentTemplateService {
 	 *
 	 * @return array<string, string> Either `['applicationSlug' => <appId>]` or empty.
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
 	private function offeringApp(array $template): array {
 		$appId = (string)($template['offeredBy'] ?? '');

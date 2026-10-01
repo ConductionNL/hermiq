@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use OCP\EventDispatcher\Event;
 /**
  * Collects the agent templates installed apps offer for themselves.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
  */
 class CollectAgentTemplatesEvent extends Event {
 
@@ -63,7 +63,7 @@ class CollectAgentTemplatesEvent extends Event {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
 	public function offer(string $appId, string $package): void {
 		$this->offers[] = ['appId' => $appId, 'package' => $package];
@@ -74,7 +74,7 @@ class CollectAgentTemplatesEvent extends Event {
 	 *
 	 * @return array<int, array{appId: string, package: string}>
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
 	public function getOffers(): array {
 		return $this->offers;

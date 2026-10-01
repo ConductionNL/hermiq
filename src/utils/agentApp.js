@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  *
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
  */
 
 /**
@@ -15,7 +15,7 @@
  * @param {object|undefined} webroots The instance's app web roots, by app id.
  * @param {string} current The agent's current app slug.
  * @return {Array<{label: string, value: string}>} The options.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
  */
 export function appOptions(webroots, current) {
 	const apps = new Set(Object.keys(webroots || {}).filter((app) => app !== 'core'))
@@ -31,7 +31,7 @@ export function appOptions(webroots, current) {
  *
  * @param {object|string|null} choice The option, or a plain value.
  * @return {string} The slug, trimmed and lower case; '' for none.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
  */
 export function appSlugOf(choice) {
 	const value = choice && typeof choice === 'object' ? choice.value : choice
@@ -46,7 +46,7 @@ export function appSlugOf(choice) {
  *
  * @param {object} agent The stored agent.
  * @return {boolean} True when it answers in its app.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
  */
 export function answersInItsApp(agent) {
 	const app = appSlugOf(agent?.applicationSlug)

@@ -10,7 +10,7 @@
   they show in the Store list to be reviewed. Emits `imported` when anything
   changed (the page refreshes the list) and `close` to dismiss.
 
-  @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+  @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 -->
 <template>
 	<NcModal size="normal" :noClose="busy" @close="$emit('close')">
@@ -103,7 +103,7 @@ export default {
 		 * Run the collect and show its counts.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 		 */
 		async run() {
 			this.busy = true

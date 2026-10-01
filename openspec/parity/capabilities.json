@@ -892,15 +892,17 @@
 			"area": "agents",
 			"name": "Tie an agent to the app it serves so that app can find and call it.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/specs/hermiq-agent-application-slug/spec.md states explicitly, on every requirement, 'Backend-only repair-step write path with no UI surface'; lib/Settings/hermiq_register.json:2453 Agent.applicationSlug; lib/Repair/SeedHydraTriageAgent.php and lib/Repair/BackfillAgentApplicationSlug.php set it; lib/Controller/ChatStreamController.php:258,691-692 reads it for chat-agent fallback matching. src/modals/AgentFormModal.vue has no applicationSlug field. Specified in openspec/changes/agents-bound-to-their-app/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-bound-to-their-app"
+				"evidence": "The owner picks the app an agent serves with the App field on the agent form (src/modals/AgentFormModal.vue, src/utils/agentApp.js), saved as Agent.applicationSlug; an organisation admin makes one agent per app its assistant (POST /api/agents/{id}/app-assistant, AgentAppAssistantController, AppAssistantService, Agent.appAssistantFor, 409 for a second one), and both chat endpoints pick it through AppAssistantResolver when a chat names no agent (ChatController, ChatStreamController). An app's agent searches the registers that app imported (AppRegisterScope, ContextRetrievalHandler), and a record page's agent leaf shows a summary written by the record's app assistant (RecordSummaryController, RecordSummaryService, RecordSummary schema, register 0.43.0). An installed app offers an agent template for itself through CollectAgentTemplatesEvent; hermiq imports it quarantined with offeredBy (AppTemplateOffers, CollectAppAgentTemplates, Store 'Check apps for templates', register 0.44.0), and an agent made from it carries that app as applicationSlug. Proven in tests/Unit/Service/AppAssistantResolverTest.php, tests/agent-app.spec.js, tests/Unit/Service/Engine/AppRegisterScopeTest.php, tests/Unit/Service/Assistant/RecordSummaryServiceTest.php, tests/Unit/Service/AppTemplateOffersTest.php.",
+				"reachedOn": "Agent page: App field and the Assistant for this app switch; a record page with the agent leaf: Summary; Store: Check apps for templates",
+				"change": "openspec/changes/archive/2026-10-01-agents-bound-to-their-app",
+				"readOn": "2026-10-01"
 			},
-			"reachedOn": "nothing",
-			"note": "The field exists and one backend consumer (chat's fallback-agent picker) reads it, but nothing lets a user set it on their own agent; the spec itself calls this backend-only.",
+			"reachedOn": "Agent page: App field",
+			"note": "Built 2026-10-01 by agents-bound-to-their-app. History: before that the field existed and the chat fallback read it, but nothing let a user set it.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "hermiq-agent-application-slug",

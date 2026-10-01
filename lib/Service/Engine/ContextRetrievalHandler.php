@@ -386,7 +386,7 @@ class ContextRetrievalHandler {
 	 * @psalm-return list<array<string, mixed>>
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
 	private function searchScoped(string $query, int $limit, array $viewFilters, string $applicationSlug = ''): array {
 		if (empty($viewFilters) === true && trim($applicationSlug) !== '' && $this->appScope !== null) {
@@ -471,7 +471,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
 	private function searchAppRegisters(string $query, int $limit, string $applicationSlug): array {
 		$hits = [];
@@ -500,7 +500,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
 	private function transform(array $results, ?string $registerName): array {
 		$transformed = [];
@@ -537,7 +537,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
 	private function sourceLine(string $name, ?string $registerName): string {
 		if ($registerName === null || $registerName === '') {

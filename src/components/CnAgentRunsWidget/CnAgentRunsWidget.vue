@@ -22,7 +22,7 @@
   - writes one with the assistant of the object's app.
   -
   - @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
-  - @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+  - @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 -->
 <template>
 	<div class="cn-agent-runs-widget" data-testid="cn-agent-runs-widget">
@@ -138,7 +138,7 @@ import {
  *
  * @param {string} reason The refusal reason (summaryRefusal()).
  * @return {string} The sentence.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+ * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
  */
 function refusalSentence(reason) {
 	switch (reason) {
@@ -191,21 +191,21 @@ export default {
 
 	computed: {
 		/**
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 		 */
 		summaryShown() {
 			return showsSummarySection(this.summaryStatus)
 		},
 
 		/**
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 		 */
 		summaryButton() {
 			return offersSummaryButton(this.summaryStatus)
 		},
 
 		/**
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 		 */
 		summaryWrittenOn() {
 			return summaryDate(
@@ -262,7 +262,7 @@ export default {
 		 * What the summary section may show, without a model call. Any refusal
 		 * (an unreadable object included) leaves the section hidden.
 		 *
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+		 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 		 */
 		async loadSummary() {
 			this.summaryError = ''
@@ -287,7 +287,7 @@ export default {
 		/**
 		 * Ask the app's assistant for a summary of this object.
 		 *
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
+		 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-a-case-handler-reads-a-summary-of-a-long-application
 		 */
 		async writeSummary() {
 			if (this.summaryWriting) {
@@ -327,7 +327,7 @@ export default {
 		/**
 		 * @param {string} reason The refusal reason (summaryRefusal()).
 		 * @return {string} The sentence the reader sees.
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
+		 * @spec openspec/specs/agent-object-leaf/spec.md#scenario-no-summary-for-a-record-the-user-cannot-read
 		 */
 		refusalText(reason) {
 			return refusalSentence(reason)

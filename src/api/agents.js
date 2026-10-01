@@ -229,7 +229,7 @@ export async function rollbackAgentVersion(agentId, versionId) {
  * @param {string} agentId The agent uuid.
  * @param {boolean} appAssistant Whether it answers in its app.
  * @return {Promise<object>} The flag and the app.
- * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
  */
 export async function setAppAssistant(agentId, appAssistant) {
 	const response = await axios.post(

@@ -60,6 +60,18 @@ Task 5, the record summary. Where it differs from D4:
 - The prompt is the library prompt whose `usageScope` is exactly `record-summary`; an unscoped prompt (offered everywhere) does not count. Without one the design's text is used, and `SeedRecordSummary` ships that text as the "Record summary" prompt.
 - The organisation's guardrail input and output filters run on the record text and the reply, as on `converse`.
 
+## As built (part 3, 1 Oct 2026)
+
+Task 6, the app template offer. Where it differs from D5:
+
+- `source` is `app` and the offering app is in `offeredBy`, not `source: 'app:<appId>'`. `AgentTemplate.source` is an enum, and the register refuses `app:shillinq` (the Opis negative control in `tests/Unit/Service/AppTemplateOffersTest.php` shows it). The spec delta says so.
+- `offerHash` (sha256 of the package as offered) is the content hash. An offer is known by app id plus template name: an unchanged hash is skipped, a changed one overwrites that template, quarantined and scanned again, so an approved template goes back to review when its app changes it.
+- `AppTemplateOffers::collect()` dispatches the event, then refuses an offer whose app id is not a Nextcloud app id or not installed, whose package is not a JSON object, or that has no name. A refusal is logged and counted; a listener that throws ends the dispatch, and the offers made before it are still imported.
+- Offered templates are written instance-wide (`_rbac: false`, `_multitenancy: false`), like the seeded starter templates, so a collect run by one organisation admin finds what the repair step wrote and never duplicates it.
+- The Store's "Check apps for templates" header action opens `AppTemplateCollectModal`, which calls `POST /api/agent-templates/collect-from-apps` (`AppTemplateOffersController`). Only a caller with the `agenttemplate.approve-quarantined` action may run it: the people who review offers are the ones who fetch them.
+- `CollectAppAgentTemplates` runs after `SeedAgentTemplates` on install and on upgrade, under a system identity.
+- The developer guide is `docs/app-agent-templates.md`. Shillinq's design D2 (a listener offering its help agent) is the route that now works; the note for the shillinq lane is drafted for Ruben, not filed.
+
 ## Declarative versus imperative
 
 | behaviour | path | why |

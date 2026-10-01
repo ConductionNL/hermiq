@@ -898,7 +898,7 @@ export default {
 		 * The apps the agent can serve (agents-bound-to-their-app).
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agents-bound-to-their-app/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
 		 */
 		appChoices() {
 			return appOptions(
