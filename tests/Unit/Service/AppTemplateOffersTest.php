@@ -265,9 +265,16 @@ final class AppTemplateOffersTest extends TestCase {
 			static fn (string $appId): bool => in_array($appId, ['shillinq', 'dossiq'], true)
 		);
 
+		$scanner = $this->createMock(ContentScanService::class);
+		$scanner->method('scan')->willReturn(
+			['safe' => true, 'severity' => ContentScanService::SEVERITY_CLEAN, 'findings' => [], 'scannedBytes' => 10, 'truncated' => false]
+		);
+
 		return new AppTemplateOffers(
 			dispatcher: $dispatcher,
-			templates: $this->templateService(),
+			objectService: $this->objects,
+			serializer: new AgentTemplateSerializer(),
+			contentScanService: $scanner,
 			appManager: $appManager,
 			logger: new NullLogger(),
 		);
