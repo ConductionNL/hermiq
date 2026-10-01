@@ -1,5 +1,15 @@
 {
     "translations": {
+        "Check apps for templates": "Apps controleren op templates",
+        "Installed apps can offer an agent template for themselves. An offered template starts quarantined: review and approve it before anyone can use it.": "Geïnstalleerde apps kunnen een agent-template voor zichzelf aanbieden. Een aangeboden template staat eerst in quarantaine: beoordeel en keur het goed voordat iemand het kan gebruiken.",
+        "Check now": "Nu controleren",
+        "{imported} new, {updated} updated, {unchanged} unchanged, {refused} refused.": "{imported} nieuw, {updated} bijgewerkt, {unchanged} ongewijzigd, {refused} geweigerd.",
+        "Could not check the apps for templates": "Kon de apps niet controleren op templates",
+        "Offered by": "Aangeboden door",
+        "Offer hash": "Hash van het aanbod",
+        "The id of the installed app that offered this template for itself through CollectAgentTemplatesEvent. An agent created from it is tied to that app (applicationSlug). Empty for a template no app offered.": "Het id van de geïnstalleerde app die deze template voor zichzelf aanbood via CollectAgentTemplatesEvent. Een agent die ermee gemaakt wordt, is aan die app gekoppeld (applicationSlug). Leeg voor een template die geen app aanbood.",
+        "The sha256 of the package the app offered, so a collect skips an unchanged offer instead of importing it twice.": "De sha256 van het pakket dat de app aanbood, zodat het ophalen een ongewijzigd aanbod overslaat in plaats van het twee keer te importeren.",
+        "Where the template came from: locally authored, another organisation, an external hub, or an installed app that offered it for itself (see offeredBy). Mirrors Skill.source.": "Waar de template vandaan komt: lokaal geschreven, een andere organisatie, een externe hub of een geïnstalleerde app die hem voor zichzelf aanbood (zie offeredBy). Volgt Skill.source.",
         "Assistant for this app": "Assistent voor deze app",
         "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.": "De app waarin deze agent als assistent antwoordt wanneer een chat geen agent noemt. Dit geldt alleen zolang het gelijk is aan applicationSlug, dus de agent naar een andere app verplaatsen beëindigt het. Eén per app per organisatie, gekozen door een beheerder van de organisatie via POST /api/agents/{id}/app-assistant; via de object-API mag alleen een instantiebeheerder het wijzigen.",
         "App this agent serves": "App waarvoor deze agent werkt",

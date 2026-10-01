@@ -121,6 +121,19 @@ export async function importAgentTemplate(pkg, source = 'org') {
 }
 
 /**
+ * Ask the installed apps for the agent templates they offer for themselves. Offers land
+ * quarantined; the response counts them.
+ *
+ * @return {Promise<{imported: number, updated: number, unchanged: number, refused: number}>} The counts.
+ */
+export async function collectAppTemplates() {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/collect-from-apps`),
+	)
+	return response.data
+}
+
+/**
  * Approve a quarantined template — the review gate → active.
  *
  * @param {string} id The AgentTemplate UUID.
