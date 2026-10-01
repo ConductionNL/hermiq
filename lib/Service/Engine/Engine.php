@@ -64,10 +64,12 @@ use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IUserManager;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Engine
@@ -157,6 +159,10 @@ class Engine {
 	 *                                                 class is dependency-free.
 	 * @param IUserManager|null $userManager Resolves a speaker's display name for a
 	 *                                       shared session's turn.
+	 * @param PromptVariableResolver|null $promptVariables Fills the placeholders in
+	 *                                                     Agent.prompt for the acting
+	 *                                                     person (agents-instruction-variables);
+	 *                                                     null leaves the prompt as written.
 	 *
 	 * @return void
 	 *
@@ -180,6 +186,7 @@ class Engine {
 		private readonly ?IJobList $jobList = null,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?IUserManager $userManager = null,
+		private readonly ?PromptVariableResolver $promptVariables = null,
 	) {
 	}//end __construct()
 
@@ -473,7 +480,14 @@ class Engine {
 				contextPreamble: $contextPreamble,
 				trace: $trace,
 				dryRun: $dryRun,
-				conversationId: $conversationId
+				conversationId: $conversationId,
+				promptVariables: $this->promptVariablesFor(
+					userId: $userId,
+					agent: $agent,
+					organisation: $organisation,
+					appContext: $cnAiContext,
+					conversationData: $conversationData
+				)
 			);
 			$llmTime = microtime(true) - $llmStartTime;
 			if ($llmToken !== null) {
@@ -696,4 +710,47 @@ class Engine {
 
 		return ((string)$filter['text']) !== $originalText;
 	}//end guardrailActed()
+	/**
+	 * The placeholder values for this turn (agents-instruction-variables): the
+	 * acting person, the session's start field answers and the companion's app.
+	 * A failure to read one of them never stops the turn; the prompt is then
+	 * sent as written.
+	 *
+	 * @param string               $userId           The acting person.
+	 * @param ObjectEntity|null    $agent            The session's agent.
+	 * @param string               $organisation     The session's organisation.
+	 * @param array<string, mixed> $appContext       The companion's snapshot.
+	 * @param array<string, mixed> $conversationData The session's data.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 */
+	private function promptVariablesFor(
+		string $userId,
+		?ObjectEntity $agent,
+		string $organisation,
+		array $appContext,
+		array $conversationData,
+	): array {
+		if ($this->promptVariables === null || $agent === null) {
+			return [];
+		}
+
+		try {
+			return $this->promptVariables->variablesFor(
+				userId: $userId,
+				agentData: $agent->getObject(),
+				organisation: $organisation,
+				appContext: $appContext,
+				startValues: (array)($conversationData['startValues'] ?? [])
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[Engine] Placeholder values could not be read; the instructions go as written',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return [];
+		}
+	}//end promptVariablesFor()
 }//end class
