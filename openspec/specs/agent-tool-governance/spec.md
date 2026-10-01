@@ -28,7 +28,9 @@ on Hermiq's side of the facade, and this capability owns all three:
 Hermiq CONSUMES the derived catalog; it never derives it and ships no tool code of its own
 (ADR-063, gate-27). The authoritative authorization boundary stays OpenRegister RBAC at invoke
 time — everything here is a governance/UX layer that only ever NARROWS what an agent can reach.
+
 ## Requirements
+
 ### Requirement: Progressive tool disclosure for large catalogs
 The system MUST NOT place every tool descriptor into the model context when an agent's resolved tool
 catalog exceeds a configurable threshold (`IAppConfig('hermiq', 'tools.disclosureThreshold')`,
@@ -193,6 +195,21 @@ The system MUST include each tool's resolved `reach` in the grant-annotated tool
 - **WHEN** the catalogue is returned
 - **THEN** that entry's `reach` MUST be `external`
 @e2e exclude Requires a descriptor with no reach in the live catalogue, which the shipped provider does not produce; asserted by unit test on the catalogue assembler.
+
+### Requirement: An agent stops after the tool calls its owner allows (REQ-AGOFF-005)
+
+The system MUST let an agent owner set `maxToolCalls` on an agent, an integer from 1 to 100 with default 10. The system MUST count tool calls within one turn on every provider path and MUST NOT invoke a tool past the cap. The turn MUST end with the model's last answer and the run trace MUST record "Tool call limit reached for this turn".
+
+#### Scenario: A looping agent hits its cap
+- GIVEN an agent with `maxToolCalls` 5 that keeps asking for the same search
+- WHEN it asks for a sixth tool call in one turn
+- THEN the sixth tool is not invoked, the turn ends, and the run trace shows "Tool call limit reached for this turn"
+- @e2e exclude engine behaviour, covered by PHPUnit on FacadeToolInvoker and ProviderFactory
+
+#### Scenario: An owner raises the cap on the agent form
+- GIVEN the owner of an agent editing it on the agent form
+- WHEN they set "Maximum tool calls per answer" to 25 and save
+- THEN the agent page shows 25 and the next turn may make up to 25 tool calls
 
 ## User Stories
 

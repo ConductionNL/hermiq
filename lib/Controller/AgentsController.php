@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -117,7 +118,20 @@ class AgentsController extends Controller {
 	 *
 	 * @var array<int, string>
 	 */
-	private const PROTECTED_KEYS = ['_route', 'id', 'uuid', 'created', 'updated', 'organisation', 'owner'];
+	private const PROTECTED_KEYS = [
+		'_route',
+		'id',
+		'uuid',
+		'created',
+		'updated',
+		'organisation',
+		'owner',
+		// Agents-switch-off-and-stop: the switch has one write path, the availability endpoint.
+		'active',
+		'availabilityChangedBy',
+		'availabilityChangedAt',
+		'availabilityReason',
+	];
 
 	/**
 	 * Constructor.
@@ -128,6 +142,7 @@ class AgentsController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
+	 * @param AgentCatalog $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
@@ -138,6 +153,7 @@ class AgentsController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly AgentAccessService $agentAccess,
+		private readonly AgentCatalog $catalog,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -174,32 +190,11 @@ class AgentsController extends Controller {
 				$offset = (($page - 1) * $limit);
 			}
 
-			// Fetch the page (org-scoped by ObjectService multitenancy), then
-			// apply the per-agent visibility rule.
-			$agents = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::AGENT_SCHEMA)
-				->findAll(
-					config: [
-						'limit' => $limit,
-						'offset' => $offset,
-					]
-				);
-
-			$results = [];
-			foreach ($agents as $agent) {
-				if (($agent instanceof ObjectEntity) === false) {
-					continue;
-				}
-
-				if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
-					$results[] = $this->serializeAgent(agent: $agent);
-				}
-			}
-
-			// Return successful response with agents list.
+			// Agents-sharing-and-catalog-columns: the page reads through the Agent
+			// read rule, so paging and the total count only what the user may use;
+			// an organisation admin reads every agent of the organisation.
 			return new JSONResponse(
-				data: ['results' => $results],
+				data: $this->catalog->page(uid: $userId, limit: $limit, offset: $offset),
 				statusCode: Http::STATUS_OK
 			);
 		} catch (Exception $e) {
@@ -247,18 +242,18 @@ class AgentsController extends Controller {
 				);
 			}
 
-			// Per-object visibility check (gate-7).
-			if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+			// Per-object visibility check (gate-7). A refusal is a 404, so a
+			// colleague cannot confirm that a private agent exists; an organisation
+			// admin gets the reduced row (agents-sharing-and-catalog-columns).
+			$row = $this->catalog->row(agent: $agent, uid: $userId);
+			if ($row === null) {
 				return new JSONResponse(
-					data: ['error' => 'Access denied to this agent'],
-					statusCode: Http::STATUS_FORBIDDEN
+					data: ['error' => 'Agent not found'],
+					statusCode: Http::STATUS_NOT_FOUND
 				);
 			}
 
-			return new JSONResponse(
-				data: $this->serializeAgent(agent: $agent),
-				statusCode: Http::STATUS_OK
-			);
+			return new JSONResponse(data: $row, statusCode: Http::STATUS_OK);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[AgentsController] Failed to get agent',

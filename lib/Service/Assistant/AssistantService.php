@@ -34,6 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Assistant;
 
+use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use Exception;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
@@ -194,6 +195,22 @@ class AssistantService {
 		$conversationId = (string)$conversation->getUuid();
 		$organisation = (string)($conversation->getOrganisation() ?? '');
 
+		// _rbac false: the case-assistant agent is provisioned once per app as a
+		// private agent (so it stays out of the catalog), owned by whoever triggered
+		// the provisioning. The Agent read rule (hermiq#976) would hide it from every
+		// other user. resolveConversation() above already checked the session is the
+		// caller's own; tenancy still applies.
+		$agent = $this->objectService->find(
+			id: (string)$conversation->getObject()['agentId'],
+			register: self::REGISTER_SLUG,
+			schema: self::AGENT_SCHEMA,
+			_rbac: false
+		);
+
+		// Agents-switch-off-and-stop: a switched-off agent answers nothing, and the
+		// question is not stored.
+		(new AgentAvailability())->assertRunnable(agent: $agent);
+
 		$guardrailPolicy = $this->resolveGuardrailPolicy(organisation: $organisation);
 		$inputFilter = $this->guardrailPolicyService?->filterInput(
 			policy: $guardrailPolicy,
@@ -219,18 +236,6 @@ class AssistantService {
 		);
 
 		$messageHistory = $this->historyHandler->buildMessageHistory(conversationId: $conversationId);
-
-		// _rbac false: the case-assistant agent is provisioned once per app as a
-		// private agent (so it stays out of the catalog), owned by whoever triggered
-		// the provisioning. The Agent read rule (hermiq#976) would hide it from every
-		// other user. resolveConversation() above already checked the session is the
-		// caller's own; tenancy still applies.
-		$agent = $this->objectService->find(
-			id: (string)$conversation->getObject()['agentId'],
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			_rbac: false
-		);
 
 		$ragContext = [
 			'text' => $this->renderContextData(context: $context),

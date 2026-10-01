@@ -387,6 +387,28 @@ class ChatControllerTest extends TestCase {
 	}//end testARunRefusedOnDataUseTellsThePersonWhy()
 
 	/**
+	 * A switched-off agent: the chat answers 409 with the sentence the person reads.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testASwitchedOffAgentAnswers409(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException(new \OCA\Hermiq\Service\Agent\AgentSwitchedOffException());
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame('This agent is switched off.', $response->getData()['message']);
+		$this->assertSame('agent_switched_off', $response->getData()['errorCode']);
+
+	}//end testASwitchedOffAgentAnswers409()
+
+	/**
 	 * getHistory without a conversationId is a 400.
 	 *
 	 * @return void

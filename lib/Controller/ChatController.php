@@ -43,6 +43,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\RunStepBus;
@@ -393,6 +394,7 @@ class ChatController extends Controller {
 				401 => $this->l10n->t('Authentication required'),
 				403 => $this->l10n->t('Access denied'),
 				404 => $this->l10n->t('Conversation not found'),
+				409 => $this->l10n->t('This agent is switched off.'),
 				422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
 				503 => $this->l10n->t('AI service not configured'),
 				default => $this->l10n->t('Failed to process message'),
@@ -413,6 +415,13 @@ class ChatController extends Controller {
 			if ($cause instanceof PinnedCredentialRefusedException) {
 				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
 				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
+				break;
+			}
+
+			// The agent is switched off (agents-switch-off-and-stop): no answer, the sentence.
+			if ($cause instanceof AgentSwitchedOffException) {
+				$data['message'] = $this->l10n->t('This agent is switched off.');
+				$data['errorCode'] = AgentSwitchedOffException::ERROR_CODE;
 				break;
 			}
 

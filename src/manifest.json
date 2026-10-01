@@ -194,6 +194,21 @@
 						"label": "Name"
 					},
 					{
+						"key": "owner",
+						"label": "Owner"
+					},
+					{
+						"key": "isPrivate",
+						"label": "Who can use it",
+						"formatter": "agentSharing",
+						"sortable": false
+					},
+					{
+						"key": "active",
+						"label": "Status",
+						"formatter": "agentStatus"
+					},
+					{
 						"key": "model",
 						"label": "Model"
 					}
@@ -210,7 +225,8 @@
 				]
 			},
 			"slots": {
-				"form-dialog": "AgentFormModal"
+				"form-dialog": "AgentFormModal",
+				"delete-dialog": "AgentDeleteDialog"
 			}
 		},
 		{
@@ -241,7 +257,7 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"active"
+								"maxToolCalls"
 							]
 						}
 					},
@@ -525,6 +541,16 @@
 						"type": "open-modal",
 						"target": "agent-form",
 						"icon": "Pencil",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "switch-availability",
+						"label": "Switch off or on",
+						"type": "open-modal",
+						"target": "agent-availability",
+						"icon": "Power",
 						"props": {
 							"show": true
 						}

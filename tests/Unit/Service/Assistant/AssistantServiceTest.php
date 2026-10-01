@@ -277,6 +277,33 @@ class AssistantServiceTest extends TestCase {
 	}//end testGuardrailBlockedInputNeverCallsLlm()
 
 	/**
+	 * A switched-off agent is refused before the turn is stored or a model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testSwitchedOffAgentIsRefusedBeforeAnythingIsStored(): void {
+		$conversation = $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
+		$agent = $this->entity('agent-1', ['name' => 'Case Assistant (procest)', 'active' => false]);
+
+		$this->objectService->method('find')->willReturnCallback(
+			static fn (string $id): ?ObjectEntity => match ($id) {
+				'conv-1' => $conversation,
+				'agent-1' => $agent,
+				default => null,
+			}
+		);
+
+		$this->historyHandler->expects($this->never())->method('storeMessage');
+		$this->responseHandler->expects($this->never())->method('generateResponse');
+
+		$this->expectException(\OCA\Hermiq\Service\Agent\AgentSwitchedOffException::class);
+
+		$this->service()->converse(userId: 'alice', sessionId: 'conv-1', message: 'Status?', context: ['app' => 'procest']);
+	}//end testSwitchedOffAgentIsRefusedBeforeAnythingIsStored()
+
+	/**
 	 * Happy path against an existing session: stores both turns, calls the
 	 * response handler with no tools, and returns the expected envelope.
 	 *

@@ -1,9 +1,4 @@
 {
-  "src/App.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
   "src/api/evals.js": {
     "eqeqeq": {
       "count": 1

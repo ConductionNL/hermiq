@@ -212,9 +212,9 @@ class ProviderFactory {
 	private const CREDENTIAL_SCOPE_PERSONAL = 'personal';
 
 	/**
-	 * Hard cap on Anthropic/runner tool-call round-trips per turn — a safety bound so a
-	 * model that keeps requesting tools cannot loop forever. LLPhant enforces the same
-	 * kind of ceiling internally for the OpenAI/Ollama path.
+	 * Tool calls per turn on the Anthropic loop when the caller names no cap: the
+	 * default of Agent.maxToolCalls (agents-switch-off-and-stop). The agent's own cap,
+	 * passed as `maxToolCalls`, replaces it.
 	 *
 	 * @var int
 	 */
@@ -231,6 +231,13 @@ class ProviderFactory {
 	 * @var array<string, int>
 	 */
 	private array $lastCallUsage = [];
+
+	/**
+	 * Whether the last Anthropic turn stopped at its tool call cap.
+	 *
+	 * @var boolean
+	 */
+	private bool $lastCallHitToolCap = false;
 
 	/**
 	 * Constructor.
@@ -404,6 +411,19 @@ class ProviderFactory {
 	public function lastCallUsage(): array {
 		return $this->lastCallUsage;
 	}//end lastCallUsage()
+
+	/**
+	 * Whether the last callAnthropicChat() stopped because the turn used every tool
+	 * call it may make (agents-switch-off-and-stop), so the caller can record it on
+	 * the run trace.
+	 *
+	 * @return bool True when the tool call cap ended the turn.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function lastCallHitToolCap(): bool {
+		return $this->lastCallHitToolCap;
+	}//end lastCallHitToolCap()
 
 	/**
 	 * Add one request's usage to a running total.
@@ -1028,6 +1048,9 @@ class ProviderFactory {
 	 * @param string $conversationId The conversation this turn belongs to. Threaded through
 	 *                               so a tool step published on the run-step bus reaches
 	 *                               the stream watching this conversation.
+	 * @param int|null $maxToolCalls The tool calls this turn may make (Agent.maxToolCalls);
+	 *                               null is the default of 10. Past it no tool runs and
+	 *                               the turn ends with the model's last answer.
 	 *
 	 * @return string Generated response text (the final assistant turn).
 	 *
@@ -1053,8 +1076,10 @@ class ProviderFactory {
 		string $executionMode = 'http',
 		?string $agentId = null,
 		string $conversationId = '',
+		?int $maxToolCalls = null,
 	): string {
 		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
 
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -1096,8 +1121,11 @@ class ProviderFactory {
 
 		$headers = $this->buildAnthropicHeaders(authMode: $authMode);
 		$text = '';
+		$cap = ($maxToolCalls ?? self::MAX_TOOL_ITERATIONS);
+		$executed = 0;
 
-		for ($iteration = 0; $iteration < self::MAX_TOOL_ITERATIONS; $iteration++) {
+		// At most one request per allowed tool call plus the closing one.
+		for ($iteration = 0; $iteration <= $cap; $iteration++) {
 			$payload = [
 				'model' => $model,
 				'max_tokens' => ($maxTokens ?? 4096),
@@ -1128,6 +1156,13 @@ class ProviderFactory {
 				break;
 			}
 
+			// The turn used every tool call it may make: no tool runs, the model's last
+			// answer stands (agents-switch-off-and-stop).
+			if ($executed >= $cap) {
+				$this->lastCallHitToolCap = true;
+				break;
+			}
+
 			// Echo the assistant's tool_use turn back verbatim, run each requested tool
 			// through Hermiq's governed engine (the executor), and feed the results back.
 			$messages[] = [
@@ -1136,7 +1171,12 @@ class ProviderFactory {
 			];
 			$toolResults = [];
 			foreach ($parsed['toolCalls'] as $toolCall) {
-				$result = (string)$toolExecutor($toolCall['name'], $toolCall['input']);
+				$result = '{"isError":true,"result":{"error":"Tool call limit reached for this turn"}}';
+				if ($executed < $cap) {
+					$result = (string)$toolExecutor($toolCall['name'], $toolCall['input']);
+					$executed++;
+				}
+
 				$toolResults[] = [
 					'tool_use_id' => $toolCall['id'],
 					'content' => $result,
@@ -1148,6 +1188,10 @@ class ProviderFactory {
 				'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
 			];
 		}//end for
+
+		if ($this->lastCallHitToolCap === true && trim($text) === '') {
+			$text = 'Tool call limit reached for this turn.';
+		}
 
 		return $text;
 	}//end callAnthropicChat()

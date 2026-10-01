@@ -29,6 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
@@ -2312,13 +2313,18 @@ class ScheduleServiceTest extends TestCase {
 	/**
 	 * agent-capability-profile: actingUser is never consulted on the flag-off (legacy
 	 * ChatService) path — a set actingUser has zero effect until the engine flag is on.
+	 * The agent itself IS read on this path since agents-switch-off-and-stop (is it
+	 * switched on?), so the proof is that its declared actingUser is not used.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
 	 */
 	public function testActingUserIgnoredOnFlagOffPath(): void {
-		$this->objectService->expects($this->never())->method('find');
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-uuid');
+		$agent->setObject(['name' => 'Digest', 'active' => true, 'actingUser' => 'bob']);
+		$this->objectService->method('find')->willReturn($agent);
 		$this->chatService->method('processMessage')->willReturn(['message' => 'or output', 'usage' => []]);
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
@@ -3637,4 +3643,84 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('', $saved[1]['engineFlowId'], 'Clearing must empty the marker.');
 
 	}//end testMarkAndClearEngineDelegationPersistTheMarker()
+
+	/**
+	 * A due schedule of a switched-off agent is skipped: no model is called, the
+	 * occurrence is recorded as `skipped_agent_off` and its next run advances.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testScheduleOfASwitchedOffAgentIsSkippedAndAdvances(): void {
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->never())->method('processMessage');
+		$this->engine->expects($this->never())->method('processMessage');
+		$this->service = $this->makeService();
+
+		$due = $this->schedule(
+			[
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-off',
+				'prompt' => 'go',
+				'deliver' => 'none',
+				'enabled' => true,
+				'nextRun' => '2000-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'off-sched'
+		);
+
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-off');
+		$agent->setObject(['name' => 'Weekly supplier digest', 'active' => false]);
+		$this->objectService->method('find')->willReturn($agent);
+		$this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$due], []);
+
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertNotEmpty($saved, 'The skip must be persisted.');
+		$final = end($saved);
+		$this->assertSame('skipped_agent_off', $final['lastStatus']);
+		$this->assertNotSame('2000-01-01T00:00:00+00:00', $final['nextRun'], 'The next run must move to the following due time.');
+		$this->assertGreaterThan(time(), strtotime((string)$final['nextRun']));
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('skipped_agent_off', $this->auditCalls[0]['context']['status']);
+
+	}//end testScheduleOfASwitchedOffAgentIsSkippedAndAdvances()
+
+	/**
+	 * The shared entry of run now, webhooks, flows and delegation refuses a
+	 * switched-off agent before it impersonates anyone or calls a model, on the
+	 * legacy branch too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testRunAgentAsOwnerRefusesASwitchedOffAgent(): void {
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->never())->method('processMessage');
+		$this->userSession->expects($this->never())->method('setUser');
+		$this->service = $this->makeService();
+
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-off');
+		$agent->setObject(['name' => 'Permit reminder', 'active' => false]);
+		$this->objectService->method('find')->willReturn($agent);
+
+		$this->expectException(AgentSwitchedOffException::class);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-off', prompt: 'go');
+
+	}//end testRunAgentAsOwnerRefusesASwitchedOffAgent()
 }//end class

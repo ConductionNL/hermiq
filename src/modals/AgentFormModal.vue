@@ -10,7 +10,7 @@
   createObjectStore agent store (src/store/store.js), not a bespoke resource
   helper (agent-engine-port task 5.2). On edit the existing agent payload is
   merged under the form fields so schema fields this form does not surface
-  (views, groups, invitedUsers, quotas, …) survive the PUT.
+  (views, quotas, …) survive the PUT.
 
   Fields cover what the ported engine actually reads (OR EditAgent parity where
   it matters): identity (name, description, icon), LLM config (provider, model,
@@ -85,6 +85,55 @@
 					v-model="form.description"
 					:label="t('hermiq', 'Description')"
 					:placeholder="t('hermiq', 'What does this agent do?')" />
+
+				<!-- Who can use this agent (agents-sharing-and-catalog-columns): three
+			     choices over isPrivate, invitedUsers and groups. -->
+				<fieldset class="agent-form__field" data-testid="agent-form-sharing">
+					<legend>{{ t('hermiq', 'Who can use this agent') }}</legend>
+					<NcCheckboxRadioSwitch
+						v-model="form.sharing"
+						type="radio"
+						name="agent-sharing"
+						value="only-me">
+						{{ t('hermiq', 'Only me') }}
+					</NcCheckboxRadioSwitch>
+					<NcCheckboxRadioSwitch
+						v-model="form.sharing"
+						type="radio"
+						name="agent-sharing"
+						value="people-and-groups">
+						{{ t('hermiq', 'People and groups I choose') }}
+					</NcCheckboxRadioSwitch>
+					<NcCheckboxRadioSwitch
+						v-model="form.sharing"
+						type="radio"
+						name="agent-sharing"
+						value="organisation">
+						{{ t('hermiq', 'Everyone in my organisation') }}
+					</NcCheckboxRadioSwitch>
+					<template v-if="form.sharing === 'people-and-groups'">
+						<NcSelect
+							v-model="form.invitedUsers"
+							data-testid="agent-form-sharing-people"
+							:inputLabel="t('hermiq', 'People')"
+							:options="peopleOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchPeople" />
+						<NcSelect
+							v-model="form.groups"
+							data-testid="agent-form-sharing-groups"
+							:inputLabel="t('hermiq', 'Groups')"
+							:options="groupOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchGroups" />
+					</template>
+				</fieldset>
 
 				<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
 			     agent in lists and on its detail page. Searchable over the full MDI
@@ -201,6 +250,21 @@
 						:label="t('hermiq', 'Max tokens per response')"
 						placeholder="2048" />
 				</div>
+
+				<NcTextField
+					v-model="form.maxToolCalls"
+					data-testid="agent-form-max-tool-calls"
+					type="number"
+					min="1"
+					max="100"
+					:label="t('hermiq', 'Maximum tool calls per answer')"
+					:helperText="
+						t(
+							'hermiq',
+							'The agent stops after this many tool calls in one answer.',
+						)
+					"
+					placeholder="10" />
 
 				<div class="agent-form__field">
 					<NcSelect
@@ -373,6 +437,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { listTools } from '../api/agents.js'
+import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
@@ -383,6 +448,7 @@ import {
 	PINNABLE_PROVIDERS,
 	setPin,
 } from '../utils/agentCredentials.js'
+import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 
 export default {
 	name: 'AgentFormModal',
@@ -458,6 +524,9 @@ export default {
 			pinnableProviders: PINNABLE_PROVIDERS,
 			toolOptions: [],
 			toolsLoading: false,
+			// Agents-sharing-and-catalog-columns: search results for the pickers.
+			peopleOptions: [],
+			groupOptions: [],
 			saving: false,
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
@@ -970,6 +1039,10 @@ export default {
 				prompt: '',
 				temperature: '',
 				maxTokens: '',
+				maxToolCalls: 10,
+				sharing: 'only-me',
+				invitedUsers: [],
+				groups: [],
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -1019,6 +1092,48 @@ export default {
 		},
 
 		/**
+		 * Offer the users matching the typed text (agents-sharing-and-catalog-columns).
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-agent-owner-decides-who-can-use-the-agent-req-agshare-001
+		 */
+		async onSearchPeople(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.peopleOptions = (await searchUsers(search)).map((user) => ({
+					label: user.displayName,
+					value: user.uid,
+				}))
+			} catch {
+				this.peopleOptions = []
+			}
+		},
+
+		/**
+		 * Offer the groups matching the typed text (agents-sharing-and-catalog-columns).
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-agent-owner-decides-who-can-use-the-agent-req-agshare-001
+		 */
+		async onSearchGroups(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.groupOptions = (await searchGroups(search)).map((group) => ({
+					label: group.displayName,
+					value: group.gid,
+				}))
+			} catch {
+				this.groupOptions = []
+			}
+		},
+
+		/**
 		 * Seed the form from `effectiveAgent` (edit) or blank (create).
 		 *
 		 * @return {void}
@@ -1044,6 +1159,17 @@ export default {
 				prompt: source.prompt || '',
 				temperature: source.temperature ?? '',
 				maxTokens: source.maxTokens ?? '',
+				maxToolCalls: source.maxToolCalls ?? 10,
+				sharing: sharingOf(source),
+				invitedUsers: (Array.isArray(source.invitedUsers)
+					? source.invitedUsers
+					: []
+				).map((uid) => ({ label: uid, value: uid })),
+
+				groups: (Array.isArray(source.groups) ? source.groups : []).map(
+					(gid) => ({ label: gid, value: gid }),
+				),
+
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
@@ -1282,6 +1408,18 @@ export default {
 			const maxTokens = Number(this.form.maxTokens)
 			if (this.form.maxTokens !== '' && Number.isInteger(maxTokens)) {
 				payload.maxTokens = maxTokens
+			}
+			Object.assign(
+				payload,
+				sharingFields(
+					this.form.sharing,
+					(this.form.invitedUsers || []).map((option) => option.value),
+					(this.form.groups || []).map((option) => option.value),
+				),
+			)
+			const maxToolCalls = Number(this.form.maxToolCalls)
+			if (this.form.maxToolCalls !== '' && Number.isInteger(maxToolCalls)) {
+				payload.maxToolCalls = Math.min(100, Math.max(1, maxToolCalls))
 			}
 			const ragNumSources = Number(this.form.ragNumSources)
 			if (this.form.ragNumSources !== '' && Number.isInteger(ragNumSources)) {

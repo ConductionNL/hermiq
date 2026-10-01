@@ -60,6 +60,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -333,6 +334,10 @@ class Engine {
 					_rbac: false
 				);
 			}
+
+			// Agents-switch-off-and-stop: a switched-off agent starts no turn, on any
+			// path that reaches the engine (chat, stream, Talk, ContextAgent, schedules).
+			(new AgentAvailability())->assertRunnable(agent: $agent);
 
 			// Capture the CnAiContext snapshot under its own name before
 			// the retrieveContext() call below reuses `$context` for the

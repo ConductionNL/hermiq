@@ -59,6 +59,7 @@ import PackageVariantClosed from 'vue-material-design-icons/PackageVariantClosed
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import PlayCircleOutline from 'vue-material-design-icons/PlayCircleOutline.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
+import Power from 'vue-material-design-icons/Power.vue'
 import PuzzleOutline from 'vue-material-design-icons/PuzzleOutline.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import RocketLaunch from 'vue-material-design-icons/RocketLaunch.vue'
@@ -135,6 +136,7 @@ export default {
 	// (see AgentFormModal): an agent an operator already saved as RobotOutline
 	// must keep rendering, and an unregistered name renders nothing at all
 	// rather than a fallback glyph.
+	Power,
 	RobotOutline,
 	RocketLaunch,
 	ScaleBalance,

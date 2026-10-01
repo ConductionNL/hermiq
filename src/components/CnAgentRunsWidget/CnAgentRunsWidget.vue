@@ -135,6 +135,7 @@ export default {
 				error: t('hermiq', 'Failed'),
 				skipped_killswitch: t('hermiq', 'Blocked (kill-switch)'),
 				skipped_budget: t('hermiq', 'Blocked (budget)'),
+				skipped_agent_off: t('hermiq', 'Blocked (agent switched off)'),
 				awaiting_approval: t('hermiq', 'Awaiting approval'),
 			}
 			return map[status] || status
@@ -334,7 +335,8 @@ export default {
 }
 
 .cn-agent-runs-widget__status--skipped_killswitch,
-.cn-agent-runs-widget__status--skipped_budget {
+.cn-agent-runs-widget__status--skipped_budget,
+.cn-agent-runs-widget__status--skipped_agent_off {
 	color: var(--color-warning);
 }
 

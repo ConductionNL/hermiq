@@ -48,6 +48,7 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
@@ -452,9 +453,14 @@ class ResponseGenerationHandler {
 					executionMode: $driver->executionMode,
 					agentId: $cliAgentId,
 					maxTokens: $driver->maxTokens,
-					conversationId: $conversationId
+					conversationId: $conversationId,
+					maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $agent)
 				);
 				$llmTime = microtime(true) - $llmStartTime;
+
+				// Agents-switch-off-and-stop: the Anthropic loop stops at the agent's cap
+				// itself, so the run trace learns it here.
+				$trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
 
 				// The input and output tokens of every request of the turn, tool loop
 				// included, which a token budget counts (hermiq#985).
@@ -557,6 +563,10 @@ class ResponseGenerationHandler {
 			);
 
 			return $response;
+		} catch (TurnStoppedException $e) {
+			// Agents-switch-off-and-stop: the model asked for a tool after the turn was
+			// stopped (agent switched off, or no tool calls left). The turn ends here.
+			return $e->getMessage() . '.';
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[ResponseGenerationHandler] Failed to generate response',

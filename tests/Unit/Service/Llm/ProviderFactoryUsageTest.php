@@ -165,6 +165,40 @@ class ProviderFactoryUsageTest extends TestCase {
 	}//end testAnthropicSumsEveryRequestOfTheToolLoop()
 
 	/**
+	 * The agent's tool call cap holds on the Anthropic loop: with a cap of 2 a
+	 * model that keeps asking gets two tool calls, not the old fixed ten.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function testAnthropicLoopStopsAtTheAgentsToolCallCap(): void {
+		$askAgain = [
+			'content' => [['type' => 'tool_use', 'id' => 'tu', 'name' => 'list_cases', 'input' => []]],
+			'stop_reason' => 'tool_use',
+			'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+		];
+		$factory = $this->factory(array_fill(0, 12, $askAgain));
+
+		$executed = 0;
+		$factory->callAnthropicChat(
+			credentialId: 'cred-anthropic',
+			model: 'claude-opus-4-8',
+			baseUrl: 'https://api.anthropic.com/v1',
+			messageHistory: $this->history(),
+			functions: [['name' => 'list_cases', 'description' => 'List cases', 'parameters' => ['type' => 'object', 'properties' => []]]],
+			toolExecutor: static function (string $name, array $input) use (&$executed): string {
+				$executed++;
+				return '[]';
+			},
+			maxToolCalls: 2
+		);
+
+		$this->assertSame(2, $executed, 'The third tool call must not run.');
+		$this->assertSame(3, $factory->lastCallUsage()['promptTokens'], 'Two tool rounds and one closing request.');
+	}//end testAnthropicLoopStopsAtTheAgentsToolCallCap()
+
+	/**
 	 * A call that reports no usage does not inherit the previous call's.
 	 *
 	 * @return void
