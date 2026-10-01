@@ -12,7 +12,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 
 declare(strict_types=1);
@@ -26,7 +26,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests the verdict signer against an in-memory app config.
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 class ApprovalVerdictSignerTest extends TestCase {
 

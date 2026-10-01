@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Psr\Log\LoggerInterface;
 /**
  * POST /api/approvals/verify.
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 class ApprovalVerifyController extends Controller
 {
@@ -56,7 +56,7 @@ class ApprovalVerifyController extends Controller
      * @param ApprovalVerdictService $verdicts Builds and signs the verdict.
      * @param LoggerInterface        $logger   Logs a malformed request.
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public function __construct(
         IRequest $request,
@@ -72,7 +72,7 @@ class ApprovalVerifyController extends Controller
      *
      * @return JSONResponse 200 with the signed verdict, 400 when a field is missing.
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     #[PublicPage]
     #[NoCSRFRequired]

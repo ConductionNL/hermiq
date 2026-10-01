@@ -1235,7 +1235,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
-	 * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
 	 */
 	private function withAgentId(string $name, array $arguments): array {
 		if ($this->agentId === null) {
@@ -1280,7 +1280,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
-	 * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
 		$this->channel?->emitToolCall(
@@ -1360,7 +1360,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return mixed The result, with `approvalId` on a staged batch.
 	 *
-	 * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function withStagedBatchApproval(string $name, mixed $result, bool $isError): mixed {
 		$toolId = $this->resolveToolId(name: $name);

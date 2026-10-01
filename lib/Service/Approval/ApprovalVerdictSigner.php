@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use OCP\IAppConfig;
 /**
  * Holds the verdict key pair and signs the canonical JSON of a verdict.
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 class ApprovalVerdictSigner
 {
@@ -56,7 +56,7 @@ class ApprovalVerdictSigner
      *
      * @param IAppConfig $appConfig Where the key pair lives.
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public function __construct(
         private readonly IAppConfig $appConfig,
@@ -70,7 +70,7 @@ class ApprovalVerdictSigner
      *
      * @return string
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public static function canonical(array $verdict): string
     {
@@ -86,7 +86,7 @@ class ApprovalVerdictSigner
      *
      * @return string
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public function sign(array $verdict): string
     {
@@ -99,7 +99,7 @@ class ApprovalVerdictSigner
      *
      * @return string The raw secret key.
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     private function secretKey(): string
     {

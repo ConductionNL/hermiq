@@ -575,7 +575,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity The pending (or already pending) Approval.
 	 *
-	 * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	public function ensurePendingApprovalForStagedBatch(
 		string $agentId,

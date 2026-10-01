@@ -13,7 +13,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests the integriq agent tool path through the real invoker.
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
  */
 class FacadeToolInvokerIntegriqTest extends TestCase {
 
@@ -60,7 +60,7 @@ class FacadeToolInvokerIntegriqTest extends TestCase {
 	 *
 	 * @dataProvider integriqTools
 	 *
-	 * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
 	 */
 	public function testTheActingAgentIsInjected(string $toolId): void {
 		$name   = str_replace('.', '_', $toolId);

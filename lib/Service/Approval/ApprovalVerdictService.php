@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use Throwable;
 /**
  * Builds and signs the verdict on a staged-batch toolcall approval.
  *
- * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
  */
 class ApprovalVerdictService
 {
@@ -59,7 +59,7 @@ class ApprovalVerdictService
      * @param ApprovalVerdictSigner $signer        Signs the verdict.
      * @param ITimeFactory          $timeFactory   The clock (issuedAt, expiry).
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public function __construct(
         private readonly ApprovalService $approvals,
@@ -78,7 +78,7 @@ class ApprovalVerdictService
      *
      * @throws InvalidArgumentException When a field is missing, empty or not a string.
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     public function verify(array $request): array
     {
@@ -137,7 +137,7 @@ class ApprovalVerdictService
      *
      * @return string
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     private function reason(?ObjectEntity $approval, array $data, array $request, ?DateTimeImmutable $expiresAt, int $now): string
     {
@@ -184,7 +184,7 @@ class ApprovalVerdictService
      *
      * @return array<int, string>
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     private function agentIdentities(string $agentId): array
     {
@@ -223,7 +223,7 @@ class ApprovalVerdictService
      *
      * @return DateTimeImmutable|null
      *
-     * @spec openspec/changes/approval-verification-contract/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
      */
     private function instant(mixed $value): ?DateTimeImmutable
     {
