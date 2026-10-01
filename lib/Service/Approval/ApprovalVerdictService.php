@@ -141,6 +141,35 @@ class ApprovalVerdictService
      */
     private function reason(?ObjectEntity $approval, array $data, array $request, ?DateTimeImmutable $expiresAt, int $now): string
     {
+        $refusal = $this->identityRefusal(approval: $approval, data: $data, request: $request);
+        $refusal ??= $this->decisionRefusal(data: $data, expiresAt: $expiresAt, now: $now);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        $decidedBy = (string) ($data['decidedBy'] ?? '');
+        if ($decidedBy === '' || in_array($decidedBy, $this->agentIdentities(agentId: $request['actingAgent']), true) === true) {
+            return 'approver-is-agent';
+        }
+
+        return 'approved';
+
+    }//end reason()
+
+    /**
+     * 'unknown' when there is no staged-batch toolcall approval, 'binding-mismatch'
+     * when it is for another tool, batch or agent, else null.
+     *
+     * @param ObjectEntity|null     $approval The approval, or null when absent.
+     * @param array<string, mixed>  $data     The approval's fields.
+     * @param array<string, string> $request  The validated request fields.
+     *
+     * @return string|null
+     *
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     */
+    private function identityRefusal(?ObjectEntity $approval, array $data, array $request): ?string
+    {
         $binding = ($data['binding'] ?? null);
         if ($approval === null || ($data['sourceType'] ?? null) !== 'toolcall' || is_string($binding) === false || $binding === '') {
             return 'unknown';
@@ -153,6 +182,23 @@ class ApprovalVerdictService
             return 'binding-mismatch';
         }
 
+        return null;
+
+    }//end identityRefusal()
+
+    /**
+     * 'pending', 'rejected' or 'expired' when the decision does not hold now, else null.
+     *
+     * @param array<string, mixed>   $data      The approval's fields.
+     * @param DateTimeImmutable|null $expiresAt When the approval stops holding.
+     * @param int                    $now       The current unix time.
+     *
+     * @return string|null
+     *
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     */
+    private function decisionRefusal(array $data, ?DateTimeImmutable $expiresAt, int $now): ?string
+    {
         $status = (string) ($data['status'] ?? '');
         if ($status === 'pending') {
             return 'pending';
@@ -166,14 +212,9 @@ class ApprovalVerdictService
             return 'expired';
         }
 
-        $decidedBy = (string) ($data['decidedBy'] ?? '');
-        if ($decidedBy === '' || in_array($decidedBy, $this->agentIdentities(agentId: $request['actingAgent']), true) === true) {
-            return 'approver-is-agent';
-        }
+        return null;
 
-        return 'approved';
-
-    }//end reason()
+    }//end decisionRefusal()
 
     /**
      * The identities an agent acts as: its id and its principal (actingUser, or the
