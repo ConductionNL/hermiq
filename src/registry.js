@@ -41,9 +41,11 @@ import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
+import AgentExportModal from './modals/AgentExportModal.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
+import AgentGitModal from './modals/AgentGitModal.vue'
 import AppTemplateCollectModal from './modals/AppTemplateCollectModal.vue'
 import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
 import TemplateImportModal from './modals/TemplateImportModal.vue'
@@ -183,7 +185,38 @@ export default {
 	'template-import': {
 		kind: 'modal',
 		component: TemplateImportModal,
-		propsSchema: { type: 'object', properties: {} },
+		propsSchema: { type: 'object', properties: { mode: { type: 'string' } } },
+	},
+
+	/**
+	 * "Keep in git" on the agent page (agents-export-import-and-git-sync): publish,
+	 * push and pull the agent's package with its own GitHub repository.
+	 */
+	'agent-git': {
+		kind: 'modal',
+		component: AgentGitModal,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+			},
+		},
+	},
+
+	/**
+	 * The agent page's "Export" and "Save as template" (agents-export-import-and-git-sync):
+	 * one modal, the mode prop picks which.
+	 */
+	'agent-export': {
+		kind: 'modal',
+		component: AgentExportModal,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+				mode: { type: 'string' },
+			},
+		},
 	},
 
 	/**

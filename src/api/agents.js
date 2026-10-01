@@ -238,3 +238,63 @@ export async function setAppAssistant(agentId, appAssistant) {
 	)
 	return response.data
 }
+
+/**
+ * "Keep in git": publish the agent to a new GitHub repository.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {object} form `{ githubOwner, repo, visibility, credentialId }`.
+ * @return {Promise<{repoUrl: string, commitSha: string}>}
+ */
+export async function publishAgentToGit(agentId, form) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/publish`),
+		form,
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": push the agent to its own repository.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {string} credentialId The GitHub credential.
+ * @return {Promise<{repoUrl: string, commitSha: string}>}
+ */
+export async function pushAgentToGit(agentId, credentialId) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/push`),
+		{ credentialId },
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": what a pull from the agent's repository would change.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {string} credentialId The GitHub credential.
+ * @return {Promise<{changes: Array<{field: string, from: *, to: *}>}>}
+ */
+export async function previewAgentPull(agentId, credentialId) {
+	const response = await axios.get(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/pull`),
+		{ params: { credentialId } },
+	)
+	return response.data
+}
+
+/**
+ * "Keep in git": write the pulled fields onto the agent.
+ *
+ * @param {string} agentId The agent uuid.
+ * @param {string} credentialId The GitHub credential.
+ * @return {Promise<object>} The saved agent.
+ */
+export async function applyAgentPull(agentId, credentialId) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}/git/pull`),
+		{ credentialId },
+	)
+	return response.data
+}

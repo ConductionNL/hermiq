@@ -331,7 +331,9 @@ class AgentTemplateServiceTest extends TestCase {
 
 		$saved = $objectService->saved[0]['object'];
 		$this->assertSame('active', $saved['state']);
-		$this->assertNull($saved['scanReport']);
+		// Absent, not null: the AgentTemplate fragment refuses a null scanReport.
+		$this->assertArrayNotHasKey('scanReport', $saved);
+		$this->assertArrayNotHasKey('quarantineReason', $saved);
 
 	}//end testImportPackageActiveForLocalSource()
 
