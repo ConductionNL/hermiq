@@ -126,4 +126,31 @@ class Register {
 	public function setSchemas(array $schemas): void {
 		$this->schemas = $schemas;
 	}//end setSchemas()
+
+	/**
+	 * The app that imported this register.
+	 *
+	 * @var string|null
+	 */
+	private ?string $application = null;
+
+	/**
+	 * Get the app that imported this register.
+	 *
+	 * @return string|null
+	 */
+	public function getApplication(): ?string {
+		return $this->application;
+	}//end getApplication()
+
+	/**
+	 * Set the app that imported this register.
+	 *
+	 * @param string|null $application The app id.
+	 *
+	 * @return void
+	 */
+	public function setApplication(?string $application): void {
+		$this->application = $application;
+	}//end setApplication()
 }//end class

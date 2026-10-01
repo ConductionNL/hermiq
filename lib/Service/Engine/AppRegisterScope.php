@@ -92,4 +92,30 @@ class AppRegisterScope
         return $scope;
 
     }//end registersFor()
+
+    /**
+     * The app a register belongs to, as OpenRegister records it on import, or ''.
+     *
+     * @param string $register The register id or slug.
+     *
+     * @return string The app id, lower case, or '' when unknown.
+     *
+     * @spec openspec/changes/agents-bound-to-their-app/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
+     */
+    public function appOf(string $register): string
+    {
+        if (trim($register) === '') {
+            return '';
+        }
+
+        try {
+            $found = $this->registerMapper->find($register);
+        } catch (Throwable $e) {
+            $this->logger->warning('[AppRegisterScope] Register '.$register.' could not be read: '.$e->getMessage());
+            return '';
+        }
+
+        return strtolower(trim((string) ($found->getApplication() ?? '')));
+
+    }//end appOf()
 }//end class
