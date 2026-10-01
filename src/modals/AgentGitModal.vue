@@ -421,7 +421,7 @@ export default {
 
 .agent-git__value {
 	white-space: pre-wrap;
-	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 .agent-git__actions {
