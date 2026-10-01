@@ -12,9 +12,6 @@
   "src/components/CnAgentRunsWidget/CnAgentRunsWidget.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "src/components/TalkDeliverySettings.vue": {
