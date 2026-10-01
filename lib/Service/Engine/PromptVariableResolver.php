@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Per-turn placeholder values and the one-pass fill.
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 class PromptVariableResolver {
 
@@ -96,7 +96,7 @@ class PromptVariableResolver {
 	 *
 	 * @return array<string, string>
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public function variablesFor(
 		string $userId,
@@ -134,7 +134,7 @@ class PromptVariableResolver {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public static function fill(string $prompt, array $variables): string {
 		if ($variables === [] || str_contains($prompt, '{{') === false) {
@@ -161,6 +161,8 @@ class PromptVariableResolver {
 	 * @param array<string, string> $variables The values from variablesFor().
 	 *
 	 * @return array<int, string>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public static function unknown(string $prompt, array $variables): array {
 		preg_match_all(self::PATTERN, $prompt, $matches, PREG_SET_ORDER);
@@ -224,10 +226,11 @@ class PromptVariableResolver {
 	 * @return DateTimeZone
 	 */
 	private function zoneOf(string $userId): DateTimeZone {
-		$candidates = [
-			($userId !== '') ? (string)$this->config->getUserValue($userId, 'core', 'timezone', '') : '',
-			$this->config->getSystemValueString('default_timezone', 'UTC'),
-		];
+		$candidates = [$this->config->getSystemValueString('default_timezone', 'UTC')];
+		if ($userId !== '') {
+			array_unshift($candidates, (string)$this->config->getUserValue($userId, 'core', 'timezone', ''));
+		}
+
 		foreach ($candidates as $candidate) {
 			if ($candidate === '') {
 				continue;

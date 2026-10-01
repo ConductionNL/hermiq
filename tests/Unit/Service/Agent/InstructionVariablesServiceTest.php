@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use RuntimeException;
 /**
  * Tests for InstructionVariablesService.
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 class InstructionVariablesServiceTest extends TestCase {
 
@@ -168,7 +168,7 @@ class InstructionVariablesServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public function testTheOwnerPreviewsTheFilledInInstructions(): void {
 		$preview = $this->service()->preview(agentId: 'agent-1', uid: 'anne', prompt: null, startFields: null, sampleValues: ['department' => 'Taxes']);
@@ -202,7 +202,7 @@ class InstructionVariablesServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public function testANonOwnerGetsNotFound(): void {
 		foreach (['bram', 'carla'] as $uid) {
@@ -221,7 +221,7 @@ class InstructionVariablesServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public function testThePersonsAnswersAreStoredOnTheSession(): void {
 		$session = $this->service()->answer(sessionId: 'sess-1', uid: 'bram', values: ['department' => 'Permits', 'stray' => 'x']);
@@ -237,7 +237,7 @@ class InstructionVariablesServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public function testAMissingRequiredAnswerIsRefused(): void {
 		try {

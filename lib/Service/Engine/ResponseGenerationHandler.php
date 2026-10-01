@@ -154,7 +154,6 @@ class ResponseGenerationHandler {
 	 *                               published on the run-step bus reaches the right
 	 *                               stream and the performance log can be joined to
 	 *                               the runner's own timings.
-	 *
 	 * @param array<string, string> $promptVariables Placeholder values for this turn
 	 *                                               (agents-instruction-variables,
 	 *                                               `PromptVariableResolver::variablesFor()`);
@@ -184,7 +183,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public function generateResponse(
 		string $userMessage,

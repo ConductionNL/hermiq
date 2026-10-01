@@ -1795,7 +1795,7 @@ class ScheduleServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public function testAScheduledRunCarriesTheSchedulesStartValues(): void {
 		$this->appConfig = $this->createMock(IAppConfig::class);

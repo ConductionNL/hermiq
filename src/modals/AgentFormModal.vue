@@ -233,10 +233,19 @@
 				</fieldset>
 
 				<NcTextArea
+					ref="promptInput"
 					v-model="form.prompt"
 					:label="t('hermiq', 'System prompt')"
 					:placeholder="t('hermiq', 'You are a helpful assistant…')"
 					resize="vertical" />
+
+				<!-- agents-instruction-variables: placeholders, a preview and the questions before a conversation. -->
+				<PromptPlaceholderTools
+					:agentId="effectiveAgent?.id || effectiveAgent?.uuid || ''"
+					:prompt="form.prompt"
+					:startFields="form.startFields"
+					@insert="insertPlaceholderAtCursor" />
+				<StartFieldsEditor v-model="form.startFields" />
 
 				<div class="agent-form__row">
 					<NcTextField
@@ -476,6 +485,8 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
+import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
+import StartFieldsEditor from '../components/StartFieldsEditor.vue'
 import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
@@ -490,12 +501,15 @@ import {
 	setPin,
 } from '../utils/agentCredentials.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
+import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
 
 export default {
 	name: 'AgentFormModal',
 
 	components: {
 		CnIconPicker,
+		PromptPlaceholderTools,
+		StartFieldsEditor,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -1091,6 +1105,7 @@ export default {
 				provider: '',
 				model: '',
 				prompt: '',
+				startFields: [],
 				temperature: '',
 				maxTokens: '',
 				maxToolCalls: 10,
@@ -1213,6 +1228,7 @@ export default {
 				provider: source.provider || '',
 				model: source.model || '',
 				prompt: source.prompt || '',
+				startFields: startFieldsOf(source),
 				temperature: source.temperature ?? '',
 				maxTokens: source.maxTokens ?? '',
 				maxToolCalls: source.maxToolCalls ?? 10,
@@ -1392,6 +1408,31 @@ export default {
 		},
 
 		/**
+		 * Put a placeholder in the instructions at the cursor
+		 * (agents-instruction-variables).
+		 *
+		 * @param {string} token The placeholder.
+		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+		 */
+		insertPlaceholderAtCursor(token) {
+			const area = this.$refs.promptInput?.$el?.querySelector('textarea')
+			const { text, cursor } = insertPlaceholder(
+				this.form.prompt,
+				token,
+				area?.selectionStart,
+				area?.selectionEnd,
+			)
+			this.form.prompt = text
+			this.$nextTick(() => {
+				if (area) {
+					area.focus()
+					area.setSelectionRange(cursor, cursor)
+				}
+			})
+		},
+
+		/**
 		 * Build the save payload. On edit, spread the existing agent payload
 		 * first so schema fields this form does not surface survive the PUT
 		 * (the generic objects path replaces the payload wholesale); `@self`
@@ -1428,6 +1469,8 @@ export default {
 				provider: this.form.provider,
 				model: this.form.model,
 				prompt: this.form.prompt,
+				// Only well-formed questions are saved (the register refuses the rest).
+				startFields: startFieldsOf({ startFields: this.form.startFields }),
 				tools: this.isEdit()
 					? Array.isArray(base.tools)
 						? base.tools

@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\Agent;
 /**
  * Start fields and their answers.
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 final class StartFields {
 
@@ -64,7 +64,7 @@ final class StartFields {
 	 *
 	 * @return array<int, array{key: string, label: string, type: string, options: array<int, string>, required: bool, default: string}>
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public static function of(array $agentData): array {
 		$fields = [];
@@ -88,12 +88,12 @@ final class StartFields {
 	/**
 	 * Why the answers are not acceptable, per field key; empty when they are.
 	 *
-	 * @param array<int, array{key: string, label: string, type: string, options: array<int, string>, required: bool, default: string}> $fields The fields.
-	 * @param array<string, mixed>                                                                                                        $values The answers.
+	 * @param array<int, array<string, mixed>> $fields The fields.
+	 * @param array<string, mixed>             $values The answers.
 	 *
 	 * @return array<string, string> Field key => reason.
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public static function problems(array $fields, array $values): array {
 		$problems = [];
@@ -111,10 +111,12 @@ final class StartFields {
 	/**
 	 * The answers to keep: declared keys only, as trimmed text, empty ones left out.
 	 *
-	 * @param array<int, array{key: string, label: string, type: string, options: array<int, string>, required: bool, default: string}> $fields The fields.
-	 * @param array<string, mixed>                                                                                                        $values The answers.
+	 * @param array<int, array<string, mixed>> $fields The fields.
+	 * @param array<string, mixed>             $values The answers.
 	 *
 	 * @return array<string, string>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public static function clean(array $fields, array $values): array {
 		$clean = [];
@@ -132,12 +134,12 @@ final class StartFields {
 	 * What each field contributes to the instructions: its answer, else its
 	 * default, else an empty string.
 	 *
-	 * @param array<int, array{key: string, label: string, type: string, options: array<int, string>, required: bool, default: string}> $fields The fields.
-	 * @param array<string, mixed>                                                                                                        $values The stored answers.
+	 * @param array<int, array<string, mixed>> $fields The fields.
+	 * @param array<string, mixed>             $values The stored answers.
 	 *
 	 * @return array<string, string> Field key => value.
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public static function answersFor(array $fields, array $values): array {
 		$answers = [];
@@ -214,12 +216,19 @@ final class StartFields {
 			return null;
 		}
 
-		return match ($field['type']) {
-			'select' => (in_array($answer, $field['options'], true) === true) ? null : 'not one of the options',
-			'number' => (is_numeric($answer) === true) ? null : 'not a number',
-			'date' => (self::isDate(value: $answer) === true) ? null : 'not a date (YYYY-MM-DD)',
-			default => null,
-		};
+		if ($field['type'] === 'select' && in_array($answer, $field['options'], true) === false) {
+			return 'not one of the options';
+		}
+
+		if ($field['type'] === 'number' && is_numeric($answer) === false) {
+			return 'not a number';
+		}
+
+		if ($field['type'] === 'date' && self::isDate(value: $answer) === false) {
+			return 'not a date (YYYY-MM-DD)';
+		}
+
+		return null;
 	}//end problemWith()
 
 	/**

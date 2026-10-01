@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use RuntimeException;
 /**
  * Prompt preview and start field answers.
  *
- * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 class InstructionVariablesController extends Controller {
 
@@ -81,19 +81,26 @@ class InstructionVariablesController extends Controller {
 	 *
 	 * @return JSONResponse `{text, unknown}`, or 404 for anyone but the owner.
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	#[NoAdminRequired]
 	public function preview(string $id): JSONResponse {
 		$prompt = $this->request->getParam('prompt');
+		if (is_string($prompt) === false) {
+			$prompt = null;
+		}
+
 		$fields = $this->request->getParam('startFields');
+		if (is_array($fields) === false) {
+			$fields = null;
+		}
 
 		return $this->run(
 			call: fn (string $uid): array => $this->variables->preview(
 				agentId: $id,
 				uid: $uid,
-				prompt: is_string($prompt) === true ? $prompt : null,
-				startFields: is_array($fields) === true ? $fields : null,
+				prompt: $prompt,
+				startFields: $fields,
 				sampleValues: (array)$this->request->getParam('sampleValues', [])
 			)
 		);
@@ -108,7 +115,7 @@ class InstructionVariablesController extends Controller {
 	 *
 	 * @return JSONResponse `{uuid, startValues}`, 404, 409, or 422 with `problems` per field.
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	#[NoAdminRequired]
 	public function answer(string $uuid): JSONResponse {

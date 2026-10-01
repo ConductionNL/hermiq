@@ -3431,7 +3431,7 @@ class ScheduleService {
 	 *
 	 * @throws GuardrailBlockedException When the filter blocks a value.
 	 *
-	 * @spec openspec/changes/agents-instruction-variables/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	private function filterStartValues(array $policy, array $values): array {
 		$filtered = [];
