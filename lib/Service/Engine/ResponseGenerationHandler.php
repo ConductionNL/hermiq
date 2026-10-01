@@ -338,14 +338,13 @@ class ResponseGenerationHandler {
 
 			// Build system prompt.
 			$defaultPrompt = 'You are a helpful AI assistant that helps users find and understand their data.';
-			$systemPrompt = $agentData['prompt'] ?? $defaultPrompt;
-
 			// Agents-instruction-variables: the owner's placeholders are filled in
 			// here, on Agent.prompt alone and before anything is appended, so no
 			// retrieved document or user text is ever read as a template.
-			if (is_string($systemPrompt) === true) {
-				$systemPrompt = PromptVariableResolver::fill(prompt: $systemPrompt, variables: $promptVariables);
-			}
+			$systemPrompt = PromptVariableResolver::fill(
+				prompt: (string)($agentData['prompt'] ?? $defaultPrompt),
+				variables: $promptVariables
+			);
 
 			// Prepend the assembled Context preamble (agent-context-system) right after
 			// Agent.prompt — same category ("who you are / what you know statically") as

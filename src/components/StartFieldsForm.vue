@@ -89,6 +89,7 @@ export default {
 		 *
 		 * @param {object} field The field.
 		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		labelFor(field) {
 			if (field.required) {
@@ -102,6 +103,7 @@ export default {
 		 *
 		 * @param {string} type The field type.
 		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		inputType(type) {
 			if (type === 'number' || type === 'date') {
@@ -115,6 +117,7 @@ export default {
 		 *
 		 * @param {string} reason The reason.
 		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		problemText(reason) {
 			switch (reason) {
@@ -137,6 +140,7 @@ export default {
 		 * @param {string} key The field key.
 		 * @param {string|null} value The new answer.
 		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		update(key, value) {
 			this.$emit('update:modelValue', {

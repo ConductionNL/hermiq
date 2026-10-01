@@ -107,7 +107,11 @@ export default {
 	emits: ['update:modelValue'],
 
 	computed: {
-		/** @return {string} How an answer is used in the instructions. */
+		/**
+		 * @return {string} How an answer is used in the instructions.
+		 *
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
 		hint() {
 			return this.t(
 				'hermiq',
@@ -116,12 +120,20 @@ export default {
 			)
 		},
 
-		/** @return {number} The most fields an agent can ask. */
+		/**
+		 * @return {number} The most fields an agent can ask.
+		 *
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
 		maxFields() {
 			return MAX_FIELDS
 		},
 
-		/** @return {Array<{label: string, value: string}>} The answer types. */
+		/**
+		 * @return {Array<{label: string, value: string}>} The answer types.
+		 *
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
 		typeOptions() {
 			return [
 				{ label: this.t('hermiq', 'Short text'), value: 'text' },
@@ -139,6 +151,7 @@ export default {
 		 *
 		 * @param {string} key The field key.
 		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		fieldToken(key) {
 			return `{{field.${key}}}`
@@ -149,6 +162,7 @@ export default {
 		 *
 		 * @param {string} type The type.
 		 * @return {object}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		typeOption(type) {
 			return (
@@ -162,6 +176,7 @@ export default {
 		 *
 		 * @param {string} key The key.
 		 * @return {boolean}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		keyIsValid(key) {
 			return KEY_PATTERN.test(String(key || ''))
@@ -172,6 +187,7 @@ export default {
 		 *
 		 * @param {string} text The line.
 		 * @return {string[]}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		splitOptions(text) {
 			return String(text || '')
@@ -186,6 +202,7 @@ export default {
 		 * @param {number} index The field.
 		 * @param {object} patch The changed properties.
 		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		change(index, patch) {
 			const fields = this.modelValue.map((field, i) =>
@@ -194,7 +211,11 @@ export default {
 			this.$emit('update:modelValue', fields)
 		},
 
-		/** @return {void} Add an empty short-text question. */
+		/**
+		 * @return {void} Add an empty short-text question.
+		 *
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
 		add() {
 			const key = `field_${this.modelValue.length + 1}`
 			this.$emit('update:modelValue', [
@@ -215,6 +236,7 @@ export default {
 		 *
 		 * @param {number} index The field.
 		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		remove(index) {
 			this.$emit(

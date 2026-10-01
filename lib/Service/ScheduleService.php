@@ -2700,20 +2700,8 @@ class ScheduleService {
 			$title = 'Hermiq dry-run preview';
 		}
 
-		$session = [
-			'title' => $title,
-			'userId' => $owner,
-			'agentId' => (string)$agent->getUuid(),
-		];
-		// Agents-instruction-variables: the schedule's values for the fields this
-		// agent declares; the engine reads them, or each field's default, per turn.
-		$answers = StartFields::clean(fields: StartFields::of(agentData: $agent->getObject()), values: $startValues);
-		if ($answers !== []) {
-			$session['startValues'] = $answers;
-		}
-
 		$conversation = $this->objectService->saveObject(
-			object: $session,
+			object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
 			register: self::REGISTER_SLUG,
 			schema: self::CONVERSATION_SCHEMA
 		);
@@ -3418,6 +3406,35 @@ class ScheduleService {
 		}
 
 	}//end parseDate()
+	/**
+	 * The session a run creates: its title, owner and agent, plus the schedule's
+	 * values for the start fields this agent declares (agents-instruction-variables).
+	 * The engine reads them, or each field's default, per turn.
+	 *
+	 * @param string               $title       The session title.
+	 * @param string               $owner       The run's acting user.
+	 * @param ObjectEntity         $agent       The agent.
+	 * @param array<string, mixed> $startValues The schedule's filtered start values.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function runSession(string $title, string $owner, ObjectEntity $agent, array $startValues): array {
+		$session = [
+			'title' => $title,
+			'userId' => $owner,
+			'agentId' => (string)$agent->getUuid(),
+		];
+		$fields = new StartFields();
+		$answers = $fields->clean(fields: $fields->fieldsOf(agentData: $agent->getObject()), values: $startValues);
+		if ($answers !== []) {
+			$session['startValues'] = $answers;
+		}
+
+		return $session;
+	}//end runSession()
+
 	/**
 	 * A schedule's start field values through the same input filter as its
 	 * prompt (agents-instruction-variables): they reach the model inside the

@@ -36,6 +36,7 @@ export const PLACEHOLDERS = [
  *
  * @param {object|null} agent The agent's data.
  * @return {Array<{key: string, label: string, type: string, options: string[], required: boolean, default: string}>}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function startFieldsOf(agent) {
 	const raw = Array.isArray(agent?.startFields) ? agent.startFields : []
@@ -75,6 +76,7 @@ export function startFieldsOf(agent) {
  * @param {object|null} session The session.
  * @param {number} messageCount Messages already in the session.
  * @return {Array<object>}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function pendingStartFields(agent, session, messageCount) {
 	if (!session || messageCount > 0) {
@@ -94,6 +96,7 @@ export function pendingStartFields(agent, session, messageCount) {
  * @param {Array<object>} fields The fields.
  * @param {object} answers The answers per key.
  * @return {string[]}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function missingRequired(fields, answers) {
 	return fields
@@ -109,6 +112,7 @@ export function missingRequired(fields, answers) {
  *
  * @param {Array<object>} fields The fields.
  * @return {object}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function initialAnswers(fields) {
 	return Object.fromEntries(fields.map((field) => [field.key, field.default]))
@@ -120,6 +124,7 @@ export function initialAnswers(fields) {
  * @param {Array<object>} fields The agent's fields.
  * @param {object} values The session's answers.
  * @return {string[]}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function startValueSummary(fields, values) {
 	const labels = Object.fromEntries(
@@ -138,6 +143,7 @@ export function startValueSummary(fields, values) {
  * @param {number} [start] Selection start (defaults to the end).
  * @param {number} [end] Selection end (defaults to start).
  * @return {{text: string, cursor: number}}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function insertPlaceholder(text, token, start, end) {
 	const value = String(text ?? '')

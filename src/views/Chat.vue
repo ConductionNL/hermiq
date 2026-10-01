@@ -938,6 +938,7 @@ export default {
 		 * Which session and fields the answers belong to, so they reset when either changes.
 		 *
 		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		startFieldsKey() {
 			return `${this.activeSession?.uuid || ''}|${this.startFields.map((field) => field.key).join(',')}`
@@ -947,6 +948,7 @@ export default {
 		 * Required start fields still empty: the first message waits for them.
 		 *
 		 * @return {string[]} Their keys.
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		startFieldsMissing() {
 			return missingRequired(this.startFields, this.startAnswers)
@@ -956,6 +958,7 @@ export default {
 		 * "Label: answer" for each answered start field, for the session header.
 		 *
 		 * @return {string[]}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 		 */
 		sessionStartValues() {
 			return startValueSummary(

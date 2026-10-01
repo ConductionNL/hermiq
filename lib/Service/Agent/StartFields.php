@@ -66,11 +66,11 @@ final class StartFields {
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
-	public static function of(array $agentData): array {
+	public function fieldsOf(array $agentData): array {
 		$fields = [];
 		$seen = [];
 		foreach ((array)($agentData['startFields'] ?? []) as $raw) {
-			$field = self::normalise(raw: $raw);
+			$field = $this->normalise(raw: $raw);
 			if ($field === null || isset($seen[$field['key']]) === true) {
 				continue;
 			}
@@ -83,7 +83,7 @@ final class StartFields {
 		}
 
 		return $fields;
-	}//end of()
+	}//end fieldsOf()
 
 	/**
 	 * Why the answers are not acceptable, per field key; empty when they are.
@@ -95,11 +95,11 @@ final class StartFields {
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
-	public static function problems(array $fields, array $values): array {
+	public function problems(array $fields, array $values): array {
 		$problems = [];
 		foreach ($fields as $field) {
-			$answer = self::answerText(value: ($values[$field['key']] ?? null));
-			$reason = self::problemWith(field: $field, answer: $answer);
+			$answer = $this->answerText(value: ($values[$field['key']] ?? null));
+			$reason = $this->problemWith(field: $field, answer: $answer);
 			if ($reason !== null) {
 				$problems[$field['key']] = $reason;
 			}
@@ -118,10 +118,10 @@ final class StartFields {
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
-	public static function clean(array $fields, array $values): array {
+	public function clean(array $fields, array $values): array {
 		$clean = [];
 		foreach ($fields as $field) {
-			$answer = self::answerText(value: ($values[$field['key']] ?? null));
+			$answer = $this->answerText(value: ($values[$field['key']] ?? null));
 			if ($answer !== '') {
 				$clean[$field['key']] = $answer;
 			}
@@ -141,10 +141,10 @@ final class StartFields {
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
-	public static function answersFor(array $fields, array $values): array {
+	public function answersFor(array $fields, array $values): array {
 		$answers = [];
 		foreach ($fields as $field) {
-			$answer = self::answerText(value: ($values[$field['key']] ?? null));
+			$answer = $this->answerText(value: ($values[$field['key']] ?? null));
 			if ($answer === '') {
 				$answer = $field['default'];
 			}
@@ -166,7 +166,7 @@ final class StartFields {
 	 *
 	 * @return array{key: string, label: string, type: string, options: array<int, string>, required: bool, default: string}|null
 	 */
-	private static function normalise(mixed $raw): ?array {
+	private function normalise(mixed $raw): ?array {
 		if (is_array($raw) === false) {
 			return null;
 		}
@@ -195,7 +195,7 @@ final class StartFields {
 			'type' => $type,
 			'options' => $options,
 			'required' => (($raw['required'] ?? false) === true),
-			'default' => self::answerText(value: ($raw['default'] ?? null)),
+			'default' => $this->answerText(value: ($raw['default'] ?? null)),
 		];
 	}//end normalise()
 
@@ -207,7 +207,7 @@ final class StartFields {
 	 *
 	 * @return string|null
 	 */
-	private static function problemWith(array $field, string $answer): ?string {
+	private function problemWith(array $field, string $answer): ?string {
 		if ($answer === '') {
 			if ($field['required'] === true) {
 				return 'required';
@@ -224,7 +224,7 @@ final class StartFields {
 			return 'not a number';
 		}
 
-		if ($field['type'] === 'date' && self::isDate(value: $answer) === false) {
+		if ($field['type'] === 'date' && $this->isDate(value: $answer) === false) {
 			return 'not a date (YYYY-MM-DD)';
 		}
 
@@ -238,7 +238,7 @@ final class StartFields {
 	 *
 	 * @return bool
 	 */
-	private static function isDate(string $value): bool {
+	private function isDate(string $value): bool {
 		if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) !== 1) {
 			return false;
 		}
@@ -253,7 +253,7 @@ final class StartFields {
 	 *
 	 * @return string
 	 */
-	private static function answerText(mixed $value): string {
+	private function answerText(mixed $value): string {
 		if (is_scalar($value) === false) {
 			return '';
 		}

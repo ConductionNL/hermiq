@@ -76,12 +76,14 @@ class PromptVariableResolver {
 	 * @param IConfig                 $config        The person's language and time zone.
 	 * @param ITimeFactory            $time          The clock.
 	 * @param OrganisationMapper|null $organisations Organisation names (null when OpenRegister is absent).
+	 * @param StartFields             $startFields   The agent's start fields and their answers.
 	 */
 	public function __construct(
 		private readonly IUserManager $userManager,
 		private readonly IConfig $config,
 		private readonly ITimeFactory $time,
 		private readonly ?OrganisationMapper $organisations = null,
+		private readonly StartFields $startFields = new StartFields(),
 	) {
 	}//end __construct()
 
@@ -118,8 +120,8 @@ class PromptVariableResolver {
 			'app.id' => $this->appId(appContext: $appContext),
 		];
 
-		$fields = StartFields::of(agentData: $agentData);
-		foreach (StartFields::answersFor(fields: $fields, values: $startValues) as $key => $answer) {
+		$fields = $this->startFields->fieldsOf(agentData: $agentData);
+		foreach ($this->startFields->answersFor(fields: $fields, values: $startValues) as $key => $answer) {
 			$variables['field.' . $key] = $answer;
 		}
 

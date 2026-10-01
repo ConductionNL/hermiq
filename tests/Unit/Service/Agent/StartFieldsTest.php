@@ -54,7 +54,7 @@ class StartFieldsTest extends TestCase {
 	 * @return void
 	 */
 	public function testOnlyWellFormedFieldsCount(): void {
-		$fields = StartFields::of(agentData: $this->agent());
+		$fields = (new StartFields())->fieldsOf(agentData: $this->agent());
 
 		$this->assertSame(['department', 'case', 'deadline', 'notes'], array_column($fields, 'key'));
 		$this->assertTrue($fields[0]['required']);
@@ -74,7 +74,7 @@ class StartFieldsTest extends TestCase {
 			$many[] = ['key' => 'f' . $i, 'label' => 'F' . $i, 'type' => 'text'];
 		}
 
-		$this->assertCount(10, StartFields::of(agentData: ['startFields' => $many]));
+		$this->assertCount(10, (new StartFields())->fieldsOf(agentData: ['startFields' => $many]));
 
 	}//end testAtMostTenFields()
 
@@ -86,16 +86,16 @@ class StartFieldsTest extends TestCase {
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public function testProblemsAreNamedPerField(): void {
-		$fields = StartFields::of(agentData: $this->agent());
+		$fields = (new StartFields())->fieldsOf(agentData: $this->agent());
 
-		$this->assertSame(['department' => 'required'], StartFields::problems(fields: $fields, values: []));
+		$this->assertSame(['department' => 'required'], (new StartFields())->problems(fields: $fields, values: []));
 		$this->assertSame(
 			['department' => 'not one of the options', 'case' => 'not a number', 'deadline' => 'not a date (YYYY-MM-DD)'],
-			StartFields::problems(fields: $fields, values: ['department' => 'Parking', 'case' => 'twelve', 'deadline' => '2026-02-30'])
+			(new StartFields())->problems(fields: $fields, values: ['department' => 'Parking', 'case' => 'twelve', 'deadline' => '2026-02-30'])
 		);
 		$this->assertSame(
 			[],
-			StartFields::problems(fields: $fields, values: ['department' => 'Permits', 'case' => '12', 'deadline' => '2026-10-02'])
+			(new StartFields())->problems(fields: $fields, values: ['department' => 'Permits', 'case' => '12', 'deadline' => '2026-10-02'])
 		);
 
 	}//end testProblemsAreNamedPerField()
@@ -106,11 +106,11 @@ class StartFieldsTest extends TestCase {
 	 * @return void
 	 */
 	public function testCleanKeepsDeclaredAnswers(): void {
-		$fields = StartFields::of(agentData: $this->agent());
+		$fields = (new StartFields())->fieldsOf(agentData: $this->agent());
 
 		$this->assertSame(
 			['department' => 'Permits', 'case' => '12'],
-			StartFields::clean(fields: $fields, values: ['department' => ' Permits ', 'case' => 12, 'notes' => '', 'other' => 'x', 'deadline' => ['no']])
+			(new StartFields())->clean(fields: $fields, values: ['department' => ' Permits ', 'case' => 12, 'notes' => '', 'other' => 'x', 'deadline' => ['no']])
 		);
 
 	}//end testCleanKeepsDeclaredAnswers()
@@ -121,7 +121,7 @@ class StartFieldsTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnswersFallBackToTheDefault(): void {
-		$fields = StartFields::of(
+		$fields = (new StartFields())->fieldsOf(
 			agentData: [
 				'startFields' => [
 					['key' => 'department', 'label' => 'Department', 'type' => 'select', 'options' => ['Permits'], 'default' => 'Permits'],
@@ -133,7 +133,7 @@ class StartFieldsTest extends TestCase {
 
 		$this->assertSame(
 			['department' => 'Permits', 'subject' => 'line one line two', 'notes' => "a\nb"],
-			StartFields::answersFor(fields: $fields, values: ['subject' => "line one\n line two", 'notes' => "a\nb"])
+			(new StartFields())->answersFor(fields: $fields, values: ['subject' => "line one\n line two", 'notes' => "a\nb"])
 		);
 
 	}//end testAnswersFallBackToTheDefault()

@@ -74,12 +74,14 @@ class InstructionVariablesService {
 	 * @param AgentAccessService     $agentAccess   Who may see and who owns an agent.
 	 * @param PromptVariableResolver $resolver      The placeholder values.
 	 * @param GuardrailPolicyService $guardrails    The organisation's input filter.
+	 * @param StartFields            $startFields   The agent's start fields and their answers.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly AgentAccessService $agentAccess,
 		private readonly PromptVariableResolver $resolver,
 		private readonly GuardrailPolicyService $guardrails,
+		private readonly StartFields $startFields = new StartFields(),
 	) {
 	}//end __construct()
 
@@ -122,8 +124,8 @@ class InstructionVariablesService {
 		$text = (string)($data['prompt'] ?? '');
 
 		return [
-			'text' => PromptVariableResolver::fill(prompt: $text, variables: $variables),
-			'unknown' => PromptVariableResolver::unknown(prompt: $text, variables: $variables),
+			'text' => $this->resolver->fill(prompt: $text, variables: $variables),
+			'unknown' => $this->resolver->unknown(prompt: $text, variables: $variables),
 		];
 	}//end preview()
 
@@ -152,14 +154,14 @@ class InstructionVariablesService {
 			throw new RuntimeException('This session already has its answers.', 409);
 		}
 
-		$fields = StartFields::of(agentData: $this->agentData(agentId: (string)($data['agentId'] ?? '')));
-		$problems = StartFields::problems(fields: $fields, values: $values);
+		$fields = $this->startFields->fieldsOf(agentData: $this->agentData(agentId: (string)($data['agentId'] ?? '')));
+		$problems = $this->startFields->problems(fields: $fields, values: $values);
 		if ($problems !== []) {
 			throw new StartValuesRejectedException(problems: $problems);
 		}
 
 		$answers = $this->filtered(
-			answers: StartFields::clean(fields: $fields, values: $values),
+			answers: $this->startFields->clean(fields: $fields, values: $values),
 			organisation: (string)($session->getOrganisation() ?? '')
 		);
 		if ($answers === []) {

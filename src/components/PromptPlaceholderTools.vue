@@ -121,7 +121,11 @@ export default {
 	},
 
 	computed: {
-		/** @return {Array<{token: string, label: string}>} The menu items. */
+		/**
+		 * @return {Array<{token: string, label: string}>} The menu items.
+		 *
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+		 */
 		items() {
 			const labels = {
 				displayName: this.t('hermiq', 'Name of the person'),
@@ -150,7 +154,11 @@ export default {
 	},
 
 	methods: {
-		/** @return {Promise<void>} Ask the server for the filled-in instructions. */
+		/**
+		 * @return {Promise<void>} Ask the server for the filled-in instructions.
+		 *
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+		 */
 		async preview() {
 			this.loading = true
 			this.error = ''
