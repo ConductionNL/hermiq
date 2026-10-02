@@ -15,6 +15,7 @@ const FENCE = /(?:```|~~~)\s*hermiq-agent-draft[^\n]*\n([\s\S]*?)\n?(?:```|~~~)/
  *
  * @param {string} content The message text.
  * @return {string}
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export function draftBlockOf(content) {
 	const match = FENCE.exec(String(content ?? ''))
@@ -26,6 +27,7 @@ export function draftBlockOf(content) {
  *
  * @param {{mode: string, groups: string[]}} sharing The draft's sharing.
  * @return {{choice: string, groups: string[]}}
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export function sharingChoiceOf(sharing) {
 	const groups = Array.isArray(sharing?.groups) ? sharing.groups : []
@@ -44,6 +46,7 @@ export function sharingChoiceOf(sharing) {
  *
  * @param {object} draft The checked draft.
  * @return {object}
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export function agentFromDraft(draft) {
 	const { choice, groups } = sharingChoiceOf(draft?.sharing)
@@ -66,6 +69,7 @@ export function agentFromDraft(draft) {
  *
  * @param {object} draft The checked draft.
  * @return {object|null}
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export function scheduleFromDraft(draft) {
 	const schedule = draft?.schedule
@@ -89,6 +93,7 @@ export function scheduleFromDraft(draft) {
  *
  * @param {Array<{field: string, message: string, suggestion: string}>} findings The check's findings.
  * @return {object} Field => [{message, suggestion}].
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export function findingsByField(findings) {
 	const byField = {}
