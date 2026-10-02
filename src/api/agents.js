@@ -109,10 +109,12 @@ export async function listTools() {
  *
  * @param {string} draft The text of the `hermiq-agent-draft` block.
  * @return {Promise<{draft: object, findings: Array<{field: string, message: string, suggestion: string}>}>}
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export async function checkAgentDraft(draft) {
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/draft-check`), { draft })
+	const response = await axios.post(generateUrl(`${AGENTS_BASE}/draft-check`), {
+		draft,
+	})
 	return response.data
 }
 

@@ -1457,7 +1457,7 @@ export default {
 		 *
 		 * @param {string} field The field.
 		 * @return {Array<{message: string, suggestion: string}>}
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		draftFindingsFor(field) {
 			return this.draftFindings?.[field] || []
@@ -1468,7 +1468,7 @@ export default {
 		 *
 		 * @param {{message: string, suggestion: string}} finding The finding.
 		 * @return {string}
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		findingText(finding) {
 			if (!finding.suggestion) {

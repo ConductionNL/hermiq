@@ -9,7 +9,7 @@
 // Usage:
 //   node tests/agent-draft.spec.js
 //
-// @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+// @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 
 'use strict'
 
@@ -46,14 +46,20 @@ const ROOT = path.resolve(__dirname, '..')
 		model: 'qwen2.5',
 		tools: ['openregister.searchObjects'],
 		sharing: { mode: 'groups', groups: ['legal'] },
-		schedule: { kind: 'cron', cronExpr: '0 8 * * 1', prompt: 'Write the digest.' },
+		schedule: {
+			kind: 'cron',
+			cronExpr: '0 8 * * 1',
+			prompt: 'Write the digest.',
+		},
 		startFields: [],
 	}
 
 	check('a draft block is found in backtick and tilde fences', () => {
 		const json = '{"name": "Objections digest"}'
 		assert.strictEqual(
-			draftBlockOf(`Here is the agent.\n\n\`\`\`hermiq-agent-draft\n${json}\n\`\`\`\nOpen it to check.`),
+			draftBlockOf(
+				`Here is the agent.\n\n\`\`\`hermiq-agent-draft\n${json}\n\`\`\`\nOpen it to check.`,
+			),
 			json,
 		)
 		assert.strictEqual(draftBlockOf(`~~~hermiq-agent-draft\n${json}\n~~~`), json)
@@ -77,9 +83,18 @@ const ROOT = path.resolve(__dirname, '..')
 	})
 
 	check('sharing maps to the form choices, narrowest when unclear', () => {
-		assert.deepStrictEqual(sharingChoiceOf({ mode: 'organisation' }), { choice: 'organisation', groups: [] })
-		assert.deepStrictEqual(sharingChoiceOf({ mode: 'groups', groups: [] }), { choice: 'only-me', groups: [] })
-		assert.deepStrictEqual(sharingChoiceOf(undefined), { choice: 'only-me', groups: [] })
+		assert.deepStrictEqual(sharingChoiceOf({ mode: 'organisation' }), {
+			choice: 'organisation',
+			groups: [],
+		})
+		assert.deepStrictEqual(sharingChoiceOf({ mode: 'groups', groups: [] }), {
+			choice: 'only-me',
+			groups: [],
+		})
+		assert.deepStrictEqual(sharingChoiceOf(undefined), {
+			choice: 'only-me',
+			groups: [],
+		})
 	})
 
 	check('the proposed schedule fills the schedule form', () => {
@@ -97,12 +112,21 @@ const ROOT = path.resolve(__dirname, '..')
 	check('findings are grouped by field', () => {
 		assert.deepStrictEqual(
 			findingsByField([
-				{ field: 'model', message: 'Not allowed by your organisation', suggestion: 'ollama/qwen2.5' },
+				{
+					field: 'model',
+					message: 'Not allowed by your organisation',
+					suggestion: 'ollama/qwen2.5',
+				},
 				{ field: 'tools', message: 'No tool is called a.', suggestion: '' },
 				{ field: 'tools', message: 'No tool is called b.', suggestion: '' },
 			]),
 			{
-				model: [{ message: 'Not allowed by your organisation', suggestion: 'ollama/qwen2.5' }],
+				model: [
+					{
+						message: 'Not allowed by your organisation',
+						suggestion: 'ollama/qwen2.5',
+					},
+				],
 				tools: [
 					{ message: 'No tool is called a.', suggestion: '' },
 					{ message: 'No tool is called b.', suggestion: '' },

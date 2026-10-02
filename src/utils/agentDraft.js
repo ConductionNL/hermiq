@@ -74,7 +74,9 @@ export function scheduleFromDraft(draft) {
 	}
 	return {
 		name: draft?.name || '',
-		kind: ['once', 'interval', 'cron'].includes(schedule.kind) ? schedule.kind : 'cron',
+		kind: ['once', 'interval', 'cron'].includes(schedule.kind)
+			? schedule.kind
+			: 'cron',
 		cronExpr: schedule.cronExpr || '',
 		intervalMinutes: schedule.intervalMinutes ?? null,
 		runAt: schedule.runAt || '',
@@ -93,7 +95,10 @@ export function findingsByField(findings) {
 	for (const finding of Array.isArray(findings) ? findings : []) {
 		const field = String(finding?.field || 'other')
 		byField[field] = byField[field] || []
-		byField[field].push({ message: finding.message || '', suggestion: finding.suggestion || '' })
+		byField[field].push({
+			message: finding.message || '',
+			suggestion: finding.suggestion || '',
+		})
 	}
 	return byField
 }

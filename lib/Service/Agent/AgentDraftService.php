@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Read and check an agent draft.
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 class AgentDraftService {
 
@@ -80,7 +80,7 @@ class AgentDraftService {
 	 *
 	 * @throws AgentDraftUnreadableException When the text is not a JSON object with a name.
 	 *
-	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function check(string $text, string $uid): array {
 		$draft = $this->read(text: $text);
@@ -100,7 +100,8 @@ class AgentDraftService {
 	 *
 	 * @param string $text The draft block's text.
 	 *
-	 * @return array{name: string, description: string, prompt: string, provider: string, model: string, tools: array<int, string>, sharing: array{mode: string, groups: array<int, string>}, schedule: array<string, mixed>|null, startFields: array<int, mixed>}
+	 * @return array<string, mixed> name, description, prompt, provider, model, tools (strings),
+	 *                              sharing {mode, groups}, schedule (or null) and startFields.
 	 *
 	 * @throws AgentDraftUnreadableException When the text is not a JSON object with a name.
 	 */

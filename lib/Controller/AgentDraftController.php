@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Check an agent draft from chat.
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 class AgentDraftController extends Controller {
 
@@ -67,7 +67,7 @@ class AgentDraftController extends Controller {
 	 *
 	 * @return JSONResponse `{draft, findings}`, or 422 when the draft cannot be read.
 	 *
-	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	#[NoAdminRequired]
 	public function check(): JSONResponse {

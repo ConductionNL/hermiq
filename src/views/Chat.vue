@@ -622,11 +622,12 @@ import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
+import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
-import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
+import { checkAgentDraft } from '../api/agents.js'
 import {
 	answerStartFields,
 	archiveSession,
@@ -640,7 +641,6 @@ import {
 	sendMessageFeedback,
 	streamChatMessage,
 } from '../api/chat.js'
-import { checkAgentDraft } from '../api/agents.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
 import {
@@ -1667,10 +1667,12 @@ export default {
 		 *
 		 * @param {object} message The message.
 		 * @return {boolean}
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		hasAgentDraft(message) {
-			return message.role === 'assistant' && draftBlockOf(message.content) !== ''
+			return (
+				message.role === 'assistant' && draftBlockOf(message.content) !== ''
+			)
 		},
 
 		/**
@@ -1678,7 +1680,7 @@ export default {
 		 *
 		 * @param {object} message The message.
 		 * @return {Promise<void>}
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		async openAgentDraft(message) {
 			this.checkingDraft = true
@@ -1702,7 +1704,7 @@ export default {
 		 * The agent form closed: drop the draft.
 		 *
 		 * @return {void}
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		closeAgentDraft() {
 			this.draftAgent = null
@@ -1714,7 +1716,7 @@ export default {
 		 *
 		 * @param {object} saved The saved agent.
 		 * @return {void}
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		onDraftAgentSaved(saved) {
 			const agentId = saved?.['@self']?.id || saved?.id || saved?.uuid || ''

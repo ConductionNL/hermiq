@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for AgentDraftService.
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 class AgentDraftServiceTest extends TestCase {
 
@@ -107,7 +107,7 @@ class AgentDraftServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testAGoodDraftHasNoFindings(): void {
 		$checked = $this->service()->check(text: $this->draft(), uid: 'teamlead');
@@ -124,7 +124,7 @@ class AgentDraftServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testEachProblemIsAFindingBesideItsField(): void {
 		$checked = $this->service()->check(
@@ -159,7 +159,7 @@ class AgentDraftServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testAnUnreadableDraftIsRefused(): void {
 		foreach (['{"name": "x",', '["a list"]', '{"description": "no name"}', ''] as $text) {

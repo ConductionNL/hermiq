@@ -13,7 +13,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use Psr\Log\NullLogger;
 /**
  * Tests for AgentDraftController.
  *
- * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 class AgentDraftControllerTest extends TestCase {
 
@@ -75,7 +75,7 @@ class AgentDraftControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testStatuses(): void {
 		$ok = $this->controller('teamlead', '{"name": "Objections digest"}')->check();
