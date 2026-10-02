@@ -36,6 +36,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\Agent\StartFields;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
@@ -1428,7 +1429,8 @@ class ScheduleService {
 				agentId: (string)($data['agentId'] ?? ''),
 				prompt: (string)($data['prompt'] ?? ''),
 				organisation: (string)($schedule->getOrganisation() ?? ''),
-				anchor: $schedule
+				anchor: $schedule,
+				startValues: (array)($data['startValues'] ?? [])
 			);
 
 			// Run-trace-observability: a `delivery` step timed around the existing
@@ -2183,6 +2185,10 @@ class ScheduleService {
 	 *                                     `installedOn` are never written. Null
 	 *                                     (every non-eval caller) exposes the
 	 *                                     agent's stored installs.
+	 * @param array<string, mixed> $startValues The schedule's start field values
+	 *                                          (agents-instruction-variables), filtered
+	 *                                          like the prompt and stored on the run's
+	 *                                          session; a field without one uses its default.
 	 *
 	 * @return string The agent's response text (already output-filtered).
 	 *
@@ -2224,6 +2230,7 @@ class ScheduleService {
 		bool $forceOwner = false,
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
+		array $startValues = [],
 	): string {
 		// Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
 		// on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
@@ -2309,7 +2316,8 @@ class ScheduleService {
 					prompt: $prompt,
 					dryRun: $dryRun,
 					anchor: $anchor,
-					skillSetOverride: $skillSetOverride
+					skillSetOverride: $skillSetOverride,
+					startValues: $this->filterStartValues(policy: $guardrailPolicy, values: $startValues)
 				);
 				return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
 			}
@@ -2651,6 +2659,8 @@ class ScheduleService {
 	 *                                     through to `Engine::processMessage()`;
 	 *                                     null (every non-eval caller) exposes the
 	 *                                     agent's stored installs.
+	 * @param array<string, mixed> $startValues The schedule's start field values,
+	 *                                          already through the input filter.
 	 *
 	 * @return string The agent's response text.
 	 *
@@ -2674,6 +2684,7 @@ class ScheduleService {
 		bool $dryRun = false,
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
+		array $startValues = [],
 	): string {
 		$agent = $this->objectService->find(
 			id: $agentId,
@@ -2690,11 +2701,7 @@ class ScheduleService {
 		}
 
 		$conversation = $this->objectService->saveObject(
-			object: [
-				'title' => $title,
-				'userId' => $owner,
-				'agentId' => (string)$agent->getUuid(),
-			],
+			object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
 			register: self::REGISTER_SLUG,
 			schema: self::CONVERSATION_SCHEMA
 		);
@@ -3399,4 +3406,65 @@ class ScheduleService {
 		}
 
 	}//end parseDate()
+	/**
+	 * The session a run creates: its title, owner and agent, plus the schedule's
+	 * values for the start fields this agent declares (agents-instruction-variables).
+	 * The engine reads them, or each field's default, per turn.
+	 *
+	 * @param string               $title       The session title.
+	 * @param string               $owner       The run's acting user.
+	 * @param ObjectEntity         $agent       The agent.
+	 * @param array<string, mixed> $startValues The schedule's filtered start values.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function runSession(string $title, string $owner, ObjectEntity $agent, array $startValues): array {
+		$session = [
+			'title' => $title,
+			'userId' => $owner,
+			'agentId' => (string)$agent->getUuid(),
+		];
+		$fields = new StartFields();
+		$answers = $fields->clean(fields: $fields->fieldsOf(agentData: $agent->getObject()), values: $startValues);
+		if ($answers !== []) {
+			$session['startValues'] = $answers;
+		}
+
+		return $session;
+	}//end runSession()
+
+	/**
+	 * A schedule's start field values through the same input filter as its
+	 * prompt (agents-instruction-variables): they reach the model inside the
+	 * agent's instructions, so a blocked value stops the run and a redacted
+	 * one is used redacted.
+	 *
+	 * @param array<string, mixed> $policy The effective guardrail policy.
+	 * @param array<string, mixed> $values The schedule's start values.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @throws GuardrailBlockedException When the filter blocks a value.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function filterStartValues(array $policy, array $values): array {
+		$filtered = [];
+		foreach ($values as $key => $value) {
+			if (is_scalar($value) === false || is_bool($value) === true) {
+				continue;
+			}
+
+			$filter = $this->guardrailPolicyService->filterInput(policy: $policy, text: (string)$value);
+			if ($filter['blocked'] === true) {
+				throw new GuardrailBlockedException(reason: (string)$filter['reason']);
+			}
+
+			$filtered[(string)$key] = (string)$filter['text'];
+		}
+
+		return $filtered;
+	}//end filterStartValues()
 }//end class

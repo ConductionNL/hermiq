@@ -55,3 +55,14 @@ The seeded starter template "Meeting minutes drafter" gains the instruction line
 
 - A value that changes the meaning of the instructions, such as a field answer written as an instruction. Mitigation: the guardrail input filter on answers, and answers are inserted as quoted text.
 - Personal data in instructions reaching a remote model. Mitigation: only the listed values, all already known to the provider through the conversation, and the redaction before persist that already applies to the run audit.
+
+## As built (2026-10-02)
+
+The design held, with these adjustments to the code at HEAD:
+
+- **Endpoints.** The preview and the answers live in one small controller, `InstructionVariablesController`, over `InstructionVariablesService`, rather than in `AgentsController`: `POST /api/agents/{id}/prompt-preview` (owner only, 404 for anyone else, including a person who may use the agent) and `PUT /api/sessions/{uuid}/start-values` (the session's owner, once: 409 when it already has answers, 422 with the reason per field).
+- **Where answers are set.** A session is still created by "New session"; the chat page shows the fields above the composer while the session has no answers and no messages, and stores them just before the first message goes. The chat page enforces required fields; the server checks every answer again. Other entry points (Talk, the companion, flows) do not ask: a field without an answer uses its default, else an empty value.
+- **Quoting.** Answers are inserted as written, in one pass, so a value that reads like a placeholder stays text. Line breaks are folded to spaces except in long-text fields. The guardrail input filter runs on every answer when it is stored (chat) or when the run starts (schedule).
+- **Engine path only.** Placeholders are filled on the in-app engine path (`Engine::processMessage()` hands `PromptVariableResolver` values to `ResponseGenerationHandler`). The legacy OpenRegister chat path, used only while `engine.enabled` is off, sends the prompt as written.
+- **Seed data.** There is no "Meeting minutes drafter" template at HEAD, and AgentTemplate has no start fields; the seed change is dropped. Start fields travel with the agent itself.
+- **Register.** v0.47.0: Agent.startFields (maxItems 10, key pattern), agentsession.startValues and Schedule.startValues (objects of strings).

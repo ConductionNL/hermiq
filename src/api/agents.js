@@ -62,6 +62,23 @@ function toList(data) {
 }
 
 /**
+ * The agent's instructions filled in for its owner (agents-instruction-variables).
+ * Only the owner gets an answer; anyone else gets a 404.
+ *
+ * @param {string} agentId The agent.
+ * @param {{prompt: string, startFields: Array<object>, sampleValues: object}} body The form's text, questions and sample answers.
+ * @return {Promise<{text: string, unknown: string[]}>} The filled-in text and the placeholders nothing fills.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+ */
+export async function previewPrompt(agentId, body) {
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${encodeURIComponent(agentId)}/prompt-preview`),
+		body,
+	)
+	return response.data
+}
+
+/**
  * List the tools available for agent configuration (from every registered app).
  *
  * Served by Hermiq's /api/agents/tools endpoint (agent-engine-port), which is

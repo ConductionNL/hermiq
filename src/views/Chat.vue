@@ -208,6 +208,13 @@
 				`margin: auto` centres identically while there is room and
 				collapses to zero when there is not, which is the whole fix.
 			-->
+			<p
+				v-if="activeSession && sessionStartValues.length > 0"
+				class="chat-page__start-values"
+				data-testid="chat-start-values">
+				{{ sessionStartValues.join(' · ') }}
+			</p>
+
 			<div v-if="!activeSession" ref="startSurface" class="chat-page__empty">
 				<div class="chat-page__empty-inner" data-testid="chat-start-surface">
 					<div class="chat-page__empty-icon">
@@ -452,6 +459,11 @@
 							{{ t('hermiq', 'Open Working with AI') }}
 						</router-link>
 					</NcNoteCard>
+					<StartFieldsForm
+						v-if="startFields.length > 0"
+						v-model="startAnswers"
+						:fields="startFields"
+						:problems="startProblems" />
 					<div class="chat-page__composer-row">
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
@@ -473,7 +485,11 @@
 							@error="sendError = $event" />
 						<NcButton
 							variant="primary"
-							:disabled="!currentMessage.trim() || sending"
+							:disabled="
+								!currentMessage.trim()
+								|| sending
+								|| startFieldsMissing.length > 0
+							"
 							:aria-label="t('hermiq', 'Send message')"
 							@click="handleSend">
 							<template #icon>
@@ -574,12 +590,14 @@ import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
+import StartFieldsForm from '../components/StartFieldsForm.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import {
+	answerStartFields,
 	archiveSession,
 	ChatStreamError,
 	createSession,
@@ -593,6 +611,13 @@ import {
 } from '../api/chat.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
+import {
+	initialAnswers,
+	missingRequired,
+	pendingStartFields,
+	startFieldsOf,
+	startValueSummary,
+} from '../utils/instructionVariables.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 
 /**
@@ -649,6 +674,7 @@ export default {
 		Send,
 		SitemapOutline,
 		SkillFormModal,
+		StartFieldsForm,
 		ThumbDown,
 		ThumbUp,
 	},
@@ -692,6 +718,11 @@ export default {
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
+
+			// Agents-instruction-variables: the answers to the agent's start
+			// fields while the session has none, and the server's reasons.
+			startAnswers: {},
+			startProblems: {},
 
 			// Composer + streaming
 			currentMessage: '',
@@ -886,6 +917,67 @@ export default {
 				|| this.settings.numSourcesObjects !== defaults.numSourcesObjects
 				|| this.settings.numSourcesFiles !== defaults.numSourcesFiles
 			)
+		},
+
+		/**
+		 * The agent's start fields while this session still needs its answers
+		 * (agents-instruction-variables).
+		 *
+		 * @return {Array<object>} The fields to ask.
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
+		startFields() {
+			return pendingStartFields(
+				this.currentAgent,
+				this.activeSession,
+				this.messages.length,
+			)
+		},
+
+		/**
+		 * Which session and fields the answers belong to, so they reset when either changes.
+		 *
+		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
+		startFieldsKey() {
+			return `${this.activeSession?.uuid || ''}|${this.startFields.map((field) => field.key).join(',')}`
+		},
+
+		/**
+		 * Required start fields still empty: the first message waits for them.
+		 *
+		 * @return {string[]} Their keys.
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
+		startFieldsMissing() {
+			return missingRequired(this.startFields, this.startAnswers)
+		},
+
+		/**
+		 * "Label: answer" for each answered start field, for the session header.
+		 *
+		 * @return {string[]}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
+		sessionStartValues() {
+			return startValueSummary(
+				startFieldsOf(this.currentAgent),
+				this.activeSession?.startValues,
+			)
+		},
+	},
+
+	watch: {
+		/**
+		 * A new session or a different agent starts the answers again from the defaults.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
+		startFieldsKey() {
+			this.startAnswers = initialAnswers(this.startFields)
+			this.startProblems = {}
 		},
 	},
 
@@ -1280,6 +1372,38 @@ export default {
 		},
 
 		/**
+		 * Store the start field answers on the session before its first message
+		 * (agents-instruction-variables). A refused answer marks its field and
+		 * keeps the message in the box.
+		 *
+		 * @return {Promise<boolean>} Whether the message may go.
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+		 */
+		async saveStartAnswers() {
+			if (this.startFieldsMissing.length > 0) {
+				return false
+			}
+			try {
+				const stored = await answerStartFields(
+					this.activeSession.uuid,
+					this.startAnswers,
+				)
+				this.activeSession = {
+					...this.activeSession,
+					startValues: stored.startValues || {},
+				}
+				return true
+			} catch (e) {
+				this.startProblems = e?.response?.data?.problems || {}
+				this.sendError = this.t(
+					'hermiq',
+					'Check the fields above before you start.',
+				)
+				return false
+			}
+		},
+
+		/**
 		 * Send the composed message: stream by default, POST /send when
 		 * settings are customised, and fall back from stream to /send on
 		 * transport failure (ADR-034 fallback ladder).
@@ -1290,6 +1414,9 @@ export default {
 		async handleSend() {
 			const text = this.currentMessage.trim()
 			if (!text || this.sending || !this.activeSession) {
+				return
+			}
+			if (this.startFields.length > 0 && !(await this.saveStartAnswers())) {
 				return
 			}
 			this.currentMessage = ''
@@ -1821,6 +1948,12 @@ export default {
 	gap: 12px;
 	padding: 16px 20px;
 	border-bottom: 1px solid var(--color-border);
+}
+
+.chat-page__start-values {
+	margin: 0;
+	padding: 4px 16px;
+	color: var(--color-text-maxcontrast);
 }
 
 .chat-page__heading {

@@ -7883,7 +7883,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/open-webui/open-webui/releases/tag/v0.11.0",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -7899,10 +7899,12 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/chat_variables.py:127 get_chat_variables_schema parses fields from the system prompt; routers/models.py:60 add_chat_variables_schema; ModelEditor.svelte:1084 'Chat Variables' (CHANGELOG.md:655)"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'chat variable|formFields|input fields|startForm' in lib/ src/: only src/formFields/EmailField.vue (a register form field) and src/registry.js; the agent schema declares no start-of-chat fields and src/views/Chat.vue opens straight to the composer Specified in openspec/changes/agents-instruction-variables/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-instruction-variables"
+				"evidence": "An agent owner declares up to ten questions (short text, long text, choice, number, date; optional or required) on the agent form (src/components/StartFieldsEditor.vue, Agent.startFields). The chat page asks them above the composer of a new session and keeps Send disabled until the required ones are answered (src/components/StartFieldsForm.vue); the answers are stored once on the session (PUT /api/sessions/{uuid}/start-values, checked and filtered server-side), shown in the session header and used as {{field.<key>}}. A schedule may set its own values; otherwise defaults apply. Proven in StartFieldsTest, InstructionVariablesServiceTest, ScheduleServiceTest and tests/agent-instruction-variables.spec.js.",
+				"reachedOn": "Agent form: Questions before a conversation; Chat: the questions above the composer",
+				"change": "openspec/changes/archive/2026-10-02-agents-instruction-variables",
+				"readOn": "2026-10-02"
 			},
 			"reachedOn": "none"
 		},
@@ -8276,7 +8278,7 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/nextcloud/assistant/issues/598",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -8292,10 +8294,12 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/utils/task.py:36-96 prompt_template replaces {{CURRENT_DATE}}, {{CURRENT_DATETIME}}, {{USER_NAME}} and more; utils/payload.py:38-41 applies them and custom variables to model and user system prompts; utils/chat_variables.py:9-10 {{chat.variables.x}} and {{user.variables.x}}"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Engine/ResponseGenerationHandler.php:326-358 the system prompt is the agent's prompt text plus context, app-context and RAG blocks, with no substitution; searched 'placeholder|str_replace|strtr|\\{user|\\{date|\\{\\{' in lib/Service/Engine and lib/Service/Agent: none (the only placeholders are conversation titles) Specified in openspec/changes/agents-instruction-variables/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-instruction-variables"
+				"evidence": "Placeholders in an agent's instructions are filled in per turn for the person taking it: {{user.displayName}}, {{user.id}}, {{user.language}}, {{organisation.name}}, {{today}}, {{now}} in the person's time zone, {{agent.name}}, {{app.id}} and {{field.<key>}} (lib/Service/Engine/PromptVariableResolver.php, wired in Engine::processMessage() and ResponseGenerationHandler on Agent.prompt only). The agent form has an Insert placeholder menu and a Preview (POST /api/agents/{id}/prompt-preview, owner only). Proven in PromptVariableResolverTest, EnginePromptVariablesTest and InstructionVariablesServiceTest.",
+				"reachedOn": "Agent form: Insert placeholder, Preview",
+				"change": "openspec/changes/archive/2026-10-02-agents-instruction-variables",
+				"readOn": "2026-10-02"
 			},
 			"reachedOn": "none"
 		},

@@ -154,6 +154,10 @@ class ResponseGenerationHandler {
 	 *                               published on the run-step bus reaches the right
 	 *                               stream and the performance log can be joined to
 	 *                               the runner's own timings.
+	 * @param array<string, string> $promptVariables Placeholder values for this turn
+	 *                                               (agents-instruction-variables,
+	 *                                               `PromptVariableResolver::variablesFor()`);
+	 *                                               empty leaves Agent.prompt as written.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -179,6 +183,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -192,6 +197,7 @@ class ResponseGenerationHandler {
 		?RunTraceCollector $trace = null,
 		bool $dryRun = false,
 		string $conversationId = '',
+		array $promptVariables = [],
 	): string {
 		$startTime = microtime(true);
 		$agentData = [];
@@ -332,7 +338,13 @@ class ResponseGenerationHandler {
 
 			// Build system prompt.
 			$defaultPrompt = 'You are a helpful AI assistant that helps users find and understand their data.';
-			$systemPrompt = $agentData['prompt'] ?? $defaultPrompt;
+			// Agents-instruction-variables: the owner's placeholders are filled in
+			// here, on Agent.prompt alone and before anything is appended, so no
+			// retrieved document or user text is ever read as a template.
+			$systemPrompt = PromptVariableResolver::fill(
+				prompt: (string)($agentData['prompt'] ?? $defaultPrompt),
+				variables: $promptVariables
+			);
 
 			// Prepend the assembled Context preamble (agent-context-system) right after
 			// Agent.prompt — same category ("who you are / what you know statically") as

@@ -538,6 +538,8 @@ return [
         ['name' => 'agentAvailability#show', 'url' => '/api/agents/{id}/availability', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentAvailability#update', 'url' => '/api/agents/{id}/availability', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentAppAssistant#update', 'url' => '/api/agents/{id}/app-assistant', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        // Agents-instruction-variables: the owner's preview of the filled-in instructions.
+        ['name' => 'instructionVariables#preview', 'url' => '/api/agents/{id}/prompt-preview', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentGit#publish', 'url' => '/api/agents/{id}/git/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentGit#push', 'url' => '/api/agents/{id}/git/push', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentGit#pullPreview', 'url' => '/api/agents/{id}/git/pull', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
@@ -614,6 +616,8 @@ return [
             'requirements' => ['uuid' => '[^/]+'],
         ],
         ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        // Agents-instruction-variables: a person's answers to the agent's start fields, once per session.
+        ['name' => 'instructionVariables#answer', 'url' => '/api/sessions/{uuid}/start-values', 'verb' => 'PUT', 'requirements' => ['uuid' => '[^/]+']],
         ['name' => 'session#destroy', 'url' => '/api/sessions/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         [
             'name'         => 'session#restore',

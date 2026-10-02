@@ -139,6 +139,24 @@ export async function renameSession(uuid, title) {
 }
 
 /**
+ * Store the answers to the agent's start fields on a session, once, before its
+ * first message (agents-instruction-variables). A refused answer comes back as
+ * a 422 whose `problems` name the reason per field key.
+ *
+ * @param {string} uuid The session UUID.
+ * @param {object} values The answers per field key.
+ * @return {Promise<{uuid: string, startValues: object}>} The stored answers.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ */
+export async function answerStartFields(uuid, values) {
+	const response = await axios.put(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/start-values`),
+		{ values },
+	)
+	return response.data
+}
+
+/**
  * The colleagues invited into a session (owner only).
  *
  * @param {string} uuid The session UUID.
