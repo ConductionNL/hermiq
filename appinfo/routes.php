@@ -532,6 +532,8 @@ return [
         // /api/agents/{agentId}/memory block above matches longer paths — no conflict.
         ['name' => 'agents#stats',   'url' => '/api/agents/stats', 'verb' => 'GET'],
         ['name' => 'agents#tools',   'url' => '/api/agents/tools', 'verb' => 'GET'],
+        // agents-plain-language-builder: check a chat draft before the agent form opens with it (reads only).
+        ['name' => 'agent_draft#check', 'url' => '/api/agents/draft-check', 'verb' => 'POST'],
         ['name' => 'agents#index',   'url' => '/api/agents', 'verb' => 'GET'],
         ['name' => 'agents#create',  'url' => '/api/agents', 'verb' => 'POST'],
         // Agents-switch-off-and-stop: switch one agent off and on, with who and why.

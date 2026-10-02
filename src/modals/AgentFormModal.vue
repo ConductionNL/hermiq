@@ -71,6 +71,14 @@
 			</div>
 
 			<template v-else>
+				<!-- agents-plain-language-builder: the draft check's findings for the schedule. -->
+				<NcNoteCard
+					v-for="(finding, index) in draftFindingsFor('schedule')"
+					:key="`schedule-${index}`"
+					type="warning"
+					data-testid="agent-form-finding-schedule">
+					{{ findingText(finding) }}
+				</NcNoteCard>
 				<!-- Vue 3 / @nextcloud/vue 9: v-model (modelValue) — the old Vue-2
 			     `:value.sync` modifier is silently IGNORED by the Vue 3 compiler,
 			     leaving a one-way binding: typing never reached form.name and the
@@ -132,6 +140,13 @@
 							label="label"
 							trackBy="value"
 							@search="onSearchGroups" />
+						<p
+							v-for="(finding, index) in draftFindingsFor('groups')"
+							:key="`groups-${index}`"
+							class="agent-form__finding"
+							data-testid="agent-form-finding-groups">
+							{{ findingText(finding) }}
+						</p>
 					</template>
 				</fieldset>
 
@@ -197,6 +212,13 @@
 						trackBy="value" />
 					<p class="agent-form__hint">
 						{{ modelHint }}
+					</p>
+					<p
+						v-for="(finding, index) in draftFindingsFor('model')"
+						:key="`model-${index}`"
+						class="agent-form__finding"
+						data-testid="agent-form-finding-model">
+						{{ findingText(finding) }}
 					</p>
 				</div>
 
@@ -332,6 +354,13 @@
 						{{
 							t('hermiq', 'Leave empty to allow every available tool.')
 						}}
+					</p>
+					<p
+						v-for="(finding, index) in draftFindingsFor('tools')"
+						:key="`tools-${index}`"
+						class="agent-form__finding"
+						data-testid="agent-form-finding-tools">
+						{{ findingText(finding) }}
 					</p>
 				</div>
 
@@ -566,6 +595,21 @@ export default {
 		schema: {
 			type: Object,
 			default: null,
+		},
+
+		/**
+		 * A checked agent draft from chat (agents-plain-language-builder): the
+		 * form opens filled with it in create mode, so saving creates a new agent.
+		 */
+		draft: {
+			type: Object,
+			default: null,
+		},
+
+		/** The draft check's findings by field: `{model: [{message, suggestion}], ...}`. */
+		draftFindings: {
+			type: Object,
+			default: () => ({}),
 		},
 	},
 
@@ -1212,11 +1256,12 @@ export default {
 		 */
 		resetForm() {
 			this.error = ''
-			if (!this.effectiveAgent) {
+			// agents-plain-language-builder: a draft fills the form in create mode.
+			const source = this.effectiveAgent || this.draft
+			if (!source) {
 				this.form = this.blankForm()
 				return
 			}
-			const source = this.effectiveAgent
 			const tools = Array.isArray(source.tools) ? source.tools : []
 			const delegationAllowlist = Array.isArray(source.delegationAllowlist)
 				? source.delegationAllowlist
@@ -1405,6 +1450,34 @@ export default {
 				&& !!this.form.model
 				&& !entry.models.includes(this.form.model)
 			)
+		},
+
+		/**
+		 * The draft check's findings for one field.
+		 *
+		 * @param {string} field The field.
+		 * @return {Array<{message: string, suggestion: string}>}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		draftFindingsFor(field) {
+			return this.draftFindings?.[field] || []
+		},
+
+		/**
+		 * A finding as one line, with its suggestion when there is one.
+		 *
+		 * @param {{message: string, suggestion: string}} finding The finding.
+		 * @return {string}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		findingText(finding) {
+			if (!finding.suggestion) {
+				return finding.message
+			}
+			return this.t('hermiq', '{message} Try {suggestion}.', {
+				message: finding.message,
+				suggestion: finding.suggestion,
+			})
 		},
 
 		/**
@@ -1644,6 +1717,11 @@ export default {
 </script>
 
 <style scoped>
+.agent-form__finding {
+	margin: 4px 0 0;
+	color: var(--color-warning-text);
+}
+
 .agent-form__credentials {
 	border: none;
 	margin: 0;

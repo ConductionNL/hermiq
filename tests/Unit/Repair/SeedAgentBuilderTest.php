@@ -90,7 +90,9 @@ class SeedAgentBuilderTest extends TestCase {
 				bool $_dedupOverride = false,
 			): ObjectEntity {
 				$this->writes++;
-				$id = $uuid ?? ((string)$schema . '-' . $this->writes);
+				// A real UUID: the fragments declare format uuid on installedOn and skillInstalls.
+				$hex = md5((string)$schema . '-' . $this->writes);
+				$id  = $uuid ?? sprintf('%s-%s-4%s-8%s-%s', substr($hex, 0, 8), substr($hex, 8, 4), substr($hex, 13, 3), substr($hex, 17, 3), substr($hex, 20, 12));
 				$entity = new ObjectEntity();
 				$entity->setUuid($id);
 				$entity->setObject(is_array($object) ? $object : $object->getObject());
@@ -107,13 +109,13 @@ class SeedAgentBuilderTest extends TestCase {
 	 *
 	 * @return void
 	 */
-	private function run(ObjectService $store): void {
+	private function runStep(ObjectService $store): void {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturn($store);
 
 		(new SeedAgentBuilder(container: $container, logger: new NullLogger(), freshness: new SeedFreshnessService()))
 			->run(output: $this->createMock(IOutput::class));
-	}//end run()
+	}//end runStep()
 
 	/**
 	 * Two runs leave one skill and one agent, installed on each other, with no tools.
@@ -124,9 +126,9 @@ class SeedAgentBuilderTest extends TestCase {
 	 */
 	public function testTwoRunsSeedOneSkillAndOneAgent(): void {
 		$store = $this->store();
-		$this->run(store: $store);
+		$this->runStep(store: $store);
 		$writes = $store->writes;
-		$this->run(store: $store);
+		$this->runStep(store: $store);
 
 		$this->assertSame($writes, $store->writes, 'A second run writes nothing.');
 		$this->assertCount(1, $store->objects['agentskill']);
@@ -153,7 +155,7 @@ class SeedAgentBuilderTest extends TestCase {
 		$existing->setObject(['name' => SeedAgentBuilder::AGENT_NAME, 'active' => false]);
 		$store->objects['agent'] = ['agent-x' => $existing];
 
-		$this->run(store: $store);
+		$this->runStep(store: $store);
 
 		$this->assertCount(1, $store->objects['agent']);
 		$this->assertFalse($store->objects['agent']['agent-x']->getObject()['active']);
@@ -167,7 +169,7 @@ class SeedAgentBuilderTest extends TestCase {
 	 */
 	public function testTheSeedsPassTheRealSchemaFragments(): void {
 		$store = $this->store();
-		$this->run(store: $store);
+		$this->runStep(store: $store);
 
 		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../lib/Settings/hermiq_register.json'));
 		foreach (['agentskill' => 'Skill', 'agent' => 'Agent'] as $slug => $key) {
@@ -186,4 +188,41 @@ class SeedAgentBuilderTest extends TestCase {
 		}
 
 	}//end testTheSeedsPassTheRealSchemaFragments()
+
+	/**
+	 * No tool may create, update or delete an object of a hermiq schema: the
+	 * builder drafts, the person saves (hermiq-mcp-adoption). Reads every tool
+	 * descriptor hermiq contributes and every schema in the real register.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 */
+	public function testNoToolWritesAHermiqSchema(): void {
+		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../lib/Settings/hermiq_register.json'), true);
+		$schemas  = array_keys($register['components']['schemas']);
+
+		$descriptors = array_merge(
+			(new \ReflectionClassConstant(\OCA\Hermiq\Mcp\HermiqToolProvider::class, 'TOOL_DESCRIPTORS'))->getValue(),
+			\OCA\Hermiq\Mcp\NcNativeWriteToolDescriptors::ALL,
+			\OCA\Hermiq\Mcp\NcMailToolDescriptors::ALL,
+			\OCA\Hermiq\Mcp\WorkspaceToolDescriptors::ALL,
+			\OCA\Hermiq\Mcp\GraphToolDescriptors::ALL,
+			\OCA\Hermiq\Mcp\NcTaskToolDescriptors::ALL
+		);
+		$this->assertGreaterThan(10, count($descriptors), 'control: the catalogue was read');
+
+		$pattern = '/\\.(create|update|delete)(' . implode('|', array_map('preg_quote', $schemas)) . ')s?$/';
+		$this->assertSame(1, preg_match($pattern, 'hermiq.createAgent'), 'control: the pattern catches a write tool');
+		foreach ($descriptors as $descriptor) {
+			$this->assertSame(0, preg_match($pattern, (string)$descriptor['id']), (string)$descriptor['id'] . ' writes a hermiq schema');
+		}
+
+		$this->assertSame([], (new SeedAgentBuilder(
+			container: $this->createMock(ContainerInterface::class),
+			logger: new NullLogger(),
+			freshness: new SeedFreshnessService()
+		))->agentObject(skillUuid: 'x')['tools']);
+
+	}//end testNoToolWritesAHermiqSchema()
 }//end class

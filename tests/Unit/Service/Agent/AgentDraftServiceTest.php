@@ -27,6 +27,7 @@ use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -68,7 +69,12 @@ class AgentDraftServiceTest extends TestCase {
 		$organisations = $this->createMock(OrganisationMapper::class);
 		$organisations->method('getActiveOrganisationWithFallback')->willReturn('org-1');
 
-		return new AgentDraftService(tools: $tools, policies: $policies, groups: $groups, organisations: $organisations);
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(
+			static fn (string $text, array $parameters = []): string => vsprintf($text, $parameters)
+		);
+
+		return new AgentDraftService(tools: $tools, policies: $policies, groups: $groups, organisations: $organisations, l10n: $l10n);
 	}//end service()
 
 	/**

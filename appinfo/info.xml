@@ -108,6 +108,7 @@
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
             <step>OCA\Hermiq\Repair\CollectAppAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
@@ -191,6 +192,7 @@
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
             <step>OCA\Hermiq\Repair\CollectAppAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>

@@ -1,6 +1,16 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Open as agent": "Openen als agent",
+        "This draft could not be read.": "Dit concept kon niet worden gelezen.",
+        "Could not check the draft.": "Het concept kon niet worden gecontroleerd.",
+        "{message} Try {suggestion}.": "{message} Probeer {suggestion}.",
+        "No tool is called %s.": "Er is geen tool met de naam %s.",
+        "Not allowed by your organisation": "Niet toegestaan door je organisatie",
+        "You cannot share with the group %s.": "Je kunt niet delen met de groep %s.",
+        "The schedule kind must be once, interval or cron.": "Het soort planning moet eenmalig, interval of cron zijn.",
+        "The schedule could not be read.": "De planning kon niet worden gelezen.",
+        "The interval must be at least one minute.": "Het interval moet minstens een minuut zijn.",
         "Keep in git": "Bijhouden in git",
         "This agent is kept in": "Deze agent wordt bijgehouden in",
         "Publish this agent to a new GitHub repository. Edit it there, then pull the changes back here.": "Publiceer deze agent in een nieuwe GitHub-repository. Bewerk hem daar en haal de wijzigingen hier weer op.",

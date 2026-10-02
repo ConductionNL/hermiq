@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
+use OCP\IL10N;
 use Throwable;
 
 /**
@@ -58,12 +59,14 @@ class AgentDraftService {
 	 * @param TenantModelPolicyService $policies      The organisation's model policy.
 	 * @param IGroupManager            $groups        Group existence and membership.
 	 * @param OrganisationMapper       $organisations The person's active organisation.
+	 * @param IL10N                    $l10n          The findings' language.
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $tools,
 		private readonly TenantModelPolicyService $policies,
 		private readonly IGroupManager $groups,
 		private readonly OrganisationMapper $organisations,
+		private readonly IL10N $l10n,
 	) {
 	}//end __construct()
 
@@ -156,7 +159,7 @@ class AgentDraftService {
 
 			$findings[] = [
 				'field' => 'tools',
-				'message' => 'No tool is called ' . $tool . '.',
+				'message' => $this->l10n->t('No tool is called %s.', [$tool]),
 				'suggestion' => $this->closest(wanted: $tool, candidates: $known),
 			];
 		}
@@ -186,7 +189,7 @@ class AgentDraftService {
 		return [
 			[
 				'field' => 'model',
-				'message' => 'Not allowed by your organisation',
+				'message' => $this->l10n->t('Not allowed by your organisation'),
 				'suggestion' => $this->allowedModel(organisation: $organisation, provider: $provider, model: $model),
 			],
 		];
@@ -242,7 +245,7 @@ class AgentDraftService {
 			$visible = $this->groups->groupExists($group) === true
 				&& ($admin === true || $this->groups->isInGroup($uid, $group) === true);
 			if ($visible === false) {
-				$findings[] = ['field' => 'groups', 'message' => 'You cannot share with the group ' . $group . '.', 'suggestion' => ''];
+				$findings[] = ['field' => 'groups', 'message' => $this->l10n->t('You cannot share with the group %s.', [$group]), 'suggestion' => ''];
 			}
 		}
 
@@ -263,15 +266,15 @@ class AgentDraftService {
 
 		$kind = (string)($schedule['kind'] ?? '');
 		if (in_array($kind, self::SCHEDULE_KINDS, true) === false) {
-			return [['field' => 'schedule', 'message' => 'The schedule kind must be once, interval or cron.', 'suggestion' => '']];
+			return [['field' => 'schedule', 'message' => $this->l10n->t('The schedule kind must be once, interval or cron.'), 'suggestion' => '']];
 		}
 
 		if ($kind === 'cron' && $this->validCron(expression: (string)($schedule['cronExpr'] ?? '')) === false) {
-			return [['field' => 'schedule', 'message' => 'The schedule could not be read.', 'suggestion' => '0 8 * * 1']];
+			return [['field' => 'schedule', 'message' => $this->l10n->t('The schedule could not be read.'), 'suggestion' => '0 8 * * 1']];
 		}
 
 		if ($kind === 'interval' && (int)($schedule['intervalMinutes'] ?? 0) < 1) {
-			return [['field' => 'schedule', 'message' => 'The interval must be at least one minute.', 'suggestion' => '']];
+			return [['field' => 'schedule', 'message' => $this->l10n->t('The interval must be at least one minute.'), 'suggestion' => '']];
 		}
 
 		return [];

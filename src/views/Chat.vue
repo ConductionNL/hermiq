@@ -368,6 +368,18 @@
 										<PuzzlePlusOutline :size="16" />
 									</template>
 								</NcButton>
+								<!-- agents-plain-language-builder: a message with an agent draft opens it in the agent form. -->
+								<NcButton
+									v-if="hasAgentDraft(message)"
+									variant="tertiary"
+									data-testid="chat-open-as-agent"
+									:disabled="checkingDraft"
+									@click="openAgentDraft(message)">
+									<template #icon>
+										<RobotOutline :size="16" />
+									</template>
+									{{ t('hermiq', 'Open as agent') }}
+								</NcButton>
 							</div>
 							<div
 								v-if="message.showFeedbackInput"
@@ -543,6 +555,22 @@
 			saveTarget="quarantine"
 			@close="showSaveAsSkill = false"
 			@saved="onSkillSaved" />
+
+		<!-- agents-plain-language-builder: the checked draft in the full agent form,
+		     then its proposed schedule. Nothing exists until the person saves. -->
+		<AgentFormModal
+			:show="draftAgent !== null"
+			:draft="draftAgent"
+			:draftFindings="draftFindings"
+			@close="closeAgentDraft"
+			@saved="onDraftAgentSaved" />
+		<ScheduleFormModal
+			v-if="draftScheduleAgentId"
+			:show="draftScheduleAgentId !== ''"
+			:agentId="draftScheduleAgentId"
+			:schedule="draftSchedule"
+			@close="draftScheduleAgentId = ''"
+			@saved="draftScheduleAgentId = ''" />
 	</div>
 </template>
 
@@ -583,6 +611,7 @@ import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
+import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
@@ -591,10 +620,12 @@ import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
+import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
+import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import {
 	answerStartFields,
@@ -609,8 +640,15 @@ import {
 	sendMessageFeedback,
 	streamChatMessage,
 } from '../api/chat.js'
+import { checkAgentDraft } from '../api/agents.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
+import {
+	agentFromDraft,
+	draftBlockOf,
+	findingsByField,
+	scheduleFromDraft,
+} from '../utils/agentDraft.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -674,6 +712,9 @@ export default {
 		Send,
 		SitemapOutline,
 		SkillFormModal,
+		ScheduleFormModal,
+		AgentFormModal,
+		RobotOutline,
 		StartFieldsForm,
 		ThumbDown,
 		ThumbUp,
@@ -746,6 +787,14 @@ export default {
 			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
 			showSaveAsSkill: false,
 			saveAsSkillBody: '',
+
+			// agents-plain-language-builder: the checked draft the agent form opens
+			// with, its findings, and the schedule offered after the save.
+			checkingDraft: false,
+			draftAgent: null,
+			draftFindings: {},
+			draftSchedule: null,
+			draftScheduleAgentId: '',
 
 			// chat-speak-and-listen: the on-instance speech service's answer, read once.
 			speechService: null,
@@ -1610,6 +1659,68 @@ export default {
 				showSuccess(this.t('hermiq', 'Thanks for the additional feedback!'))
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not save the feedback comment.'))
+			}
+		},
+
+		/**
+		 * Whether an assistant message carries an agent draft.
+		 *
+		 * @param {object} message The message.
+		 * @return {boolean}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		hasAgentDraft(message) {
+			return message.role === 'assistant' && draftBlockOf(message.content) !== ''
+		},
+
+		/**
+		 * Check the message's draft, then open the agent form with it.
+		 *
+		 * @param {object} message The message.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		async openAgentDraft(message) {
+			this.checkingDraft = true
+			try {
+				const checked = await checkAgentDraft(draftBlockOf(message.content))
+				this.draftFindings = findingsByField(checked.findings)
+				this.draftSchedule = scheduleFromDraft(checked.draft)
+				this.draftAgent = agentFromDraft(checked.draft)
+			} catch (e) {
+				showError(
+					e?.response?.status === 422
+						? this.t('hermiq', 'This draft could not be read.')
+						: this.t('hermiq', 'Could not check the draft.'),
+				)
+			} finally {
+				this.checkingDraft = false
+			}
+		},
+
+		/**
+		 * The agent form closed: drop the draft.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		closeAgentDraft() {
+			this.draftAgent = null
+			this.draftFindings = {}
+		},
+
+		/**
+		 * The agent from the draft was saved: offer its proposed schedule.
+		 *
+		 * @param {object} saved The saved agent.
+		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		onDraftAgentSaved(saved) {
+			const agentId = saved?.['@self']?.id || saved?.id || saved?.uuid || ''
+			this.loadAgents()
+			if (this.draftSchedule && agentId) {
+				this.draftScheduleAgentId = agentId
 			}
 		},
 
