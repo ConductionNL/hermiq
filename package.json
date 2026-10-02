@@ -103,7 +103,7 @@
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "postcss-html": "^2.0.0",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.9",
     "sass": "^1.104.1",
     "sass-loader": "^17.0.0",
     "style-loader": "~4.0.0",
