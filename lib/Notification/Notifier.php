@@ -66,6 +66,8 @@ class Notifier implements INotifier {
 		'skill_published_behind',
 		'skill_rollback_suggested',
 		'session_participant_added',
+		'goal_reached',
+		'goal_exhausted',
 	];
 
 	/**
@@ -183,6 +185,10 @@ class Notifier implements INotifier {
 
 		if ($subjectKey === 'session_participant_added') {
 			return $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l);
+		}
+
+		if ($subjectKey === 'goal_reached' || $subjectKey === 'goal_exhausted') {
+			return $this->goalText(reached: $subjectKey === 'goal_reached', name: $name, l: $l);
 		}
 
 		return $this->runCompleteText(name: $name, l: $l);
@@ -354,4 +360,29 @@ class Notifier implements INotifier {
 
 		return [$subject, $l->t('Open Chat and find it under Shared with me. You can ask the agent questions in it.')];
 	}//end sessionParticipantAddedText()
+
+	/**
+	 * Text for `goal_reached` and `goal_exhausted`: a standing goal ended (agents-standing-goal).
+	 *
+	 * @param bool   $reached True when the check passed, false when the turn limit was used.
+	 * @param string $name    The goal's statement.
+	 * @param IL10N  $l       The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	private function goalText(bool $reached, string $name, IL10N $l): array {
+		if ($reached === true) {
+			return [
+				$l->t('Goal reached: %s', [$name]),
+				$l->t('The check passed, so the agent has stopped working on this goal. Open the session to see its turns.'),
+			];
+		}
+
+		return [
+			$l->t('Turn limit used: %s', [$name]),
+			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
+		];
+	}//end goalText()
 }//end class

@@ -620,6 +620,10 @@ return [
         ['name' => 'session#update', 'url' => '/api/sessions/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
         // Agents-instruction-variables: a person's answers to the agent's start fields, once per session.
         ['name' => 'instructionVariables#answer', 'url' => '/api/sessions/{uuid}/start-values', 'verb' => 'PUT', 'requirements' => ['uuid' => '[^/]+']],
+        // Agents-standing-goal: read, set and stop a session's standing goal.
+        ['name' => 'goal#show', 'url' => '/api/sessions/{uuid}/goal', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'goal#create', 'url' => '/api/sessions/{uuid}/goal', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'goal#stop', 'url' => '/api/goals/{id}/stop', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'session#destroy', 'url' => '/api/sessions/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
         [
             'name'         => 'session#restore',

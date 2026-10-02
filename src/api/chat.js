@@ -548,3 +548,47 @@ export async function sendMessageFeedback(
 	)
 	return response.data
 }
+
+/**
+ * Read a session's newest standing goal (agents-standing-goal).
+ *
+ * @param {string} sessionUuid The session UUID.
+ * @return {Promise<object|null>} The goal, or null when the session has none.
+ * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
+ */
+export async function getSessionGoal(sessionUuid) {
+	const response = await axios.get(
+		generateUrl(`${SESSIONS_BASE}/${sessionUuid}/goal`),
+	)
+	return response.data?.goal ?? null
+}
+
+/**
+ * Set a standing goal on a session.
+ *
+ * @param {string} sessionUuid The session UUID.
+ * @param {object} goal The goal: statement, check, intervalMinutes, maxTurns.
+ * @return {Promise<object>} The stored goal.
+ * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
+ */
+export async function setSessionGoal(sessionUuid, goal) {
+	const response = await axios.post(
+		generateUrl(`${SESSIONS_BASE}/${sessionUuid}/goal`),
+		goal,
+	)
+	return response.data
+}
+
+/**
+ * Stop a standing goal; only who set it and the agent's owner may.
+ *
+ * @param {string} goalId The goal UUID.
+ * @return {Promise<object>} The stopped goal.
+ * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-goal-can-be-stopped-by-its-owner-or-the-agent-owner-req-aggoal-003
+ */
+export async function stopGoal(goalId) {
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/goals/${goalId}/stop`),
+	)
+	return response.data
+}
