@@ -340,6 +340,86 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Agent draft check",
+			"item": [
+				{
+					"name": "Check a draft with four problems",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/draft-check",
+						"description": "REQ-AGBUILD-002: an unknown tool, a forbidden model, an unseen group and a bad cron come back as four findings; nothing is written.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"draft\": \"{\\\"name\\\": \\\"Newman draft probe\\\", \\\"prompt\\\": \\\"Summarise.\\\", \\\"provider\\\": \\\"not-a-provider\\\", \\\"model\\\": \\\"not-a-model\\\", \\\"tools\\\": [\\\"no.such.tool\\\"], \\\"sharing\\\": {\\\"mode\\\": \\\"groups\\\", \\\"groups\\\": [\\\"no-such-group-newman\\\"]}, \\\"schedule\\\": {\\\"kind\\\": \\\"cron\\\", \\\"cronExpr\\\": \\\"not a cron\\\"}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is checked', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Four findings, one per field', function () {",
+									"    const fields = pm.response.json().findings.map(function (f) { return f.field; }).sort();",
+									"    pm.expect(fields).to.eql(['groups', 'model', 'schedule', 'tools']);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Check a draft that is not JSON",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/draft-check",
+						"description": "REQ-AGBUILD-002 scenario: a malformed draft is refused with 422 and no form opens.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"draft\": \"{not json\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is refused', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.eql('This draft could not be read');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

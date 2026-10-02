@@ -103,6 +103,22 @@ export async function listTools() {
 }
 
 /**
+ * Check an agent draft from chat before the agent form opens with it
+ * (agents-plain-language-builder). Reads only: the agent exists when the person
+ * saves the form. A draft that is not valid JSON answers 422.
+ *
+ * @param {string} draft The text of the `hermiq-agent-draft` block.
+ * @return {Promise<{draft: object, findings: Array<{field: string, message: string, suggestion: string}>}>}
+ * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ */
+export async function checkAgentDraft(draft) {
+	const response = await axios.post(generateUrl(`${AGENTS_BASE}/draft-check`), {
+		draft,
+	})
+	return response.data
+}
+
+/**
  * Trigger an immediate run of a schedule's agent (thin Hermiq endpoint).
  * Reuses ScheduleService's dispatch path server-side; owner-guarded.
  *
