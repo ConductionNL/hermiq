@@ -171,6 +171,42 @@
 					</NcNoteCard>
 				</template>
 
+				<!-- chat-attachments-and-images: what the configured model reads natively,
+					declared by the admin, never guessed from its name. -->
+				<fieldset
+					v-if="providerValue && providerValue !== 'nextcloud'"
+					class="llm-provider__capabilities"
+					data-testid="llm-model-capabilities">
+					<legend>
+						{{ t('hermiq', 'What this model reads directly') }}
+					</legend>
+					<template v-if="currentModel">
+						<NcCheckboxRadioSwitch
+							v-model="readsImages"
+							type="checkbox"
+							data-testid="llm-reads-images">
+							{{ t('hermiq', 'Reads images') }}
+						</NcCheckboxRadioSwitch>
+						<NcCheckboxRadioSwitch
+							v-model="readsPdfs"
+							type="checkbox"
+							data-testid="llm-reads-pdfs">
+							{{ t('hermiq', 'Reads PDFs') }}
+						</NcCheckboxRadioSwitch>
+						<p class="llm-provider-modal__hint">
+							{{
+								t(
+									'hermiq',
+									'Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.',
+								)
+							}}
+						</p>
+					</template>
+					<p v-else class="llm-provider-modal__hint">
+						{{ t('hermiq', 'Enter a model first.') }}
+					</p>
+				</fieldset>
+
 				<!-- models-no-training-guarantee: where the provider runs and what it
 					does with the data it is sent, stated by the admin who configures it. -->
 				<ProviderDeclarations
@@ -203,6 +239,7 @@ import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcModal,
 	NcNoteCard,
@@ -217,6 +254,7 @@ export default {
 
 	components: {
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcModal,
 		NcNoteCard,
@@ -270,6 +308,9 @@ export default {
 					label: 'Nextcloud Assistant (TaskProcessing)',
 				},
 			],
+
+			// Declared native inputs per `provider/model` (hermiq.modelCapabilities).
+			modelCapabilities: {},
 
 			form: {
 				openaiConfig: { chatModel: '', credentialId: '' },
@@ -355,6 +396,59 @@ export default {
 				? ['anthropic-oauth', 'anthropic-cli']
 				: ['anthropic']
 		},
+
+		/**
+		 * The model id typed for the selected provider, trimmed.
+		 *
+		 * @return {string} The model id, or '' when none is set.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		currentModel() {
+			const block = this.form[`${this.providerValue}Config`]
+			return block ? String(block.chatModel || '').trim() : ''
+		},
+
+		/**
+		 * The `provider/model` key the capabilities are stored under.
+		 *
+		 * @return {string} The key, or '' when no model is set.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		capabilityKey() {
+			return this.currentModel
+				? `${this.providerValue}/${this.currentModel}`
+				: ''
+		},
+
+		/**
+		 * "Reads images" for the current model.
+		 *
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		readsImages: {
+			get() {
+				return this.hasCapability('image')
+			},
+
+			set(value) {
+				this.setCapability('image', value)
+			},
+		},
+
+		/**
+		 * "Reads PDFs" for the current model.
+		 *
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		readsPdfs: {
+			get() {
+				return this.hasCapability('pdf')
+			},
+
+			set(value) {
+				this.setCapability('pdf', value)
+			},
+		},
 	},
 
 	watch: {
@@ -387,6 +481,39 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Whether the current model was declared to read one kind of input.
+		 *
+		 * @param {string} capability `image` or `pdf`.
+		 * @return {boolean} True when declared.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		hasCapability(capability) {
+			const declared = this.modelCapabilities[this.capabilityKey] || []
+			return this.capabilityKey !== '' && declared.includes(capability)
+		},
+
+		/**
+		 * Tick or untick one capability for the current model.
+		 *
+		 * @param {string} capability `image` or `pdf`.
+		 * @param {boolean} value Whether it is ticked.
+		 * @return {void}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		setCapability(capability, value) {
+			if (this.capabilityKey === '') {
+				return
+			}
+			const others = (this.modelCapabilities[this.capabilityKey] || []).filter(
+				(c) => c !== capability,
+			)
+			this.modelCapabilities = {
+				...this.modelCapabilities,
+				[this.capabilityKey]: value ? [...others, capability] : others,
+			}
+		},
+
 		/**
 		 * Load the current (masked) config into the form.
 		 *
@@ -429,6 +556,7 @@ export default {
 				this.form.anthropicConfig.authMode =
 					(config.anthropicConfig && config.anthropicConfig.authMode)
 					|| 'api_key'
+				this.modelCapabilities = { ...(config.modelCapabilities || {}) }
 
 				// Reflect the stored credential references back into the pickers.
 				this.openaiCredential =
@@ -600,6 +728,14 @@ export default {
 				}
 			}
 			try {
+				// The ticks for the model being saved travel with it; an untouched
+				// model is sent as declared "neither", which is what the boxes show.
+				if (this.capabilityKey !== '') {
+					payload.modelCapabilities = {
+						[this.capabilityKey]:
+							this.modelCapabilities[this.capabilityKey] || [],
+					}
+				}
 				await patchLlmSettings(payload)
 				// The residency and data-use statements are saved with the provider.
 				await this.$refs.declarations?.save()
@@ -647,6 +783,18 @@ export default {
 	display: flex;
 	justify-content: center;
 	padding: 24px 0;
+}
+
+.llm-provider__capabilities {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	padding: 8px 12px;
+	margin: 0;
+}
+
+.llm-provider__capabilities legend {
+	padding: 0 4px;
+	font-weight: bold;
 }
 
 .llm-provider__actions {

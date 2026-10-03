@@ -2658,7 +2658,12 @@
         "Upload from device": "Upload from device",
         "Attach a file": "Attach a file",
         "Choose from Files": "Choose from Files",
-        "The file could not be attached.": "The file could not be attached."
+        "The file could not be attached.": "The file could not be attached.",
+        "What this model reads directly": "What this model reads directly",
+        "Reads images": "Reads images",
+        "Reads PDFs": "Reads PDFs",
+        "Enter a model first.": "Enter a model first.",
+        "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.": "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

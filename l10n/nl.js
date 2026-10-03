@@ -1923,7 +1923,12 @@ OC.L10N.register(
         "Upload from device": "Uploaden vanaf apparaat",
         "Attach a file": "Bestand toevoegen",
         "Choose from Files": "Kiezen uit Bestanden",
-        "The file could not be attached.": "Het bestand kon niet worden toegevoegd."
+        "The file could not be attached.": "Het bestand kon niet worden toegevoegd.",
+        "What this model reads directly": "Wat dit model zelf leest",
+        "Reads images": "Leest afbeeldingen",
+        "Reads PDFs": "Leest pdf's",
+        "Enter a model first.": "Vul eerst een model in.",
+        "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.": "Vink alleen aan wat het model ondersteunt. Bijlagen die het niet kan lezen worden als tekst meegestuurd, of met een melding weggelaten."
     },
     "nplurals=2; plural=(n != 1);"
 )
