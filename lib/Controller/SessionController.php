@@ -1146,6 +1146,7 @@ class SessionController extends Controller {
 	 * @return array<string, mixed> Serialized message.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1169,6 +1170,8 @@ class SessionController extends Controller {
 			// Who asked this turn (null on the agent's own turns), so a shared session shows it.
 			'authorId' => ($data['authorId'] ?? null),
 			'authorDisplayName' => ($data['authorDisplayName'] ?? null),
+			// The files attached to this turn, as references (chat-attachments-and-images).
+			'attachments' => ($data['attachments'] ?? []),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()

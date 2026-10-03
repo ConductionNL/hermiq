@@ -1917,7 +1917,13 @@ OC.L10N.register(
         "Size": "Grootte",
         "The file size in bytes.": "De bestandsgrootte in bytes.",
         "Origin": "Herkomst",
-        "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.": "Waar het bestand vandaan komt: geüpload vanaf een apparaat, gekozen uit Bestanden of gemaakt door de assistent."
+        "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.": "Waar het bestand vandaan komt: geüpload vanaf een apparaat, gekozen uit Bestanden of gemaakt door de assistent.",
+        "Files to send": "Bestanden om te versturen",
+        "Remove {name}": "{name} verwijderen",
+        "Upload from device": "Uploaden vanaf apparaat",
+        "Attach a file": "Bestand toevoegen",
+        "Choose from Files": "Kiezen uit Bestanden",
+        "The file could not be attached.": "Het bestand kon niet worden toegevoegd."
     },
     "nplurals=2; plural=(n != 1);"
 )
