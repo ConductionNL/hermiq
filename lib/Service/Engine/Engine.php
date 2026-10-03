@@ -625,7 +625,7 @@ class Engine {
 
 		// Fail closed: without the resolver no file can be read as its speaker.
 		if ($this->attachmentResolver === null) {
-			throw new AttachmentRefusedException('This file is not available to you', 400);
+			throw new AttachmentRefusedException(message: 'This file is not available to you', code: 400);
 		}
 
 		return $this->attachmentResolver->resolve(requested: $attachments, speaker: $speaker);

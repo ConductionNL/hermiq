@@ -96,8 +96,8 @@ class TurnAttachmentResolver {
 
 		if (count($requested) > self::MAX_ATTACHMENTS) {
 			throw new AttachmentRefusedException(
-				$this->l10n->t('You can attach at most %s files to one message.', [self::MAX_ATTACHMENTS]),
-				400
+				message: $this->l10n->t('You can attach at most %s files to one message.', [self::MAX_ATTACHMENTS]),
+				code: 400
 			);
 		}
 
@@ -131,12 +131,12 @@ class TurnAttachmentResolver {
 			}
 
 			return new AttachmentRefusedException(
-				$this->l10n->t(
+				message: $this->l10n->t(
 					'%s has not been redacted, and this assistant only reads redacted documents.',
 					[(string)($attachment['name'] ?? '')]
 				),
-				422,
-				$refusal
+				code: 422,
+				previous: $refusal
 			);
 		}
 
@@ -234,6 +234,6 @@ class TurnAttachmentResolver {
 	 * @return AttachmentRefusedException
 	 */
 	private function notAvailable(): AttachmentRefusedException {
-		return new AttachmentRefusedException($this->l10n->t('This file is not available to you'), 400);
+		return new AttachmentRefusedException(message: $this->l10n->t('This file is not available to you'), code: 400);
 	}//end notAvailable()
 }//end class

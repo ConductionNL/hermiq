@@ -366,7 +366,9 @@ class ChatController extends Controller {
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
-			return $this->sendMessageFailureResponse(exception: $e);
+			// An attachment the speaker cannot read, or one the feature refuses
+			// unredacted (chat-attachments-and-images), is answered with its sentence.
+			return ($this->attachmentRefusalResponse(exception: $e) ?? $this->sendMessageFailureResponse(exception: $e));
 		}//end try
 	}//end sendMessage()
 
@@ -417,15 +419,6 @@ class ChatController extends Controller {
 		// A refused pinned credential stops the turn; the person reads why
 		// (operations-a-credential-per-agent), not the engine's wrapped text.
 		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
-			// An attachment the speaker cannot read, or one the feature refuses
-			// unredacted (chat-attachments-and-images): the sentence is user-facing.
-			if ($cause instanceof AttachmentRefusedException) {
-				$data['error'] = $cause->getMessage();
-				$data['message'] = $cause->getMessage();
-				$data['errorCode'] = 'attachment_refused';
-				break;
-			}
-
 			if ($cause instanceof PinnedCredentialRefusedException) {
 				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
 				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
@@ -459,6 +452,38 @@ class ChatController extends Controller {
 
 		return new JSONResponse(data: $data, statusCode: $statusCode);
 	}//end sendMessageFailureResponse()
+
+	/**
+	 * The answer for a failure caused by a refused attachment: its status (400, or
+	 * 422 for a missing redaction), its sentence and a stable code; null otherwise.
+	 *
+	 * @param Exception $exception The failure.
+	 *
+	 * @return JSONResponse|null
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function attachmentRefusalResponse(Exception $exception): ?JSONResponse {
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof AttachmentRefusedException) {
+				$statusCode = 400;
+				if ((int)$cause->getCode() === 422) {
+					$statusCode = 422;
+				}
+
+				return new JSONResponse(
+					data: [
+						'error' => $cause->getMessage(),
+						'message' => $cause->getMessage(),
+						'errorCode' => 'attachment_refused',
+					],
+					statusCode: $statusCode
+				);
+			}
+		}
+
+		return null;
+	}//end attachmentRefusalResponse()
 
 	/**
 	 * Log a sendMessage() failure at the level matching its severity.
