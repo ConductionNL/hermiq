@@ -80,7 +80,8 @@ class GoalServiceTest extends TestCase {
 				mixed $schema = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $_render = true
+				bool $_render = true,
+				bool $_audit = true
 			): ?ObjectEntity {
 				return $this->objects[(string)$schema][(string)$id] ?? null;
 			}

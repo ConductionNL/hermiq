@@ -115,6 +115,7 @@ class ObjectService {
 		bool $_rbac = true,
 		bool $_multitenancy = true,
 		bool $_render = true,
+		bool $_audit = true,
 	): ?ObjectEntity {
 		return null;
 	}//end find()
