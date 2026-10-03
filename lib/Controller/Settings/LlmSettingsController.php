@@ -35,7 +35,9 @@ namespace OCA\Hermiq\Controller\Settings;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Connection\LlmConnectionReport;
+use InvalidArgumentException;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\ModelCapabilityRegistry;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -57,15 +59,19 @@ class LlmSettingsController extends Controller {
 	 * @param IRequest $request The request.
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
 	 * @param LoggerInterface $logger Logger.
+	 * @param ModelCapabilityRegistry $modelCapabilities The declared native inputs per model.
 	 * @param LlmConnectionReport|null $connectionReport Reports the saved provider to integriq's connection
 	 *                                                  registry; null when built by hand in a test.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly LlmSettingsHandler $settingsHandler,
 		private readonly LoggerInterface $logger,
+		private readonly ModelCapabilityRegistry $modelCapabilities,
 		private readonly ?LlmConnectionReport $connectionReport = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -81,6 +87,7 @@ class LlmSettingsController extends Controller {
 	 *                      `*Set` flag so the raw key is never returned to the browser.
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -94,7 +101,10 @@ class LlmSettingsController extends Controller {
 			return new JSONResponse(['error' => 'Failed to read LLM configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-		return new JSONResponse($this->maskCredentials(config: $config));
+		$masked = $this->maskCredentials(config: $config);
+		$masked['modelCapabilities'] = $this->modelCapabilities->all();
+
+		return new JSONResponse($masked);
 	}//end get()
 
 	/**
@@ -108,6 +118,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
@@ -150,6 +161,22 @@ class LlmSettingsController extends Controller {
 			);
 		}
 
+		// Declared native inputs per model live in their own key
+		// (`hermiq.modelCapabilities`), never in the llm blob. Validated before
+		// anything is saved, written only after the llm save succeeded.
+		$capabilities = null;
+		if (array_key_exists('modelCapabilities', $data) === true) {
+			try {
+				$capabilities = $this->modelCapabilities->normalizeDeclarations(
+					declarations: (array)$data['modelCapabilities']
+				);
+			} catch (InvalidArgumentException $e) {
+				return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+			}
+
+			unset($data['modelCapabilities']);
+		}
+
 		$data = $this->dropBlankCredentials(data: $data);
 
 		try {
@@ -166,10 +193,15 @@ class LlmSettingsController extends Controller {
 		// rows. Never throws; a failed save above reports nothing.
 		$this->connectionReport?->reportSaved(config: $merged);
 
+		if ($capabilities !== null) {
+			$this->modelCapabilities->declareMany(declarations: $capabilities);
+		}
+
 		return new JSONResponse(
 			[
 				'success' => true,
 				'config' => $this->maskCredentials(config: $merged),
+				'modelCapabilities' => $this->modelCapabilities->all(),
 			]
 		);
 
