@@ -158,6 +158,9 @@ class ResponseGenerationHandler {
 	 *                                               (agents-instruction-variables,
 	 *                                               `PromptVariableResolver::variablesFor()`);
 	 *                                               empty leaves Agent.prompt as written.
+	 * @param array<int, array<string, mixed>> $attachments The turn's attachments, already
+	 *                                                      resolved as the speaker
+	 *                                                      (TurnAttachmentResolver).
 	 *
 	 * @return string Generated response text.
 	 *
@@ -184,6 +187,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -198,6 +202,7 @@ class ResponseGenerationHandler {
 		bool $dryRun = false,
 		string $conversationId = '',
 		array $promptVariables = [],
+		array $attachments = [],
 	): string {
 		$startTime = microtime(true);
 		$agentData = [];
@@ -299,7 +304,13 @@ class ResponseGenerationHandler {
 				// The agent's own credential per provider (operations-a-credential-per-agent),
 				// as stored; the resolver reads only non-empty string pins. A refused pin
 				// stops the turn here, before any model is called.
-				agentCredentialIds: (array)($agentData['credentialIds'] ?? [])
+				agentCredentialIds: (array)($agentData['credentialIds'] ?? []),
+				// Chat-attachments-and-images: each attached file is checked by the
+				// feature's gates here, before any request is built.
+				attachmentReferences: array_map(
+					static fn (array $attachment): string => (string)($attachment['fileId'] ?? ''),
+					$attachments
+				)
 			);
 
 			// Which model saw this case, where, and what it declared about training.

@@ -262,8 +262,14 @@ class EngineAttachmentsTest extends TestCase {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
 	 */
 	public function testAnUnredactedAttachmentIsRefusedByName(): void {
+		// ResponseGenerationHandler wraps whatever the factory throws, keeping it as
+		// the previous exception; the engine must look through that wrapper.
 		$engine = $this->engine(
-			new RedactionRequiredException(featureSlug: 'chat-companion', documentReference: '48213', reason: 'none recorded')
+			new \Exception(
+				'Failed to generate response: refused',
+				422,
+				new RedactionRequiredException(featureSlug: 'chat-companion', documentReference: '48213', reason: 'none recorded')
+			)
 		);
 
 		try {

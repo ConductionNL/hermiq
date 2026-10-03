@@ -43,6 +43,7 @@ use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
@@ -340,7 +341,8 @@ class ChatController extends Controller {
 				selectedTools: $params['selectedTools'],
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
-				trace: $trace
+				trace: $trace,
+				attachments: $params['attachments']
 			);
 
 			// Add conversation UUID to result for frontend.
@@ -415,6 +417,15 @@ class ChatController extends Controller {
 		// A refused pinned credential stops the turn; the person reads why
 		// (operations-a-credential-per-agent), not the engine's wrapped text.
 		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			// An attachment the speaker cannot read, or one the feature refuses
+			// unredacted (chat-attachments-and-images): the sentence is user-facing.
+			if ($cause instanceof AttachmentRefusedException) {
+				$data['error'] = $cause->getMessage();
+				$data['message'] = $cause->getMessage();
+				$data['errorCode'] = 'attachment_refused';
+				break;
+			}
+
 			if ($cause instanceof PinnedCredentialRefusedException) {
 				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
 				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
@@ -852,7 +863,7 @@ class ChatController extends Controller {
 	 * @return array Normalized request parameters.
 	 *
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
-	 *     message: string, selectedViews: array, selectedTools: array,
+	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
 	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
 	 *
@@ -894,10 +905,19 @@ class ChatController extends Controller {
 			$context = $contextParam;
 		}
 
+		// Chat-attachments-and-images: the files the turn names; the engine reads
+		// each one as the speaker, so nothing here is trusted beyond its shape.
+		$attachmentsParam = $this->request->getParam('attachments');
+		$attachments = [];
+		if (is_array($attachmentsParam) === true) {
+			$attachments = array_values($attachmentsParam);
+		}
+
 		return [
 			'conversationUuid' => $conversationUuid,
 			'agentUuid' => $agentUuid,
 			'message' => $message,
+			'attachments' => $attachments,
 			'selectedViews' => $selectedViews,
 			'selectedTools' => $selectedTools,
 			'ragSettings' => $ragSettings,

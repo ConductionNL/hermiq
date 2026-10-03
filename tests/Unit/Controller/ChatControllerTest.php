@@ -333,6 +333,38 @@ class ChatControllerTest extends TestCase {
 	}//end testARefusedPinnedCredentialTellsThePersonWhy()
 
 	/**
+	 * The attachments the request names reach the engine, and an attachment the
+	 * engine refuses is answered with its sentence, its status and a stable code.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
+	 */
+	public function testARefusedAttachmentTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat staat hierin?', 'attachments' => [['fileId' => 48213]]]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$seen = null;
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				$seen = $args;
+				throw new \OCA\Hermiq\Service\Chat\AttachmentRefusedException('This file is not available to you', 400);
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		// Positional, in the order of Engine::processMessage(): attachments is the 14th.
+		$this->assertSame([['fileId' => 48213]], $seen[13] ?? null);
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('This file is not available to you', $response->getData()['message']);
+		$this->assertSame('This file is not available to you', $response->getData()['error']);
+		$this->assertSame('attachment_refused', $response->getData()['errorCode']);
+
+	}//end testARefusedAttachmentTellsThePersonWhy()
+
+	/**
 	 * compliance-ai-literacy: with the course required and not done, the message
 	 * is refused before the engine runs, with the course message and a link.
 	 *

@@ -61,6 +61,9 @@ namespace OCA\Hermiq\Service\Engine;
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -163,6 +166,10 @@ class Engine {
 	 *                                                     Agent.prompt for the acting
 	 *                                                     person (agents-instruction-variables);
 	 *                                                     null leaves the prompt as written.
+	 * @param TurnAttachmentResolver|null $attachmentResolver Reads a turn's attachments as the
+	 *                                                        person who sent it
+	 *                                                        (chat-attachments-and-images); null
+	 *                                                        refuses any turn that carries one.
 	 *
 	 * @return void
 	 *
@@ -187,6 +194,7 @@ class Engine {
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?IUserManager $userManager = null,
 		private readonly ?PromptVariableResolver $promptVariables = null,
+		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
 	) {
 	}//end __construct()
 
@@ -245,6 +253,10 @@ class Engine {
 	 *                                       captured deliberately and never re-resolved
 	 *                                       so a transcript stays legible after a
 	 *                                       rename or a deleted account (ADR-004).
+	 * @param array $attachments The files the turn names, as the request sent them
+	 *                           ({fileId} or {path}). Resolved in the speaker's Files
+	 *                           before the turn is stored or any model is called, and
+	 *                           kept on the user turn as references only.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -270,6 +282,7 @@ class Engine {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function processMessage(
 		string $conversationId,
@@ -285,6 +298,7 @@ class Engine {
 		?array $skillSetOverride = null,
 		?string $authorId = null,
 		?string $authorDisplayName = null,
+		array $attachments = [],
 	): array {
 		$this->logger->info(
 			message: '[Engine] Processing message',
@@ -324,6 +338,12 @@ class Engine {
 				$authorId = $userId;
 				$authorDisplayName = ($this->userManager?->get($userId)?->getDisplayName() ?? $userId);
 			}
+
+			// Chat-attachments-and-images: read every attached file as the person who
+			// sent the turn (the author in a shared session or on Talk, else the
+			// caller), never as the owner or the agent's acting user, and refuse
+			// before anything is stored or any model is called.
+			$resolvedAttachments = $this->resolveAttachments(attachments: $attachments, speaker: ($authorId ?? $userId));
 
 			// Get agent if configured.
 			$agent = null;
@@ -425,7 +445,8 @@ class Engine {
 				sources: null,
 				context: $cnAiContext,
 				authorId: $authorId,
-				authorDisplayName: $authorDisplayName
+				authorDisplayName: $authorDisplayName,
+				attachments: $resolvedAttachments
 			);
 
 			// Check if conversation needs summarization.
@@ -469,26 +490,33 @@ class Engine {
 			// completes, matching design.md's documented step ordering.
 			$llmToken = $trace?->startStep(type: 'llm', name: 'LLM generation');
 			$llmStartTime = microtime(true);
-			$aiResponse = $this->responseHandler->generateResponse(
-				userMessage: $userMessage,
-				context: $context,
-				messageHistory: $messageHistory,
-				agent: $agent,
-				selectedTools: $selectedTools,
-				channel: $channel,
-				cnAiContext: $cnAiContext,
-				contextPreamble: $contextPreamble,
-				trace: $trace,
-				dryRun: $dryRun,
-				conversationId: $conversationId,
-				promptVariables: $this->promptVariablesFor(
-					userId: $userId,
+			try {
+				$aiResponse = $this->responseHandler->generateResponse(
+					userMessage: $userMessage,
+					context: $context,
+					messageHistory: $messageHistory,
 					agent: $agent,
-					organisation: $organisation,
-					appContext: $cnAiContext,
-					conversationData: $conversationData
-				)
-			);
+					selectedTools: $selectedTools,
+					channel: $channel,
+					cnAiContext: $cnAiContext,
+					contextPreamble: $contextPreamble,
+					trace: $trace,
+					dryRun: $dryRun,
+					conversationId: $conversationId,
+					promptVariables: $this->promptVariablesFor(
+						userId: $userId,
+						agent: $agent,
+						organisation: $organisation,
+						appContext: $cnAiContext,
+						conversationData: $conversationData
+					),
+					attachments: $resolvedAttachments
+				);
+			} catch (Exception $e) {
+				// A file the feature's checks refused is told by its name.
+				throw $this->attachmentRefusalFor(exception: $e, attachments: $resolvedAttachments);
+			}
+
 			$llmTime = microtime(true) - $llmStartTime;
 			if ($llmToken !== null) {
 				$trace?->endStep(token: $llmToken, outcome: 'ok');
@@ -579,6 +607,52 @@ class Engine {
 			throw $e;
 		}//end try
 	}//end processMessage()
+
+	/**
+	 * Resolve the turn's attachments as its speaker; none resolve to none.
+	 *
+	 * @param array  $attachments The entries the request sent.
+	 * @param string $speaker     The uid of the person who sent the turn.
+	 *
+	 * @return array<int, array{fileId: int, name: string, mimeType: string, size: int, origin: string}>
+	 *
+	 * @throws AttachmentRefusedException When a file is not available to the speaker.
+	 */
+	private function resolveAttachments(array $attachments, string $speaker): array {
+		if ($attachments === []) {
+			return [];
+		}
+
+		// Fail closed: without the resolver no file can be read as its speaker.
+		if ($this->attachmentResolver === null) {
+			throw new AttachmentRefusedException('This file is not available to you', 400);
+		}
+
+		return $this->attachmentResolver->resolve(requested: $attachments, speaker: $speaker);
+	}//end resolveAttachments()
+
+	/**
+	 * The exception to rethrow for a failed response: a redaction refusal on one of
+	 * the turn's files becomes a refusal naming that file; anything else as it was.
+	 *
+	 * @param Exception $exception   The failure, possibly wrapping the refusal.
+	 * @param array     $attachments The turn's resolved attachments.
+	 *
+	 * @return Exception
+	 */
+	private function attachmentRefusalFor(Exception $exception, array $attachments): Exception {
+		if ($attachments === [] || $this->attachmentResolver === null) {
+			return $exception;
+		}
+
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof RedactionRequiredException) {
+				return ($this->attachmentResolver->redactionRefusal(refusal: $cause, attachments: $attachments) ?? $exception);
+			}
+		}
+
+		return $exception;
+	}//end attachmentRefusalFor()
 
 	/**
 	 * Generate a conversation title from the first message.

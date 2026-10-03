@@ -165,6 +165,10 @@ class MessageHistoryHandler {
 				$content = $this->labelWithAuthor(content: $content, data: $data);
 			}
 
+			if ($role === 'user') {
+				$content = $this->withAttachmentLines(content: (string)$content, data: $data);
+			}
+
 			$history[] = match ($role) {
 				'user' => LLPhantMessage::user($content),
 				'assistant' => LLPhantMessage::assistant($content),
@@ -278,6 +282,40 @@ class MessageHistoryHandler {
 	}//end labelWithAuthor()
 
 	/**
+	 * Name a turn's attachments in one line each, so a later turn knows what was
+	 * attached without the file being sent again; the agent can read it again by
+	 * its id with hermiq.readFile (chat-attachments-and-images, D3).
+	 *
+	 * @param string               $content The turn's text.
+	 * @param array<string, mixed> $data    The stored turn.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function withAttachmentLines(string $content, array $data): string {
+		$attachments = ($data['attachments'] ?? []);
+		if (is_array($attachments) === false || $attachments === []) {
+			return $content;
+		}
+
+		$lines = [];
+		foreach ($attachments as $attachment) {
+			if (is_array($attachment) === false || isset($attachment['fileId']) === false) {
+				continue;
+			}
+
+			$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
+		}
+
+		if ($lines === []) {
+			return $content;
+		}
+
+		return $content . "\n\n" . implode("\n", $lines);
+	}//end withAttachmentLines()
+
+	/**
 	 * Store a message as a `Message` OR object.
 	 *
 	 * @param string $conversationId Conversation UUID.
@@ -287,12 +325,15 @@ class MessageHistoryHandler {
 	 * @param array|null $context Optional AI Chat Companion context snapshot.
 	 * @param string|null $authorId Uid of the human who produced this turn — `role=user` only.
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
+	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
+	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
 	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -302,6 +343,7 @@ class MessageHistoryHandler {
 		?array $context = null,
 		?string $authorId = null,
 		?string $authorDisplayName = null,
+		array $attachments = [],
 	): ObjectEntity {
 		$payload = [
 			'sessionId' => $conversationId,
@@ -315,6 +357,10 @@ class MessageHistoryHandler {
 
 		if ($context !== null && empty($context) === false) {
 			$payload['context'] = $context;
+		}
+
+		if ($attachments !== []) {
+			$payload['attachments'] = array_values($attachments);
 		}
 
 		$payload = $this->withAuthorship(
