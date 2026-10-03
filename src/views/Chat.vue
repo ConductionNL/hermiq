@@ -223,7 +223,9 @@
 				class="chat-page__goal"
 				data-testid="chat-goal">
 				<FlagCheckered :size="20" />
-				<span class="chat-page__goal-text" data-testid="chat-goal-text">{{ goalLine }}</span>
+				<span class="chat-page__goal-text" data-testid="chat-goal-text">{{
+					goalLine
+				}}</span>
 				<NcButton
 					v-if="sessionGoal.status === 'active'"
 					variant="secondary"
@@ -657,11 +659,11 @@ import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
+import GoalFormModal from '../modals/GoalFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
-import GoalFormModal from '../modals/GoalFormModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
@@ -853,9 +855,11 @@ export default {
 		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 		 */
 		canSetGoal() {
-			return Boolean(this.activeSession)
+			return (
+				Boolean(this.activeSession)
 				&& this.activeSession.role !== 'participant'
 				&& this.sessionGoal?.status !== 'active'
+			)
 		},
 
 		/**
@@ -877,12 +881,24 @@ export default {
 				return this.t('hermiq', 'Goal reached: {statement}', { statement })
 			}
 			if (goal.status === 'exhausted') {
-				return this.t('hermiq', 'Turn limit used: {statement}', { statement })
+				return this.t('hermiq', 'Turn limit used: {statement}', {
+					statement,
+				})
 			}
-			const turns = this.t('hermiq', 'turn {used} of {max}', { used: goal.turnsUsed ?? 0, max: goal.maxTurns ?? 10 })
+			const turns = this.t('hermiq', 'turn {used} of {max}', {
+				used: goal.turnsUsed ?? 0,
+				max: goal.maxTurns ?? 10,
+			})
 			const summary = goal.lastCheckResult?.summary
 			const blocked = goal.blocked ? this.t('hermiq', 'blocked') : ''
-			return [this.t('hermiq', 'Goal: {statement}', { statement }), turns, blocked, summary ? this.t('hermiq', 'last check: {summary}', { summary }) : '']
+			return [
+				this.t('hermiq', 'Goal: {statement}', { statement }),
+				turns,
+				blocked,
+				summary
+					? this.t('hermiq', 'last check: {summary}', { summary })
+					: '',
+			]
 				.filter(Boolean)
 				.join(', ')
 		},
@@ -1478,7 +1494,7 @@ export default {
 				if (this.activeSession?.uuid === session.uuid) {
 					this.sessionGoal = goal
 				}
-			} catch (e) {
+			} catch {
 				this.sessionGoal = null
 			}
 		},
@@ -1509,7 +1525,7 @@ export default {
 			this.goalStopping = true
 			try {
 				this.sessionGoal = await stopGoal(this.sessionGoal.id)
-			} catch (e) {
+			} catch {
 				showError(this.t('hermiq', 'Could not stop the goal.'))
 			} finally {
 				this.goalStopping = false

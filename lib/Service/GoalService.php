@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -41,6 +42,9 @@ use Throwable;
 
 /**
  * Standing goals: their lifecycle and their turns.
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)  A turn needs the store, the schedule gates, the check, the owner's identity and the notifier.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The lifecycle (set, stop, who may stop) and the turn share the goal's guards.
  *
  * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
  */
@@ -151,7 +155,13 @@ class GoalService {
 			return null;
 		}
 
-		usort($goals, static fn (ObjectEntity $a, ObjectEntity $b): int => strcmp((string)($b->getCreated()?->format(DATE_ATOM) ?? ''), (string)($a->getCreated()?->format(DATE_ATOM) ?? '')));
+		usort(
+			$goals,
+			static fn (ObjectEntity $a, ObjectEntity $b): int => strcmp(
+				(string)($b->getCreated()?->format(DATE_ATOM) ?? ''),
+				(string)($a->getCreated()?->format(DATE_ATOM) ?? '')
+			)
+		);
 
 		return $this->view(goal: $goals[0]);
 	}//end forSession()
@@ -234,9 +244,13 @@ class GoalService {
 			return;
 		}
 
-		$last   = (array)($data['lastCheckResult'] ?? []);
-		$prompt = 'Continue working on the goal: ' . (string)($data['statement'] ?? '') . '. Last check: '
-			. ((string)($last['summary'] ?? '') !== '' ? (string)$last['summary'] : 'not run yet') . '.';
+		$last        = (array)($data['lastCheckResult'] ?? []);
+		$lastSummary = (string)($last['summary'] ?? '');
+		if ($lastSummary === '') {
+			$lastSummary = 'not run yet';
+		}
+
+		$prompt = 'Continue working on the goal: ' . (string)($data['statement'] ?? '') . '. Last check: ' . $lastSummary . '.';
 
 		$answer = '';
 		try {
@@ -307,7 +321,7 @@ class GoalService {
 			$notification = $this->notifications->createNotification();
 			$notification->setApp('hermiq')
 				->setUser($owner)
-				->setDateTime(new \DateTime())
+				->setDateTime(new DateTime())
 				->setObject('goal', (string)$goal->getUuid())
 				->setSubject($subject, ['name' => $statement, 'sessionId' => (string)($goal->getObject()['sessionId'] ?? '')]);
 			$this->notifications->notify($notification);
@@ -329,7 +343,13 @@ class GoalService {
 			return true;
 		}
 
-		$agent = $this->objectService->find(id: (string)($goal->getObject()['agentId'] ?? ''), register: self::REGISTER, schema: self::AGENT_SCHEMA, _rbac: false, _multitenancy: false);
+		$agent = $this->objectService->find(
+			id: (string)($goal->getObject()['agentId'] ?? ''),
+			register: self::REGISTER,
+			schema: self::AGENT_SCHEMA,
+			_rbac: false,
+			_multitenancy: false
+		);
 
 		return $agent !== null && (string)($agent->getOwner() ?? '') === $uid;
 	}//end mayStop()

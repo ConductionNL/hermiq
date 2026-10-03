@@ -93,6 +93,9 @@ class GoalController extends Controller {
 	#[NoAdminRequired]
 	public function create(string $uuid): JSONResponse {
 		$check = $this->request->getParam('check');
+		if (is_array($check) === false) {
+			$check = [];
+		}
 
 		return $this->run(
 			call: fn (string $uid): array => $this->goals->set(
@@ -100,7 +103,7 @@ class GoalController extends Controller {
 				uid: $uid,
 				input: [
 					'statement' => (string)$this->request->getParam('statement', ''),
-					'check' => is_array($check) === true ? $check : [],
+					'check' => $check,
 					'intervalMinutes' => $this->request->getParam('intervalMinutes', 60),
 					'maxTurns' => $this->request->getParam('maxTurns', 10),
 				]

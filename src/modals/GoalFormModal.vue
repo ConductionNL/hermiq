@@ -20,7 +20,12 @@
 				{{ t('hermiq', 'Set a goal') }}
 			</h2>
 			<p class="goal-form__help">
-				{{ t('hermiq', 'The agent keeps working on the goal in this session, a turn at a time, until the check says it is reached.') }}
+				{{
+					t(
+						'hermiq',
+						'The agent keeps working on the goal in this session, a turn at a time, until the check says it is reached.',
+					)
+				}}
 			</p>
 
 			<NcNoteCard v-if="error" type="error">
@@ -31,7 +36,12 @@
 				v-model="form.statement"
 				data-testid="goal-statement"
 				:label="t('hermiq', 'Goal')"
-				:placeholder="t('hermiq', 'Every overdue permit application has had a reminder')"
+				:placeholder="
+					t(
+						'hermiq',
+						'Every overdue permit application has had a reminder',
+					)
+				"
 				:maxlength="500" />
 
 			<fieldset class="goal-form__kinds">
@@ -42,7 +52,12 @@
 					value="objectCount"
 					name="goal-check-kind"
 					data-testid="goal-kind-count">
-					{{ t('hermiq', 'A count of objects reaches a target (preferred)') }}
+					{{
+						t(
+							'hermiq',
+							'A count of objects reaches a target (preferred)',
+						)
+					}}
 				</NcCheckboxRadioSwitch>
 				<NcCheckboxRadioSwitch
 					v-model="form.kind"
@@ -50,7 +65,12 @@
 					value="judge"
 					name="goal-check-kind"
 					data-testid="goal-kind-judge">
-					{{ t('hermiq', 'A model answers a question about the last answer') }}
+					{{
+						t(
+							'hermiq',
+							'A model answers a question about the last answer',
+						)
+					}}
 				</NcCheckboxRadioSwitch>
 			</fieldset>
 
@@ -67,7 +87,7 @@
 					v-model="form.filters"
 					data-testid="goal-filters"
 					:label="t('hermiq', 'Filters (JSON)')"
-					placeholder="{&quot;status&quot;: &quot;overdue&quot;}" />
+					placeholder='{"status": "overdue"}' />
 				<NcTextField
 					v-model="form.target"
 					type="number"
@@ -79,7 +99,9 @@
 				v-model="form.question"
 				data-testid="goal-question"
 				:label="t('hermiq', 'Question for the model')"
-				:placeholder="t('hermiq', 'Has every overdue application had a reminder?')" />
+				:placeholder="
+					t('hermiq', 'Has every overdue application had a reminder?')
+				" />
 
 			<NcTextField
 				v-model="form.intervalMinutes"
@@ -228,7 +250,7 @@ export default {
 			if (this.form.filters.trim() !== '') {
 				try {
 					filters = JSON.parse(this.form.filters)
-				} catch (e) {
+				} catch {
 					return null
 				}
 			}
@@ -267,7 +289,9 @@ export default {
 				})
 				this.$emit('saved', goal)
 			} catch (e) {
-				this.error = e?.response?.data?.error || t('hermiq', 'The goal could not be saved.')
+				this.error =
+					e?.response?.data?.error
+					|| t('hermiq', 'The goal could not be saved.')
 			} finally {
 				this.saving = false
 			}

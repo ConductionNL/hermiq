@@ -130,10 +130,15 @@ class GoalCheckService {
 			return ['reached' => false, 'value' => null, 'summary' => 'The check asks no question.'];
 		}
 
+		$orgOrNull = null;
+		if ($organisation !== '') {
+			$orgOrNull = $organisation;
+		}
+
 		$verdict = $this->scoring->score(
 			case: ['expectationType' => 'rubric', 'rubric' => 'Answer yes only if the goal is reached: ' . $question],
 			actualOutput: $lastAnswer,
-			organisation: ($organisation === '' ? null : $organisation)
+			organisation: $orgOrNull
 		);
 
 		return [

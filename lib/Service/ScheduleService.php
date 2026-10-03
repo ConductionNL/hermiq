@@ -81,6 +81,9 @@ use Throwable;
  *   under the per-method complexity threshold; design.md's Trade-offs rejected a
  *   separate RetryPolicyService because it would duplicate the kill-switch/approval
  *   gate call site instead of inheriting it for free from dispatch().
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     gateFor() is public so a standing
+ *   goal's turn passes the very same gates as a scheduled run (agents-standing-goal)
+ *   instead of copying them.
  * @SuppressWarnings(PHPMD.LongVariable)             $guardrailPolicyService is a promoted
  *   constructor collaborator named after its class (GuardrailPolicyService) — the
  *   length IS the clarity.
@@ -1141,7 +1144,13 @@ class ScheduleService {
 			return null;
 		}
 
-		$session = $this->objectService->find(id: $sessionUuid, register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA, _rbac: false, _multitenancy: false);
+		$session = $this->objectService->find(
+			id: $sessionUuid,
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false,
+			_multitenancy: false
+		);
 		if ($session === null || (string)($session->getObject()['userId'] ?? '') !== $owner) {
 			return null;
 		}
@@ -2267,6 +2276,9 @@ class ScheduleService {
 	 *   genuine two-mode authorisation inputs (preview vs. real; parent-forced vs.
 	 *   self-resolved identity), not a responsibility split — mirrors this class's
 	 *   existing `$bypassApprovalGate`/`$dryRun` precedent elsewhere.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Every parameter after $prompt is an
+	 *   optional named mode with a default; agents-standing-goal's $continueSessionUuid
+	 *   made it ten. Callers name only what they use.
 	 */
 	public function runAgentAsOwner(
 		string $owner,
@@ -2751,14 +2763,12 @@ class ScheduleService {
 			$title = 'Hermiq dry-run preview';
 		}
 
-		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun);
-		if ($conversation === null) {
-			$conversation = $this->objectService->saveObject(
+		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun)
+			?? $this->objectService->saveObject(
 				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
 				register: self::REGISTER_SLUG,
 				schema: self::CONVERSATION_SCHEMA
 			);
-		}
 
 		// Remember which conversation this run produced so a Talk-room delivery
 		// can bind it and become repliable. A dry run's scratch conversation is
