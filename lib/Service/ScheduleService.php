@@ -1082,9 +1082,32 @@ class ScheduleService {
 	 */
 	private function evaluateGates(ObjectEntity $schedule): ?string {
 		$data = $schedule->getObject();
-		$organisation = (string)($schedule->getOrganisation() ?? '');
-		$agentId = (string)($data['agentId'] ?? '');
+		$gate = $this->gateFor(organisation: (string)($schedule->getOrganisation() ?? ''), agentId: (string)($data['agentId'] ?? ''));
+		if ($gate !== null) {
+			return $gate;
+		}
 
+		if (($data['requiresApproval'] ?? false) === true) {
+			return 'awaiting_approval';
+		}
+
+		return null;
+	}//end evaluateGates()
+
+	/**
+	 * The gate that holds a run of this agent now, or null: the agent is switched
+	 * off, the organisation's kill switch is engaged, or the budget's hard cap is
+	 * reached. The same checks, in the same order, as a scheduled run; a standing
+	 * goal's turn passes them before it runs (agents-standing-goal). Read-only.
+	 *
+	 * @param string $organisation The organisation.
+	 * @param string $agentId      The agent.
+	 *
+	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_budget`, or null.
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	public function gateFor(string $organisation, string $agentId): ?string {
 		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
 			return 'skipped_agent_off';
 		}
@@ -1097,12 +1120,34 @@ class ScheduleService {
 			return 'skipped_budget';
 		}
 
-		if (($data['requiresApproval'] ?? false) === true) {
-			return 'awaiting_approval';
+		return null;
+	}//end gateFor()
+
+	/**
+	 * A goal's own session to continue, when it is the owner's and this is no dry run.
+	 *
+	 * @param string $sessionUuid The session ('' for none).
+	 * @param string $owner       The acting owner.
+	 * @param bool   $dryRun      A preview never continues a real session.
+	 *
+	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentViaEngine()'s dry-run mode.
+	 */
+	private function continuedSession(string $sessionUuid, string $owner, bool $dryRun): ?ObjectEntity {
+		if ($sessionUuid === '' || $dryRun === true) {
+			return null;
 		}
 
-		return null;
-	}//end evaluateGates()
+		$session = $this->objectService->find(id: $sessionUuid, register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA, _rbac: false, _multitenancy: false);
+		if ($session === null || (string)($session->getObject()['userId'] ?? '') !== $owner) {
+			return null;
+		}
+
+		return $session;
+	}//end continuedSession()
 
 	/**
 	 * Preview a schedule's agent run as a dry-run (run-replay-and-dry-run):
@@ -2189,6 +2234,8 @@ class ScheduleService {
 	 *                                          (agents-instruction-variables), filtered
 	 *                                          like the prompt and stored on the run's
 	 *                                          session; a field without one uses its default.
+	 * @param string|null $continueSessionUuid A standing goal's session: the run continues
+	 *                                         it instead of opening a new one (agents-standing-goal).
 	 *
 	 * @return string The agent's response text (already output-filtered).
 	 *
@@ -2231,6 +2278,7 @@ class ScheduleService {
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
 		array $startValues = [],
+		?string $continueSessionUuid = null,
 	): string {
 		// Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
 		// on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
@@ -2317,7 +2365,8 @@ class ScheduleService {
 					dryRun: $dryRun,
 					anchor: $anchor,
 					skillSetOverride: $skillSetOverride,
-					startValues: $this->filterStartValues(policy: $guardrailPolicy, values: $startValues)
+					startValues: $this->filterStartValues(policy: $guardrailPolicy, values: $startValues),
+					continueSessionUuid: $continueSessionUuid
 				);
 				return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
 			}
@@ -2661,6 +2710,7 @@ class ScheduleService {
 	 *                                     agent's stored installs.
 	 * @param array<string, mixed> $startValues The schedule's start field values,
 	 *                                          already through the input filter.
+	 * @param string|null $continueSessionUuid A goal's session to continue (agents-standing-goal).
 	 *
 	 * @return string The agent's response text.
 	 *
@@ -2685,6 +2735,7 @@ class ScheduleService {
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
 		array $startValues = [],
+		?string $continueSessionUuid = null,
 	): string {
 		$agent = $this->objectService->find(
 			id: $agentId,
@@ -2700,11 +2751,14 @@ class ScheduleService {
 			$title = 'Hermiq dry-run preview';
 		}
 
-		$conversation = $this->objectService->saveObject(
-			object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
-		);
+		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun);
+		if ($conversation === null) {
+			$conversation = $this->objectService->saveObject(
+				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
+		}
 
 		// Remember which conversation this run produced so a Talk-room delivery
 		// can bind it and become repliable. A dry run's scratch conversation is
