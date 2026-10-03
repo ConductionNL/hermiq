@@ -42,6 +42,7 @@ import Eye from 'vue-material-design-icons/Eye.vue'
 import FileDocumentEditOutline from 'vue-material-design-icons/FileDocumentEditOutline.vue'
 import FileDocumentMultipleOutline from 'vue-material-design-icons/FileDocumentMultipleOutline.vue'
 import FileSign from 'vue-material-design-icons/FileSign.vue'
+import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlaskOutline from 'vue-material-design-icons/FlaskOutline.vue'
 import ForumOutline from 'vue-material-design-icons/ForumOutline.vue'
 import Gauge from 'vue-material-design-icons/Gauge.vue'
@@ -113,6 +114,7 @@ export default {
 	Eye,
 	FileDocumentEditOutline,
 	FileSign,
+	FlagCheckered,
 	FlaskOutline,
 	ForumOutline,
 	Gauge,

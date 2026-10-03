@@ -159,39 +159,17 @@ class Notifier implements INotifier {
 	private function resolveSubjectAndMessage(string $subjectKey, array $subjectRaw, IL10N $l): array {
 		$name = (string)($subjectRaw['name'] ?? '');
 
-		if ($subjectKey === 'approval_requested') {
-			return $this->approvalRequestedText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'budget_soft_threshold') {
-			return $this->budgetSoftThresholdText(subjectRaw: $subjectRaw, l: $l);
-		}
-
-		if ($subjectKey === 'run_dead_letter') {
-			return $this->runDeadLetterText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'schedule_paused_circuit_breaker') {
-			return $this->circuitBreakerPausedText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'skill_published_behind') {
-			return $this->skillPublishedBehindText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'skill_rollback_suggested') {
-			return $this->skillRollbackSuggestedText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'session_participant_added') {
-			return $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'goal_reached' || $subjectKey === 'goal_exhausted') {
-			return $this->goalText(reached: $subjectKey === 'goal_reached', name: $name, l: $l);
-		}
-
-		return $this->runCompleteText(name: $name, l: $l);
+		return match ($subjectKey) {
+			'approval_requested' => $this->approvalRequestedText(name: $name, l: $l),
+			'budget_soft_threshold' => $this->budgetSoftThresholdText(subjectRaw: $subjectRaw, l: $l),
+			'run_dead_letter' => $this->runDeadLetterText(name: $name, l: $l),
+			'schedule_paused_circuit_breaker' => $this->circuitBreakerPausedText(name: $name, l: $l),
+			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
+			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
+			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'goal_reached', 'goal_exhausted' => $this->goalText(reached: $subjectKey === 'goal_reached', name: $name, l: $l),
+			default => $this->runCompleteText(name: $name, l: $l),
+		};
 	}//end resolveSubjectAndMessage()
 
 	/**
