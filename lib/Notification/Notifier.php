@@ -167,7 +167,8 @@ class Notifier implements INotifier {
 			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
 			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
-			'goal_reached', 'goal_exhausted' => $this->goalText(reached: $subjectKey === 'goal_reached', name: $name, l: $l),
+			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
+			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
