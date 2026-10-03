@@ -90,7 +90,8 @@ class GoalController extends Controller {
 	 *
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 	 *
-	 * @no-admin-idor-exempt GoalService::set() scopes the session to the caller (userId must equal the uid) and answers 404 otherwise; GoalServiceTest::testSettingAGoal.
+	 * @no-admin-idor-exempt GoalService::set() scopes the session to the caller (userId must equal
+	 *   the uid) and answers 404 otherwise; GoalServiceTest::testSettingAGoal.
 	 */
 	#[NoAdminRequired]
 	public function create(string $uuid): JSONResponse {
@@ -122,7 +123,9 @@ class GoalController extends Controller {
 	 *
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-goal-can-be-stopped-by-its-owner-or-the-agent-owner-req-aggoal-003
 	 *
-	 * @no-admin-idor-exempt GoalService::stop() admits only the person who set the goal and the agent's owner, 404 for anyone else; GoalServiceTest::testOnlyTheOwnersStopAGoal, GoalControllerTest::testAnotherUserGets404WhenStoppingAGoal.
+	 * @no-admin-idor-exempt GoalService::stop() admits only the person who set the goal and the agent's
+	 *   owner, 404 for anyone else; GoalServiceTest::testOnlyTheOwnersStopAGoal and
+	 *   GoalControllerTest::testAnotherUserGets404WhenStoppingAGoal.
 	 */
 	#[NoAdminRequired]
 	public function stop(string $id): JSONResponse {
