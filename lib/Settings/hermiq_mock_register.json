@@ -2434,6 +2434,98 @@
         "agentName": "Hydra Triage",
         "promptId": "",
         "generatedAt": "2026-10-03T09:03:00+00:00"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentgoal",
+          "slug": "agentgoal-herinneringen-vergunningen"
+        },
+        "agentId": "00000000-0000-4000-8000-000000000000",
+        "sessionId": "Voorbeeld sessie 1",
+        "statement": "Elke te late vergunningaanvraag heeft deze week een herinnering gehad",
+        "check": {
+          "kind": "objectCount",
+          "register": "vergunningen",
+          "schema": "aanvraag",
+          "filters": {
+            "status": "te-laat",
+            "herinneringVerstuurd": false
+          },
+          "target": 0
+        },
+        "intervalMinutes": 60,
+        "maxTurns": 10,
+        "turnsUsed": 2,
+        "status": "active",
+        "blocked": "",
+        "lastCheckResult": {
+          "reached": false,
+          "value": 4,
+          "summary": "4 left, target 0",
+          "checkedAt": "2026-10-03T09:00:00+00:00"
+        },
+        "nextTurnAt": "2026-10-03T10:00:00+00:00",
+        "setBy": "anna.devries"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentgoal",
+          "slug": "agentgoal-meldingen-gesloten"
+        },
+        "agentId": "00000000-0000-4000-8000-000000000000",
+        "sessionId": "Voorbeeld sessie 2",
+        "statement": "Alle meldingen openbare ruimte van vorige week zijn afgehandeld",
+        "check": {
+          "kind": "objectCount",
+          "register": "meldingen",
+          "schema": "melding",
+          "filters": {
+            "status": "open"
+          },
+          "target": 0
+        },
+        "intervalMinutes": 120,
+        "maxTurns": 5,
+        "turnsUsed": 3,
+        "status": "reached",
+        "blocked": "",
+        "lastCheckResult": {
+          "reached": true,
+          "value": 0,
+          "summary": "0 left, target 0",
+          "checkedAt": "2026-10-02T14:00:00+00:00"
+        },
+        "nextTurnAt": "2026-10-02T16:00:00+00:00",
+        "setBy": "pieter.bakker"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "agentgoal",
+          "slug": "agentgoal-samenvatting-raadsvoorstel"
+        },
+        "agentId": "00000000-0000-4000-8000-000000000000",
+        "sessionId": "Voorbeeld sessie 3",
+        "statement": "Een samenvatting van het raadsvoorstel warmtetransitie in drie hoofdpunten",
+        "check": {
+          "kind": "judge",
+          "question": "Noemt het antwoord drie hoofdpunten van het raadsvoorstel?"
+        },
+        "intervalMinutes": 30,
+        "maxTurns": 3,
+        "turnsUsed": 3,
+        "status": "exhausted",
+        "blocked": "",
+        "lastCheckResult": {
+          "reached": false,
+          "value": null,
+          "summary": "Het antwoord noemt twee van de drie hoofdpunten.",
+          "checkedAt": "2026-10-01T11:30:00+00:00"
+        },
+        "nextTurnAt": "2026-10-01T12:00:00+00:00",
+        "setBy": "fatima.elamrani"
       }
     ]
   }
