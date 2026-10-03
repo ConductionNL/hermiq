@@ -10,8 +10,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - **acceptance_criteria**:
   - GIVEN a logged-in person WHEN they post a PDF as field `file` THEN the answer is 200 with `path`, `name`, `fileId`, `mimeType`, `size`, and the file is in their Files under `Hermiq/Attachments`
   - GIVEN a file over the cap or of a refused type WHEN it is posted THEN the answer is 400 with `error`, and nothing is written
-- [ ] Implement
-- [ ] Test (PHPUnit on the controller and store; Newman upload with an allowed and a refused file)
+- [x] Implement (size cap: app config `hermiq` / `chat.attachmentMaxMb`, default 20)
+- [ ] Test (PHPUnit on the controller and store: done, AttachmentStoreTest and ChatAttachmentControllerTest; Newman upload with an allowed and a refused file: not written yet, it needs a multipart fixture the CI Newman job can reach)
 
 ### Task 2: Upload from device and choose from Files on the Chat page
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002`

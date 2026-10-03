@@ -585,6 +585,8 @@ return [
 
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
+        // Chat-attachments-and-images: the companion's attach control stores the file in the caller's Files.
+        ['name' => 'chatAttachment#upload', 'url' => '/api/chat/attachments', 'verb' => 'POST'],
 
         // Case-assistant surface (case-assistant-surface): minimal, tool-free
         // synchronous conversational endpoint for leaf apps — deliberately
