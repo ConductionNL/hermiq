@@ -197,4 +197,42 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame(['rbac' => false, 'multitenancy' => true], $flags);
 
 	}//end testHistoryIsReadAroundTheOwnerOnlyTurnRule()
+
+	/**
+	 * A user turn keeps its attachments as references, and the history names an
+	 * earlier attachment in one line instead of sending the file again.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	public function testAttachmentsAreStoredAndNamedInTheHistory(): void {
+		$attached = [['fileId' => 48213, 'name' => 'offerte-2026.pdf', 'mimeType' => 'application/pdf', 'size' => 10, 'origin' => 'files']];
+		$saved = [];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				$entity = new ObjectEntity();
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
+		$turn = $this->message('user', 'Wat staat erin?');
+		$turn->setObject(array_merge($turn->getObject(), ['attachments' => $attached]));
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn([$turn]);
+
+		$handler = new MessageHistoryHandler($objectService, new NullLogger());
+		$handler->storeMessage(conversationId: 'conv-1', role: 'user', content: 'Wat staat erin?', attachments: $attached);
+		$handler->storeMessage(conversationId: 'conv-1', role: 'assistant', content: 'Dit.');
+
+		$this->assertSame($attached, $saved[0]['attachments']);
+		$this->assertArrayNotHasKey('attachments', $saved[1]);
+
+		$history = $handler->buildMessageHistory(conversationId: 'conv-1');
+		$this->assertSame("Wat staat erin?\n\nAttached earlier: offerte-2026.pdf, file 48213", $history[0]->content);
+
+	}//end testAttachmentsAreStoredAndNamedInTheHistory()
 }//end class

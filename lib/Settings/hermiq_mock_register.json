@@ -1667,7 +1667,16 @@
         "sources": [],
         "context": {},
         "authorId": "Voorbeeld Authorid 2",
-        "authorDisplayName": "Voorbeeld Authordisplayname 2"
+        "authorDisplayName": "Voorbeeld Authordisplayname 2",
+        "attachments": [
+          {
+            "fileId": 48213,
+            "name": "offerte-dakrenovatie-2026.pdf",
+            "mimeType": "application/pdf",
+            "size": 184233,
+            "origin": "files"
+          }
+        ]
       },
       {
         "@self": {

@@ -319,6 +319,49 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testTheAgentsPinsReachTheFactoryAndARefusalStopsTheTurn()
 
 	/**
+	 * The turn's attachments reach the provider factory as file ids, so each one is
+	 * checked by the feature's gates before any model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	public function testTheTurnsAttachmentsReachTheFactory(): void {
+		$seen = null;
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (...$args) use (&$seen): ChatDriver {
+				$seen = $args;
+				throw new \RuntimeException('stop before the model');
+			}
+		);
+		$factory->expects($this->never())->method('callFireworksChat');
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+
+		try {
+			$handler->generateResponse(
+				userMessage: 'Vat samen',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $this->agent([]),
+				attachments: [
+					['fileId' => 48213, 'name' => 'offerte.pdf', 'mimeType' => 'application/pdf', 'size' => 1, 'origin' => 'files'],
+					['fileId' => 501, 'name' => 'dak.jpg', 'mimeType' => 'image/jpeg', 'size' => 1, 'origin' => 'upload'],
+				]
+			);
+			$this->fail('The sentinel did not stop the turn.');
+		} catch (Exception) {
+			// Expected: the factory double stops the turn.
+		}
+
+		// The ninth argument is attachmentReferences.
+		$this->assertSame(['48213', '501'], $seen[8] ?? null);
+
+	}//end testTheTurnsAttachmentsReachTheFactory()
+
+	/**
 	 * When the agent defines no prompt, the default system prompt is used and
 	 * no APP CONTEXT block appears without a CnAiContext snapshot.
 	 *

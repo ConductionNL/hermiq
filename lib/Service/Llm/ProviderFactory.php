@@ -637,6 +637,8 @@ class ProviderFactory {
 	 * @param array<string, string>|null $agentCredentialIds The agent's own credential per
 	 *                               provider (`credentialIds`). A pin for the resolved
 	 *                               provider is used first and never bypassed.
+	 * @param array<int, string> $attachmentReferences The file ids attached to this turn,
+	 *                               each checked by the feature's gates on its own.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -657,6 +659,7 @@ class ProviderFactory {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
 	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function createChatDriver(
 		array $llmConfig,
@@ -667,6 +670,7 @@ class ProviderFactory {
 		?string $aiFeature = null,
 		?string $documentReference = null,
 		?array $agentCredentialIds = null,
+		array $attachmentReferences = [],
 	): ChatDriver {
 		$chatProvider = $llmConfig['chatProvider'] ?? null;
 
@@ -719,6 +723,19 @@ class ProviderFactory {
 				model: $driver->model,
 				documentReference: $documentReference
 			);
+
+			// Chat-attachments-and-images: every file on the turn is a document
+			// reference of its own, checked one call per file, so a redacted first
+			// file cannot carry an unredacted second one past the gate.
+			foreach ($attachmentReferences as $attachmentReference) {
+				$this->featureResolver->enforceForRun(
+					featureSlug: (string)$aiFeature,
+					organisation: $organisation,
+					provider: $driver->provider,
+					model: $driver->model,
+					documentReference: (string)$attachmentReference
+				);
+			}
 
 			return $driver;
 		}

@@ -420,6 +420,94 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Chat attachments",
+			"item": [
+				{
+					"name": "Upload an allowed file",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/attachments",
+						"description": "REQ-CATT-001: a PDF posted as field file lands in the caller's Files under Hermiq/Attachments; the answer names it. The fixture path is relative to tests/integration, where CI runs newman.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The file is kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('The answer names the file in the caller\\'s Files', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.path).to.include('Hermiq/Attachments/');",
+									"    pm.expect(body.name).to.include('offerte-newman');",
+									"    pm.expect(body.fileId).to.be.a('number');",
+									"    pm.expect(body.mimeType).to.eql('application/pdf');",
+									"    pm.expect(body.size).to.be.above(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Upload a refused type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/attachments",
+						"description": "REQ-CATT-001 scenario: an SVG is refused with 400 and an error, and nothing is written.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "fixtures/kaart-newman.svg"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The file is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.eql('Hermiq cannot read files of this type.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

@@ -2627,7 +2627,21 @@ OC.L10N.register(
         "The value used when the field is left empty, and on scheduled runs.": "The value used when the field is left empty, and on scheduled runs.",
         "Values for the agent's start fields on this schedule's runs, by field key. A field without a value here uses its default.": "Values for the agent's start fields on this schedule's runs, by field key. A field without a value here uses its default.",
         "What the person sees above the field.": "What the person sees above the field.",
-        "Whether the first message waits until this field is filled.": "Whether the first message waits until this field is filled."
+        "Whether the first message waits until this field is filled.": "Whether the first message waits until this field is filled.",
+        "This file is not available to you": "This file is not available to you",
+        "You can attach at most %s files to one message.": "You can attach at most %s files to one message.",
+        "%s has not been redacted, and this assistant only reads redacted documents.": "%s has not been redacted, and this assistant only reads redacted documents.",
+        "Attachments": "Attachments",
+        "Files the person attached to this turn, as references only: no bytes and no extracted text. Each file is read in the Files of the person who sent the turn.": "Files the person attached to this turn, as references only: no bytes and no extracted text. Each file is read in the Files of the person who sent the turn.",
+        "File ID": "File ID",
+        "The Nextcloud file id.": "The Nextcloud file id.",
+        "The file name when it was attached.": "The file name when it was attached.",
+        "File type": "File type",
+        "The file's type, for example application/pdf.": "The file's type, for example application/pdf.",
+        "Size": "Size",
+        "The file size in bytes.": "The file size in bytes.",
+        "Origin": "Origin",
+        "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.": "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant."
     },
     "nplurals=2; plural=(n != 1);"
 )

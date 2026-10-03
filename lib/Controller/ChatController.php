@@ -43,6 +43,7 @@ use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
@@ -340,7 +341,8 @@ class ChatController extends Controller {
 				selectedTools: $params['selectedTools'],
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
-				trace: $trace
+				trace: $trace,
+				attachments: $params['attachments']
 			);
 
 			// Add conversation UUID to result for frontend.
@@ -364,7 +366,9 @@ class ChatController extends Controller {
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
-			return $this->sendMessageFailureResponse(exception: $e);
+			// An attachment the speaker cannot read, or one the feature refuses
+			// unredacted (chat-attachments-and-images), is answered with its sentence.
+			return ($this->attachmentRefusalResponse(exception: $e) ?? $this->sendMessageFailureResponse(exception: $e));
 		}//end try
 	}//end sendMessage()
 
@@ -448,6 +452,38 @@ class ChatController extends Controller {
 
 		return new JSONResponse(data: $data, statusCode: $statusCode);
 	}//end sendMessageFailureResponse()
+
+	/**
+	 * The answer for a failure caused by a refused attachment: its status (400, or
+	 * 422 for a missing redaction), its sentence and a stable code; null otherwise.
+	 *
+	 * @param Exception $exception The failure.
+	 *
+	 * @return JSONResponse|null
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function attachmentRefusalResponse(Exception $exception): ?JSONResponse {
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof AttachmentRefusedException) {
+				$statusCode = 400;
+				if ((int)$cause->getCode() === 422) {
+					$statusCode = 422;
+				}
+
+				return new JSONResponse(
+					data: [
+						'error' => $cause->getMessage(),
+						'message' => $cause->getMessage(),
+						'errorCode' => 'attachment_refused',
+					],
+					statusCode: $statusCode
+				);
+			}
+		}
+
+		return null;
+	}//end attachmentRefusalResponse()
 
 	/**
 	 * Log a sendMessage() failure at the level matching its severity.
@@ -852,7 +888,7 @@ class ChatController extends Controller {
 	 * @return array Normalized request parameters.
 	 *
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
-	 *     message: string, selectedViews: array, selectedTools: array,
+	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
 	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
 	 *
@@ -894,10 +930,19 @@ class ChatController extends Controller {
 			$context = $contextParam;
 		}
 
+		// Chat-attachments-and-images: the files the turn names; the engine reads
+		// each one as the speaker, so nothing here is trusted beyond its shape.
+		$attachmentsParam = $this->request->getParam('attachments');
+		$attachments = [];
+		if (is_array($attachmentsParam) === true) {
+			$attachments = array_values($attachmentsParam);
+		}
+
 		return [
 			'conversationUuid' => $conversationUuid,
 			'agentUuid' => $agentUuid,
 			'message' => $message,
+			'attachments' => $attachments,
 			'selectedViews' => $selectedViews,
 			'selectedTools' => $selectedTools,
 			'ragSettings' => $ragSettings,

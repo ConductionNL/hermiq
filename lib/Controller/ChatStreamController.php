@@ -40,6 +40,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
@@ -257,6 +258,14 @@ class ChatStreamController extends Controller {
 				$contextArr = $context;
 			}
 
+			// Chat-attachments-and-images: the files the companion attached (what the
+			// upload route answered) or the Chat page picked from Files. The engine
+			// reads each one as the speaker before anything is stored.
+			$attachments = [];
+			if (is_array($body['attachments'] ?? null) === true) {
+				$attachments = array_values($body['attachments']);
+			}
+
 			// Widget UX: when a client opens a fresh chat without naming an agent,
 			// fall back to an agent the CURRENT USER can access (owner /
 			// non-private / invited), never the first agent in the register —
@@ -353,7 +362,8 @@ class ChatStreamController extends Controller {
 				selectedTools: [],
 				ragSettings: [],
 				context: $contextArr,
-				channel: $channel
+				channel: $channel,
+				attachments: $attachments
 			);
 
 			// Replay the tool calls this turn made over the governed MCP
@@ -453,6 +463,15 @@ class ChatStreamController extends Controller {
 			// A refused pinned credential is told as it is: the person can act on it
 			// (operations-a-credential-per-agent). Everything else stays masked.
 			for ($cause = $e; $cause !== null; $cause = $cause->getPrevious()) {
+				// An attachment that is not available to the speaker, or that the
+				// feature refuses unredacted: the sentence is written for the person.
+				if ($cause instanceof AttachmentRefusedException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: ['code' => 'attachment_refused', 'message' => $cause->getMessage()]
+					);
+				}
+
 				if ($cause instanceof PinnedCredentialRefusedException) {
 					$this->emitAndExit(
 						eventType: 'error',
