@@ -1929,7 +1929,21 @@
         "The value used when the field is left empty, and on scheduled runs.": "De waarde die wordt gebruikt als het veld leeg blijft, en bij geplande runs.",
         "Values for the agent's start fields on this schedule's runs, by field key. A field without a value here uses its default.": "Waarden voor de startvelden van de agent bij de runs van deze planning, per veldsleutel. Een veld zonder waarde hier gebruikt zijn standaardwaarde.",
         "What the person sees above the field.": "Wat de persoon boven het veld ziet.",
-        "Whether the first message waits until this field is filled.": "Of het eerste bericht wacht tot dit veld is ingevuld."
+        "Whether the first message waits until this field is filled.": "Of het eerste bericht wacht tot dit veld is ingevuld.",
+        "This file is not available to you": "Dit bestand is niet voor je beschikbaar",
+        "You can attach at most %s files to one message.": "Je kunt maximaal %s bestanden aan één bericht toevoegen.",
+        "%s has not been redacted, and this assistant only reads redacted documents.": "%s is niet geanonimiseerd, en deze assistent leest alleen geanonimiseerde documenten.",
+        "Attachments": "Bijlagen",
+        "Files the person attached to this turn, as references only: no bytes and no extracted text. Each file is read in the Files of the person who sent the turn.": "Bestanden die de persoon aan deze beurt heeft toegevoegd, alleen als verwijzing: geen inhoud en geen uitgelezen tekst. Elk bestand wordt gelezen in de Bestanden van de persoon die de beurt stuurde.",
+        "File ID": "Bestands-ID",
+        "The Nextcloud file id.": "Het Nextcloud-bestands-id.",
+        "The file name when it was attached.": "De bestandsnaam op het moment van toevoegen.",
+        "File type": "Bestandstype",
+        "The file's type, for example application/pdf.": "Het type van het bestand, bijvoorbeeld application/pdf.",
+        "Size": "Grootte",
+        "The file size in bytes.": "De bestandsgrootte in bytes.",
+        "Origin": "Herkomst",
+        "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.": "Waar het bestand vandaan komt: geüpload vanaf een apparaat, gekozen uit Bestanden of gemaakt door de assistent."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
