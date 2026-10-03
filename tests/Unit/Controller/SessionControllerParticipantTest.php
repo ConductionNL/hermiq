@@ -63,7 +63,7 @@ class SessionControllerParticipantTest extends TestCase {
 
 		$turn = new ObjectEntity();
 		$turn->setUuid('turn-1');
-		$turn->setObject(['sessionId' => 'sess-1', 'role' => 'user', 'content' => 'Wat staat er over groen?', 'authorId' => 'bram', 'authorDisplayName' => 'Bram Jansen']);
+		$turn->setObject(['sessionId' => 'sess-1', 'role' => 'user', 'content' => 'Wat staat er over groen?', 'authorId' => 'bram', 'authorDisplayName' => 'Bram Jansen', 'attachments' => [['fileId' => 48213, 'name' => 'nota-warmtetransitie.pdf', 'mimeType' => 'application/pdf', 'size' => 10, 'origin' => 'files']]]);
 
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('setRegister')->willReturnSelf();
@@ -163,6 +163,24 @@ class SessionControllerParticipantTest extends TestCase {
 		$this->assertSame('Bram Jansen', $messages->getData()['results'][0]['authorDisplayName']);
 
 	}//end testAParticipantReadsTheSessionAndSeesWhoAsked()
+
+	/**
+	 * A turn's attachments come back with it, so the sent turn shows its files.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+	 */
+	public function testATurnsAttachmentsComeBackWithIt(): void {
+		[$controller] = $this->controllerAs('bram');
+
+		$turn = $controller->messages('sess-1')->getData()['results'][0];
+		$this->assertSame(
+			[['fileId' => 48213, 'name' => 'nota-warmtetransitie.pdf', 'mimeType' => 'application/pdf', 'size' => 10, 'origin' => 'files']],
+			$turn['attachments']
+		);
+
+	}//end testATurnsAttachmentsComeBackWithIt()
 
 	/**
 	 * A stranger gets 403 on the session and its turns.

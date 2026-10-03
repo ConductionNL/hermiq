@@ -312,6 +312,24 @@
 								class="chat-page__text"
 								v-html="renderMarkdown(message.content)" />
 
+							<!-- Files attached to this turn (chat-attachments-and-images). -->
+							<ul
+								v-if="
+									message.attachments
+									&& message.attachments.length > 0
+								"
+								class="chat-page__attachments"
+								:aria-label="t('hermiq', 'Attachments')">
+								<li
+									v-for="attachment in message.attachments"
+									:key="attachment.fileId"
+									class="chat-page__attachment"
+									data-testid="chat-message-attachment">
+									<Paperclip :size="16" />
+									<span>{{ attachment.name }}</span>
+								</li>
+							</ul>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -506,7 +524,65 @@
 						v-model="startAnswers"
 						:fields="startFields"
 						:problems="startProblems" />
+					<ul
+						v-if="pendingAttachments.length > 0"
+						class="chat-page__attachments"
+						data-testid="chat-pending-attachments"
+						:aria-label="t('hermiq', 'Files to send')">
+						<li
+							v-for="attachment in pendingAttachments"
+							:key="attachment.fileId"
+							class="chat-page__attachment">
+							<Paperclip :size="16" />
+							<span>{{ attachment.name }}</span>
+							<NcButton
+								variant="tertiary"
+								:aria-label="
+									t('hermiq', 'Remove {name}', {
+										name: attachment.name,
+									})
+								"
+								@click="removeAttachment(attachment)">
+								<template #icon>
+									<Close :size="16" />
+								</template>
+							</NcButton>
+						</li>
+					</ul>
 					<div class="chat-page__composer-row">
+						<!-- Attach (chat-attachments-and-images): an upload lands in the
+						     person's own Files; a file chosen from Files is sent by id. -->
+						<input
+							ref="attachmentInput"
+							type="file"
+							class="hidden-visually"
+							:aria-label="t('hermiq', 'Upload from device')"
+							@change="onDeviceFileChosen" />
+						<NcActions
+							data-testid="chat-attach"
+							:aria-label="t('hermiq', 'Attach a file')"
+							:disabled="sending || attaching">
+							<template #icon>
+								<NcLoadingIcon v-if="attaching" :size="20" />
+								<Paperclip v-else :size="20" />
+							</template>
+							<NcActionButton
+								data-testid="chat-attach-upload"
+								@click="chooseDeviceFile">
+								<template #icon>
+									<Upload :size="20" />
+								</template>
+								{{ t('hermiq', 'Upload from device') }}
+							</NcActionButton>
+							<NcActionButton
+								data-testid="chat-attach-files"
+								@click="chooseFromFiles">
+								<template #icon>
+									<FolderOutline :size="20" />
+								</template>
+								{{ t('hermiq', 'Choose from Files') }}
+							</NcActionButton>
+						</NcActions>
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
 						<textarea
@@ -612,7 +688,7 @@
 <script>
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { getFilePickerBuilder, showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcActionButton,
 	NcActions,
@@ -631,6 +707,7 @@ import Archive from 'vue-material-design-icons/Archive.vue'
 // in the group headings, which scroll away; the agent itself is named in the
 // row's meta line beside the time.
 import ClockOutline from 'vue-material-design-icons/ClockOutline.vue'
+import Close from 'vue-material-design-icons/Close.vue'
 import CogOutline from 'vue-material-design-icons/CogOutline.vue'
 // The assistant is drawn with the AI sparkles, not a robot — the same mark as
 // the launcher hex and the chat empty state, so "this came from the model"
@@ -642,7 +719,9 @@ import FileDocument from 'vue-material-design-icons/FileDocument.vue'
 import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.vue'
 import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
+import FolderOutline from 'vue-material-design-icons/FolderOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
+import Paperclip from 'vue-material-design-icons/Paperclip.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
@@ -653,6 +732,7 @@ import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
+import Upload from 'vue-material-design-icons/Upload.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
@@ -680,6 +760,7 @@ import {
 	sendMessageFeedback,
 	stopGoal,
 	streamChatMessage,
+	uploadChatAttachment,
 } from '../api/chat.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
@@ -724,6 +805,7 @@ export default {
 		AgentSelector,
 		Archive,
 		ChatSettingsModal,
+		Close,
 		ClockOutline,
 		CogOutline,
 		SessionDeleteModal,
@@ -738,6 +820,7 @@ export default {
 		FileDocument,
 		FileDocumentOutline,
 		FlashOutline,
+		FolderOutline,
 		MessageText,
 		NcActionButton,
 		NcActions,
@@ -746,6 +829,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
+		Paperclip,
 		Pencil,
 		Plus,
 		PuzzlePlusOutline,
@@ -761,6 +845,7 @@ export default {
 		StartFieldsForm,
 		ThumbDown,
 		ThumbUp,
+		Upload,
 	},
 
 	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
@@ -814,6 +899,10 @@ export default {
 			sendError: '',
 			// compliance-ai-literacy: the last send was refused until the course is done.
 			sendNeedsCourse: false,
+			// Files waiting to go out with the next turn, by file id
+			// (chat-attachments-and-images): {fileId, name, mimeType, origin}.
+			pendingAttachments: [],
+			attaching: false,
 			isStreaming: false,
 			streamingText: '',
 			streamingTools: [],
@@ -1460,6 +1549,8 @@ export default {
 			this.activeSession = session
 			this.loadGoalFor(session)
 			this.messages = []
+			// Files queued in another session do not follow the person here.
+			this.pendingAttachments = []
 			this.sendError = ''
 			this.messagesLoading = true
 			try {
@@ -1625,7 +1716,9 @@ export default {
 			if (this.startFields.length > 0 && !(await this.saveStartAnswers())) {
 				return
 			}
+			const attached = this.pendingAttachments
 			this.currentMessage = ''
+			this.pendingAttachments = []
 			this.sendError = ''
 			this.sending = true
 
@@ -1634,16 +1727,23 @@ export default {
 				id: `optimistic-${Date.now()}`,
 				role: 'user',
 				content: text,
+				attachments: attached,
 				created: new Date().toISOString(),
 			})
 			this.scrollToBottom()
 
+			// Only the id and where it came from go out: the server reads the file
+			// itself, as the person sending, and takes its name and type from Files.
+			const attachments = attached.map((a) => ({
+				fileId: a.fileId,
+				origin: a.origin,
+			}))
 			const uuid = this.activeSession.uuid
 			try {
 				if (this.settingsCustomised) {
-					await this.sendViaPost(text, uuid)
+					await this.sendViaPost(text, uuid, attachments)
 				} else {
-					await this.sendViaStream(text, uuid)
+					await this.sendViaStream(text, uuid, attachments)
 				}
 			} catch (e) {
 				this.sendError =
@@ -1672,16 +1772,18 @@ export default {
 		 *
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
+		 * @param {Array<object>} [attachments] Files on the turn, by file id.
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
-		async sendViaStream(text, uuid) {
+		async sendViaStream(text, uuid, attachments = []) {
 			this.isStreaming = true
 			this.streamingText = ''
 			this.streamingTools = []
 			try {
 				await streamChatMessage(
-					{ message: text, sessionUuid: uuid },
+					{ message: text, sessionUuid: uuid, attachments },
 					{
 						onToken: (delta) => {
 							this.streamingText += delta
@@ -1708,7 +1810,7 @@ export default {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.
 					this.isStreaming = false
-					await this.sendViaPost(text, uuid)
+					await this.sendViaPost(text, uuid, attachments)
 					return
 				}
 				throw e
@@ -1721,13 +1823,16 @@ export default {
 		 *
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
+		 * @param {Array<object>} [attachments] Files on the turn, by file id.
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
-		async sendViaPost(text, uuid) {
+		async sendViaPost(text, uuid, attachments = []) {
 			await sendChatMessage({
 				message: text,
 				sessionUuid: uuid,
+				attachments,
 				views: this.settings.views,
 				tools: this.settings.tools,
 				ragSettings: {
@@ -1737,6 +1842,118 @@ export default {
 					numSourcesFiles: this.settings.numSourcesFiles,
 				},
 			})
+		},
+
+		/**
+		 * Open the device's file chooser (the hidden input).
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 */
+		chooseDeviceFile() {
+			this.$refs.attachmentInput?.click()
+		},
+
+		/**
+		 * Upload the file chosen on the device into the person's own Files and
+		 * queue it for the next turn. A refusal (type, size) is shown inline.
+		 *
+		 * @param {Event} event The input's change event.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 */
+		async onDeviceFileChosen(event) {
+			const file = event?.target?.files?.[0]
+			if (event?.target) {
+				event.target.value = ''
+			}
+			if (!file) {
+				return
+			}
+			this.attaching = true
+			this.sendError = ''
+			try {
+				const stored = await uploadChatAttachment(file)
+				this.queueAttachment({
+					fileId: stored.fileId,
+					name: stored.name,
+					mimeType: stored.mimeType,
+					origin: 'upload',
+				})
+			} catch (e) {
+				this.sendError =
+					e?.response?.data?.error
+					|| this.t('hermiq', 'The file could not be attached.')
+			} finally {
+				this.attaching = false
+			}
+		},
+
+		/**
+		 * Choose files the person already has in Files. They are sent by file id,
+		 * so no copy is made.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 */
+		async chooseFromFiles() {
+			const picker = getFilePickerBuilder(
+				this.t('hermiq', 'Choose from Files'),
+			)
+				.setMultiSelect(true)
+				.allowDirectories(false)
+				.addButton({
+					label: this.t('hermiq', 'Attach'),
+					variant: 'primary',
+					callback: (nodes) => {
+						for (const node of nodes) {
+							this.queueAttachment({
+								fileId: node.fileid,
+								name: node.basename,
+								mimeType: node.mime,
+								origin: 'files',
+							})
+						}
+					},
+				})
+				.build()
+			try {
+				await picker.pick()
+			} catch {
+				// Closing the picker without choosing is not an error.
+			}
+		},
+
+		/**
+		 * Queue one file for the next turn, once.
+		 *
+		 * @param {object} attachment {fileId, name, mimeType, origin}.
+		 * @return {void}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 */
+		queueAttachment(attachment) {
+			if (!attachment.fileId) {
+				return
+			}
+			if (
+				this.pendingAttachments.some((a) => a.fileId === attachment.fileId)
+			) {
+				return
+			}
+			this.pendingAttachments = [...this.pendingAttachments, attachment]
+		},
+
+		/**
+		 * Take a queued file off the next turn.
+		 *
+		 * @param {object} attachment The queued file.
+		 * @return {void}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 */
+		removeAttachment(attachment) {
+			this.pendingAttachments = this.pendingAttachments.filter(
+				(a) => a.fileId !== attachment.fileId,
+			)
 		},
 
 		/**
@@ -2530,6 +2747,26 @@ export default {
 	margin-top: 4px;
 	font-weight: bold;
 	text-decoration: underline;
+}
+
+.chat-page__attachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: calc(var(--default-grid-baseline) * 2);
+	margin: calc(var(--default-grid-baseline) * 2) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.chat-page__attachment {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--default-grid-baseline);
+	padding: 0 calc(var(--default-grid-baseline) * 2);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background: var(--color-background-hover);
+	color: var(--color-main-text);
 }
 
 .chat-page__composer-row {

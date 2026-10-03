@@ -2641,7 +2641,13 @@ OC.L10N.register(
         "Size": "Size",
         "The file size in bytes.": "The file size in bytes.",
         "Origin": "Origin",
-        "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.": "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant."
+        "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.": "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant.",
+        "Files to send": "Files to send",
+        "Remove {name}": "Remove {name}",
+        "Upload from device": "Upload from device",
+        "Attach a file": "Attach a file",
+        "Choose from Files": "Choose from Files",
+        "The file could not be attached.": "The file could not be attached."
     },
     "nplurals=2; plural=(n != 1);"
 )

@@ -290,6 +290,8 @@ export async function deleteSessionPermanent(uuid) {
  * @param {Array<string>} [options.tools] Selected tool ids for this turn.
  * @param {object} [options.ragSettings] RAG settings (includeObjects, includeFiles,
  *   numSourcesFiles, numSourcesObjects).
+ * @param {Array<{fileId: number, origin: string}>} [options.attachments] Files on
+ *   this turn, by file id; the server reads each one as the sender.
  * @return {Promise<object>} The engine result ({message, messageId, sources, usage,
  *   session}).
  */
@@ -300,8 +302,12 @@ export async function sendChatMessage({
 	views,
 	tools,
 	ragSettings,
+	attachments,
 }) {
 	const payload = { message }
+	if (Array.isArray(attachments) && attachments.length > 0) {
+		payload.attachments = attachments
+	}
 	if (sessionUuid) {
 		payload.conversation = sessionUuid // wire key: ChatController reads getParam('conversation')
 	} else if (agentUuid) {
@@ -330,6 +336,22 @@ export async function sendChatMessage({
 		}
 	}
 	const response = await axios.post(generateUrl(`${CHAT_BASE}/send`), payload)
+	return response.data
+}
+
+/**
+ * Upload one file from the device into the person's own Files
+ * (POST /api/chat/attachments). A refused type or size answers 400 with
+ * `{ error }` in the person's language.
+ *
+ * @param {File} file The file the person chose.
+ * @return {Promise<{path: string, name: string, fileId: number, mimeType: string, size: number}>}
+ * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+ */
+export async function uploadChatAttachment(file) {
+	const form = new FormData()
+	form.append('file', file)
+	const response = await axios.post(generateUrl(`${CHAT_BASE}/attachments`), form)
 	return response.data
 }
 
@@ -398,6 +420,8 @@ function parseSseFrame(frame) {
  * @param {string} options.message The user message text.
  * @param {string} [options.sessionUuid] Existing session UUID.
  * @param {string} [options.agentUuid] Agent UUID (only when no session exists yet).
+ * @param {Array<{fileId: number, origin: string}>} [options.attachments] Files on
+ *   this turn, by file id; the server reads each one as the sender.
  * @param {object} [handlers] Event handlers.
  * @param {Function} [handlers.onToken] (delta: string) — incremental assistant text.
  * @param {Function} [handlers.onToolCall] (payload: object) — a tool invocation started.
@@ -410,10 +434,14 @@ function parseSseFrame(frame) {
  *   `error` event (no fallback — the turn failed server-side).
  */
 export async function streamChatMessage(
-	{ message, sessionUuid, agentUuid },
+	{ message, sessionUuid, agentUuid, attachments },
 	handlers = {},
 ) {
 	const body = { message }
+	// Files on this turn, by file id (chat-attachments-and-images); omitted when none.
+	if (Array.isArray(attachments) && attachments.length > 0) {
+		body.attachments = attachments
+	}
 	if (sessionUuid) {
 		body.conversationUuid = sessionUuid // wire key: the stream endpoint reads conversationUuid
 	} else if (agentUuid) {

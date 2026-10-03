@@ -18,8 +18,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - **files**: `src/views/Chat.vue`, `src/api/chat.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a session open on `/chat` WHEN the person chooses a file from Files and sends THEN the turn carries its file id and no copy is made
-- [ ] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/chat-attachments.spec.ts`)
+- [x] Implement (attach menu on the composer: "Upload from device" through the route of task 1, "Choose from Files" through the Nextcloud file picker, sent by file id; the thread shows a turn's attachments, which the session messages endpoint now returns)
+- [ ] Test (Playwright under `tests/e2e/spec-coverage/chat-attachments.spec.ts`: written, not yet run; it needs the live instance)
 
 ### Task 3: Attachments on the turn, resolved as the speaker
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003`
