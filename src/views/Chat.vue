@@ -179,6 +179,16 @@
 				</h2>
 				<div v-if="activeSession" class="chat-page__header-actions">
 					<NcButton
+						v-if="canSetGoal"
+						variant="tertiary"
+						data-testid="chat-set-goal"
+						:aria-label="t('hermiq', 'Set a goal')"
+						@click="showGoalForm = true">
+						<template #icon>
+							<FlagCheckered :size="20" />
+						</template>
+					</NcButton>
+					<NcButton
 						variant="tertiary"
 						:aria-label="t('hermiq', 'Rename session')"
 						@click="showRename = true">
@@ -208,6 +218,26 @@
 				`margin: auto` centres identically while there is room and
 				collapses to zero when there is not, which is the whole fix.
 			-->
+			<div
+				v-if="activeSession && sessionGoal"
+				class="chat-page__goal"
+				data-testid="chat-goal">
+				<FlagCheckered :size="20" />
+				<span class="chat-page__goal-text" data-testid="chat-goal-text">{{
+					goalLine
+				}}</span>
+				<NcButton
+					v-if="sessionGoal.status === 'active'"
+					variant="secondary"
+					data-testid="chat-stop-goal"
+					:disabled="goalStopping"
+					@click="onStopGoal">
+					<template #icon>
+						<StopCircleOutline :size="20" />
+					</template>
+					{{ t('hermiq', 'Stop goal') }}
+				</NcButton>
+			</div>
 			<p
 				v-if="activeSession && sessionStartValues.length > 0"
 				class="chat-page__start-values"
@@ -528,6 +558,11 @@
 			:session="participantsTarget"
 			@close="participantsTarget = null"
 			@changed="onParticipantsChanged" />
+		<GoalFormModal
+			:show="showGoalForm"
+			:session="activeSession"
+			@close="showGoalForm = false"
+			@saved="onGoalSaved" />
 		<SessionRenameModal
 			:show="showRename"
 			:session="activeSession"
@@ -605,6 +640,7 @@ import CubeOutline from 'vue-material-design-icons/CubeOutline.vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
 import FileDocument from 'vue-material-design-icons/FileDocument.vue'
 import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.vue'
+import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
@@ -614,6 +650,7 @@ import Restore from 'vue-material-design-icons/Restore.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
+import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
 import AgentSelector from '../components/AgentSelector.vue'
@@ -622,6 +659,7 @@ import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
+import GoalFormModal from '../modals/GoalFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
@@ -634,11 +672,13 @@ import {
 	ChatStreamError,
 	createSession,
 	getSession,
+	getSessionGoal,
 	listMessages,
 	listSessions,
 	restoreSession,
 	sendChatMessage,
 	sendMessageFeedback,
+	stopGoal,
 	streamChatMessage,
 } from '../api/chat.js'
 import { speechCapabilities } from '../api/speech.js'
@@ -689,6 +729,9 @@ export default {
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
+		GoalFormModal,
+		FlagCheckered,
+		StopCircleOutline,
 		CubeOutline,
 		Delete,
 		DictateButton,
@@ -780,6 +823,9 @@ export default {
 
 			// Modals
 			showRename: false,
+			showGoalForm: false,
+			sessionGoal: null,
+			goalStopping: false,
 			showSettings: false,
 			showDelete: false,
 			deleteTarget: null,
@@ -802,6 +848,61 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether this person can set a goal here: their own session without an active goal.
+		 *
+		 * @return {boolean} True when "Set a goal" is offered.
+		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
+		 */
+		canSetGoal() {
+			return (
+				Boolean(this.activeSession)
+				&& this.activeSession.role !== 'participant'
+				&& this.sessionGoal?.status !== 'active'
+			)
+		},
+
+		/**
+		 * The goal's line in the session header.
+		 *
+		 * @return {string} The goal, its turn and its last check.
+		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
+		 */
+		goalLine() {
+			const goal = this.sessionGoal
+			if (!goal) {
+				return ''
+			}
+			const statement = goal.statement || ''
+			if (goal.status === 'stopped') {
+				return this.t('hermiq', 'Goal stopped: {statement}', { statement })
+			}
+			if (goal.status === 'reached') {
+				return this.t('hermiq', 'Goal reached: {statement}', { statement })
+			}
+			if (goal.status === 'exhausted') {
+				return this.t('hermiq', 'Turn limit used: {statement}', {
+					statement,
+				})
+			}
+			const turns = this.t('hermiq', 'turn {used} of {max}', {
+				used: goal.turnsUsed ?? 0,
+				max: goal.maxTurns ?? 10,
+			})
+			const summary = goal.lastCheckResult?.summary
+			const blocked = goal.blocked ? this.t('hermiq', 'blocked') : ''
+			return [
+				this.t('hermiq', 'Goal: {statement}', { statement }),
+				turns,
+				blocked,
+				summary
+					? this.t('hermiq', 'last check: {summary}', { summary })
+					: '',
+			]
+				.filter(Boolean)
+				.join(', ')
+		},
+
 		/**
 		 * The speech controls the chat's agent allows (dictation, read aloud).
 		 *
@@ -1357,6 +1458,7 @@ export default {
 		 */
 		async selectSession(session) {
 			this.activeSession = session
+			this.loadGoalFor(session)
 			this.messages = []
 			this.sendError = ''
 			this.messagesLoading = true
@@ -1372,6 +1474,61 @@ export default {
 				showError(this.t('hermiq', 'Could not load the session.'))
 			} finally {
 				this.messagesLoading = false
+			}
+		},
+
+		/**
+		 * Load the session's newest standing goal (non-fatal on miss).
+		 *
+		 * @param {object} session The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
+		 */
+		async loadGoalFor(session) {
+			this.sessionGoal = null
+			if (!session?.uuid || session.role === 'participant') {
+				return
+			}
+			try {
+				const goal = await getSessionGoal(session.uuid)
+				if (this.activeSession?.uuid === session.uuid) {
+					this.sessionGoal = goal
+				}
+			} catch {
+				this.sessionGoal = null
+			}
+		},
+
+		/**
+		 * Show a goal that was just set.
+		 *
+		 * @param {object} goal The stored goal.
+		 * @return {void}
+		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
+		 */
+		onGoalSaved(goal) {
+			this.sessionGoal = goal
+			this.showGoalForm = false
+			showSuccess(this.t('hermiq', 'Goal set'))
+		},
+
+		/**
+		 * Stop the session's goal.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-goal-can-be-stopped-by-its-owner-or-the-agent-owner-req-aggoal-003
+		 */
+		async onStopGoal() {
+			if (!this.sessionGoal?.id) {
+				return
+			}
+			this.goalStopping = true
+			try {
+				this.sessionGoal = await stopGoal(this.sessionGoal.id)
+			} catch {
+				showError(this.t('hermiq', 'Could not stop the goal.'))
+			} finally {
+				this.goalStopping = false
 			}
 		},
 
@@ -2061,6 +2218,19 @@ export default {
 	gap: 12px;
 	padding: 16px 20px;
 	border-bottom: 1px solid var(--color-border);
+}
+
+.chat-page__goal {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 16px;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.chat-page__goal-text {
+	flex: 1;
+	min-width: 0;
 }
 
 .chat-page__start-values {

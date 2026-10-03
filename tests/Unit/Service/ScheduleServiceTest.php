@@ -1855,6 +1855,70 @@ class ScheduleServiceTest extends TestCase {
 	}//end testAScheduledRunCarriesTheSchedulesStartValues()
 
 	/**
+	 * Agents-standing-goal: a goal turn continues the goal's own session, so the
+	 * engine sees the earlier turns, instead of opening a new one; a session
+	 * that is not the owner's is never continued, a new one is opened instead.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	public function testAGoalTurnContinuesTheGoalsSession(): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+		$conversations = [];
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (string $conversationId) use (&$conversations): array {
+				$conversations[] = $conversationId;
+				return ['message' => 'engine output', 'usage' => []];
+			}
+		);
+		$this->service = $this->makeService();
+
+		$agentObject = new ObjectEntity();
+		$agentObject->setUuid('agent-uuid');
+		$agentObject->setObject(['name' => 'Permit reminder']);
+		$ownSession = new ObjectEntity();
+		$ownSession->setUuid('goal-session');
+		$ownSession->setObject(['userId' => 'alice', 'agentId' => 'agent-uuid']);
+		$otherSession = new ObjectEntity();
+		$otherSession->setUuid('bob-session');
+		$otherSession->setObject(['userId' => 'bob', 'agentId' => 'agent-uuid']);
+		$this->objectService->method('find')->willReturnCallback(
+			static fn (int|string $id): ObjectEntity => match ($id) {
+				'goal-session' => $ownSession,
+				'bob-session' => $otherSession,
+				default => $agentObject,
+			}
+		);
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$created = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$created): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved-' . count($created));
+				if ($schema === 'agentsession') {
+					$created[] = $object;
+					$entity->setUuid('new-session');
+				}
+
+				return $entity;
+			}
+		);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'Continue working on the goal', continueSessionUuid: 'goal-session');
+		$this->assertSame([], $created, 'a goal turn opens no new session');
+		$this->assertSame(['goal-session'], $conversations);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'Continue working on the goal', continueSessionUuid: 'bob-session');
+		$this->assertCount(1, $created, 'another person\'s session is never continued');
+		$this->assertSame(['goal-session', 'new-session'], $conversations);
+
+	}//end testAGoalTurnContinuesTheGoalsSession()
+
+	/**
 	 * run-trace-observability (TC-1): on the in-app Engine path, the persisted
 	 * run audit entry's `changed.steps` includes the tool step the Engine's
 	 * RunTraceCollector recorded (threaded in via the `trace` argument

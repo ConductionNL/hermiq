@@ -12,7 +12,9 @@ Kind: code. Size M. Row `hermiq:dm-standing-goal`.
 
 ## D1. A goal is a schedule that continues one session
 
-New schema `Goal`: `agentId` ($ref agent, `onDelete: CASCADE`), `sessionId`, `statement`, `check` (`{kind: "objectCount", register, schema, filters, target: 0}` or `{kind: "judge", question}`), `intervalMinutes` (15 to 1440), `maxTurns` (1 to 50, default 10), `turnsUsed`, `status` (`active`, `reached`, `stopped`, `exhausted`, `blocked`), `lastCheckResult`, `owner`.
+New schema `Goal`: `agentId` ($ref agent, `onDelete: CASCADE`), `sessionId`, `statement`, `check` (`{kind: "objectCount", register, schema, filters, target: 0}` or `{kind: "judge", question}`), `intervalMinutes` (15 to 1440), `maxTurns` (1 to 50, default 10), `turnsUsed`, `status` (`active`, `reached`, `stopped`, `exhausted`), `blocked` (the gate that held the last due turn, empty when it ran), `lastCheckResult`, `nextTurnAt`, `setBy`.
+
+As built: the slug is `agentgoal` (the register prefixes bare names, as `agentsession`), the person is `setBy` rather than `owner` (OpenRegister keeps `owner` as object metadata), and "blocked" is a separate field, not a status, so a held goal stays `active` and retries at its next interval. Read access: the person in `setBy`. Due turns are taken by `GoalService::run()`, called by `ScheduleTask` after `ScheduleService::run()`; a turn asks `ScheduleService::gateFor()` (agent switched off, kill switch, budget, the same checks in the same order as a scheduled run) and runs through `runAgentAsOwner(..., continueSessionUuid)`. A goal has no approval gate: setting the goal is the person's approval of its turns.
 
 A goal turn is dispatched by the same background job as schedules: `ScheduleService` loads due goals next to due schedules and sends each through `dispatch()`'s three gates with a goal-shaped occurrence. `runAgentViaEngine()` gains `?string $continueSessionUuid`; for a goal it continues the goal's session instead of creating one, so the agent sees its earlier turns. The turn's message is "Continue working on the goal: <statement>. Last check: <result>."
 
@@ -40,7 +42,7 @@ In a session, the header menu gains "Set a goal". A modal (`src/modals/GoalFormM
 
 ## Seed data
 
-One example goal, stopped, on the seeded starter agent "Permit reminder": statement "Every overdue permit application has had a reminder this week", check `objectCount` on the permits register with filters `{status: "overdue", reminderSentThisWeek: false}` and target 0, interval 60 minutes, max turns 10.
+Not built. There is no seeded agent "Permit reminder", and a goal needs a session of a real person, which a seed cannot own. The form's placeholders carry the example instead. The design proposed: one example goal, stopped, on the seeded starter agent "Permit reminder": statement "Every overdue permit application has had a reminder this week", check `objectCount` on the permits register with filters `{status: "overdue", reminderSentThisWeek: false}` and target 0, interval 60 minutes, max turns 10.
 
 ## Risks
 
