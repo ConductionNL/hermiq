@@ -34,6 +34,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Assistant;
 
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use Exception;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
@@ -79,7 +81,7 @@ class AssistantService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Sentinel tool-whitelist entry meaning "this agent is intentionally
@@ -149,6 +151,7 @@ class AssistantService {
 	 *                                                            fallback (mirrors
 	 *                                                            `Engine::resolveGuardrailPolicy()`);
 	 *                                                            real DI always provides it.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 *
 	 * @return void
 	 *
@@ -160,6 +163,7 @@ class AssistantService {
 		private readonly ResponseGenerationHandler $responseHandler,
 		private readonly LoggerInterface $logger,
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 	}//end __construct()
 
@@ -182,12 +186,30 @@ class AssistantService {
 	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
 	 */
 	public function converse(string $userId, ?string $sessionId, string $message, array $context): array {
+		// Compliance-ai-literacy: an organisation may require the course first.
+		$this->literacy?->assertMayUseAgents(uid: $userId);
 		$this->validateMessage(message: $message);
 		$app = $this->validateContext(context: $context);
 
 		$conversation = $this->resolveConversation(sessionId: $sessionId, userId: $userId, app: $app);
 		$conversationId = (string)$conversation->getUuid();
 		$organisation = (string)($conversation->getOrganisation() ?? '');
+
+		// _rbac false: the case-assistant agent is provisioned once per app as a
+		// private agent (so it stays out of the catalog), owned by whoever triggered
+		// the provisioning. The Agent read rule (hermiq#976) would hide it from every
+		// other user. resolveConversation() above already checked the session is the
+		// caller's own; tenancy still applies.
+		$agent = $this->objectService->find(
+			id: (string)$conversation->getObject()['agentId'],
+			register: self::REGISTER_SLUG,
+			schema: self::AGENT_SCHEMA,
+			_rbac: false
+		);
+
+		// Agents-switch-off-and-stop: a switched-off agent answers nothing, and the
+		// question is not stored.
+		(new AgentAvailability())->assertRunnable(agent: $agent);
 
 		$guardrailPolicy = $this->resolveGuardrailPolicy(organisation: $organisation);
 		$inputFilter = $this->guardrailPolicyService?->filterInput(
@@ -214,12 +236,6 @@ class AssistantService {
 		);
 
 		$messageHistory = $this->historyHandler->buildMessageHistory(conversationId: $conversationId);
-
-		$agent = $this->objectService->find(
-			id: (string)$conversation->getObject()['agentId'],
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
-		);
 
 		$ragContext = [
 			'text' => $this->renderContextData(context: $context),
@@ -369,7 +385,10 @@ class AssistantService {
 		$existing = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1]);
+			// _rbac false: one shared, private, tool-locked agent per app. Under the
+			// Agent read rule (hermiq#976) each other user would miss it and
+			// provision a duplicate. Tenancy still applies.
+			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1], _rbac: false);
 
 		foreach ($existing as $candidate) {
 			if ($candidate instanceof ObjectEntity) {
@@ -579,7 +598,10 @@ class AssistantService {
 		$existing = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1]);
+			// _rbac false: one shared, private, tool-locked agent per app. Under the
+			// Agent read rule (hermiq#976) each other user would miss it and
+			// provision a duplicate. Tenancy still applies.
+			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1], _rbac: false);
 
 		foreach ($existing as $candidate) {
 			if ($candidate instanceof ObjectEntity) {

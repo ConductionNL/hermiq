@@ -37,12 +37,16 @@
 //
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 import { CnFlowSidebar } from '@conduction/nextcloud-vue'
+import AgentAvailabilityDialog from './dialogs/AgentAvailabilityDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
+import AgentExportModal from './modals/AgentExportModal.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
+import AgentGitModal from './modals/AgentGitModal.vue'
+import AppTemplateCollectModal from './modals/AppTemplateCollectModal.vue'
 import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
 import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
@@ -51,6 +55,7 @@ import Chat from './views/Chat.vue'
 import TenantOps from './views/TenantOps.vue'
 import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
+import AgentRatingsWidget from './widgets/AgentRatingsWidget.vue'
 import AgentRunHistoryWidget from './widgets/AgentRunHistoryWidget.vue'
 import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
@@ -141,6 +146,22 @@ export default {
 	},
 
 	/**
+	 * Switch one agent off and on, with who, when and why
+	 * (agents-switch-off-and-stop). Self-resolves the agent id from the route
+	 * when opened via AgentDetail's "Switch off or on" action.
+	 */
+	'agent-availability': {
+		kind: 'modal',
+		component: AgentAvailabilityDialog,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+			},
+		},
+	},
+
+	/**
 	 * Agent compliance factsheet — read-only AI factsheet / model card
 	 * (compliance-control-packs). Self-resolves the agent id from the route
 	 * when opened via AgentDetail's "View compliance factsheet" action.
@@ -164,6 +185,48 @@ export default {
 	'template-import': {
 		kind: 'modal',
 		component: TemplateImportModal,
+		propsSchema: { type: 'object', properties: { mode: { type: 'string' } } },
+	},
+
+	/**
+	 * "Keep in git" on the agent page (agents-export-import-and-git-sync): publish,
+	 * push and pull the agent's package with its own GitHub repository.
+	 */
+	'agent-git': {
+		kind: 'modal',
+		component: AgentGitModal,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+			},
+		},
+	},
+
+	/**
+	 * The agent page's "Export" and "Save as template" (agents-export-import-and-git-sync):
+	 * one modal, the mode prop picks which.
+	 */
+	'agent-export': {
+		kind: 'modal',
+		component: AgentExportModal,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+				mode: { type: 'string' },
+			},
+		},
+	},
+
+	/**
+	 * "Check apps for templates": asks the installed apps for the agent templates
+	 * they offer for themselves (agents-bound-to-their-app). Opened via the Store
+	 * page's header action of the same name.
+	 */
+	'app-template-collect': {
+		kind: 'modal',
+		component: AppTemplateCollectModal,
 		propsSchema: { type: 'object', properties: {} },
 	},
 
@@ -193,7 +256,7 @@ export default {
 
 	/**
 	 * Chat — the AI chat page merged from OpenRegister's chat surface
-	 * (agent-engine-port task 5.1): conversation list + streaming thread +
+	 * (agent-engine-port task 5.1): session list + streaming thread +
 	 * composer + agent selector + feedback, against the Hermiq engine routes.
 	 * Standard nav page, not a dashboard.
 	 */
@@ -630,6 +693,23 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'The built-in type:data widget renders values only — no per-property info affordance or inline editor at HEAD — so the property gets a dedicated small widget (spec scenario: the description surfaces where the value is changed).',
+	},
+
+	/**
+	 * How people rated this agent's answers on AgentDetail
+	 * (observability-feedback-per-agent): the share rated helpful with the two
+	 * counts, and the latest thumbs-down comments.
+	 */
+	'agent-ratings': {
+		// @custom-widget-ratchet exclude a percentage with its two counts beside a list of thumbs-down comments read from a guarded per-agent endpoint — the built-in stat widget shows one value with a static caption, and object-table binds OR collections, not an aggregate plus a filtered, author-stripped comment list.
+		kind: 'widget',
+		component: AgentRatingsWidget,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'An aggregate (share rated helpful plus counts) and an author-stripped comment list behind an agent read-access guard; neither the stat nor the object-table widget can express it.',
 	},
 
 	// -------------------------------------------------------------------------

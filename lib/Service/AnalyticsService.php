@@ -113,6 +113,13 @@ class AnalyticsService
     private const AGENT_PAGE_SIZE = 500;
 
     /**
+     * The ratings read, on the same object service and so the same boundary.
+     *
+     * @var AgentFeedbackStats
+     */
+    private readonly AgentFeedbackStats $feedbackStats;
+
+    /**
      * The status value that counts as a successful run.
      *
      * @var string
@@ -129,6 +136,8 @@ class AnalyticsService
         private readonly ObjectService $objectService,
         private readonly AuditTrailMapper $auditTrailMapper,
     ) {
+        $this->feedbackStats = new AgentFeedbackStats(objectService: $objectService);
+
     }//end __construct()
 
     /**
@@ -236,6 +245,11 @@ class AnalyticsService
             }//end foreach
         }//end if
 
+        // Ratings on the same boundary: only feedback on a visible agent counts.
+        $rated    = $this->feedbackStats->tally(visibleAgents: $visibleAgents, agentId: $agentId, perAgent: $perAgent);
+        $feedback = $rated['feedback'];
+        $perAgent = $rated['perAgent'];
+
         $scope = 'organisation';
         if ($agentId !== null && $agentId !== '') {
             $scope = 'agent';
@@ -250,6 +264,7 @@ class AnalyticsService
             'statusBreakdown' => $statusBreakdown,
             'latency'         => $this->latency(durations: $durations),
             'perAgent'        => array_values($perAgent),
+            'feedback'        => $feedback,
             'tokens'          => $this->tokens(
                 recorded: $tokensRecorded,
                 prompt: $promptTokens,
@@ -371,11 +386,37 @@ class AnalyticsService
     }//end listRuns()
 
     /**
+     * Compare two runs the caller may see, on the run list's own boundary.
+     *
+     * The visible agent set is the one `listRuns()` filters on; RunCompareService
+     * answers a run outside it exactly like a run that does not exist.
+     *
+     * @param string $leftId  The left run's audit entry uuid.
+     * @param string $rightId The right run's audit entry uuid.
+     *
+     * @return array{left: ?array, right: ?array, sameAgent: bool, comparison: ?array}
+     *
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+     */
+    public function compareRuns(string $leftId, string $rightId): array
+    {
+        return (new RunCompareService(auditTrailMapper: $this->auditTrailMapper))->compare(
+            leftId: $leftId,
+            rightId: $rightId,
+            visibleAgents: $this->loadVisibleAgents(agentId: null),
+            toRunRow: $this->toRunRow(...)
+        );
+
+    }//end compareRuns()
+
+    /**
      * Shape one audit entry into a run row for the list.
      *
      * Split out of `listRuns()` so that method stays the tenant filter and the paging,
      * which is the part worth reading closely. Every value here comes from the entry
      * that has already passed that filter.
+     *
+     * RunCompareService shapes a compared run through this same method (handed over as a callable).
      *
      * `createdSort` rides along as an epoch-seconds sort key and is dropped before the
      * page is returned. Sorting on the ISO string would order `2026-09-06T09:00:00+02:00`
@@ -432,12 +473,37 @@ class AnalyticsService
             'durationMs'  => ($context['durationMs'] ?? null),
             'summary'     => ($context['summary'] ?? null),
             'attempt'     => ($context['attempt'] ?? null),
+            // Models-no-training-guarantee: which provider saw this run and the
+            // data-use term in force then, as written onto the run record.
+            // Labels only, and an empty list for a run recorded before it was written.
+            'providerDisclosure' => array_intersect_key(
+                (array) ($context['providerDisclosure'] ?? []),
+                array_flip(['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'])
+            ),
             'user'        => $log->getUser(),
             'created'     => $createdIso,
             'createdSort' => $createdSort,
         ];
 
     }//end toRunRow()
+
+
+    /**
+     * The latest thumbs-down ratings with a comment on one agent, newest first.
+     *
+     * The caller checks read access on the agent first; see AgentFeedbackStats.
+     *
+     * @param string $agentId The agent UUID.
+     *
+     * @return array<int, array{comment: string, date: string|null, conversationId: string}> At most ten rows.
+     *
+     * @spec openspec/specs/run-analytics/spec.md#requirement-an-agent-owner-reads-the-latest-low-ratings-req-fbstat-002
+     */
+    public function latestLowRatings(string $agentId): array
+    {
+        return $this->feedbackStats->latestLowRatings(agentId: $agentId);
+
+    }//end latestLowRatings()
 
     /**
      * Load the caller's visible agent UUIDs mapped to their display name.

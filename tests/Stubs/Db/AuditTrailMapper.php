@@ -23,6 +23,8 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Db;
 
+use OCP\AppFramework\Db\Entity;
+
 /**
  * Minimal AuditTrailMapper stub for standalone unit runs.
  */
@@ -48,6 +50,25 @@ class AuditTrailMapper {
 		$entry->setChanged($context);
 		return $entry;
 	}//end createAuditTrailEntry()
+
+	/**
+	 * Persist a changed audit entry.
+	 *
+	 * Mirrors the real mapper's `update(Entity $entity): AuditTrail`, which
+	 * hermiq's retention cleanup calls to replace an expired run's payload with a
+	 * tombstone. The one deliberate divergence is the parameter type: the real
+	 * `AuditTrail` extends `OCP\AppFramework\Db\Entity` and this stub's does not,
+	 * so the union accepts both rather than making the stub unusable with itself.
+	 * Widening the type here is safe in the direction that matters — production
+	 * passes a real `AuditTrail`, which is an `Entity`.
+	 *
+	 * @param Entity|AuditTrail $entity The entry to persist.
+	 *
+	 * @return AuditTrail The persisted entry.
+	 */
+	public function update(Entity|AuditTrail $entity): AuditTrail {
+		return $entity;
+	}//end update()
 
 	/**
 	 * Find audit trail entries matching the given filters.

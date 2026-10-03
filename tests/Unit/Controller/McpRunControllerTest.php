@@ -23,6 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -101,6 +102,13 @@ final class McpRunControllerTest extends TestCase {
 	private ?IThrottler $throttlerOverride = null;
 
 	/**
+	 * Set by a test on the tool call cap (agents-switch-off-and-stop).
+	 *
+	 * @var RunToolCallCounter|null
+	 */
+	private ?RunToolCallCounter $toolCallCounter = null;
+
+	/**
 	 * The throttler to build the controller with.
 	 *
 	 * @return IThrottler
@@ -144,7 +152,7 @@ final class McpRunControllerTest extends TestCase {
 		$userManager->method('get')->willReturn($user);
 		$userSession = $this->createMock(IUserSession::class);
 
-		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), $this->createMock(RunStepBus::class), new NullLogger(), $body) extends McpRunController {
+		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), $this->createMock(RunStepBus::class), new NullLogger(), $body, $this->toolCallCounter) extends McpRunController {
 			// phpcs:ignore
 			public function __construct(
 				$request,
@@ -160,8 +168,9 @@ final class McpRunControllerTest extends TestCase {
 				$runStepBus,
 				$logger,
 				private string $rawBody,
+				$counter = null,
 			) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger);
+				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, null, $counter);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;
@@ -243,6 +252,40 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
 
 	}//end testARejectedTokenIsRegisteredUnderTheSharedAction()
+
+	/**
+	 * A token this instance DID issue, now spent or expired, is refused but NOT counted, and a
+	 * presented token it never issued still is (the control).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testOnlyAnUnknownTokenFeedsTheThrottler(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->once())
+			->method('registerAttempt')
+			->with('hermiq_run_token', $this->anything());
+		$this->throttlerOverride = $throttler;
+
+		$tokens = $this->tokens('good');
+		$tokens->method('isKnown')->willReturnCallback(static fn (string $token): bool => $token === 'spent');
+
+		foreach (['Bearer spent', 'Bearer guessed'] as $auth) {
+			$controller = $this->controller(
+				$auth,
+				'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+				$tokens,
+				$this->createMock(ObjectService::class),
+				$this->createMock(ToolRegistryFacade::class),
+				$this->createMock(ToolLoop::class),
+				$this->createMock(ToolSearchService::class)
+			);
+
+			$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
+		}
+
+	}//end testOnlyAnUnknownTokenFeedsTheThrottler()
 
 	/**
 	 * A throttler that BLOWS UP must not change the answer.
@@ -353,6 +396,55 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertStringNotContainsString('"properties":[]', $encoded);
 
 	}//end testToolsListReturnsGrantedToolsWithPropertiesAsObject()
+
+	/**
+	 * `tools/list` on the governed path offers the push only from a grant that
+	 * pins the repository and constrains the branch; a bare push grant is dropped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testToolsListOffersThePushOnlyFromAScopedGrant(): void {
+		$push = [
+			'name' => 'hermiq_workspacePush',
+			'mcpId' => 'hermiq.workspacePush',
+			'description' => 'Push a branch',
+			'parameters' => ['type' => 'object', 'properties' => ['branch' => ['type' => 'string']]],
+		];
+		$open = [
+			'name' => 'hermiq_workspaceOpen',
+			'mcpId' => 'hermiq.workspaceOpen',
+			'description' => 'Open a workspace',
+			'parameters' => ['type' => 'object', 'properties' => ['repository' => ['type' => 'string']]],
+		];
+		$listed = function (array $tools) use ($push, $open): array {
+			$facade = $this->createMock(ToolRegistryFacade::class);
+			$facade->method('listTools')->willReturn([$open, $push]);
+			$agent = new ObjectEntity();
+			$agent->setUuid('agent-1');
+			$agent->setObject(['tools' => $tools, 'organisation' => '']);
+			$objects = $this->createMock(ObjectService::class);
+			$objects->method('find')->willReturn($agent);
+			$data = $this->controller(
+				'Bearer good',
+				'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}',
+				$this->tokens('good'),
+				$objects,
+				$facade,
+				$this->createMock(ToolLoop::class),
+				$this->createMock(ToolSearchService::class)
+			)->handle()->getData();
+			return array_column($data['result']['tools'], 'name');
+		};
+
+		$this->assertSame(['hermiq_workspaceOpen'], $listed(['hermiq.workspaceOpen', 'hermiq.workspacePush']));
+		$this->assertSame(
+			['hermiq_workspaceOpen', 'hermiq_workspacePush'],
+			$listed(['hermiq.workspaceOpen', 'hermiq.workspacePush?repository=example-org/example-app&branch=feature-a'])
+		);
+
+	}//end testToolsListOffersThePushOnlyFromAScopedGrant()
 
 	/**
 	 * A THROWING agent lookup grants nothing — it does not 500.
@@ -466,6 +558,44 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertSame('text', $data['result']['content'][0]['type']);
 
 	}//end testToolsCallGrantedToolDispatchesAndMapsRefusal()
+
+	/**
+	 * The agent's tool call cap holds on the CLI runner's MCP path: when the run
+	 * has used its calls, the next tools/call is a tool error and nothing runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function testToolsCallPastTheRunsCapIsRefusedWithoutRunning(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn($this->catalog());
+
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturn($this->agent());
+
+		$toolLoop = $this->createMock(ToolLoop::class);
+		$toolLoop->expects($this->never())->method('buildFunctionInfos');
+
+		$counter = $this->createMock(RunToolCallCounter::class);
+		$counter->expects($this->once())->method('admit')->with('r', 10)->willReturn(false);
+
+		$this->toolCallCounter = $counter;
+		$controller = $this->controller(
+			'Bearer good',
+			'{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"openregister_contact_search","arguments":{"q":"x"}}}',
+			$this->tokens('good'),
+			$objects,
+			$facade,
+			$toolLoop,
+			$this->createMock(ToolSearchService::class)
+		);
+
+		$data = $controller->handle()->getData();
+		$this->assertTrue($data['result']['isError']);
+		$this->assertStringContainsString('Tool call limit reached for this turn', $data['result']['content'][0]['text']);
+
+	}//end testToolsCallPastTheRunsCapIsRefusedWithoutRunning()
 
 	/**
 	 * A body naming a DIFFERENT agentId cannot redirect the run — identity comes from the

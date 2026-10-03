@@ -91,13 +91,20 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
+use DateInterval;
+use DateTimeImmutable;
+use DateTimeInterface;
+use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
+use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\Graph\GraphTools;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -652,9 +659,90 @@ class HermiqToolProvider implements IMcpToolProvider {
 		return array_merge(
 			self::TOOL_DESCRIPTORS,
 			NcNativeWriteToolDescriptors::ALL,
-			NcMailToolDescriptors::ALL
+			NcMailToolDescriptors::ALL,
+			WorkspaceToolDescriptors::ALL,
+			GraphToolDescriptors::ALL,
+			$this->taskDescriptors()
 		);
 	}//end getTools()
+
+	/**
+	 * The task tool descriptors this instance can honour: completeTask only when a
+	 * completed task can be written back (tools-nextcloud-tasks).
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 */
+	private function taskDescriptors(): array {
+		try {
+			$tasks = $this->container->get(TaskWriteService::class);
+		} catch (Throwable) {
+			$tasks = null;
+		}
+
+		if ($tasks instanceof TaskWriteService && $tasks->canComplete() === true) {
+			return NcTaskToolDescriptors::ALL;
+		}
+
+		return array_values(
+			array_filter(
+				NcTaskToolDescriptors::ALL,
+				static fn (array $tool): bool => $tool['id'] !== NcTaskToolDescriptors::COMPLETE_TASK
+			)
+		);
+	}//end taskDescriptors()
+
+	/**
+	 * The half of the workspace surface that serves a tool id: the write-shaped
+	 * tools pass the run approval in WorkspaceWrites, the rest are read-only.
+	 *
+	 * @param string $toolId A workspace tool id.
+	 *
+	 * @return class-string<WorkspaceWrites>|class-string<WorkspaceToolset>
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-workspace-tools-dispatch-through-the-single-governed-path
+	 */
+	private function workspaceHalf(string $toolId): string {
+		if (in_array($toolId, WorkspaceToolDescriptors::WRITE_IDS, true) === true) {
+			return WorkspaceWrites::class;
+		}
+
+		return WorkspaceToolset::class;
+	}//end workspaceHalf()
+
+	/**
+	 * The tools served by their own class, or null for the ones invokeTool() dispatches.
+	 *
+	 * The governed workspace tools (hermiq-runner-git-capability) ride this same
+	 * dispatch path; there is no second route to a workspace. The toolset reads the
+	 * run from the scope the MCP endpoint set from the verified token and refuses
+	 * every call made outside one. The knowledge-graph tools answer as the session
+	 * user; GraphTools never throws.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param string $uid The session user.
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when not routed here.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
+	 */
+	private function routed(string $toolId, string $uid, array $arguments): ?array {
+		if (in_array($toolId, GraphToolDescriptors::IDS, true) === true) {
+			return $this->container->get(GraphTools::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+		}
+
+		if (in_array($toolId, NcTaskToolDescriptors::IDS, true) === true) {
+			return $this->container->get(TaskWriteService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+		}
+
+		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
+			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $arguments);
+		}
+
+		return null;
+	}//end routed()
 
 	/**
 	 * Invoke a tool by id — authorises (scopes to the acting user) BEFORE any data access.
@@ -682,6 +770,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 		// Run-injected by FacadeToolInvoker for the tools whose ADR-088 mark
 		// records an authoring agent; never a value the LLM supplies for itself.
 		$agentId = (string)($arguments['agentId'] ?? '');
+
+		$routed = $this->routed(toolId: $toolId, uid: $uid, arguments: $arguments);
+		if ($routed !== null) {
+			return $routed;
+		}
 
 		try {
 			switch ($toolId) {
@@ -892,18 +985,42 @@ class HermiqToolProvider implements IMcpToolProvider {
 		$principal = 'principals/users/' . $uid;
 		$calendars = $this->calendarManager->getCalendarsForPrincipal($principal);
 
+		$start = new DateTimeImmutable();
+		$range = ['timerange' => ['start' => $start, 'end' => $start->add(new DateInterval('P' . $window . 'D'))]];
+
 		$events = [];
 		foreach ($calendars as $calendar) {
-			foreach ($calendar->search('', [], [], 50) as $event) {
+			foreach ($calendar->search('', [], $range, 50) as $event) {
+				$object = ($event['objects'][0] ?? []);
 				$events[] = [
 					'calendar' => $calendar->getDisplayName(),
-					'summary' => (string)($event['objects'][0]['SUMMARY'][0][0] ?? ($event['summary'] ?? '')),
+					'summary' => (string)($object['SUMMARY'][0] ?? ''),
+					'start' => $this->eventStart(value: ($object['DTSTART'][0] ?? null)),
 				];
 			}
 		}
 
 		return ['windowDays' => $window, 'events' => $events];
 	}//end listCalendarEvents()
+
+	/**
+	 * An event's start as ISO 8601, or '' when it has none.
+	 *
+	 * CalDAV search returns a once-only property as ONE `[value, parameters]` pair
+	 * (CalDavBackend::transformSearchData()), and a date-time value as a
+	 * DateTimeInterface, so the value is index 0, not `[0][0]`.
+	 *
+	 * @param mixed $value The DTSTART value from the search result.
+	 *
+	 * @return string The start, or ''.
+	 */
+	private function eventStart(mixed $value): string {
+		if ($value instanceof DateTimeInterface) {
+			return $value->format(DateTimeInterface::ATOM);
+		}
+
+		return '';
+	}//end eventStart()
 
 	/**
 	 * Send an email from the acting user (IDOR: From is the caller's own identity).

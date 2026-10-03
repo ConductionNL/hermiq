@@ -108,7 +108,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return ChatController
 	 */
-	private function controller(): ChatController {
+	private function controller(?\OCA\Hermiq\Service\Literacy\LiteracyRequirement $literacy = null): ChatController {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
@@ -127,7 +127,8 @@ class ChatControllerTest extends TestCase {
 			runStepBus: $this->createMock(RunStepBus::class),
 			providerFactory: $this->createMock(ProviderFactory::class),
 			accessRequests: $this->createMock(ToolAccessRequestService::class),
-			logger: $this->logger
+			logger: $this->logger,
+			literacy: $literacy
 		);
 
 	}//end controller()
@@ -304,6 +305,142 @@ class ChatControllerTest extends TestCase {
 	}//end testSendMessageServerFailureStillLogsError()
 
 	/**
+	 * A refused pinned credential reaches the person as its own sentence, not a masked error.
+	 *
+	 * The engine wraps the refusal ("Failed to generate response: ..."); the controller
+	 * finds it in the chain and answers with the reason and a stable code.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testARefusedPinnedCredentialTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$refused = new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'openai');
+		$this->engine->method('processMessage')->willThrowException(
+			new \Exception('Failed to generate response: ' . $refused->getMessage(), 403, $refused)
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('The credential pinned to this agent cannot be used for this run.', $response->getData()['message']);
+		$this->assertSame('pinned_credential_refused', $response->getData()['errorCode']);
+
+	}//end testARefusedPinnedCredentialTellsThePersonWhy()
+
+	/**
+	 * The attachments the request names reach the engine, and an attachment the
+	 * engine refuses is answered with its sentence, its status and a stable code.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-participant-cannot-attach-a-colleagues-private-file-by-id
+	 */
+	public function testARefusedAttachmentTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat staat hierin?', 'attachments' => [['fileId' => 48213]]]);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$seen = null;
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				$seen = $args;
+				throw new \OCA\Hermiq\Service\Chat\AttachmentRefusedException('This file is not available to you', 400);
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		// Positional, in the order of Engine::processMessage(): attachments is the 14th.
+		$this->assertSame([['fileId' => 48213]], $seen[13] ?? null);
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('This file is not available to you', $response->getData()['message']);
+		$this->assertSame('This file is not available to you', $response->getData()['error']);
+		$this->assertSame('attachment_refused', $response->getData()['errorCode']);
+
+	}//end testARefusedAttachmentTellsThePersonWhy()
+
+	/**
+	 * compliance-ai-literacy: with the course required and not done, the message
+	 * is refused before the engine runs, with the course message and a link.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testAPersonWhoSkippedTheCourseIsSentToIt(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->expects($this->never())->method('processMessage');
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('assertMayUseAgents')->willThrowException(new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException());
+
+		$response = $this->controller(literacy: $literacy)->sendMessage();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('Finish the short course Working with AI first.', $response->getData()['message']);
+		$this->assertSame('ai_literacy_required', $response->getData()['errorCode']);
+		$this->assertStringEndsWith('/apps/hermiq/ai-literacy', $response->getData()['courseUrl']);
+
+	}//end testAPersonWhoSkippedTheCourseIsSentToIt()
+
+	/**
+	 * A run refused by the data-use check tells the chat user why, in plain words.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function testARunRefusedOnDataUseTellsThePersonWhy(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$refused = new \OCA\Hermiq\Service\AiFeature\DataUseViolationException(organisation: 'Gemeente Voorbeeld', provider: 'openai', dataUse: 'undeclared');
+		$this->engine->method('processMessage')->willThrowException(
+			new \Exception('Failed to generate response: ' . $refused->getMessage(), 422, $refused)
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(422, $response->getStatus());
+		$this->assertSame(
+			'This assistant cannot answer: your organisation only allows AI providers that never train on its data.',
+			$response->getData()['message']
+		);
+		$this->assertSame('data_use_refused', $response->getData()['errorCode']);
+
+	}//end testARunRefusedOnDataUseTellsThePersonWhy()
+
+	/**
+	 * A switched-off agent: the chat answers 409 with the sentence the person reads.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testASwitchedOffAgentAnswers409(): void {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException(new \OCA\Hermiq\Service\Agent\AgentSwitchedOffException());
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame('This agent is switched off.', $response->getData()['message']);
+		$this->assertSame('agent_switched_off', $response->getData()['errorCode']);
+
+	}//end testASwitchedOffAgentAnswers409()
+
+	/**
 	 * getHistory without a conversationId is a 400.
 	 *
 	 * @return void
@@ -427,11 +564,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'positive']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-OTHER', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-OTHER', 'role' => 'assistant']);
 			}
 		);
 		$this->objectService->expects($this->never())->method('saveObject');
@@ -455,11 +592,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'negative', 'comment' => 'wrong answer']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 
@@ -509,11 +646,11 @@ class ChatControllerTest extends TestCase {
 		$this->stubParams(['type' => 'positive', 'comment' => 'better now']);
 		$this->objectService->method('find')->willReturnCallback(
 			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
-				return $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'assistant']);
+				return $this->entity(uuid: 'msg-1', payload: ['sessionId' => 'conv-1', 'role' => 'assistant']);
 			}
 		);
 

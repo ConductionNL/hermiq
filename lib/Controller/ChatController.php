@@ -38,9 +38,16 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\AppAssistantResolver;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -106,14 +113,14 @@ class ChatController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Schema slug for message objects.
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * Schema slug for feedback objects.
@@ -138,6 +145,8 @@ class ChatController extends Controller {
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard
 	 *                                                 (talk-shared-sessions). Defaulted so every
 	 *                                                 existing caller constructs unchanged.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -152,6 +161,8 @@ class ChatController extends Controller {
 		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
+		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?AppAssistantResolver $assistants = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -293,12 +304,15 @@ class ChatController extends Controller {
 			// Resolve conversation (load existing or create new).
 			$conversation = $this->resolveConversation(
 				conversationUuid: $params['conversationUuid'],
-				agentUuid: $params['agentUuid'],
+				agentUuid: $this->agentForRequest(params: $params, userId: $userId),
 				userId: $userId
 			);
 
 			// Verify user has access to conversation (gate-7 ownership guard).
 			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
+
+			// Compliance-ai-literacy: an organisation may require the course first.
+			$this->literacy?->assertMayUseAgents(uid: $userId);
 
 			// Process message through the in-app Engine (conversation id is the UUID).
 			// Collect the run's step timeline so the chat can SHOW its work.
@@ -327,7 +341,8 @@ class ChatController extends Controller {
 				selectedTools: $params['selectedTools'],
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
-				trace: $trace
+				trace: $trace,
+				attachments: $params['attachments']
 			);
 
 			// Add conversation UUID to result for frontend.
@@ -351,7 +366,9 @@ class ChatController extends Controller {
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
-			return $this->sendMessageFailureResponse(exception: $e);
+			// An attachment the speaker cannot read, or one the feature refuses
+			// unredacted (chat-attachments-and-images), is answered with its sentence.
+			return ($this->attachmentRefusalResponse(exception: $e) ?? $this->sendMessageFailureResponse(exception: $e));
 		}//end try
 	}//end sendMessage()
 
@@ -384,6 +401,7 @@ class ChatController extends Controller {
 				401 => $this->l10n->t('Authentication required'),
 				403 => $this->l10n->t('Access denied'),
 				404 => $this->l10n->t('Conversation not found'),
+				409 => $this->l10n->t('This agent is switched off.'),
 				422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
 				503 => $this->l10n->t('AI service not configured'),
 				default => $this->l10n->t('Failed to process message'),
@@ -398,8 +416,74 @@ class ChatController extends Controller {
 			$data['errorCode'] = 'guardrail_blocked';
 		}
 
+		// A refused pinned credential stops the turn; the person reads why
+		// (operations-a-credential-per-agent), not the engine's wrapped text.
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof PinnedCredentialRefusedException) {
+				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
+				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
+				break;
+			}
+
+			// The agent is switched off (agents-switch-off-and-stop): no answer, the sentence.
+			if ($cause instanceof AgentSwitchedOffException) {
+				$data['message'] = $this->l10n->t('This agent is switched off.');
+				$data['errorCode'] = AgentSwitchedOffException::ERROR_CODE;
+				break;
+			}
+
+			// The organisation requires the course Working with AI first
+			// (compliance-ai-literacy): the person gets the message and the link.
+			if ($cause instanceof LiteracyRequiredException) {
+				$data['message'] = $this->l10n->t('Finish the short course Working with AI first.');
+				$data['errorCode'] = LiteracyRequiredException::ERROR_CODE;
+				$data['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
+				break;
+			}
+
+			// The organisation only allows providers that never train on its data
+			// (models-no-training-guarantee); the person reads that, not the step text.
+			if ($cause instanceof DataUseViolationException) {
+				$data['message'] = $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.');
+				$data['errorCode'] = DataUseViolationException::ERROR_CODE;
+				break;
+			}
+		}
+
 		return new JSONResponse(data: $data, statusCode: $statusCode);
 	}//end sendMessageFailureResponse()
+
+	/**
+	 * The answer for a failure caused by a refused attachment: its status (400, or
+	 * 422 for a missing redaction), its sentence and a stable code; null otherwise.
+	 *
+	 * @param Exception $exception The failure.
+	 *
+	 * @return JSONResponse|null
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function attachmentRefusalResponse(Exception $exception): ?JSONResponse {
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof AttachmentRefusedException) {
+				$statusCode = 400;
+				if ((int)$cause->getCode() === 422) {
+					$statusCode = 422;
+				}
+
+				return new JSONResponse(
+					data: [
+						'error' => $cause->getMessage(),
+						'message' => $cause->getMessage(),
+						'errorCode' => 'attachment_refused',
+					],
+					statusCode: $statusCode
+				);
+			}
+		}
+
+		return null;
+	}//end attachmentRefusalResponse()
 
 	/**
 	 * Log a sendMessage() failure at the level matching its severity.
@@ -527,7 +611,7 @@ class ChatController extends Controller {
 	 * Mirrors OR ChatController::clearHistory(). Adaptation: OR soft-deletes
 	 * via ConversationMapper::softDelete(); here the archive marker is written
 	 * onto the conversation payload (`metadata.deletedAt`), the same marker
-	 * ConversationController::destroy()/restore() use.
+	 * SessionController::destroy()/restore() use.
 	 *
 	 * @return JSONResponse A JSON response confirming conversation clearing or error.
 	 *
@@ -656,14 +740,18 @@ class ChatController extends Controller {
 				);
 			}
 
-			// Get message and verify it belongs to this conversation.
+			// Get message and verify it belongs to this conversation. _rbac false: a
+			// turn is readable by its owner only (hermiq#976), and a participant may
+			// rate a turn somebody else's request produced. The participation check
+			// above and the sessionId check below scope it to this conversation.
 			$message = $this->objectService->find(
 				id: $messageId,
 				register: self::REGISTER_SLUG,
-				schema: self::MESSAGE_SCHEMA
+				schema: self::MESSAGE_SCHEMA,
+				_rbac: false
 			);
 			if ($message === null
-				|| ($message->getObject()['conversationId'] ?? null) !== $conversationUuid
+				|| ($message->getObject()['sessionId'] ?? null) !== $conversationUuid
 			) {
 				return new JSONResponse(
 					data: [
@@ -800,7 +888,7 @@ class ChatController extends Controller {
 	 * @return array Normalized request parameters.
 	 *
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
-	 *     message: string, selectedViews: array, selectedTools: array,
+	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
 	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
 	 *
@@ -842,16 +930,47 @@ class ChatController extends Controller {
 			$context = $contextParam;
 		}
 
+		// Chat-attachments-and-images: the files the turn names; the engine reads
+		// each one as the speaker, so nothing here is trusted beyond its shape.
+		$attachmentsParam = $this->request->getParam('attachments');
+		$attachments = [];
+		if (is_array($attachmentsParam) === true) {
+			$attachments = array_values($attachmentsParam);
+		}
+
 		return [
 			'conversationUuid' => $conversationUuid,
 			'agentUuid' => $agentUuid,
 			'message' => $message,
+			'attachments' => $attachments,
 			'selectedViews' => $selectedViews,
 			'selectedTools' => $selectedTools,
 			'ragSettings' => $ragSettings,
 			'context' => $context,
 		];
 	}//end extractMessageRequestParams()
+
+	/**
+	 * The agent a new conversation starts with: the one the request names, else
+	 * the app's agent when the request opens a fresh chat in an app (the same
+	 * AppAssistantResolver the streaming endpoint uses), else '' and the request
+	 * is refused as before.
+	 *
+	 * @param array<string, mixed> $params The extracted request parameters.
+	 * @param string               $userId The user.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
+	 */
+	private function agentForRequest(array $params, string $userId): string {
+		$agentUuid = (string)($params['agentUuid'] ?? '');
+		if ($agentUuid !== '' || (string)($params['conversationUuid'] ?? '') !== '' || $this->assistants === null) {
+			return $agentUuid;
+		}
+
+		return $this->assistants->resolve(userId: $userId, appId: (string)(($params['context']['appId'] ?? '')));
+	}//end agentForRequest()
 
 	/**
 	 * Resolve conversation from UUID or create a new one with the agent.
@@ -1041,16 +1160,21 @@ class ChatController extends Controller {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findMessages(string $conversationId, int $limit, int $offset): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
+		// in a shared session the other participants' turns are owned by them. The
+		// caller ran verifyConversationAccess() first, which decided this caller may
+		// read the thread.
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::MESSAGE_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'ASC'],
 					'limit' => $limit,
 					'offset' => $offset,
-				]
+				],
+				_rbac: false
 			);
 
 		return array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
@@ -1073,7 +1197,8 @@ class ChatController extends Controller {
 				query: [
 					'conversationId' => $conversationId,
 					'_limit' => 1,
-				]
+				],
+				_rbac: false
 			);
 
 		return (int)($paginated['total'] ?? 0);
@@ -1146,7 +1271,16 @@ class ChatController extends Controller {
 		return [
 			'id' => $message->getUuid(),
 			'uuid' => $message->getUuid(),
-			'conversationId' => ($data['conversationId'] ?? null),
+			// 🔴 THE STORED FIELD IS `sessionId`; THE RESPONSE KEY STAYS `conversationId`
+			// FOR NOW. session-api-rename moves the backend and explicitly does NOT move
+			// the frontend, which is the next spec — so reading the new field while still
+			// emitting the old key is what keeps the Chat page working unchanged through
+			// this deploy. `sessionId` is emitted alongside it so the frontend has
+			// something to move ONTO, and `conversationId` is dropped there.
+			// Falling back to the old field keeps a turn written before the migration
+			// readable.
+			'sessionId' => ($data['sessionId'] ?? $data['conversationId'] ?? null),
+			'conversationId' => ($data['sessionId'] ?? $data['conversationId'] ?? null),
 			'role' => ($data['role'] ?? null),
 			'content' => ($data['content'] ?? null),
 			'sources' => ($data['sources'] ?? []),

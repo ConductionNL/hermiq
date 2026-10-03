@@ -14,6 +14,7 @@
 
 import AccountDetailsOutline from 'vue-material-design-icons/AccountDetailsOutline.vue'
 import AccountGroup from 'vue-material-design-icons/AccountGroup.vue'
+import AccountGroupOutline from 'vue-material-design-icons/AccountGroupOutline.vue'
 import AlertOctagonOutline from 'vue-material-design-icons/AlertOctagonOutline.vue'
 import BookOpenVariantOutline from 'vue-material-design-icons/BookOpenVariantOutline.vue'
 import Brain from 'vue-material-design-icons/Brain.vue'
@@ -39,10 +40,13 @@ import Creation from 'vue-material-design-icons/Creation.vue'
 import DatabaseOutline from 'vue-material-design-icons/DatabaseOutline.vue'
 import Eye from 'vue-material-design-icons/Eye.vue'
 import FileDocumentEditOutline from 'vue-material-design-icons/FileDocumentEditOutline.vue'
+import FileDocumentMultipleOutline from 'vue-material-design-icons/FileDocumentMultipleOutline.vue'
 import FileSign from 'vue-material-design-icons/FileSign.vue'
+import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlaskOutline from 'vue-material-design-icons/FlaskOutline.vue'
 import ForumOutline from 'vue-material-design-icons/ForumOutline.vue'
 import Gauge from 'vue-material-design-icons/Gauge.vue'
+import GraphOutline from 'vue-material-design-icons/GraphOutline.vue'
 import History from 'vue-material-design-icons/History.vue'
 import KeyOutline from 'vue-material-design-icons/KeyOutline.vue'
 import LinkVariant from 'vue-material-design-icons/LinkVariant.vue'
@@ -56,6 +60,7 @@ import PackageVariantClosed from 'vue-material-design-icons/PackageVariantClosed
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import PlayCircleOutline from 'vue-material-design-icons/PlayCircleOutline.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
+import Power from 'vue-material-design-icons/Power.vue'
 import PuzzleOutline from 'vue-material-design-icons/PuzzleOutline.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import RocketLaunch from 'vue-material-design-icons/RocketLaunch.vue'
@@ -69,10 +74,12 @@ import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import StoreOutline from 'vue-material-design-icons/StoreOutline.vue'
+import TextBoxOutline from 'vue-material-design-icons/TextBoxOutline.vue'
 import ThumbUpOutline from 'vue-material-design-icons/ThumbUpOutline.vue'
 import Timeline from 'vue-material-design-icons/Timeline.vue'
 import TrayArrowDown from 'vue-material-design-icons/TrayArrowDown.vue'
 import Tune from 'vue-material-design-icons/Tune.vue'
+import VectorLine from 'vue-material-design-icons/VectorLine.vue'
 import ViewDashboard from 'vue-material-design-icons/ViewDashboard.vue'
 import ViewDashboardOutline from 'vue-material-design-icons/ViewDashboardOutline.vue'
 import Webhook from 'vue-material-design-icons/Webhook.vue'
@@ -80,6 +87,7 @@ import Webhook from 'vue-material-design-icons/Webhook.vue'
 export default {
 	AccountDetailsOutline,
 	AccountGroup,
+	AccountGroupOutline,
 	AlertOctagonOutline,
 	BookOpenVariantOutline,
 	Brain,
@@ -106,9 +114,11 @@ export default {
 	Eye,
 	FileDocumentEditOutline,
 	FileSign,
+	FlagCheckered,
 	FlaskOutline,
 	ForumOutline,
 	Gauge,
+	GraphOutline,
 	History,
 	KeyOutline,
 	LinkVariant,
@@ -128,11 +138,13 @@ export default {
 	// (see AgentFormModal): an agent an operator already saved as RobotOutline
 	// must keep rendering, and an unregistered name renders nothing at all
 	// rather than a fallback glyph.
+	Power,
 	RobotOutline,
 	RocketLaunch,
 	ScaleBalance,
 	School,
 	SchoolOutline,
+	FileDocumentMultipleOutline,
 	ShieldAlertOutline,
 	ShieldCheckOutline,
 	ShieldOutline,
@@ -141,9 +153,11 @@ export default {
 	StopCircleOutline,
 	StoreOutline,
 	ThumbUpOutline,
+	TextBoxOutline,
 	Timeline,
 	TrayArrowDown,
 	Tune,
+	VectorLine,
 	ViewDashboard,
 	ViewDashboardOutline,
 	Webhook,

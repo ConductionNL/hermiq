@@ -65,6 +65,449 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Run comparison",
+			"item": [
+				{
+					"name": "Compare two runs that do not exist",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/runs/compare?left=no-such-run&right=no-such-run-either",
+						"description": "REQ-RCMP-001: a run the caller may not see is answered like a run that does not exist (404 per side)."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Both sides are not found', function () {",
+									"    pm.response.to.have.status(404);",
+									"    pm.expect(pm.response.json().missing).to.eql(['left', 'right']);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Record summary",
+			"item": [
+				{
+					"name": "Summary status without a record reference",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/summary",
+						"description": "REQ-APPAG-004: the leaf must name the record."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('A missing reference is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Summary status of a record that does not exist",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/summary?register=hermiq&schema=agentassistantprompt&objectId=no-such-record",
+						"description": "REQ-APPAG-004: a record the caller cannot read is answered as not found, before any agent or model."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The record is not found', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Summarise a record that does not exist",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/summarise",
+						"description": "REQ-APPAG-004 scenario: no summary for a record the user cannot read (404, no model call).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"register\": \"hermiq\", \"schema\": \"agentassistantprompt\", \"objectId\": \"no-such-record\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The record is not found', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Create a record to summarise",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentassistantprompt",
+						"description": "A record the admin can read: one assistant prompt, deleted again at the end of this folder.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"label\": \"Newman record summary probe\", \"prompt\": \"A record for the summary endpoints.\", \"enabled\": false}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The record is created', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"    const body = pm.response.json();",
+									"    const id = body.id || body.uuid || (body['@self'] || {}).id;",
+									"    pm.expect(id).to.be.a('string');",
+									"    pm.collectionVariables.set('summary_record', id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Summary status of a readable record",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/summary?register=hermiq&schema=agentassistantprompt&objectId={{summary_record}}",
+						"description": "REQ-APPAG-004: a readable record answers 200 with what the leaf may show. The record-summary feature is seeded disabled, so no agent is offered and nothing is stored."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The status is answered', function () {",
+									"    pm.response.to.have.status(200);",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.enabled).to.eql(false);",
+									"    pm.expect(body.agent).to.eql(null);",
+									"    pm.expect(body.summary).to.eql(null);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Summarise while the feature is off",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/assistant/summarise",
+						"description": "REQ-APPAG-004: off when the organisation has not enabled the record-summary AI feature (403, no model call).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"register\": \"hermiq\", \"schema\": \"agentassistantprompt\", \"objectId\": \"{{summary_record}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The feature is off', function () {",
+									"    pm.response.to.have.status(403);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Delete the record",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/openregister/api/objects/hermiq/agentassistantprompt/{{summary_record}}",
+						"description": "Clean up the probe record."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The record is deleted', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Agent draft check",
+			"item": [
+				{
+					"name": "Check a draft with four problems",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/draft-check",
+						"description": "REQ-AGBUILD-002: an unknown tool, a forbidden model, an unseen group and a bad cron come back as four findings; nothing is written.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"draft\": \"{\\\"name\\\": \\\"Newman draft probe\\\", \\\"prompt\\\": \\\"Summarise.\\\", \\\"provider\\\": \\\"not-a-provider\\\", \\\"model\\\": \\\"not-a-model\\\", \\\"tools\\\": [\\\"no.such.tool\\\"], \\\"sharing\\\": {\\\"mode\\\": \\\"groups\\\", \\\"groups\\\": [\\\"no-such-group-newman\\\"]}, \\\"schedule\\\": {\\\"kind\\\": \\\"cron\\\", \\\"cronExpr\\\": \\\"not a cron\\\"}}\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is checked', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Four findings, one per field', function () {",
+									"    const fields = pm.response.json().findings.map(function (f) { return f.field; }).sort();",
+									"    pm.expect(fields).to.eql(['groups', 'model', 'schedule', 'tools']);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Check a draft that is not JSON",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/agents/draft-check",
+						"description": "REQ-AGBUILD-002 scenario: a malformed draft is refused with 422 and no form opens.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\"draft\": \"{not json\"}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The draft is refused', function () {",
+									"    pm.response.to.have.status(422);",
+									"    pm.expect(pm.response.json().error).to.eql('This draft could not be read');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Chat attachments",
+			"item": [
+				{
+					"name": "Upload an allowed file",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/attachments",
+						"description": "REQ-CATT-001: a PDF posted as field file lands in the caller's Files under Hermiq/Attachments; the answer names it. The fixture path is relative to tests/integration, where CI runs newman.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "fixtures/offerte-newman.pdf"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The file is kept', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('The answer names the file in the caller\\'s Files', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.path).to.include('Hermiq/Attachments/');",
+									"    pm.expect(body.name).to.include('offerte-newman');",
+									"    pm.expect(body.fileId).to.be.a('number');",
+									"    pm.expect(body.mimeType).to.eql('application/pdf');",
+									"    pm.expect(body.size).to.be.above(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Upload a refused type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "OCS-APIREQUEST",
+								"value": "true"
+							}
+						],
+						"url": "{{base_url}}/index.php/apps/hermiq/api/chat/attachments",
+						"description": "REQ-CATT-001 scenario: an SVG is refused with 400 and an error, and nothing is written.",
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "fixtures/kaart-newman.svg"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('The file is refused', function () {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.eql('Hermiq cannot read files of this type.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

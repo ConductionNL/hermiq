@@ -87,7 +87,7 @@ class ContextAgentInteractionService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * IAppConfig key naming the agent that serves ContextAgent interactions.
@@ -231,10 +231,15 @@ class ContextAgentInteractionService {
 	private function resolveAgent(): ?ObjectEntity {
 		$configured = $this->appConfig->getValueString(Application::APP_ID, self::AGENT_CONFIG_KEY, '');
 		if ($configured !== '') {
+			// _rbac false: this agent was named in app configuration for every user,
+			// and new agents are private by default, so the Agent read rule
+			// (hermiq#976) would hide it from everyone but its owner. The fallback
+			// below stays under the caller's own read rule.
 			$agent = $this->objectService->find(
 				id: $configured,
 				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				schema: self::AGENT_SCHEMA,
+				_rbac: false
 			);
 			if ($agent instanceof ObjectEntity) {
 				return $agent;

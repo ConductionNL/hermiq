@@ -59,7 +59,7 @@ class TalkRoomBinding {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * `talkRoomOrigin` for a room Hermiq created for a session.
@@ -109,6 +109,11 @@ class TalkRoomBinding {
 		}
 
 		try {
+			// _rbac false: the room token is the key, not the caller. The Session read
+			// rule (hermiq#976) admits only the owner and listed participants, so a
+			// room member not yet on the roster would find nothing here and the
+			// listener would bind a second session to the room. Every caller runs
+			// the participation check on the session it gets back.
 			$matches = $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::CONVERSATION_SCHEMA)
@@ -117,7 +122,8 @@ class TalkRoomBinding {
 						'filters' => ['talkRoomToken' => $roomToken],
 						'sort' => ['created' => 'DESC'],
 						'limit' => 1,
-					]
+					],
+					_rbac: false
 				);
 
 			foreach ($matches as $match) {

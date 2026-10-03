@@ -9,6 +9,7 @@
 - `openspec/changes/human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code) — **done, live-verified**
 - `openspec/changes/human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code) — **done, Playwright-verified** (kill-switch keys on the OpenRegister organisation UUID, not an NC group)
 - `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — routes an un-granted destructive tool invocation through the approval gate (ADR-063 consumer side; kind: code) — **DONE** (adds `sourceType: "tool"` to the Approval state machine)
+- `openspec/changes/archive/2026-10-01-approval-verification-contract/` — a signed verdict on a staged batch for another app (integriq), the batch binding stored on the approval, the acting agent passed to integriq's agent tools (hermiq#1045; kind: code) — **done**
 
 ## Purpose
 
@@ -151,6 +152,69 @@ Unlike the `schedule` and `flow` source types, a `tool` approval resumes NOTHING
   outcome before the gate is consulted
 - **AND** the system MUST NOT dispatch the invocation
 @e2e exclude Requires driving a constrained tool call from a model turn; asserted by unit test on the invoker's ordering of constraint check and gate.
+
+### Requirement: A reviewer sees what a held action will do (REQ-APPREV-001)
+
+The approvals inbox MUST offer "Details" on every pending approval. For a held tool call the details MUST name the tool, say whether it reads, changes, sends or deletes, name its reach, and show its arguments as stored after redaction. For a held run of a schedule, flow or webhook the details MUST list the agent's granted tools with the same labels. The details MUST show why the action was held. Approve and deny MUST be available from the details.
+
+#### Scenario: A reviewer checks a held deletion
+- GIVEN a reviewer with a pending approval for the agent "Archive helper" to call a tool that deletes a file
+- WHEN they open "Details" on it in the approvals inbox
+- THEN they see the tool's name, "Deletes", the reach "Your own files", and the file path it would delete
+
+#### Scenario: A reviewer checks a held scheduled run
+- GIVEN a pending approval for the weekly run of "Supplier digest"
+- WHEN the reviewer opens "Details"
+- THEN they see the prompt, and the tools the agent may use with what each does and how far it reaches
+
+### Requirement: The Talk request names the tool and its reach (REQ-APPREV-002)
+
+When a held tool call is posted to Nextcloud Talk for approval, the message MUST name the tool and its reach.
+
+#### Scenario: A reviewer decides in Talk
+- GIVEN a held tool call posted to the reviewers' Talk room
+- WHEN the reviewer reads the message
+- THEN it names the tool and says how far it reaches before they react
+- @e2e exclude Talk delivery, covered by PHPUnit on the message text
+
+### Requirement: Hermiq answers a signed verdict on a toolcall approval (REQ-APVER-001)
+
+The system MUST answer `POST /api/approvals/verify` with `{approvalId, toolId, binding, actingAgent, nonce}` by HTTP 200 and `{verdict, signature}`, where the verdict echoes the five fields, carries `approved`, `reason`, `decidedBy`, `decidedAt`, `expiresAt` and `issuedAt`, and the signature is a base64 Ed25519 detached signature over the verdict's canonical JSON with the key published as the app value `approval_verdict_public_key`. `approved` MUST be true only when the approval is an approved, unexpired `toolcall` approval for that tool, binding and agent, decided by a person who is neither the acting agent nor its principal.
+
+#### Scenario: An approved batch is confirmed
+- GIVEN the approval "a1" for `integriq.replayDeadLetters`, binding "b1" and agent "g1", approved by "anna" five minutes ago
+- WHEN integriq posts approvalId "a1", toolId `integriq.replayDeadLetters`, binding "b1", actingAgent "g1" and a nonce
+- THEN the verdict says `approved: true`, reason `approved`, decidedBy "anna", echoes the nonce
+- AND the signature verifies against the published public key
+
+#### Scenario: A verdict for another batch is refused
+- GIVEN the same approval
+- WHEN integriq posts binding "b2"
+- THEN the verdict says `approved: false` with reason `binding-mismatch`
+
+#### Scenario: The agent approved its own batch
+- GIVEN the approval was decided by the agent's acting user
+- WHEN integriq asks
+- THEN the verdict says `approved: false` with reason `approver-is-agent`
+
+### Requirement: A staged batch raises an approval that keeps its binding (REQ-APVER-002)
+
+When an `integriq.*` tool answers `status: staged` with a `proposal` and a `binding`, the system MUST raise one pending `toolcall` approval for that agent and tool that stores the binding, and MUST return its id to the agent as `approvalId` in the tool result.
+
+#### Scenario: An agent stages a dead-letter replay
+- GIVEN an agent calls `integriq.replayDeadLetters` for 14 ids
+- WHEN integriq answers `status: staged` with binding "b1"
+- THEN a pending approval with binding "b1" waits for the reviewer
+- AND the agent's tool result carries its `approvalId`
+
+### Requirement: Hermiq passes the acting agent to integriq's agent tools (REQ-APVER-003)
+
+The system MUST set `agentId` to the running agent's id in the arguments of the six integriq agent tools, overwriting any value the model supplies.
+
+#### Scenario: The model names another agent
+- GIVEN agent "g1" calls `integriq.runSynchronization` with `agentId: "g2"`
+- WHEN Hermiq dispatches the call
+- THEN integriq receives `agentId: "g1"`
 
 ## User Stories
 

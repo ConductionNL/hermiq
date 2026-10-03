@@ -52,8 +52,21 @@
 				<NcButton :disabled="loading" @click="reload">
 					{{ t('hermiq', 'Refresh') }}
 				</NcButton>
+				<NcButton
+					v-if="selected.length === 2"
+					variant="primary"
+					@click="openComparison">
+					{{ t('hermiq', 'Compare') }}
+				</NcButton>
+				<NcButton @click="openFlowComparison">
+					{{ t('hermiq', 'Compare flow runs') }}
+				</NcButton>
 			</div>
 		</div>
+
+		<NcNoteCard v-if="selectionRefused" type="warning">
+			{{ t('hermiq', 'Choose two runs to compare.') }}
+		</NcNoteCard>
 
 		<NcNoteCard
 			v-if="scheduleFilter"
@@ -99,16 +112,29 @@
 			<table class="hermiq-runs__table">
 				<thead>
 					<tr>
+						<th scope="col">
+							<span class="hidden-visually">{{
+								t('hermiq', 'Compare')
+							}}</span>
+						</th>
 						<th scope="col">{{ t('hermiq', 'When') }}</th>
 						<th scope="col">{{ t('hermiq', 'Agent') }}</th>
 						<th scope="col">{{ t('hermiq', 'Status') }}</th>
 						<th scope="col">{{ t('hermiq', 'Trigger') }}</th>
 						<th scope="col">{{ t('hermiq', 'Duration') }}</th>
+						<th scope="col">{{ t('hermiq', 'AI provider') }}</th>
 						<th scope="col">{{ t('hermiq', 'Summary') }}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr v-for="run in visibleRuns" :key="run.id">
+						<td>
+							<input
+								type="checkbox"
+								:checked="selected.includes(run.id)"
+								:aria-label="t('hermiq', 'Compare this run')"
+								@change="toggleCompare(run.id)" />
+						</td>
 						<td>{{ formatWhen(run.created) }}</td>
 						<td>
 							<router-link
@@ -127,6 +153,23 @@
 						</td>
 						<td>{{ triggerLabel(run.trigger) }}</td>
 						<td>{{ formatDuration(run.durationMs) }}</td>
+						<td>
+							<template
+								v-if="
+									run.providerDisclosure
+									&& run.providerDisclosure.provider
+								">
+								{{ run.providerDisclosure.provider }}
+								<span
+									class="hermiq-runs__data-use"
+									:title="run.providerDisclosure.termsReference">
+									{{
+										dataUseLabel(run.providerDisclosure.dataUse)
+									}}
+								</span>
+							</template>
+							<span v-else>—</span>
+						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
 						</td>
@@ -158,6 +201,7 @@ import {
 import HistoryIcon from 'vue-material-design-icons/History.vue'
 import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
+import { toggleSelection } from '../utils/runCompare.js'
 
 /** Page size. The server clamps anything above 200. */
 const PAGE_SIZE = 50
@@ -189,6 +233,10 @@ export default {
 			// design (it must also cover flow runs, which have no schedule), so
 			// narrowing to one schedule is a view concern, not a query one.
 			scheduleFilter: '',
+			// Runs ticked for a comparison (observability-compare-two-runs).
+			// Kept by id, so a tick survives paging and filtering.
+			selected: [],
+			selectionRefused: false,
 		}
 	},
 
@@ -312,11 +360,53 @@ export default {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.scheduleFilter = String(this.$route?.query?.schedule || '')
+		// "Compare with…" on an agent's run history arrives with that run ticked.
+		const compareWith = String(this.$route?.query?.compareWith || '')
+		this.selected = compareWith ? [compareWith] : []
 		this.loadAgents()
 		this.load()
 	},
 
 	methods: {
+		/**
+		 * Tick or untick a run for the comparison; a third tick is refused.
+		 *
+		 * @param {string} runId The run.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 */
+		toggleCompare(runId) {
+			const next = toggleSelection(this.selected, runId)
+			this.selected = next.selected
+			this.selectionRefused = next.refused
+		},
+
+		/**
+		 * Open the comparison of the two ticked runs.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 */
+		openComparison() {
+			const [left, right] = this.selected
+			this.$router
+				.push({ path: '/runs/compare', query: { left, right } })
+				.catch(() => {})
+		},
+
+		/**
+		 * Open the flow run comparison.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-two-runs-of-a-flow-node-by-node-req-rcmp-003
+		 */
+		openFlowComparison() {
+			this.$router.push({ path: '/flow-runs/compare' }).catch(() => {})
+		},
+
 		/**
 		 * Load one page of runs.
 		 *
@@ -459,6 +549,27 @@ export default {
 		},
 
 		/**
+		 * The plain label for the data-use term a run recorded, as it stood then.
+		 *
+		 * @param {string} dataUse The recorded term.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+		 */
+		dataUseLabel(dataUse) {
+			switch (dataUse) {
+				case 'zero-retention':
+					return t('hermiq', 'Keeps nothing it is sent')
+				case 'no-training':
+					return t('hermiq', 'Never trains on your data')
+				case 'may-train':
+					return t('hermiq', 'May train on your data')
+				default:
+					return t('hermiq', 'Not declared')
+			}
+		},
+
+		/**
 		 * Map a run status onto one of three tones.
 		 *
 		 * Anything not recognised is neutral rather than an error: a status this
@@ -536,6 +647,11 @@ export default {
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--color-border);
 	white-space: nowrap;
+}
+
+.hermiq-runs__data-use {
+	display: block;
+	color: var(--color-text-maxcontrast);
 }
 
 .hermiq-runs__summary {

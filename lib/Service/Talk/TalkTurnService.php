@@ -34,6 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IUserManager;
@@ -58,6 +59,7 @@ class TalkTurnService {
 	 * @param IUserManager $userManager Resolves the speaker and their display name.
 	 * @param IUserSession $userSession Impersonates the speaker for the turn.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 */
 	public function __construct(
 		private readonly Engine $engine,
@@ -66,6 +68,7 @@ class TalkTurnService {
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 	}//end __construct()
 
@@ -106,6 +109,10 @@ class TalkTurnService {
 		$this->userSession->setUser($speaker);
 
 		try {
+			// Compliance-ai-literacy: a speaker who must finish the course first is
+			// told so in the room, and no model is called.
+			$this->literacy?->assertMayUseAgents(uid: $speakerUid);
+
 			$result = $this->engine->processMessage(
 				conversationId: $conversationUuid,
 				userId: $speakerUid,

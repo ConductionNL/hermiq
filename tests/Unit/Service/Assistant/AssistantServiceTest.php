@@ -111,6 +111,26 @@ class AssistantServiceTest extends TestCase {
 	}//end service()
 
 	/**
+	 * compliance-ai-literacy: a person who must finish the course first is refused
+	 * before anything is stored or any model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testAPersonWhoSkippedTheCourseIsRefusedBeforeAnything(): void {
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('assertMayUseAgents')->with('alice')->willThrowException(new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException());
+		$this->historyHandler->expects($this->never())->method('storeMessage');
+		$this->responseHandler->expects($this->never())->method('generateResponse');
+
+		$service = new AssistantService($this->objectService, $this->historyHandler, $this->responseHandler, $this->logger, null, $literacy);
+
+		$this->expectException(\OCA\Hermiq\Service\Literacy\LiteracyRequiredException::class);
+		$service->converse(userId: 'alice', sessionId: null, message: 'hallo', context: ['app' => 'dossiq']);
+	}//end testAPersonWhoSkippedTheCourseIsRefusedBeforeAnything()
+
+	/**
 	 * Build an ObjectEntity fixture.
 	 *
 	 * @param string $uuid The object UUID.
@@ -255,6 +275,33 @@ class AssistantServiceTest extends TestCase {
 			context: ['app' => 'procest']
 		);
 	}//end testGuardrailBlockedInputNeverCallsLlm()
+
+	/**
+	 * A switched-off agent is refused before the turn is stored or a model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testSwitchedOffAgentIsRefusedBeforeAnythingIsStored(): void {
+		$conversation = $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
+		$agent = $this->entity('agent-1', ['name' => 'Case Assistant (procest)', 'active' => false]);
+
+		$this->objectService->method('find')->willReturnCallback(
+			static fn (string $id): ?ObjectEntity => match ($id) {
+				'conv-1' => $conversation,
+				'agent-1' => $agent,
+				default => null,
+			}
+		);
+
+		$this->historyHandler->expects($this->never())->method('storeMessage');
+		$this->responseHandler->expects($this->never())->method('generateResponse');
+
+		$this->expectException(\OCA\Hermiq\Service\Agent\AgentSwitchedOffException::class);
+
+		$this->service()->converse(userId: 'alice', sessionId: 'conv-1', message: 'Status?', context: ['app' => 'procest']);
+	}//end testSwitchedOffAgentIsRefusedBeforeAnythingIsStored()
 
 	/**
 	 * Happy path against an existing session: stores both turns, calls the

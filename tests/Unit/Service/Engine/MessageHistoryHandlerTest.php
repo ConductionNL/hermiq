@@ -50,7 +50,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$entity->setUuid('msg-' . $role . '-' . substr(md5($content), 0, 6));
 		$entity->setObject(
 			[
-				'conversationId' => 'conv-1',
+				'sessionId' => 'conv-1',
 				'role' => $role,
 				'content' => $content,
 			]
@@ -110,7 +110,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame(['app' => 'decidesk'], $userPayload['context']);
 		$this->assertArrayNotHasKey('sources', $userPayload);
 		$this->assertSame('hermiq', $saved[0]['register']);
-		$this->assertSame('message', $saved[0]['schema']);
+		$this->assertSame(expected: 'agentsessionturn', actual: $saved[0]['schema']);
 
 		$assistantPayload = $saved[1]['object'];
 		$this->assertSame('assistant', $assistantPayload['role']);
@@ -152,7 +152,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$history = $handler->buildMessageHistory(conversationId: 'conv-1');
 
 		// The fetch is filtered + capped + newest-first.
-		$this->assertSame('conv-1', $capturedConfig['filters']['conversationId']);
+		$this->assertSame(expected: 'conv-1', actual: $capturedConfig['filters']['sessionId']);
 		$this->assertSame(['created' => 'DESC'], $capturedConfig['sort']);
 		$this->assertSame(10, $capturedConfig['limit']);
 
@@ -167,4 +167,72 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame('Second answer', $history[2]->content);
 
 	}//end testBuildMessageHistoryOrdersAndFiltersTurns()
+
+	/**
+	 * The history of a shared session includes the other participants' turns.
+	 *
+	 * A SessionTurn is readable by its owner only (hermiq#976), and in a Talk
+	 * shared session each speaker owns their own turns. The engine has already
+	 * run the owner-or-participant check on the session, so the history read
+	 * goes around RBAC and keeps tenancy.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testHistoryIsReadAroundTheOwnerOnlyTurnRule(): void {
+		$flags = null;
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config, bool $_rbac = true, bool $_multitenancy = true) use (&$flags): array {
+				$flags = ['rbac' => $_rbac, 'multitenancy' => $_multitenancy];
+				return [];
+			}
+		);
+
+		(new MessageHistoryHandler($objectService, new NullLogger()))->buildMessageHistory(conversationId: 'conv-1');
+
+		$this->assertSame(['rbac' => false, 'multitenancy' => true], $flags);
+
+	}//end testHistoryIsReadAroundTheOwnerOnlyTurnRule()
+
+	/**
+	 * A user turn keeps its attachments as references, and the history names an
+	 * earlier attachment in one line instead of sending the file again.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	public function testAttachmentsAreStoredAndNamedInTheHistory(): void {
+		$attached = [['fileId' => 48213, 'name' => 'offerte-2026.pdf', 'mimeType' => 'application/pdf', 'size' => 10, 'origin' => 'files']];
+		$saved = [];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				$entity = new ObjectEntity();
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
+		$turn = $this->message('user', 'Wat staat erin?');
+		$turn->setObject(array_merge($turn->getObject(), ['attachments' => $attached]));
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn([$turn]);
+
+		$handler = new MessageHistoryHandler($objectService, new NullLogger());
+		$handler->storeMessage(conversationId: 'conv-1', role: 'user', content: 'Wat staat erin?', attachments: $attached);
+		$handler->storeMessage(conversationId: 'conv-1', role: 'assistant', content: 'Dit.');
+
+		$this->assertSame($attached, $saved[0]['attachments']);
+		$this->assertArrayNotHasKey('attachments', $saved[1]);
+
+		$history = $handler->buildMessageHistory(conversationId: 'conv-1');
+		$this->assertSame("Wat staat erin?\n\nAttached earlier: offerte-2026.pdf, file 48213", $history[0]->content);
+
+	}//end testAttachmentsAreStoredAndNamedInTheHistory()
 }//end class

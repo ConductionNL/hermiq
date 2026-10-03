@@ -63,6 +63,9 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -209,13 +212,32 @@ class ProviderFactory {
 	private const CREDENTIAL_SCOPE_PERSONAL = 'personal';
 
 	/**
-	 * Hard cap on Anthropic/runner tool-call round-trips per turn — a safety bound so a
-	 * model that keeps requesting tools cannot loop forever. LLPhant enforces the same
-	 * kind of ceiling internally for the OpenAI/Ollama path.
+	 * Tool calls per turn on the Anthropic loop when the caller names no cap: the
+	 * default of Agent.maxToolCalls (agents-switch-off-and-stop). The agent's own cap,
+	 * passed as `maxToolCalls`, replaces it.
 	 *
 	 * @var int
 	 */
 	private const MAX_TOOL_ITERATIONS = 10;
+
+	/**
+	 * Tokens the most recent callFireworksChat()/callAnthropicChat() reported, as
+	 * `promptTokens` and `completionTokens`; empty when the provider reported none.
+	 *
+	 * Read by ResponseGenerationHandler right after the call and recorded as the
+	 * run's usage, which BudgetService sums against a token budget (hermiq#985).
+	 * Reset at the start of every call so one turn never inherits another's count.
+	 *
+	 * @var array<string, int>
+	 */
+	private array $lastCallUsage = [];
+
+	/**
+	 * Whether the last Anthropic turn stopped at its tool call cap.
+	 *
+	 * @var boolean
+	 */
+	private bool $lastCallHitToolCap = false;
 
 	/**
 	 * Constructor.
@@ -307,6 +329,18 @@ class ProviderFactory {
 	 *                                          backward-compat reason: the unit tests
 	 *                                          build this factory positionally with
 	 *                                          its first four collaborators.
+	 * @param FeatureProviderResolver|null $featureResolver Joins the AiFeature register to
+	 *                                                      the ModelPolicy: resolves a
+	 *                                                      feature's own provider binding
+	 *                                                      and refuses a run whose provider
+	 *                                                      runs outside the residency the
+	 *                                                      feature requires. Nullable and
+	 *                                                      trailing for the same
+	 *                                                      backward-compat reason; a null
+	 *                                                      resolver leaves every existing
+	 *                                                      call site unchanged.
+	 * @param DataUseGate|null $dataUseGate The data-use step on the path without an AI
+	 *                                      feature (models-no-training-guarantee).
 	 *
 	 * @return void
 	 *
@@ -332,6 +366,8 @@ class ProviderFactory {
 		private readonly ?IURLGenerator $urlGenerator = null,
 		private readonly ?IAppConfig $appConfig = null,
 		private readonly ?ContainerInterface $container = null,
+		private readonly ?FeatureProviderResolver $featureResolver = null,
+		private readonly ?DataUseGate $dataUseGate = null,
 	) {
 	}//end __construct()
 
@@ -365,6 +401,50 @@ class ProviderFactory {
 	}//end serviceContainer()
 
 	/**
+	 * The tokens the most recent hosted chat call reported.
+	 *
+	 * @return array<string, int> `promptTokens` and `completionTokens`, or `[]` when the
+	 *                            provider reported no usage.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 */
+	public function lastCallUsage(): array {
+		return $this->lastCallUsage;
+	}//end lastCallUsage()
+
+	/**
+	 * Whether the last callAnthropicChat() stopped because the turn used every tool
+	 * call it may make (agents-switch-off-and-stop), so the caller can record it on
+	 * the run trace.
+	 *
+	 * @return bool True when the tool call cap ended the turn.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function lastCallHitToolCap(): bool {
+		return $this->lastCallHitToolCap;
+	}//end lastCallHitToolCap()
+
+	/**
+	 * Add one request's usage to a running total.
+	 *
+	 * @param array<string, int> $total The running total.
+	 * @param mixed $promptTokens This request's prompt (input) tokens.
+	 * @param mixed $completionTokens This request's completion (output) tokens.
+	 *
+	 * @return array<string, int> The new total; `[]` while nothing has been counted.
+	 */
+	private function addUsage(array $total, mixed $promptTokens, mixed $completionTokens): array {
+		$prompt = ((int)($total['promptTokens'] ?? 0) + (int)$promptTokens);
+		$completion = ((int)($total['completionTokens'] ?? 0) + (int)$completionTokens);
+		if (($prompt + $completion) === 0) {
+			return [];
+		}
+
+		return ['promptTokens' => $prompt, 'completionTokens' => $completion];
+	}//end addUsage()
+
+	/**
 	 * Read the current `hermiq.llm` configuration.
 	 *
 	 * @return array LLM configuration (see LlmSettingsHandler::getLLMSettingsOnly()).
@@ -395,6 +475,15 @@ class ProviderFactory {
 	 *                                  organisation see zero behavior change).
 	 * @param int|null $agentMaxTokens Agent-level max-tokens override, applied to the
 	 *                                 resolved driver when set and non-null.
+	 * @param string|null $aiFeature The slug of the registered AI feature this run belongs
+	 *                               to, when the run names one. It selects the feature's
+	 *                               own provider binding and the residency that feature
+	 *                               requires (a-provider-and-a-place-per-ai-feature). null
+	 *                               leaves every pre-existing call site unchanged.
+	 * @param string|null $documentReference The document this run was handed, when it was
+	 *                               handed one. A feature declaring `requiresRedaction`
+	 *                               is refused unless filinq has redacted it; a run with
+	 *                               no document reference passes that gate untouched.
 	 *
 	 * @return ChatDriver The resolved driver.
 	 *
@@ -404,28 +493,50 @@ class ProviderFactory {
 	 * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
 	 *                                       (provider, model) pair falls outside its
 	 *                                       effective ModelPolicy.
+	 * @throws \OCA\Hermiq\Service\AiFeature\ResidencyViolationException When `$aiFeature`
+	 *                                       names a feature that requires a residency the
+	 *                                       resolved provider does not carry.
+	 * @throws \OCA\Hermiq\Service\AiFeature\RedactionRequiredException When the feature
+	 *                                       reads no unredacted document and the one it was
+	 *                                       handed has no recorded redaction.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
 	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
-	public function createChatDriver(
+	/**
+	 * Build the driver for one named provider.
+	 *
+	 * Extracted from createChatDriver() verbatim: every arm, and the default
+	 * that refuses an unknown name, are the same. It was split out because the
+	 * five arms plus the default carried createChatDriver() over the cyclomatic
+	 * complexity gate, and the provider CHOICE is a separable question from the
+	 * feature binding above it and the model policy below it.
+	 *
+	 * @param string $chatProvider The provider name, already resolved and non-empty.
+	 * @param array<string, mixed> $llmConfig The instance's LLM configuration.
+	 * @param string|null $agentModel Model override, if the agent set one.
+	 * @param float|null $agentTemperature Temperature override, if set.
+	 * @param integer|null $agentMaxTokens Max-token override, if set.
+	 * @param string|null $organisation The organisation, for credential resolution.
+	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
+	 *
+	 * @return ChatDriver The driver for that provider.
+	 *
+	 * @throws ProviderUnavailableException When the provider name is not one this factory builds.
+	 *
+	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
+	 */
+	private function instantiateChatDriver(
+		string $chatProvider,
 		array $llmConfig,
-		?string $agentModel = null,
-		?float $agentTemperature = null,
-		?string $organisation = null,
-		?int $agentMaxTokens = null,
+		?string $agentModel,
+		?float $agentTemperature,
+		?int $agentMaxTokens,
+		?string $organisation,
+		?array $pinned = null,
 	): ChatDriver {
-		$chatProvider = $llmConfig['chatProvider'] ?? null;
-
-		if (empty($chatProvider) === true) {
-			throw new ProviderUnavailableException(
-				'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
-				503
-			);
-		}
-
-		$driver = match ($chatProvider) {
+		return match ($chatProvider) {
 			'ollama' => $this->createOllamaDriver(
 				ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
 				agentModel: $agentModel,
@@ -436,13 +547,13 @@ class ProviderFactory {
 				openaiConfig: $llmConfig['openaiConfig'] ?? [],
 				agentModel: $agentModel,
 				agentTemperature: $agentTemperature,
-				credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation),
+				credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation, pinned: $pinned),
 				agentMaxTokens: $agentMaxTokens
 			),
 			'fireworks' => $this->createFireworksDriver(
 				fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
 				agentModel: $agentModel,
-				credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation)
+				credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation, pinned: $pinned)
 			),
 			'anthropic' => $this->createAnthropicDriver(
 				anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
@@ -452,15 +563,190 @@ class ProviderFactory {
 			'nextcloud' => $this->createNextcloudDriver(),
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
 		};// End match.
+	}//end instantiateChatDriver()
 
-		// Tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
-		// agent override is applied (createOllamaDriver()/createOpenAiDriver()/
-		// createFireworksDriver() already resolved agentModel ?? providerConfig
-		// into $driver->model) so a policy cannot be bypassed by leaving the
-		// per-agent model field blank — see design.md "Decisions". Runs BEFORE
-		// any network call: driver construction above only builds client value
-		// objects, it never sends a request.
+	/**
+	 * Resolve an AI feature's own provider and model binding, if it has one.
+	 *
+	 * Step 1 of the order `a-provider-and-a-place-per-ai-feature` specifies. It
+	 * only RESOLVES: the model policy ceiling is applied by the caller, after
+	 * this, so a binding can narrow the policy and never widen it.
+	 *
+	 * Extracted from createChatDriver() unchanged. `featureBound` is true
+	 * whenever a feature and an organisation were both given and a resolver
+	 * exists, INCLUDING when the resolver answered with nothing — that is the
+	 * existing behaviour and the caller depends on it.
+	 *
+	 * @param string|null $aiFeature The feature slug, if the call names one.
+	 * @param string|null $organisation The organisation, if known.
+	 * @param mixed $chatProvider The provider resolved so far.
+	 * @param string|null $agentModel The model resolved so far.
+	 *
+	 * @return array{provider: mixed, model: string|null, featureBound: bool} The resolution.
+	 *
+	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
+	 */
+	private function resolveFeatureBinding(
+		?string $aiFeature,
+		?string $organisation,
+		mixed $chatProvider,
+		?string $agentModel,
+	): array {
+		if ($aiFeature === null || $aiFeature === '' || $this->featureResolver === null || $organisation === null) {
+			return ['provider' => $chatProvider, 'model' => $agentModel, 'featureBound' => false];
+		}
+
+		$binding = $this->featureResolver->bindingFor(featureSlug: $aiFeature, organisation: $organisation);
+		if ($binding['provider'] !== null && $binding['model'] !== null) {
+			$chatProvider = $binding['provider'];
+			$agentModel = $binding['model'];
+		}
+
+		return ['provider' => $chatProvider, 'model' => $agentModel, 'featureBound' => true];
+	}//end resolveFeatureBinding()
+
+	/**
+	 * Resolve the configured `chatProvider` into a ready-to-use ChatDriver.
+	 *
+	 * @param array $llmConfig The `hermiq.llm` configuration
+	 *                         (LlmSettingsHandler::getLLMSettingsOnly()).
+	 * @param string|null $agentModel Agent-level model override, when set and non-empty.
+	 * @param float|null $agentTemperature Agent-level temperature override.
+	 * @param string|null $organisation The calling agent's organisation
+	 *                                  (tenant-model-policy). When non-null (including
+	 *                                  `''` for an organisation-less agent/instance
+	 *                                  scope), the resolved (provider, model) pair is
+	 *                                  checked against the effective ModelPolicy for
+	 *                                  that organisation BEFORE the driver is returned
+	 *                                  — this is the single enforcement chokepoint every
+	 *                                  trigger path (schedule, Run now, conversation,
+	 *                                  flow listener) shares. When null, no check is made
+	 *                                  (opt-in; existing callers that do not pass an
+	 *                                  organisation see zero behavior change).
+	 * @param int|null $agentMaxTokens Agent-level max-tokens override, applied to the
+	 *                                 resolved driver when set and non-null.
+	 * @param string|null $aiFeature The slug of the registered AI feature this run belongs
+	 *                               to, when the run names one. It selects the feature's
+	 *                               own provider binding and the residency that feature
+	 *                               requires (a-provider-and-a-place-per-ai-feature). null
+	 *                               leaves every pre-existing call site unchanged.
+	 * @param string|null $documentReference The document this run was handed, when it was
+	 *                               handed one. A feature declaring `requiresRedaction`
+	 *                               is refused unless filinq has redacted it; a run with
+	 *                               no document reference passes that gate untouched.
+	 * @param array<string, string>|null $agentCredentialIds The agent's own credential per
+	 *                               provider (`credentialIds`). A pin for the resolved
+	 *                               provider is used first and never bypassed.
+	 * @param array<int, string> $attachmentReferences The file ids attached to this turn,
+	 *                               each checked by the feature's gates on its own.
+	 *
+	 * @return ChatDriver The resolved driver.
+	 *
+	 * @throws ProviderUnavailableException When no provider is configured, the selected
+	 *                                      provider is missing required credentials, or
+	 *                                      the provider identifier is not recognised.
+	 * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
+	 *                                       (provider, model) pair falls outside its
+	 *                                       effective ModelPolicy.
+	 * @throws \OCA\Hermiq\Service\AiFeature\ResidencyViolationException When `$aiFeature`
+	 *                                       names a feature that requires a residency the
+	 *                                       resolved provider does not carry.
+	 * @throws \OCA\Hermiq\Service\AiFeature\RedactionRequiredException When the feature
+	 *                                       reads no unredacted document and the one it was
+	 *                                       handed has no recorded redaction.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	public function createChatDriver(
+		array $llmConfig,
+		?string $agentModel = null,
+		?float $agentTemperature = null,
+		?string $organisation = null,
+		?int $agentMaxTokens = null,
+		?string $aiFeature = null,
+		?string $documentReference = null,
+		?array $agentCredentialIds = null,
+		array $attachmentReferences = [],
+	): ChatDriver {
+		$chatProvider = $llmConfig['chatProvider'] ?? null;
+
+		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
+		// resolve the feature's own binding. It only resolves; the ceiling is
+		// applied below, so a binding can narrow the policy and never widen it.
+		$bound = $this->resolveFeatureBinding(
+			aiFeature: $aiFeature,
+			organisation: $organisation,
+			chatProvider: $chatProvider,
+			agentModel: $agentModel
+		);
+		$chatProvider = $bound['provider'];
+		$agentModel = $bound['model'];
+		$featureBound = $bound['featureBound'];
+
+		if (empty($chatProvider) === true) {
+			throw new ProviderUnavailableException(
+				'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
+				503
+			);
+		}
+
+		$driver = $this->instantiateChatDriver(
+			chatProvider: (string)$chatProvider,
+			llmConfig: $llmConfig,
+			agentModel: $agentModel,
+			agentTemperature: $agentTemperature,
+			agentMaxTokens: $agentMaxTokens,
+			organisation: $organisation,
+			pinned: $agentCredentialIds
+		);
+
+		// Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3
+		// of this change's specified order. Runs AFTER the agent override is applied
+		// (createOllamaDriver()/createOpenAiDriver()/createFireworksDriver() already
+		// resolved agentModel ?? providerConfig into $driver->model) so a policy
+		// cannot be bypassed by leaving the per-agent model field blank — see
+		// design.md "Decisions". Runs BEFORE any network call: driver construction
+		// above only builds client value objects, it never sends a request.
+		//
+		// When the run names an AI feature the resolver applies both gates in order
+		// and names the one that refuses; with no feature named the model-policy gate
+		// alone runs, exactly as before.
+		if ($featureBound === true && $this->featureResolver !== null && $organisation !== null) {
+			$this->featureResolver->enforceForRun(
+				featureSlug: (string)$aiFeature,
+				organisation: $organisation,
+				provider: $driver->provider,
+				model: $driver->model,
+				documentReference: $documentReference
+			);
+
+			// Chat-attachments-and-images: every file on the turn is a document
+			// reference of its own, checked one call per file, so a redacted first
+			// file cannot carry an unredacted second one past the gate.
+			foreach ($attachmentReferences as $attachmentReference) {
+				$this->featureResolver->enforceForRun(
+					featureSlug: (string)$aiFeature,
+					organisation: $organisation,
+					provider: $driver->provider,
+					model: $driver->model,
+					documentReference: (string)$attachmentReference
+				);
+			}
+
+			return $driver;
+		}
+
 		$this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
+
+		// Models-no-training-guarantee: the data-use step runs on this path too, so
+		// a run that names no AI feature cannot reach a provider that may train.
+		if ($organisation !== null) {
+			$this->dataUseGate?->enforce(organisation: $organisation, provider: $driver->provider);
+		}
 
 		return $driver;
 	}//end createChatDriver()
@@ -498,7 +784,7 @@ class ProviderFactory {
 
 		throw new ModelPolicyViolationException(
 			sprintf(
-				"Model policy violation: organisation '%s' does not permit provider '%s' model '%s'.",
+				"Refused by the model-policy check: organisation '%s' does not permit provider '%s' model '%s'.",
 				$orgLabel,
 				$provider,
 				$model
@@ -519,21 +805,37 @@ class ProviderFactory {
 	 *
 	 * @param string $provider The provider identifier (e.g. "openai", "fireworks").
 	 * @param string|null $organisation The calling organisation, or null to skip resolution.
+	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
+	 *                     A pin for `$provider` is resolved even without an organisation,
+	 *                     and a pin nothing can check is refused, never ignored.
 	 *
 	 * @return string|null The overriding credential uuid, or null to keep the configured
 	 *                     `hermiq.llm.<provider>Config.credentialId` unchanged.
 	 *
+	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
+	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
-	private function resolveCredentialOverride(string $provider, ?string $organisation): ?string {
-		if ($organisation === null || $this->credentialResolver === null) {
+	private function resolveCredentialOverride(string $provider, ?string $organisation, ?array $pinned = null): ?string {
+		$hasPin = is_string($pinned[$provider] ?? null) === true && trim($pinned[$provider]) !== '';
+		if ($this->credentialResolver === null) {
+			if ($hasPin === true) {
+				throw new PinnedCredentialRefusedException(provider: $provider);
+			}
+
+			return null;
+		}
+
+		if ($organisation === null && $hasPin === false) {
 			return null;
 		}
 
 		return $this->credentialResolver->resolve(
 			provider: $provider,
 			actingUserId: $this->currentUid(),
-			organisation: $organisation
+			organisation: $organisation,
+			pinned: $pinned
 		);
 
 	}//end resolveCredentialOverride()
@@ -572,6 +874,7 @@ class ProviderFactory {
 		array $messageHistory,
 		array $functions = [],
 	): string {
+		$this->lastCallUsage = [];
 		$url = rtrim($baseUrl, '/') . '/chat/completions';
 
 		if (empty($functions) === false) {
@@ -649,6 +952,16 @@ class ProviderFactory {
 
 		if (isset($data['choices'][0]['message']['content']) === false) {
 			throw new Exception('Unexpected Fireworks API response format: ' . $response);
+		}
+
+		// The chat completions `usage` object, kept so a token budget counts this run.
+		$usage = ($data['usage'] ?? []);
+		if (is_array($usage) === true) {
+			$this->lastCallUsage = $this->addUsage(
+				total: [],
+				promptTokens: ($usage['prompt_tokens'] ?? 0),
+				completionTokens: ($usage['completion_tokens'] ?? 0)
+			);
 		}
 
 		return $data['choices'][0]['message']['content'];
@@ -752,6 +1065,9 @@ class ProviderFactory {
 	 * @param string $conversationId The conversation this turn belongs to. Threaded through
 	 *                               so a tool step published on the run-step bus reaches
 	 *                               the stream watching this conversation.
+	 * @param int|null $maxToolCalls The tool calls this turn may make (Agent.maxToolCalls);
+	 *                               null is the default of 10. Past it no tool runs and
+	 *                               the turn ends with the model's last answer.
 	 *
 	 * @return string Generated response text (the final assistant turn).
 	 *
@@ -777,7 +1093,11 @@ class ProviderFactory {
 		string $executionMode = 'http',
 		?string $agentId = null,
 		string $conversationId = '',
+		?int $maxToolCalls = null,
 	): string {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
 		// below this point, and `http` must stay bit-for-bit unaffected.
@@ -818,8 +1138,11 @@ class ProviderFactory {
 
 		$headers = $this->buildAnthropicHeaders(authMode: $authMode);
 		$text = '';
+		$cap = ($maxToolCalls ?? self::MAX_TOOL_ITERATIONS);
+		$executed = 0;
 
-		for ($iteration = 0; $iteration < self::MAX_TOOL_ITERATIONS; $iteration++) {
+		// At most one request per allowed tool call plus the closing one.
+		for ($iteration = 0; $iteration <= $cap; $iteration++) {
 			$payload = [
 				'model' => $model,
 				'max_tokens' => ($maxTokens ?? 4096),
@@ -838,8 +1161,22 @@ class ProviderFactory {
 			$parsed = $this->parseAnthropicResponse(data: $data);
 			$text = $parsed['text'];
 
+			// Every request of the tool loop is billed, so every request counts.
+			$this->lastCallUsage = $this->addUsage(
+				total: $this->lastCallUsage,
+				promptTokens: ($parsed['usage']['promptTokens'] ?? 0),
+				completionTokens: ($parsed['usage']['completionTokens'] ?? 0)
+			);
+
 			// No tool call requested (or no executor to run one) — the turn is complete.
 			if ($tools === [] || $toolExecutor === null || $parsed['stopReason'] !== 'tool_use' || $parsed['toolCalls'] === []) {
+				break;
+			}
+
+			// The turn used every tool call it may make: no tool runs, the model's last
+			// answer stands (agents-switch-off-and-stop).
+			if ($executed >= $cap) {
+				$this->lastCallHitToolCap = true;
 				break;
 			}
 
@@ -851,7 +1188,12 @@ class ProviderFactory {
 			];
 			$toolResults = [];
 			foreach ($parsed['toolCalls'] as $toolCall) {
-				$result = (string)$toolExecutor($toolCall['name'], $toolCall['input']);
+				$result = '{"isError":true,"result":{"error":"Tool call limit reached for this turn"}}';
+				if ($executed < $cap) {
+					$result = (string)$toolExecutor($toolCall['name'], $toolCall['input']);
+					$executed++;
+				}
+
 				$toolResults[] = [
 					'tool_use_id' => $toolCall['id'],
 					'content' => $result,
@@ -863,6 +1205,10 @@ class ProviderFactory {
 				'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
 			];
 		}//end for
+
+		if ($this->lastCallHitToolCap === true && trim($text) === '') {
+			$text = 'Tool call limit reached for this turn.';
+		}
 
 		return $text;
 	}//end callAnthropicChat()
@@ -1235,6 +1581,14 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the MCP endpoint URL cannot be resolved (503).
 	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) `GovernedMcpEndpoint::applyContainerOrigin()`
+	 *   is a pure function of its two arguments, and it is static precisely so this
+	 *   caller can share it. Injecting the service instead would mean a third nullable
+	 *   collaborator on a constructor that already carries several for its test call
+	 *   sites, to reach a method that reads no state. The alternative to the static call
+	 *   is a second copy of the rewrite rule, and a second copy is what puts the egress
+	 *   PDP and this config into disagreement about where the endpoint is.
+	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	private function buildGovernedMcpConfig(string $runToken): array {
@@ -1259,13 +1613,13 @@ class ProviderFactory {
 		// `http://nextcloud`); `mcp_run_base_url` lets the operator pin the same value
 		// here. Unset → the published URL is used unchanged (correct whenever
 		// Nextcloud's public origin IS reachable from the container).
-		$baseOverride = trim($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '');
-		if ($baseOverride !== '' && $mcpUrl !== '') {
-			$path = (string)parse_url($mcpUrl, PHP_URL_PATH);
-			if ($path !== '') {
-				$mcpUrl = rtrim($baseOverride, '/') . $path;
-			}
-		}
+		// The rewrite rule itself lives in GovernedMcpEndpoint, because the egress
+		// PDP has to recognise the very same origin. Two copies would be two
+		// policies; the PDP would then deny the endpoint this config points at.
+		$mcpUrl = GovernedMcpEndpoint::applyContainerOrigin(
+			publishedUrl: $mcpUrl,
+			baseOverride: (string)($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '')
+		);
 
 		if ($mcpUrl === '') {
 			throw new ProviderUnavailableException(
@@ -1309,7 +1663,7 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
 	 */
-	private function assertCliRunnerAvailable(): void {
+	public function assertCliRunnerAvailable(): void {
 		if ($this->appManager === null) {
 			throw new ProviderUnavailableException(
 				'Anthropic executionMode "cli" is unavailable: the Nextcloud app manager could not be '
@@ -1731,10 +2085,9 @@ class ProviderFactory {
 	 * - `toolCalls` is structurally ALWAYS `[]` — the runner's `pickToolCalls()` reads a key
 	 *   nothing populates, because `run()` has no `tools` — so it is ignored rather than
 	 *   treated as reachable behaviour.
-	 * - `usage` is the CLI's own object. It is deliberately NOT threaded: the `http` Anthropic
-	 *   branch records latency only (`ResponseGenerationHandler`'s `lastUsage`), and this path
-	 *   mirrors that shape exactly. Threading richer usage would close a pre-existing gap that
-	 *   is present on BOTH branches and is not this change's to close.
+	 * - `usage` is the CLI's own object. Its `input_tokens` and `output_tokens` are kept in
+	 *   `lastCallUsage`, the same shape the `http` branch records, so a token budget counts a
+	 *   `cli` turn too (hermiq#985).
 	 *
 	 * @param string $body The runner's raw 200 response body.
 	 *
@@ -1759,6 +2112,15 @@ class ProviderFactory {
 			throw new ProviderUnavailableException(
 				'Anthropic executionMode "cli" failed: the runner returned no completion text.',
 				503
+			);
+		}
+
+		$usage = ($decoded['usage'] ?? []);
+		if (is_array($usage) === true) {
+			$this->lastCallUsage = $this->addUsage(
+				total: [],
+				promptTokens: ($usage['input_tokens'] ?? 0),
+				completionTokens: ($usage['output_tokens'] ?? 0)
 			);
 		}
 

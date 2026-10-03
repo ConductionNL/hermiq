@@ -305,6 +305,16 @@ else
 fi
 
 # =============================================================================
+# (j2) The built-in denylist is never relaxed for code editing
+#      (hermiq-runner-git-capability): read from the argv a governed turn builds
+# =============================================================================
+if node --test "${ROOT}/test/denylist-integrity.test.js" > "${WORK}/denylist.log" 2>&1; then
+    pass "(j2) denylist integrity (shell and filesystem built-ins denied, ToolSearch kept)"
+else
+    fail "(j2) denylist integrity failed"; cat "${WORK}/denylist.log" || true
+fi
+
+# =============================================================================
 # (k) The push fences, WIRED — against a real git remote that demands a credential
 #
 # ⚠️ (j) proves the fence functions refuse. It proves NOTHING about whether

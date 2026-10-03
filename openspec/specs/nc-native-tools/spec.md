@@ -10,6 +10,7 @@
 - `nc-native-tools` — DONE (Hermiq surface): `NcNativeToolProvider` implementing `IMcpToolProvider` with six `hermiq.*` tools (listFiles, readFile, searchContacts, listCalendarEvents, sendMail, listDeckBoards), each IDOR-guarded (scoped to the acting user), registered under the `hermiq` MCP alias; `invokeTool` never throws. **BLOCKED (OR#269):** an OpenRegister agent turn cannot yet invoke a tool (Ollama tool-calling 400) — the LLM-selects-and-calls path is documented as blocked, not verified end-to-end. Verified: registration + enumeration in OR's tool registry + direct invocation (unit).
 - `openspec/changes/archive/2026-08-15-nc-native-write-tools/` — ADDED delta: closes the read-only asymmetry (every capability was read-only except `sendMail`, the one irreversible one) with `createCalendarEvent`, `upsertContact` and Notes list/create/update — create/update only, no delete verb anywhere, attendees supported but classified `reach: external` + `destructiveHint: true` because iMIP invitations leave the instance, and every written object carries the ADR-088 agent-authored mark (kind: code) — **DONE** (merged in hermiq#221; 19 tools live, verified in the running instance's grant editor; two Playwright specs pin the grant surface and default-deny)
 - `openspec/changes/archive/2026-08-15-nc-mail-read-tools/` — ADDED delta: read-only mail via Nextcloud Mail's internal API (no OCP contract; lazy resolution degrading softly like Deck), bounded and attachment-byte-free, plus the new rule that moving personal correspondence into model context requires AI-feature authorisation BEYOND a tool grant — these tools are honestly `readOnlyHint: true`, so the write default-deny does not protect them and the gate carries that weight instead; the invocation record names the engine and quotes none of the mail (kind: code) — **DONE** (merged in hermiq#222; 22 tools live, all six PHPUnit matrix cells green)
+- `openspec/changes/archive/2026-09-30-tools-nextcloud-tasks/`: ADDED delta: `hermiq.listTasks`, `hermiq.createTask` and `hermiq.completeTask` over the acting user's own CalDAV task lists; writes only to lists the user owns (`ICalendarIsShared`), marked in the same object, no delete verb; completing writes back through the DAV backend because `createFromString()` does not replace (kind: code) (**DONE**, row `tl-tasks`)
 
 ## Purpose
 
@@ -17,7 +18,9 @@ Exposes Nextcloud-native capabilities — Files, Contacts, Calendar, Deck, and o
 agent tools through OpenRegister's MCP `IMcpToolProvider` interface, so Hermiq agents can act inside
 the host Nextcloud instance without a second tool-registration mechanism. Anything outside Nextcloud
 routes through OpenConnector's `CallService` instead of a bespoke integration layer.
+
 ## Requirements
+
 ### Requirement: NC-native capabilities registered as IMcpToolProvider tools
 The system MUST register Files (`IRootFolder`), Contacts (addressbook `IManager`), Calendar
 (`ICalendarManager`), Deck, and outbound email (`IMailer`) as tools through OpenRegister's
@@ -81,6 +84,57 @@ at call time," which the requirement did not previously contemplate. -->
 - AND merely resembling `hermiq.webSearch`/`hermiq.webFetch` MUST NOT be treated as
   sufficient justification to bypass `CallService` without an equivalent, explicitly
   documented spec change
+
+### Requirement: An agent can list the acting user's tasks (REQ-NCTASK-001)
+
+Hermiq MUST expose `hermiq.listTasks`, which returns at most 50 tasks from the acting user's own task lists, filtered by status, due date and list, and MUST NOT return tasks of lists the user cannot read.
+
+#### Scenario: A case handler asks what is still open
+- GIVEN a case handler with the task list "Werkvoorraad Burgerzaken" and an agent granted `hermiq.listTasks`
+- WHEN they ask "Welke taken staan nog open voor deze week?"
+- THEN the answer lists the open tasks due this week, including "Terugbellen mevrouw De Vries over parkeervergunning"
+- @e2e exclude turning the sentence into a tool call needs a live model; the listing behind it is covered by TaskWriteServiceTest::testListReturnsOpenTasksDueBefore and testListIsCappedAtFifty
+
+### Requirement: An agent can create a task in the user's own list, marked as agent-authored (REQ-NCTASK-002)
+
+Hermiq MUST expose `hermiq.createTask`, which writes a VTODO only into a task list the acting user owns and can write, with the agent-authored property inside the stored object. A failed mark MUST be reported as a failed write. The descriptor MUST be write-classified with reach `instance`, and its description MUST start by saying that people who share the list will see the task.
+
+#### Scenario: A task for Friday
+- GIVEN an agent granted `hermiq.createTask`
+- WHEN a case handler says "Zet 'Besluit bezwaar Kerkstraat 12 versturen' op mijn takenlijst voor vrijdag"
+- THEN the task appears in their Tasks app with due date Friday, and its stored object carries `X-HERMIQ-AGENT-AUTHORED`
+- @e2e exclude turning the sentence into a tool call needs a live model and reading the stored bytes needs a CalDAV fetch; the payload handed to the store is covered by TaskWriteServiceTest::testOnlyOwnWritableTaskListsAreWriteTargets
+
+#### Scenario: A list shared by a colleague is not written
+- GIVEN a list "Team Vergunningen" that a colleague shared with the case handler
+- WHEN the agent creates a task there
+- THEN nothing is written, and the tool answers "That task list is shared with you by someone else and cannot be written."
+- @e2e exclude needs two users and a shared list; covered by TaskWriteServiceTest::testASharedInListIsNotWritten
+
+### Requirement: An agent can complete a task without losing what the user wrote (REQ-NCTASK-003)
+
+Hermiq MUST expose `hermiq.completeTask`, which sets the task completed, keeps every other property of the task as it was, and adds the agent-authored property. When hermiq cannot replace an existing calendar object on the instance, it MUST NOT offer the tool.
+
+#### Scenario: Done after the call
+- GIVEN the open task "Terugbellen mevrouw De Vries over parkeervergunning"
+- WHEN the case handler says "Die terugbeltaak is gedaan"
+- THEN the task shows as completed in the Tasks app with its description unchanged
+- @e2e exclude turning the sentence into a tool call needs a live model; the rewrite is covered by TaskCalendarObjectTest::testCompletingKeepsEveryPropertyItDoesNotOwn and TaskWriteServiceTest::testCompleteUpdatesTheObjectInPlace
+
+### Requirement: Task tools are default-denied, never delete, and record identity without content (REQ-NCTASK-004)
+
+`hermiq.createTask` and `hermiq.completeTask` MUST be default-denied and MUST go through the approval gate when invoked un-granted. No task tool MUST delete a task. The run MUST record the list and the task's uid for each write, and MUST NOT record the task's summary or description.
+
+#### Scenario: The grant editor shows the task tools honestly
+- GIVEN an agent owner in the agent's Tool governance grant editor
+- WHEN they look at the task tools
+- THEN `hermiq.listTasks` shows as read with reach user, and `hermiq.createTask` and `hermiq.completeTask` show as write with reach instance, all ungranted by default
+
+#### Scenario: The run record holds no task text
+- GIVEN a run in which the agent created a task
+- WHEN an auditor opens the run
+- THEN the tool step shows the list and the task uid, and not the task's summary
+- @e2e exclude reading the trace payload has no browser surface; covered by FacadeToolInvokerTest::testTaskWritesGetTheAgentIdAndRecordListAndUidOnly
 
 ## User Stories
 

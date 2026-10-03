@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
@@ -146,7 +147,7 @@ class ToolOversightControllerTest extends TestCase {
 		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
 		// goes here and not on the end — appending would put the logger in its
 		// slot and the anonymous class's own `$richAvailable` in the logger's.
-		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), $richAvailable) extends ToolOversightController {
+		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
 			 */
@@ -161,6 +162,7 @@ class ToolOversightControllerTest extends TestCase {
 				IGroupManager $groupManager,
 				ToolAccessRequestService $accessRequests,
 				LoggerInterface $logger,
+				AgentAccessService $agentAccess,
 				private readonly bool $richAvailable,
 			) {
 				parent::__construct(
@@ -173,7 +175,8 @@ class ToolOversightControllerTest extends TestCase {
 					$userSession,
 					$groupManager,
 					$accessRequests,
-					$logger
+					$logger,
+					$agentAccess
 				);
 			}//end __construct()
 
@@ -255,6 +258,33 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertFalse($data['disclosureActive']);
 
 	}//end testToolCatalogAnnotatesGrantedAndRequiresExplicitGrant()
+
+	/**
+	 * The oversight catalogue shows a bare push grant as NOT granted, so an
+	 * operator sees the misconfiguration before a run needs it; a scoped one is granted.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testToolCatalogShowsABarePushGrantAsNotGranted(): void {
+		$this->toolRegistry->method('listTools')->willReturn(
+			[['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush', 'destructiveHint' => true]]
+		);
+		$this->objectService->method('find')->willReturnOnConsecutiveCalls(
+			$this->agent(['tools' => ['hermiq.workspacePush']]),
+			$this->agent(['tools' => ['hermiq.workspacePush?repository=example-org/example-app&branch=feature-a']])
+		);
+
+		$bare = $this->controller()->toolCatalog('agent-1')->getData();
+		$this->assertFalse($bare['tools'][0]['granted']);
+		$this->assertTrue($bare['tools'][0]['destructiveHint']);
+
+		$scoped = $this->controller()->toolCatalog('agent-1')->getData();
+		$this->assertTrue($scoped['tools'][0]['granted']);
+		$this->assertTrue($scoped['tools'][0]['destructiveHint'], 'Narrowing never downgrades the classification.');
+
+	}//end testToolCatalogShowsABarePushGrantAsNotGranted()
 
 	/**
 	 * toolCatalog refuses an agent the caller cannot view (private, non-owner,

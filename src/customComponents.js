@@ -24,7 +24,12 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
+import { generateUrl } from '@nextcloud/router'
+import AgentDeleteDialog from './dialogs/AgentDeleteDialog.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
+// Context form (hermiq-context-documents): resolved by the Contexts page's
+// `slots.form-dialog` -> "ContextFormModal".
+import ContextFormModal from './modals/ContextFormModal.vue'
 // Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
 // SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
 // CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
@@ -32,12 +37,16 @@ import AgentFormModal from './modals/AgentFormModal.vue'
 // create/edit dialog — the skills analogue of AgentFormModal above.
 import SkillFormModal from './modals/SkillFormModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
+import AiLiteracy from './views/AiLiteracy.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import FlowRunCompare from './views/FlowRunCompare.vue'
 import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import McpTools from './views/McpTools.vue'
+import RunCompare from './views/RunCompare.vue'
 import Runs from './views/Runs.vue'
 import TenantOps from './views/TenantOps.vue'
+import { createConnectionHandlers } from './services/connectionRegistry.js'
 // NOTE — Features & Roadmap is NOT registered here, deliberately. The
 // manifest page `FeaturesRoadmap` is `type: "roadmap"`, a BUILT-IN page type
 // that CnPageRenderer resolves from `defaultPageTypes` (→ the lib's
@@ -48,6 +57,15 @@ import TenantOps from './views/TenantOps.vue'
 // See ConductionNL/hydra#251.
 
 export default {
+	// Header-action handler: the Integrations page's Add integration
+	// (adopt-connection-registry). A function, because it leaves the app for
+	// integriq's Connections overview and a header action's `navigate` only
+	// pushes a route inside this app. CnIndexPage resolves a handler name
+	// against this map, not `registry`.
+	...createConnectionHandlers({
+		generateUrl,
+		assign: (url) => window.location.assign(url),
+	}),
 	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
 	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
 	// via the built-in index page type.
@@ -60,9 +78,17 @@ export default {
 	// entry at all (those hang on the triggering object, so no schedule-scoped
 	// query matches one). Shares the analytics tenant boundary.
 	Runs,
+	// Run comparison (observability-compare-two-runs): two agent runs side by
+	// side, and two runs of one flow node by node.
+	RunCompare,
+	FlowRunCompare,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,
+	// Working with AI (compliance-ai-literacy): six lessons with a check question,
+	// the organisation report and the course requirement. Custom because a lesson
+	// is read, answered and checked on one page, which no built-in page type does.
+	AiLiteracy,
 	// inapp-settings-section: the Settings page's `type: "settings"` tabs
 	// are rendered by CnSettingsPage, which resolves {type:"component"}
 	// widgets against THIS map (`cnCustomComponents`), never the v2
@@ -101,7 +127,12 @@ export default {
 	// as the `agent-form` v2 modal in registry.js for AgentDetail's
 	// route-based "Edit agent" open-modal action.
 	AgentFormModal,
+	// Agent delete confirmation naming the schedules that go with the agent
+	// (agents-switch-off-and-stop): AgentCatalog's `slots.delete-dialog`.
+	AgentDeleteDialog,
 	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
 	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
 	SkillFormModal,
+	// Context form (hermiq-context-documents).
+	ContextFormModal,
 }
