@@ -1,5 +1,10 @@
 {
     "translations": {
+        "This file is larger than %s MB.": "Dit bestand is groter dan %s MB.",
+        "Hermiq cannot read files of this type.": "Hermiq kan dit soort bestanden niet lezen.",
+        "No file was uploaded.": "Er is geen bestand geüpload.",
+        "The file could not be saved.": "Het bestand kon niet worden opgeslagen.",
+        "Not signed in.": "Niet aangemeld.",
         "Open as agent": "Openen als agent",
         "This draft could not be read.": "Dit concept kon niet worden gelezen.",
         "Could not check the draft.": "Het concept kon niet worden gecontroleerd.",
