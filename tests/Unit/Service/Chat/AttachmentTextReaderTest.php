@@ -33,6 +33,7 @@ use OCP\Files\IRootFolder;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 
 /**
  * Tests for the text fallback.
@@ -238,4 +239,121 @@ class AttachmentTextReaderTest extends TestCase {
 	public function testNoAttachmentsGiveNothing(): void {
 		$this->assertSame(['text' => '', 'notices' => []], $this->reader(null)->read(attachments: [], speaker: 'controller'));
 	}//end testNoAttachmentsGiveNothing()
+
+	/**
+	 * An office document goes through the text source as the speaker, and the person is told.
+	 *
+	 * @return void
+	 */
+	public function testAnOfficeDocumentIsSentAsTheSourcesText(): void {
+		$result = $this->reader($this->source(true, 'Besluit: akkoord'))->read(
+			attachments: [
+				[
+					'fileId' => 12,
+					'name' => 'raadsvoorstel.docx',
+					'mimeType' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				],
+			],
+			speaker: 'griffier'
+		);
+
+		$this->assertStringContainsString('Besluit: akkoord', $result['text']);
+		$this->assertSame([[12, 'griffier']], $this->extracted);
+		$this->assertSame(['hermiq used the text of raadsvoorstel.docx.'], $result['notices']);
+	}//end testAnOfficeDocumentIsSentAsTheSourcesText()
+
+	/**
+	 * A type hermiq has no reader for is left out, and the person is told.
+	 *
+	 * @return void
+	 */
+	public function testAnUnknownTypeIsLeftOutAndThePersonIsTold(): void {
+		$result = $this->reader($this->source(true, 'never read'))->read(
+			attachments: [['fileId' => 5, 'name' => 'archief.zip', 'mimeType' => 'application/zip']],
+			speaker: 'griffier'
+		);
+
+		$this->assertSame('', $result['text']);
+		$this->assertSame(['hermiq cannot read archief.zip. It was not sent.'], $result['notices']);
+		$this->assertSame([], $this->extracted);
+	}//end testAnUnknownTypeIsLeftOutAndThePersonIsTold()
+
+	/**
+	 * A text source that throws leaves the file out instead of failing the turn.
+	 *
+	 * @return void
+	 */
+	public function testAFailingSourceLeavesTheFileOut(): void {
+		$failing = new class() implements AttachmentTextSource {
+			/**
+			 * Available.
+			 *
+			 * @return bool
+			 */
+			public function isAvailable(): bool {
+				return true;
+			}
+
+			/**
+			 * Always fails.
+			 *
+			 * @param int    $fileId The file id.
+			 * @param string $userId The uid.
+			 *
+			 * @return string|null
+			 *
+			 * @throws RuntimeException Always.
+			 */
+			public function extractText(int $fileId, string $userId): ?string {
+				throw new RuntimeException('extractor down');
+			}
+		};
+
+		$result = $this->reader($failing)->read(
+			attachments: [['fileId' => 31, 'name' => 'scan.pdf', 'mimeType' => 'application/pdf']],
+			speaker: 'controller'
+		);
+
+		$this->assertSame('', $result['text']);
+		$this->assertSame(['hermiq could not read the text of scan.pdf. It was not sent.'], $result['notices']);
+	}//end testAFailingSourceLeavesTheFileOut()
+
+	/**
+	 * A text file without an id, not readable, missing or failing to read is left out, and the person is told.
+	 *
+	 * @return void
+	 */
+	public function testATextFileThatCannotBeReadIsLeftOut(): void {
+		$unreadable = $this->createMock(File::class);
+		$unreadable->method('isReadable')->willReturn(false);
+		$failing = $this->createMock(File::class);
+		$failing->method('isReadable')->willReturn(true);
+		$failing->method('getContent')->willThrowException(new RuntimeException('storage gone'));
+
+		$cases = [
+			'no file id' => [0, [$unreadable]],
+			'not readable' => [4, [$unreadable]],
+			'not found' => [4, []],
+			'read fails' => [4, [$failing]],
+		];
+		foreach ($cases as $label => [$fileId, $nodes]) {
+			$folder = $this->createMock(Folder::class);
+			$folder->method('getById')->willReturn($nodes);
+			$root = $this->createMock(IRootFolder::class);
+			$root->method('getUserFolder')->willReturn($folder);
+			$l10n = $this->createMock(IL10N::class);
+			$l10n->method('t')->willReturnCallback(
+				static fn (string $text, array $params = []): string => vsprintf($text, $params)
+			);
+			$reader = new AttachmentTextReader(rootFolder: $root, l10n: $l10n, logger: new NullLogger());
+
+			$result = $reader->read(
+				attachments: [['fileId' => $fileId, 'name' => 'notulen.txt', 'mimeType' => 'text/plain']],
+				speaker: 'griffier'
+			);
+
+			$this->assertSame('', $result['text'], $label);
+			$this->assertSame(['hermiq could not read the text of notulen.txt. It was not sent.'], $result['notices'], $label);
+		}
+	}//end testATextFileThatCannotBeReadIsLeftOut()
 }//end class
