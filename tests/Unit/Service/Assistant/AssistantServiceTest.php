@@ -629,4 +629,88 @@ class AssistantServiceTest extends TestCase {
 		$this->assertSame(['__none__'], $savedAgent['tools']);
 		$this->assertTrue($savedAgent['isPrivate']);
 	}//end testDetectPiiProvisionsDedicatedToolFreeAgent()
+
+	/**
+	 * A user who is not an admin can start a case-assistant session (hermiq#1088).
+	 *
+	 * The Session schema grants an owner-scoped `read` and lists no `create`, on
+	 * purpose (hermiq#319, PrivateSchemaReadRulesTest::testWriteActionsStayOmitted),
+	 * so the default `_rbac: true` save refuses every non-admin, as it did in the
+	 * chat (hermiq#1086). The service is the guard instead: the caller passed the
+	 * AI-literacy requirement, and the agent is the app's one shared, tool-locked
+	 * case-assistant agent every signed-in user talks to (design.md Decision 1).
+	 * So the session is saved with `_rbac: false`, and it is always the caller's.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/case-assistant-surface/spec.md#requirement-synchronous-conversational-endpoint
+	 */
+	public function testANonAdminsNewSessionIsSavedForThemPastTheObjectApiCreateCheck(): void {
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->expects($this->once())->method('assertMayUseAgents')->with('bob');
+
+		$agent = $this->entity('agent-1', ['name' => 'Case Assistant (dossiq)', 'tools' => ['__none__'], 'isPrivate' => true]);
+		$this->objectService->method('findAll')->willReturn([$agent]);
+		$this->objectService->method('find')->willReturn($agent);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				return $this->entity('conv-new', $passed[0]);
+			}
+		);
+		$this->historyHandler->method('buildMessageHistory')->willReturn([]);
+		$this->responseHandler->method('generateResponse')->willReturn('Hello.');
+		$this->responseHandler->lastUsage = [];
+
+		$service = new AssistantService($this->objectService, $this->historyHandler, $this->responseHandler, $this->logger, null, $literacy);
+		$result = $service->converse(userId: 'bob', sessionId: null, message: 'Status?', context: ['app' => 'dossiq', 'userId' => 'carol']);
+
+		$this->assertSame('conv-new', $result['sessionId']);
+		$this->assertSame('bob', $args[0]['userId'], 'The session belongs to the caller.');
+		$this->assertSame('agent-1', $args[0]['agentId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The create must not depend on an object-API create grant the schema does not give (_rbac).');
+		$this->assertTrue($args[6] ?? true, 'Multitenancy stays on, so the session gets the caller\'s organisation.');
+	}//end testANonAdminsNewSessionIsSavedForThemPastTheObjectApiCreateCheck()
+
+	/**
+	 * A caller who has not finished the required course gets a 403 and no session.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testACallerRefusedByTheLiteracyCheckGets403AndNoSession(): void {
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('assertMayUseAgents')->willThrowException(new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException());
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$service = new AssistantService($this->objectService, $this->historyHandler, $this->responseHandler, $this->logger, null, $literacy);
+
+		$this->expectExceptionCode(403);
+		$service->converse(userId: 'bob', sessionId: null, message: 'Status?', context: ['app' => 'dossiq']);
+	}//end testACallerRefusedByTheLiteracyCheckGets403AndNoSession()
+
+	/**
+	 * Provisioning the app's agent stays behind the register (hermiq#319): when it
+	 * does not exist yet and OpenRegister refuses the agent create for a non-admin,
+	 * the caller gets that 403, and no session is saved for an agent that is not
+	 * there. Whether a non-admin's first use may provision it is an open question
+	 * (hermiq#1088), so this pins today's answer, not a decision.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/case-assistant-surface/spec.md#requirement-synchronous-conversational-endpoint
+	 */
+	public function testAnUnprovisionedAgentRefusedByTheRegisterGives403AndNoSession(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->expects($this->once())->method('saveObject')
+			->with($this->anything(), $this->anything(), 'hermiq', 'agent')
+			->willThrowException(new \Exception("User 'bob' does not have permission to 'create' objects in schema 'Agent'", 403));
+
+		$this->expectExceptionCode(403);
+		$this->service()->converse(userId: 'bob', sessionId: null, message: 'Status?', context: ['app' => 'dossiq']);
+	}//end testAnUnprovisionedAgentRefusedByTheRegisterGives403AndNoSession()
 }//end class

@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\ContextAgent;
 
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
@@ -72,6 +73,11 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	private IAppConfig&MockObject $appConfig;
 
 	/**
+	 * @var AgentAccessService&MockObject
+	 */
+	private AgentAccessService&MockObject $agentAccess;
+
+	/**
 	 * Set up fresh mocks.
 	 *
 	 * @return void
@@ -82,6 +88,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->approvalService = $this->createMock(ApprovalService::class);
 		$this->scheduleService = $this->createMock(ScheduleService::class);
 		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->agentAccess = $this->createMock(AgentAccessService::class);
 
 		// ObjectService fluent setters return self by default on a mock only if wired.
 		$this->objectService->method('setRegister')->willReturnSelf();
@@ -111,7 +118,8 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$redaction,
 			$this->appConfig,
 			new NullLogger(),
-			$agentVersionService
+			$agentVersionService,
+			$this->agentAccess
 		);
 	}//end service()
 
@@ -262,7 +270,8 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$redaction,
 			$this->appConfig,
 			new NullLogger(),
-			$agentVersionService
+			$agentVersionService,
+			$this->agentAccess
 		);
 
 		$service->interact('alice', 'hi', null, '');
@@ -387,4 +396,94 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->expectException(ProcessingException::class);
 		$this->service()->interact('alice', 'hi', null, '');
 	}//end testNoAgentThrows()
+
+	/**
+	 * A user who is not an admin gets their first-turn session (hermiq#1088).
+	 *
+	 * The Session schema lists no `create`, on purpose (hermiq#319,
+	 * PrivateSchemaReadRulesTest::testWriteActionsStayOmitted), so the default
+	 * `_rbac: true` save refuses every non-admin, and refuses everyone when the
+	 * task runs in the background without a user session. The service is the
+	 * guard: the task has a user, and the agent is the one an administrator named
+	 * for every user (`contextagent_agent`, design.md). So the session is saved
+	 * with `_rbac: false`, and it is always the task user's.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/contextagent-provider/specs/contextagent-provider/spec.md#requirement-an-interaction-runs-one-governed-turn-and-returns-the-contextagent-shape
+	 */
+	public function testANonAdminsFirstTurnSessionIsSavedForThemPastTheObjectApiCreateCheck(): void {
+		$this->withConfiguredAgent($this->agent('agent-1'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				return $this->conversation('conv-new', 'bob');
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello back']);
+
+		$result = $this->service()->interact('bob', 'hi', null, '');
+
+		$this->assertSame('conv-new', $result['conversation_token']);
+		$this->assertSame('bob', $args[0]['userId'], 'The session belongs to the task user.');
+		$this->assertSame('agent-1', $args[0]['agentId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The create must not depend on an object-API create grant the schema does not give (_rbac).');
+		$this->assertTrue($args[6] ?? true, 'Multitenancy stays on.');
+	}//end testANonAdminsFirstTurnSessionIsSavedForThemPastTheObjectApiCreateCheck()
+
+	/**
+	 * Without a configured agent, a fallback agent the task user may not use is
+	 * never bound to their session (REQ-AGSHARE-002).
+	 *
+	 * The fallback list used to rely on the caller's read rule, but a background
+	 * task has no user session to apply it to. AgentAccessService decides instead,
+	 * and a user with no usable agent gets a clear ProcessingException.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-group-sharing-is-enforced-wherever-an-agent-is-read-or-run-req-agshare-002
+	 */
+	public function testAFallbackAgentTheUserMayNotUseIsNeverBound(): void {
+		$this->appConfig->method('getValueString')->willReturn('');
+		$this->objectService->method('findAll')->willReturn([$this->agent('private-of-carol')]);
+		$this->agentAccess->method('canUserAccessAgent')->willReturn(false);
+		$this->objectService->expects($this->never())->method('saveObject');
+		$this->engine->expects($this->never())->method('processMessage');
+
+		$this->expectException(ProcessingException::class);
+		$this->service()->interact('bob', 'hi', null, '');
+	}//end testAFallbackAgentTheUserMayNotUseIsNeverBound()
+
+	/**
+	 * The fallback takes the first active agent the task user may use.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-group-sharing-is-enforced-wherever-an-agent-is-read-or-run-req-agshare-002
+	 */
+	public function testTheFallbackTakesTheFirstAgentTheUserMayUse(): void {
+		$this->appConfig->method('getValueString')->willReturn('');
+		$this->objectService->method('findAll')->willReturn([$this->agent('private-of-carol'), $this->agent('shared-1')]);
+		$this->agentAccess->method('canUserAccessAgent')->willReturnCallback(
+			static fn (ObjectEntity $agent, string $userId): bool => $agent->getUuid() === 'shared-1' && $userId === 'bob'
+		);
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				return $this->conversation('conv-new', 'bob');
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
+
+		$this->service()->interact('bob', 'hi', null, '');
+
+		$this->assertSame('shared-1', $args[0]['agentId']);
+	}//end testTheFallbackTakesTheFirstAgentTheUserMayUse()
 }//end class
