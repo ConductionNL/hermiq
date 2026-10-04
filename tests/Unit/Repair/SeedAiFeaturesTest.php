@@ -425,12 +425,12 @@ class SeedAiFeaturesTest extends TestCase {
 		};
 
 		$output = $this->createMock(IOutput::class);
-		$output->expects($this->exactly(4))->method('warning');
+		$output->expects($this->exactly(5))->method('warning');
 
 		$this->step(objectService: $objectService)->run(output: $output);
 
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake'],
+			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake', 'image-generation'],
 			$objectService->attempted,
 			'One failed write must not stop the seeds that follow it.'
 		);

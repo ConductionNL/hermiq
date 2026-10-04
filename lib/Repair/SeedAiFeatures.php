@@ -195,6 +195,17 @@ class SeedAiFeatures implements IRepairStep {
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
+			[
+				// Chat-attachments-and-images D7: off until the organisation's DPO
+				// acknowledges it, like every other seeded feature.
+				'slug' => 'image-generation',
+				'name' => 'Create images in chat',
+				'description' => 'Creates an image from a description through the instance\'s text-to-image provider. '
+					. 'Every image is saved in the requester\'s Files and tagged Agent authored.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
 		];
 
 	}//end seedFeatures()

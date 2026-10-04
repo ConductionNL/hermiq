@@ -63,8 +63,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
   - GIVEN a text-to-image provider WHEN `hermiq.generateImage` runs for a granted agent THEN a PNG is saved in the person's Files, tagged "Agent authored", and the trace step holds its file id
   - GIVEN a failing tag mapper WHEN the tool runs THEN the file is deleted and the tool returns an error
   - GIVEN no text-to-image provider WHEN the tool catalog is built THEN the tool is absent
-- [ ] Implement
-- [ ] Test (PHPUnit with a fake TaskProcessing manager and a failing tag mapper)
+- [x] Implement (ImageGenerationService runs TextToImage through IManager::runTask for the person, writes the PNG under `Hermiq/Generated images`, marks it with AgentArtefactMarker and deletes it when marking fails; it refuses unless the `image-generation` AiFeature is enabled. `hermiq.generateImage` (ImageToolDescriptors, scope `create`, reach user) is listed only while a provider is available and routes to the service as the session user; its result holds the file id, path and agent id, never the image. SeedAiFeatures seeds `image-generation` disabled)
+- [x] Test (PHPUnit with a fake TaskProcessing manager and a failing tag mapper: ImageGenerationServiceTest over the real AgentArtefactMarker; HermiqToolProviderTest for absent without a provider and routed as the session user; SeedAiFeaturesTest. Not yet pinned: a dedicated grant-filter test that an agent without the grant is not offered the tool (REQ-CIMG-003 says PHPUnit on the grant filter))
 
 ### Task 8: The chat action and images in the answer
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004`
