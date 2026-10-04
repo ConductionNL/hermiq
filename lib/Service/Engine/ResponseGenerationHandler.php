@@ -50,6 +50,7 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -107,6 +108,11 @@ class ResponseGenerationHandler {
 	 *                                                      Nullable and trailing: a handler
 	 *                                                      built by hand in a test records
 	 *                                                      nothing and behaves as before.
+	 * @param AttachmentPartBuilder|null $attachmentParts Turns a turn's attachments into
+	 *                                                    native image and document parts for
+	 *                                                    a model declared to read them
+	 *                                                    (chat-attachments-and-images). Null
+	 *                                                    sends the text turn as before.
 	 *
 	 * @return void
 	 *
@@ -117,6 +123,7 @@ class ResponseGenerationHandler {
 		private readonly ToolLoop $toolLoop,
 		private readonly LoggerInterface $logger,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
+		private readonly ?AttachmentPartBuilder $attachmentParts = null,
 	) {
 	}//end __construct()
 
@@ -161,6 +168,8 @@ class ResponseGenerationHandler {
 	 * @param array<int, array<string, mixed>> $attachments The turn's attachments, already
 	 *                                                      resolved as the speaker
 	 *                                                      (TurnAttachmentResolver).
+	 * @param string $speaker The uid the attachments were resolved for; their bytes are
+	 *                        read as this person when the model reads them natively.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -188,6 +197,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -203,6 +213,7 @@ class ResponseGenerationHandler {
 		string $conversationId = '',
 		array $promptVariables = [],
 		array $attachments = [],
+		string $speaker = '',
 	): string {
 		$startTime = microtime(true);
 		$agentData = [];
@@ -391,7 +402,14 @@ class ResponseGenerationHandler {
 
 			// Add system message to history, then the current user message.
 			array_unshift($messageHistory, LLPhantMessage::system($systemPrompt));
-			$messageHistory[] = LLPhantMessage::user($userMessage);
+			// Chat-attachments-and-images: the attachments a declared model reads
+			// natively ride on the user turn; without the builder the turn is text.
+			$messageHistory[] = ($this->attachmentParts?->userTurn(
+				text: $userMessage,
+				driver: $driver,
+				attachments: $attachments,
+				speaker: $speaker
+			) ?? LLPhantMessage::user($userMessage));
 
 			$llmStartTime = microtime(true);
 

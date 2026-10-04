@@ -510,7 +510,8 @@ class Engine {
 						appContext: $cnAiContext,
 						conversationData: $conversationData
 					),
-					attachments: $resolvedAttachments
+					attachments: $resolvedAttachments,
+					speaker: ($authorId ?? $userId)
 				);
 			} catch (Exception $e) {
 				// A file the feature's checks refused is told by its name.

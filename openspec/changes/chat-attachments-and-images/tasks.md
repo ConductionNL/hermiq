@@ -44,8 +44,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - **acceptance_criteria**:
   - GIVEN a declared vision model on each of anthropic, openai, ollama and fireworks WHEN a turn carries an image THEN the request body carries it in that provider's image part shape
   - GIVEN a declared PDF model on anthropic or openai WHEN a turn carries a PDF THEN the body carries a document part
-- [ ] Implement
-- [ ] Test (PHPUnit per driver on the request body)
+- [x] Implement (AttachmentPartBuilder decides per attachment: a type that maps to `image` or `pdf`, a driver that can carry it (PDFs on anthropic and openai only; the Anthropic CLI transport carries text), and a model declared for it; the bytes are read as the speaker. AttachmentMessage gives the OpenAI parts, Ollama's `images` and Anthropic's blocks; ResponseGenerationHandler builds the user turn with it and Engine hands on the speaker)
+- [x] Test (PHPUnit per driver on the request body: NativeAttachmentPartsBodyTest drives LLPhant's real OpenAIChat and OllamaChat and ProviderFactory's Anthropic and Fireworks mappings; AttachmentPartBuilderTest, ResponseGenerationNativePartsTest, EngineAttachmentsTest)
 
 ### Task 6: The text fallback and the notice
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005`
