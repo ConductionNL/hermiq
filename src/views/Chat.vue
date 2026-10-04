@@ -259,6 +259,12 @@
 							)
 						}}
 					</p>
+					<NcNoteCard
+						v-if="startError"
+						type="error"
+						class="chat-page__start-error">
+						<p>{{ startError }}</p>
+					</NcNoteCard>
 					<AgentSelector
 						:agents="agents"
 						:loading="agentsLoading"
@@ -777,6 +783,7 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 
 /**
@@ -887,6 +894,7 @@ export default {
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
+			startError: '',
 
 			// Agents-instruction-variables: the answers to the agent's start
 			// fields while the session has none, and the server's reasons.
@@ -1649,6 +1657,7 @@ export default {
 		async startWithAgent(agent) {
 			const agentUuid = agent.uuid || agent.id
 			this.startingId = agentUuid
+			this.startError = ''
 			try {
 				const session = await createSession(agentUuid)
 				this.currentAgent = agent
@@ -1662,7 +1671,10 @@ export default {
 					}),
 				)
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not start the session.'))
+				// Keep the reason on the page, not only in a toast that is gone in
+				// seconds: a refused start looked like nothing happened (hermiq#1086).
+				this.startError = sessionStartErrorMessage(e, this.t)
+				showError(this.startError)
 			} finally {
 				this.startingId = ''
 			}
@@ -2495,6 +2507,11 @@ export default {
 
 .chat-page__empty-icon {
 	opacity: 0.5;
+}
+
+.chat-page__start-error {
+	max-width: 600px;
+	text-align: start;
 }
 
 .chat-page__empty h3 {

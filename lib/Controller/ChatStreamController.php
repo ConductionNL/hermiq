@@ -807,6 +807,10 @@ class ChatStreamController extends Controller {
 			throw new RuntimeException('Agent not found: ' . $agentUuid);
 		}
 
+		// `_rbac: false`: the Session schema lists no `create` grant on purpose
+		// (hermiq#319), so the default save refuses every non-admin (hermiq#1086).
+		// The agent access check above is the guard, and the session is always
+		// the caller's. OpenRegister still stamps `_owner` from the user session.
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
 				data: [
@@ -816,7 +820,8 @@ class ChatStreamController extends Controller {
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 	}//end resolveConversation()
 }//end class

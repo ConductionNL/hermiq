@@ -1923,7 +1923,11 @@ OC.L10N.register(
         "Upload from device": "Uploaden vanaf apparaat",
         "Attach a file": "Bestand toevoegen",
         "Choose from Files": "Kiezen uit Bestanden",
-        "The file could not be attached.": "Het bestand kon niet worden toegevoegd."
+        "The file could not be attached.": "Het bestand kon niet worden toegevoegd.",
+        "Choose an agent to start a session with.": "Kies een agent om een sessie mee te starten.",
+        "You do not have permission to start a session with this agent.": "Je hebt geen toestemming om een sessie met deze agent te starten.",
+        "This agent does not exist or is not shared with you.": "Deze agent bestaat niet of is niet met je gedeeld.",
+        "Could not start the session: {reason}": "Kon de sessie niet starten: {reason}"
     },
     "nplurals=2; plural=(n != 1);"
 )

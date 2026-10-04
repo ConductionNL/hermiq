@@ -2647,7 +2647,11 @@ OC.L10N.register(
         "Upload from device": "Upload from device",
         "Attach a file": "Attach a file",
         "Choose from Files": "Choose from Files",
-        "The file could not be attached.": "The file could not be attached."
+        "The file could not be attached.": "The file could not be attached.",
+        "Choose an agent to start a session with.": "Choose an agent to start a session with.",
+        "Could not start the session: {reason}": "Could not start the session: {reason}",
+        "This agent does not exist or is not shared with you.": "This agent does not exist or is not shared with you.",
+        "You do not have permission to start a session with this agent.": "You do not have permission to start a session with this agent."
     },
     "nplurals=2; plural=(n != 1);"
 )

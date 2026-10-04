@@ -781,11 +781,15 @@ class ChatController extends Controller {
 				$feedbackUuid = $existingFeedback->getUuid();
 			}
 
+			// `_rbac: false`: Feedback grants `read` only, so the default save refuses
+			// every non-admin (hermiq#1086). The participation check and the
+			// sessionId check above are the guard, and `userId` is the caller.
 			$feedback = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
 				register: self::REGISTER_SLUG,
 				schema: self::FEEDBACK_SCHEMA,
-				uuid: $feedbackUuid
+				uuid: $feedbackUuid,
+				_rbac: false
 			);
 
 			$this->logger->info(
@@ -1057,7 +1061,12 @@ class ChatController extends Controller {
 			agentId: (string)$agent->getUuid()
 		);
 
-		// Create and persist the new conversation object.
+		// Create and persist the new conversation object. `_rbac: false`: the
+		// Session schema lists no `create` grant on purpose (hermiq#319), so the
+		// default save refuses every non-admin and chat was admin-only
+		// (hermiq#1086). The guard is here instead: the agent was read above under
+		// the caller's own read rule, and the session is always the caller's.
+		// OpenRegister still stamps `_owner` from the user session.
 		$conversation = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
 				data: [
@@ -1067,7 +1076,8 @@ class ChatController extends Controller {
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 
 		$this->logger->info(
