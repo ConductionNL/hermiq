@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -145,6 +146,7 @@ class SessionController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly TalkSessionRoom $sessionRoom,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessService $agentAccess,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
