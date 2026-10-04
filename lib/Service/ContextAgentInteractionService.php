@@ -120,6 +120,9 @@ class ContextAgentInteractionService {
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
 	 *
 	 * @return void
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
