@@ -45,6 +45,7 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\App\IAppManager;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -143,6 +144,7 @@ class AssistantService {
 	 * @param MessageHistoryHandler $historyHandler Message storage/history (shared with Engine).
 	 * @param ResponseGenerationHandler $responseHandler LLM call orchestration (shared with Engine).
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param IAppManager $appManager Decides whether `context.app` names an installed, enabled app.
 	 * @param GuardrailPolicyService|null $guardrailPolicyService Resolves + applies the effective
 	 *                                                            GuardrailPolicy's input/output
 	 *                                                            filters. Nullable purely so a
@@ -162,6 +164,7 @@ class AssistantService {
 		private readonly MessageHistoryHandler $historyHandler,
 		private readonly ResponseGenerationHandler $responseHandler,
 		private readonly LoggerInterface $logger,
+		private readonly IAppManager $appManager,
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
 		private readonly ?LiteracyRequirement $literacy = null,
 	) {
