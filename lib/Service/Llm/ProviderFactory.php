@@ -888,17 +888,9 @@ class ProviderFactory {
 			);
 		}
 
-		$messages = [];
-		foreach ($messageHistory as $msg) {
-			$messages[] = [
-				'role' => $msg->role->value,
-				'content' => $msg->content,
-			];
-		}
-
 		$payload = [
 			'model' => $model,
-			'messages' => $messages,
+			'messages' => $this->mapHistoryToFireworksMessages(messageHistory: $messageHistory),
 		];
 
 		// Through the broker, not straight out. Hermiq has no Fireworks key to send: the
@@ -2211,6 +2203,13 @@ class ProviderFactory {
 			// live only inside this call's Anthropic loop). If a future history carries them
 			// (e.g. LLPhant Message::toolCalls), map them to tool_use/tool_result content
 			// blocks here. Until then, pass text turns through — the common path.
+			// Chat-attachments-and-images: a turn with native parts carries its image
+			// and document blocks ahead of the text.
+			if ($msg instanceof AttachmentMessage) {
+				$messages[] = ['role' => $role, 'content' => $msg->anthropicContent()];
+				continue;
+			}
+
 			$messages[] = [
 				'role' => $role,
 				'content' => (string)$msg->content,
@@ -2223,6 +2222,35 @@ class ProviderFactory {
 		];
 
 	}//end mapHistoryToAnthropicMessages()
+
+	/**
+	 * Map LLPhant history onto Fireworks' OpenAI-compatible `messages`.
+	 *
+	 * Text turns become `{role, content}`. A turn with native parts carries the
+	 * OpenAI content parts (text, then each image as an `image_url` data URL).
+	 *
+	 * @param array $messageHistory Array of LLPhant Message objects.
+	 *
+	 * @return list<array<string, mixed>> The messages.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 */
+	public function mapHistoryToFireworksMessages(array $messageHistory): array {
+		$messages = [];
+		foreach ($messageHistory as $msg) {
+			if ($msg instanceof AttachmentMessage) {
+				$messages[] = ['role' => $msg->role->value, 'content' => $msg->openAiContent()];
+				continue;
+			}
+
+			$messages[] = [
+				'role' => $msg->role->value,
+				'content' => $msg->content,
+			];
+		}
+
+		return $messages;
+	}//end mapHistoryToFireworksMessages()
 
 	/**
 	 * Map OpenAI-style function definitions to Anthropic `tools`.
