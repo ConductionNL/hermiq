@@ -569,6 +569,17 @@ class AssistantService {
 
 		$agent = $this->findOrCreateAgent(app: $app);
 
+		// 🔑 WHO MAY START A SESSION IS DECIDED HERE, NOT IN THE REGISTER (hermiq#1088).
+		// The Session schema grants an owner-scoped `read` and lists no `create`, on
+		// purpose (hermiq#319, PrivateSchemaReadRulesTest::testWriteActionsStayOmitted),
+		// so the default `_rbac: true` save refuses every non-admin, as the chat did
+		// in hermiq#1086. The guard is this surface: the controller resolved the
+		// caller (401 otherwise), converse() ran LiteracyRequirement::assertMayUseAgents()
+		// (403), and the agent is the app's one shared, tool-locked case-assistant
+		// agent every signed-in user talks to (design.md Decision 1, the spec's
+		// "authenticated user" scenario). `userId` is always the caller. OpenRegister
+		// still stamps `_owner` from the user session, so the owner-only read and the
+		// ownership check on reuse above keep working.
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
 				data: [
@@ -579,7 +590,8 @@ class AssistantService {
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 	}//end resolveConversation()
 

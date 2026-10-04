@@ -90,6 +90,13 @@ class ContextAgentInteractionService {
 	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
+	 * How many active agents the fallback looks through for one the user may use.
+	 *
+	 * @var int
+	 */
+	private const FALLBACK_AGENT_PAGE = 50;
+
+	/**
 	 * IAppConfig key naming the agent that serves ContextAgent interactions.
 	 *
 	 * @var string
@@ -110,6 +117,7 @@ class ContextAgentInteractionService {
 	 * @param AgentVersionService $agentVersionService Resolves the serving agent's current version
 	 *                                                 identifier, pinned onto the interaction audit
 	 *                                                 context (agent-versioning).
+	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
 	 *
 	 * @return void
 	 */
@@ -123,6 +131,7 @@ class ContextAgentInteractionService {
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
 		private readonly AgentVersionService $agentVersionService,
+		private readonly AgentAccessService $agentAccess,
 	) {
 	}//end __construct()
 
@@ -155,10 +164,10 @@ class ContextAgentInteractionService {
 			throw new ProcessingException('Hermiq ContextAgent requires a non-empty message.');
 		}
 
-		$agent = $this->resolveAgent();
+		$agent = $this->resolveAgent(userId: $userId);
 		if ($agent === null) {
 			throw new ProcessingException(
-				'No Hermiq agent is available to serve ContextAgent. Configure one via the `contextagent_agent` app setting.'
+				'No Hermiq agent is available to you for ContextAgent. An administrator can name one for every user in the `contextagent_agent` app setting.'
 			);
 		}
 
@@ -224,11 +233,13 @@ class ContextAgentInteractionService {
 	/**
 	 * Resolve the agent that serves ContextAgent interactions: the configured
 	 * `contextagent_agent` UUID when set and resolvable, otherwise the first active
-	 * agent in the hermiq register.
+	 * agent in the hermiq register that the task user may use.
+	 *
+	 * @param string $userId The task user.
 	 *
 	 * @return ObjectEntity|null The agent, or null when none is available.
 	 */
-	private function resolveAgent(): ?ObjectEntity {
+	private function resolveAgent(string $userId): ?ObjectEntity {
 		$configured = $this->appConfig->getValueString(Application::APP_ID, self::AGENT_CONFIG_KEY, '');
 		if ($configured !== '') {
 			// _rbac false: this agent was named in app configuration for every user,
@@ -246,13 +257,19 @@ class ContextAgentInteractionService {
 			}
 		}
 
+		// The fallback is decided by AgentAccessService::canUserAccessAgent(), not by
+		// the read rule alone (REQ-AGSHARE-002): a task usually runs in the background
+		// without a user session, so there is no caller for the read rule to apply
+		// to, and the session saved below binds this agent to the task user.
 		$agents = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['filters' => ['active' => true], 'limit' => 1]);
+			->findAll(config: ['filters' => ['active' => true], 'limit' => self::FALLBACK_AGENT_PAGE]);
 
 		foreach ($agents as $agent) {
-			if ($agent instanceof ObjectEntity) {
+			if ($agent instanceof ObjectEntity
+				&& $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === true
+			) {
 				return $agent;
 			}
 		}
@@ -285,6 +302,14 @@ class ContextAgentInteractionService {
 			}
 		}
 
+		// 🔑 WHO MAY START A SESSION IS DECIDED HERE, NOT IN THE REGISTER (hermiq#1088).
+		// The Session schema lists no `create`, on purpose (hermiq#319,
+		// PrivateSchemaReadRulesTest::testWriteActionsStayOmitted), so the default
+		// `_rbac: true` save refuses every non-admin, and everyone when the task runs
+		// without a user session. The guard is interact(): the task has a user, and
+		// the agent is either the one an administrator named for every user
+		// (`contextagent_agent`, design.md) or a fallback the user may use
+		// (resolveAgent()). `userId` is always the task user.
 		return $this->objectService->saveObject(
 			object: [
 				'userId' => $userId,
@@ -293,7 +318,8 @@ class ContextAgentInteractionService {
 				'metadata' => ['source' => 'contextagent'],
 			],
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 
 	}//end resolveConversation()
