@@ -35,8 +35,6 @@ use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
 use OCP\Files\File;
-use OCP\Files\Folder;
-use OCP\Files\IRootFolder;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToImage;
@@ -58,24 +56,17 @@ class ImageGenerationService {
 	public const FEATURE_SLUG = 'image-generation';
 
 	/**
-	 * Where created images land, relative to the person's Files root.
-	 *
-	 * @var string
-	 */
-	public const FOLDER = 'Hermiq/Generated images';
-
-	/**
 	 * Constructor.
 	 *
 	 * @param IManager            $taskManager Nextcloud TaskProcessing.
-	 * @param IRootFolder         $rootFolder  The person's Files and the task's output file.
+	 * @param GeneratedImageFiles $files       Reads the task's output and writes the PNG to Files.
 	 * @param AgentArtefactMarker $marker      Tags the file "Agent authored".
 	 * @param AiFeatureService    $features    The AI-feature governance register.
 	 * @param LoggerInterface     $logger      Logger.
 	 */
 	public function __construct(
 		private readonly IManager $taskManager,
-		private readonly IRootFolder $rootFolder,
+		private readonly GeneratedImageFiles $files,
 		private readonly AgentArtefactMarker $marker,
 		private readonly AiFeatureService $features,
 		private readonly LoggerInterface $logger,
@@ -155,7 +146,7 @@ class ImageGenerationService {
 		}
 
 		$bytes = $this->runTask(uid: $uid, prompt: $prompt);
-		$file = $this->save(uid: $uid, bytes: $bytes);
+		$file = $this->files->save(uid: $uid, bytes: $bytes);
 
 		try {
 			$this->marker->markFile(fileId: (int)$file->getId());
@@ -171,7 +162,7 @@ class ImageGenerationService {
 		return [
 			'fileId' => (int)$file->getId(),
 			'name' => $file->getName(),
-			'path' => self::FOLDER . '/' . $file->getName(),
+			'path' => GeneratedImageFiles::FOLDER . '/' . $file->getName(),
 			'mimeType' => 'image/png',
 		];
 	}//end create()
@@ -223,62 +214,11 @@ class ImageGenerationService {
 			$first = ($images[0] ?? null);
 		}
 
-		$bytes = $this->outputBytes(output: $first);
+		$bytes = $this->files->outputBytes(output: $first);
 		if ($done->getStatus() !== Task::STATUS_SUCCESSFUL || $bytes === null || $bytes === '') {
 			throw new ImageGenerationException('task_failed', 'The image could not be created.');
 		}
 
 		return $bytes;
 	}//end runTask()
-
-	/**
-	 * The bytes of one task output: a file id Nextcloud stored it under, or the bytes.
-	 *
-	 * @param mixed $output The output value.
-	 *
-	 * @return string|null The bytes.
-	 */
-	private function outputBytes(mixed $output): ?string {
-		if (is_string($output) === true) {
-			return $output;
-		}
-
-		if (is_int($output) === false) {
-			return null;
-		}
-
-		$node = $this->rootFolder->getFirstNodeById($output);
-		if ($node instanceof File === false) {
-			return null;
-		}
-
-		return $node->getContent();
-	}//end outputBytes()
-
-	/**
-	 * Write the PNG into the person's `Hermiq/Generated images` folder.
-	 *
-	 * @param string $uid   The person.
-	 * @param string $bytes The PNG bytes.
-	 *
-	 * @return File The new file.
-	 */
-	private function save(string $uid, string $bytes): File {
-		$folder = $this->rootFolder->getUserFolder($uid);
-		foreach (explode('/', self::FOLDER) as $segment) {
-			$next = null;
-			if ($folder->nodeExists($segment) === true) {
-				$next = $folder->get($segment);
-			}
-
-			if ($next instanceof Folder === false) {
-				$next = $folder->newFolder($segment);
-			}
-
-			$folder = $next;
-		}
-
-		$name = $folder->getNonExistingName('image-' . gmdate('Y-m-d-His') . '.png');
-		return $folder->newFile($name, $bytes);
-	}//end save()
 }//end class

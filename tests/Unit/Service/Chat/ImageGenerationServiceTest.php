@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Chat;
 
 use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\Chat\GeneratedImageFiles;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -147,7 +148,7 @@ class ImageGenerationServiceTest extends TestCase {
 
 		return new ImageGenerationService(
 			taskManager: $manager,
-			rootFolder: $root,
+			files: new GeneratedImageFiles(rootFolder: $root),
 			marker: new AgentArtefactMarker(tagManager: $tags, tagMapper: $mapper, logger: new NullLogger()),
 			features: $features,
 			logger: new NullLogger()
