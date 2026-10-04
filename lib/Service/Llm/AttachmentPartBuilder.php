@@ -106,26 +106,6 @@ class AttachmentPartBuilder {
 	}//end __construct()
 
 	/**
-	 * The person's turn: plain text, or text with the attachments the model reads natively.
-	 *
-	 * The Anthropic CLI transport carries text only, so it is asked for as `anthropic-cli`.
-	 *
-	 * @param string                           $text        The person's message.
-	 * @param ChatDriver                       $driver      The driver the turn runs on.
-	 * @param array<int, array<string, mixed>> $attachments The resolved attachments.
-	 * @param string                           $speaker     The uid they were resolved for.
-	 *
-	 * @return Message The user turn.
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factory is the library's public API.
-	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
-	 */
-	public function userTurn(string $text, ChatDriver $driver, array $attachments, string $speaker): Message {
-		return $this->compose(text: $text, driver: $driver, attachments: $attachments, speaker: $speaker)['turn'];
-	}//end userTurn()
-
-	/**
 	 * The person's turn and the notices for the answer.
 	 *
 	 * Native parts for what the model reads; the rest goes as text or is left out
