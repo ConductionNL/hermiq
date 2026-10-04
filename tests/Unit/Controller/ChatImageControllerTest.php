@@ -46,7 +46,7 @@ use Psr\Log\NullLogger;
 class ChatImageControllerTest extends TestCase {
 
 	/**
-	 * The storeMessage calls, by named argument.
+	 * The storeMessage calls, positional in its parameter order.
 	 *
 	 * @var list<array<string, mixed>>
 	 */
@@ -79,7 +79,11 @@ class ChatImageControllerTest extends TestCase {
 
 		$session->method('getUser')->willReturn($user);
 
-		$images = $this->createMock(ImageGenerationService::class);
+		// Partial: the real asAttachment() shapes the stored reference.
+		$images = $this->getMockBuilder(ImageGenerationService::class)
+			->disableOriginalConstructor()
+			->onlyMethods(['canCreate', 'create'])
+			->getMock();
 		$images->method('canCreate')->willReturn($available);
 		$images->method('create')->willReturnCallback(
 			function (string $uid, string $prompt) use ($failure): array {
@@ -156,12 +160,12 @@ class ChatImageControllerTest extends TestCase {
 		$this->assertSame(200, $response->getStatus());
 		$this->assertSame([['anne', 'Een fietsenstalling bij station Zwolle in de ochtendzon']], $this->asked);
 		$this->assertCount(2, $this->stored);
-		$this->assertSame('user', $this->stored[0]['role']);
-		$this->assertSame('Een fietsenstalling bij station Zwolle in de ochtendzon', $this->stored[0]['content']);
-		$this->assertSame('anne', $this->stored[0]['authorId']);
-		$this->assertSame('assistant', $this->stored[1]['role']);
+		$this->assertSame('user', $this->stored[0][1]);
+		$this->assertSame('Een fietsenstalling bij station Zwolle in de ochtendzon', $this->stored[0][2]);
+		$this->assertSame('anne', $this->stored[0][5]);
+		$this->assertSame('assistant', $this->stored[1][1]);
 		$image = ['fileId' => 902, 'name' => 'image-1.png', 'mimeType' => 'image/png', 'size' => 2048, 'origin' => 'generated'];
-		$this->assertSame([$image], $this->stored[1]['attachments']);
+		$this->assertSame([$image], $this->stored[1][7]);
 
 		$data = $response->getData();
 		$this->assertSame('turn-2', $data['assistantTurn']['id']);
@@ -178,7 +182,7 @@ class ChatImageControllerTest extends TestCase {
 		$response = $this->controller('bram')->create(sessionId: 'sess-1', prompt: 'Een kaart van de wijk');
 
 		$this->assertSame(200, $response->getStatus());
-		$this->assertSame('bram', $this->stored[0]['authorId']);
+		$this->assertSame('bram', $this->stored[0][5]);
 	}//end testAParticipantMayCreateAnImageInASharedSession()
 
 	/**

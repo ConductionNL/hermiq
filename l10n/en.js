@@ -1,6 +1,16 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Create an image": "Create an image",
+        "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.",
+        "What should the image show?": "What should the image show?",
+        "A bicycle shed at Zwolle station in the morning sun": "A bicycle shed at Zwolle station in the morning sun",
+        "The image could not be created.": "The image could not be created.",
+        "Describe the image to create.": "Describe the image to create.",
+        "This session does not exist.": "This session does not exist.",
+        "You cannot add to this session.": "You cannot add to this session.",
+        "Here is the image you asked for.": "Here is the image you asked for.",
+        "The image is in your Files, but it could not be added to the chat.": "The image is in your Files, but it could not be added to the chat.",
         "Attached file %s": "Attached file %s",
         "End of %s": "End of %s",
         "This model cannot see images. %s was not sent.": "This model cannot see images. %s was not sent.",

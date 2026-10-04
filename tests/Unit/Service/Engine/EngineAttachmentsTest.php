@@ -358,9 +358,9 @@ class EngineAttachmentsTest extends TestCase {
 			userMessage: 'Maak een infographic met de afvalkalender van april'
 		);
 
-		$assistant = array_values(array_filter($this->stored, static fn (array $args): bool => ($args['role'] ?? null) === 'assistant'));
+		$assistant = array_values(array_filter($this->stored, static fn (array $args): bool => ($args[1] ?? null) === 'assistant'));
 		$this->assertCount(1, $assistant);
-		$this->assertSame([$image], ($assistant[0]['attachments'] ?? null));
+		$this->assertSame([$image], ($assistant[0][7] ?? null));
 		$this->assertSame([$image], ($result['attachments'] ?? null));
 	}//end testAnImageTheAgentCreatedIsStoredOnTheAnswer()
 

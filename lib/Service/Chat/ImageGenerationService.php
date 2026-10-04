@@ -56,6 +56,13 @@ class ImageGenerationService {
 	public const FEATURE_SLUG = 'image-generation';
 
 	/**
+	 * Images the tool created in this request that no answer has carried yet.
+	 *
+	 * @var list<array<string, mixed>>
+	 */
+	private array $created = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IManager            $taskManager Nextcloud TaskProcessing.
@@ -95,6 +102,54 @@ class ImageGenerationService {
 	}//end isAvailable()
 
 	/**
+	 * Whether the chat action can be offered: the feature is enabled and a provider is available.
+	 *
+	 * @param string $uid The person.
+	 *
+	 * @return bool True when "Create an image" may be shown.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 */
+	public function canCreate(string $uid): bool {
+		return $this->featureEnabled() === true && $this->isAvailable(uid: $uid) === true;
+	}//end canCreate()
+
+	/**
+	 * Hand over the images the tool created since the last call, once.
+	 *
+	 * The engine puts them on the answer it stores, so the person sees what the
+	 * agent made in the turn where it made it.
+	 *
+	 * @return list<array<string, mixed>> The images as generated attachments.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 */
+	public function takeCreated(): array {
+		$created = $this->created;
+		$this->created = [];
+		return $created;
+	}//end takeCreated()
+
+	/**
+	 * A created image as a turn attachment reference, never its bytes.
+	 *
+	 * @param array<string, mixed> $created What create() returned.
+	 *
+	 * @return array<string, mixed> The fileId, name, mimeType, size and origin `generated`.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 */
+	public function asAttachment(array $created): array {
+		return [
+			'fileId' => (int)($created['fileId'] ?? 0),
+			'name' => (string)($created['name'] ?? ''),
+			'mimeType' => (string)($created['mimeType'] ?? 'image/png'),
+			'size' => (int)($created['size'] ?? 0),
+			'origin' => 'generated',
+		];
+	}//end asAttachment()
+
+	/**
 	 * The tool entry point: never throws, and never returns the image.
 	 *
 	 * @param string               $uid       The session's person.
@@ -112,6 +167,8 @@ class ImageGenerationService {
 		} catch (ImageGenerationException $e) {
 			return ['error' => ['code' => $e->errorCode, 'message' => $e->getMessage()]];
 		}
+
+		$this->created[] = $this->asAttachment(created: $created);
 
 		return $created + ['agentId' => (string)($arguments['agentId'] ?? '')];
 	}//end invoke()
@@ -164,6 +221,7 @@ class ImageGenerationService {
 			'name' => $file->getName(),
 			'path' => GeneratedImageFiles::FOLDER . '/' . $file->getName(),
 			'mimeType' => 'image/png',
+			'size' => (int)$file->getSize(),
 		];
 	}//end create()
 

@@ -421,6 +421,9 @@ class ChatStreamController extends Controller {
 				// could not read natively, shown above the answer. On `final`, so no
 				// new SSE event type is added (hydra ADR-034 Decision 6).
 				'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
+				// Chat-attachments-and-images D8: the answer's attachments, such as an
+				// image the agent created, so a client can show them without a reload.
+				'attachments' => array_values((array)($result['attachments'] ?? [])),
 			];
 			$this->emitAndExit(eventType: 'final', payload: $finalPayload);
 		} catch (ToolGrantResolutionException $e) {
