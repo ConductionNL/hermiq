@@ -587,6 +587,9 @@ class Engine {
 				// (run-analytics / ScheduleService::lastRunUsage) — load-bearing,
 				// see class docblock.
 				'usage' => $this->responseHandler->lastUsage,
+				// Chat-attachments-and-images D6: what happened to each attachment
+				// the model could not read natively, for the answer's notice.
+				'attachmentNotices' => $this->responseHandler->lastAttachmentNotices,
 				// Run-trace-observability: the collector's full ordered step
 				// timeline, empty when no collector was supplied.
 				'steps' => $trace?->toArray() ?? [],

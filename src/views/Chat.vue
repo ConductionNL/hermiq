@@ -312,6 +312,28 @@
 									formatTime(message.created)
 								}}</span>
 							</div>
+							<!-- What happened to the attachments the model could not read
+								natively, above the answer they belong to (chat-attachments-and-images D6). -->
+							<NcNoteCard
+								v-if="
+									message.role !== 'user'
+									&& attachmentNotices.length > 0
+									&& (message.uuid || message.id)
+										=== attachmentNoticesFor
+								"
+								type="info"
+								data-testid="chat-attachment-notices">
+								<ul
+									:aria-label="
+										t('hermiq', 'About the attachments')
+									">
+									<li
+										v-for="notice in attachmentNotices"
+										:key="notice">
+										{{ notice }}
+									</li>
+								</ul>
+							</NcNoteCard>
 							<!-- Assistant markdown is sanitised via DOMPurify with the shared safe config. -->
 							<!-- eslint-disable-next-line vue/no-v-html -->
 							<div
@@ -914,6 +936,10 @@ export default {
 			isStreaming: false,
 			streamingText: '',
 			streamingTools: [],
+			// Notices from the last streamed turn's `final` frame, and the
+			// assistant message they belong to (chat-attachments-and-images D6).
+			attachmentNotices: [],
+			attachmentNoticesFor: '',
 
 			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
@@ -1560,6 +1586,8 @@ export default {
 			// Files queued in another session do not follow the person here.
 			this.pendingAttachments = []
 			this.sendError = ''
+			this.attachmentNotices = []
+			this.attachmentNoticesFor = ''
 			this.messagesLoading = true
 			try {
 				const [{ results }] = await Promise.all([
@@ -1732,6 +1760,8 @@ export default {
 			this.currentMessage = ''
 			this.pendingAttachments = []
 			this.sendError = ''
+			this.attachmentNotices = []
+			this.attachmentNoticesFor = ''
 			this.sending = true
 
 			// Optimistic user bubble (replaced by server truth after the turn).
@@ -1794,7 +1824,7 @@ export default {
 			this.streamingText = ''
 			this.streamingTools = []
 			try {
-				await streamChatMessage(
+				const finalPayload = await streamChatMessage(
 					{ message: text, sessionUuid: uuid, attachments },
 					{
 						onToken: (delta) => {
@@ -1818,6 +1848,8 @@ export default {
 						},
 					},
 				)
+				this.attachmentNotices = finalPayload?.attachmentNotices || []
+				this.attachmentNoticesFor = finalPayload?.messageId || ''
 			} catch (e) {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.

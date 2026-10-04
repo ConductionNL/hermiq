@@ -428,7 +428,7 @@ function parseSseFrame(frame) {
  * @param {Function} [handlers.onToolResult] (payload: object) — a tool invocation finished.
  * @param {Function} [handlers.onHeartbeat] () — liveness signal (keep the UI alive).
  * @return {Promise<object>} Resolves with the `final` payload
- *   ({messageId, sessionUuid, fullText, context}).
+ *   ({messageId, sessionUuid, fullText, context, attachmentNotices}).
  * @throws {ChatStreamError} transport=true on handshake/connection failure
  *   (caller falls back to sendChatMessage()); transport=false on a terminal
  *   `error` event (no fallback — the turn failed server-side).

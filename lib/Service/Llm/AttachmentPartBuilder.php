@@ -117,14 +117,9 @@ class AttachmentPartBuilder {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function userTurn(string $text, ChatDriver $driver, array $attachments, string $speaker): Message {
-		$provider = $driver->provider;
-		if ($provider === 'anthropic' && $driver->executionMode === 'cli') {
-			$provider = self::ANTHROPIC_CLI;
-		}
-
 		$parts = [];
 		if ($attachments !== []) {
-			$parts = $this->build(provider: $provider, model: $driver->model, attachments: $attachments, speaker: $speaker)['parts'];
+			$parts = $this->forDriver(driver: $driver, attachments: $attachments, speaker: $speaker)['parts'];
 		}
 
 		if ($parts === []) {
@@ -133,6 +128,28 @@ class AttachmentPartBuilder {
 
 		return AttachmentMessage::withParts(text: $text, parts: $parts);
 	}//end userTurn()
+
+	/**
+	 * Split the attachments into native parts and the rest, for the driver the turn runs on.
+	 *
+	 * The Anthropic CLI transport carries text only, so it is asked for as `anthropic-cli`.
+	 *
+	 * @param ChatDriver                       $driver      The driver the turn runs on.
+	 * @param array<int, array<string, mixed>> $attachments The resolved attachments.
+	 * @param string                           $speaker     The uid they were resolved for.
+	 *
+	 * @return array{parts: list<array{kind: string, name: string, mimeType: string, base64: string}>, fallback: list<array<string, mixed>>}
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	public function forDriver(ChatDriver $driver, array $attachments, string $speaker): array {
+		$provider = $driver->provider;
+		if ($provider === 'anthropic' && $driver->executionMode === 'cli') {
+			$provider = self::ANTHROPIC_CLI;
+		}
+
+		return $this->build(provider: $provider, model: $driver->model, attachments: $attachments, speaker: $speaker);
+	}//end forDriver()
 
 	/**
 	 * Split the attachments into native parts and the rest.

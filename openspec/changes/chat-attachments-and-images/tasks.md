@@ -53,8 +53,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - **acceptance_criteria**:
   - GIVEN a model without `pdf` WHEN a PDF is attached THEN its extracted text is used and `final.attachmentNotices` names the file
   - GIVEN OpenRegister without the text facade WHEN a PDF is attached THEN the file is left out and the notice says hermiq could not read it
-- [ ] Implement
-- [ ] Test (PHPUnit with the facade present and absent; Playwright for the visible notice)
+- [ ] Implement (built except the facade adapter: AttachmentTextReader reads text files as the speaker, capped at readFile's 20000 characters; a PDF or office file goes through the `AttachmentTextSource` seam, which nothing implements yet because OpenRegister has no public text-extraction facade and design D6 names no class, so today such a file is left out with "hermiq could not read the text of ..."; an image gets "This model cannot see images. ... was not sent."; the notices ride on `final.attachmentNotices` via ResponseGenerationHandler::lastAttachmentNotices and the Engine result, and the Chat page shows them above the answer. Tick once an adapter over OpenRegister's facade is registered for `AttachmentTextSource`)
+- [ ] Test (PHPUnit with the facade present and absent: done, AttachmentTextReaderTest, ResponseGenerationTextFallbackTest, EngineAttachmentsTest, ChatStreamControllerTest; Playwright for the visible notice in `tests/e2e/spec-coverage/chat-attachments.spec.ts`: written with a stubbed `final` frame, not yet run, it needs the live instance)
 
 ### Task 7: Image creation service and the governed tool
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002`

@@ -417,6 +417,10 @@ class ChatStreamController extends Controller {
 				'pendingApprovals' => $this->accessRequests->pendingApprovals(
 					agentId: $agentUuid
 				),
+				// Chat-attachments-and-images D6: a notice per attachment the model
+				// could not read natively, shown above the answer. On `final`, so no
+				// new SSE event type is added (hydra ADR-034 Decision 6).
+				'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
 			];
 			$this->emitAndExit(eventType: 'final', payload: $finalPayload);
 		} catch (ToolGrantResolutionException $e) {

@@ -1,6 +1,15 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Attached file %s": "Bijgevoegd bestand %s",
+        "End of %s": "Einde van %s",
+        "This model cannot see images. %s was not sent.": "Dit model kan geen afbeeldingen zien. %s is niet meegestuurd.",
+        "hermiq used the text of %s.": "hermiq heeft de tekst van %s gebruikt.",
+        "This model does not read PDFs directly. hermiq used the text of %s instead.": "Dit model leest pdf's niet rechtstreeks. hermiq heeft in plaats daarvan de tekst van %s gebruikt.",
+        "hermiq cannot read %s. It was not sent.": "hermiq kan %s niet lezen. Het is niet meegestuurd.",
+        "hermiq could not read the text of %s. It was not sent.": "hermiq kon de tekst van %s niet lezen. Het is niet meegestuurd.",
+        "The text of %1$s was cut to its first %2$d characters.": "De tekst van %1$s is ingekort tot de eerste %2$d tekens.",
+        "About the attachments": "Over de bijlagen",
         "Blocked by": "Tegengehouden door",
         "Every (minutes)": "Elke (minuten)",
         "How a turn's result is checked: {kind: objectCount, register, schema, filters, target} or {kind: judge, question}.": "Hoe het resultaat van een beurt wordt gecontroleerd: {kind: objectCount, register, schema, filters, target} of {kind: judge, question}.",
