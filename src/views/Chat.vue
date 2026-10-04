@@ -358,6 +358,11 @@
 										v-if="isImage(attachment)"
 										class="chat-page__attachment-image"
 										:href="fileLink(attachment)"
+										:aria-label="
+											t('hermiq', 'Open {name} in Files', {
+												name: attachment.name,
+											})
+										"
 										target="_blank"
 										rel="noopener noreferrer"
 										data-testid="chat-message-image">

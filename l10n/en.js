@@ -1,6 +1,7 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Open {name} in Files": "Open {name} in Files",
         "Create an image": "Create an image",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.",
         "What should the image show?": "What should the image show?",

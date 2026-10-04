@@ -1,6 +1,7 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Open {name} in Files": "{name} openen in Bestanden",
         "Create an image": "Een afbeelding maken",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "De afbeelding wordt in je Bestanden opgeslagen onder Hermiq/Generated images en gemarkeerd als gemaakt door een agent.",
         "What should the image show?": "Wat moet de afbeelding laten zien?",
