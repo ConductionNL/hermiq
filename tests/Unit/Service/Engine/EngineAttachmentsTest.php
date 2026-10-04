@@ -68,6 +68,13 @@ class EngineAttachmentsTest extends TestCase {
 	private ?array $handed = null;
 
 	/**
+	 * The speaker generateResponse was handed, or null when it was never called.
+	 *
+	 * @var string|null
+	 */
+	private ?string $handedSpeaker = null;
+
+	/**
 	 * Anne's private offerte: only Anne's Files hold file 48213.
 	 *
 	 * @return IRootFolder
@@ -134,6 +141,8 @@ class EngineAttachmentsTest extends TestCase {
 			function (...$args) use ($responseFailure): string {
 				// Positional, in the order of generateResponse(): attachments is the 13th.
 				$this->handed = ($args[12] ?? []);
+				// The 14th is the speaker, whose Files the native parts are read from.
+				$this->handedSpeaker = ($args[13] ?? null);
 				if ($responseFailure !== null) {
 					throw $responseFailure;
 				}
@@ -250,6 +259,7 @@ class EngineAttachmentsTest extends TestCase {
 		$this->assertSame('user', $this->stored[0][1]);
 		$this->assertSame([], ($this->stored[1][7] ?? []), 'The assistant turn carries none.');
 		$this->assertSame($expected, $this->handed);
+		$this->assertSame('anne', $this->handedSpeaker, 'The speaker is handed on, so native parts are read as her.');
 
 	}//end testAReadableFileIsStoredOnTheTurnAndHandedOn()
 
