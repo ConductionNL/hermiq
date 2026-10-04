@@ -33,8 +33,10 @@ use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\ModelCapabilityRegistry;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCP\IAppConfig;
 use OCP\IRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -48,6 +50,7 @@ use RuntimeException;
  * @covers \OCA\Hermiq\Controller\Settings\LlmSettingsController
  *
  * @uses \OCA\Hermiq\Service\Llm\ChatDriver
+ * @uses \OCA\Hermiq\Service\Llm\ModelCapabilityRegistry
  */
 class LlmSettingsConnectionReportTest extends TestCase {
 
@@ -261,7 +264,7 @@ class LlmSettingsConnectionReportTest extends TestCase {
 			->getMock();
 		$report->expects($this->once())->method('reportSaved')->with($merged);
 
-		$controller = new LlmSettingsController(request: $request, settingsHandler: $handler, logger: new NullLogger(), connectionReport: $report);
+		$controller = new LlmSettingsController(request: $request, settingsHandler: $handler, logger: new NullLogger(), modelCapabilities: new ModelCapabilityRegistry(appConfig: $this->createMock(IAppConfig::class)), connectionReport: $report);
 
 		$this->assertSame(expected: 200, actual: $controller->update()->getStatus());
 		$this->assertSame(expected: 500, actual: $controller->update()->getStatus());

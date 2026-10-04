@@ -35,8 +35,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - **files**: `lib/Service/Llm/ModelCapabilityRegistry.php`, `lib/Controller/Settings/LlmSettingsController.php`, `src/modals/LlmProviderModal.vue`
 - **acceptance_criteria**:
   - GIVEN an administrator in the LLM provider settings WHEN they tick "Reads images" for a model THEN `hermiq.modelCapabilities` holds it, and an undeclared model reports no capability
-- [ ] Implement
-- [ ] Test (PHPUnit on the registry; Playwright on the settings modal)
+- [x] Implement (ModelCapabilityRegistry keyed `provider/model`, split on the first slash; GET/PATCH `/api/settings/llm` carry `modelCapabilities`, validated before and written after the llm save; "Reads images" and "Reads PDFs" in the provider modal for the typed model)
+- [ ] Test (PHPUnit on the registry and the endpoint: done, ModelCapabilityRegistryTest and LlmSettingsModelCapabilitiesTest; Playwright `tests/e2e/spec-coverage/chat-attachments-model-capabilities.spec.ts`: written, not yet run, it needs the live instance)
 
 ### Task 5: Native image and document parts per driver
 - **spec_ref**: `openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004`
