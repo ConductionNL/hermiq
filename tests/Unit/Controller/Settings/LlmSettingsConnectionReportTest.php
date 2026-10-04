@@ -50,6 +50,7 @@ use RuntimeException;
  * @covers \OCA\Hermiq\Controller\Settings\LlmSettingsController
  *
  * @uses \OCA\Hermiq\Service\Llm\ChatDriver
+ * @uses \OCA\Hermiq\Service\Llm\ModelCapabilityRegistry
  */
 class LlmSettingsConnectionReportTest extends TestCase {
 
