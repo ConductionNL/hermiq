@@ -88,13 +88,6 @@ class SessionController extends Controller {
 	private const REGISTER_SLUG = 'hermiq';
 
 	/**
-	 * Schema slug for agent objects.
-	 *
-	 * @var string
-	 */
-	private const AGENT_SCHEMA = 'agent';
-
-	/**
 	 * Schema slug for conversation objects.
 	 *
 	 * @var string
