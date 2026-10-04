@@ -71,8 +71,8 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - **files**: `appinfo/routes.php`, `lib/Controller/ChatImageController.php`, `src/modals/GenerateImageModal.vue`, `src/views/Chat.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN the feature enabled and a provider installed WHEN a person chooses "Create an image" and submits a description THEN an assistant turn with the image thumbnail appears
-- [ ] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/image-generation.spec.ts` with a stub text-to-image provider)
+- [x] Implement (ChatImageController: `POST /api/chat/images` takes `{ sessionId, prompt }` from the session's owner or a listed participant, creates the image through ImageGenerationService and stores the description as their turn and the image as the answer, an attachment with origin `generated`; `GET /api/chat/images/availability` is true only with the `image-generation` feature enabled and a provider available. GenerateImageModal behind "Create an image" in the composer's attach menu; the thread shows an image attachment as a thumbnail through `/core/preview`, linked to `/f/{fileId}`. An image the agent creates with the tool is handed to the engine once (ImageGenerationService::takeCreated), stored on the answer and carried on the `final` frame as `attachments`)
+- [ ] Test (PHPUnit: done, ChatImageControllerTest, EngineAttachmentsTest, ChatStreamControllerTest, ImageGenerationServiceTest; Playwright `tests/e2e/spec-coverage/image-generation.spec.ts` stubs hermiq's image routes because a test instance has no text-to-image provider: written, not yet run, it needs the live instance)
 
 ## Verification
 - [ ] `openspec validate chat-attachments-and-images --type change --strict` passes

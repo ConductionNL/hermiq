@@ -451,6 +451,39 @@ class ChatStreamControllerTest extends TestCase {
 	}//end testAFinalFrameWithoutNoticesCarriesAnEmptyList()
 
 	/**
+	 * The final frame carries the answer's attachments, such as an image the agent created; none is an empty list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 */
+	public function testTheFinalFrameCarriesTheAnswersAttachments(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$image = ['fileId' => 902, 'name' => 'image-1.png', 'mimeType' => 'image/png', 'size' => 2048, 'origin' => 'generated'];
+		$this->engine->method('processMessage')->willReturnOnConsecutiveCalls(
+			['message' => 'Hier is de afvalkalender.', 'messageId' => 'msg-45', 'sources' => [], 'attachments' => [$image]],
+			['message' => 'ok', 'messageId' => 'msg-46', 'sources' => []]
+		);
+
+		$withImage = $this->makeController('{"message":"teken","conversationUuid":"conv-1"}');
+		$this->runStream($withImage);
+		$this->assertSame([$image], ($this->frames($withImage, 'final')[0]['payload']['attachments'] ?? null));
+
+		$without = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+		$this->runStream($without);
+		$this->assertSame([], ($this->frames($without, 'final')[0]['payload']['attachments'] ?? null));
+
+	}//end testTheFinalFrameCarriesTheAnswersAttachments()
+
+	/**
 	 * A streamed first message opens a non-admin's session past OpenRegister's
 	 * create check (hermiq#1086).
 	 *

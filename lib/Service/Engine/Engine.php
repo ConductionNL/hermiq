@@ -63,6 +63,7 @@ use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
@@ -170,6 +171,8 @@ class Engine {
 	 *                                                        person who sent it
 	 *                                                        (chat-attachments-and-images); null
 	 *                                                        refuses any turn that carries one.
+	 * @param ImageGenerationService|null $images Hands over the images the agent created in the
+	 *                                            turn, for the answer (chat-attachments-and-images D8).
 	 *
 	 * @return void
 	 *
@@ -195,6 +198,7 @@ class Engine {
 		private readonly ?IUserManager $userManager = null,
 		private readonly ?PromptVariableResolver $promptVariables = null,
 		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
+		private readonly ?ImageGenerationService $images = null,
 	) {
 	}//end __construct()
 
@@ -551,11 +555,15 @@ class Engine {
 			// the persisted assistant message's id to the caller (the SSE stream
 			// controller needs it to populate the `final` event's messageId field;
 			// the widget uses it as the Vue render key for the assistant bubble).
+			// Chat-attachments-and-images D8: an image the agent created in this turn
+			// is stored on the answer, so the thread shows it where it was asked for.
+			$answerAttachments = ($this->images?->takeCreated() ?? []);
 			$assistantStored = $this->historyHandler->storeMessage(
 				conversationId: $conversationId,
 				role: 'assistant',
 				content: $aiResponse,
-				sources: $context['sources']
+				sources: $context['sources'],
+				attachments: $answerAttachments
 			);
 
 			// Name the conversation OFF this path. Naming is a second LLM round trip —
@@ -590,6 +598,8 @@ class Engine {
 				// Chat-attachments-and-images D6: what happened to each attachment
 				// the model could not read natively, for the answer's notice.
 				'attachmentNotices' => $this->responseHandler->attachmentNotices,
+				// The answer's attachments (D8), for the `final` frame.
+				'attachments' => $answerAttachments,
 				// Run-trace-observability: the collector's full ordered step
 				// timeline, empty when no collector was supplied.
 				'steps' => $trace?->toArray() ?? [],

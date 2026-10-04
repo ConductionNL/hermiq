@@ -356,6 +356,35 @@ export async function uploadChatAttachment(file) {
 }
 
 /**
+ * Whether the Chat page shows "Create an image": the feature is enabled and a
+ * text-to-image provider is installed (chat-attachments-and-images D7).
+ *
+ * @return {Promise<boolean>} True when the action may be shown.
+ * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+ */
+export async function getImageAvailability() {
+	const response = await axios.get(generateUrl(`${CHAT_BASE}/images/availability`))
+	return response.data?.available === true
+}
+
+/**
+ * Create an image from a description; the description and the image are
+ * stored as two turns of the session.
+ *
+ * @param {string} sessionId The session UUID.
+ * @param {string} prompt What the image shows.
+ * @return {Promise<{userTurn: object, assistantTurn: object}>} The two turns.
+ * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ */
+export async function createChatImage(sessionId, prompt) {
+	const response = await axios.post(generateUrl(`${CHAT_BASE}/images`), {
+		sessionId,
+		prompt,
+	})
+	return response.data
+}
+
+/**
  * Error thrown by streamChatMessage(). `transport === true` means the SSE
  * handshake/connection itself failed (HTTP error, network drop, unparsable
  * stream) and the caller SHOULD fall back to sendChatMessage() per the

@@ -230,4 +230,47 @@ class ImageGenerationServiceTest extends TestCase {
 	public function testAnEmptyDescriptionIsRefused(): void {
 		$this->assertSame('invalid_prompt', $this->service()->invoke(uid: 'communicatie', toolId: 'hermiq.generateImage', arguments: [])['error']['code']);
 	}//end testAnEmptyDescriptionIsRefused()
+
+	/**
+	 * An image the agent created through the tool is handed to the answer once, as a generated attachment.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 */
+	public function testAToolCreatedImageIsHandedToTheAnswerOnce(): void {
+		$service = $this->service();
+		$service->invoke(uid: 'communicatie', toolId: 'hermiq.generateImage', arguments: ['prompt' => 'Een afvalkalender']);
+
+		$this->assertSame(
+			[['fileId' => 902, 'name' => 'image-1.png', 'mimeType' => 'image/png', 'size' => 0, 'origin' => 'generated']],
+			$service->takeCreated()
+		);
+		$this->assertSame([], $service->takeCreated(), 'A second answer does not carry the same image.');
+	}//end testAToolCreatedImageIsHandedToTheAnswerOnce()
+
+	/**
+	 * A failed tool call hands nothing to the answer.
+	 *
+	 * @return void
+	 */
+	public function testAFailedToolCallHandsNothingToTheAnswer(): void {
+		$service = $this->service(tagFails: true);
+		$service->invoke(uid: 'communicatie', toolId: 'hermiq.generateImage', arguments: ['prompt' => 'Een kaart']);
+
+		$this->assertSame([], $service->takeCreated());
+	}//end testAFailedToolCallHandsNothingToTheAnswer()
+
+	/**
+	 * The chat action is offered only with the feature enabled and a provider installed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 */
+	public function testTheChatActionNeedsTheFeatureAndAProvider(): void {
+		$this->assertTrue($this->service()->canCreate(uid: 'communicatie'));
+		$this->assertFalse($this->service(provider: false)->canCreate(uid: 'communicatie'));
+		$this->assertFalse($this->service(enabled: false)->canCreate(uid: 'communicatie'));
+	}//end testTheChatActionNeedsTheFeatureAndAProvider()
 }//end class

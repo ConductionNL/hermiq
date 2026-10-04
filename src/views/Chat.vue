@@ -353,8 +353,30 @@
 									:key="attachment.fileId"
 									class="chat-page__attachment"
 									data-testid="chat-message-attachment">
-									<Paperclip :size="16" />
-									<span>{{ attachment.name }}</span>
+									<!-- An image shows as a thumbnail that opens the file in Files (D8). -->
+									<a
+										v-if="isImage(attachment)"
+										class="chat-page__attachment-image"
+										:href="fileLink(attachment)"
+										:aria-label="
+											t('hermiq', 'Open {name} in Files', {
+												name: attachment.name,
+											})
+										"
+										target="_blank"
+										rel="noopener noreferrer"
+										data-testid="chat-message-image">
+										<img
+											:src="previewUrl(attachment)"
+											:alt="attachment.name"
+											width="256"
+											height="256"
+											loading="lazy" />
+									</a>
+									<template v-else>
+										<Paperclip :size="16" />
+										<span>{{ attachment.name }}</span>
+									</template>
 								</li>
 							</ul>
 
@@ -610,6 +632,16 @@
 								</template>
 								{{ t('hermiq', 'Choose from Files') }}
 							</NcActionButton>
+							<!-- Shown only with the feature enabled and a text-to-image provider (D7). -->
+							<NcActionButton
+								v-if="imageAvailable && activeSession"
+								data-testid="chat-create-image"
+								@click="showImageForm = true">
+								<template #icon>
+									<ImageOutline :size="20" />
+								</template>
+								{{ t('hermiq', 'Create an image') }}
+							</NcActionButton>
 						</NcActions>
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
@@ -662,6 +694,11 @@
 			:session="participantsTarget"
 			@close="participantsTarget = null"
 			@changed="onParticipantsChanged" />
+		<GenerateImageModal
+			:show="showImageForm"
+			:session="activeSession"
+			@close="showImageForm = false"
+			@created="onImageCreated" />
 		<GoalFormModal
 			:show="showGoalForm"
 			:session="activeSession"
@@ -717,6 +754,7 @@
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
 import { getFilePickerBuilder, showError, showSuccess } from '@nextcloud/dialogs'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcActionButton,
 	NcActions,
@@ -748,6 +786,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import FolderOutline from 'vue-material-design-icons/FolderOutline.vue'
+import ImageOutline from 'vue-material-design-icons/ImageOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Paperclip from 'vue-material-design-icons/Paperclip.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
@@ -767,6 +806,7 @@ import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
+import GenerateImageModal from '../modals/GenerateImageModal.vue'
 import GoalFormModal from '../modals/GoalFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
@@ -779,6 +819,7 @@ import {
 	archiveSession,
 	ChatStreamError,
 	createSession,
+	getImageAvailability,
 	getSession,
 	getSessionGoal,
 	listMessages,
@@ -840,7 +881,9 @@ export default {
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
+		GenerateImageModal,
 		GoalFormModal,
+		ImageOutline,
 		FlagCheckered,
 		StopCircleOutline,
 		CubeOutline,
@@ -940,6 +983,9 @@ export default {
 			// assistant message they belong to (chat-attachments-and-images D6).
 			attachmentNotices: [],
 			attachmentNoticesFor: '',
+			// "Create an image" (chat-attachments-and-images D7).
+			imageAvailable: false,
+			showImageForm: false,
 
 			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
@@ -1268,6 +1314,7 @@ export default {
 		this.loadSessions()
 		this.loadAgents()
 		this.loadSpeechService()
+		this.loadImageAvailability()
 	},
 
 	beforeUnmount() {
@@ -1339,6 +1386,73 @@ export default {
 		 */
 		async loadSpeechService() {
 			this.speechService = await speechCapabilities()
+		},
+
+		/**
+		 * Ask once whether "Create an image" may be shown; any failure means no.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+		 */
+		async loadImageAvailability() {
+			try {
+				this.imageAvailable = await getImageAvailability()
+			} catch {
+				this.imageAvailable = false
+			}
+		},
+
+		/**
+		 * Show the description and the created image in the thread, then re-sync.
+		 *
+		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 */
+		async onImageCreated(turns) {
+			this.showImageForm = false
+			const uuid = this.activeSession?.uuid
+			if (!uuid) {
+				return
+			}
+			this.messages.push(turns.userTurn, turns.assistantTurn)
+			this.scrollToBottom()
+			await this.refreshThread(uuid)
+		},
+
+		/**
+		 * Whether an attachment is an image, shown as a thumbnail.
+		 *
+		 * @param {object} attachment The attachment reference.
+		 * @return {boolean} True for an image type.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 */
+		isImage(attachment) {
+			return String(attachment?.mimeType || '').startsWith('image/')
+		},
+
+		/**
+		 * The thumbnail, through Nextcloud's preview endpoint.
+		 *
+		 * @param {object} attachment The attachment reference.
+		 * @return {string} The preview URL.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 */
+		previewUrl(attachment) {
+			return generateUrl('/core/preview?fileId={fileId}&x=256&y=256&a=1', {
+				fileId: attachment.fileId,
+			})
+		},
+
+		/**
+		 * The file in Files.
+		 *
+		 * @param {object} attachment The attachment reference.
+		 * @return {string} The Files link.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 */
+		fileLink(attachment) {
+			return generateUrl('/f/{fileId}', { fileId: attachment.fileId })
 		},
 
 		/**
@@ -2816,6 +2930,18 @@ export default {
 	border-radius: var(--border-radius-element, var(--border-radius-large));
 	background: var(--color-background-hover);
 	color: var(--color-main-text);
+}
+
+.chat-page__attachment-image {
+	display: block;
+	padding: var(--default-grid-baseline) 0;
+}
+
+.chat-page__attachment-image img {
+	display: block;
+	max-width: min(256px, 100%);
+	height: auto;
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 }
 
 .chat-page__composer-row {
