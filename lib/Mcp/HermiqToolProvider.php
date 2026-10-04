@@ -94,6 +94,7 @@ namespace OCA\Hermiq\Mcp;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\Hermiq\AppInfo\Application;
@@ -662,7 +663,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			NcMailToolDescriptors::ALL,
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
-			$this->taskDescriptors()
+			$this->taskDescriptors(),
+			$this->imageDescriptors()
 		);
 	}//end getTools()
 
@@ -692,6 +694,30 @@ class HermiqToolProvider implements IMcpToolProvider {
 			)
 		);
 	}//end taskDescriptors()
+
+	/**
+	 * The image tool, only while a text-to-image provider is available to the
+	 * session's person (chat-attachments-and-images D7).
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 */
+	private function imageDescriptors(): array {
+		try {
+			$images = $this->container->get(ImageGenerationService::class);
+		} catch (Throwable) {
+			$images = null;
+		}
+
+		if ($images instanceof ImageGenerationService
+			&& $images->isAvailable(uid: $this->userSession->getUser()?->getUID()) === true
+		) {
+			return ImageToolDescriptors::ALL;
+		}
+
+		return [];
+	}//end imageDescriptors()
 
 	/**
 	 * The half of the workspace surface that serves a tool id: the write-shaped
@@ -735,6 +761,10 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		if (in_array($toolId, NcTaskToolDescriptors::IDS, true) === true) {
 			return $this->container->get(TaskWriteService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+		}
+
+		if (in_array($toolId, ImageToolDescriptors::IDS, true) === true) {
+			return $this->container->get(ImageGenerationService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
 		}
 
 		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {

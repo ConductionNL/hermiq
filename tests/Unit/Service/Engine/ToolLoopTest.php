@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use OCA\Hermiq\Mcp\ImageToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -693,4 +694,41 @@ class ToolLoopTest extends TestCase {
 		$this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.workspacePush']));
 
 	}//end testAnAgentWithOnlyABarePushGrantFailsVisibly()
+
+	/**
+	 * An agent without the image grant is never offered hermiq.generateImage; one with it is.
+	 *
+	 * The facade stands in for OpenRegister's, which returns only the whitelisted ids;
+	 * the assertion on what it is ASKED for is Hermiq's half of the filter.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-an-agent-without-the-grant-asks-for-an-image
+	 */
+	public function testTheImageToolIsOfferedOnlyWithItsGrant(): void {
+		$catalog = [
+			['name' => 'hermiq_readFile', 'mcpId' => 'hermiq.readFile'],
+			['name' => 'hermiq_generateImage', 'mcpId' => ImageToolDescriptors::GENERATE_IMAGE],
+		];
+		$asked = [];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturnCallback(
+			function (array $whitelist) use ($catalog, &$asked): array {
+				$asked[] = $whitelist;
+				return array_values(
+					array_filter($catalog, static fn (array $tool): bool => in_array($tool['mcpId'], $whitelist, true))
+				);
+			}
+		);
+
+		$without = $this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.readFile']));
+		$this->assertSame(['hermiq.readFile'], array_column($without, 'mcpId'));
+		$this->assertNotContains(ImageToolDescriptors::GENERATE_IMAGE, array_merge(...$asked));
+
+		$with = $this->loop(facade: $facade)->listAgentFunctions(
+			agent: $this->agent(tools: ['hermiq.readFile', ImageToolDescriptors::GENERATE_IMAGE])
+		);
+		$this->assertSame(['hermiq.readFile', ImageToolDescriptors::GENERATE_IMAGE], array_column($with, 'mcpId'));
+
+	}//end testTheImageToolIsOfferedOnlyWithItsGrant()
 }//end class

@@ -41,6 +41,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
@@ -148,6 +149,75 @@ class HermiqToolProviderTest extends TestCase {
 		return $container;
 
 	}//end tasksContainer()
+
+	/**
+	 * A container that also answers ImageGenerationService.
+	 *
+	 * @param ImageGenerationService $images The image service double.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function imagesContainer(ImageGenerationService $images): ContainerInterface {
+		$tasks = $this->createMock(TaskWriteService::class);
+		$tasks->method('canComplete')->willReturn(true);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): ?object => match ($id) {
+				TaskWriteService::class => $tasks,
+				ImageGenerationService::class => $images,
+				default => null,
+			}
+		);
+
+		return $container;
+
+	}//end imagesContainer()
+
+	/**
+	 * Without a text-to-image provider the image tool is not in the catalogue.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 */
+	public function testTheImageToolIsAbsentWithoutAProvider(): void {
+		$images = $this->createMock(ImageGenerationService::class);
+		$images->method('isAvailable')->willReturn(false);
+
+		$ids = array_column($this->provider(uid: 'alice', container: $this->imagesContainer($images))->getTools(), 'id');
+
+		$this->assertNotContains('hermiq.generateImage', $ids);
+
+	}//end testTheImageToolIsAbsentWithoutAProvider()
+
+	/**
+	 * With a provider the tool is listed with scope create, and a call reaches the
+	 * service as the session user with the run-injected agent id.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 */
+	public function testTheImageToolIsListedAndRoutedAsTheSessionUser(): void {
+		$calls = [];
+		$images = $this->createMock(ImageGenerationService::class);
+		$images->method('isAvailable')->willReturnCallback(static fn (?string $uid = null): bool => $uid === 'alice');
+		$images->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = [$uid, $toolId, ($arguments['agentId'] ?? null)];
+				return ['fileId' => 902];
+			}
+		);
+		$provider = $this->provider(uid: 'alice', container: $this->imagesContainer($images));
+
+		$tool = array_values(array_filter($provider->getTools(), static fn (array $t): bool => $t['id'] === 'hermiq.generateImage'));
+		$this->assertCount(1, $tool);
+		$this->assertSame('create', $tool[0]['scope']);
+
+		$this->assertSame(['fileId' => 902], $provider->invokeTool('hermiq.generateImage', ['prompt' => 'Een kaart', 'agentId' => 'agent-3', 'user' => 'bob']));
+		$this->assertSame([['alice', 'hermiq.generateImage', 'agent-3']], $calls);
+
+	}//end testTheImageToolIsListedAndRoutedAsTheSessionUser()
 
 	/**
 	 * With no way to write a task back, completeTask is left out of the catalogue;
