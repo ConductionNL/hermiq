@@ -105,7 +105,8 @@ class AttachmentTextReader {
 			$result = $this->readOne(attachment: $attachment, name: $name, speaker: $speaker);
 			array_push($notices, ...$result['notices']);
 			if ($result['text'] !== null) {
-				$text .= "\n\n--- " . $this->l10n->t('Attached file %s', [$name]) . " ---\n" . $result['text'] . "\n--- " . $this->l10n->t('End of %s', [$name]) . ' ---';
+				$text .= "\n\n--- " . $this->l10n->t('Attached file %s', [$name]) . " ---\n" . $result['text']
+					. "\n--- " . $this->l10n->t('End of %s', [$name]) . ' ---';
 			}
 		}
 

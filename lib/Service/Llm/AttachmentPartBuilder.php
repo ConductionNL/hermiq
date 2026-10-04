@@ -40,6 +40,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Service\Chat\AttachmentTextReader;
 use LLPhant\Chat\Message;
 use LLPhant\Chat\Vision\ImageSource;
 use OCP\Files\File;
@@ -92,11 +93,15 @@ class AttachmentPartBuilder {
 	 * @param IRootFolder             $rootFolder   Reads the file as the speaker.
 	 * @param ModelCapabilityRegistry $capabilities The declared native inputs per model.
 	 * @param LoggerInterface         $logger       Logger.
+	 * @param AttachmentTextReader|null $textReader The text fallback and notices for the
+	 *                                              attachments not sent natively (D6);
+	 *                                              null leaves them out without a notice.
 	 */
 	public function __construct(
 		private readonly IRootFolder $rootFolder,
 		private readonly ModelCapabilityRegistry $capabilities,
 		private readonly LoggerInterface $logger,
+		private readonly ?AttachmentTextReader $textReader = null,
 	) {
 	}//end __construct()
 
@@ -117,17 +122,42 @@ class AttachmentPartBuilder {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function userTurn(string $text, ChatDriver $driver, array $attachments, string $speaker): Message {
-		$parts = [];
-		if ($attachments !== []) {
-			$parts = $this->forDriver(driver: $driver, attachments: $attachments, speaker: $speaker)['parts'];
-		}
-
-		if ($parts === []) {
-			return Message::user($text);
-		}
-
-		return AttachmentMessage::withParts(text: $text, parts: $parts);
+		return $this->compose(text: $text, driver: $driver, attachments: $attachments, speaker: $speaker)['turn'];
 	}//end userTurn()
+
+	/**
+	 * The person's turn and the notices for the answer.
+	 *
+	 * Native parts for what the model reads; the rest goes as text or is left out
+	 * by the text reader, which words a notice per file.
+	 *
+	 * @param string                           $text        The person's message.
+	 * @param ChatDriver                       $driver      The driver the turn runs on.
+	 * @param array<int, array<string, mixed>> $attachments The resolved attachments.
+	 * @param string                           $speaker     The uid they were resolved for.
+	 *
+	 * @return array{turn: Message, notices: list<string>} The user turn and the notices.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factory is the library's public API.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	public function compose(string $text, ChatDriver $driver, array $attachments, string $speaker): array {
+		if ($attachments === []) {
+			return ['turn' => Message::user($text), 'notices' => []];
+		}
+
+		$split = $this->forDriver(driver: $driver, attachments: $attachments, speaker: $speaker);
+		$fallback = ($this->textReader?->read(attachments: $split['fallback'], speaker: $speaker)
+			?? ['text' => '', 'notices' => []]);
+
+		$text .= $fallback['text'];
+		if ($split['parts'] === []) {
+			return ['turn' => Message::user($text), 'notices' => $fallback['notices']];
+		}
+
+		return ['turn' => AttachmentMessage::withParts(text: $text, parts: $split['parts']), 'notices' => $fallback['notices']];
+	}//end compose()
 
 	/**
 	 * Split the attachments into native parts and the rest, for the driver the turn runs on.

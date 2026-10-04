@@ -107,9 +107,9 @@ class ResponseGenerationTextFallbackTest extends TestCase {
 			attachmentParts: new AttachmentPartBuilder(
 				rootFolder: $root,
 				capabilities: new ModelCapabilityRegistry(appConfig: $config),
-				logger: new NullLogger()
-			),
-			attachmentText: new AttachmentTextReader(rootFolder: $root, l10n: $l10n, logger: new NullLogger(), textSource: $source)
+				logger: new NullLogger(),
+				textReader: new AttachmentTextReader(rootFolder: $root, l10n: $l10n, logger: new NullLogger(), textSource: $source)
+			)
 		);
 	}//end handler()
 
@@ -155,7 +155,7 @@ class ResponseGenerationTextFallbackTest extends TestCase {
 		$this->assertStringContainsString('Totale kosten: EUR 412.000', $turn->content);
 		$this->assertSame(
 			['This model does not read PDFs directly. hermiq used the text of jaarverslag-2025.pdf instead.'],
-			$handler->lastAttachmentNotices
+			$handler->attachmentNotices
 		);
 	}//end testAModelWithoutPdfGetsTheTextAndTheNoticeIsKept()
 
@@ -179,7 +179,7 @@ class ResponseGenerationTextFallbackTest extends TestCase {
 		$this->assertSame('dakgoot.png', $turn->parts[0]['name']);
 		$this->assertCount(1, $turn->parts);
 		$this->assertStringContainsString('Totale kosten: EUR 412.000', $turn->content);
-		$this->assertCount(1, $handler->lastAttachmentNotices);
+		$this->assertCount(1, $handler->attachmentNotices);
 	}//end testNativePartsAndTheFallbackShareOneTurn()
 
 	/**
@@ -190,11 +190,11 @@ class ResponseGenerationTextFallbackTest extends TestCase {
 	public function testANextTurnStartsWithoutNotices(): void {
 		$handler = $this->handler('');
 		$this->runTurn($handler, [['fileId' => 9, 'name' => 'plattegrond.png', 'mimeType' => 'image/png', 'size' => 70, 'origin' => 'files']]);
-		$this->assertSame(['This model cannot see images. plattegrond.png was not sent.'], $handler->lastAttachmentNotices);
+		$this->assertSame(['This model cannot see images. plattegrond.png was not sent.'], $handler->attachmentNotices);
 
 		$turn = $this->runTurn($handler, []);
 
 		$this->assertSame('Wat zijn de totale kosten?', $turn->content);
-		$this->assertSame([], $handler->lastAttachmentNotices);
+		$this->assertSame([], $handler->attachmentNotices);
 	}//end testANextTurnStartsWithoutNotices()
 }//end class

@@ -50,10 +50,7 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
-use OCA\Hermiq\Service\Chat\AttachmentTextReader;
-use OCA\Hermiq\Service\Llm\AttachmentMessage;
 use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
-use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -106,7 +103,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @var list<string>
 	 */
-	public array $lastAttachmentNotices = [];
+	public array $attachmentNotices = [];
 
 	/**
 	 * Constructor.
@@ -125,9 +122,6 @@ class ResponseGenerationHandler {
 	 *                                                    a model declared to read them
 	 *                                                    (chat-attachments-and-images). Null
 	 *                                                    sends the text turn as before.
-	 * @param AttachmentTextReader|null $attachmentText The text fallback and notices for
-	 *                                                  the attachments not sent natively
-	 *                                                  (chat-attachments-and-images D6).
 	 *
 	 * @return void
 	 *
@@ -139,7 +133,6 @@ class ResponseGenerationHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?AttachmentPartBuilder $attachmentParts = null,
-		private readonly ?AttachmentTextReader $attachmentText = null,
 	) {
 	}//end __construct()
 
@@ -232,7 +225,7 @@ class ResponseGenerationHandler {
 		string $speaker = '',
 	): string {
 		$startTime = microtime(true);
-		$this->lastAttachmentNotices = [];
+		$this->attachmentNotices = [];
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -422,12 +415,14 @@ class ResponseGenerationHandler {
 			// Chat-attachments-and-images: the attachments a declared model reads
 			// natively ride on the user turn; the rest go as text or are left out,
 			// and the notices say which (kept for the answer's `final` frame).
-			$messageHistory[] = $this->userTurn(
-				userMessage: $userMessage,
+			$turn = ($this->attachmentParts?->compose(
+				text: $userMessage,
 				driver: $driver,
 				attachments: $attachments,
 				speaker: $speaker
-			);
+			) ?? ['turn' => LLPhantMessage::user($userMessage), 'notices' => []]);
+			$this->attachmentNotices = $turn['notices'];
+			$messageHistory[] = $turn['turn'];
 
 			$llmStartTime = microtime(true);
 
@@ -638,41 +633,6 @@ class ResponseGenerationHandler {
 			throw new Exception('Failed to generate response: ' . $e->getMessage(), (int)$e->getCode(), $e);
 		}//end try
 	}//end generateResponse()
-
-	/**
-	 * The person's turn: native parts for what the model reads, text for the rest.
-	 *
-	 * Records a notice per attachment that is not sent natively.
-	 *
-	 * @param string                           $userMessage The person's message.
-	 * @param ChatDriver                       $driver      The driver the turn runs on.
-	 * @param array<int, array<string, mixed>> $attachments The resolved attachments.
-	 * @param string                           $speaker     The uid they were resolved for.
-	 *
-	 * @return LLPhantMessage The user turn.
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factory is the library's public API.
-	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
-	 */
-	private function userTurn(string $userMessage, ChatDriver $driver, array $attachments, string $speaker): LLPhantMessage {
-		if ($attachments === []) {
-			return LLPhantMessage::user($userMessage);
-		}
-
-		$split = ($this->attachmentParts?->forDriver(driver: $driver, attachments: $attachments, speaker: $speaker)
-			?? ['parts' => [], 'fallback' => $attachments]);
-		$fallback = ($this->attachmentText?->read(attachments: $split['fallback'], speaker: $speaker)
-			?? ['text' => '', 'notices' => []]);
-		$this->lastAttachmentNotices = $fallback['notices'];
-
-		$text = $userMessage . $fallback['text'];
-		if ($split['parts'] === []) {
-			return LLPhantMessage::user($text);
-		}
-
-		return AttachmentMessage::withParts(text: $text, parts: $split['parts']);
-	}//end userTurn()
 
 	/**
 	 * The tokens an OpenAI turn used, from LLPhant's running total.

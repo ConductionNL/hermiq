@@ -140,7 +140,7 @@ class EngineAttachmentsTest extends TestCase {
 		$response = $this->createMock(ResponseGenerationHandler::class);
 		$response->method('generateResponse')->willReturnCallback(
 			function (...$args) use ($responseFailure, $notices, &$response): string {
-				$response->lastAttachmentNotices = $notices;
+				$response->attachmentNotices = $notices;
 				// Positional, in the order of generateResponse(): attachments is the 13th.
 				$this->handed = ($args[12] ?? []);
 				// The 14th is the speaker, whose Files the native parts are read from.
