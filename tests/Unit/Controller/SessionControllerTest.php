@@ -25,7 +25,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
+use Exception;
 use OCA\Hermiq\Controller\SessionController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -74,6 +76,13 @@ class SessionControllerTest extends TestCase {
 	private IUserSession $userSession;
 
 	/**
+	 * Mock agent access (every agent readable unless a test says otherwise).
+	 *
+	 * @var AgentAccessService&MockObject
+	 */
+	private AgentAccessService $agentAccess;
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -91,7 +100,26 @@ class SessionControllerTest extends TestCase {
 		$this->userSession = $this->createMock(IUserSession::class);
 		$this->userSession->method('getUser')->willReturn($user);
 
+		$this->agentAccess = $this->createMock(AgentAccessService::class);
+
 	}//end setUp()
+
+	/**
+	 * An agent the caller may use.
+	 *
+	 * @param string $uuid The agent uuid.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function readableAgent(string $uuid): ObjectEntity {
+		$agent = new ObjectEntity();
+		$agent->setUuid($uuid);
+		$agent->setObject(['name' => 'Agent builder', 'isPrivate' => false]);
+		$this->agentAccess->method('loadAccessibleAgent')->willReturnCallback(
+			static fn (string $agentId, string $userId): ?ObjectEntity => ($agentId === $uuid ? $agent : null)
+		);
+		return $agent;
+	}//end readableAgent()
 
 	/**
 	 * Build the controller wired to the current mocks.
@@ -112,7 +140,8 @@ class SessionControllerTest extends TestCase {
 			objectService: $this->objectService,
 			userSession: $this->userSession,
 			sessionRoom: $sessionRoom,
-			logger: $this->createMock(originalClassName: LoggerInterface::class)
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+			agentAccess: $this->agentAccess
 		);
 
 	}//end controller()
@@ -295,6 +324,7 @@ class SessionControllerTest extends TestCase {
 	 */
 	public function testCreatePersistsConversationWithGeneratedTitle(): void {
 		$this->request->method('getParams')->willReturn(['agentId' => 'agent-1']);
+		$this->readableAgent(uuid: 'agent-1');
 		$this->engine->expects($this->once())->method('ensureUniqueTitle')->willReturn('New Conversation 2');
 
 		$saved = null;
@@ -319,35 +349,97 @@ class SessionControllerTest extends TestCase {
 	}//end testCreatePersistsConversationWithGeneratedTitle()
 
 	/**
-	 * An unknown `agentUuid` warns and continues with an UNBOUND session —
-	 * the behaviour `resolveAgentId()` has always documented.
+	 * An agent the caller cannot use (unknown, or private and not shared) is a 404
+	 * and nothing is saved (hermiq#1086).
 	 *
-	 * `ObjectService::find()` signals "not found" by THROWING (`@throws
-	 * Exception If the object is not found`), not by returning null, so the
-	 * helper's `if ($agent === null)` warn-and-continue branch was unreachable
-	 * for the exact case it was written for: the throw propagated to `create()`
-	 * and was translated into a 500 "Failed to create conversation". This
-	 * asserts the documented contract instead.
+	 * This replaces the old "unknown agentUuid leaves the session unbound" contract.
+	 * That 201 only existed in the mock: the session schema requires `agentId`, so in
+	 * production the unbound save failed validation and surfaced as a 500. Now that
+	 * the create runs past OpenRegister's create check (see the test below), the
+	 * controller is the guard and refuses before it writes anything. A private agent
+	 * answers exactly like a missing one, so a non-owner cannot confirm it exists.
 	 *
-	 * The null grants nothing: with `agentId` unset the required-`agentId`
-	 * conversation schema rejects the save in production, so an unresolvable
-	 * agent still cannot produce a bound session.
+	 * @param array<string, string> $params The request parameters.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider unusableAgents
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testCreateRefusesAnAgentTheCallerCannotUse(array $params): void {
+		$this->request->method('getParams')->willReturn($params);
+		$this->agentAccess->method('loadAccessibleAgent')->willReturn(null);
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->create();
+
+		$this->assertSame(404, $response->getStatus());
+		$this->assertSame('Agent not found', $response->getData()['error']);
+		$this->assertNotEmpty($response->getData()['message']);
+
+	}//end testCreateRefusesAnAgentTheCallerCannotUse()
+
+	/**
+	 * Both ways a create names its agent.
+	 *
+	 * @return array<string, array{0: array<string, string>}>
+	 */
+	public static function unusableAgents(): array {
+		return [
+			'unknown agentUuid' => [['agentUuid' => 'agent-missing']],
+			'private agentId' => [['agentId' => 'agent-private']],
+		];
+	}//end unusableAgents()
+
+	/**
+	 * A create without any agent is a 400 with a message, not the schema's 500.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
-	public function testCreateWithUnknownAgentUuidWarnsAndLeavesSessionUnbound(): void {
-		$this->request->method('getParams')->willReturn(['agentUuid' => 'agent-missing']);
-		$this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+	public function testCreateWithoutAnAgentIsAClientError(): void {
+		$this->request->method('getParams')->willReturn(['title' => 'No agent']);
+		$this->objectService->expects($this->never())->method('saveObject');
 
-		$saved = null;
-		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object) use (&$saved): ObjectEntity {
-				$saved = $object;
+		$response = $this->controller()->create();
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertNotEmpty($response->getData()['message']);
+
+	}//end testCreateWithoutAnAgentIsAClientError()
+
+	/**
+	 * A user who is not an admin can start a session (hermiq#1086).
+	 *
+	 * The Session schema grants `read` only, owner-scoped, and deliberately lists no
+	 * `create` (PrivateSchemaReadRulesTest::testWriteActionsStayOmitted, hermiq#319).
+	 * OpenRegister therefore refuses `create` to every non-admin on the default
+	 * `_rbac: true` path, which is the 500 in #1086. The controller is the guard
+	 * instead: it has resolved the caller and checked the agent, so it saves with
+	 * `_rbac: false`, as GoalService::set() does for the owner-scoped Goal schema.
+	 * OpenRegister still stamps `_owner` from the user session, so the owner-only
+	 * read and the owner admit on later updates keep working.
+	 *
+	 * The session is always the caller's: a `userId` in the request is ignored, so
+	 * this path cannot plant a session in somebody else's list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testANonAdminCreatesTheirOwnSessionPastTheObjectApiCreateCheck(): void {
+		$this->request->method('getParams')->willReturn(['agentUuid' => 'agent-1', 'userId' => 'bob', 'title' => 'Mine']);
+		$this->readableAgent(uuid: 'agent-1');
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-new');
-				$entity->setObject($object);
+				$entity->setObject($passed[0]);
 				return $entity;
 			}
 		);
@@ -355,9 +447,52 @@ class SessionControllerTest extends TestCase {
 		$response = $this->controller()->create();
 
 		$this->assertSame(201, $response->getStatus());
-		$this->assertNull($saved['agentId']);
+		$this->assertSame('alice', $args[0]['userId'], 'The session belongs to the caller, never to a userId in the request.');
+		$this->assertSame('agent-1', $args[0]['agentId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The create must not depend on an object-API create grant the schema does not give (_rbac).');
+		$this->assertTrue($args[6] ?? true, 'Multitenancy stays on, so the session gets the caller\'s organisation.');
 
-	}//end testCreateWithUnknownAgentUuidWarnsAndLeavesSessionUnbound()
+	}//end testANonAdminCreatesTheirOwnSessionPastTheObjectApiCreateCheck()
+
+	/**
+	 * A failed create answers with the reason, and a 4xx code keeps its status.
+	 *
+	 * @param int $code The exception code the save throws with.
+	 * @param int $status The status the response must carry.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider failedSaves
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testAFailedCreateCarriesItsReasonAndStatus(int $code, int $status): void {
+		$this->request->method('getParams')->willReturn(['agentId' => 'agent-1', 'title' => 'x']);
+		$this->readableAgent(uuid: 'agent-1');
+		$this->objectService->method('saveObject')->willThrowException(new Exception('The save was refused', $code));
+
+		$response = $this->controller()->create();
+
+		$this->assertSame($status, $response->getStatus());
+		$this->assertSame('Failed to create conversation', $response->getData()['error']);
+		$this->assertSame('The save was refused', $response->getData()['message']);
+
+	}//end testAFailedCreateCarriesItsReasonAndStatus()
+
+	/**
+	 * Exception codes and the status each one answers with.
+	 *
+	 * @return array<string, array{0: int, 1: int}>
+	 */
+	public static function failedSaves(): array {
+		return [
+			'a 4xx code keeps its status' => [422, 422],
+			'a refusal keeps its 403' => [403, 403],
+			'no code is a server error' => [0, 500],
+			'a non-HTTP code is a server error' => [23000, 500],
+		];
+	}//end failedSaves()
 
 	/**
 	 * update() refuses a foreign conversation (403, gate-7) and, for the

@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -52,7 +53,6 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * CRUD operations for conversations with per-object ownership guards.
@@ -86,13 +86,6 @@ class SessionController extends Controller {
 	 * @var string
 	 */
 	private const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * Schema slug for agent objects.
-	 *
-	 * @var string
-	 */
-	private const AGENT_SCHEMA = 'agent';
 
 	/**
 	 * Schema slug for conversation objects.
@@ -133,6 +126,7 @@ class SessionController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param TalkSessionRoom $sessionRoom Creates and renames the Talk room a session owns.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param AgentAccessService $agentAccess Decides whether the caller may use an agent.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
@@ -145,6 +139,7 @@ class SessionController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly TalkSessionRoom $sessionRoom,
 		private readonly LoggerInterface $logger,
+		private readonly AgentAccessService $agentAccess,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -368,83 +363,23 @@ class SessionController extends Controller {
 	}//end messages()
 
 	/**
-	 * Resolve the agent a new session is bound to.
-	 *
-	 * Accepts both `agentId` and `agentUuid`, and warns-and-continues when the
-	 * named agent does not exist — mirroring the OpenRegister original this
-	 * controller was ported from, where an unknown agent yields an unbound
-	 * session rather than a rejected request.
-	 *
-	 * @param array $data The request parameters.
-	 *
-	 * @return string|null The agent uuid, or null when unbound.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 */
-	private function resolveAgentId(array $data): ?string {
-		if (($data['agentId'] ?? null) !== null) {
-			return (string)$data['agentId'];
-		}
-
-		if (($data['agentUuid'] ?? null) === null) {
-			return null;
-		}
-
-		// Look up the agent to confirm it exists; log and continue with null
-		// when absent (mirrors OR's warn-and-continue).
-		//
-		// `ObjectService::find()` signals "not found" by THROWING (`@throws
-		// Exception If the object is not found`) rather than by returning null,
-		// so the warn-and-continue branch below was unreachable for the exact
-		// case it was written for: an unknown `agentUuid` propagated out of this
-		// helper instead of yielding an unbound session. Catching restores the
-		// documented contract. It grants nothing — a null agent leaves
-		// `agentId` unset, which the required-`agentId` conversation schema
-		// rejects on save, so an unresolvable agent still cannot create a bound
-		// session.
-		try {
-			$agent = $this->objectService->find(
-				id: (string)$data['agentUuid'],
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[SessionController] Agent UUID could not be resolved',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'agentUuid' => $data['agentUuid'],
-					'error' => $e->getMessage(),
-				]
-			);
-			return null;
-		}//end try
-
-		if ($agent === null) {
-			$this->logger->warning(
-				message: '[SessionController] Agent UUID not found',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'agentUuid' => $data['agentUuid'],
-				]
-			);
-			return null;
-		}
-
-		return (string)$agent->getUuid();
-	}//end resolveAgentId()
-
-	/**
 	 * Create a new conversation.
 	 *
 	 * Mirrors OR ConversationController::create(); accepts `agentId` or
 	 * `agentUuid` (both are the agent object UUID in hermiq). The organisation
-	 * is assigned by ObjectService multitenancy on save. NOTE: the hermiq
-	 * `conversation` schema declares `agentId` required, so creating a
-	 * conversation without a resolvable agent fails schema validation (OR
-	 * allowed a null agentId) — surfaced as the standard 500 error envelope.
+	 * is assigned by ObjectService multitenancy on save.
+	 *
+	 * 🔑 WHO MAY CREATE IS DECIDED HERE, NOT IN THE REGISTER (hermiq#1086). The
+	 * Session schema grants an owner-scoped `read` and lists no `create`, on
+	 * purpose (hermiq#319, PrivateSchemaReadRulesTest::testWriteActionsStayOmitted):
+	 * a `create` grant would let any signed-in user POST a session with somebody
+	 * else's `userId` through the object API. OpenRegister therefore refuses the
+	 * default `_rbac: true` save to every non-admin, which made chat admin-only.
+	 * This method is the guard instead: the caller is resolved, the agent must be
+	 * one the caller may use, and `userId` is always the caller. The save then runs
+	 * with `_rbac: false`, as GoalService::set() does for the owner-scoped Goal
+	 * schema. OpenRegister still stamps `_owner` from the user session, so the
+	 * owner-only read and the owner admit on later updates keep working.
 	 *
 	 * @return JSONResponse Created conversation.
 	 *
@@ -460,11 +395,35 @@ class SessionController extends Controller {
 			// Get request data.
 			$data = $this->request->getParams();
 
-			$agentId = $this->resolveAgentId(data: $data);
+			$requested = (string)($data['agentId'] ?? $data['agentUuid'] ?? '');
+			if ($requested === '') {
+				return new JSONResponse(
+					data: [
+						'error' => 'Agent required',
+						'message' => 'Choose an agent to start a session with.',
+					],
+					statusCode: 400
+				);
+			}
+
+			// A private agent the caller may not use answers exactly like a missing
+			// one, so this path cannot confirm that it exists (ADR-005 Rule 3).
+			$agent = $this->agentAccess->loadAccessibleAgent(agentId: $requested, userId: $userId);
+			if ($agent === null) {
+				return new JSONResponse(
+					data: [
+						'error' => 'Agent not found',
+						'message' => 'This agent does not exist or is not shared with you.',
+					],
+					statusCode: 404
+				);
+			}
+
+			$agentId = (string)$agent->getUuid();
 
 			// Generate unique title if not provided.
 			$title = ($data['title'] ?? null);
-			if ($title === null && $agentId !== null) {
+			if ($title === null) {
 				$title = $this->engine->ensureUniqueTitle(
 					baseTitle: 'New Conversation',
 					userId: $userId,
@@ -473,7 +432,7 @@ class SessionController extends Controller {
 			}
 
 			// Create the new conversation object (uuid/timestamps/organisation
-			// are assigned by ObjectService).
+			// are assigned by ObjectService). `_rbac: false`: see the docblock.
 			$conversation = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(
 					data: [
@@ -484,14 +443,15 @@ class SessionController extends Controller {
 					]
 				),
 				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				schema: self::CONVERSATION_SCHEMA,
+				_rbac: false
 			);
 
 			$conversation = $this->sessionRoom->attachToSession(
 				conversation: $conversation,
 				title: (string)$title,
 				ownerUid: $userId,
-				agentId: (string)$agentId
+				agentId: $agentId
 			);
 
 			$this->logger->info(
@@ -522,10 +482,32 @@ class SessionController extends Controller {
 					'error' => 'Failed to create conversation',
 					'message' => $e->getMessage(),
 				],
-				statusCode: 500
+				statusCode: $this->failureStatus(error: $e)
 			);
 		}//end try
 	}//end create()
+
+	/**
+	 * The HTTP status a failed write answers with.
+	 *
+	 * An exception that carries a 4xx code (401 from requireUserId(), a 403 refusal,
+	 * a 422 validation failure) keeps it, so the client can tell "you may not" and
+	 * "this input is wrong" from a server fault. Anything else is a 500.
+	 *
+	 * @param Exception $error The failure.
+	 *
+	 * @return int The status code.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function failureStatus(Exception $error): int {
+		$code = (int)$error->getCode();
+		if ($code >= 400 && $code < 500) {
+			return $code;
+		}
+
+		return 500;
+	}//end failureStatus()
 
 	/**
 	 * Update a conversation (e.g., rename).

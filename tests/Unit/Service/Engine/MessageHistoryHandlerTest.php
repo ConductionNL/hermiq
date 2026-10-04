@@ -120,6 +120,42 @@ class MessageHistoryHandlerTest extends TestCase {
 	}//end testStoreMessageAttachesOptionalFieldsOnlyWhenPresent()
 
 	/**
+	 * A turn in a non-admin's session is stored past OpenRegister's create check
+	 * (hermiq#1086).
+	 *
+	 * SessionTurn grants an owner-only `read` and lists no `create`, on purpose
+	 * (PrivateSchemaReadRulesTest::testWriteActionsStayOmitted): a create grant
+	 * would let anyone POST a turn into somebody else's sessionId through the
+	 * object API, and the thread is read by sessionId. So the object API stays
+	 * closed and this handler, which every caller reaches only after its own
+	 * session guard, saves with `_rbac: false`. The owner is still stamped from the
+	 * user session, which keeps the turn owner-only.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testATurnIsStoredWithoutAnObjectApiCreateGrant(): void {
+		$args = null;
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				$entity = new ObjectEntity();
+				$entity->setUuid('msg-1');
+				$entity->setObject($passed[0]);
+				return $entity;
+			}
+		);
+
+		(new MessageHistoryHandler($objectService, new NullLogger()))->storeMessage(conversationId: 'conv-1', role: 'user', content: 'Hello');
+
+		$this->assertSame('agentsessionturn', $args[3]);
+		$this->assertFalse($args[5], 'A non-admin\'s turn must not depend on an object-API create grant (_rbac).');
+
+	}//end testATurnIsStoredWithoutAnObjectApiCreateGrant()
+
+	/**
 	 * buildMessageHistory re-orders the most-recent-first fetch chronologically,
 	 * maps roles onto LLPhant factories, and skips incomplete or unknown turns.
 	 *

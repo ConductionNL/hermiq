@@ -2652,7 +2652,11 @@ OC.L10N.register(
         "Reads images": "Reads images",
         "Reads PDFs": "Reads PDFs",
         "Enter a model first.": "Enter a model first.",
-        "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.": "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice."
+        "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.": "Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.",
+        "Choose an agent to start a session with.": "Choose an agent to start a session with.",
+        "Could not start the session: {reason}": "Could not start the session: {reason}",
+        "This agent does not exist or is not shared with you.": "This agent does not exist or is not shared with you.",
+        "You do not have permission to start a session with this agent.": "You do not have permission to start a session with this agent."
     },
     "nplurals=2; plural=(n != 1);"
 )

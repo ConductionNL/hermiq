@@ -25,6 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SessionController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -106,7 +107,8 @@ class SessionControllerParticipantTest extends TestCase {
 			objectService: $objectService,
 			userSession: $userSession,
 			sessionRoom: $sessionRoom,
-			logger: new NullLogger()
+			logger: new NullLogger(),
+			agentAccess: $this->createMock(AgentAccessService::class)
 		);
 
 		return [$controller, $objectService];

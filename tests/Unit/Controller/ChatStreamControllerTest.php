@@ -394,6 +394,54 @@ class ChatStreamControllerTest extends TestCase {
 	}//end testSuccessfulTurnEmitsExactlyOneFinal()
 
 	/**
+	 * A streamed first message opens a non-admin's session past OpenRegister's
+	 * create check (hermiq#1086).
+	 *
+	 * The Session schema lists no `create` grant on purpose (hermiq#319), so the
+	 * default `_rbac: true` save is refused for every non-admin and the stream
+	 * ended in an error before the first token. The agent access check just above
+	 * the save is the guard, so the session is saved with `_rbac: false`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	public function testAFirstMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$agent = new ObjectEntity();
+				$agent->setUuid('agent-1');
+				$agent->setObject(['name' => 'Agent builder', 'isPrivate' => false]);
+				return $agent;
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(
+			['message' => 'hello', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []]
+		);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				$session = new ObjectEntity();
+				$session->setUuid('conv-new');
+				$session->setObject($passed[0]);
+				return $session;
+			}
+		);
+
+		$controller = $this->makeController('{"message":"hi","agentUuid":"agent-1"}');
+		$this->runStream($controller);
+
+		$this->assertCount(1, $this->frames($controller, 'final'), json_encode($controller->capturedEvents));
+		$this->assertSame('alice', $args[0]['userId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The new session must not depend on an object-API create grant (_rbac).');
+
+	}//end testAFirstMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck()
+
+	/**
 	 * A failed turn (engine throws) emits exactly one terminal `error`
 	 * (stream_failed) and zero `final` frames — and the wire message is the
 	 * generic public string, never the exception text.

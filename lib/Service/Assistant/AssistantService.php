@@ -45,6 +45,7 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\App\IAppManager;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -143,6 +144,7 @@ class AssistantService {
 	 * @param MessageHistoryHandler $historyHandler Message storage/history (shared with Engine).
 	 * @param ResponseGenerationHandler $responseHandler LLM call orchestration (shared with Engine).
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param IAppManager $appManager Decides whether `context.app` names an installed, enabled app.
 	 * @param GuardrailPolicyService|null $guardrailPolicyService Resolves + applies the effective
 	 *                                                            GuardrailPolicy's input/output
 	 *                                                            filters. Nullable purely so a
@@ -162,6 +164,7 @@ class AssistantService {
 		private readonly MessageHistoryHandler $historyHandler,
 		private readonly ResponseGenerationHandler $responseHandler,
 		private readonly LoggerInterface $logger,
+		private readonly IAppManager $appManager,
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
 		private readonly ?LiteracyRequirement $literacy = null,
 	) {
@@ -380,42 +383,13 @@ class AssistantService {
 	 * @spec openspec/changes/woo-llm-anonymisation/design.md#decision-3
 	 */
 	private function findOrCreateDetectorAgent(string $app): ObjectEntity {
-		$name = sprintf(self::DETECTOR_AGENT_NAME_TEMPLATE, $app);
-
-		$existing = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AGENT_SCHEMA)
-			// _rbac false: one shared, private, tool-locked agent per app. Under the
-			// Agent read rule (hermiq#976) each other user would miss it and
-			// provision a duplicate. Tenancy still applies.
-			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1], _rbac: false);
-
-		foreach ($existing as $candidate) {
-			if ($candidate instanceof ObjectEntity) {
-				return $candidate;
-			}
-		}
-
-		$this->logger->info(
-			message: '[AssistantService] Provisioning dedicated PII-span-detector agent',
-			context: ['file' => __FILE__, 'line' => __LINE__, 'app' => $app]
-		);
-
-		return $this->objectService->saveObject(
-			object: $this->sanitizeForSave(
-				data: [
-					'name' => $name,
-					'description' => 'Auto-provisioned tool-free structured PII/redaction-span detector for '
-						. 'the ' . $app . ' woo-llm-anonymisation surface. Do not add tools — this Agent is '
-						. 'deliberately locked to zero tool execution.',
-					'prompt' => $this->detectPiiSystemPrompt(),
-					'tools' => [self::NO_TOOLS_SENTINEL],
-					'isPrivate' => true,
-					'active' => true,
-				]
-			),
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+		return $this->provisionAgent(
+			app: $app,
+			name: sprintf(self::DETECTOR_AGENT_NAME_TEMPLATE, $app),
+			description: 'Auto-provisioned tool-free structured PII/redaction-span detector for '
+				. 'the ' . $app . ' woo-llm-anonymisation surface. Do not add tools — this Agent is '
+				. 'deliberately locked to zero tool execution.',
+			prompt: $this->detectPiiSystemPrompt()
 		);
 	}//end findOrCreateDetectorAgent()
 
@@ -569,6 +543,17 @@ class AssistantService {
 
 		$agent = $this->findOrCreateAgent(app: $app);
 
+		// 🔑 WHO MAY START A SESSION IS DECIDED HERE, NOT IN THE REGISTER (hermiq#1088).
+		// The Session schema grants an owner-scoped `read` and lists no `create`, on
+		// purpose (hermiq#319, PrivateSchemaReadRulesTest::testWriteActionsStayOmitted),
+		// so the default `_rbac: true` save refuses every non-admin, as the chat did
+		// in hermiq#1086. The guard is this surface: the controller resolved the
+		// caller (401 otherwise), converse() ran LiteracyRequirement::assertMayUseAgents()
+		// (403), and the agent is the app's one shared, tool-locked case-assistant
+		// agent every signed-in user talks to (design.md Decision 1, the spec's
+		// "authenticated user" scenario). `userId` is always the caller. OpenRegister
+		// still stamps `_owner` from the user session, so the owner-only read and the
+		// ownership check on reuse above keep working.
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
 				data: [
@@ -579,7 +564,8 @@ class AssistantService {
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 	}//end resolveConversation()
 
@@ -593,14 +579,57 @@ class AssistantService {
 	 * @spec openspec/changes/case-assistant-surface/design.md#decision-1
 	 */
 	private function findOrCreateAgent(string $app): ObjectEntity {
-		$name = 'Case Assistant (' . $app . ')';
+		return $this->provisionAgent(
+			app: $app,
+			name: 'Case Assistant (' . $app . ')',
+			description: 'Auto-provisioned tool-free conversational agent for the ' . $app
+				. ' case-assistant surface. Do not add tools — this Agent is deliberately locked '
+				. 'to zero tool execution (case-assistant-surface design.md Decision 1).',
+			prompt: 'You are a helpful case assistant. Answer only using the CASE CONTEXT '
+				. 'provided below and the conversation so far. If the context does not contain the '
+				. 'answer, say so honestly instead of guessing. You cannot take any action — you can '
+				. 'only discuss and explain.'
+		);
+	}//end findOrCreateAgent()
+
+	/**
+	 * Find, or idempotently create, one shared, tool-locked agent for `$app`.
+	 *
+	 * 🔑 PROVISIONED BY THE SERVICE, NOT BY THE CALLER (hermiq#1088). The Agent
+	 * schema lists no `create`, on purpose (hermiq#319, AgentAuthorizationTest), so
+	 * the default save refused every non-admin and the surface stayed dark until an
+	 * administrator had used it once for that app. The guard is here instead:
+	 *
+	 *  - `$app` must be an installed, enabled app (IAppManager), checked before any
+	 *    lookup, so an unknown or disabled id finds and creates nothing (400);
+	 *  - every field is fixed by the callers in this class; the app id is the only
+	 *    part that comes from the request, so a caller cannot shape the agent;
+	 *  - `_unowned`: the system owns it, so whoever came first cannot rewrite its
+	 *    prompt or tools through OpenRegister's owner admit later.
+	 *
+	 * The lookup runs with `_rbac: false` too: the agent is private, and under the
+	 * Agent read rule (hermiq#976) every other user would miss it and provision a
+	 * duplicate. Tenancy still applies to both.
+	 *
+	 * @param string $app Calling app id.
+	 * @param string $name The agent's fixed name.
+	 * @param string $description The agent's fixed description.
+	 * @param string $prompt The agent's fixed system prompt.
+	 *
+	 * @return ObjectEntity The Agent object.
+	 *
+	 * @throws Exception (code 400) When `$app` is not an installed, enabled app.
+	 *
+	 * @spec openspec/changes/case-assistant-surface/design.md#decision-1
+	 */
+	private function provisionAgent(string $app, string $name, string $description, string $prompt): ObjectEntity {
+		if ($this->appManager->isEnabledForUser($app) === false) {
+			throw new Exception('context.app is not an installed and enabled app: ' . $app, 400);
+		}
 
 		$existing = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::AGENT_SCHEMA)
-			// _rbac false: one shared, private, tool-locked agent per app. Under the
-			// Agent read rule (hermiq#976) each other user would miss it and
-			// provision a duplicate. Tenancy still applies.
 			->findAll(config: ['filters' => ['name' => $name], 'limit' => 1], _rbac: false);
 
 		foreach ($existing as $candidate) {
@@ -610,30 +639,27 @@ class AssistantService {
 		}
 
 		$this->logger->info(
-			message: '[AssistantService] Provisioning dedicated case-assistant agent',
-			context: ['file' => __FILE__, 'line' => __LINE__, 'app' => $app]
+			message: '[AssistantService] Provisioning a dedicated tool-free agent',
+			context: ['file' => __FILE__, 'line' => __LINE__, 'app' => $app, 'name' => $name]
 		);
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
 				data: [
 					'name' => $name,
-					'description' => 'Auto-provisioned tool-free conversational agent for the ' . $app
-						. ' case-assistant surface. Do not add tools — this Agent is deliberately locked '
-						. 'to zero tool execution (case-assistant-surface design.md Decision 1).',
-					'prompt' => 'You are a helpful case assistant. Answer only using the CASE CONTEXT '
-						. 'provided below and the conversation so far. If the context does not contain the '
-						. 'answer, say so honestly instead of guessing. You cannot take any action — you can '
-						. 'only discuss and explain.',
+					'description' => $description,
+					'prompt' => $prompt,
 					'tools' => [self::NO_TOOLS_SENTINEL],
 					'isPrivate' => true,
 					'active' => true,
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			schema: self::AGENT_SCHEMA,
+			_rbac: false,
+			_unowned: true
 		);
-	}//end findOrCreateAgent()
+	}//end provisionAgent()
 
 	/**
 	 * Render the caller-supplied `context` into the RAG-shaped grounding text
