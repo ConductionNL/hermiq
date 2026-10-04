@@ -137,18 +137,12 @@ class LlmSettingsController extends Controller {
 		// Declared native inputs per model live in their own key
 		// (`hermiq.modelCapabilities`), never in the llm blob. Validated before
 		// anything is saved, written only after the llm save succeeded.
-		$capabilities = null;
-		if (array_key_exists('modelCapabilities', $data) === true) {
-			try {
-				$capabilities = $this->modelCapabilities->normalizeDeclarations(
-					declarations: (array)$data['modelCapabilities']
-				);
-			} catch (InvalidArgumentException $e) {
-				return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
-			}
-
-			unset($data['modelCapabilities']);
+		$capabilities = $this->declaredCapabilities(data: $data);
+		if ($capabilities instanceof JSONResponse) {
+			return $capabilities;
 		}
+
+		unset($data['modelCapabilities']);
 
 		$data = $this->dropBlankCredentials(data: $data);
 
@@ -179,6 +173,29 @@ class LlmSettingsController extends Controller {
 		);
 
 	}//end update()
+
+	/**
+	 * The patch's declared model capabilities, normalised; null when the patch names none.
+	 *
+	 * @param array<string, mixed> $data The llm patch.
+	 *
+	 * @return array<string, list<string>>|JSONResponse|null The declarations, or the 422 answer.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 */
+	private function declaredCapabilities(array $data): array|JSONResponse|null {
+		if (array_key_exists('modelCapabilities', $data) === false) {
+			return null;
+		}
+
+		try {
+			return $this->modelCapabilities->normalizeDeclarations(
+				declarations: (array)$data['modelCapabilities']
+			);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		}
+	}//end declaredCapabilities()
 
 	/**
 	 * The refusal for a patch hermiq never saves, or null when it may be saved.
