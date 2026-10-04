@@ -200,7 +200,7 @@
   },
   "src/views/Chat.vue": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 9
+      "count": 8
     },
     "vue/multi-word-component-names": {
       "count": 1

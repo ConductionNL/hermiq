@@ -370,10 +370,18 @@ class MessageHistoryHandler {
 			authorDisplayName: $authorDisplayName
 		);
 
+		// `_rbac: false`: SessionTurn grants an owner-only `read` and lists no
+		// `create`, on purpose (hermiq#319): a create grant would let anyone POST a
+		// turn into somebody else's sessionId through the object API, and a thread
+		// is read by sessionId. So the default save refuses every non-admin
+		// (hermiq#1086), and every caller of this method reaches it only after its
+		// own session guard (the chat controllers' ownership and participation
+		// checks). OpenRegister still stamps `_owner` from the user session.
 		$stored = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
 			register: self::REGISTER_SLUG,
-			schema: self::MESSAGE_SCHEMA
+			schema: self::MESSAGE_SCHEMA,
+			_rbac: false
 		);
 
 		$this->logger->debug(

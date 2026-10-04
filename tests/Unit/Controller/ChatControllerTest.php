@@ -260,6 +260,42 @@ class ChatControllerTest extends TestCase {
 	}//end testSendMessageDelegatesToEngine()
 
 	/**
+	 * A user who is not an admin can open a session by sending a first message
+	 * (hermiq#1086).
+	 *
+	 * The Session schema lists no `create` grant on purpose (hermiq#319), so the
+	 * default `_rbac: true` save is refused for every non-admin. The controller has
+	 * resolved the caller and read the agent under the caller's own rights, so the
+	 * new session is saved with `_rbac: false` and always for the caller.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testSendMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck(): void {
+		$this->stubParams(['agentUuid' => 'agent-1', 'message' => 'hi']);
+		$this->objectService->method('find')->willReturn($this->entity('agent-1', ['name' => 'Agent builder']));
+		$this->engine->method('ensureUniqueTitle')->willReturn('New Conversation');
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []]);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				return $this->entity('conv-new', $passed[0]);
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame('alice', $args[0]['userId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The new session must not depend on an object-API create grant (_rbac).');
+
+	}//end testSendMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck()
+
+	/**
 	 * A missing conversation AND agentUuid is a 400 (resolveConversation's
 	 * input-validation guard) and must log at WARNING — not ERROR with a full
 	 * stack trace — because it is expected client input error, not a server fault.
@@ -605,10 +641,12 @@ class ChatControllerTest extends TestCase {
 
 		$saved = null;
 		$savedUuid = 'unset';
+		$savedRbac = null;
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved, &$savedUuid): ObjectEntity {
+			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true) use (&$saved, &$savedUuid, &$savedRbac): ObjectEntity {
 				$saved = $object;
 				$savedUuid = $uuid;
+				$savedRbac = $_rbac;
 				$entity = new ObjectEntity();
 				$entity->setUuid('fb-1');
 				$entity->setObject($object);
@@ -620,6 +658,9 @@ class ChatControllerTest extends TestCase {
 
 		$this->assertSame(200, $response->getStatus());
 		$this->assertNull($savedUuid, 'A new feedback object must not target an existing uuid.');
+		// hermiq#1086: Feedback grants `read` only, so the default save refuses every
+		// non-admin. The participation and sessionId checks above are the guard.
+		$this->assertFalse($savedRbac, 'Feedback from a non-admin must not depend on an object-API create grant (_rbac).');
 		$this->assertSame(
 			[
 				'messageId' => 'msg-1',
