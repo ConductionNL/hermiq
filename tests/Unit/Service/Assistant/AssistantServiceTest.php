@@ -714,11 +714,9 @@ class AssistantServiceTest extends TestCase {
 	}//end testACallerRefusedByTheLiteracyCheckGets403AndNoSession()
 
 	/**
-	 * Provisioning the app's agent stays behind the register (hermiq#319): when it
-	 * does not exist yet and OpenRegister refuses the agent create for a non-admin,
-	 * the caller gets that 403, and no session is saved for an agent that is not
-	 * there. Whether a non-admin's first use may provision it is an open question
-	 * (hermiq#1088), so this pins today's answer, not a decision.
+	 * When creating the app's agent fails with a 4xx (any refusal OpenRegister still
+	 * makes, such as tenancy), the caller gets that code, and no session is saved
+	 * for an agent that is not there.
 	 *
 	 * @return void
 	 *

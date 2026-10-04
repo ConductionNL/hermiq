@@ -383,6 +383,7 @@ class AssistantService {
 	 * @spec openspec/changes/woo-llm-anonymisation/design.md#decision-3
 	 */
 	private function findOrCreateDetectorAgent(string $app): ObjectEntity {
+		$this->assertProvisionableApp(app: $app);
 		$name = sprintf(self::DETECTOR_AGENT_NAME_TEMPLATE, $app);
 
 		$existing = $this->objectService
@@ -418,7 +419,10 @@ class AssistantService {
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			schema: self::AGENT_SCHEMA,
+			// _rbac false, _unowned: see findOrCreateAgent(), the same rule (hermiq#1088).
+			_rbac: false,
+			_unowned: true
 		);
 	}//end findOrCreateDetectorAgent()
 
@@ -599,6 +603,27 @@ class AssistantService {
 	}//end resolveConversation()
 
 	/**
+	 * Refuse an app id that is not an installed, enabled Nextcloud app.
+	 *
+	 * The app id is the only part of a provisioned agent that comes from the
+	 * request, so it must name a real app the caller can use (hermiq#1088).
+	 * Runs before any lookup, so a refused id finds and creates nothing.
+	 *
+	 * @param string $app The `context.app` value.
+	 *
+	 * @return void
+	 *
+	 * @throws Exception (code 400) When the app is unknown or not enabled.
+	 */
+	private function assertProvisionableApp(string $app): void {
+		if ($this->appManager->isEnabledForUser($app) === true) {
+			return;
+		}
+
+		throw new Exception('context.app is not an installed and enabled app: ' . $app, 400);
+	}//end assertProvisionableApp()
+
+	/**
 	 * Find, or idempotently create, the dedicated tool-locked Agent for `$app`.
 	 *
 	 * @param string $app Calling app id.
@@ -608,6 +633,7 @@ class AssistantService {
 	 * @spec openspec/changes/case-assistant-surface/design.md#decision-1
 	 */
 	private function findOrCreateAgent(string $app): ObjectEntity {
+		$this->assertProvisionableApp(app: $app);
 		$name = 'Case Assistant (' . $app . ')';
 
 		$existing = $this->objectService
@@ -646,7 +672,17 @@ class AssistantService {
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			schema: self::AGENT_SCHEMA,
+			// 🔑 PROVISIONED BY THE SERVICE, NOT BY THE CALLER (hermiq#1088). The Agent
+			// schema lists no `create`, on purpose (hermiq#319, AgentAuthorizationTest),
+			// so the default save refused every non-admin and the surface stayed dark
+			// until an administrator had used it once for this app. The guard is here:
+			// assertProvisionableApp() admitted only an installed, enabled app, and every
+			// field above is fixed on the server (only the app id varies), so the caller
+			// cannot shape the agent. `_unowned`: the system owns it, so whoever came
+			// first cannot rewrite its prompt or tools through the owner admit later.
+			_rbac: false,
+			_unowned: true
 		);
 	}//end findOrCreateAgent()
 
