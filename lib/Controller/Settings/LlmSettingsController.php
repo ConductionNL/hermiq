@@ -129,36 +129,9 @@ class LlmSettingsController extends Controller {
 			unset($data['_route']);
 		}
 
-		$provider = $data['chatProvider'] ?? null;
-		if ($provider !== null
-			&& in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false
-		) {
-			return new JSONResponse(
-				[
-					'error' => 'Unsupported chat provider',
-					'allowed' => LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS,
-				],
-				Http::STATUS_UNPROCESSABLE_ENTITY
-			);
-		}
-
-		// Anthropic credential scope: a Claude Max / Pro subscription (authMode: oauth) is
-		// personal-only per the Anthropic Terms of Service — it may only be a personal token
-		// in personal settings, never an organisation-wide credential serving other users.
-		// Refuse oauth at organisation scope. An API key (authMode: api_key) may be either
-		// scope. See anthropic-agent-provider spec.
-		$anthropic = $data['anthropicConfig'] ?? [];
-		if (is_array($anthropic) === true
-			&& ($anthropic['authMode'] ?? '') === 'oauth'
-			&& ($anthropic['scope'] ?? 'organisation') === 'organisation'
-		) {
-			return new JSONResponse(
-				[
-					'error' => 'A Claude Max/Pro subscription (OAuth) may only be set as a personal token in '
-						. 'personal settings, never as an organisation credential (per the Anthropic Terms of Service).',
-				],
-				Http::STATUS_UNPROCESSABLE_ENTITY
-			);
+		$refusal = $this->refusalFor(data: $data);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		// Declared native inputs per model live in their own key
@@ -206,6 +179,54 @@ class LlmSettingsController extends Controller {
 		);
 
 	}//end update()
+
+	/**
+	 * The refusal for a patch hermiq never saves, or null when it may be saved.
+	 *
+	 * An unsupported chat provider, and an Anthropic subscription (OAuth) set at
+	 * organisation scope, are refused before anything is written.
+	 *
+	 * @param array<string, mixed> $data The llm patch.
+	 *
+	 * @return JSONResponse|null The 422 answer, or null.
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	private function refusalFor(array $data): ?JSONResponse {
+		$provider = $data['chatProvider'] ?? null;
+		if ($provider !== null
+			&& in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false
+		) {
+			return new JSONResponse(
+				[
+					'error' => 'Unsupported chat provider',
+					'allowed' => LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS,
+				],
+				Http::STATUS_UNPROCESSABLE_ENTITY
+			);
+		}
+
+		// Anthropic credential scope: a Claude Max / Pro subscription (authMode: oauth) is
+		// personal-only per the Anthropic Terms of Service — it may only be a personal token
+		// in personal settings, never an organisation-wide credential serving other users.
+		// Refuse oauth at organisation scope. An API key (authMode: api_key) may be either
+		// scope. See anthropic-agent-provider spec.
+		$anthropic = $data['anthropicConfig'] ?? [];
+		if (is_array($anthropic) === true
+			&& ($anthropic['authMode'] ?? '') === 'oauth'
+			&& ($anthropic['scope'] ?? 'organisation') === 'organisation'
+		) {
+			return new JSONResponse(
+				[
+					'error' => 'A Claude Max/Pro subscription (OAuth) may only be set as a personal token in '
+						. 'personal settings, never as an organisation credential (per the Anthropic Terms of Service).',
+				],
+				Http::STATUS_UNPROCESSABLE_ENTITY
+			);
+		}
+
+		return null;
+	}//end refusalFor()
 
 	/**
 	 * Strip any secret from the config before it reaches the browser.
