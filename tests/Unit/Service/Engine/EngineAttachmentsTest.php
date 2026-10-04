@@ -111,10 +111,11 @@ class EngineAttachmentsTest extends TestCase {
 	 * The engine over a shared session owned by Anne with Bram as participant.
 	 *
 	 * @param \Throwable|null $responseFailure What generateResponse throws after recording its input.
+	 * @param list<string>    $notices         The attachment notices the handler keeps for the answer.
 	 *
 	 * @return Engine
 	 */
-	private function engine(?\Throwable $responseFailure = null): Engine {
+	private function engine(?\Throwable $responseFailure = null, array $notices = []): Engine {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			static function (): ObjectEntity {
@@ -138,7 +139,8 @@ class EngineAttachmentsTest extends TestCase {
 
 		$response = $this->createMock(ResponseGenerationHandler::class);
 		$response->method('generateResponse')->willReturnCallback(
-			function (...$args) use ($responseFailure): string {
+			function (...$args) use ($responseFailure, $notices, &$response): string {
+				$response->attachmentNotices = $notices;
 				// Positional, in the order of generateResponse(): attachments is the 13th.
 				$this->handed = ($args[12] ?? []);
 				// The 14th is the speaker, whose Files the native parts are read from.
@@ -296,6 +298,27 @@ class EngineAttachmentsTest extends TestCase {
 		}
 
 	}//end testAnUnredactedAttachmentIsRefusedByName()
+
+	/**
+	 * The notices the handler kept for the answer travel on the engine's result.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	public function testTheAttachmentNoticesTravelOnTheResult(): void {
+		$notice = 'This model cannot see images. plattegrond.png was not sent.';
+
+		$result = $this->engine(null, [$notice])->processMessage(
+			conversationId: 'sess-1',
+			userId: 'anne',
+			userMessage: 'Waar is de nooduitgang?',
+			attachments: [['fileId' => 48213, 'origin' => 'files']]
+		);
+
+		$this->assertSame([$notice], ($result['attachmentNotices'] ?? null));
+
+	}//end testTheAttachmentNoticesTravelOnTheResult()
 
 	/**
 	 * A turn without attachments never opens anyone's Files and stores none.

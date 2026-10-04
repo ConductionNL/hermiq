@@ -1,6 +1,15 @@
 OC.L10N.register(
     "hermiq",
     {
+        "Attached file %s": "Attached file %s",
+        "End of %s": "End of %s",
+        "This model cannot see images. %s was not sent.": "This model cannot see images. %s was not sent.",
+        "hermiq used the text of %s.": "hermiq used the text of %s.",
+        "This model does not read PDFs directly. hermiq used the text of %s instead.": "This model does not read PDFs directly. hermiq used the text of %s instead.",
+        "hermiq cannot read %s. It was not sent.": "hermiq cannot read %s. It was not sent.",
+        "hermiq could not read the text of %s. It was not sent.": "hermiq could not read the text of %s. It was not sent.",
+        "The text of %1$s was cut to its first %2$d characters.": "The text of %1$s was cut to its first %2$d characters.",
+        "About the attachments": "About the attachments",
         "Blocked by": "Blocked by",
         "Every (minutes)": "Every (minutes)",
         "How a turn's result is checked: {kind: objectCount, register, schema, filters, target} or {kind: judge, question}.": "How a turn's result is checked: {kind: objectCount, register, schema, filters, target} or {kind: judge, question}.",

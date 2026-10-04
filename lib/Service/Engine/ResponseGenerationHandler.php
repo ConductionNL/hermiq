@@ -97,6 +97,15 @@ class ResponseGenerationHandler {
 	public array $lastUsage = [];
 
 	/**
+	 * The notices about attachments the last turn could not send natively, in the
+	 * person's language (chat-attachments-and-images D6). Read by the Engine onto
+	 * its result, and from there onto the stream's `final` frame.
+	 *
+	 * @var list<string>
+	 */
+	public array $attachmentNotices = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ProviderFactory $providerFactory LLM provider resolution (`hermiq.llm`).
@@ -216,6 +225,7 @@ class ResponseGenerationHandler {
 		string $speaker = '',
 	): string {
 		$startTime = microtime(true);
+		$this->attachmentNotices = [];
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -403,13 +413,16 @@ class ResponseGenerationHandler {
 			// Add system message to history, then the current user message.
 			array_unshift($messageHistory, LLPhantMessage::system($systemPrompt));
 			// Chat-attachments-and-images: the attachments a declared model reads
-			// natively ride on the user turn; without the builder the turn is text.
-			$messageHistory[] = ($this->attachmentParts?->userTurn(
+			// natively ride on the user turn; the rest go as text or are left out,
+			// and the notices say which (kept for the answer's `final` frame).
+			$turn = ($this->attachmentParts?->compose(
 				text: $userMessage,
 				driver: $driver,
 				attachments: $attachments,
 				speaker: $speaker
-			) ?? LLPhantMessage::user($userMessage));
+			) ?? ['turn' => LLPhantMessage::user($userMessage), 'notices' => []]);
+			$this->attachmentNotices = $turn['notices'];
+			$messageHistory[] = $turn['turn'];
 
 			$llmStartTime = microtime(true);
 

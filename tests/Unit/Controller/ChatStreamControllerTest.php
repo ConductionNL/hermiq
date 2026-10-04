@@ -394,6 +394,63 @@ class ChatStreamControllerTest extends TestCase {
 	}//end testSuccessfulTurnEmitsExactlyOneFinal()
 
 	/**
+	 * The attachment notices of the turn ride on the `final` frame, and no new event type is added.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	public function testTheAttachmentNoticesRideOnTheFinalFrame(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$notice = 'This model does not read PDFs directly. hermiq used the text of jaarverslag-2025.pdf instead.';
+		$this->engine->method('processMessage')->willReturn(
+			['message' => 'EUR 412.000', 'messageId' => 'msg-43', 'sources' => [], 'attachmentNotices' => [$notice]]
+		);
+
+		$controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+		$this->runStream($controller);
+
+		$finals = $this->frames($controller, 'final');
+		$this->assertCount(1, $finals);
+		$this->assertSame([$notice], ($finals[0]['payload']['attachmentNotices'] ?? null));
+		$types = array_unique(array_column($controller->capturedEvents, 'type'));
+		$this->assertSame([], array_values(array_diff($types, ['token', 'tool_call', 'tool_result', 'heartbeat', 'final', 'error'])));
+
+	}//end testTheAttachmentNoticesRideOnTheFinalFrame()
+
+	/**
+	 * A turn whose result names no notices sends an empty list, so the page can rely on the key.
+	 *
+	 * @return void
+	 */
+	public function testAFinalFrameWithoutNoticesCarriesAnEmptyList(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(['message' => 'ok', 'messageId' => 'msg-44', 'sources' => []]);
+
+		$controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+		$this->runStream($controller);
+
+		$this->assertSame([], ($this->frames($controller, 'final')[0]['payload']['attachmentNotices'] ?? null));
+
+	}//end testAFinalFrameWithoutNoticesCarriesAnEmptyList()
+
+	/**
 	 * A streamed first message opens a non-admin's session past OpenRegister's
 	 * create check (hermiq#1086).
 	 *
