@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
@@ -112,10 +113,11 @@ class EngineAttachmentsTest extends TestCase {
 	 *
 	 * @param \Throwable|null $responseFailure What generateResponse throws after recording its input.
 	 * @param list<string>    $notices         The attachment notices the handler keeps for the answer.
+	 * @param list<array<string, mixed>> $created The images the agent created during the turn.
 	 *
 	 * @return Engine
 	 */
-	private function engine(?\Throwable $responseFailure = null, array $notices = []): Engine {
+	private function engine(?\Throwable $responseFailure = null, array $notices = [], array $created = []): Engine {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			static function (): ObjectEntity {
@@ -170,6 +172,9 @@ class EngineAttachmentsTest extends TestCase {
 			static fn (string $text, array $params = []): string => vsprintf($text, $params)
 		);
 
+		$images = $this->createMock(ImageGenerationService::class);
+		$images->method('takeCreated')->willReturnOnConsecutiveCalls($created, []);
+
 		return new Engine(
 			$objectService,
 			$context,
@@ -183,7 +188,8 @@ class EngineAttachmentsTest extends TestCase {
 			new ConversationParticipation(),
 			$users,
 			null,
-			new TurnAttachmentResolver($this->filesOnlyAnneCanRead(), $l10n)
+			new TurnAttachmentResolver($this->filesOnlyAnneCanRead(), $l10n),
+			$images
 		);
 	}//end engine()
 
@@ -335,4 +341,37 @@ class EngineAttachmentsTest extends TestCase {
 		$this->assertSame([], $this->handed);
 
 	}//end testATurnWithoutAttachmentsIsUnchanged()
+
+	/**
+	 * An image the agent created during the turn is stored on the answer and travels on the result.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 */
+	public function testAnImageTheAgentCreatedIsStoredOnTheAnswer(): void {
+		$image = ['fileId' => 902, 'name' => 'image-1.png', 'mimeType' => 'image/png', 'size' => 2048, 'origin' => 'generated'];
+
+		$result = $this->engine(null, [], [$image])->processMessage(
+			conversationId: 'sess-1',
+			userId: 'anne',
+			userMessage: 'Maak een infographic met de afvalkalender van april'
+		);
+
+		$assistant = array_values(array_filter($this->stored, static fn (array $args): bool => ($args['role'] ?? null) === 'assistant'));
+		$this->assertCount(1, $assistant);
+		$this->assertSame([$image], ($assistant[0]['attachments'] ?? null));
+		$this->assertSame([$image], ($result['attachments'] ?? null));
+	}//end testAnImageTheAgentCreatedIsStoredOnTheAnswer()
+
+	/**
+	 * An answer without a created image carries an empty list.
+	 *
+	 * @return void
+	 */
+	public function testAnAnswerWithoutAnImageCarriesNoAttachments(): void {
+		$result = $this->engine()->processMessage(conversationId: 'sess-1', userId: 'anne', userMessage: 'Hallo');
+
+		$this->assertSame([], ($result['attachments'] ?? null));
+	}//end testAnAnswerWithoutAnImageCarriesNoAttachments()
 }//end class
