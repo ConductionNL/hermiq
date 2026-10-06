@@ -384,6 +384,17 @@ Project / spec documentation:
 | [`openspec/ROADMAP.md`](openspec/ROADMAP.md) | Product roadmap |
 | [`openspec/`](openspec/) | Implementation specifications and changes |
 
+<!-- discovery:start -->
+## Standards & federation
+
+| Standard | Role | Access |
+|---|---|---|
+| [Model Context Protocol server (governed per-run tool access)](https://modelcontextprotocol.io/specification) | Provides | Token, no login |
+| OpenAI-compatible Chat Completions API | Uses | — |
+
+Other servers can read this list without logging in, from the Nextcloud capabilities endpoint (published by OpenRegister). Details, federation and admin switches: [docs/standards-and-federation.md](docs/standards-and-federation.md).
+<!-- discovery:end -->
+
 ## Standards & Compliance
 
 - **Accessibility:** WCAG AA (Dutch government requirement)

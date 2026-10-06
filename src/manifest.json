@@ -1999,5 +1999,23 @@
 				]
 			}
 		]
+	},
+	"discovery": {
+		"public": true,
+		"standards": [
+			{
+				"id": "mcp",
+				"name": "Model Context Protocol server (governed per-run tool access)",
+				"role": "provides",
+				"access": "token",
+				"endpoint": "/apps/hermiq/api/mcp/run",
+				"specUrl": "https://modelcontextprotocol.io/specification"
+			},
+			{
+				"id": "openai-api",
+				"name": "OpenAI-compatible Chat Completions API",
+				"role": "consumes"
+			}
+		]
 	}
 }
