@@ -187,6 +187,9 @@ class TalkTurnService {
 	 * @return string|null The display name, or null when unresolvable.
 	 *
 	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 *
+	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getDisplayName() as
+	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.
 	 */
 	private function displayNameOf(string $uid): ?string {
 		$user = $this->userManager->get($uid);
