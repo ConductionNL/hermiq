@@ -476,6 +476,9 @@ class ToolOversightController extends Controller {
 	 *   each add a branch on one linear write path.
 	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
 	 *   early-return guards multiply paths without nested logic.
+	 *
+	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getUID() as
+	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.
 	 */
 	public function updateToolGrants(string $agentId): JSONResponse {
 		$user = $this->userSession->getUser();

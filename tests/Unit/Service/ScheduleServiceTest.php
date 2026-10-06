@@ -239,6 +239,9 @@ class ScheduleServiceTest extends TestCase {
 
 				$user = $this->createMock(IUser::class);
 				$user->method('getUID')->willReturn($uid);
+				// OCP 35 declares isEnabled(): bool, so an unconfigured mock
+				// would answer false (a disabled user) instead of null.
+				$user->method('isEnabled')->willReturn(true);
 				return $user;
 			}
 		);
