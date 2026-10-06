@@ -43,7 +43,7 @@
           run 31490144919.
         -->
         <php min-version="8.3"/>
-        <nextcloud min-version="32" max-version="34"/>
+        <nextcloud min-version="32" max-version="35"/>
     </dependencies>
 
     <!-- @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2 -->
