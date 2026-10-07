@@ -9001,6 +9001,44 @@
 				"readOn": "2026-10-01"
 			},
 			"reachedOn": "Agent page: Keep in git"
+		},
+		{
+			"id": "tl-approval-waiver",
+			"area": "tools",
+			"name": "Let one tool grant skip the approval step, without loosening anything else about that tool.",
+			"source": "spec-round-2026-10-07",
+			"hermiq": "partial",
+			"built": {
+				"state": "built",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "lib/Service/Engine/FacadeToolInvoker.php:546,1071 a grant entry with a #noapproval fragment suppresses the approval gate for that exact invocation and nothing else; written as part of the grant string, there is no separate switch in the grant editor (src has no noapproval control), hence partial.",
+				"spec": "openspec/specs/agent-capability-reach"
+			},
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown"
+		},
+		{
+			"id": "dl-talk-session-room",
+			"area": "delivery",
+			"name": "Give each chat session with a Talk-enabled agent its own Talk room, named after the session.",
+			"source": "spec-round-2026-10-07",
+			"hermiq": "yes",
+			"built": {
+				"state": "built",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "lib/Service/Talk/TalkSessionRoom.php:139 createForSession() creates the room, adds the owner, enables the agent's bot and stores talkRoomToken with talkRoomOrigin created; :313 renames only a room Hermiq created; called from lib/Controller/SessionController.php on session create.",
+				"spec": "openspec/specs/talk-agent-sessions"
+			},
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown"
 		}
 	],
 	"pending": [
