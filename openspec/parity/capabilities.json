@@ -603,15 +603,16 @@
 			"area": "agents",
 			"name": "See every agent in the organisation in one list with its owner and status.",
 			"source": "demand-derived",
-			"hermiq": "partial",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json:169-198 AgentCatalog type:index, config.columns only name and model (no owner/status columns); rowRoute AgentDetail:187. Specified in openspec/changes/agents-sharing-and-catalog-columns/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-sharing-and-catalog-columns"
+				"evidence": "src/manifest.json:191-212 AgentCatalog (/agents) columns name, owner, isPrivate ('Who can use it'), active ('Status', formatter agentStatus) and model; lib/Service/Agent/AgentCatalog.php reads the page through the Agent read rule with its own total, and an organisation admin sees every agent with the reason (agents-sharing-and-catalog-columns tasks 2-4, merged; Playwright written, not run)",
+				"change": "openspec/changes/agents-sharing-and-catalog-columns",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "/agents AgentCatalog",
-			"note": "The catalog lists every agent the caller can see, but the row itself carries no owner or status column; the manifest's own _note says the former Schedule/Last-run columns were dropped deliberately (OpenRegister's calculation engine has no reverse-FK join), so owner/status require opening AgentDetail or the admin-only TenantOps access review.",
+			"note": "The owner and status columns landed with agents-sharing-and-catalog-columns. Still open in that change: an organisation admin's reduced agent view on AgentDetail (task 5, waits on Ruben, design D4).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-management-ui",
@@ -700,15 +701,16 @@
 			"area": "agents",
 			"name": "Decide who can see and use an agent: only me, a group or the whole organisation.",
 			"source": "own-code",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:2566,2572,2581 declares isPrivate/invitedUsers/groups on Agent; src/modals/AgentFormModal.vue:13 docblock explicitly states 'views, groups, invitedUsers, quotas' do NOT survive the form (merged through from the existing object, never edited); AgentDetail disables its generic object sidebar (manifest.json:523 sidebar.enabled false), so no other edit surface exists. Specified in openspec/changes/agents-sharing-and-catalog-columns/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-sharing-and-catalog-columns"
+				"evidence": "src/modals/AgentFormModal.vue:98-142 a sharing choice ('Only me', 'People and groups I choose', the organisation) writes isPrivate, invitedUsers and groups; lib/Service/AgentAccessService.php:100-129 lets a member of the agent's groups or an invited user read it but not modify it (hermiq#951); the Agent read rule (hermiq#976) closes OpenRegister's object API to outsiders (AgentReadRuleTest)",
+				"change": "openspec/changes/agents-sharing-and-catalog-columns",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "nothing",
-			"note": "Backend enforcement of isPrivate/invitedUsers/groups likely exists in AgentAccessService's read guard, but no screen lets a user set these fields; only reachable by a direct PATCH to /api/agents/{id}.",
+			"note": "Built by agents-sharing-and-catalog-columns task 1-3 and 6; the live two-user call (task 6 Test) has not been run.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-management-ui",
@@ -866,12 +868,13 @@
 			"area": "agents",
 			"name": "Describe an agent in plain language and have the agent built for you.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/ and lib/ for a natural-language agent builder (nlBuilder, describe-and-generate, low-code studio equivalent to Copilot Studio/Dify) and found nothing; agent creation is exclusively the structured AgentFormModal form. Specified in openspec/changes/agents-plain-language-builder/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-plain-language-builder"
+				"evidence": "lib/Repair/SeedAgentBuilder.php seeds an agent-builder agent that answers with a hermiq-agent-draft block; lib/Service/Agent/AgentDraftService.php + lib/Controller/AgentDraftController.php (route agent_draft#check, POST /api/agents/draft-check, appinfo/routes.php:536) check the draft; src/utils/agentDraft.js finds the block and src/views/Chat.vue:469,735-749 opens the checked draft in the agent form",
+				"change": "openspec/changes/agents-plain-language-builder",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -891,7 +894,8 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'generate|describe|builder|magic' in src/lib/components/workspace/Models/ModelEditor.svelte and backend/open_webui/routers/models.py: model presets are built by hand; the only natural-language builder is /skills:create for skills (backend/open_webui/utils/skills.py:81), not agents",
 				"n8n": "source read at n8n@2.40.7, not driven: Instance AI ('n8n Agent') is a default module (packages/@n8n/backend-common/src/modules/module-registry.ts:79) enabled by default (packages/cli/src/modules/instance-ai/instance-ai-settings.service.ts:287-288) and builds workflows from chat (packages/@n8n/instance-ai/src/workflow-builder/); packages/frontend/editor-ui/src/features/agents/views/NewAgentView.vue:58-83 a new agent opens in an Instance AI thread that builds it Note: Needs a model set up in Instance AI first (useInstanceAiReady).",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: no agent builder; plain language builds a scheduled task (create_scheduled_task, context_agent:ex_app/lib/all_tools/assignments.py:14-39; ChattyLLMInputForm.vue:119-127 'Ask chat to create one') or a skill (store_skill, context_agent:ex_app/lib/all_tools/skills.py:115-180). The agent itself is not built from the description."
-			}
+			},
+			"note": "Reached on /chat with the seeded builder agent. Open in agents-plain-language-builder: a live chat with the builder and the Newman run (both need the live instance)."
 		},
 		{
 			"id": "ag-app-slug",
@@ -1198,16 +1202,16 @@
 			"area": "chat",
 			"name": "Attach a file from Nextcloud to a chat message and ask about it.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "partial",
 			"built": {
-				"state": "specified",
+				"state": "building",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched src/views/Chat.vue for a file picker/attachment affordance and found none. The only file-related setting is a boolean RAG toggle (settings.includeFiles, Chat.vue:834,864) that widens the agent's own file search, not an explicit per-message attach-and-ask action. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
-				"readOn": "2026-09-26",
+				"evidence": "src/views/Chat.vue:609-643 the composer's attach menu ('Upload from device', 'Choose from Files'); lib/Controller/ChatAttachmentController.php (POST /api/chat/attachments, appinfo/routes.php:589) stores the upload; lib/Service/Chat/TurnAttachmentResolver.php reads each file as the speaker; lib/Service/Chat/AttachmentTextReader.php reads text files into the turn; images and PDFs go natively to a model declared to read them (lib/Service/Llm/AttachmentPartBuilder.php)",
+				"readOn": "2026-10-07",
 				"change": "openspec/changes/chat-attachments-and-images"
 			},
 			"reachedOn": "nothing",
-			"note": "includeFiles/searchFiles let the agent search the user's Nextcloud files as part of RAG, which is related but not the same as attaching one specific file to a message. Noted 2026-09-26, rating unchanged: the nextcloud-vue 2.55.1 companion's attach control (src/components/CnAiCompanion/CnAiInput.vue:259) posts to /apps/hermiq/api/chat/attachments, which hermiq never registers (appinfo/routes.php has no such route), so every attach fails: hermiq#950.",
+			"note": "Partial: a PDF or office file for a model that does not read it natively goes through the AttachmentTextSource seam, which nothing implements yet (chat-attachments-and-images task 6, the OpenRegister text facade adapter waits on Ruben), so it is left out with a notice above the answer. The companion route of hermiq#950 now exists. Playwright and Newman for upload not run.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-engine-port",
@@ -1498,12 +1502,13 @@
 			"area": "chat",
 			"name": "Generate an image from a description.",
 			"source": "competitor-derived",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/TaskProcessing/ for an image-generation provider and lib/AppInfo/Application.php's registerTaskProcessingProvider calls; only Audio-to-text, Text-to-speech, Text2Text (x3) and ContextAgent providers are registered. No Text2Image provider exists. Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-attachments-and-images"
+				"evidence": "src/views/Chat.vue:643 'Create an image' opens src/modals/GenerateImageModal.vue; lib/Controller/ChatImageController.php (POST /api/chat/images, GET /api/chat/images/availability, appinfo/routes.php:591-592) and lib/Service/Chat/ImageGenerationService.php run TextToImage through Nextcloud TaskProcessing for the person, save the PNG under 'Hermiq/Generated images' and mark it; an agent with the hermiq.generateImage grant can do the same as a tool (lib/Mcp/ImageToolDescriptors.php)",
+				"change": "openspec/changes/chat-attachments-and-images",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -1523,7 +1528,8 @@
 				"dify": "source read at 1.17.1, not driven: core builtin tools are only audio, code, time, webscraper (api/core/tools/builtin_tool/providers/); searched 'text2img|image_generation|generate image' in api/core and web/i18n/en-US: none in core. Image generation comes only from marketplace tool plugins Note: marketplace plugin only",
 				"n8n": "source read at n8n@2.40.7, not driven: packages/@n8n/nodes-langchain/nodes/vendors/OpenAi/v2/actions/image/generate.operation.ts image generation operation; Google Gemini vendor node image actions (nodes/vendors/GoogleGemini); both usable in a workflow or as an agent tool",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-connectors https://learn.microsoft.com/en-us/microsoft-copilot-studio/microsoft-365-copilot-extend-with-agents \"Image generation isn't natively supported in Copilot Studio agents\" (use a connector); agents extending Microsoft 365 Copilot can turn on \"Create images\". Note: Only on the M365 Copilot surface (licence), else via an outside connector."
-			}
+			},
+			"note": "Needs a TextToImage provider installed in Nextcloud; the availability route hides the action when there is none. Merged in hermiq#1098 and #1099."
 		},
 		{
 			"id": "ch-search-history",
@@ -5810,15 +5816,16 @@
 			"area": "observability",
 			"name": "Read periodic reports about agent use.",
 			"source": "own-code",
-			"hermiq": "yes",
+			"hermiq": "partial",
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json page 'Reports' route /reports, type 'reports', one card ('AI oversight' -> route AiOversight); menu entry 'ReportsMenu' section footer order 95; the AiOversight page itself (type dashboard) reads Approval objects (sourceType=advisory) via stats-block/object-table widgets, no bespoke controller.",
-				"spec": "none"
+				"spec": "openspec/specs/reports",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "footer menu -> Reports (/reports) -> AI oversight card -> /ai-oversight",
-			"note": "Currently a single report (AI oversight, an EU AI Act Art. 14 evidence log), not periodic/scheduled reporting; the Reports page itself is a generic picker built to hold more cards.",
+			"note": "Re-rated yes to partial on 2026-10-07: there is one report, AI oversight, read on demand; nothing produces reports on a schedule, which the row asks for. The Reports page is specified after the fact in openspec/specs/reports; the oversight report itself in openspec/changes/ai-oversight-advisory-approvals (open, 16 of 18 tasks done), which round 1 did not link.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "observability",
@@ -7280,7 +7287,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.5.7",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -7296,11 +7303,13 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/tools/builtin.py:1721 timer lets the agent schedule a follow-up prompt back into the same chat (utils/timers.py create_timer, fired by the scheduler at utils/automations.py:90), so it can keep working across turns; searched 'goal|until|success check' in utils/timers.py and utils/middleware.py: no goal object or completion check Note: self-scheduled follow-ups, no goal with a stop condition"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'standing goal|goal' in lib/Service, lib/Controller, src/views and src/modals at 5277c0d: goal appears only in the course-recommendation feature (lib/Service/CourseRecommendationEngine.php); no goal an agent keeps working toward across turns Specified in openspec/changes/agents-standing-goal/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-standing-goal"
-			}
+				"evidence": "src/views/Chat.vue:182-238 'Set a goal' opens src/modals/GoalFormModal.vue, the goal shows above the thread with 'Stop goal'; lib/Controller/GoalController.php routes goal#show/create/stop (appinfo/routes.php:629-631); lib/Service/GoalService.php:203-294 run() takes each due goal's turn in the same session through the scheduled-run gates (called from lib/BackgroundJob/ScheduleTask.php:71) and checks it with lib/Service/GoalCheckService.php",
+				"change": "openspec/changes/agents-standing-goal",
+				"readOn": "2026-10-07"
+			},
+			"note": "Open in agents-standing-goal: the Playwright run for set and stop, and a live check that an objectCount goal reaches its target. The example-goal seed was not built (design.md, Seed data)."
 		},
 		{
 			"id": "dm-model-ensemble",
@@ -7514,12 +7523,13 @@
 			"source": "competitor-derived",
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/4335",
-			"hermiq": "unknown",
+			"hermiq": "partial",
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Talk to Chat page continuity is partly there: a bound session lists on /chat (SessionController::index) but is titled 'Talk conversation' (TalkRoomBinding::createBound), and a turn sent on /chat never reaches the room (ChatController and ChatStreamController do not call Talk). The change specifies the mirror, the room title, the doors and the per-turn channel.",
-				"change": "openspec/changes/chat-carry-a-conversation-across-channels"
+				"change": "openspec/changes/chat-carry-a-conversation-across-channels",
+				"readOn": "2026-10-07"
 			},
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -7535,7 +7545,7 @@
 				"n8n": "source read at n8n@2.40.7, not driven: memory and threads are keyed by channel identity: an n8n user's chats use draft-chat:<userId>, a messenger user integration:<type>:<platformUserId> (packages/cli/src/modules/agents/utils/agent-memory-scope.ts:1-45), so a Slack or Telegram conversation cannot be resumed in n8n's own chat; searched 'handoff|continue in|link account' in packages/cli/src/modules/agents/integrations: none Note: Sessions from other channels are visible read-only in the session list (en.json agentSessions.origin.slack), not continuable.",
 				"open-webui": "source read at v0.11.4, not driven: chats are stored server-side so the same chat opens on any browser or the PWA (backend/open_webui/routers/chats.py:1325), but searched 'telegram|slack|messenger|move to channel' in backend/open_webui/routers and utils: there are no messenger channels and no way to carry a chat into a channel or back"
 			},
-			"note": "not checked: lib/Settings/hermiq_register.json Session.talkRoomOrigin shows a Hermiq chat session can own or bind a Talk room, so one session spans the Chat page and Talk; whether a user can pick up in the Chat page a session begun in Talk was not traced to a page"
+			"note": "Re-rated unknown to partial on 2026-10-07 from code: a session bound to a Talk room lists on /chat and can be picked up there (lib/Controller/SessionController.php:163 index, lib/Service/Talk/TalkRoomBinding.php:395 creates it titled 'Talk conversation'), but a turn sent on /chat never reaches the room, so the carry-over is one way. The change chat-carry-a-conversation-across-channels specifies the rest."
 		},
 		{
 			"id": "dm-build-snapshot",
@@ -8187,7 +8197,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/n8n-io/n8n/releases/tag/n8n%402.28.0",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -8203,12 +8213,14 @@
 				"open-webui": "source read at v0.11.4, not driven: backend/open_webui/routers/openai.py:1364-1372 passes a 'file' content part through as input_file only on the OpenAI-compatible proxy path, the comment saying Open WebUI attachments go via metadata.files and RAG instead; src/lib/components/workspace/Models/Capabilities.svelte:13-59 has vision, file_upload and file_context but no native-file capability Note: API clients can hand a PDF through; the chat UI extracts attachments to text."
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:186-191 readFile reads 'the text content of a file' (:837 getContent), and web pages go through lib/Service/WebResearch/ReadableTextExtractor.php; searched 'pdf|document block|file part|multimodal' in lib/Service/Llm and lib/Service/Engine: no path that hands a PDF to the model as a file Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-attachments-and-images"
+				"evidence": "lib/Service/Llm/AttachmentPartBuilder.php:75 maps application/pdf to the pdf capability and sends the file as a native part when lib/Service/Llm/ModelCapabilityRegistry.php says the model reads PDFs and the driver can carry it (anthropic and openai); the administrator declares 'Reads PDFs' per model in the LLM settings (GET/PATCH /api/settings/llm modelCapabilities)",
+				"change": "openspec/changes/chat-attachments-and-images",
+				"readOn": "2026-10-07"
 			},
-			"reachedOn": "none"
+			"reachedOn": "none",
+			"note": "Native only where the administrator declared the model and the provider carries PDFs (Anthropic, OpenAI); elsewhere a PDF falls to the text path of ch-attach. Merged in hermiq#1094 and #1095."
 		},
 		{
 			"id": "dm-browser-use",
@@ -8299,7 +8311,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/FacadeToolInvoker.php:1236-1238 the tool facade returns a {result, isError} envelope instead of throwing, :1271-1276 which is JSON-encoded back to the model as the tool result; refusals come back the same way (:751 tool_denied_by_policy, :885 approval_required); lib/Mcp/HermiqToolProvider.php header 'invokeTool() never throws: every failure returns a structured error'",
-				"spec": "none"
+				"spec": "openspec/specs/agent-tool-governance",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "/chat and every agent run (engine behaviour)"
 		},
@@ -8675,7 +8688,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://github.com/nextcloud/assistant/pull/602",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -8691,12 +8704,14 @@
 				"open-webui": "source read at v0.11.4, not driven: src/lib/components/workspace/Models/Capabilities.svelte:13 vision capability for image input; backend/open_webui/routers/images.py:562 /generations and :858 /edit; tools/builtin.py:370 generate_image and :440 edit_image tools return images into the answer"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'attach|image|upload|fileId|vision|multimodal' in src/views/Chat.vue, src/api/chat.js, lib/Service/Engine and lib/Service/Llm/ProviderFactory.php: the composer sends text only (the one Chat.vue hit, :615, is the agent avatar), messages are built as text (lib/Service/Engine/ResponseGenerationHandler.php:363 LLPhantMessage::user($userMessage)) and no answer carries images Specified in openspec/changes/chat-attachments-and-images/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-attachments-and-images"
+				"evidence": "src/views/Chat.vue:343-378 a turn's attachments show in the thread, images as thumbnails; lib/Service/Llm/AttachmentPartBuilder.php sends an attached image natively to a model declared to read images; the engine stores images a tool made on the answer and the final frame carries them (lib/Controller/ChatImageController.php, ImageGenerationService::asAttachment, hermiq#1099)",
+				"change": "openspec/changes/chat-attachments-and-images",
+				"readOn": "2026-10-07"
 			},
-			"reachedOn": "none"
+			"reachedOn": "none",
+			"note": "Images in need a model the administrator declared as reading images; images back need a TextToImage provider in Nextcloud."
 		},
 		{
 			"id": "dm-computer-use",
@@ -8884,7 +8899,7 @@
 			"source": "competitor-derived",
 			"origin": "changelog",
 			"originUrl": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new",
-			"hermiq": "no",
+			"hermiq": "yes",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "yes",
@@ -8900,12 +8915,14 @@
 				"open-webui": "source read at v0.11.4, not driven: searched 'builder|create_model|upgrade|convert' in backend/open_webui/tools/builtin.py, routers/ and src/lib/i18n/locales/en-US/translation.json: one model editor under src/lib/components/workspace/Models, no lightweight in-chat builder, so there is nothing to upgrade from"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'builder|create_agent|createAgent|draft.?agent|upgrade|promote' in lib/Mcp, lib/Service/Engine, lib/Service/Intake and src/: there is one agent editor (src/modals/AgentFormModal.vue on /agents) and no lightweight in-chat builder whose agents could be carried over; lib/Service/Assistant/AssistantService.php:576 findOrCreateAgent makes a per-app assistant agent, not a user-built one Specified in openspec/changes/agents-plain-language-builder/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/agents-plain-language-builder"
+				"evidence": "src/views/Chat.vue:735-749 a draft made in chat with the seeded builder opens in the full agent form (AgentFormModal with draft and draftFindings), so nothing is retyped; the schedule the draft names opens in ScheduleFormModal after save; src/utils/agentDraft.js turns the checked draft into form values",
+				"change": "openspec/changes/agents-plain-language-builder",
+				"readOn": "2026-10-07"
 			},
-			"reachedOn": "nowhere"
+			"reachedOn": "nowhere",
+			"note": "The in-chat builder and the full form share one agent shape, so the upgrade is the draft opening in the form (agents-plain-language-builder)."
 		},
 		{
 			"id": "dm-metadata-filter",
@@ -9154,10 +9171,11 @@
 			"source": "competitor-derived",
 			"hermiq": "partial",
 			"built": {
-				"state": "building",
+				"state": "built",
 				"owner": "ConductionNL/integriq",
-				"evidence": "lib/Settings/hermiq_register.json:136,562 both say reaching a named chat platform or third-party system 'is OpenConnector's job, not a Hermiq delivery channel; point webhook at an OpenConnector Source or an n8n webhook trigger.' Hermiq's own webhook delivery (appinfo/routes.php budget/agent-webhook routes) is a generic signed HTTP POST, not a connector catalogue.",
-				"change": "integriq/openspec/changes/hermiq-ai-tooling"
+				"evidence": "Hermiq ships no connector catalogue and no per-connector agent tool. What is built is the seam: an agent or schedule webhook (appinfo/routes.php budget/agent-webhook routes) posts signed HTTP to an integriq Source, and lib/Settings/hermiq_register.json:136,562 names that integriq's job. Integriq's own catalogue (/catalog, lib/Service/Catalog/ConnectorTemplateLibrary.php, docs/features/connector-catalog.md) lists tens of adapters and source templates (BRP, KvK, SharePoint, Microsoft 365, S3, PDOK), not hundreds, and none is offered to a hermiq agent as a tool.",
+				"change": "integriq/openspec/changes/hermiq-ai-tooling",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "Schedule/agent webhook target pointed at an OpenConnector Source URL (generic HTTP, not verified live here)",
 			"provider": "integriq",
@@ -9178,7 +9196,8 @@
 				"open-webui": "source read at v0.11.4, not driven: outside services connect through generic MCP and OpenAPI tool servers (src/lib/components/AddToolServerModal.svelte:43, utils/mcp/client.py) and community Tools from openwebui.com (workspace/Tools.svelte:639); searched 'connector' in backend/open_webui: no shipped catalogue of ready-made connectors Note: ready-made connectors are community Tools, not core",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: about 30 built-in tool modules for Nextcloud apps and a few web services (context_agent:ex_app/lib/all_tools/: calendar, deck, mail, talk, tables, forms, bookmarks, cookbook, openproject, weather, osm, here, youtube) plus any admin-added MCP server (mcp.py). Not hundreds of ready-made connectors."
 			},
-			"pendingReason": "Hermiq documents the seam but ships no connector catalogue itself; whether integriq's own catalogue is reachable and how many connectors it exposes needs checking in the integriq repo, not done here."
+			"pendingReason": "Needs Ruben: whether 'agents reach outside services through integriq's catalogue as tools' gets a change (in integriq, which owns the catalogue) or this row becomes decided-no for hermiq.",
+			"note": "Re-rated 2026-10-07, rating stays partial. The linked change integriq hermiq-ai-tooling gives agents integriq's own operational actions (run or test a synchronisation, replay dead letters), not ready-made connectors to outside services, so it does not specify this row; it stays linked as the nearest change. No spec anywhere offers integriq's catalogue to agents as tools."
 		},
 		{
 			"id": "me-rag-files",
@@ -9459,10 +9478,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
-				"spec": "none"
+				"spec": "openspec/specs/action-authorization",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "Every action-auth-gated endpoint in the app (compliance.*, tenantops.*, aifeature.*, agenttemplate.approve-quarantined, etc.); the matrix itself is admin-configured (not directly observed which UI edits it)",
-			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles ('admin'/'builder'/'user'); did not locate the specific admin screen that edits the action/group matrix itself, only the service that enforces it.",
+			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles; agents add an owner (builder) versus shared-user split. No screen edits the action matrix: lib/actions.seed.json's comment names an admin settings page that does not exist, and the matrix lives in the app config key hermiq/actions (checked 2026-10-07). Specified after the fact in openspec/specs/action-authorization.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-tool-governance",
@@ -9481,7 +9501,7 @@
 				"open-webui": "source read at v0.11.4, not driven: roles admin, user, pending (backend/open_webui/utils/auth.py get_admin_user / get_verified_user); per-group permissions for workspace models, knowledge, tools, skills (builder rights) and chat features (src/lib/components/admin/Users/Groups/Permissions.svelte:44-71, config.py DEFAULT_USER_PERMISSIONS)",
 				"hermes-agent": "source read at v2026.9.24, not driven: gateway/slash_access.py:1-27 per platform allow_admin_from (all commands) vs user_allowed_commands for other allowed users; gateway/authz_mixin.py:32-37 allowlists decide who may chat; plugins/dashboard_auth/basic/__init__.py:1-8 the dashboard has one username and every signed-in user has full control (hermes_cli/dashboard_auth/base.py:12-16 no role field) Note: Two chat roles (admin, user) for slash commands; no builder role and no roles in the dashboard."
 			},
-			"pendingReason": "Could not confirm which page lets an admin edit the action-to-group matrix (as opposed to the individual per-agent RBAC surfaces already covered elsewhere)."
+			"pendingReason": "The page question is answered (there is none). Needs Ruben: rate yes with the matrix edited through app config, or partial until a screen edits it, then move the row into capabilities."
 		},
 		{
 			"id": "op-languages",

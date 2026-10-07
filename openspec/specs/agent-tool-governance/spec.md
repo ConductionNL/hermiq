@@ -211,6 +211,31 @@ The system MUST let an agent owner set `maxToolCalls` on an agent, an integer fr
 - WHEN they set "Maximum tool calls per answer" to 25 and save
 - THEN the agent page shows 25 and the next turn may make up to 25 tool calls
 
+### Requirement: A failed tool call goes back to the agent as a result, and the turn carries on
+
+The system MUST NOT end an agent's turn because a tool failed, was refused, or returned nothing. Every tool call the engine dispatches (`lib/Service/Engine/FacadeToolInvoker.php`, `dispatchToFacade()` at :1285) MUST return a JSON tool result to the model, which then decides what to do next within the same turn. A failure inside one of hermiq's own tools MUST come back as `{"error": {"code", "message"}}` and MUST NOT throw: `lib/Mcp/HermiqToolProvider.php::invokeTool()` (:793) catches every `Throwable` as `tool_failed` (:883-885) and answers an unknown tool id with `unknown_tool` and the list of available ids (:877-880). A tool the organisation's guardrail policy denies MUST come back as `tool_denied_by_policy` with a readable message (`handleDeniedByPolicy()` at :796), and a tool that needs a human first MUST come back as `approval_required` (:934, :1167). The run trace MUST record each such step with the outcome `error` or `denied`, so the run history shows which call failed while the answer continues. A result that cannot be encoded MUST still reach the model as `{"error":"Tool result could not be encoded"}`.
+
+#### Scenario: A tool throws and the agent answers anyway
+- **GIVEN** an agent in a chat turn calls `hermiq.readFile` on a file that cannot be read
+- **WHEN** the tool raises an exception
+- **THEN** the model receives `{"error": {"code": "tool_failed", "message": "The tool call failed."}}` as the tool result
+- **AND** the turn continues, so the agent can try another file or tell the person what went wrong
+- **AND** the run trace records the step with the outcome `error`
+- @e2e exclude engine behaviour without a page of its own, covered by PHPUnit on FacadeToolInvoker and HermiqToolProvider
+
+#### Scenario: A tool the policy denies is reported, not fatal
+- **GIVEN** the organisation's guardrail policy denies a tool the agent calls
+- **WHEN** the agent calls it
+- **THEN** the tool is not run and the model receives `tool_denied_by_policy` with the message that the policy denies it
+- **AND** the run trace records the step with the outcome `denied`
+- @e2e exclude engine behaviour, covered by PHPUnit on FacadeToolInvoker
+
+#### Scenario: The model asks for a tool that does not exist
+- **GIVEN** a model that names a tool id hermiq does not provide
+- **WHEN** the call reaches `HermiqToolProvider::invokeTool()`
+- **THEN** the model receives `unknown_tool` with the ids that are available, and can pick one of them
+- @e2e exclude engine behaviour, covered by PHPUnit on HermiqToolProvider
+
 ## User Stories
 
 - As a municipal CISO, I want to see exactly which tools an agent invoked, when, and on which data,
