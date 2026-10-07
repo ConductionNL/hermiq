@@ -20,11 +20,13 @@ Every controller method that performs a governance action SHALL call `ActionAuth
 - **WHEN** they acknowledge an AI feature
 - **THEN** the action runs
 - **AND** the same person is refused `aifeature.bind`, which still maps to `["admin"]`
+- @e2e exclude needs a second Nextcloud user in a configured group; covered by PHPUnit in tests/Unit/Service/ActionAuthServiceTest.php
 
 #### Scenario: An action nobody configured stays with administrators
 - **GIVEN** an action name that has no entry in the matrix
 - **WHEN** a person who is not an administrator calls it
 - **THEN** the call is refused with "Action '<name>' requires admin rights"
+- @e2e exclude covered by PHPUnit in tests/Unit/Service/ActionAuthServiceTest.php
 
 ### Requirement: The matrix is seeded once and an administrator's changes survive upgrades
 
@@ -35,6 +37,7 @@ The matrix SHALL be stored as JSON in the app config key `actions`. On install a
 - **WHEN** hermiq is upgraded and `InitializeActions` runs
 - **THEN** the step reports that the matrix already has entries and preserves it
 - **AND** members of `auditors` still open the compliance dashboard
+- @e2e exclude a repair step with no page; InitializeActions has no unit test yet either
 
 ### Requirement: An organisation's owner may switch its agents off
 
@@ -44,6 +47,7 @@ The kill switch for an organisation's agents SHALL be available to a Nextcloud a
 - **GIVEN** a person who is a member, not the owner, of organisation A
 - **WHEN** they try to switch off organisation A's agents
 - **THEN** the request is refused and the agents keep running
+- @e2e exclude needs an organisation with a non-owner member; covered by PHPUnit in tests/Unit/Controller/TenantControlControllerTest.php
 
 ### Requirement: The builder of an agent changes it, the people it is shared with use it
 
@@ -55,3 +59,4 @@ Every signed-in person SHALL be able to build agents of their own. Only an agent
 - **WHEN** Bas opens the agent
 - **THEN** he can read and run it
 - **AND** saving a change to it is refused
+- @e2e exclude needs two users; covered by PHPUnit in tests/Unit/Service/AgentAccessServiceTest.php and by the Playwright file of agents-sharing-and-catalog-columns

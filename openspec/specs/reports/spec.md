@@ -18,6 +18,7 @@ The system SHALL offer a Reports entry in the navigation that opens `/reports`, 
 - **THEN** `/reports` shows the card "AI oversight" with the description "What the agents did, and what a human still has to answer for."
 - **WHEN** they select that card
 - **THEN** the AI oversight report opens at `/ai-oversight`
+- @e2e exclude already driven by tests/e2e/app-chrome.spec.ts:93 ('AI oversight is a card on Reports'); its @e2e tag is not added here because this spec round changes no tests
 
 ### Requirement: The AI oversight report counts and lists advisory decisions
 
@@ -28,8 +29,10 @@ The AI oversight report SHALL read `Approval` objects in the `hermiq` register w
 - **WHEN** a person opens `/ai-oversight`
 - **THEN** Accepted reads 2, Overridden reads 1 and Rejected reads 0
 - **AND** the oversight log lists the three decisions, newest first
+- @e2e exclude needs advisory records seeded through an origin app's event; the record path is covered by PHPUnit in tests/Unit/Service/AiOversightServiceTest.php, and the page's e2e is task 4.2 of ai-oversight-advisory-approvals
 
 #### Scenario: A gating approval stays out of the report
 - **GIVEN** a pending approval raised by the approval gate (`sourceType` other than `advisory`)
 - **WHEN** a person opens `/ai-oversight`
 - **THEN** that approval appears in neither the counts nor the log
+- @e2e exclude the advisory-only filter is task 4.2 of ai-oversight-advisory-approvals, not yet written
