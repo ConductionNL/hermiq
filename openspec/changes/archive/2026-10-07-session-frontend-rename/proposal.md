@@ -83,3 +83,7 @@ Revert. The deprecated `/api/conversations/*` aliases still exist, so a reverted
 ## Open Questions
 
 - Should the "Chat" menu entry become "Sessions"? Deliberately out of scope above, but it is the obvious follow-up question and the user should answer it rather than have it assumed.
+
+## Delta fix-up (2026-10-07)
+
+Before archiving, every requirement got its MUST statement in the body, and the wording was matched to the code on development: the row shows an origin icon plus the agent name and time, the action menu offers Continue, Archive session (Restore session on the Archive tab) and Delete session with participants limited to Continue, and participant sessions sit in a "Shared with me" group.

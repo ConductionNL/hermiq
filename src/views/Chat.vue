@@ -1091,7 +1091,7 @@ export default {
 		 * The sessions for the visible tab.
 		 *
 		 * @return {Array<object>} Active or archived sessions.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		visibleSessions() {
 			return this.showArchive ? this.archivedSessions : this.sessions
@@ -1110,7 +1110,7 @@ export default {
 		 * run an automated session sees exactly the list it saw before.
 		 *
 		 * @return {Array<{key: string, heading: string, sessions: Array<object>}>} The groups to render, in order.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		sessionGroups() {
 			if (this.showArchive) {
@@ -1163,7 +1163,7 @@ export default {
 		 * The thread header title.
 		 *
 		 * @return {string} Agent name, session title, or the page name.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		headerTitle() {
 			return (
@@ -1303,7 +1303,7 @@ export default {
 	/**
 	 * Register the agent object type, then load the sessions and agents.
 	 *
-	 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+	 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 	 */
 	created() {
 		if (this.cnAiContext) {
@@ -1518,7 +1518,7 @@ export default {
 		 *
 		 * @param {boolean} soft True to skip the loading state.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async loadSessions(soft = false) {
 			if (!soft) {
@@ -1561,7 +1561,7 @@ export default {
 		 *
 		 * @param {boolean} archive True for the archive tab.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		async setArchiveTab(archive) {
 			this.showArchive = archive
@@ -1598,7 +1598,7 @@ export default {
 		 *
 		 * @param {object} session The session to classify.
 		 * @return {boolean} True for a cron, event or flow session.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		isAutomated(session) {
 			return AUTOMATED_ORIGINS.includes(session?.triggerOrigin)
@@ -1609,7 +1609,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {string} The registered component name to render.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
+		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		originIcon(session) {
 			return ORIGIN_ICONS[session?.triggerOrigin] || 'Creation'
@@ -1624,7 +1624,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {string} The agent name, or an empty string.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
+		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		agentNameFor(session) {
 			const id = session?.agentId
@@ -1642,7 +1642,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {string} The meta line.
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
+		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		rowMeta(session) {
 			const time = this.formatTime(session?.updated)
@@ -1662,7 +1662,7 @@ export default {
 		 * user can see.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
 		 */
 		newSession() {
 			this.activeSession = null
@@ -1691,7 +1691,7 @@ export default {
 		 *
 		 * @param {object} session The session to open.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async selectSession(session) {
 			this.activeSession = session
@@ -1778,7 +1778,7 @@ export default {
 		 *
 		 * @param {object} session The session whose agent to load.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async loadAgentFor(session) {
 			this.currentAgent = null
@@ -1794,7 +1794,7 @@ export default {
 		 *
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
 		 */
 		async startWithAgent(agent) {
 			const agentUuid = agent.uuid || agent.id
@@ -1860,7 +1860,7 @@ export default {
 		 * transport failure (ADR-034 fallback ladder).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async handleSend() {
 			const text = this.currentMessage.trim()
@@ -1930,7 +1930,7 @@ export default {
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async sendViaStream(text, uuid, attachments = []) {
@@ -1983,7 +1983,7 @@ export default {
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async sendViaPost(text, uuid, attachments = []) {
@@ -2119,7 +2119,7 @@ export default {
 		 *
 		 * @param {string} uuid The session UUID.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async refreshThread(uuid) {
 			try {
@@ -2144,7 +2144,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -2172,7 +2172,7 @@ export default {
 		 *
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
@@ -2294,7 +2294,7 @@ export default {
 		 *
 		 * @param {object} session The session to archive.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
+		 * @spec openspec/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
 		async archive(session) {
 			try {
@@ -2314,7 +2314,7 @@ export default {
 		 *
 		 * @param {object} session The session to restore.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
+		 * @spec openspec/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
 		async restore(session) {
 			try {
@@ -2334,7 +2334,7 @@ export default {
 		 *
 		 * @param {object} session The archived session.
 		 * @return {void}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
+		 * @spec openspec/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
 		openDelete(session) {
 			this.deleteTarget = session
@@ -2346,7 +2346,7 @@ export default {
 		 *
 		 * @param {object} session The deleted session.
 		 * @return {void}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
+		 * @spec openspec/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
 		onDeleted(session) {
 			this.archivedSessions = this.archivedSessions.filter(
@@ -2363,7 +2363,7 @@ export default {
 		 *
 		 * @param {object} session The updated session.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
+		 * @spec openspec/specs/session-surface/spec.md#requirement-session-row-actions-must-live-in-an-action-menu
 		 */
 		async onRenamed(session) {
 			this.activeSession = session

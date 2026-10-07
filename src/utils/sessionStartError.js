@@ -14,7 +14,7 @@
  * @param {object} error The axios error from createSession().
  * @param {function(string, string, object=): string} t The translate function.
  * @return {string} A translated, user-facing sentence.
- * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+ * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
  */
 export function sessionStartErrorMessage(error, t) {
 	const status = error?.response?.status
