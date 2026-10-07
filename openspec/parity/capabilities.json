@@ -5816,15 +5816,16 @@
 			"area": "observability",
 			"name": "Read periodic reports about agent use.",
 			"source": "own-code",
-			"hermiq": "yes",
+			"hermiq": "partial",
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json page 'Reports' route /reports, type 'reports', one card ('AI oversight' -> route AiOversight); menu entry 'ReportsMenu' section footer order 95; the AiOversight page itself (type dashboard) reads Approval objects (sourceType=advisory) via stats-block/object-table widgets, no bespoke controller.",
-				"spec": "none"
+				"spec": "openspec/specs/reports",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "footer menu -> Reports (/reports) -> AI oversight card -> /ai-oversight",
-			"note": "Currently a single report (AI oversight, an EU AI Act Art. 14 evidence log), not periodic/scheduled reporting; the Reports page itself is a generic picker built to hold more cards.",
+			"note": "Re-rated yes to partial on 2026-10-07: there is one report, AI oversight, read on demand; nothing produces reports on a schedule, which the row asks for. The Reports page is specified after the fact in openspec/specs/reports; the oversight report itself in openspec/changes/ai-oversight-advisory-approvals (open, 16 of 18 tasks done), which round 1 did not link.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "observability",
@@ -8310,7 +8311,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/FacadeToolInvoker.php:1236-1238 the tool facade returns a {result, isError} envelope instead of throwing, :1271-1276 which is JSON-encoded back to the model as the tool result; refusals come back the same way (:751 tool_denied_by_policy, :885 approval_required); lib/Mcp/HermiqToolProvider.php header 'invokeTool() never throws: every failure returns a structured error'",
-				"spec": "none"
+				"spec": "openspec/specs/agent-tool-governance",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "/chat and every agent run (engine behaviour)"
 		},
@@ -9476,10 +9478,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
-				"spec": "none"
+				"spec": "openspec/specs/action-authorization",
+				"readOn": "2026-10-07"
 			},
 			"reachedOn": "Every action-auth-gated endpoint in the app (compliance.*, tenantops.*, aifeature.*, agenttemplate.approve-quarantined, etc.); the matrix itself is admin-configured (not directly observed which UI edits it)",
-			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles ('admin'/'builder'/'user'); did not locate the specific admin screen that edits the action/group matrix itself, only the service that enforces it.",
+			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles; agents add an owner (builder) versus shared-user split. No screen edits the action matrix: lib/actions.seed.json's comment names an admin settings page that does not exist, and the matrix lives in the app config key hermiq/actions (checked 2026-10-07). Specified after the fact in openspec/specs/action-authorization.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-tool-governance",
@@ -9498,7 +9501,7 @@
 				"open-webui": "source read at v0.11.4, not driven: roles admin, user, pending (backend/open_webui/utils/auth.py get_admin_user / get_verified_user); per-group permissions for workspace models, knowledge, tools, skills (builder rights) and chat features (src/lib/components/admin/Users/Groups/Permissions.svelte:44-71, config.py DEFAULT_USER_PERMISSIONS)",
 				"hermes-agent": "source read at v2026.9.24, not driven: gateway/slash_access.py:1-27 per platform allow_admin_from (all commands) vs user_allowed_commands for other allowed users; gateway/authz_mixin.py:32-37 allowlists decide who may chat; plugins/dashboard_auth/basic/__init__.py:1-8 the dashboard has one username and every signed-in user has full control (hermes_cli/dashboard_auth/base.py:12-16 no role field) Note: Two chat roles (admin, user) for slash commands; no builder role and no roles in the dashboard."
 			},
-			"pendingReason": "Could not confirm which page lets an admin edit the action-to-group matrix (as opposed to the individual per-agent RBAC surfaces already covered elsewhere)."
+			"pendingReason": "The page question is answered (there is none). Needs Ruben: rate yes with the matrix edited through app config, or partial until a screen edits it, then move the row into capabilities."
 		},
 		{
 			"id": "op-languages",
