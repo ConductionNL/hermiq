@@ -7374,6 +7374,12 @@
 			"origin": "featureRequest",
 			"originUrl": "https://github.com/NousResearch/hermes-agent/issues/4335",
 			"hermiq": "unknown",
+			"built": {
+				"state": "specified",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "Talk to Chat page continuity is partly there: a bound session lists on /chat (SessionController::index) but is titled 'Talk conversation' (TalkRoomBinding::createBound), and a turn sent on /chat never reaches the room (ChatController and ChatStreamController do not call Talk). The change specifies the mirror, the room title, the doors and the per-turn channel.",
+				"change": "openspec/changes/chat-carry-a-conversation-across-channels"
+			},
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "no",
