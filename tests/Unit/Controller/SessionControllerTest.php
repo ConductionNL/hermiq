@@ -201,7 +201,7 @@ class SessionControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
+	 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 	 */
 	public function testIndexReportsTriggerOriginAndDefaultsItToHuman(): void {
 		$automated = $this->conversation(

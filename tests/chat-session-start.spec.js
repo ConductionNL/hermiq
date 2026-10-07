@@ -17,7 +17,7 @@
 //   0 — every assertion holds.
 //   1 — one or more assertions failed.
 //
-// @spec openspec/changes/session-frontend-rename/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+// @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
 
 'use strict'
 
