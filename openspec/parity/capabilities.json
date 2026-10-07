@@ -4293,7 +4293,7 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/ReportSimilarityController.php:79-161 evaluate()/show()/removeMember(), all @NoAdminRequired @NoCSRFRequired (machine-callable by the owning app); appinfo/routes.php reportSimilarity#evaluate POST /api/report-similarity/evaluate, #show, #removeMember; admin threshold config at src/components/settings/ReportGroupingSettings.vue (mounted src/views/AdminRoot.vue:127), calling src/api/reportSimilarity.js.",
-				"change": "openspec/changes/identical-reports-collapse-into-one"
+				"change": "openspec/changes/archive/2026-10-07-identical-reports-collapse-into-one"
 			},
 			"reachedOn": "Machine surface: another Conduction app calls POST /api/report-similarity/evaluate per report and reads back which group it joined; admin threshold config reached via Admin settings -> Hermiq -> Report grouping",
 			"note": "hermiq answers the grouping question; displaying the collapsed report list with its count is the calling app's own UI, per the controller's own docblock ('hermiq answers; the owning app decides what a group means').",
@@ -5369,7 +5369,7 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:456-457 aiFeature#residencyOverview GET /api/ai-features/residency, aiFeature#bind PUT /api/ai-features/{id}/binding; lib/Controller/AiFeatureController.php:174-231 bind()/residencyOverview() (organisation's model policy is the binding ceiling); src/views/AiFeatureRegister.vue:105-107,336-383 renders a residency column per feature (on-premise/eu/outside-eu/undeclared) fed by src/api/aiFeatures.js:127 getResidencyOverview().",
-				"change": "openspec/changes/a-provider-and-a-place-per-ai-feature"
+				"change": "openspec/changes/archive/2026-10-07-a-provider-and-a-place-per-ai-feature"
 			},
 			"reachedOn": "AdminRoot.vue -> AiFeatureRegister.vue residency column",
 			"provider": "hermiq",
@@ -7032,7 +7032,7 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:646-647 outsideAgent#tools/call '/api/outside-agent/tools' and '/call'; lib/Controller/OutsideAgentController.php:1-50 delegates to OutsideToolSurface/OutsideAgentGateway, authenticating the outside agent as an ordinary Nextcloud user (app password) with no separate credential of its own; lib/Settings/hermiq_register.json declares an OutsideAgentRegistration schema (components.schemas.OutsideAgentRegistration). Searched src/ for 'OutsideAgent'/'outside-agent': zero hits; no manifest page or widget manages an OutsideAgentRegistration object.",
-				"change": "openspec/changes/the-declared-tool-surface-and-the-prompt-library"
+				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library"
 			},
 			"reachedOn": "Machine side: POST /apps/hermiq/api/outside-agent/call (authenticated, tool-surface-gated). Admin side: nothing; no hermiq page creates/edits a registration.",
 			"note": "The calling/enforcement machinery is real and gated, but a person can only create/limit a registration via a raw OpenRegister object write, not through any hermiq screen.",
@@ -9140,7 +9140,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/IntakeController.php:76-197 receive()/show()/conclude()/review() implement the conversational-intake spec (abstention threshold, one thread across channels per design.md D2/D4); routes.php:693-713 intake routes + Settings\\IntakeSettings; but every IntakeController method carries only @NoAdminRequired/@NoCSRFRequired (checked lines 76-197), never #[PublicPage], so the endpoint still requires an authenticated Nextcloud session.",
 				"readOn": "2026-09-26",
-				"change": "openspec/changes/a-conversational-intake-that-files-for-the-citizen"
+				"change": "openspec/changes/archive/2026-10-07-a-conversational-intake-that-files-for-the-citizen"
 			},
 			"reachedOn": "nothing directly reachable by an account-less caller",
 			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive. Corrected 2026-09-26: intake#receive answering 401 to an anonymous caller is by design, because channel apps call it logged in; the earlier defect candidate is withdrawn.",
@@ -9343,7 +9343,7 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/OutsideAgentController.php:90-134 tools()/call(), both @NoAdminRequired @NoCSRFRequired; appinfo/routes.php outsideAgent#tools GET /api/outside-agent/tools, outsideAgent#call POST /api/outside-agent/call; lib/Controller/ChatController.php:261-266 sendMessage() same auth attributes, POST /api/chat/send.",
-				"change": "openspec/changes/the-declared-tool-surface-and-the-prompt-library"
+				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library"
 			},
 			"reachedOn": "Machine surface: an authenticated program (app password, no CSRF token needed) calls GET /api/outside-agent/tools then POST /api/outside-agent/call, or POST /api/chat/send directly",
 			"note": "No published OpenAPI/API doc page was found in docs/ describing these endpoints for third-party integrators; reachability is real, discoverability from outside the codebase is not verified.",

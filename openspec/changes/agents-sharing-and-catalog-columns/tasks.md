@@ -1,5 +1,7 @@
 # Tasks: agents-sharing-and-catalog-columns
 
+> Archive pass 2026-10-07: code done except task 5, where the AgentDetail page still reads OpenRegister's object API (needs Ruben, design D4); open: task 5, task 6 two-user call, verification run (live check).
+
 Kind: code. Size M. Rows `hermiq:ag-visibility`, `hermiq:ag-list`.
 
 ## Implementation tasks

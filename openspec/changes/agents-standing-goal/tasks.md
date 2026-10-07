@@ -1,5 +1,7 @@
 # Tasks: agents-standing-goal
 
+> Archive pass 2026-10-07: code done; open: task 4 Playwright set and stop, verification live objectCount goal (live check).
+
 Kind: code. Size M. Row `hermiq:dm-standing-goal`.
 
 ## Implementation tasks

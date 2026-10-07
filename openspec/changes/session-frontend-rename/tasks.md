@@ -1,5 +1,7 @@
 # Tasks: session-frontend-rename
 
+> Archive pass 2026-10-07: code done, every task ticked; not archived because `openspec archive` refuses the delta: three ADDED requirements (empty state, session row, row action menu) carry MUST only in the header, not in the body. Needs a wording fix in specs/session-surface/spec.md, then archive.
+
 ## 1. Rename the API client and stores
 
 - [x] 1.1 `src/api/chat.js` — rename the helpers to session-named ones and point them at `/api/sessions/*`.

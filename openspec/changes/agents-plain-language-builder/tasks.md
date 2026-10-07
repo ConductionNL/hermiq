@@ -1,5 +1,7 @@
 # Tasks: agents-plain-language-builder
 
+> Archive pass 2026-10-07: code done; open: task 1 live chat with the builder, task 2 Newman run (live check).
+
 Kind: code. Size M. Rows `hermiq:ag-nl-builder`, `hermiq:dm-builder-upgrade`.
 
 ## Implementation tasks
