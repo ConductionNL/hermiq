@@ -9013,7 +9013,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Settings/hermiq_register.json:2599 Agent.actingUser property; lib/Service/ScheduleService.php:582-589 resolves actingUser, :2231,:2578 refuses the run when a declared actingUser no longer resolves (agent-identity-narrows), falls back to schedule owner when unset; lib/Service/Engine/Engine.php:329 and ContextAssembler.php:180 thread actingUserId through the turn. No component sets actingUser: src/modals/AgentFormModal.vue has no such field; it only appears read-only in src/dialogs/AgentFactsheetDialog.vue and src/components/ToolInvocationTable.vue."
+				"evidence": "lib/Settings/hermiq_register.json:2599 Agent.actingUser property; lib/Service/ScheduleService.php:582-589 resolves actingUser, :2231,:2578 refuses the run when a declared actingUser no longer resolves (agent-identity-narrows), falls back to schedule owner when unset; lib/Service/Engine/Engine.php:329 and ContextAssembler.php:180 thread actingUserId through the turn. No component sets actingUser: src/modals/AgentFormModal.vue has no such field; it only appears read-only in src/dialogs/AgentFactsheetDialog.vue and src/components/ToolInvocationTable.vue.",
+				"spec": "openspec/specs/agent-identity"
 			},
 			"reachedOn": "nothing",
 			"note": "The choose-owner-vs-actingUser-vs-refuse logic is fully implemented server-side and openspec/specs/agent-identity/spec.md is marked DONE, but no screen lets a user pick actingUser; it is only settable via a direct object write and only viewable, not editable, in the UI.",
@@ -9083,7 +9084,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/IntakeController.php:76-197 receive()/show()/conclude()/review() implement the conversational-intake spec (abstention threshold, one thread across channels per design.md D2/D4); routes.php:693-713 intake routes + Settings\\IntakeSettings; but every IntakeController method carries only @NoAdminRequired/@NoCSRFRequired (checked lines 76-197), never #[PublicPage], so the endpoint still requires an authenticated Nextcloud session.",
-				"readOn": "2026-09-26"
+				"readOn": "2026-09-26",
+				"change": "openspec/changes/a-conversational-intake-that-files-for-the-citizen"
 			},
 			"reachedOn": "nothing directly reachable by an account-less caller",
 			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive. Corrected 2026-09-26: intake#receive answering 401 to an anonymous caller is by design, because channel apps call it logged in; the earlier defect candidate is withdrawn.",
@@ -9116,7 +9118,8 @@
 			"built": {
 				"state": "building",
 				"owner": "ConductionNL/integriq",
-				"evidence": "lib/Settings/hermiq_register.json:136,562 both say reaching a named chat platform or third-party system 'is OpenConnector's job, not a Hermiq delivery channel; point webhook at an OpenConnector Source or an n8n webhook trigger.' Hermiq's own webhook delivery (appinfo/routes.php budget/agent-webhook routes) is a generic signed HTTP POST, not a connector catalogue."
+				"evidence": "lib/Settings/hermiq_register.json:136,562 both say reaching a named chat platform or third-party system 'is OpenConnector's job, not a Hermiq delivery channel; point webhook at an OpenConnector Source or an n8n webhook trigger.' Hermiq's own webhook delivery (appinfo/routes.php budget/agent-webhook routes) is a generic signed HTTP POST, not a connector catalogue.",
+				"change": "integriq/openspec/changes/hermiq-ai-tooling"
 			},
 			"reachedOn": "Schedule/agent webhook target pointed at an OpenConnector Source URL (generic HTTP, not verified live here)",
 			"provider": "integriq",
@@ -9149,7 +9152,7 @@
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:1-24 states plainly that ragSearchMode semantic/hybrid 'DEGRADE GRACEFULLY to keyword search' (searchKeywordOnly, line 388, via ObjectService::searchObjectsPaginated); openspec/changes/vector-rag/tasks.md has 0 of 14 tasks checked and its proposal.md confirms no public OpenRegister vector-search facade exists yet.",
-				"change": "vector-rag"
+				"change": "openspec/changes/vector-rag"
 			},
 			"reachedOn": "Chat turn with an agent whose ragSearchMode/searchFiles is configured -> ContextRetrievalHandler::retrieveContext (keyword search only)",
 			"provider": "hermiq",
@@ -9181,7 +9184,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:388-410 (searchKeywordOnly) calls OpenRegister's public ObjectService::searchObjectsPaginated, scoped by the agent's declared 'views' (a tenancy filter), not by any per-caller file-ACL check visible in hermiq's own code."
+				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:388-410 (searchKeywordOnly) calls OpenRegister's public ObjectService::searchObjectsPaginated, scoped by the agent's declared 'views' (a tenancy filter), not by any per-caller file-ACL check visible in hermiq's own code.",
+				"change": "openspec/changes/vector-rag"
 			},
 			"reachedOn": "Chat turn -> ContextRetrievalHandler -> ObjectService::searchObjectsPaginated",
 			"note": "Whether OpenRegister enforces the ASKING PERSON's own file/object permissions on top of the agent's view scope (rather than a run/system identity) lives entirely inside OpenRegister and could not be settled from hermiq's code alone.",
@@ -9281,7 +9285,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/OutsideAgentController.php:90-134 tools()/call(), both @NoAdminRequired @NoCSRFRequired; appinfo/routes.php outsideAgent#tools GET /api/outside-agent/tools, outsideAgent#call POST /api/outside-agent/call; lib/Controller/ChatController.php:261-266 sendMessage() same auth attributes, POST /api/chat/send."
+				"evidence": "lib/Controller/OutsideAgentController.php:90-134 tools()/call(), both @NoAdminRequired @NoCSRFRequired; appinfo/routes.php outsideAgent#tools GET /api/outside-agent/tools, outsideAgent#call POST /api/outside-agent/call; lib/Controller/ChatController.php:261-266 sendMessage() same auth attributes, POST /api/chat/send.",
+				"change": "openspec/changes/the-declared-tool-surface-and-the-prompt-library"
 			},
 			"reachedOn": "Machine surface: an authenticated program (app password, no CSRF token needed) calls GET /api/outside-agent/tools then POST /api/outside-agent/call, or POST /api/chat/send directly",
 			"note": "No published OpenAPI/API doc page was found in docs/ describing these endpoints for third-party integrators; reachability is real, discoverability from outside the codebase is not verified.",
@@ -9314,7 +9319,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:477,483 aiFeature#publish/withdraw '/api/ai-features/{id}/publish' and '/withdraw'; lib/Controller/AiFeatureController.php:299-408 publishToAlgoritmeregister()/withdrawFromAlgoritmeregister() gate on ActionAuthService, run AlgoritmekaderMapper::assessReadiness(), and delegate to PublicationGateway (OpenCatalogi), 503 when absent; src/views/AiFeatureRegister.vue:149-161,507,540 renders Publish/Withdraw buttons calling src/api/aiFeatures.js:99,112."
+				"evidence": "appinfo/routes.php:477,483 aiFeature#publish/withdraw '/api/ai-features/{id}/publish' and '/withdraw'; lib/Controller/AiFeatureController.php:299-408 publishToAlgoritmeregister()/withdrawFromAlgoritmeregister() gate on ActionAuthService, run AlgoritmekaderMapper::assessReadiness(), and delegate to PublicationGateway (OpenCatalogi), 503 when absent; src/views/AiFeatureRegister.vue:149-161,507,540 renders Publish/Withdraw buttons calling src/api/aiFeatures.js:99,112.",
+				"spec": "openspec/specs/algoritmeregister-publication"
 			},
 			"reachedOn": "AdminRoot.vue -> AiFeatureRegister.vue -> Publish/Withdraw buttons per row",
 			"note": "Publication is delegated to OpenCatalogi via PublicationGateway; publish returns 503 (feature stays internally governable) when that fleet leaf is absent.",
@@ -9380,7 +9386,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/DelegationService.php:126-408 bounds a per-turn 'fan-out' (maxFanOut) so a single turn may call hermiq.delegateAgent more than once, but grep for async/concurrent/parallel/Promise in lib/Service/Engine/ToolLoop.php found nothing: tool calls in the loop show no concurrency primitives."
+				"evidence": "lib/Service/DelegationService.php:126-408 bounds a per-turn 'fan-out' (maxFanOut) so a single turn may call hermiq.delegateAgent more than once, but grep for async/concurrent/parallel/Promise in lib/Service/Engine/ToolLoop.php found nothing: tool calls in the loop show no concurrency primitives.",
+				"change": "openspec/changes/archive/2026-07-14-sub-agent-delegation"
 			},
 			"reachedOn": "An agent's turn issuing multiple hermiq.delegateAgent calls up to maxFanOut",
 			"note": "Fan-out (calling several sub-agents within a turn) is real and bounded; whether those calls execute concurrently or one after another could not be settled by reading the code alone, and the PHP synchronous request model suggests sequential.",
@@ -9413,7 +9420,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch."
+				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
+				"spec": "none"
 			},
 			"reachedOn": "Every action-auth-gated endpoint in the app (compliance.*, tenantops.*, aifeature.*, agenttemplate.approve-quarantined, etc.); the matrix itself is admin-configured (not directly observed which UI edits it)",
 			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles ('admin'/'builder'/'user'); did not locate the specific admin screen that edits the action/group matrix itself, only the service that enforces it.",
@@ -9446,7 +9454,8 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "l10n/ contains en.json/en.js, en_US.json/en_US.js, and nl.json/nl.js (Dutch translation pair alongside English)."
+				"evidence": "l10n/ contains en.json/en.js, en_US.json/en_US.js, and nl.json/nl.js (Dutch translation pair alongside English).",
+				"change": "openspec/changes/nl-locale-completeness"
 			},
 			"reachedOn": "Nextcloud's own language switcher (personal settings) once nl is selected",
 			"note": "Confirmed the nl.json/nl.js translation files exist; did not diff their key coverage against en.json to confirm every string is actually translated (nl-locale-completeness is exactly the spec that tracks that gap).",
