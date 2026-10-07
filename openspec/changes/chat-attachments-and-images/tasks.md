@@ -1,5 +1,7 @@
 # Tasks: chat-attachments-and-images
 
+> Archive pass 2026-10-07: code done for tasks 1-5, 7 and 8 (#1097, #1098, #1099 merged); open: task 6 Implement (OpenRegister text facade adapter, waits on Ruben), Test boxes of tasks 1, 2, 3, 4, 6, 8 and the PHPUnit/Newman/Playwright run and dev-instance check (live check).
+
 Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `dm-native-pdf`.
 
 ## Implementation tasks
@@ -75,6 +77,6 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - [ ] Test (PHPUnit: done, ChatImageControllerTest, EngineAttachmentsTest, ChatStreamControllerTest, ImageGenerationServiceTest; Playwright `tests/e2e/spec-coverage/image-generation.spec.ts` stubs hermiq's image routes because a test instance has no text-to-image provider: written, not yet run, it needs the live instance)
 
 ## Verification
-- [ ] `openspec validate chat-attachments-and-images --type change --strict` passes
+- [x] `openspec validate chat-attachments-and-images --type change --strict` passes (archive pass 2026-10-07: "Change 'chat-attachments-and-images' is valid")
 - [ ] PHPUnit, Newman and the two Playwright files run, exit codes read
 - [ ] A live check on the dev instance: attach a PDF from the companion and see the upload return 200 instead of 404
