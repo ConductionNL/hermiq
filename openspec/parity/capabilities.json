@@ -513,6 +513,507 @@
 			"name_nl": "Tenants, hosting en beveiliging"
 		}
 	],
+	"features": [
+		{
+			"slug": "agent-builder",
+			"title": "Build and configure agents",
+			"title_nl": "Agents bouwen en instellen",
+			"area": "agents",
+			"overlay": null,
+			"specs": [
+				"agent-management-ui",
+				"agents-sharing-and-catalog-columns",
+				"agent-tool-governance",
+				"agents-plain-language-builder",
+				"agent-object-leaf",
+				"agent-template-gallery",
+				"agent-capability-profile",
+				"agent-identity",
+				"agents-standing-goal"
+			]
+		},
+		{
+			"slug": "chat",
+			"title": "Chat with an agent",
+			"title_nl": "Chatten met een agent",
+			"area": "chat",
+			"overlay": null,
+			"specs": [
+				"agent-engine-port",
+				"warm-start-and-cli-step-visibility",
+				"chat-session-search-and-bulk-delete",
+				"chat-fork-and-share-link",
+				"chat-how-an-answer-came-about",
+				"session-participants",
+				"chat-carry-a-conversation-across-channels",
+				"ai-feature-admin-surface"
+			]
+		},
+		{
+			"slug": "chat-files-and-images",
+			"title": "Files and images in chat",
+			"title_nl": "Bestanden en afbeeldingen in de chat",
+			"area": "chat",
+			"overlay": null,
+			"specs": [
+				"chat-attachments-and-images"
+			]
+		},
+		{
+			"slug": "speech",
+			"title": "Speak, listen and transcribe",
+			"title_nl": "Spreken, luisteren en transcriberen",
+			"area": "chat",
+			"overlay": null,
+			"specs": [
+				"speech-services",
+				"chat-translate-a-recording"
+			]
+		},
+		{
+			"slug": "assistant-everywhere",
+			"title": "AI assistant everywhere in Nextcloud",
+			"title_nl": "AI-assistent overal in Nextcloud",
+			"area": "chat",
+			"overlay": null,
+			"specs": [
+				"companion-everywhere",
+				"agent-object-leaf",
+				"contextagent-provider",
+				"nc-native-tools",
+				"taskprocessing-provide-text2text"
+			]
+		},
+		{
+			"slug": "schedules",
+			"title": "Scheduled agent runs",
+			"title_nl": "Geplande agentruns",
+			"area": "scheduling",
+			"overlay": null,
+			"specs": [
+				"agent-schedule",
+				"scheduling-overview-and-start-choice",
+				"agent-management-ui"
+			]
+		},
+		{
+			"slug": "triggers",
+			"title": "Start agents on events and webhooks",
+			"title_nl": "Agents starten op gebeurtenissen en webhooks",
+			"area": "scheduling",
+			"overlay": null,
+			"specs": [
+				"agent-webhook-trigger"
+			]
+		},
+		{
+			"slug": "nextcloud-tools",
+			"title": "Agents that work in Nextcloud apps",
+			"title_nl": "Agents die werken in Nextcloud-apps",
+			"area": "tools",
+			"overlay": null,
+			"specs": [
+				"nc-native-tools",
+				"talk-delivery",
+				"agent-tool-governance"
+			]
+		},
+		{
+			"slug": "outside-tools-and-api",
+			"title": "Outside tools, MCP and API",
+			"title_nl": "Externe tools, MCP en API",
+			"area": "tools",
+			"overlay": null,
+			"specs": [
+				"governed-cli-mcp-transport",
+				"tools-custom-tools-without-code",
+				"agent-tool-governance",
+				"ai-feature-admin-surface",
+				"settings-management"
+			]
+		},
+		{
+			"slug": "tool-access",
+			"title": "Tool grants and access requests",
+			"title_nl": "Toolrechten en toegangsverzoeken",
+			"area": "tools",
+			"overlay": null,
+			"specs": [
+				"agent-engine-port",
+				"agent-tool-governance",
+				"agent-capability-reach"
+			]
+		},
+		{
+			"slug": "web-research",
+			"title": "Web research and browser use",
+			"title_nl": "Webonderzoek en browsergebruik",
+			"area": "tools",
+			"overlay": null,
+			"specs": [
+				"web-research-tool",
+				"tools-deep-research-report",
+				"tools-browser-and-computer-use"
+			]
+		},
+		{
+			"slug": "code-and-workspace",
+			"title": "Code execution and agent workspace",
+			"title_nl": "Code uitvoeren en eigen werkruimte",
+			"area": "tools",
+			"overlay": null,
+			"specs": [
+				"tools-code-sandbox",
+				"agent-workspace-git-tools",
+				"tools-agent-workspace-and-installed-tools"
+			]
+		},
+		{
+			"slug": "agent-memory",
+			"title": "Agent memory",
+			"title_nl": "Geheugen van agents",
+			"area": "memory",
+			"overlay": null,
+			"specs": [
+				"agent-memory",
+				"agent-engine-port",
+				"memory-project-scopes"
+			]
+		},
+		{
+			"slug": "knowledge-bases",
+			"title": "Knowledge bases and document grounding",
+			"title_nl": "Kennisbanken en onderbouwing met documenten",
+			"area": "memory",
+			"overlay": null,
+			"specs": [
+				"memory-knowledge-bases",
+				"vector-rag",
+				"memory-retrieval-scope",
+				"context-documents",
+				"knowledge-graph",
+				"agent-tool-governance"
+			]
+		},
+		{
+			"slug": "skills-catalog",
+			"title": "Skills catalogue",
+			"title_nl": "Vaardighedencatalogus",
+			"area": "skills",
+			"overlay": null,
+			"specs": [
+				"skills-catalog",
+				"skills-marketplace"
+			]
+		},
+		{
+			"slug": "self-improving-skills",
+			"title": "Skills that improve themselves",
+			"title_nl": "Vaardigheden die zichzelf verbeteren",
+			"area": "skills",
+			"overlay": null,
+			"specs": [
+				"skill-self-improvement",
+				"skill-maturity",
+				"skill-learnings"
+			]
+		},
+		{
+			"slug": "model-providers",
+			"title": "Model providers, local and in the cloud",
+			"title_nl": "Modelaanbieders, lokaal en in de cloud",
+			"area": "models",
+			"overlay": null,
+			"specs": [
+				"taskprocessing-consume-ui",
+				"models-provider-connections",
+				"governed-cli-mcp-transport",
+				"tenant-model-policy",
+				"agent-management-ui",
+				"ai-feature-governance"
+			]
+		},
+		{
+			"slug": "model-policy",
+			"title": "Model policy and data residency",
+			"title_nl": "Modelbeleid en dataopslag binnen de EU",
+			"area": "models",
+			"overlay": null,
+			"specs": [
+				"tenant-model-policy",
+				"multi-tenant-ops",
+				"ai-feature-governance",
+				"provider-data-use"
+			]
+		},
+		{
+			"slug": "model-reliability",
+			"title": "Model failover, caching and rate limits",
+			"title_nl": "Uitwijk, caching en limieten voor modellen",
+			"area": "models",
+			"overlay": null,
+			"specs": [
+				"models-several-models-per-turn",
+				"models-prompt-and-answer-cache"
+			]
+		},
+		{
+			"slug": "credentials",
+			"title": "Credential vault and personal keys",
+			"title_nl": "Kluis voor sleutels en persoonlijke sleutels",
+			"area": "models",
+			"overlay": null,
+			"specs": [
+				"agent-credentials"
+			]
+		},
+		{
+			"slug": "talk",
+			"title": "Agents in Talk",
+			"title_nl": "Agents in Talk",
+			"area": "delivery",
+			"overlay": null,
+			"specs": [
+				"talk-delivery",
+				"talk-chat-bridge",
+				"talk-room-grouping",
+				"talk-agent-sessions",
+				"agent-template-gallery"
+			]
+		},
+		{
+			"slug": "delivery",
+			"title": "Results by email, webhook and notification",
+			"title_nl": "Resultaten via e-mail, webhook en melding",
+			"area": "delivery",
+			"overlay": null,
+			"specs": [
+				"run-audit-log",
+				"talk-delivery",
+				"report-similarity"
+			]
+		},
+		{
+			"slug": "public-chat",
+			"title": "Public chat for residents",
+			"title_nl": "Publieke chat voor inwoners",
+			"area": "delivery",
+			"overlay": null,
+			"specs": [
+				"delivery-public-web-chat",
+				"conversational-intake"
+			]
+		},
+		{
+			"slug": "human-approval",
+			"title": "Human approval before actions",
+			"title_nl": "Menselijke goedkeuring voor acties",
+			"area": "oversight",
+			"overlay": null,
+			"specs": [
+				"human-approval-gate",
+				"agent-guardrails",
+				"talk-approval-reactions",
+				"oversight-ask-and-hold"
+			]
+		},
+		{
+			"slug": "kill-switch",
+			"title": "Switch agents off and stop runaway runs",
+			"title_nl": "Agents uitzetten en ontsporende runs stoppen",
+			"area": "oversight",
+			"overlay": null,
+			"specs": [
+				"human-approval-gate",
+				"agent-management-ui",
+				"agent-tool-governance"
+			]
+		},
+		{
+			"slug": "guardrails",
+			"title": "Guardrails on input, output and outbound traffic",
+			"title_nl": "Vangrails op invoer, uitvoer en uitgaand verkeer",
+			"area": "oversight",
+			"overlay": null,
+			"specs": [
+				"agent-guardrails",
+				"governed-cli-mcp-transport",
+				"woo-llm-anonymisation"
+			]
+		},
+		{
+			"slug": "explainable-ai",
+			"title": "Explainable and labelled AI output",
+			"title_nl": "Uitlegbare en gelabelde AI-uitkomsten",
+			"area": "compliance",
+			"overlay": null,
+			"specs": [
+				"chat-how-an-answer-came-about",
+				"observability",
+				"compliance-control-packs",
+				"nc-native-tools"
+			]
+		},
+		{
+			"slug": "audit-trail",
+			"title": "Audit trail and retention",
+			"title_nl": "Audittrail en bewaartermijnen",
+			"area": "compliance",
+			"overlay": null,
+			"specs": [
+				"run-audit-log",
+				"multi-tenant-ops",
+				"agent-lifecycle-governance"
+			]
+		},
+		{
+			"slug": "ai-governance",
+			"title": "AI register, risk classes and Algoritmeregister",
+			"title_nl": "AI-register, risicoklassen en Algoritmeregister",
+			"area": "compliance",
+			"overlay": null,
+			"specs": [
+				"ai-feature-governance",
+				"algoritmeregister-publication",
+				"compliance-control-packs"
+			]
+		},
+		{
+			"slug": "agent-ownership",
+			"title": "Agent ownership, incidents and reviews",
+			"title_nl": "Eigenaarschap, incidenten en herbeoordeling van agents",
+			"area": "compliance",
+			"overlay": null,
+			"specs": [
+				"compliance-control-packs",
+				"agent-lifecycle-governance"
+			]
+		},
+		{
+			"slug": "runs-and-traces",
+			"title": "Run history and traces",
+			"title_nl": "Runhistorie en traces",
+			"area": "observability",
+			"overlay": null,
+			"specs": [
+				"run-analytics",
+				"observability",
+				"run-replay-and-dry-run",
+				"agent-schedule",
+				"observability-export-traces"
+			]
+		},
+		{
+			"slug": "cost-control",
+			"title": "Cost budgets and estimates",
+			"title_nl": "Kostenbudgetten en schattingen",
+			"area": "observability",
+			"overlay": null,
+			"specs": [
+				"multi-tenant-ops",
+				"run-analytics"
+			]
+		},
+		{
+			"slug": "usage-analytics",
+			"title": "Usage analytics and reports",
+			"title_nl": "Gebruiksanalyse en rapportages",
+			"area": "observability",
+			"overlay": null,
+			"specs": [
+				"run-analytics",
+				"reports"
+			]
+		},
+		{
+			"slug": "flows",
+			"title": "Visual flows with agent steps",
+			"title_nl": "Visuele flows met agentstappen",
+			"area": "flows",
+			"overlay": null,
+			"specs": [
+				"flow-canvas",
+				"flow-authoring",
+				"tools-code-sandbox",
+				"flows-hand-off-and-wait"
+			]
+		},
+		{
+			"slug": "multi-agent",
+			"title": "Agents that work together",
+			"title_nl": "Agents die samenwerken",
+			"area": "flows",
+			"overlay": null,
+			"specs": [
+				"sub-agent-delegation",
+				"agent-management-ui",
+				"human-approval-gate",
+				"multi-tenant-ops",
+				"flows-hand-off-and-wait"
+			]
+		},
+		{
+			"slug": "agent-templates",
+			"title": "Agent templates and store",
+			"title_nl": "Agentsjablonen en winkel",
+			"area": "reuse",
+			"overlay": null,
+			"specs": [
+				"agent-template-gallery",
+				"agent-template-github-store"
+			]
+		},
+		{
+			"slug": "versions-and-evals",
+			"title": "Agent versions and evaluations",
+			"title_nl": "Agentversies en evaluaties",
+			"area": "reuse",
+			"overlay": null,
+			"specs": [
+				"agent-versioning",
+				"agent-evals",
+				"skill-self-improvement",
+				"reuse-scheduled-bias-evals"
+			]
+		},
+		{
+			"slug": "multi-tenant",
+			"title": "Several organisations on one instance",
+			"title_nl": "Meerdere organisaties op een installatie",
+			"area": "operations",
+			"overlay": null,
+			"specs": [
+				"multi-tenant-ops"
+			]
+		},
+		{
+			"slug": "setup-and-admin",
+			"title": "Setup, admin settings and health",
+			"title_nl": "Inrichting, beheerinstellingen en gezondheid",
+			"area": "operations",
+			"overlay": null,
+			"specs": [
+				"admin-ui",
+				"app-manifest",
+				"observability",
+				"nl-locale-completeness",
+				"operations-parallel-run-workers",
+				"operations-backup-and-restore"
+			]
+		},
+		{
+			"slug": "hosting-and-security",
+			"title": "Self-hosted, open source and secure sign-in",
+			"title_nl": "Zelf gehost, open source en veilig inloggen",
+			"area": "operations",
+			"overlay": null,
+			"specs": [
+				"app-runtime-requirements",
+				"app-manifest",
+				"action-authorization"
+			]
+		}
+	],
 	"providers": [
 		{
 			"key": "hermiq",
@@ -581,7 +1082,7 @@
 			"reachedOn": "/agents AgentCatalog -> Add (AgentFormModal.vue)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -615,7 +1116,7 @@
 			"note": "The owner and status columns landed with agents-sharing-and-catalog-columns. Still open in that change: an organisation admin's reduced agent view on AgentDetail (task 5, waits on Ruben, design D4).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -647,7 +1148,7 @@
 			"reachedOn": "/agents/:id AgentDetail",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -679,7 +1180,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> Edit agent (AgentFormModal.vue)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "tenant-model-policy",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -713,8 +1214,8 @@
 			"note": "Built by agents-sharing-and-catalog-columns task 1-3 and 6; the live two-user call (task 6 Test) has not been run.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
-			"featureConfidence": "medium",
+			"feature": "agent-builder",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -746,8 +1247,8 @@
 			"note": "Per-agent run/token caps exist as Budget objects (scope=agent), but only org admins can set them, not the agent's own owner.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "cost-guardrails",
-			"featureConfidence": "high",
+			"feature": "cost-control",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -781,8 +1282,8 @@
 			"note": "active is displayed read-only on AgentDetail's Configuration card; no button, toggle or form anywhere sets it, so a user cannot switch an agent off without deleting it today.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
-			"featureConfidence": "medium",
+			"feature": "agent-builder",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -814,8 +1315,8 @@
 			"note": "Owner is the OpenRegister object owner (whoever created it), read-only and shown on the factsheet and the admin access review; there is no separate 'assign an owner' field.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "compliance-control-packs",
-			"featureConfidence": "medium",
+			"feature": "agent-ownership",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "yes",
@@ -846,7 +1347,7 @@
 			"reachedOn": "/tenant-ops TenantOps access review -> Reassign (admin only)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-lifecycle-governance",
+			"feature": "agent-ownership",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -879,7 +1380,7 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -915,7 +1416,7 @@
 			"note": "Built 2026-10-01 by agents-bound-to-their-app. History: before that the field existed and the chat fallback read it, but nothing let a user set it.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "hermiq-agent-application-slug",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -948,7 +1449,7 @@
 			"note": "Skills, tool grants and core config are three widgets on the same AgentDetail page rather than one merged panel, but they are all visible together without navigating away.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-capability-profile",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -983,8 +1484,8 @@
 			"note": "Deleting an agent works, but its schedules are not stopped or cleaned up with it.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
-			"featureConfidence": "medium",
+			"feature": "agent-builder",
+			"featureConfidence": "high",
 			"defectCandidate": "A schedule bound to a deleted agent stays enabled; ScheduleService's dispatch/findDueSchedules path has no agent-existence check, so the schedule keeps firing and presumably errors on every tick instead of stopping.",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -1019,7 +1520,7 @@
 			"note": "Built 2026-10-01 by agents-export-import-and-git-sync. History: before that a template could be imported and exported in the Store, but no button turned a live agent into a file.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-template-gallery",
+			"feature": "agent-templates",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -1051,7 +1552,7 @@
 			"reachedOn": "/chat Chat page",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1083,7 +1584,7 @@
 			"reachedOn": "/chat Chat page, streamed by default with a POST /send fallback on transport failure",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1115,7 +1616,7 @@
 			"reachedOn": "/chat Chat page session list",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1147,7 +1648,7 @@
 			"reachedOn": "/chat Chat page session list actions",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -1180,7 +1681,7 @@
 			"note": "openspec/changes/warm-start-and-cli-step-visibility/tasks.md checkboxes are all unchecked, but the code (RunStepBus, ChatController::warm, ProviderFactory::warmAnthropicCli, Chat.vue streamingTools) is fully present and wired; tracking looks stale relative to the code.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "warm-start-and-cli-step-visibility",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1214,8 +1715,8 @@
 			"note": "Partial: a PDF or office file for a model that does not read it natively goes through the AttachmentTextSource seam, which nothing implements yet (chat-attachments-and-images task 6, the OpenRegister text facade adapter waits on Ruben), so it is left out with a notice above the answer. The companion route of hermiq#950 now exists. Playwright and Newman for upload not run.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
-			"featureConfidence": "medium",
+			"feature": "chat-files-and-images",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -1246,7 +1747,7 @@
 			"reachedOn": "/chat Chat page, per assistant message",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -1278,7 +1779,7 @@
 			"reachedOn": "every Nextcloud page except hermiq's own (companion.js init script)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "companion-everywhere",
+			"feature": "assistant-everywhere",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -1310,7 +1811,7 @@
 			"reachedOn": "any OpenRegister object's leaf/tab in an OpenBuild app (e.g. a case record) -> Agent tab (CnAgentChatTab.vue)",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "agent-object-leaf",
+			"feature": "assistant-everywhere",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -1345,7 +1846,7 @@
 			"note": "Admins author the prompt library; since 2026-09-29 the record chat offers the prompts for the record type, and picking one fills the message box without sending.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "the-declared-tool-surface-and-the-prompt-library",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -1380,7 +1881,7 @@
 			"note": "Re-rated no to partial on 2026-09-26: speaking to an agent works through the companion panel from nextcloud-vue 2.55.1, backed by hermiq's transcription endpoint. hermiq's own chat page still has no microphone.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "speech-services",
+			"feature": "speech",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1415,7 +1916,7 @@
 			"note": "Re-rated no to partial on 2026-09-26: read-aloud works through the companion panel from nextcloud-vue 2.55.1; hermiq's own chat page still has no speaker control.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "speech-services",
+			"feature": "speech",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1448,8 +1949,8 @@
 			"note": "This is a machine/task-type integration point, not a hermiq-owned screen; the picker UI itself is Nextcloud core's.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
-			"featureConfidence": "medium",
+			"feature": "assistant-everywhere",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -1480,7 +1981,7 @@
 			"reachedOn": "Nextcloud Assistant's text-task menu (summarise/headline/free-form text2text) -> hermiq's Text2Text providers",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "assistant-everywhere",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
@@ -1513,7 +2014,7 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "chat-files-and-images",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1547,8 +2048,8 @@
 			"note": "A user can only browse the session list, not search across past conversations.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
-			"featureConfidence": "medium",
+			"feature": "chat",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
@@ -1579,7 +2080,7 @@
 			"reachedOn": "/chat Chat page, under an assistant reply that used RAG",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "chat",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -1612,8 +2113,8 @@
 			"note": "A colleague can only join via a shared Talk room (ch-shared-session), not via a shareable conversation link.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
-			"featureConfidence": "medium",
+			"feature": "chat",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -1644,7 +2145,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -1676,7 +2177,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1708,7 +2209,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1740,7 +2241,7 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1772,7 +2273,7 @@
 			"reachedOn": "n/a (server-side computation, no dedicated screen; timezone is inherited from the schedule owner's Nextcloud profile setting)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -1804,7 +2305,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Run now",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -1836,7 +2337,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Edit schedule (enabled switch)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -1868,7 +2369,7 @@
 			"reachedOn": "external system POST /apps/hermiq/api/agents/{id}/webhook (secret-authenticated, PublicPage); managed from /agents/:id AgentDetail -> agent-run-operations widget",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-webhook-trigger",
+			"feature": "triggers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -1900,7 +2401,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Webhook trigger section",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-webhook-trigger",
+			"feature": "triggers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -1933,7 +2434,7 @@
 			"note": "The trigger UI itself is OpenRegister's flow canvas; hermiq contributes only the agent action node and the governed dispatch.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-agent-listener",
+			"feature": "triggers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -1966,8 +2467,8 @@
 			"note": "An agent can be started by schedule, by event-flow, or by hand, but there is no single per-agent selector that lets a user choose between the three; they are three independent surfaces rather than one choice.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
-			"featureConfidence": "medium",
+			"feature": "schedules",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -1998,7 +2499,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Edit schedule -> Retry enabled",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -2030,7 +2531,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-history widget (dead-letter rows + Re-run)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "schedules",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -2063,8 +2564,8 @@
 			"note": "No explicit named 'lock', but commit-before-run has the same effect: nextRun moves into the future before the agent turn starts, so the next tick will not re-fire the same occurrence.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
-			"featureConfidence": "medium",
+			"feature": "schedules",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -2096,8 +2597,8 @@
 			"note": "Next run and last status are visible, but only one agent's schedule at a time; there is no single list of every schedule across agents, so seeing them all means opening each AgentDetail page in turn.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
-			"featureConfidence": "medium",
+			"feature": "schedules",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -2128,7 +2629,7 @@
 			"reachedOn": "Agent tool grant (ToolGrantMatrix) -> chat/schedule run -> hermiq.listFiles / hermiq.readFile via FacadeToolInvoker",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -2160,7 +2661,7 @@
 			"reachedOn": "Agent tool grant -> hermiq.listCalendarEvents / hermiq.createCalendarEvent",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -2192,7 +2693,7 @@
 			"reachedOn": "Agent tool grant -> hermiq.searchContacts / hermiq.upsertContact",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -2224,7 +2725,7 @@
 			"note": "The row asks for creating and updating cards; only listing boards exists, so the asked-for capability is not built even though Deck read access is.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -2256,7 +2757,7 @@
 			"reachedOn": "Agent tool grant -> hermiq.sendMail",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-native-tools",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -2288,7 +2789,7 @@
 			"reachedOn": "Schedule deliver=talk, or a Talk-bound agent's turn -> TalkBridge::postToRoom",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-delivery",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -2323,8 +2824,8 @@
 			"note": "Built 2026-09-30 by tools-nextcloud-tasks. History: before that nothing in the codebase implemented a tasks tool; the Notes tools are a different capability.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nc-tasks-tool",
-			"featureConfidence": "low",
+			"feature": "nextcloud-tools",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -2354,8 +2855,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "unified-search-tool",
-			"featureConfidence": "low",
+			"feature": "nextcloud-tools",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -2386,7 +2887,7 @@
 			"reachedOn": "Agent tool grant -> hermiq.webSearch / hermiq.webFetch",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "web-research-tool",
+			"feature": "web-research",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -2418,7 +2919,7 @@
 			"reachedOn": "Agent tool grant (any OR object/schema tool) -> chat or scheduled run -> ToolRegistryFacade",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
+			"feature": "nextcloud-tools",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -2450,7 +2951,7 @@
 			"note": "The CLI runner is explicitly locked to Hermiq's own MCP server; connecting to an arbitrary outside MCP server looks like a deliberate design decision, not a missing feature.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "governed-cli-mcp-transport",
+			"feature": "outside-tools-and-api",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -2482,7 +2983,7 @@
 			"reachedOn": "POST /apps/hermiq/api/mcp/run (governed CLI transport) and POST /apps/hermiq/api/outside-agent/call",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "governed-cli-mcp-transport",
+			"feature": "outside-tools-and-api",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -2514,7 +3015,7 @@
 			"reachedOn": "/mcp-tools McpTools nav page",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "tool-access",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -2546,7 +3047,7 @@
 			"reachedOn": "Agent editor (AgentFormModal) -> tool grant matrix -> PUT /api/agents/{agentId}/tool-grants",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
+			"feature": "tool-access",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -2578,7 +3079,7 @@
 			"note": "Grepped src/ for 'tool-access-request'/'AccessRequest': no component or page calls the resolve endpoint, so an owner can only approve/deny by calling the API directly.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "tool-discovery-and-access-requests",
+			"feature": "tool-access",
 			"featureConfidence": "high",
 			"defectCandidate": "ToolAccessRequestService::notifyOwner() (lib/Service/ToolAccessRequestService.php:758-766) raises notification subjects 'tool_access_requested'/'tool_access_granted', neither of which is in lib/Notification/Notifier.php's KNOWN_SUBJECTS list (lines 58-65), so INotifier::prepare() throws UnknownNotificationException and the bell-menu entry for it never renders.",
 			"nextcloud-assistant": "no",
@@ -2612,8 +3113,8 @@
 			"note": "A governance-register placeholder exists for the risk category; no runnable sandbox or code-exec tool exists in the tool catalog.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "code-execution-sandbox",
-			"featureConfidence": "low",
+			"feature": "code-and-workspace",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -2647,7 +3148,7 @@
 			"note": "Built 2026-09-30 by hermiq-runner-git-capability (stack #1024, part 2, part 3); the live end-to-end milestone with a real forge is not yet run. History: corrections round 9 (2026-09-28): built.change names openspec/changes/hermiq-runner-git-capability, open on development at bfa5e5d6 with none of its 8 tasks started, whose proposal specifies governed workspace.* git and file tools (open, read, write, commit, push) for an agent run; source: the corrections-9 list of specified rows that named no change.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "hermiq-runner-git-capability",
+			"feature": "code-and-workspace",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -2679,8 +3180,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "custom-tool-extensibility",
-			"featureConfidence": "low",
+			"feature": "outside-tools-and-api",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -2711,7 +3212,7 @@
 			"reachedOn": "Agent detail page -> Tool activity (oversight) widget -> CSV/JSON export button",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
+			"feature": "tool-access",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -2743,8 +3244,8 @@
 			"reachedOn": "/settings/integrations Integrations page",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "settings-management",
-			"featureConfidence": "high",
+			"feature": "outside-tools-and-api",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -2907,8 +3408,8 @@
 			"note": "This is a distinct capability from grounding-in-existing-files (me-rag-files): there is no dedicated 'create a knowledge base and upload documents into it' surface.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "vector-rag",
-			"featureConfidence": "medium",
+			"feature": "knowledge-bases",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -2939,7 +3440,7 @@
 			"note": "The assembly backend is fully built and spec'd DONE (openspec/specs/agent-context-system/spec.md, 14 of 14 tasks), but no page lets a user create a Context object or attach one to an agent -- only reachable via direct API/object writes.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-context-system",
+			"feature": "knowledge-bases",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -2971,7 +3472,7 @@
 			"reachedOn": "Any chat/session turn -> Engine::processMessage -> ConversationManagementHandler::checkAndSummarize (automatic, no user action)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
+			"feature": "agent-memory",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3006,7 +3507,7 @@
 			"note": "Built 2026-09-30 by knowledge-graph (two PRs: schemas, GraphService and extraction; tools and the graph retrieval mode). History: corrections round 9 (2026-09-28): built.change names openspec/changes/knowledge-graph, open on development at bfa5e5d6 with 0 of 19 tasks checked, whose proposal specifies GraphEntity and GraphRelation schemas and agent tools that follow those links; source: the corrections-9 list of specified rows that named no change.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "knowledge-graph",
+			"feature": "knowledge-bases",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -3038,8 +3539,8 @@
 			"note": "Grounding covers the record on screen; grepped for handling of records linked to it with no hits, so that half of the row is not built.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-object-leaf",
-			"featureConfidence": "high",
+			"feature": "assistant-everywhere",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -3070,8 +3571,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "web-research-tool",
-			"featureConfidence": "low",
+			"feature": "knowledge-bases",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -3198,7 +3699,7 @@
 			"reachedOn": "Automatic: SkillConsolidationTask TimedJob; manual: SkillDetail page -> propose-improvement action",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skill-self-improvement",
+			"feature": "self-improving-skills",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3230,7 +3731,7 @@
 			"reachedOn": "SkillDetail page -> SkillDraftReview widget -> accept/edit-then-accept/reject",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skill-self-improvement",
+			"feature": "self-improving-skills",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3261,8 +3762,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "autonomous-skill-creation",
-			"featureConfidence": "low",
+			"feature": "self-improving-skills",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "no",
@@ -3293,7 +3794,7 @@
 			"reachedOn": "Automatic daily TimedJob (SkillCuratorTask), no page action needed",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skills-marketplace",
+			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -3325,7 +3826,7 @@
 			"reachedOn": "/skills/:id SkillDetail page -> skill-maturity-scorecard widget",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skill-maturity",
+			"feature": "self-improving-skills",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -3357,7 +3858,7 @@
 			"reachedOn": "/skills/:id SkillDetail page -> SkillVersionHistory widget",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skill-self-improvement",
+			"feature": "self-improving-skills",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -3389,7 +3890,7 @@
 			"reachedOn": "Store page -> AgentTemplateGithubStore/SkillGithubPublishModal -> GitHub search/install/publish",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skills-marketplace",
+			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -3421,7 +3922,7 @@
 			"reachedOn": "/skills/:id SkillDetail page -> skill-learnings card (read-only)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skill-learnings",
+			"feature": "self-improving-skills",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -3485,7 +3986,7 @@
 			"reachedOn": "SkillsCatalog -> Import skill button -> SkillImportModal -> install-from-source",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skills-marketplace",
+			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -3517,7 +4018,7 @@
 			"reachedOn": "/skills/:id SkillDetail page -> skill-eval-evidence widget -> Run paired eval",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-evals",
+			"feature": "versions-and-evals",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -3550,7 +4051,7 @@
 			"note": "Mistral is not offered by name; Fireworks AI (free-text base URL + model) is the app's generic commercial/OpenAI-compatible slot alongside OpenAI and Anthropic.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "taskprocessing-consume-ui",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3582,7 +4083,7 @@
 			"reachedOn": "Admin settings -> Hermiq -> AI provider section -> Configure provider -> LlmProviderModal.vue provider=ollama",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "taskprocessing-consume-ui",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3615,8 +4116,8 @@
 			"note": "The capability exists but is labelled 'Fireworks AI' in the UI, not presented as a generic OpenAI-compatible endpoint option; the OpenAI provider itself is hardcoded to api.openai.com with no baseUrl override. Rating corrected to no on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "taskprocessing-consume-ui",
-			"featureConfidence": "medium",
+			"feature": "model-providers",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -3648,7 +4149,7 @@
 			"note": "Background/non-interactive use only (session titles, summaries); streaming chat and embeddings cannot use this driver per the modal's own description text.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "taskprocessing-consume-ui",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
@@ -3681,8 +4182,8 @@
 			"note": "Machine/system consumer, not a hermiq page; registration in Application.php's boot() is the reachability evidence for this kind of row.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "taskprocessing-provide-text2text",
-			"featureConfidence": "high",
+			"feature": "assistant-everywhere",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -3713,7 +4214,7 @@
 			"reachedOn": "/agents/:id AgentDetail -> edit-agent action (src/manifest.json id 'edit-agent') -> AgentFormModal.vue",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-management-ui",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3745,7 +4246,7 @@
 			"reachedOn": "/tenant-ops TenantOps.vue -> model policy editor",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "tenant-model-policy",
+			"feature": "model-policy",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -3780,7 +4281,7 @@
 			"note": "grep -rn 'bindAiFeature(' src/ finds only the export in aiFeatures.js, no caller anywhere in src/views, src/modals or src/components: the write endpoint exists server-side with no UI control to invoke it.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "a-provider-and-a-place-per-ai-feature",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -3813,8 +4314,8 @@
 			"note": "No backend code or spec describes automatic failover between providers when one fails.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "multi-tenant-ops",
-			"featureConfidence": "low",
+			"feature": "model-reliability",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -3845,8 +4346,8 @@
 			"note": "The closest existing concept, requiredResidency on an AI feature, routes by geography/instance, not by the sensitivity of the specific data being sent.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "tenant-model-policy",
-			"featureConfidence": "low",
+			"feature": "model-policy",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -3878,7 +4379,7 @@
 			"note": "No occ command sets executionMode either (checked lib/Command/, no hits). The runner container (exapp/llm-runner) and governance are fully built; only the admin-facing toggle is missing.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "governed-cli-mcp-transport",
+			"feature": "model-providers",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -3910,7 +4411,7 @@
 			"reachedOn": "Admin settings -> Hermiq -> AI provider section -> Configure provider -> LlmProviderModal.vue credential NcSelect (backed by OpenRegister's credential broker)",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "agent-credentials",
+			"feature": "credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -3942,7 +4443,7 @@
 			"reachedOn": "In-app Hermiq settings (src/App.vue Credentials section) -> CnCredentials scope=personal",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-credentials",
+			"feature": "credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "partial",
@@ -3975,7 +4476,7 @@
 			"note": "Enforcement is at the provider/model-pair level (e.g. 'only ollama'), which achieves on-premise; there is no separate hard 'EU-only' geofence beyond the self-declared residency labels.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "multi-tenant-ops",
+			"feature": "model-policy",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -4007,7 +4508,7 @@
 			"reachedOn": "src/modals/ScheduleFormModal.vue:308 'Nextcloud Talk' option in the deliver NcSelect, reached from AgentDetail -> Schedules widget -> ScheduleFormModal.vue",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-delivery",
+			"feature": "talk",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -4039,7 +4540,7 @@
 			"reachedOn": "Admin settings -> Hermiq -> TalkBridgeSettings.vue (mounted src/views/AdminRoot.vue:160), which calls src/api/talkBridge.js",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-chat-bridge",
+			"feature": "talk",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4072,7 +4573,7 @@
 			"note": "Per its own docblock this is presentation only: it changes the participant's Talk sidebar filing, not authorization or routing.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-room-grouping",
+			"feature": "talk",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -4104,7 +4605,7 @@
 			"reachedOn": "src/modals/ScheduleFormModal.vue:131-... 'Webhook' deliver option, secret managed via src/modals/ScheduleWebhookSecretDialog.vue -> src/api/scheduleWebhookSecret.js",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "delivery-channels",
+			"feature": "delivery",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -4137,7 +4638,7 @@
 			"note": "Delivery is to the schedule owner's own Nextcloud account email, not an arbitrary address (no 'n8n'/'Hermes gateway' integration found for this row; grep for those terms in lib/src found nothing).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "delivery-channels",
+			"feature": "delivery",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -4169,7 +4670,7 @@
 			"reachedOn": "src/modals/ScheduleFormModal.vue:309 'Notification' deliver option",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "delivery-channels",
+			"feature": "delivery",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -4201,7 +4702,7 @@
 			"reachedOn": "In-app Hermiq settings (src/App.vue) -> Talk delivery default room picker",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-delivery",
+			"feature": "delivery",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -4233,8 +4734,8 @@
 			"note": "Delivery/intake channels found are limited to talk, notification, email and webhook; none reach an external messaging platform. Decided no (OpenSpec pass 2026-09-27): recorded non-goal: hermiq ADR-005 drops the multi-platform gateway and names outside chat platforms \"an explicit non-goal for now\", and the archived delivery-channels design lists every named chat platform as OpenConnector's catalogue, reached by the outbound webhook.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-delivery",
-			"featureConfidence": "low",
+			"feature": "delivery",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -4266,7 +4767,7 @@
 			"note": "There is no dedicated 'digest' feature; the capability is composed from the already-built cron scheduler and Talk delivery channel, demonstrated by name in the seeded template.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "talk",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -4299,7 +4800,7 @@
 			"note": "hermiq answers the grouping question; displaying the collapsed report list with its count is the calling app's own UI, per the controller's own docblock ('hermiq answers; the owning app decides what a group means').",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "identical-reports-collapse-into-one",
+			"feature": "delivery",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4331,7 +4832,7 @@
 			"note": "Do not confuse this with hermiq's in-app Dashboard page (/ route, DashboardController), which does show agent/run/quota data but is not the Nextcloud system dashboard.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "dashboard-org-widgets",
+			"feature": "assistant-everywhere",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4366,7 +4867,7 @@
 			"note": "The per-agent voice-engine setting is stored but has no consumer: the actual composer mic capture UI does not exist in src/.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "speech-services",
+			"feature": "speech",
 			"featureConfidence": "high",
 			"defectCandidate": "SpeechController's transcribe/synthesise routes and the per-agent voice settings look built for a composer mic feature that has no frontend caller; worth confirming live whether a mic button exists anywhere the static search missed.",
 			"nextcloud-assistant": "yes",
@@ -4399,8 +4900,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "case-assistant-surface",
-			"featureConfidence": "low",
+			"feature": "public-chat",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "yes",
@@ -4431,7 +4932,7 @@
 			"reachedOn": "ScheduleFormModal.vue requiresApproval toggle -> a gated run creates an Approval -> ApprovalInbox.vue Approve/Deny buttons",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
+			"feature": "human-approval",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -4463,7 +4964,7 @@
 			"reachedOn": "/approvals nav page (src/manifest.json id 'ApprovalInbox')",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
+			"feature": "human-approval",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -4498,7 +4999,7 @@
 			"note": "The prompt column gives some 'what will run' context, but there is no blast-radius, lineage or rollback preview before approving, unlike the canonical row's fuller shape.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
+			"feature": "human-approval",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -4530,7 +5031,7 @@
 			"reachedOn": "src/views/GuardrailPolicySettings.vue toolPolicyText field sets per-tool auto/confirm/deny classification, enforced live in FacadeToolInvoker",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-guardrails",
+			"feature": "human-approval",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -4562,7 +5063,7 @@
 			"reachedOn": "nothing on a hermiq page (a Talk room, reacting to the agent's message)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-approval-reactions",
+			"feature": "human-approval",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4595,8 +5096,8 @@
 			"note": "The human-approval-gate holds an entire RUN before it executes (ov-approval), which is adjacent but different from holding an already-generated reply's text for human review before sending.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
-			"featureConfidence": "medium",
+			"feature": "human-approval",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -4627,7 +5128,7 @@
 			"reachedOn": "ApprovalInbox.vue header -> KillSwitchToggle.vue (also shown in the org-scoped surfaces)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
+			"feature": "kill-switch",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -4662,8 +5163,8 @@
 			"note": "Only the organisation-wide kill switch (ov-kill-switch) exists; there is no single-agent equivalent.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
-			"featureConfidence": "medium",
+			"feature": "kill-switch",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -4694,7 +5195,7 @@
 			"reachedOn": "Admin settings -> Hermiq -> Guardrail policies (GuardrailPolicyController#index/create/update, /api/guardrail-policies)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-guardrails",
+			"feature": "guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4726,7 +5227,7 @@
 			"reachedOn": "Admin settings -> Hermiq -> Guardrail policies",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-guardrails",
+			"feature": "guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4758,7 +5259,7 @@
 			"reachedOn": "Admin settings -> Hermiq -> Guardrail policies -> tool rules text field",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-guardrails",
+			"feature": "guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -4790,7 +5291,7 @@
 			"reachedOn": "Machine surface: the runner sidecar's forward proxy calls POST /api/egress/authorize on every CONNECT",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "governed-cli-mcp-transport",
+			"feature": "guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -4823,7 +5324,7 @@
 			"note": "No page inside hermiq itself calls this; it exists to be called by another app before that app's own model read.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "woo-llm-anonymisation",
+			"feature": "guardrails",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -4855,7 +5356,7 @@
 			"reachedOn": "/ai-oversight AiOversight page -> row -> AiOversightDetail",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
+			"feature": "explainable-ai",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4886,8 +5387,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
-			"featureConfidence": "low",
+			"feature": "human-approval",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -4919,8 +5420,8 @@
 			"note": "This is a review/audit list and export, not an automated misuse-flagging system: grep for flag/misuse/anomaly in the controller and table component found nothing.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
-			"featureConfidence": "high",
+			"feature": "tool-access",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -4952,7 +5453,7 @@
 			"note": "AuditTrail entries are written by ScheduleService per run (tamper-evident hash chain, OpenRegister-provided) and read back owner-scoped; spec text itself claims live verification.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "run-audit-log",
+			"feature": "audit-trail",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -4984,7 +5485,7 @@
 			"reachedOn": "/compliance page -> compliance-operations widget (ComplianceOperations.vue) -> Export button -> exportAudit()",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "multi-tenant-ops",
+			"feature": "audit-trail",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5017,7 +5518,7 @@
 			"note": "Enforcement (deletion) runs via the registered background job; the setting UI is reachable and wired to a real backend endpoint with a validated floor.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-lifecycle-governance",
+			"feature": "audit-trail",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -5050,7 +5551,7 @@
 			"note": "The register is of platform AI FEATURES (chat, assistant, etc.), not individual agent instances; agents reference a feature via Agent.aiFeature.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "ai-feature-governance",
+			"feature": "ai-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -5083,8 +5584,8 @@
 			"note": "Risk classification lives on the platform AiFeature a set of agents share, not on each agent instance directly; an agent inherits its feature's class only indirectly via the aiFeature reference.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "ai-feature-governance",
-			"featureConfidence": "medium",
+			"feature": "ai-governance",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -5116,7 +5617,7 @@
 			"note": "This is a real imperative guard resolved by OpenRegister's lifecycle engine via DI autowire, not a bare declaration.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "ai-feature-governance",
+			"feature": "ai-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -5148,7 +5649,7 @@
 			"note": "A user can see individual Control rows per framework but not the aggregated coverage/gap view the backend already computes.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "compliance-control-packs",
+			"feature": "ai-governance",
 			"featureConfidence": "high",
 			"defectCandidate": "ComplianceDashboard.vue and its only two API calls (dashboard, export) are dead code per an explicit comment in src/customComponents.js; the backend routes still exist and work if called directly.",
 			"nextcloud-assistant": "no",
@@ -5181,7 +5682,7 @@
 			"reachedOn": "AgentDetail page (/agents/:id) -> open-modal action -> AgentFactsheetDialog.vue",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "compliance-control-packs",
+			"feature": "ai-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5213,7 +5714,7 @@
 			"note": "The route works if hit directly; no page a user can navigate to reaches it. co-audit-export (tenant-ops/audit-export, a different endpoint) IS reachable, so do not conflate the two.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "compliance-control-packs",
+			"feature": "ai-governance",
 			"featureConfidence": "high",
 			"defectCandidate": "customComponents.js:100-106 itself flags this as a product decision still open: re-home the export onto compliance-operations or retire the route.",
 			"nextcloud-assistant": "no",
@@ -5246,7 +5747,7 @@
 			"reachedOn": "/compliance page -> compliance-operations widget -> Create incident dialog",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-lifecycle-governance",
+			"feature": "agent-ownership",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -5278,8 +5779,8 @@
 			"note": "Incidents are recorded internally (co-incident) but nothing transmits or drafts a notification to an external authority.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-lifecycle-governance",
-			"featureConfidence": "medium",
+			"feature": "agent-ownership",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -5310,7 +5811,7 @@
 			"reachedOn": "Settings -> Tenant ops (/tenant-ops) -> access review section",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-lifecycle-governance",
+			"feature": "agent-ownership",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -5342,7 +5843,7 @@
 			"note": "The ADRs assert the obligation is inherited from OpenRegister's own transparency features, but no hermiq-side page assembles or links to such a report for employees.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "ai-feature-governance",
+			"feature": "explainable-ai",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
@@ -5374,7 +5875,7 @@
 			"reachedOn": "AdminRoot.vue -> AiFeatureRegister.vue residency column",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "a-provider-and-a-place-per-ai-feature",
+			"feature": "model-policy",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -5407,7 +5908,7 @@
 			"note": "The scope is an OpenRegister organisation (tenant), not a finer-grained 'department'; no separate department concept exists in the schema. show() also lets the admin/owner confirm the current engaged state, which covers 'prove it is off'.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "human-approval-gate",
+			"feature": "kill-switch",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "no",
@@ -5439,7 +5940,7 @@
 			"reachedOn": "/runs (Runs.vue), menu entry 'Runs'",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "run-analytics",
+			"feature": "runs-and-traces",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -5471,7 +5972,7 @@
 			"reachedOn": "AgentDetail (/agents/:id) -> Run history widget -> open a run's trace",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
+			"feature": "runs-and-traces",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -5503,7 +6004,7 @@
 			"reachedOn": "AgentDetail (/agents/:id) -> Run history widget -> Replay action on a past run",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "run-replay-and-dry-run",
+			"feature": "runs-and-traces",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5535,7 +6036,7 @@
 			"reachedOn": "AgentDetail (/agents/:id) -> Run operations widget -> Dry run button",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "run-replay-and-dry-run",
+			"feature": "runs-and-traces",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -5568,7 +6069,7 @@
 			"note": "useEndpointSource dedupes the four Dashboard stat tiles reading the same /api/analytics endpoint into one request, per src/manifest.json:1084's own comment.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "run-analytics",
+			"feature": "usage-analytics",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5600,7 +6101,7 @@
 			"note": "A user can see total tokens across all runs, or the trailing average cost per run, but not a specific run's or step's own token/cost figure.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "run-analytics",
+			"feature": "cost-control",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5632,7 +6133,7 @@
 			"reachedOn": "Settings -> Tenant ops (/tenant-ops) -> Budget form (soft threshold + hard cap)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "cost-guardrails",
+			"feature": "cost-control",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5664,7 +6165,7 @@
 			"reachedOn": "Schedule form modal (create/edit a schedule) -> cost estimate",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "cost-guardrails",
+			"feature": "cost-control",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5697,7 +6198,7 @@
 			"note": "This fires only after the retry sequence is exhausted (dead-letter), not on a single run's failure; a transient failure that succeeds on retry never alerts anyone.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
+			"feature": "runs-and-traces",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -5728,8 +6229,8 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
-			"featureConfidence": "medium",
+			"feature": "usage-analytics",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "partial",
@@ -5761,7 +6262,7 @@
 			"note": "Row's user is a monitoring system, not a person; the route with its declared auth attribute is the reached surface per the brief's machine-as-user rule.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
+			"feature": "setup-and-admin",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -5794,7 +6295,7 @@
 			"note": "Hermiq's own observability spec (ADR-006) covers Prometheus metrics and a health endpoint, not exporting traces to a third-party APM/LLM-ops tool.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
+			"feature": "runs-and-traces",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -5828,8 +6329,8 @@
 			"note": "Re-rated yes to partial on 2026-10-07: there is one report, AI oversight, read on demand; nothing produces reports on a schedule, which the row asks for. The Reports page is specified after the fact in openspec/specs/reports; the oversight report itself in openspec/changes/ai-oversight-advisory-approvals (open, 16 of 18 tasks done), which round 1 did not link.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
-			"featureConfidence": "medium",
+			"feature": "usage-analytics",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -5863,7 +6364,7 @@
 			"note": "Feedback can be submitted (thumbs up/down in Chat) but there is no surface to see it aggregated per agent.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "observability",
+			"feature": "usage-analytics",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -5896,7 +6397,7 @@
 			"note": "The canvas component is the shared nextcloud-vue widget; the flow engine and storage are OpenRegister's (or-flow-consumer spec, status retired: hermiq's own flow engine was deleted and it now only contributes node types).",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
+			"feature": "flows",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -5928,7 +6429,7 @@
 			"reachedOn": "FlowDetail canvas -> node palette -> Agent node",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
+			"feature": "flows",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5961,7 +6462,7 @@
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale; hermiq itself contributes no approval node, the capability comes entirely from the shared engine.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
+			"feature": "flows",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -5993,7 +6494,7 @@
 			"reachedOn": "An agent's turn calling its own hermiq.delegateAgent tool, gated by that agent's delegationAllowlist (set in AgentFormModal.vue delegationAllowlist field, line 199)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "sub-agent-delegation",
+			"feature": "multi-agent",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -6026,8 +6527,8 @@
 			"note": "Rated partly from the OpenRegister sibling checkout, which may be stale.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
-			"featureConfidence": "medium",
+			"feature": "flows",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -6059,7 +6560,7 @@
 			"note": "Run data itself comes from OpenRegister's flow engine; hermiq's canvas only renders it.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
+			"feature": "flows",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6091,7 +6592,7 @@
 			"reachedOn": "/flows FlowIndex shows the seeded 'Hydra Triage' flow after a fresh install/repair run",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "flow-authoring",
+			"feature": "flows",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -6124,7 +6625,7 @@
 			"note": "The n8n delegation described in ADR-001/app-config.json is architectural intent, not implemented code; only the reverse direction (an outside system, for-instance n8n, triggering hermiq) exists.",
 			"provider": "n8n",
 			"providerHow": "read-from-code",
-			"feature": "agent-webhook-trigger",
+			"feature": "flows",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -6157,8 +6658,8 @@
 			"note": "Rated from the OpenRegister sibling checkout's node list, which may be stale or incomplete; no code/script node was found there or in hermiq's own lib/Flow/.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-authoring",
-			"featureConfidence": "medium",
+			"feature": "flows",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -6190,8 +6691,8 @@
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
-			"featureConfidence": "medium",
+			"feature": "flows",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -6223,7 +6724,7 @@
 			"note": "The verdict is computed by OpenRegister's flow engine; hermiq's canvas only displays it, by explicit design (never recomputed locally).",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "flow-canvas",
+			"feature": "flows",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6255,7 +6756,7 @@
 			"reachedOn": "footer menu -> Store (/store) -> row action 'Use this template'",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-template-gallery",
+			"feature": "agent-templates",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6290,8 +6791,8 @@
 			"note": "Built 2026-10-01 by agents-export-import-and-git-sync. History: re-rated yes to no on 2026-09-26 because the from-agent wrapper had no caller.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-template-gallery",
-			"featureConfidence": "medium",
+			"feature": "agent-templates",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -6322,7 +6823,7 @@
 			"reachedOn": "/store page -> agent-template-github-store widget (search+install) and agent-template-row-actions -> Publish to GitHub",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-template-github-store",
+			"feature": "agent-templates",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6354,7 +6855,7 @@
 			"reachedOn": "/store page -> agent-template-row-actions -> Approve (for a quarantined/GitHub-installed template)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-template-github-store",
+			"feature": "agent-templates",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -6386,7 +6887,7 @@
 			"reachedOn": "AgentDetail (/agents/:id) header action -> Version history -> Compare / Rollback",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-versioning",
+			"feature": "versions-and-evals",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6418,7 +6919,7 @@
 			"reachedOn": "menu -> Evaluations (/evals) -> a dataset -> Run",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-evals",
+			"feature": "versions-and-evals",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6451,7 +6952,7 @@
 			"note": "This compares a proposed SKILL version (which carries the prompt/frontmatter/body the skill contributes) against its active baseline before a human accepts/promotes it; there is no equivalent baseline-compare for a bare AssistantPrompt or Agent-level system prompt edit (those have no version/diff/baseline path at all).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skill-self-improvement",
+			"feature": "versions-and-evals",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -6484,7 +6985,7 @@
 			"note": "The GitHub path (search/install/publish) works standalone; the 'hub' publish path additionally needs an OpenConnector (integriq) connector configured, else it returns a structured error rather than throwing.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skills-marketplace",
+			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -6516,8 +7017,8 @@
 			"note": "Publishing a template/skill to GitHub and having another organisation install it from there (re-template-github, re-community) is the closest workaround, but that creates a new, separately-owned copy rather than transferring the original automation's ownership.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-template-github-store",
-			"featureConfidence": "medium",
+			"feature": "agent-templates",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -6548,8 +7049,8 @@
 			"note": "The backend engine and its gating exist and depend on learniq being installed, but no hermiq frontend surface reads it, so a user has no way to see a recommendation today.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "course-recommendations",
-			"featureConfidence": "high",
+			"feature": "agent-templates",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -6580,7 +7081,7 @@
 			"reachedOn": "Any self-managed Nextcloud instance with hermiq installed",
 			"provider": "nextcloud",
 			"providerHow": "read-from-code",
-			"feature": "app-runtime-requirements",
+			"feature": "hosting-and-security",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -6612,7 +7113,7 @@
 			"note": "No dedicated 'air-gapped mode' toggle was found; searched for 'airgap'/'air-gap'/'offline' with zero hits.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "web-research-tool",
+			"feature": "hosting-and-security",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -6644,7 +7145,7 @@
 			"reachedOn": "n/a (licensing fact, not a runtime path)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "app-manifest",
+			"feature": "hosting-and-security",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -6677,7 +7178,7 @@
 			"note": "Data-layer isolation is OpenRegister's job per ADR-023 Rule 1; hermiq consumes it rather than re-implementing it.",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "multi-tenant-ops",
+			"feature": "multi-tenant",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
@@ -6709,7 +7210,7 @@
 			"reachedOn": "Settings -> Tenant ops (/tenant-ops) and Dashboard (/) quota tiles",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "multi-tenant-ops",
+			"feature": "multi-tenant",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -6742,7 +7243,7 @@
 			"note": "Incidents/audit-export/retention were split off onto the /compliance page's compliance-operations widget (see co-incident/co-audit-export/co-retention); TenantOps.vue itself now covers quota, budgets, model policy and access review.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "multi-tenant-ops",
+			"feature": "multi-tenant",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -6775,8 +7276,8 @@
 			"note": "Inherited capability: hermiq contains no SSO-specific code, positive or negative, because it never authenticates a user itself.",
 			"provider": "nextcloud",
 			"providerHow": "read-from-code",
-			"feature": "app-runtime-requirements",
-			"featureConfidence": "medium",
+			"feature": "hosting-and-security",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -6807,7 +7308,7 @@
 			"reachedOn": "hermiq Settings -> Agent credentials (personal and organisation-scope CnCredentials surfaces)",
 			"provider": "openregister",
 			"providerHow": "read-from-code",
-			"feature": "agent-credentials",
+			"feature": "credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -6842,7 +7343,7 @@
 			"note": "Credentials are scoped to the acting user or the organisation, never to an individual agent instance, so two agents run by the same user in the same org always share the same resolved credential.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-credentials",
+			"feature": "credentials",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
@@ -6874,7 +7375,7 @@
 			"reachedOn": "Nextcloud Administration settings -> Hermiq section -> AdminRoot.vue",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "admin-ui",
+			"feature": "setup-and-admin",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -6906,7 +7407,7 @@
 			"reachedOn": "First-run setup wizard + the 'Getting started' walkthrough tour triggered on first visit",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "app-manifest",
+			"feature": "setup-and-admin",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -6939,8 +7440,8 @@
 			"note": "Did not find hermiq's own src/companion.js calling this route explicitly; the route and its documented purpose (probed by the shared companion widget) are confirmed, but the exact call site in the companion bundle was not located.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-engine-port",
-			"featureConfidence": "medium",
+			"feature": "setup-and-admin",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -6972,7 +7473,7 @@
 			"note": "This is inferred from the absence of any licensing/billing gate rather than a specific 'flat price' feature; hermiq has request/token quotas (Agent.requestQuota/tokenQuota) but those are operational caps, not a pricing mechanism.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "app-manifest",
+			"feature": "hosting-and-security",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -7005,8 +7506,8 @@
 			"note": "Matches the hint's 'Context Agent: no scaling' branch, not Hermes's 8 parallel workers. Rating corrected to partial on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-schedule",
-			"featureConfidence": "high",
+			"feature": "setup-and-admin",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
 			"copilot-studio": "yes",
@@ -7038,8 +7539,8 @@
 			"note": "The calling/enforcement machinery is real and gated, but a person can only create/limit a registration via a raw OpenRegister object write, not through any hermiq screen.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
-			"featureConfidence": "medium",
+			"feature": "outside-tools-and-api",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
 			"copilot-studio": "partial",
@@ -7071,8 +7572,8 @@
 			"note": "The only concrete hermiq-side preference wired up today is the Talk delivery target; the endpoint is generic so other per-user preferences could be added without new routes.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "talk-delivery",
-			"featureConfidence": "high",
+			"feature": "delivery",
+			"featureConfidence": "medium",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -7119,6 +7620,7 @@
 				"change": "openspec/changes/archive/2026-09-30-models-no-training-guarantee",
 				"readOn": "2026-09-30"
 			},
+			"feature": "model-policy",
 			"reachedOn": "/tenant-ops -> Model policy",
 			"note": "Built 2026-09-30 by models-no-training-guarantee. History: before that an organisation could restrict agents to local models through the model policy, and for remote providers nothing set or recorded a no-training term."
 		},
@@ -7151,6 +7653,7 @@
 				"evidence": "src/views/Chat.vue:266-288 each answer lists its RAG sources with match score, :384-396 'Used tool: {tool}' steps while streaming; src/widgets/AgentRunHistoryWidget.vue per-run trace -> src/api/agents.js:125 getRunTrace -> appinfo/routes.php:56-59 runHistory#trace; src/manifest.json AiOversight page records the human decision on AI suggestions. Searched 'explain|explanation|rationale' in src/ lib/Service: no plain-language account Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/chat-how-an-answer-came-about"
 			},
+			"feature": "explainable-ai",
 			"reachedOn": "/chat -> answer Sources and tool steps; /agents/:id -> Run history -> trace; /ai-oversight",
 			"note": "Sources, tool steps and a step trace, not a generated plain-language explanation of how an outcome came about."
 		},
@@ -7183,6 +7686,7 @@
 				"evidence": "src/modals/AgentFormModal.vue:223-240 'Ground responses in your data (RAG)' and source count; lib/Service/Engine/ContextRetrievalHandler.php:134-138,321-339 retrieval scoped to the agent's views; lib/Service/Engine/ResponseGenerationHandler.php:357-358 prompt says 'If the context doesn't contain relevant information, say so honestly. Always cite which sources'. Searched 'validated|strictRag|sourcesOnly' in lib/Service: no enforced sources-only mode or validated flag Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/memory-retrieval-scope"
 			},
+			"feature": "knowledge-bases",
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal) -> RAG settings",
 			"note": "Grounding and scope exist; the limit to validated documents is a prompt instruction, not enforced, and documents carry no validated status."
 		},
@@ -7217,6 +7721,7 @@
 				"change": "openspec/changes/archive/2026-09-30-compliance-ai-literacy",
 				"readOn": "2026-09-30"
 			},
+			"feature": "explainable-ai",
 			"reachedOn": "none",
 			"note": "Built 2026-09-30 by compliance-ai-literacy. History: before that only a product tour existed, which teaches the app, not AI literacy."
 		},
@@ -7249,6 +7754,7 @@
 				"evidence": "src/manifest.json EvalDatasets /evals and EvalDatasetDetail; src/widgets/EvalRunPanelWidget.vue:424 runEval -> src/api/evals.js:37 -> appinfo/routes.php:96 evalRun#run; lib/Service/EvalScoringService.php header: contains, notContains, jsonPathEquals and an LLM-judge rubric; lib/Service/EvalRunService.php:1293 stores each EvalRun. Searched 'bias|fairness' in lib/ src/: none; no background job schedules evals (lib/BackgroundJob/) Specified in openspec/changes/reuse-scheduled-bias-evals/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/reuse-scheduled-bias-evals"
 			},
+			"feature": "versions-and-evals",
 			"reachedOn": "/evals -> dataset -> Run evaluation (EvalRunPanelWidget)",
 			"note": "Results are kept, but a bias dataset and rubric must be written by hand and runs are started by hand."
 		},
@@ -7278,7 +7784,8 @@
 				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (hermes-agent), changelog demand only; outside the core area. Code reading before the decision: searched 'kanban|task.?board|claim' in lib/, src/ and exapp/llm-runner/src at development 5277c0d: no shared task board; agents hand work on only through delegation (lib/Service/DelegationService.php) and flows"
-			}
+			},
+			"feature": "multi-agent"
 		},
 		{
 			"id": "dm-standing-goal",
@@ -7309,6 +7816,7 @@
 				"change": "openspec/changes/agents-standing-goal",
 				"readOn": "2026-10-07"
 			},
+			"feature": "agent-builder",
 			"note": "Open in agents-standing-goal: the Playwright run for set and stop, and a live check that an objectCount goal reaches its target. The example-goal seed was not built (design.md, Seed data)."
 		},
 		{
@@ -7338,7 +7846,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229) Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/models-several-models-per-turn"
-			}
+			},
+			"feature": "model-reliability"
 		},
 		{
 			"id": "dm-key-rotation",
@@ -7367,6 +7876,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'credential.?pool|key.?rotat|next key' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; provider keys sit in the broker, one credential per provider (lib/Service/Llm/BrokerHttpClient.php:9-12), and a provider 429 is surfaced as an error (lib/Service/Llm/ProviderFactory.php:2288), not rotated"
 			},
+			"feature": "model-reliability",
 			"note": "Decided no (OpenSpec pass 2026-09-27): recorded non-goal: hermiq ADR-001 \"What Hermiq must NOT build\" lists no credential-pool; provider keys stay one credential per provider in the credential broker."
 		},
 		{
@@ -7397,6 +7907,7 @@
 				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup Specified in openspec/changes/operations-backup-and-restore/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/operations-backup-and-restore"
 			},
+			"feature": "setup-and-admin",
 			"reachedOn": "/agents/:id AgentDetail -> Version history (AgentVersionHistoryDialog) -> Roll back"
 		},
 		{
@@ -7426,7 +7937,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/flows-hand-off-and-wait"
-			}
+			},
+			"feature": "multi-agent"
 		},
 		{
 			"id": "dm-rate-cap",
@@ -7454,7 +7966,8 @@
 				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes; outside the core area. Code reading before the decision: searched 'rate.?limit|throttl|per.?minute' in lib/Service/BudgetService.php and lib/Service/Llm at 5277c0d: only provider 429 handling (lib/Service/Llm/ProviderFactory.php:829,2288-2300); budgets cap tokens and euros per period, not requests per minute"
-			}
+			},
+			"feature": "model-reliability"
 		},
 		{
 			"id": "dm-temperature",
@@ -7484,6 +7997,7 @@
 				"evidence": "src/modals/AgentFormModal.vue:161-165 Temperature (0-2) field, mounted via src/customComponents.js:28,114 as the agents index form-dialog; lib/Service/Engine/ResponseGenerationHandler.php:237-239,286 reads agent.temperature and applies it to the provider call",
 				"spec": "openspec/specs/agent-management-ui"
 			},
+			"feature": "agent-builder",
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal, form-dialog slot) -> Temperature field"
 		},
 		{
@@ -7514,6 +8028,7 @@
 				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property) Specified in openspec/changes/memory-project-scopes/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/memory-project-scopes"
 			},
+			"feature": "agent-memory",
 			"reachedOn": "/agents/:id -> Memory widget (AgentMemory)"
 		},
 		{
@@ -7531,6 +8046,7 @@
 				"change": "openspec/changes/chat-carry-a-conversation-across-channels",
 				"readOn": "2026-10-07"
 			},
+			"feature": "chat",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "no",
@@ -7576,6 +8092,7 @@
 				"evidence": "lib/Service/ScheduleService.php:1814 records the agent's current version id on each run; lib/Service/AgentVersionService.php header: versions are audit-trail entries used for rollback; runs read the live agent config (lib/Service/Engine/ResponseGenerationHandler.php:327) and skillInstalls holds skill uuids, not versions (lib/Settings/hermiq_register.json:2609-2618). Searched 'snapshot|pinned|frozen' in lib/Service: no frozen build per published agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
 			},
+			"feature": "code-and-workspace",
 			"reachedOn": "none"
 		},
 		{
@@ -7607,6 +8124,7 @@
 				"evidence": "searched 'npm install|pip install|apt-get|installTool|package registry' in lib/ src/ exapp/: none. Agent turns run with shell tools denied (exapp/llm-runner/src/providers.js:140-142 DISALLOWED_BUILTIN_TOOLS includes Bash); the flow workload step runs only allowlisted commands (exapp/llm-runner/src/stage.js:137-141 RUNNER_STAGE_COMMANDS default 'scripts/run-hydra-gates.sh,claude'), set by the operator's container environment, not by the agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
 			},
+			"feature": "code-and-workspace",
 			"reachedOn": "none"
 		},
 		{
@@ -7638,6 +8156,7 @@
 				"evidence": "the only place code runs is the hermiq-llm-runner ExApp on the instance's own AppAPI daemon (exapp/llm-runner/README.md 'Hardening guarantees'; lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step dispatches to it via lib/Service/StageDispatchService.php); agent chat turns have no shell. Searched 'e2b|daytona|cloud sandbox|sandbox' in lib/ src/ exapp/: no hosted sandbox option and no per-agent choice Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-code-sandbox"
 			},
+			"feature": "code-and-workspace",
 			"reachedOn": "none"
 		},
 		{
@@ -7669,6 +8188,7 @@
 				"evidence": "appinfo/routes.php:182-184 GET /api/approvals, POST /api/approvals/{id}/approve and /deny -> lib/Controller/ApprovalController.php:112,149 (@NoCSRFRequired, reviewer-checked), callable by any client with an app password; lib/Service/Approval/ApprovalTaskBridge.php mirrors each pending approval as an OpenRegister task and lib/Listener/TaskTerminalListener.php (registered lib/AppInfo/Application.php:265-266) applies a completed task as approve or deny",
 				"spec": "openspec/specs/human-approval-gate"
 			},
+			"feature": "human-approval",
 			"reachedOn": "/approvals (ApprovalInbox) and the same endpoints from another program; OpenRegister task inbox"
 		},
 		{
@@ -7700,6 +8220,7 @@
 				"evidence": "src/modals/ScheduleFormModal.vue:169-182 Reviewer type (user or group) and reviewer id, mounted from src/widgets/AgentRunOperationsWidget.vue:293; lib/Service/ApprovalService.php:220-233 stores the resolved reviewer on the Approval; :1218-1228 isReviewer admits only that user, members of that group, or an instance admin; lib/Controller/ApprovalController.php:200 refuses anyone else; Talk reactions are checked against the same reviewer (lib/Listener/TalkApprovalReactionListener.php:14)",
 				"spec": "openspec/specs/human-approval-gate"
 			},
+			"feature": "human-approval",
 			"reachedOn": "/agents/:id -> Run operations -> Schedule (ScheduleFormModal) -> Reviewer"
 		},
 		{
@@ -7730,6 +8251,7 @@
 				"evidence": "searched 'context.?window|contextUsage|tokens used|token' in src/views/Chat.vue, src/components/CnAgentChatTab/ and src/api/chat.js: no readout of how full the context is (only request tokens); the one hit, src/views/TenantOps.vue, is an organisation budget page. The memory panel's character budget bar (src/registry.js agent-memory note) measures memory, not the context window Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/chat-how-an-answer-came-about"
 			},
+			"feature": "chat",
 			"reachedOn": "none"
 		},
 		{
@@ -7759,6 +8281,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes. Code reading before the decision: searched 'folder|tag|category' in the agent schema (lib/Settings/hermiq_register.json:2436 onward) and the AgentCatalog and FlowIndex pages in src/manifest.json: agents list by name and model only, flows by the shared flow index; no folder or grouping field for agents or flows"
 			},
+			"feature": "agent-builder",
 			"reachedOn": "none"
 		},
 		{
@@ -7792,6 +8315,7 @@
 				"reachedOn": "/runs -> tick two runs -> Compare; /runs -> Compare flow runs",
 				"readOn": "2026-09-29"
 			},
+			"feature": "runs-and-traces",
 			"reachedOn": "/runs -> tick two runs -> Compare"
 		},
 		{
@@ -7821,6 +8345,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes. Code reading before the decision: searched 'claim|hallucinat|fabricat|without calling|expectedTool|toolsUsed' in lib/Service/Engine, lib/Service/*.php and src/: no check that flags an answer claiming a result no tool produced; lib/Service/Engine/FacadeToolInvoker.php:949-992 only handles calls to tools that were never offered, and eval scoring has no tool-called assertion (lib/Service/EvalScoringService.php header)"
 			},
+			"feature": "guardrails",
 			"reachedOn": "none"
 		},
 		{
@@ -7852,6 +8377,7 @@
 				"evidence": "lib/Mcp/HermiqToolProvider.php:468,490 hermiq.webSearch and hermiq.webFetch agent tools, enabled in src/modals/WebResearchSettingsModal.vue (AdminRoot); :514 hermiq.delegateAgent sub-agents; lib/Service/Engine/ResponseGenerationHandler.php:358 'Always cite which sources you used'; lib/Service/Llm/ProviderFactory.php:219 at most 10 tool rounds per turn. Searched 'deep.?research' in lib/ src/: no research mode or report Specified in openspec/changes/tools-deep-research-report/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-deep-research-report"
 			},
+			"feature": "web-research",
 			"reachedOn": "/chat with an agent granted webSearch/webFetch; Admin settings -> Web research"
 		},
 		{
@@ -7883,6 +8409,7 @@
 				"evidence": "every hermiq page and API route requires a Nextcloud session (only Health, ChatHealth, Metrics, EgressAuthorize, McpRun and the two webhook controllers carry PublicPage, each token- or secret-guarded), so Nextcloud's own sign-in applies, where two-factor providers are enforced (server and twofactor apps, not read)",
 				"spec": "none"
 			},
+			"feature": "hosting-and-security",
 			"reachedOn": "Nextcloud sign-in"
 		},
 		{
@@ -7912,6 +8439,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes; outside the core area. Code reading before the decision: sessions and turns are OpenRegister objects (lib/Settings/hermiq_register.json agentsession schema); searched 'encrypt' in lib/ src/: only lib/Service/ScheduleWebhookSecretService.php, lib/Service/Llm/BrokerHttpClient.php and lib/Repair/RemoveLegacyLlmKeys.php (secrets and credentials); no per-user key over conversations"
 			},
+			"feature": "audit-trail",
 			"reachedOn": "none"
 		},
 		{
@@ -7942,6 +8470,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "tools come from each app's IMcpToolProvider through OpenRegister's ToolRegistryFacade (lib/Service/Engine/ToolLoop.php:195 listAgentFunctions, lib/Service/Engine/FacadeToolInvoker.php:1238 invokeTool) and run as the acting Nextcloud user (lib/Mcp/HermiqToolProvider.php:676-681; lib/Controller/McpRunController.php impersonates the token's user); searched 'mcpServer|remote mcp|oauth' in lib/ src/: no connection to an outside MCP server with each person's login"
 			},
+			"feature": "outside-tools-and-api",
 			"reachedOn": "/mcp-tools; /agents -> Edit agent tool picker"
 		},
 		{
@@ -7972,6 +8501,7 @@
 				"evidence": "lib/Service/Llm/ProviderFactory.php:762 OpenAI-compatible calls post to {baseUrl}/chat/completions, :888 Anthropic to /v1/messages, :470 ollama native; searched 'responses api|/responses|responsesApi' in lib/ src/ exapp/: none Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/models-provider-connections"
 			},
+			"feature": "model-providers",
 			"reachedOn": "none"
 		},
 		{
@@ -8003,6 +8533,7 @@
 				"evidence": "searched 'cache_control|prompt.?cach' in lib/ src/ exapp/: none; lib/Service/Llm/ProviderFactory.php:1009-1023 builds each Anthropic payload with model, max_tokens, messages, system and tools only, no cache breakpoints Specified in openspec/changes/models-prompt-and-answer-cache/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/models-prompt-and-answer-cache"
 			},
+			"feature": "model-reliability",
 			"reachedOn": "none"
 		},
 		{
@@ -8034,6 +8565,7 @@
 				"evidence": "docs/approvals.md:24-33 scheduled, flow, webhook and confirm-classified tool calls pause for a person; src/views/ApprovalInbox.vue:90 approve, deny with a reason; lib/Service/ApprovalService.php:1231-1240 approval resumes the gated run. Searched 'ask_user|askUser|clarif|suggest' in lib/ src/: the only hit is exapp/llm-runner/src/providers.js:175 which DENIES the CLI's AskUserQuestion tool Specified in openspec/changes/oversight-ask-and-hold/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/oversight-ask-and-hold"
 			},
+			"feature": "human-approval",
 			"reachedOn": "/approvals (ApprovalInbox)"
 		},
 		{
@@ -8066,6 +8598,7 @@
 				"change": "openspec/changes/archive/2026-10-02-agents-instruction-variables",
 				"readOn": "2026-10-02"
 			},
+			"feature": "agent-builder",
 			"reachedOn": "none"
 		},
 		{
@@ -8096,6 +8629,7 @@
 				"evidence": "searched 'fork|branch|regenerat|edit message' in src/views/Chat.vue and src/api/chat.js: none; session routes are CRUD, archive, restore and permanent delete (appinfo/routes.php:566-587) with no copy-from-message Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/chat-fork-and-share-link"
 			},
+			"feature": "chat",
 			"reachedOn": "none"
 		},
 		{
@@ -8126,6 +8660,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): changelog demand only and no competitor rates yes; a publish gate would sit in OpenRegister's flow store. Code reading before the decision: flows are edited on the shared OpenRegister flow page (src/manifest.json FlowDetail type flow, CnFlowEditorPage) and hermiq only contributes nodes (lib/Flow/HermiqFlowNodeListener.php:73-76); searched 'review|approv' in lib/Flow and lib/Service/Schedule: no reviewer gate on a flow change before it goes live (approvals gate runs, not edits)"
 			},
+			"feature": "human-approval",
 			"reachedOn": "none"
 		},
 		{
@@ -8157,6 +8692,7 @@
 				"evidence": "lib/Service/RedactionService.php:221-222 redact() always masks API keys, auth headers, private keys, JWTs, DSN passwords and phone numbers before any audit write, used by ScheduleService.php:1120,1202, FlowAgentRunService, WebhookAgentRunService, ApprovalService and DeliveryService; :198 instance toggle for the non-forced pass; src/views/GuardrailPolicySettings.vue:52,341 per-organisation input and output filters with a Redact action; appinfo/routes.php:56 redacted run trace",
 				"spec": "openspec/specs/run-audit-log"
 			},
+			"feature": "audit-trail",
 			"reachedOn": "/guardrail-policy (GuardrailPolicySettings); run traces on /agents/:id"
 		},
 		{
@@ -8188,6 +8724,7 @@
 				"evidence": "lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step clones a ref into a throwaway checkout where the model with a shell can edit files (exapp/llm-runner/src/stage.js:31,161 scratch tree removed on exit), lib/Flow/HermiqWorkloadCollectNode.php collects the result and files, or a push phase commits them; chat and scheduled agent runs have no workspace, only tools into the user's own Files and Notes Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
 			},
+			"feature": "code-and-workspace",
 			"reachedOn": "/flows/:id -> Hermiq workload step node"
 		},
 		{
@@ -8219,6 +8756,7 @@
 				"change": "openspec/changes/chat-attachments-and-images",
 				"readOn": "2026-10-07"
 			},
+			"feature": "chat-files-and-images",
 			"reachedOn": "none",
 			"note": "Native only where the administrator declared the model and the provider carries PDFs (Anthropic, OpenAI); elsewhere a PDF falls to the text path of ch-attach. Merged in hermiq#1094 and #1095."
 		},
@@ -8250,6 +8788,7 @@
 				"evidence": "lib/Mcp/HermiqToolProvider.php:490 hermiq.webFetch fetches a page over HTTP (lib/Service/WebResearch/WebFetchService.php) and returns readable text; searched 'browser|playwright|puppeteer|selenium|click' in lib/ exapp/: no browser the agent can drive, and the runner denies the CLI's built-in tools (exapp/llm-runner/src/providers.js:140) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-browser-and-computer-use"
 			},
+			"feature": "web-research",
 			"reachedOn": "none"
 		},
 		{
@@ -8283,6 +8822,7 @@
 				"change": "openspec/changes/archive/2026-09-30-agents-switch-off-and-stop",
 				"readOn": "2026-09-30"
 			},
+			"feature": "kill-switch",
 			"reachedOn": "/agents/:id Edit agent: Maximum tool calls per answer"
 		},
 		{
@@ -8314,6 +8854,7 @@
 				"spec": "openspec/specs/agent-tool-governance",
 				"readOn": "2026-10-07"
 			},
+			"feature": "tool-access",
 			"reachedOn": "/chat and every agent run (engine behaviour)"
 		},
 		{
@@ -8345,6 +8886,7 @@
 				"evidence": "src/credentials.json:24-31 personal credentials anthropic-oauth and anthropic-cli for a Claude Max subscription, declared to the credential broker from src/App.vue:153; src/modals/LlmProviderModal.vue:131-150,251 'Claude Max subscription (OAuth)' auth mode, personal only; lib/Service/Llm/ProviderFactory.php:876 oauth beta header on the http path, :1622 the cli path runs the official claude CLI in exapp/llm-runner with that token Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/models-provider-connections"
 			},
+			"feature": "model-providers",
 			"reachedOn": "Personal settings credential (anthropic-cli) plus Admin settings -> LLM provider -> Claude subscription"
 		},
 		{
@@ -8374,6 +8916,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (n8n), changelog demand only. Code reading before the decision: failed runs are listed (src/views/Runs.vue) and a dead-letter run can be re-run or replayed (src/widgets/AgentRunHistoryWidget.vue); searched 'diagnos|investigat|suggest.*fix|propose.*fix' in lib/ src/: no assistant that investigates a failed run; lib/Repair/SeedHydraTriageFlow.php triages code findings for the Hydra pipeline, not failed hermiq runs"
 			},
+			"feature": "runs-and-traces",
 			"reachedOn": "none"
 		},
 		{
@@ -8405,6 +8948,7 @@
 				"evidence": "src/components/ToolGrantEditor.vue:53,65 grants an agent an OpenRegister schema's tools with {app}.{schema}.* (read) or {app}.{schema}.*:write, mounted from src/widgets/AgentToolGovernanceWidget.vue; lib/Service/Engine/ToolLoop.php:195 resolves them through OpenRegister's ToolRegistryFacade, and lib/Service/Engine/FacadeToolInvoker.php:1238 runs search, get, create and update on the register objects",
 				"spec": "openspec/specs/agent-tool-governance"
 			},
+			"feature": "knowledge-bases",
 			"reachedOn": "/agents/:id -> Tool governance (ToolGrantEditor)"
 		},
 		{
@@ -8435,6 +8979,7 @@
 				"evidence": "src/views/Chat.vue:461 SessionDeleteModal deletes one session (src/modals/SessionDeleteModal.vue:69 deleteSessionPermanent); appinfo/routes.php:576,584-587 DELETE /api/sessions/{uuid} and /permanent take one uuid; lib/Controller/ChatController.php:539-567 clearHistory archives one conversationId. Searched 'bulk|selected|deleteMany|select all' in src/views/Chat.vue: none Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/chat-session-search-and-bulk-delete"
 			},
+			"feature": "chat",
 			"reachedOn": "none"
 		},
 		{
@@ -8467,6 +9012,7 @@
 				"change": "openspec/changes/archive/2026-10-02-agents-instruction-variables",
 				"readOn": "2026-10-02"
 			},
+			"feature": "agent-builder",
 			"reachedOn": "none"
 		},
 		{
@@ -8498,6 +9044,7 @@
 				"evidence": "lib/Service/NcNative/AgentArtefactMarker.php:75 system tag 'Agent authored' on files, :82 X-HERMIQ-AGENT-AUTHORED on vCard and iCalendar objects, applied in the same write (NotesWriteService.php:228, ContactWriteService.php:137, CalendarWriteService.php:236) behind the agent tools in lib/Mcp/NcNativeWriteToolDescriptors.php:66,106,155; searched 'AI-generated|generated by AI' in src/: chat answers carry no label",
 				"spec": "openspec/specs/nc-native-tools"
 			},
+			"feature": "explainable-ai",
 			"reachedOn": "Files tag on notes the agent wrote; Contacts and Calendar objects"
 		},
 		{
@@ -8528,6 +9075,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): a featureRequest demand row but no competitor rates yes. Code reading before the decision: lib/Service/Engine/ContextAssembler.php header: every active installed skill's name, description and body is injected into the run context (assembleSkillsForRun), no lookup; searched 'searchSkill|skill.?search|findSkill' in lib/ src/: none. Tools, not skills, get search: lib/Service/Engine/ToolLoop.php:27 above tools.disclosureThreshold only hermiq.searchTools is offered (lib/Mcp/HermiqToolProvider.php:292)"
 			},
+			"feature": "skills-catalog",
 			"reachedOn": "none"
 		},
 		{
@@ -8558,6 +9106,7 @@
 				"evidence": "src/views/McpTools.vue:6-12,25-28 lists tools from 'every app that registers an IMcpToolProvider', read from src/api/agents.js:67 -> appinfo/routes.php:504 agents#tools; lib/Service/Engine/ToolLoop.php:195 listAgentFunctions takes them from OpenRegister's ToolRegistryFacade and lib/Service/Engine/FacadeToolInvoker.php:1238 invokes them, so an installed app's tools reach the agent with no hermiq change",
 				"spec": "openspec/specs/agent-tool-governance"
 			},
+			"feature": "nextcloud-tools",
 			"reachedOn": "/mcp-tools; /agents -> Edit agent tool picker; /agents/:id -> Tool governance"
 		},
 		{
@@ -8587,6 +9136,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "the only MCP server hermiq serves is lib/Controller/McpRunController.php, a PublicPage endpoint for its own CLI runner authorised by a per-run bearer token (lib/Service/Llm/RunTokenService.php); searched 'oauth|well-known|authorization_server' in lib/Controller and lib/Mcp: no OAuth for outside clients. hermiq's tools are published through OpenRegister's MCP server (lib/Mcp/HermiqToolProvider.php), whose sign-in is OpenRegister's and was not read"
 			},
+			"feature": "outside-tools-and-api",
 			"reachedOn": "none",
 			"note": "Decided no (OpenSpec pass 2026-09-27): recorded non-goal: hermiq ADR-001 \"What Hermiq must NOT build\" says no MCP server of its own, and hydra ADR-034 decisions 3 and 7 give the instance MCP server and its auth to OpenRegister; hermiq's only MCP endpoint is the run-scoped one for its own CLI runner."
 		},
@@ -8618,6 +9168,7 @@
 				"evidence": "searched 'reasoning|thinking' in src/ and lib/ (php, js, vue): no hit outside a code comment; src/views/Chat.vue renders the answer, sources and tool steps only (:266-288, :384-396) Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/chat-how-an-answer-came-about"
 			},
+			"feature": "explainable-ai",
 			"reachedOn": "none"
 		},
 		{
@@ -8649,6 +9200,7 @@
 				"evidence": "src/modals/AgentFormModal.vue:256-304 dictation engine and 'Allow speaking with this agent' (reply spoken back); lib/Controller/SpeechController.php transcribe and synthesise over lib/Service/Speech/SpeechClient.php (appinfo/routes.php:540-542); lib/TaskProcessing/AudioToTextProvider.php:68-69 and TextToSpeechProvider.php for other apps. Searched 'translat' in lib/ src/ exapp/speech-runner: no translate step Specified in openspec/changes/chat-translate-a-recording/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/chat-translate-a-recording"
 			},
+			"feature": "speech",
 			"reachedOn": "/chat with a voice-enabled agent (microphone and spoken reply)"
 		},
 		{
@@ -8679,6 +9231,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (nextcloud-assistant), changelog demand only; outside the core area. Code reading before the decision: lib/TaskProcessing/AudioToTextProvider.php:68-69,92-93 registers hermiq:audio2text for the plain core audio-to-text task type only; searched 'subtitle|\\.srt|webvtt' in lib/ src/ exapp/: no subtitle output and no Files action"
 			},
+			"feature": "speech",
 			"reachedOn": "none"
 		},
 		{
@@ -8710,6 +9263,7 @@
 				"change": "openspec/changes/chat-attachments-and-images",
 				"readOn": "2026-10-07"
 			},
+			"feature": "chat-files-and-images",
 			"reachedOn": "none",
 			"note": "Images in need a model the administrator declared as reading images; images back need a TextToImage provider in Nextcloud."
 		},
@@ -8741,6 +9295,7 @@
 				"evidence": "searched 'computer.?use|screenshot|pyautogui|xdotool|mouse|click|vnc|rdp|desktop|windows' in lib/, src/ and exapp/llm-runner/src: no screen-reading or desktop-control tool; the runner executes repo stages and MCP tools (exapp/llm-runner/src/runner.js), and hits are UI copy only (lib/Listener/TalkApprovalReactionListener.php:10 one-click approval) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/tools-browser-and-computer-use"
 			},
+			"feature": "web-research",
 			"reachedOn": "nowhere"
 		},
 		{
@@ -8770,6 +9325,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): changelog demand only and no competitor rates yes. Code reading before the decision: src/manifest.json:763-767 Dashboard shows fixed run metrics (success rate, latency, token usage) from lib/Controller/AnalyticsController.php:78 -> lib/Service/AnalyticsService.php:249-253; searched 'custom.?metric|metric.?defin|measure' in lib/, src/ and lib/Settings/hermiq_register.json: no user-defined measure, plain-language or otherwise"
 			},
+			"feature": "usage-analytics",
 			"reachedOn": "nowhere (built-in KPIs only, Dashboard /)"
 		},
 		{
@@ -8800,6 +9356,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): changelog demand only and no competitor rates yes. Code reading before the decision: searched 'theme|cluster|topic|categori|intent' in lib/Service, lib/Controller and src/: no grouping of user questions into themes; hits are GitHub repo topics (lib/Service/GitHubTemplatePushService.php) and a conversation-summary prompt (lib/Service/Engine/ConversationManagementHandler.php:415); lib/Controller/ReportSimilarityController.php groups incoming citizen reports for an owning app, not questions asked of an agent"
 			},
+			"feature": "usage-analytics",
 			"reachedOn": "nowhere"
 		},
 		{
@@ -8829,6 +9386,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (copilot-studio), changelog demand only. Code reading before the decision: searched 'saving|time.?saved|hours saved|roi|cost.?avoid|manual' in lib/ and src/: none; analytics and budgets track spend only (lib/Service/AnalyticsService.php:253 tokens, lib/Controller/BudgetController.php), with no baseline of manual effort to compare against"
 			},
+			"feature": "usage-analytics",
 			"reachedOn": "nowhere"
 		},
 		{
@@ -8859,6 +9417,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (copilot-studio), changelog demand only; hermiq has no voice call channel. Code reading before the decision: searched 'consent|phone|telephon|sip|voice call|record' in lib/Service/Speech, lib/Controller/SpeechController.php and src/: no calls and no consent prompt; voice is dictation and a hands-free conversation mode in the chat composer (lib/Settings/hermiq_register.json:2715 voiceConversationEnabled, src/modals/AgentFormModal.vue:283), governed by a per-agent engine choice, never by asking the speaker"
 			},
+			"feature": "speech",
 			"reachedOn": "nowhere"
 		},
 		{
@@ -8890,6 +9449,7 @@
 				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/flows-hand-off-and-wait"
 			},
+			"feature": "flows",
 			"reachedOn": "Flows page (/flows), workload step with async: true"
 		},
 		{
@@ -8921,6 +9481,7 @@
 				"change": "openspec/changes/agents-plain-language-builder",
 				"readOn": "2026-10-07"
 			},
+			"feature": "agent-builder",
 			"reachedOn": "nowhere",
 			"note": "The in-chat builder and the full form share one agent shape, so the upgrade is the draft opening in the form (agents-plain-language-builder)."
 		},
@@ -8953,6 +9514,7 @@
 				"evidence": "src/views/Chat.vue:848-867 chat search is scoped per agent to OpenRegister views (saved object filters) plus on/off for files and objects, sent to OpenRegister chat; lib/Settings/hermiq_register.json:3026-3044 Context bundles pin named file paths and object queries with equality filters, resolved in lib/Service/Engine/ContextAssembler.php:354,394; no filter on files by owner, file name or modified date Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27).",
 				"change": "openspec/changes/memory-retrieval-scope"
 			},
+			"feature": "knowledge-bases",
 			"reachedOn": "Chat page (/chat) agent settings; Context bundles via the generic objects API only"
 		},
 		{
@@ -8984,6 +9546,7 @@
 				"evidence": "docs/features/evaluations.md:41-42 documents POST /apps/hermiq/api/evals/{id}/run; appinfo/routes.php:96 -> lib/Controller/EvalRunController.php:127-139 NoCSRFRequired so an app-password client can call it, runs synchronously and returns regressionGateResult (lib/Service/EvalRunService.php:1149-1163 'failed' when the pass rate drops more than the threshold, overridable per call via regressionThresholdPercent)",
 				"spec": "openspec/specs/agent-evals"
 			},
+			"feature": "versions-and-evals",
 			"reachedOn": "Evaluations page (/evals/:id, eval-run-panel) and the documented REST endpoint"
 		},
 		{
@@ -9017,6 +9580,7 @@
 				"change": "openspec/changes/archive/2026-10-01-agents-export-import-and-git-sync",
 				"readOn": "2026-10-01"
 			},
+			"feature": "agent-templates",
 			"reachedOn": "Agent page: Keep in git"
 		},
 		{
@@ -9031,6 +9595,7 @@
 				"evidence": "lib/Service/Engine/FacadeToolInvoker.php:546,1071 a grant entry with a #noapproval fragment suppresses the approval gate for that exact invocation and nothing else; written as part of the grant string, there is no separate switch in the grant editor (src has no noapproval control), hence partial.",
 				"spec": "openspec/specs/agent-capability-reach"
 			},
+			"feature": "tool-access",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
@@ -9050,6 +9615,7 @@
 				"evidence": "lib/Service/Talk/TalkSessionRoom.php:139 createForSession() creates the room, adds the owner, enables the agent's bot and stores talkRoomToken with talkRoomOrigin created; :313 renames only a room Hermiq created; called from lib/Controller/SessionController.php on session create.",
 				"spec": "openspec/specs/talk-agent-sessions"
 			},
+			"feature": "talk",
 			"nextcloud-assistant": "unknown",
 			"hermes-agent": "unknown",
 			"copilot-studio": "unknown",
@@ -9075,7 +9641,7 @@
 			"note": "The choose-owner-vs-actingUser-vs-refuse logic is fully implemented server-side and openspec/specs/agent-identity/spec.md is marked DONE, but no screen lets a user pick actingUser; it is only settable via a direct object write and only viewable, not editable, in the UI.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-identity",
+			"feature": "agent-builder",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -9111,8 +9677,8 @@
 			"note": "Substantial code exists (participant roster sync, per-speaker authorship), but the spec itself is still marked in-progress, so full end-to-end behaviour could not be confirmed by reading alone.",
 			"provider": "talk",
 			"providerHow": "read-from-code",
-			"feature": "talk-shared-sessions",
-			"featureConfidence": "medium",
+			"feature": "chat",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -9146,8 +9712,8 @@
 			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive. Corrected 2026-09-26: intake#receive answering 401 to an anonymous caller is by design, because channel apps call it logged in; the earlier defect candidate is withdrawn.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "a-conversational-intake-that-files-for-the-citizen",
-			"featureConfidence": "medium",
+			"feature": "public-chat",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -9180,7 +9746,7 @@
 			"reachedOn": "Schedule/agent webhook target pointed at an OpenConnector Source URL (generic HTTP, not verified live here)",
 			"provider": "integriq",
 			"providerHow": "read-from-code",
-			"feature": "agent-webhook-trigger",
+			"feature": "outside-tools-and-api",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "yes",
@@ -9214,7 +9780,7 @@
 			"reachedOn": "Chat turn with an agent whose ragSearchMode/searchFiles is configured -> ContextRetrievalHandler::retrieveContext (keyword search only)",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "vector-rag",
+			"feature": "knowledge-bases",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
@@ -9248,7 +9814,7 @@
 			"note": "Whether OpenRegister enforces the ASKING PERSON's own file/object permissions on top of the agent's view scope (rather than a run/system identity) lives entirely inside OpenRegister and could not be settled from hermiq's code alone.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "vector-rag",
+			"feature": "knowledge-bases",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "no",
@@ -9283,7 +9849,7 @@
 			"reachedOn": "nothing",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "context-documents",
+			"feature": "knowledge-bases",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -9315,7 +9881,7 @@
 			"reachedOn": "src/modals/SkillImportModal.vue (paste a package or install-from-hub) -> POST /api/skills/install-from-source -> quarantine -> Approve",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "skills-marketplace",
+			"feature": "skills-catalog",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
@@ -9349,7 +9915,7 @@
 			"note": "No published OpenAPI/API doc page was found in docs/ describing these endpoints for third-party integrators; reachability is real, discoverability from outside the codebase is not verified.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
+			"feature": "outside-tools-and-api",
 			"featureConfidence": "medium",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "yes",
@@ -9383,7 +9949,7 @@
 			"note": "Publication is delegated to OpenCatalogi via PublicationGateway; publish returns 503 (feature stays internally governable) when that fleet leaf is absent.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "algoritmeregister-publication",
+			"feature": "ai-governance",
 			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
@@ -9416,8 +9982,8 @@
 			"note": "The linkage is AiFeature-to-assessment, not Agent-to-assessment directly, and an agent only reaches it through its aiFeature reference.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "algoritmeregister-publication",
-			"featureConfidence": "medium",
+			"feature": "ai-governance",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "no",
 			"copilot-studio": "no",
@@ -9450,8 +10016,8 @@
 			"note": "Fan-out (calling several sub-agents within a turn) is real and bounded; whether those calls execute concurrently or one after another could not be settled by reading the code alone, and the PHP synchronous request model suggests sequential.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "sub-agent-delegation",
-			"featureConfidence": "medium",
+			"feature": "multi-agent",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "no",
 			"hermes-agent": "yes",
 			"copilot-studio": "partial",
@@ -9485,8 +10051,8 @@
 			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles; agents add an owner (builder) versus shared-user split. No screen edits the action matrix: lib/actions.seed.json's comment names an admin settings page that does not exist, and the matrix lives in the app config key hermiq/actions (checked 2026-10-07). Specified after the fact in openspec/specs/action-authorization.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "agent-tool-governance",
-			"featureConfidence": "medium",
+			"feature": "hosting-and-security",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "partial",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
@@ -9519,8 +10085,8 @@
 			"note": "Confirmed the nl.json/nl.js translation files exist; did not diff their key coverage against en.json to confirm every string is actually translated (nl-locale-completeness is exactly the spec that tracks that gap).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
-			"feature": "nl-locale-completeness",
-			"featureConfidence": "medium",
+			"feature": "setup-and-admin",
+			"featureConfidence": "high",
 			"nextcloud-assistant": "yes",
 			"hermes-agent": "partial",
 			"copilot-studio": "yes",
