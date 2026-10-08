@@ -11050,5 +11050,16 @@
 			}
 		}
 	],
-	"specScreens": {}
+	"specScreens": {
+		"action-authorization": {
+			"board": [
+				"HmAgents",
+				"HmTenantOps"
+			]
+		},
+		"report-similarity": {
+			"board": null,
+			"reason": "Een machinekoppeling: een andere app laat gelijke meldingen samenvoegen via de API."
+		}
+	}
 }
