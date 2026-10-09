@@ -68,7 +68,7 @@
     "dexie": "^4.4.6",
     "dompurify": "^3.4.16",
     "gridstack": "^14.0.0",
-    "marked": "^18.0.14",
+    "marked": "^18.1.0",
     "node-polyfill-webpack-plugin": "4.0.0",
     "pinia": "^2.1.7",
     "vue": "^3.5.43",
