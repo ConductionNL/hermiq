@@ -37,6 +37,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Translation\TranslationDisclosure;
 use Psr\Log\LoggerInterface;
@@ -145,7 +146,7 @@ class MessageTranslationEngine {
 
 		try {
 			$llmConfig = $this->providerFactory->getLlmConfig();
-			$provider  = (string)($llmConfig['chatProvider'] ?? '');
+			$provider  = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
 
 			$translatedText = trim($this->providerFactory->generateText(
 				prompt: $this->buildPrompt(sourceText: $sourceText, targetLanguage: $targetLanguage, glossary: $glossary)
@@ -232,10 +233,8 @@ class MessageTranslationEngine {
 	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-008-the-model-label-never-carries-a-secret
 	 */
 	private function modelLabel(array $llmConfig): string {
-		$provider = (string)($llmConfig['chatProvider'] ?? '');
-		if ($provider === '') {
-			return '';
-		}
+		// Use-nextcloud-ai-settings: no saved provider means Nextcloud AI served it.
+		$provider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
 
 		$providerConfig = $llmConfig[$provider . 'Config'] ?? [];
 		$model          = '';

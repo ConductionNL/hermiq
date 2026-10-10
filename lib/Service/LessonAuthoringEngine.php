@@ -33,6 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -336,7 +337,7 @@ class LessonAuthoringEngine {
 
 		$provider = '';
 		try {
-			$provider = (string)($this->providerFactory->getLlmConfig()['chatProvider'] ?? '');
+			$provider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $this->providerFactory->getLlmConfig());
 			$raw = $this->providerFactory->generateText(prompt: $prompt, userId: $userId);
 		} catch (Throwable $e) {
 			// The exception message only: never the prompt, which holds the lesson text.
