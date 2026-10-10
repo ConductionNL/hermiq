@@ -35,6 +35,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\TaskProcessing;
 
 use OCA\Hermiq\Service\ContextAgentInteractionService;
+use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
 
@@ -50,11 +52,15 @@ class ContextAgentProvider implements ISynchronousProvider {
 	 * Constructor.
 	 *
 	 * @param ContextAgentInteractionService $interactionService Runs the governed turn.
+	 * @param IUserSession|null $userSession The session the turn runs under.
+	 * @param IUserManager|null $userManager Resolves the task's user.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		private readonly ContextAgentInteractionService $interactionService,
+		private readonly ?IUserSession $userSession = null,
+		private readonly ?IUserManager $userManager = null,
 	) {
 	}//end __construct()
 
@@ -123,6 +129,7 @@ class ContextAgentProvider implements ISynchronousProvider {
 	 * @psalm-return array{output: string, conversation_token: string, actions: string}
 	 *
 	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-2
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		$message = (string)($input['input'] ?? '');
@@ -135,12 +142,31 @@ class ContextAgentProvider implements ISynchronousProvider {
 			$confirmation = (int)$input['confirmation'];
 		}
 
-		$result = $this->interactionService->interact(
-			userId: $userId,
-			input: $message,
-			confirmation: $confirmation,
-			conversationToken: $conversationToken
-		);
+		// A synchronous provider runs in Nextcloud's TaskProcessing worker, which has no
+		// session: every OpenRegister read of the turn then runs as "Anonymous" and is
+		// refused. Run the turn as the task's user, and put the prior session back.
+		$priorUser = $this->userSession?->getUser();
+		$taskUser = null;
+		if ($userId !== null && $priorUser?->getUID() !== $userId) {
+			$taskUser = $this->userManager?->get($userId);
+		}
+
+		if ($taskUser !== null) {
+			$this->userSession?->setUser($taskUser);
+		}
+
+		try {
+			$result = $this->interactionService->interact(
+				userId: $userId,
+				input: $message,
+				confirmation: $confirmation,
+				conversationToken: $conversationToken
+			);
+		} finally {
+			if ($taskUser !== null) {
+				$this->userSession?->setUser($priorUser);
+			}
+		}
 
 		// Report completion so cancelled tasks stop cleanly (single blocking call).
 		$reportProgress(1.0);
