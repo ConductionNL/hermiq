@@ -2,15 +2,15 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  LlmProviderModal — admin picks which chat provider Hermiq's background/
-  non-interactive LLM work runs on (SPECTR-NEXTCLOUD-PLAN.md §8 move 1).
+  LlmProviderModal: admin picks which chat provider Hermiq runs on. Nextcloud AI
+  is the default (use-nextcloud-ai-settings); a direct provider is the exception.
 
   Own file per the modal-isolation gate. Reads GET /api/settings/llm (credentials
   arrive masked as *Set booleans), lets the admin pick a provider from an NcSelect
   (inputLabel set per the nc-input-labels a11y gate) plus that provider's
   model/url/key fields, and PATCHes the change. The `nextcloud` option carries no
-  credential fields — it is backed by whatever TaskProcessing provider the instance
-  already has installed, and is background-only (no SSE chat / no embeddings).
+  credential fields: it runs chat, agent turns and summaries as TaskProcessing tasks
+  on the provider set up under Administration settings > Artificial intelligence.
 -->
 <template>
 	<NcModal
@@ -26,7 +26,7 @@
 				{{
 					t(
 						'hermiq',
-						'Choose which language-model provider Hermiq uses for background work such as session titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
+						'Choose the language model Hermiq uses. Nextcloud AI is the default: it uses the provider set up for the whole instance.',
 					)
 				}}
 			</p>
@@ -159,13 +159,13 @@
 					</NcNoteCard>
 				</template>
 
-				<!-- Nextcloud Assistant (TaskProcessing) -->
+				<!-- Nextcloud AI (TaskProcessing) -->
 				<template v-else-if="providerValue === 'nextcloud'">
 					<NcNoteCard type="info">
 						{{
 							t(
 								'hermiq',
-								'Hermiq will run background text through Nextcloud’s own AI (TaskProcessing). No credentials are needed here, but a TaskProcessing provider (e.g. integration_openai, llm2, or the Assistant) must be installed on this instance. Streaming chat and embeddings are not routed through this provider.',
+								'Hermiq sends its work to the AI provider set up under Administration settings > Artificial intelligence. You need no credential here.',
 							)
 						}}
 					</NcNoteCard>
@@ -303,10 +303,7 @@ export default {
 				{ value: 'anthropic', label: 'Anthropic (Claude)' },
 				{ value: 'ollama', label: 'Ollama (local)' },
 				{ value: 'fireworks', label: 'Fireworks AI' },
-				{
-					value: 'nextcloud',
-					label: 'Nextcloud Assistant (TaskProcessing)',
-				},
+				{ value: 'nextcloud', label: 'Nextcloud AI (default)' },
 			],
 
 			// Declared native inputs per `provider/model` (hermiq.modelCapabilities).
@@ -602,7 +599,8 @@ export default {
 
 				this.selectedProvider =
 					this.providerOptions.find(
-						(option) => option.value === config.chatProvider,
+						(option) =>
+							option.value === (config.chatProvider || 'nextcloud'),
 					) || null
 			} catch (e) {
 				this.error = this.t(

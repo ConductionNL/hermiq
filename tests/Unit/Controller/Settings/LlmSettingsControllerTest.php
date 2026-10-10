@@ -102,6 +102,48 @@ class LlmSettingsControllerTest extends TestCase {
 	}//end testGetMasksCredentials()
 
 	/**
+	 * get() tells the admin page about Nextcloud AI: the effective provider is
+	 * `nextcloud` when none is saved, which task types have a provider, the admin message
+	 * and the link to Administration settings > Artificial intelligence.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+	 */
+	public function testGetReportsNextcloudAiStatus(): void {
+		$handler = $this->createMock(LlmSettingsHandler::class);
+		$handler->method('getLLMSettingsOnly')->willReturn(['chatProvider' => null]);
+
+		$taskManager = $this->createMock(\OCP\TaskProcessing\IManager::class);
+		$taskManager->method('getAvailableTaskTypeIds')->willReturn(['core:text2text']);
+		$provider = $this->createMock(\OCP\TaskProcessing\ISynchronousProvider::class);
+		$provider->method('getName')->willReturn('OpenAI and LocalAI integration');
+		$taskManager->method('getPreferredProvider')->willReturn($provider);
+
+		$urls = $this->createMock(\OCP\IURLGenerator::class);
+		$urls->method('linkToRoute')->with('settings.AdminSettings.index', ['section' => 'ai'])->willReturn('/settings/admin/ai');
+
+		$controller = new LlmSettingsController(
+			$this->createMock(IRequest::class),
+			$handler,
+			new NullLogger(),
+			new ModelCapabilityRegistry(appConfig: $this->createMock(IAppConfig::class)),
+			null,
+			new \OCA\Hermiq\Service\Llm\NextcloudTaskClient($taskManager, new NullLogger()),
+			$urls
+		);
+		$data = $controller->get()->getData();
+
+		$this->assertSame('nextcloud', $data['effectiveChatProvider']);
+		$this->assertSame('/settings/admin/ai', $data['nextcloudAi']['settingsUrl']);
+		$this->assertSame('Configure an AI provider under Administration settings > Artificial intelligence.', $data['nextcloudAi']['adminMessage']);
+		$this->assertTrue($data['nextcloudAi']['taskTypes']['text']['available']);
+		$this->assertSame('OpenAI and LocalAI integration', $data['nextcloudAi']['taskTypes']['text']['provider']);
+		$this->assertFalse($data['nextcloudAi']['taskTypes']['chat']['available']);
+		$this->assertFalse($data['nextcloudAi']['taskTypes']['chatWithTools']['available']);
+	}//end testGetReportsNextcloudAiStatus()
+
+	/**
 	 * A config blob written BEFORE this release still carries a cleartext `apiKey` until
 	 * the repair step runs. It must never be echoed to the browser.
 	 *
