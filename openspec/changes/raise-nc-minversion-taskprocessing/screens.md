@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Raises the minimum Nextcloud version in info.xml; no screen

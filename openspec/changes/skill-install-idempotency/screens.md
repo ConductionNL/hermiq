@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Makes installing a skill bundle repeatable; no screen change

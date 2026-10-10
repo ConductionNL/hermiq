@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Mirrors approvals into OpenRegister tasks in the background; no screen

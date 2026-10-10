@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Repeatable migration of chat history to the session schema; no screen

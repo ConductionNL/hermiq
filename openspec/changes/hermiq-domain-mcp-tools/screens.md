@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Tool provider registered with OpenRegister MCP; no screen of its own

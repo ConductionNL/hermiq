@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Optional applicationSlug property on the Agent schema; no screen

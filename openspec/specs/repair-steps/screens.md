@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Repair steps that write through OpenRegister during upgrade; no screen

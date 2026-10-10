@@ -1,3 +1,3 @@
 # Screens
 
-- No board found yet (decision 150)
+- No screen: Keeps the CLI process alive between chat turns; no screen
