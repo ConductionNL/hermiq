@@ -41,6 +41,8 @@ use RuntimeException;
 
 /**
  * @covers \OCA\Hermiq\Service\AiFeature\DocumentFeatureRun
+ *
+ * @uses \OCA\Hermiq\Service\GuardrailBlockedException
  */
 class DocumentFeatureRunTest extends TestCase {
 

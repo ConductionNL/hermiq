@@ -38,6 +38,10 @@ use Throwable;
 
 /**
  * @covers \OCA\Hermiq\Controller\AiFeatureRunController
+ *
+ * @uses \OCA\Hermiq\Service\AiFeature\RedactionRequiredException
+ * @uses \OCA\Hermiq\Service\AiFeature\ResidencyViolationException
+ * @uses \OCA\Hermiq\Service\GuardrailBlockedException
  */
 class AiFeatureRunControllerTest extends TestCase {
 

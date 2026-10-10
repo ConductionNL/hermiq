@@ -44,6 +44,14 @@ use Throwable;
 
 /**
  * @covers \OCA\Hermiq\Service\Llm\ProviderFactory::generateText
+ *
+ * @uses \OCA\Hermiq\Service\AiFeature\FeatureProviderResolver
+ * @uses \OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry
+ * @uses \OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader
+ * @uses \OCA\Hermiq\Service\AiFeature\RedactionRequiredException
+ * @uses \OCA\Hermiq\Service\Llm\ChatDriver
+ * @uses \OCA\Hermiq\Service\Llm\ProviderFactory
+ * @uses \OCA\Hermiq\Support\FleetAppId
  */
 class ProviderFactoryGenerateTextFeatureTest extends TestCase {
 
