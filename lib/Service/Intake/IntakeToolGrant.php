@@ -31,6 +31,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
+ * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-tool-is-recognised-by-its-mark-and-its-declared-create-taxonomy
  */
 
 declare(strict_types=1);
@@ -66,8 +67,15 @@ class IntakeToolGrant {
 	public const REVIEW_ANNOTATION = 'externalReview';
 
 	/**
-	 * The one verb an intake tool may end in. A tool that reads or changes an
-	 * existing record is not an intake tool, whatever it is annotated with.
+	 * The one scope and the one action an intake tool must declare. A tool that
+	 * reads or changes an existing record is not an intake tool, whatever it is
+	 * annotated with.
+	 *
+	 * Read off the descriptor's declared `scope` and `action`, not off the last
+	 * segment of the id: a curated tool such as `dossiq.fileCase` has a
+	 * two-part id with no verb in it, and the id the catalogue hands over as
+	 * `name` is the LLM-safe form (`dossiq_fileCase`), which has no segments at
+	 * all (decision 177).
 	 *
 	 * @var string
 	 */
@@ -86,8 +94,8 @@ class IntakeToolGrant {
 	}//end __construct()
 
 	/**
-	 * The intake tools an owning app declared: annotated for intake, and ending in
-	 * the create verb. The second test is not redundant with the first. An
+	 * The intake tools an owning app declared: annotated for intake, and declaring
+	 * the create scope and action. The second test is not redundant with the first. An
 	 * annotation is a claim, and a claim that a `case.update` tool is an intake
 	 * tool is exactly the mistake this surface must not be able to make.
 	 *
@@ -123,13 +131,39 @@ class IntakeToolGrant {
 	 */
 	public function permits(string $toolId): bool {
 		foreach (array_merge($this->intakeTools(), $this->reviewTools()) as $descriptor) {
-			if ((string)($descriptor['name'] ?? ($descriptor['id'] ?? '')) === $toolId) {
+			if ($toolId === self::idOf(descriptor: $descriptor)) {
+				return true;
+			}
+
+			// The LLM-safe alias of the same tool routes back the same way.
+			if ($toolId !== '' && $toolId === (string)($descriptor['name'] ?? '')) {
 				return true;
 			}
 		}
 
 		return false;
 	}//end permits()
+
+	/**
+	 * The dotted id of a catalogue entry: its `mcpId` when the catalogue carries
+	 * one (every provider-bridged tool), else its `name`, else its `id`.
+	 *
+	 * @param array<string, mixed> $descriptor The catalogue entry.
+	 *
+	 * @return string The id, or an empty string.
+	 *
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-tool-is-recognised-by-its-mark-and-its-declared-create-taxonomy
+	 */
+	public static function idOf(array $descriptor): string {
+		foreach (['mcpId', 'name', 'id'] as $key) {
+			$value = ($descriptor[$key] ?? null);
+			if (is_string($value) === true && $value !== '') {
+				return $value;
+			}
+		}
+
+		return '';
+	}//end idOf()
 
 	/**
 	 * Call one tool on behalf of an intake conversation, refusing anything the
@@ -153,10 +187,20 @@ class IntakeToolGrant {
 		}
 
 		$envelope = $this->toolRegistryFacade->invokeTool(toolId: $toolId, arguments: $arguments);
+		$result = ($envelope['result'] ?? []);
+
+		// A refusal can arrive INSIDE the result. OpenRegister's provider bridge
+		// catches what an attribute tool throws and returns it as
+		// `{isError: true, message}`, and the facade then wraps that answer as a
+		// successful call. Reading only the envelope's flag would record an
+		// owning app's refusal as a filed request, and the citizen would never
+		// reach a person.
+		$isError = (($envelope['isError'] ?? false) === true)
+			|| (is_array($result) === true && (($result['isError'] ?? false) === true));
 
 		return [
-			'result' => ($envelope['result'] ?? []),
-			'isError' => (($envelope['isError'] ?? false) === true),
+			'result' => $result,
+			'isError' => $isError,
 		];
 
 	}//end call()
@@ -192,7 +236,7 @@ class IntakeToolGrant {
 				continue;
 			}
 
-			$id = (string)($descriptor['name'] ?? ($descriptor['id'] ?? ''));
+			$id = self::idOf(descriptor: $descriptor);
 			if ($id === '') {
 				continue;
 			}
@@ -214,18 +258,31 @@ class IntakeToolGrant {
 	}//end annotated()
 
 	/**
-	 * Whether a tool only creates: its id ends in the create verb, and
-	 * OpenRegister's own classification agrees that it writes rather than reads.
+	 * Whether a tool only creates: it declares `scope: create` AND
+	 * `action: create`, and OpenRegister's own classification agrees that it
+	 * writes rather than reads.
+	 *
+	 * Both declarations are required, not either. `scope` is the CRUD verb the
+	 * grant matrix reads; `action` is the free-form verb the owning app names.
+	 * An app that marks a tool for intake and declares only one of them has not
+	 * said, in both vocabularies, that the tool creates and does nothing else.
 	 *
 	 * @param string $toolId The tool id.
 	 * @param array<string, mixed> $descriptor Its descriptor.
 	 *
 	 * @return bool True when the tool creates and nothing else.
+	 *
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-tool-is-recognised-by-its-mark-and-its-declared-create-taxonomy
 	 */
 	private function createsOnly(string $toolId, array $descriptor): bool {
-		$parts = explode('.', $toolId);
+		if (($descriptor['scope'] ?? null) !== self::CREATE_VERB || ($descriptor['action'] ?? null) !== self::CREATE_VERB) {
+			return false;
+		}
 
-		if (end($parts) !== self::CREATE_VERB) {
+		// OpenRegister's classification lets a declared scope outrank the hints,
+		// so a tool that says `scope: create` AND `readOnlyHint: true` would pass
+		// it. The two contradict each other, and a contradiction does not qualify.
+		if (($descriptor['readOnlyHint'] ?? null) === true) {
 			return false;
 		}
 
