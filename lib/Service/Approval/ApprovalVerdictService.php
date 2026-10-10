@@ -112,6 +112,14 @@ class ApprovalVerdictService
             $decidedBy = $data['decidedBy'];
         }
 
+        // The route is public: when the approval is not the caller's own toolcall
+        // approval, an approval id alone must not reveal who decided it, or when.
+        if ($reason === 'unknown' || $reason === 'binding-mismatch') {
+            $decidedBy = null;
+            $decidedAt = null;
+            $expiresAt = null;
+        }
+
         $verdict['approved']  = ($reason === 'approved');
         $verdict['reason']    = $reason;
         $verdict['decidedBy'] = $decidedBy;
