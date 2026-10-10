@@ -21,6 +21,18 @@ afterwards, also when the work fails. Hermiq SHALL NOT read the acting user from
 - **WHEN** cron runs bob's interaction task with no session
 - **THEN** the engine turn's broker call carries `actingUserId` bob
 
+#### Scenario: The contextagent turn reads OpenRegister as the task's user
+
+- **GIVEN** cron runs bob's `core:contextagent:interaction` task with no session
+- **WHEN** the engine reads the session, its messages and the agent's tools
+- **THEN** every OpenRegister RBAC and organisation check answers for bob
+- **AND** the previous (empty) user is restored afterwards
+
+#### Scenario: A task for a disabled user is refused
+
+- **GIVEN** cron runs a `core:contextagent:interaction` task whose user is disabled or no longer exists
+- **THEN** the interaction is refused before a session is saved or the engine runs
+
 #### Scenario: A session is never replaced
 
 - **GIVEN** alice is signed in
@@ -44,6 +56,12 @@ and CLI modes SHALL keep the configured credential.
 - **GIVEN** an agent of organisation O and an organisation credential of O for provider `anthropic` allowed for hermiq
 - **WHEN** the agent's turn builds an Anthropic driver in API key mode
 - **THEN** the driver carries that organisation credential
+
+#### Scenario: An untouched model field uses the default model
+
+- **GIVEN** the configured Anthropic `chatModel` is empty
+- **WHEN** an Anthropic driver is built
+- **THEN** it uses the default model `claude-opus-4-8`
 
 #### Scenario: OAuth keeps the configured subscription
 

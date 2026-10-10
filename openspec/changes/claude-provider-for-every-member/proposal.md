@@ -39,6 +39,15 @@ round 5):
 - `ProviderFactory::generateText()` runs inside `actingFor($userId)`, so the three text2text
   providers act for the task's user. `ContextAgentInteractionService::interact()` runs the engine
   turn inside `actingFor($userId)`, so Assistant chat does too.
+- Without a session, `ContextAgentInteractionService::interact()` runs the whole interaction inside
+  OpenRegister's `ObjectService::runAs()` for the task's user. Found live on :8099: once the broker
+  admitted the call, the cron turn failed one step earlier, because the engine's own RBAC-checked
+  reads ran as nobody ("User 'Anonymous' does not have permission to 'read' objects in schema
+  'Session'") and the session it had just saved anonymously could not be found again. `runAs`
+  grants nothing: every check answers for the task's user and the previous user is restored. A
+  task whose user is unknown or disabled is refused.
+- An empty Anthropic model (the dialog saves an untouched Model field as '') falls back to the
+  default model instead of being sent to Anthropic as ''.
 - The Anthropic driver (API key over http) resolves a personal then organisation credential through
   `CredentialScopeResolver`, exactly as OpenAI and Fireworks do, before falling back to the
   configured instance credential. The OAuth and CLI modes keep the configured credential: those
@@ -62,7 +71,7 @@ TaskProcessing manager handing a provider the task's stored user.
 ## Impact
 
 - `lib/Service/Llm/ProviderFactory.php`
-- `lib/Service/ContextAgentInteractionService.php`
+- `lib/Service/ContextAgentInteractionService.php` (acting user, `runAs` for a cron run)
 - `src/modals/LlmProviderModal.vue`, new `src/utils/llmCredentials.js`, `l10n/en.json`, `l10n/nl.json`
 - Tests: `tests/Unit/Service/Llm/ProviderFactoryActingForTest.php`,
   `tests/Unit/Service/ContextAgent/ContextAgentInteractionServiceTest.php`,

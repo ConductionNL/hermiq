@@ -2964,8 +2964,16 @@ class ProviderFactory {
 			);
 		}
 
+		// The settings dialog saves an untouched Model field as '' (its placeholder only
+		// shows the default), and `??` keeps an empty string, which Anthropic refuses as a
+		// model id. An empty or blank model therefore falls back to the default too.
+		$configuredModel = trim((string)($anthropicConfig['chatModel'] ?? ''));
+		if ($configuredModel === '') {
+			$configuredModel = 'claude-opus-4-8';
+		}
+
 		$model = $this->resolveAnthropicModel(
-			configuredModel: ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8'),
+			configuredModel: $configuredModel,
 			agentModel: $agentModel
 		);
 

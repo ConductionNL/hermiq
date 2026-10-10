@@ -41,6 +41,8 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
+use OCP\IUser;
+use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Exception\ProcessingException;
@@ -579,12 +581,80 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			new NullLogger(),
 			$versions,
 			$this->agentAccess,
-			$factory
+			$factory,
+			$session,
+			$this->userManagerWith(uid: 'bob', enabled: true)
+		);
+
+		// Without a session the whole interaction runs as the task's user in OpenRegister,
+		// so the engine's RBAC-checked reads answer for bob, not for an anonymous caller.
+		$ranAs = [];
+		$this->objectService->expects($this->once())->method('runAs')->willReturnCallback(
+			static function (IUser $user, callable $operation) use (&$ranAs) {
+				$ranAs[] = $user->getUID();
+				return $operation();
+			}
 		);
 
 		$result = $service->interact('bob', 'hi', null, '');
 
 		$this->assertSame('hello bob', $result['output']);
 		$this->assertSame(['bob'], $acting);
+		$this->assertSame(['bob'], $ranAs);
 	}//end testTheEngineTurnActsForTheTaskUser()
+
+	/**
+	 * A cron run for a disabled (or vanished) user is refused before the engine runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function testACronRunForADisabledUserIsRefused(): void {
+		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->objectService->expects($this->never())->method('saveObject');
+		$this->engine->expects($this->never())->method('processMessage');
+		$this->objectService->expects($this->never())->method('runAs');
+
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn(null);
+
+		$service = new ContextAgentInteractionService(
+			$this->objectService,
+			$this->engine,
+			$this->approvalService,
+			$this->scheduleService,
+			$this->createMock(AuditTrailMapper::class),
+			$this->createMock(RedactionService::class),
+			$this->appConfig,
+			new NullLogger(),
+			$this->createMock(AgentVersionService::class),
+			$this->agentAccess,
+			null,
+			$session,
+			$this->userManagerWith(uid: 'bob', enabled: false)
+		);
+
+		$this->expectException(ProcessingException::class);
+		$service->interact('bob', 'hi', null, '');
+	}//end testACronRunForADisabledUserIsRefused()
+
+	/**
+	 * A user manager that knows one user.
+	 *
+	 * @param string $uid The user id.
+	 * @param bool $enabled Whether the account is enabled.
+	 *
+	 * @return IUserManager
+	 */
+	private function userManagerWith(string $uid, bool $enabled): IUserManager {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$user->method('isEnabled')->willReturn($enabled);
+
+		$manager = $this->createMock(IUserManager::class);
+		$manager->method('get')->willReturnCallback(static fn (string $id): ?IUser => ($id === $uid ? $user : null));
+		return $manager;
+	}//end userManagerWith()
 }//end class

@@ -291,6 +291,22 @@ class ProviderFactoryActingForTest extends TestCase {
 	}//end testAnthropicFallsBackToTheConfiguredCredential()
 
 	/**
+	 * A Model field saved empty by the settings dialog falls back to the default model.
+	 *
+	 * Fails on the old code: `??` kept the empty string, and Anthropic refuses '' as a model.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-anthropic-resolves-a-personal-then-organisation-credential
+	 *
+	 * @return void
+	 */
+	public function testAnEmptyModelFallsBackToTheDefault(): void {
+		$factory = $this->factory(sessionUid: 'alice', anthropicConfig: ['chatModel' => '']);
+		$driver = $factory->createChatDriver(llmConfig: $factory->getLlmConfig());
+
+		$this->assertSame('claude-opus-4-8', $driver->model);
+	}//end testAnEmptyModelFallsBackToTheDefault()
+
+	/**
 	 * OAuth carries a personal subscription: no lookup may swap another credential in.
 	 *
 	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-anthropic-resolves-a-personal-then-organisation-credential

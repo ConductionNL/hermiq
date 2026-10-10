@@ -55,6 +55,8 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
+use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -120,6 +122,8 @@ class ContextAgentInteractionService {
 	 *                                                 context (agent-versioning).
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
 	 * @param ProviderFactory|null $providerFactory Runs the engine turn acting for the task's user.
+	 * @param IUserSession|null $userSession Tells a cron run (no session) from a request.
+	 * @param IUserManager|null $userManager Resolves the task's user for a cron run.
 	 *
 	 * @return void
 	 *
@@ -140,6 +144,8 @@ class ContextAgentInteractionService {
 		// Nullable and trailing so the existing construction sites keep working; the
 		// container autowires it. Absent, the turn runs without an acting user, as before.
 		private readonly ?ProviderFactory $providerFactory = null,
+		private readonly ?IUserSession $userSession = null,
+		private readonly ?IUserManager $userManager = null,
 	) {
 	}//end __construct()
 
@@ -162,6 +168,7 @@ class ContextAgentInteractionService {
 	 *                             org kill-switch is engaged, or the turn fails.
 	 *
 	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	public function interact(?string $userId, string $input, ?int $confirmation, string $conversationToken): array {
 		if ($userId === null || $userId === '') {
@@ -172,6 +179,32 @@ class ContextAgentInteractionService {
 			throw new ProcessingException('Hermiq ContextAgent requires a non-empty message.');
 		}
 
+		return $this->runAsTaskUser(
+			userId: $userId,
+			work: fn (): array => $this->interactAsTaskUser(
+				userId: $userId,
+				input: $input,
+				confirmation: $confirmation,
+				conversationToken: $conversationToken
+			)
+		);
+	}//end interact()
+
+	/**
+	 * The body of {@see interact()}, run as the task's user.
+	 *
+	 * @param string $userId The task creator.
+	 * @param string $input The chat message.
+	 * @param int|null $confirmation The client's confirmation, or null.
+	 * @param string $conversationToken The conversation token, or '' for a new one.
+	 *
+	 * @return array{output: string, conversation_token: string, actions: string} The ContextAgent output shape.
+	 *
+	 * @throws ProcessingException When no agent is available, the kill-switch is engaged, or the turn fails.
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 */
+	private function interactAsTaskUser(string $userId, string $input, ?int $confirmation, string $conversationToken): array {
 		$agent = $this->resolveAgent(userId: $userId);
 		if ($agent === null) {
 			throw new ProcessingException(
@@ -232,15 +265,49 @@ class ContextAgentInteractionService {
 			'actions' => $this->buildActions(agent: $agent),
 		];
 
-	}//end interact()
+	}//end interactAsTaskUser()
 
 	/**
-	 * Run the engine turn acting for the task's user.
+	 * Run the whole interaction as the task's user when Nextcloud runs it from cron.
 	 *
 	 * Assistant routes chat to `core:contextagent:interaction`, which Nextcloud runs from
-	 * cron with no session. Acting for the task's user lets every broker call in the turn
-	 * carry that user, so the broker can admit their (or their organisation's) credential.
-	 * A session, when there is one, still wins inside {@see ProviderFactory::actingFor()}.
+	 * cron with no session. Every OpenRegister read and write of the turn (the agent, the
+	 * session, its messages, the agent's tools) is RBAC- and organisation-checked against
+	 * the session user, which in cron is nobody: the turn failed with "User 'Anonymous'
+	 * does not have permission to 'read' objects in schema 'Session'", and a session saved
+	 * anonymously could not be found again by the engine. Without a session the work runs
+	 * inside OpenRegister's `ObjectService::runAs()` for the task's user. That grants
+	 * nothing: every check answers for that user, and the previous user is restored after.
+	 *
+	 * With a session (a task run synchronously inside a request) nothing is switched: the
+	 * session user stays. A task whose user no longer exists or is disabled is refused.
+	 *
+	 * @param string $userId The task user (never request input: Nextcloud's stored task user).
+	 * @param callable $work The interaction, called without arguments.
+	 *
+	 * @return array The interaction's result.
+	 *
+	 * @throws ProcessingException When a cron run's task user is unknown or disabled.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	private function runAsTaskUser(string $userId, callable $work): array {
+		if ($this->userSession === null || $this->userManager === null || $this->userSession->getUser() !== null) {
+			return $work();
+		}
+
+		$user = $this->userManager->get($userId);
+		if ($user === null || $user->isEnabled() === false) {
+			throw new ProcessingException('Hermiq ContextAgent cannot act for this task: its user is unknown or disabled.');
+		}
+
+		return $this->objectService->runAs($user, $work);
+	}//end runAsTaskUser()
+
+	/**
+	 * Run the engine turn with every broker call acting for the task's user.
+	 *
+	 * See {@see ProviderFactory::actingFor()}: a session, when there is one, still wins.
 	 *
 	 * @param string $userId The task user (never request input: Nextcloud's stored task user).
 	 * @param string $conversationId The conversation UUID.
