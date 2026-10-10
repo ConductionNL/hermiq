@@ -1976,7 +1976,8 @@
         "Choose an agent to start a session with.": "Kies een agent om een sessie mee te starten.",
         "You do not have permission to start a session with this agent.": "Je hebt geen toestemming om een sessie met deze agent te starten.",
         "This agent does not exist or is not shared with you.": "Deze agent bestaat niet of is niet met je gedeeld.",
-        "Could not start the session: {reason}": "Kon de sessie niet starten: {reason}"
+        "Could not start the session: {reason}": "Kon de sessie niet starten: {reason}",
+        "{name} (organisation)": "{name} (organisatie)"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

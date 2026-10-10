@@ -2676,7 +2676,8 @@ OC.L10N.register(
         "Choose an agent to start a session with.": "Choose an agent to start a session with.",
         "Could not start the session: {reason}": "Could not start the session: {reason}",
         "This agent does not exist or is not shared with you.": "This agent does not exist or is not shared with you.",
-        "You do not have permission to start a session with this agent.": "You do not have permission to start a session with this agent."
+        "You do not have permission to start a session with this agent.": "You do not have permission to start a session with this agent.",
+        "{name} (organisation)": "{name} (organisation)"
     },
     "nplurals=2; plural=(n != 1);"
 )

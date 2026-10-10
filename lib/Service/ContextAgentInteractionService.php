@@ -50,6 +50,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -118,6 +119,7 @@ class ContextAgentInteractionService {
 	 *                                                 identifier, pinned onto the interaction audit
 	 *                                                 context (agent-versioning).
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
+	 * @param ProviderFactory|null $providerFactory Runs the engine turn acting for the task's user.
 	 *
 	 * @return void
 	 *
@@ -135,6 +137,9 @@ class ContextAgentInteractionService {
 		private readonly LoggerInterface $logger,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly AgentAccessService $agentAccess,
+		// Nullable and trailing so the existing construction sites keep working; the
+		// container autowires it. Absent, the turn runs without an acting user, as before.
+		private readonly ?ProviderFactory $providerFactory = null,
 	) {
 	}//end __construct()
 
@@ -202,11 +207,7 @@ class ContextAgentInteractionService {
 		// Run one governed turn through Hermiq's engine (its own allowlist-gated tool
 		// loop executes inline).
 		try {
-			$result = $this->engine->processMessage(
-				conversationId: $conversationId,
-				userId: $userId,
-				userMessage: $input
-			);
+			$result = $this->runTurnActingFor(userId: $userId, conversationId: $conversationId, input: $input);
 		} catch (Throwable $e) {
 			$this->audit(object: $conversation, status: 'error', summary: $e->getMessage(), agentId: $agentId);
 			$this->logger->warning(
@@ -232,6 +233,36 @@ class ContextAgentInteractionService {
 		];
 
 	}//end interact()
+
+	/**
+	 * Run the engine turn acting for the task's user.
+	 *
+	 * Assistant routes chat to `core:contextagent:interaction`, which Nextcloud runs from
+	 * cron with no session. Acting for the task's user lets every broker call in the turn
+	 * carry that user, so the broker can admit their (or their organisation's) credential.
+	 * A session, when there is one, still wins inside {@see ProviderFactory::actingFor()}.
+	 *
+	 * @param string $userId The task user (never request input: Nextcloud's stored task user).
+	 * @param string $conversationId The conversation UUID.
+	 * @param string $input The chat message.
+	 *
+	 * @return array The engine's result.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	private function runTurnActingFor(string $userId, string $conversationId, string $input): array {
+		$turn = fn (): array => $this->engine->processMessage(
+			conversationId: $conversationId,
+			userId: $userId,
+			userMessage: $input
+		);
+
+		if ($this->providerFactory === null) {
+			return $turn();
+		}
+
+		return $this->providerFactory->actingFor(userId: $userId, work: $turn);
+	}//end runTurnActingFor()
 
 	/**
 	 * Resolve the agent that serves ContextAgent interactions: the configured

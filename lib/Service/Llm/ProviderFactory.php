@@ -240,6 +240,15 @@ class ProviderFactory {
 	private bool $lastCallHitToolCap = false;
 
 	/**
+	 * The user a sessionless unit of work acts for, set only inside {@see actingFor()}.
+	 *
+	 * Null outside that scope. Read by {@see currentUid()} only when there is no session.
+	 *
+	 * @var string|null
+	 */
+	private ?string $actingUserId = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
@@ -558,7 +567,9 @@ class ProviderFactory {
 			'anthropic' => $this->createAnthropicDriver(
 				anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
 				agentModel: $agentModel,
-				agentMaxTokens: $agentMaxTokens
+				agentMaxTokens: $agentMaxTokens,
+				organisation: $organisation,
+				pinned: $pinned
 			),
 			'nextcloud' => $this->createNextcloudDriver(),
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
@@ -2608,8 +2619,44 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	public function generateText(string $prompt, ?string $userId = null, bool $allowNextcloud = true, ?string $organisation = null): string {
+		// A TaskProcessing provider runs from cron with no session; act for the task's
+		// user so the broker can admit that user's (or their organisation's) credential.
+		return $this->actingFor(
+			userId: $userId,
+			work: fn (): string => $this->generateTextAsCurrentUser(
+				prompt: $prompt,
+				userId: $userId,
+				allowNextcloud: $allowNextcloud,
+				organisation: $organisation
+			)
+		);
+	}//end generateText()
+
+	/**
+	 * The body of {@see generateText()}, run inside its acting-user scope.
+	 *
+	 * @param string $prompt The prompt text.
+	 * @param string|null $userId The user id (forwarded to the nextcloud driver).
+	 * @param bool $allowNextcloud Whether the `nextcloud` driver may be selected.
+	 * @param string|null $organisation The organisation for the model-policy check, or null.
+	 *
+	 * @return string The generated text.
+	 *
+	 * @throws ProviderUnavailableException When no provider is configured/reachable, or
+	 *                                      `nextcloud` is selected while `$allowNextcloud`
+	 *                                      is false.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess)        LLPhant's Message::user() factory is the
+	 * library's public API — there is no injectable seam.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Carried through from generateText().
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	private function generateTextAsCurrentUser(string $prompt, ?string $userId, bool $allowNextcloud, ?string $organisation): string {
 		$llmConfig = $this->getLlmConfig();
 		$driver = $this->createChatDriver(llmConfig: $llmConfig, organisation: $organisation);
 
@@ -2645,7 +2692,7 @@ class ProviderFactory {
 
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
-	}//end generateText()
+	}//end generateTextAsCurrentUser()
 
 	/**
 	 * Build the `ollama` driver: native OllamaConfig + OllamaChat.
@@ -2858,6 +2905,9 @@ class ProviderFactory {
 	 * @param array $anthropicConfig The `anthropicConfig` sub-block.
 	 * @param string|null $agentModel Agent model override.
 	 * @param int|null $agentMaxTokens Agent max-tokens override, applied when set.
+	 * @param string|null $organisation The calling organisation, for the personal then
+	 *                                  organisation credential lookup; null skips it.
+	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
 	 *
 	 * @return ChatDriver
 	 *
@@ -2870,9 +2920,36 @@ class ProviderFactory {
 	 *   here so the driver fails loud (503) instead of at request time.
 	 *
 	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-anthropic-resolves-a-personal-then-organisation-credential
 	 */
-	private function createAnthropicDriver(array $anthropicConfig, ?string $agentModel, ?int $agentMaxTokens = null): ChatDriver {
-		$credentialId = (string)($anthropicConfig['credentialId'] ?? '');
+	private function createAnthropicDriver(
+		array $anthropicConfig,
+		?string $agentModel,
+		?int $agentMaxTokens = null,
+		?string $organisation = null,
+		?array $pinned = null,
+	): ChatDriver {
+		$authMode = ($anthropicConfig['authMode'] ?? 'api_key');
+		if ($authMode !== 'oauth') {
+			$authMode = 'api_key';
+		}
+
+		// `executionMode: cli` (llm-cli-runner-exapp) routes the turn through the
+		// hermiq-llm-runner ExApp's `claude` CLI instead of the direct Messages API; `http`
+		// (the default) is unchanged. Anything other than `cli` normalises to `http`, so an
+		// unrecognised value can never select a transport that does not exist.
+		$executionMode = ($anthropicConfig['executionMode'] ?? 'http');
+		if ($executionMode !== 'cli') {
+			$executionMode = 'http';
+		}
+
+		$credentialId = $this->anthropicCredentialId(
+			configured: (string)($anthropicConfig['credentialId'] ?? ''),
+			authMode: $authMode,
+			executionMode: $executionMode,
+			organisation: $organisation,
+			pinned: $pinned
+		);
 		if ($credentialId === '') {
 			throw new ProviderUnavailableException(
 				'Anthropic has no credential. Select one from the credential broker in the Hermiq LLM settings.',
@@ -2892,20 +2969,6 @@ class ProviderFactory {
 			agentModel: $agentModel
 		);
 
-		$authMode = ($anthropicConfig['authMode'] ?? 'api_key');
-		if ($authMode !== 'oauth') {
-			$authMode = 'api_key';
-		}
-
-		// `executionMode: cli` (llm-cli-runner-exapp) routes the turn through the
-		// hermiq-llm-runner ExApp's `claude` CLI instead of the direct Messages API; `http`
-		// (the default) is unchanged. Anything other than `cli` normalises to `http`, so an
-		// unrecognised value can never select a transport that does not exist.
-		$executionMode = ($anthropicConfig['executionMode'] ?? 'http');
-		if ($executionMode !== 'cli') {
-			$executionMode = 'http';
-		}
-
 		$baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');
 
 		// `credentialId` is a broker reference, not a secret — the key or OAuth token lives
@@ -2924,6 +2987,46 @@ class ProviderFactory {
 		);
 
 	}//end createAnthropicDriver()
+
+	/**
+	 * The broker credential an Anthropic turn uses.
+	 *
+	 * For an API key over http this is the same personal then organisation lookup OpenAI
+	 * and Fireworks use ({@see resolveCredentialOverride()}), falling back to the configured
+	 * instance credential. The OAuth and CLI modes keep the configured credential: they carry
+	 * a Claude Max/Pro subscription, which the Anthropic terms keep personal, so no lookup
+	 * may swap another one in.
+	 *
+	 * @param string $configured The configured `anthropicConfig.credentialId`.
+	 * @param string $authMode The normalised auth mode (`api_key`|`oauth`).
+	 * @param string $executionMode The normalised transport (`http`|`cli`).
+	 * @param string|null $organisation The calling organisation, or null to skip the lookup.
+	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
+	 *
+	 * @return string The credential id, or '' when none is configured or found.
+	 *
+	 * @throws PinnedCredentialRefusedException When the agent's pin for Anthropic cannot be used.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-anthropic-resolves-a-personal-then-organisation-credential
+	 */
+	private function anthropicCredentialId(
+		string $configured,
+		string $authMode,
+		string $executionMode,
+		?string $organisation,
+		?array $pinned,
+	): string {
+		if ($authMode !== 'api_key' || $executionMode !== 'http') {
+			return $configured;
+		}
+
+		$override = $this->resolveCredentialOverride(provider: 'anthropic', organisation: $organisation, pinned: $pinned);
+		if ($override !== null && $override !== '') {
+			return $override;
+		}
+
+		return $configured;
+	}//end anthropicCredentialId()
 
 	/**
 	 * Resolve the model for an Anthropic turn, ignoring foreign agent overrides.
@@ -2975,18 +3078,58 @@ class ProviderFactory {
 	}//end resolveAnthropicModel()
 
 	/**
-	 * The calling user's UID, when there is a session.
+	 * Run one unit of work on behalf of a named user when there is no session.
+	 *
+	 * Nextcloud runs TaskProcessing tasks (Assistant text2text, summary, headline and
+	 * contextagent interaction) from cron, in `SynchronousBackgroundJob`, with no user
+	 * session. The task still belongs to someone: Nextcloud hands the provider the task's
+	 * stored user. Inside this scope {@see currentUid()} answers that user, so every
+	 * broker call the work makes carries it as `actingUserId`, and the broker decides
+	 * whether that user may spend the credential (owner of a personal one, enabled member
+	 * of an organisation's one). Hermiq makes no trust decision of its own here.
+	 *
+	 * A session always wins: with a signed-in user the named user is ignored, so this can
+	 * never be used to act as someone else inside a request. The previous value is
+	 * restored in `finally`, so the acting user never outlives the work, also when it
+	 * throws, and nested scopes unwind correctly. Callers pass a user only from trusted
+	 * server state (a task's stored user), never from request input.
+	 *
+	 * @param string|null $userId The user the work belongs to; null or '' acts for nobody.
+	 * @param callable $work The work to run, called without arguments.
+	 *
+	 * @return mixed Whatever the work returns.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function actingFor(?string $userId, callable $work): mixed {
+		$previous = $this->actingUserId;
+		$this->actingUserId = null;
+		if ($userId !== null && $userId !== '') {
+			$this->actingUserId = $userId;
+		}
+
+		try {
+			return $work();
+		} finally {
+			$this->actingUserId = $previous;
+		}
+	}//end actingFor()
+
+	/**
+	 * The calling user's UID: the session user, else the user the current work acts for.
 	 *
 	 * The broker's ownership guard needs an identity to check the credential against. On
-	 * the scheduled-agent path there is no session; the credential owner has to be carried
-	 * on the run instead.
+	 * the scheduled-agent and TaskProcessing paths there is no session; the user is then
+	 * the one {@see actingFor()} names for the work in progress, or null outside it.
 	 *
-	 * @return string|null The UID, or null when there is no session.
+	 * @return string|null The UID, or null when there is neither a session nor an acting user.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	private function currentUid(): ?string {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
-			return null;
+			return $this->actingUserId;
 		}
 
 		return $user->getUID();

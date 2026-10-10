@@ -248,6 +248,7 @@ import {
 } from '@nextcloud/vue'
 import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
+import { loadLlmCredentials } from '../utils/llmCredentials.js'
 
 export default {
 	name: 'LlmProviderModal',
@@ -615,24 +616,24 @@ export default {
 		},
 
 		/**
-		 * Load the user's broker credentials.
+		 * Load the caller's personal and active-organisation broker credentials.
 		 *
-		 * The endpoint already scopes to the caller's own credentials, and the response
-		 * carries no secrets — only names, providers and UUIDs.
+		 * An organisation credential is the one key every member of the organisation can
+		 * use, so it has to be pickable here. The responses carry no secrets, only names,
+		 * providers, scopes and UUIDs.
 		 *
 		 * @return {Promise<void>}
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
 		 */
 		async fetchCredentials() {
 			this.loadingCredentials = true
 			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
+				this.credentials = await loadLlmCredentials(
+					(url) => axios.get(url),
+					generateUrl,
 				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
 			} finally {
 				this.loadingCredentials = false
 			}
@@ -649,12 +650,21 @@ export default {
 		 * @return {Array} NcSelect options.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
 		 */
 		credentialsFor(provider) {
 			const providers = Array.isArray(provider) ? provider : [provider]
 			return this.credentials
 				.filter((c) => providers.includes(c.provider))
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
+				.map((c) => ({
+					label:
+						c.scope === 'organisation'
+							? this.t('hermiq', '{name} (organisation)', {
+									name: c.name || c.id,
+								})
+							: c.name || c.id,
+					value: c.id,
+				}))
 		},
 
 		/**

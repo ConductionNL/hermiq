@@ -28,17 +28,25 @@ use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
+use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Llm\BrokerHttpClient;
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
+use OCP\IUserSession;
+use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
 
 /**
@@ -486,4 +494,97 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$this->assertSame('shared-1', $args[0]['agentId']);
 	}//end testTheFallbackTakesTheFirstAgentTheUserMayUse()
+
+	/**
+	 * Assistant chat runs from cron: the engine turn's broker call acts for the task's user.
+	 *
+	 * Drives a REAL ProviderFactory (no session) whose broker is stubbed, and has the engine
+	 * make the Anthropic call a real turn makes. Fails on the old code: the broker received
+	 * `actingUserId` null, so an organisation key refused every Assistant chat message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function testTheEngineTurnActsForTheTaskUser(): void {
+		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-new', 'bob'));
+
+		$acting = [];
+		$broker = $this->createMock(CredentialBrokerService::class);
+		$broker->method('request')->willReturnCallback(
+			static function (
+				string $credentialId,
+				string $appId,
+				string $method,
+				string $path,
+				array $headers = [],
+				?string $body = null,
+				?string $actingUserId = null,
+			) use (&$acting): array {
+				$acting[] = $actingUserId;
+				return [
+					'status' => 200,
+					'headers' => [],
+					'body' => (string)json_encode(['content' => [['type' => 'text', 'text' => 'hello bob']], 'stop_reason' => 'end_turn']),
+				];
+			}
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id) => ($id === BrokerHttpClient::BROKER_CLASS ? $broker : null)
+		);
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn(null);
+		$factory = new ProviderFactory(
+			$this->createMock(LlmSettingsHandler::class),
+			$this->createMock(IManager::class),
+			$session,
+			new NullLogger(),
+			'hermiq',
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			$container
+		);
+
+		$this->engine->method('processMessage')->willReturnCallback(
+			static fn (): array => [
+				'message' => $factory->callAnthropicChat(
+					credentialId: 'cred-org',
+					model: 'claude-opus-4-8',
+					baseUrl: 'https://api.anthropic.com/v1',
+					messageHistory: [LLPhantMessage::user('hi')]
+				),
+			]
+		);
+
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+		$versions = $this->createMock(AgentVersionService::class);
+		$versions->method('currentVersionId')->willReturn('version-1');
+		$service = new ContextAgentInteractionService(
+			$this->objectService,
+			$this->engine,
+			$this->approvalService,
+			$this->scheduleService,
+			$audit,
+			$redaction,
+			$this->appConfig,
+			new NullLogger(),
+			$versions,
+			$this->agentAccess,
+			$factory
+		);
+
+		$result = $service->interact('bob', 'hi', null, '');
+
+		$this->assertSame('hello bob', $result['output']);
+		$this->assertSame(['bob'], $acting);
+	}//end testTheEngineTurnActsForTheTaskUser()
 }//end class
