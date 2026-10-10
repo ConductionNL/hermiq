@@ -126,12 +126,22 @@ class BrokerHttpClient implements ClientInterface {
 	 *                                          when this client is built by hand in a
 	 *                                          test, in which case sendRequest() fails
 	 *                                          closed like an absent broker.
+	 * @param bool $sessionless True for work acting for a background task's user. The
+	 *                          broker is then called through its PHP-internal
+	 *                          `requestForBackgroundUser()`, whose guards ignore any
+	 *                          session, so the sessionless rule (real membership) applies
+	 *                          even inside a `runAs()` user switch.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$sessionless` selects which broker entry
+	 *   one and the same send uses (request() or requestForBackgroundUser()); splitting the
+	 *   client in two would duplicate the header handling the security of both depends on.
 	 */
 	public function __construct(
 		private string $credentialId,
 		private LoggerInterface $logger,
 		private ?string $actingUserId = null,
 		private ?ContainerInterface $container = null,
+		private bool $sessionless = false,
 	) {
 	}//end __construct()
 
@@ -197,14 +207,12 @@ class BrokerHttpClient implements ClientInterface {
 
 		try {
 			$broker = $this->container->get(self::BROKER_CLASS);
-			$response = $broker->request(
-				$this->credentialId,
-				self::APP_ID,
-				$request->getMethod(),
-				$path,
-				$this->headersWithoutAuth(request: $request),
-				(string)$request->getBody(),
-				$this->actingUserId
+			$response = $this->callBroker(
+				broker: $broker,
+				method: $request->getMethod(),
+				path: $path,
+				headers: $this->headersWithoutAuth(request: $request),
+				body: (string)$request->getBody()
 			);
 		} catch (Throwable $e) {
 			// Never log the body — it carries the prompt, which can carry anything the
@@ -225,6 +233,51 @@ class BrokerHttpClient implements ClientInterface {
 			(string)($response['body'] ?? '')
 		);
 	}//end sendRequest()
+
+	/**
+	 * Make the broker call; background work goes through the broker's background entry.
+	 *
+	 * Fails CLOSED when background work meets an OpenRegister without
+	 * `requestForBackgroundUser()`: its `request()` would judge a `runAs()` user as a
+	 * signed-in session, and a Nextcloud administrator would pass the session rule for
+	 * every organisation (Ruben, 2026-10-10: only real membership counts in the background).
+	 *
+	 * @param object $broker The OpenRegister credential broker.
+	 * @param string $method The HTTP method.
+	 * @param string $path The provider-relative path (with query).
+	 * @param array<string, mixed> $headers The request headers, auth stripped.
+	 * @param string $body The request body.
+	 *
+	 * @return array The broker's `{status, headers, body}`.
+	 *
+	 * @throws RuntimeException When background work names no user, or meets a broker without
+	 *                          the background entry.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	private function callBroker(object $broker, string $method, string $path, array $headers, string $body): array {
+		if ($this->sessionless === false) {
+			return $broker->request($this->credentialId, self::APP_ID, $method, $path, $headers, $body, $this->actingUserId);
+		}
+
+		if ($this->actingUserId === null || $this->actingUserId === '') {
+			throw new RuntimeException('Hermiq LLM: background work names no user to act for; refusing to call the broker.');
+		}
+
+		if (method_exists($broker, 'requestForBackgroundUser') === false) {
+			throw new RuntimeException('Hermiq LLM: this OpenRegister cannot judge a background call; refusing to call the broker.');
+		}
+
+		return $broker->requestForBackgroundUser(
+			$this->credentialId,
+			self::APP_ID,
+			$method,
+			$path,
+			$headers,
+			$body,
+			$this->actingUserId
+		);
+	}//end callBroker()
 
 	/**
 	 * The upstream provider's response headers, minus the transfer-scoped ones.

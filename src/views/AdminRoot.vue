@@ -169,21 +169,18 @@
 					'Manage organisation-wide broker credentials (e.g. GitHub) that any allowed Nextcloud app may use on behalf of your organisation. The secret is stored in Doriath — Nextcloud’s native credential vault — never in Hermiq itself.',
 				)
 			">
-			<CnCredentials
-				scope="organisation"
-				appId="hermiq"
-				:appName="t('hermiq', 'Hermiq')"
+			<OrganisationCredentialSettings
 				:appCredentials="(manifest && manifest.credentials) || []" />
 		</NcSettingsSection>
 	</div>
 </template>
 
 <script>
-import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
+import OrganisationCredentialSettings from '../components/settings/OrganisationCredentialSettings.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
@@ -211,12 +208,12 @@ export default {
 	components: {
 		AiFeatureRegister,
 		AssistantPromptLibrary,
-		CnCredentials,
 		Cog,
 		LlmProviderModal,
 		NcButton,
 		IntakeSettings,
 		NcSettingsSection,
+		OrganisationCredentialSettings,
 		ReportGroupingSettings,
 		RunRetentionSettings,
 		TalkBridgeSettings,

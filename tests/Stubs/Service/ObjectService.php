@@ -58,6 +58,22 @@ class ObjectService {
 	}//end runAsSystem()
 
 	/**
+	 * Run a callable as a named user.
+	 *
+	 * The real method sets the volatile active user, invokes the callable and restores
+	 * the previous user. Like runAsSystem() above, the stub invokes the callable so it
+	 * models the contract instead of returning null without running anything.
+	 *
+	 * @param \OCP\IUser $user The user to act as.
+	 * @param callable $operation The work to run as that user.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runAs(\OCP\IUser $user, callable $operation): mixed {
+		return $operation();
+	}//end runAs()
+
+	/**
 	 * Set the active register context.
 	 *
 	 * @param mixed $register Register slug/id/entity.
