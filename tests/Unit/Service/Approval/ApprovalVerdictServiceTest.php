@@ -245,10 +245,10 @@ class ApprovalVerdictServiceTest extends TestCase {
 		$verdict = $this->service(approval: $this->approval(override: $approval))
 			->verify(request: $this->request(override: $request))['verdict'];
 
-		$this->assertContains($verdict['reason'], ['unknown', 'binding-mismatch']);
-		$this->assertNull($verdict['decidedBy']);
-		$this->assertNull($verdict['decidedAt']);
-		$this->assertNull($verdict['expiresAt']);
+		$this->assertContains(needle: $verdict['reason'], haystack: ['unknown', 'binding-mismatch']);
+		$this->assertNull(actual: $verdict['decidedBy']);
+		$this->assertNull(actual: $verdict['decidedAt']);
+		$this->assertNull(actual: $verdict['expiresAt']);
 
 	}//end testAnIdentityRefusalRevealsNoDecision()
 
