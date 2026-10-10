@@ -41,3 +41,12 @@
 
 - [x] 6.1 Unit tests that fail on the old code: task type, input and userId; tools both ways; no provider for consumed types; missing provider message.
 - [x] 6.2 Live on :8099: an Assistant chat and a hermiq chat each create a task handled by integration_openai that fails only on the missing key.
+
+## 7. Found while verifying live on :8099
+
+- [x] 7.1 The fail-closed model policy (no policy anywhere) allows the effective provider, so the Nextcloud AI default is not refused for every agent with an organisation; lesson and translation provenance name `nextcloud`.
+  - **spec_ref**: `specs/nextcloud-ai-provider/spec.md#requirement-nextcloud-ai-is-the-default-provider`
+- [x] 7.2 The engine passes the user's turn twice (stored in history, then appended); the Nextcloud AI client sends it once.
+  - **spec_ref**: `specs/nextcloud-ai-provider/spec.md#requirement-hermiq-sends-its-llm-work-as-taskprocessing-tasks-as-the-acting-user`
+- [x] 7.3 The contextagent provider accepts the Assistant's first-turn token `{}` and a stale token, and runs the turn as the task user inside the TaskProcessing worker (it had no session, so every OpenRegister read was refused as "Anonymous").
+  - **spec_ref**: `specs/nextcloud-ai-provider/spec.md#requirement-hermiq-provides-no-task-type-it-consumes`
