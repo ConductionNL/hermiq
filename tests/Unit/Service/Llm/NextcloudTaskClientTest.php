@@ -121,6 +121,34 @@ class NextcloudTaskClientTest extends TestCase {
 	}//end testChatRunsTheChatTaskAsTheUser()
 
 	/**
+	 * The engine's history already ends with the user's turn and the handler appends it
+	 * again; the task carries it once, as input, not also as the last history entry.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 */
+	public function testTheUsersTurnIsSentOnce(): void {
+		$client = new NextcloudTaskClient($this->manager([]), new NullLogger());
+
+		$split = $client->splitHistory(
+			messageHistory: [
+				Message::system('Sys'),
+				Message::user('Earlier'),
+				Message::assistant('Answer'),
+				Message::user('Which tools do you have?'),
+				Message::user('Which tools do you have?'),
+			]
+		);
+
+		$this->assertSame('Which tools do you have?', $split['input']);
+		$this->assertSame(
+			['{"role":"user","content":"Earlier"}', '{"role":"assistant","content":"Answer"}'],
+			$split['history']
+		);
+	}//end testTheUsersTurnIsSentOnce()
+
+	/**
 	 * With tools, the turn runs core:text2text:chatwithtools: the tools go out as OpenAI
 	 * tools JSON, a tool call comes back and is executed, and the follow-up task carries
 	 * the assistant's tool call in history and the result in tool_message.

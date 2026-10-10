@@ -571,6 +571,13 @@ class NextcloudTaskClient {
 			$input = $last['content'];
 		}
 
+		// The engine stores the user's turn before it builds the history, then appends
+		// the same turn again, so it arrives twice. Send it once, as `input`.
+		$previous = end($turns);
+		if ($previous !== false && $previous['role'] === 'user' && $previous['content'] === $input) {
+			array_pop($turns);
+		}
+
 		return [
 			'system' => implode("\n\n", $system),
 			'input' => $input,
