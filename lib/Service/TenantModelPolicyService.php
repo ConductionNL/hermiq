@@ -199,7 +199,10 @@ class TenantModelPolicyService {
 	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	private function fallbackPolicy(): array {
-		$chatProvider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $this->settingsHandler->getLLMSettingsOnly());
+		$chatProvider = (string)($this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? '');
+		if (trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
 		$allowed = [['provider' => $chatProvider, 'models' => []]];
 
 		return [

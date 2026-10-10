@@ -93,7 +93,10 @@ class LlmConnectionReport {
 	 */
 	private function describeProvider(array $config): array {
 		// Use-nextcloud-ai-settings: no hermiq-specific provider means Nextcloud AI.
-		$provider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $config);
+		$provider = (string)($config['chatProvider'] ?? '');
+		if (trim($provider) === '') {
+			$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
 		$name = (self::PROVIDER_NAMES[$provider] ?? $provider);
 
 		try {

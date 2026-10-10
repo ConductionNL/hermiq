@@ -129,9 +129,7 @@ class NextcloudTaskClientTest extends TestCase {
 	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
 	 */
 	public function testTheUsersTurnIsSentOnce(): void {
-		$client = new NextcloudTaskClient($this->manager([]), new NullLogger());
-
-		$split = $client->splitHistory(
+		$split = (new \OCA\Hermiq\Service\Llm\NextcloudChatMapper())->splitHistory(
 			messageHistory: [
 				Message::system('Sys'),
 				Message::user('Earlier'),

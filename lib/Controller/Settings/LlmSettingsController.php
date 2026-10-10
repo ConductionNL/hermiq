@@ -110,7 +110,10 @@ class LlmSettingsController extends Controller {
 
 		$masked = $this->maskCredentials(config: $config);
 		$masked['modelCapabilities'] = $this->modelCapabilities->all();
-		$masked['effectiveChatProvider'] = LlmSettingsHandler::effectiveChatProvider(llmConfig: $config);
+		$masked['effectiveChatProvider'] = (string)($config['chatProvider'] ?? '');
+		if (trim($masked['effectiveChatProvider']) === '') {
+			$masked['effectiveChatProvider'] = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
 		$masked['nextcloudAi'] = $this->nextcloudAiStatus();
 
 		return new JSONResponse($masked);

@@ -337,7 +337,10 @@ class LessonAuthoringEngine {
 
 		$provider = '';
 		try {
-			$provider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $this->providerFactory->getLlmConfig());
+			$provider = (string)($this->providerFactory->getLlmConfig()['chatProvider'] ?? '');
+			if (trim($provider) === '') {
+				$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+			}
 			$raw = $this->providerFactory->generateText(prompt: $prompt, userId: $userId);
 		} catch (Throwable $e) {
 			// The exception message only: never the prompt, which holds the lesson text.

@@ -642,8 +642,9 @@ class ResponseGenerationHandler {
 	 * guardrails, approval, redaction, trace and dry-run all applied) and returns a
 	 * callable that runs a requested tool by (name, args) through
 	 * FunctionInfo::callWithArguments(). Shared by the Anthropic and Nextcloud AI
-	 * branches, which both run the tool loop themselves. Null when there are no
-	 * tools, so a provider is never told about a tool hermiq cannot run.
+	 * branches, which both run the tool loop themselves; each offers tools only when
+	 * `$functions` is non-empty, so a provider is never told about a tool hermiq
+	 * cannot run.
 	 *
 	 * @param array $functions OpenAI-style function definitions.
 	 * @param StreamYieldChannel|null $channel The SSE channel, when streaming.
@@ -652,7 +653,7 @@ class ResponseGenerationHandler {
 	 * @param string|null $organisation The agent's organisation.
 	 * @param bool $dryRun Whether this is a dry run.
 	 *
-	 * @return callable|null fn(string $name, array $args): string, or null.
+	 * @return callable fn(string $name, array $args): string.
 	 *
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Dry-run is a cross-cutting mode threaded through the engine.
 	 *
@@ -665,11 +666,7 @@ class ResponseGenerationHandler {
 		?ObjectEntity $agent,
 		?string $organisation,
 		bool $dryRun,
-	): ?callable {
-		if (empty($functions) === true) {
-			return null;
-		}
-
+	): callable {
 		$functionInfos = $this->toolLoop->buildFunctionInfos(
 			functions: $functions,
 			channel: $channel,

@@ -108,7 +108,10 @@ class ChatHealthController extends Controller {
 			$llmConfig = $this->llmSettings->getLLMSettingsOnly();
 			// Use-nextcloud-ai-settings: no hermiq-specific provider means Nextcloud AI,
 			// which is only configured when a Nextcloud provider serves chat.
-			$chatProvider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
+			$chatProvider = (string)($llmConfig['chatProvider'] ?? '');
+			if (trim($chatProvider) === '') {
+				$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+			}
 			$nextcloudCannotChat = ($chatProvider === LlmSettingsHandler::DEFAULT_CHAT_PROVIDER
 				&& $this->nextcloudAi?->isAvailable(taskTypeId: TextToTextChat::ID) !== true);
 

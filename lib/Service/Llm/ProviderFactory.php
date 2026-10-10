@@ -244,7 +244,7 @@ class ProviderFactory {
 	 *
 	 * @var NextcloudTaskClient|null
 	 */
-	private ?NextcloudTaskClient $fallbackNextcloudClient = null;
+	private ?NextcloudTaskClient $builtNcClient = null;
 
 	/**
 	 * Constructor.
@@ -395,11 +395,11 @@ class ProviderFactory {
 			return $this->nextcloudClient;
 		}
 
-		if ($this->fallbackNextcloudClient === null) {
-			$this->fallbackNextcloudClient = new NextcloudTaskClient(taskManager: $this->taskManager, logger: $this->logger, appName: $this->appName);
+		if ($this->builtNcClient === null) {
+			$this->builtNcClient = new NextcloudTaskClient(taskManager: $this->taskManager, logger: $this->logger, appName: $this->appName);
 		}
 
-		return $this->fallbackNextcloudClient;
+		return $this->builtNcClient;
 	}//end nextcloudClient()
 
 	/**
@@ -705,7 +705,10 @@ class ProviderFactory {
 	): ChatDriver {
 		// Use-nextcloud-ai-settings: with no hermiq-specific provider saved, hermiq runs
 		// on Nextcloud AI, the provider set up for the whole instance.
-		$chatProvider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
+		$chatProvider = (string)($llmConfig['chatProvider'] ?? '');
+		if (trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
 
 		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
 		// resolve the feature's own binding. It only resolves; the ceiling is

@@ -40,13 +40,10 @@ namespace OCA\Hermiq\Service\Llm;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\TaskProcessing\IManager;
+use OCP\TaskProcessing\IProvider;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\Task;
-use OCP\TaskProcessing\TaskTypes\TextToText;
-use OCP\TaskProcessing\TaskTypes\TextToTextChat;
-use OCP\TaskProcessing\TaskTypes\TextToTextChatWithTools;
 use Psr\Log\LoggerInterface;
-use stdClass;
 use Throwable;
 
 /**
@@ -82,10 +79,31 @@ class NextcloudTaskClient {
 	 *
 	 * @var array<string, string>
 	 */
+	/**
+	 * Plain generation: `core:text2text` (OCP TextToText::ID, NC 30+).
+	 *
+	 * @var string
+	 */
+	public const TYPE_TEXT = 'core:text2text';
+
+	/**
+	 * Chat without tools: `core:text2text:chat` (OCP TextToTextChat::ID, NC 30+).
+	 *
+	 * @var string
+	 */
+	public const TYPE_CHAT = 'core:text2text:chat';
+
+	/**
+	 * Chat with tools: `core:text2text:chatwithtools` (OCP TextToTextChatWithTools::ID, NC 31+).
+	 *
+	 * @var string
+	 */
+	public const TYPE_CHAT_WITH_TOOLS = 'core:text2text:chatwithtools';
+
 	public const CONSUMED_TASK_TYPES = [
-		'chat' => TextToTextChat::ID,
-		'chatWithTools' => TextToTextChatWithTools::ID,
-		'text' => TextToText::ID,
+		'chat' => self::TYPE_CHAT,
+		'chatWithTools' => self::TYPE_CHAT_WITH_TOOLS,
+		'text' => self::TYPE_TEXT,
 	];
 
 	/**
@@ -101,6 +119,13 @@ class NextcloudTaskClient {
 	 * @var boolean
 	 */
 	private bool $lastCallHitToolCap = false;
+
+	/**
+	 * Maps chat turns onto the task shapes and back.
+	 *
+	 * @var NextcloudChatMapper
+	 */
+	private NextcloudChatMapper $mapper;
 
 	/**
 	 * Constructor.
@@ -122,6 +147,7 @@ class NextcloudTaskClient {
 		private readonly ?IL10N $l10n = null,
 		private readonly string $appName = 'hermiq',
 	) {
+		$this->mapper = new NextcloudChatMapper();
 	}//end __construct()
 
 	/**
@@ -215,7 +241,7 @@ class NextcloudTaskClient {
 	 */
 	public function generate(string $prompt, ?string $userId, int $timeoutSeconds = self::TIMEOUT_BACKGROUND, string $customId = ''): string {
 		$output = $this->run(
-			taskTypeId: TextToText::ID,
+			taskTypeId: self::TYPE_TEXT,
 			input: ['input' => $prompt],
 			userId: $userId,
 			timeoutSeconds: $timeoutSeconds,
@@ -260,11 +286,11 @@ class NextcloudTaskClient {
 		int $timeoutSeconds = self::TIMEOUT_INTERACTIVE,
 	): string {
 		$this->lastCallHitToolCap = false;
-		$split = $this->splitHistory(messageHistory: $messageHistory);
+		$split = $this->mapper->splitHistory(messageHistory: $messageHistory);
 
 		if ($functions === [] || $toolExecutor === null) {
 			$output = $this->run(
-				taskTypeId: TextToTextChat::ID,
+				taskTypeId: self::TYPE_CHAT,
 				input: [
 					'system_prompt' => $split['system'],
 					'input' => $split['input'],
@@ -279,7 +305,7 @@ class NextcloudTaskClient {
 
 		// A turn with tools never degrades quietly: without a chatwithtools provider the
 		// agent's tools cannot run, and running it without them would look healthy.
-		if ($this->isAvailable(taskTypeId: TextToTextChatWithTools::ID, userId: $userId) === false) {
+		if ($this->isAvailable(taskTypeId: self::TYPE_CHAT_WITH_TOOLS, userId: $userId) === false) {
 			throw new ProviderUnavailableException(
 				'Nextcloud AI has no provider for chat with tools, so this agent\'s tools cannot run. ' . $this->adminMessage(),
 				503
@@ -289,7 +315,7 @@ class NextcloudTaskClient {
 		return $this->chatWithTools(
 			split: $split,
 			userId: $userId,
-			tools: $this->buildTools(functions: $functions),
+			tools: $this->mapper->buildTools(functions: $functions),
 			toolExecutor: $toolExecutor,
 			cap: ($maxToolCalls ?? self::MAX_TOOL_CALLS),
 			timeoutSeconds: $timeoutSeconds
@@ -321,19 +347,19 @@ class NextcloudTaskClient {
 		// At most one task per allowed tool call plus the closing one.
 		for ($iteration = 0; $iteration <= $cap; $iteration++) {
 			$output = $this->run(
-				taskTypeId: TextToTextChatWithTools::ID,
+				taskTypeId: self::TYPE_CHAT_WITH_TOOLS,
 				input: [
 					'system_prompt' => $split['system'],
 					'input' => $input,
 					'history' => $history,
 					'tools' => $tools,
-					'tool_message' => $this->encodeList(list: $toolMessages),
+					'tool_message' => $this->mapper->encodeList(list: $toolMessages),
 				],
 				userId: $userId,
 				timeoutSeconds: $timeoutSeconds
 			);
 			$text = (string)($output['output'] ?? '');
-			$toolCalls = $this->parseToolCalls(raw: $output['tool_calls'] ?? '');
+			$toolCalls = $this->mapper->parseToolCalls(raw: $output['tool_calls'] ?? '');
 
 			if ($toolCalls === []) {
 				break;
@@ -344,38 +370,15 @@ class NextcloudTaskClient {
 				break;
 			}
 
-			// What was sent this round moves into the history: the user's turn, the tool
-			// results of the previous round, then the assistant turn that asked for tools.
-			if ($input !== '') {
-				$history[] = $this->encode(value: ['role' => 'user', 'content' => $input]);
-			}
-
-			foreach ($toolMessages as $toolMessage) {
-				$history[] = $this->encode(value: ['role' => 'tool'] + $toolMessage);
-			}
-
-			$history[] = $this->encode(
-				value: [
-					'role' => 'assistant',
-					'content' => $text,
-					'tool_calls' => array_map(
-						static fn (array $call): array => ['id' => $call['id'], 'name' => $call['name'], 'args' => $call['args']],
-						$toolCalls
-					),
-				]
+			$history = $this->mapper->appendRound(
+				history: $history,
+				input: $input,
+				toolMessages: $toolMessages,
+				text: $text,
+				toolCalls: $toolCalls
 			);
-
 			$input = '';
-			$toolMessages = [];
-			foreach ($toolCalls as $toolCall) {
-				$result = '{"isError":true,"result":{"error":"Tool call limit reached for this turn"}}';
-				if ($executed < $cap) {
-					$result = (string)$toolExecutor($toolCall['name'], $toolCall['args']);
-					$executed++;
-				}
-
-				$toolMessages[] = ['tool_call_id' => $toolCall['id'], 'name' => $toolCall['name'], 'content' => $result];
-			}
+			$toolMessages = $this->executeToolCalls(toolCalls: $toolCalls, toolExecutor: $toolExecutor, executed: $executed, cap: $cap);
 		}//end for
 
 		if ($this->lastCallHitToolCap === true && trim($text) === '') {
@@ -384,6 +387,33 @@ class NextcloudTaskClient {
 
 		return $text;
 	}//end chatWithTools()
+
+	/**
+	 * Run each requested tool through the governed executor, up to the cap.
+	 *
+	 * @param list<array{id: string, name: string, args: array<string, mixed>}> $toolCalls The calls.
+	 * @param callable $toolExecutor Runs one tool.
+	 * @param integer $executed Tool calls run so far in this turn; increased per run.
+	 * @param integer $cap The tool-call cap.
+	 *
+	 * @return list<array{tool_call_id: string, name: string, content: string}> The results.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
+	 */
+	private function executeToolCalls(array $toolCalls, callable $toolExecutor, int &$executed, int $cap): array {
+		$results = [];
+		foreach ($toolCalls as $toolCall) {
+			$result = '{"isError":true,"result":{"error":"Tool call limit reached for this turn"}}';
+			if ($executed < $cap) {
+				$result = (string)$toolExecutor($toolCall['name'], $toolCall['args']);
+				$executed++;
+			}
+
+			$results[] = ['tool_call_id' => $toolCall['id'], 'name' => $toolCall['name'], 'content' => $result];
+		}
+
+		return $results;
+	}//end executeToolCalls()
 
 	/**
 	 * Run one task as the given user and return its output.
@@ -425,12 +455,7 @@ class NextcloudTaskClient {
 		$task = new Task($taskTypeId, $input, $this->appName, $userId, $customId);
 
 		try {
-			if ($provider instanceof ISynchronousProvider) {
-				$task = $this->taskManager->runTask($task);
-			} else {
-				$this->taskManager->scheduleTask($task);
-				$task = $this->waitFor(task: $task, timeoutSeconds: $timeoutSeconds);
-			}
+			$task = $this->dispatch(task: $task, provider: $provider, timeoutSeconds: $timeoutSeconds);
 		} catch (ProviderUnavailableException $e) {
 			throw $e;
 		} catch (Throwable $e) {
@@ -442,11 +467,34 @@ class NextcloudTaskClient {
 		}
 
 		if ($task->getStatus() !== Task::STATUS_SUCCESSFUL) {
-			throw new ProviderUnavailableException('Nextcloud AI task failed: ' . $this->errorOf(task: $task), 502);
+			throw new ProviderUnavailableException('Nextcloud AI task failed: ' . $this->mapper->errorOf(task: $task), 502);
 		}
 
 		return ($task->getOutput() ?? []);
 	}//end run()
+
+	/**
+	 * Run a task inline when its provider is synchronous, else schedule it and wait.
+	 *
+	 * `runTask()` runs a synchronous provider inline, but polls an asynchronous one
+	 * without a bound, so that case is scheduled and waited on here instead.
+	 *
+	 * @param Task $task The task.
+	 * @param IProvider $provider The preferred provider.
+	 * @param integer $timeoutSeconds The bound for an asynchronous provider.
+	 *
+	 * @return Task The finished task.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 */
+	private function dispatch(Task $task, IProvider $provider, int $timeoutSeconds): Task {
+		if ($provider instanceof ISynchronousProvider) {
+			return $this->taskManager->runTask($task);
+		}
+
+		$this->taskManager->scheduleTask($task);
+		return $this->waitFor(task: $task, timeoutSeconds: $timeoutSeconds);
+	}//end dispatch()
 
 	/**
 	 * Wait for a scheduled task to finish, at most the given time; cancel it on timeout.
@@ -512,185 +560,4 @@ class NextcloudTaskClient {
 	protected function pause(): void {
 		sleep(1);
 	}//end pause()
-
-	/**
-	 * The most useful error text of a failed task.
-	 *
-	 * @param Task $task The task.
-	 *
-	 * @return string The error.
-	 */
-	private function errorOf(Task $task): string {
-		$error = null;
-		if (method_exists($task, 'getUserFacingErrorMessage') === true) {
-			$error = $task->getUserFacingErrorMessage();
-		}
-
-		if ($error === null || $error === '') {
-			$error = $task->getErrorMessage();
-		}
-
-		if ($error === null || $error === '') {
-			return 'status ' . $task->getStatus();
-		}
-
-		return $error;
-	}//end errorOf()
-
-	/**
-	 * Map LLPhant history onto the chat task's `system_prompt`, `input` and `history`.
-	 *
-	 * @param array $messageHistory LLPhant messages.
-	 *
-	 * @return array{system: string, input: string, history: list<string>}
-	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
-	 */
-	public function splitHistory(array $messageHistory): array {
-		$system = [];
-		$turns = [];
-		foreach ($messageHistory as $message) {
-			$role = (string)$message->role->value;
-			$content = $message->content;
-			if (is_string($content) === false) {
-				$content = (string)json_encode($content);
-			}
-
-			if ($role === 'system') {
-				$system[] = $content;
-				continue;
-			}
-
-			$turns[] = ['role' => $role, 'content' => $content];
-		}
-
-		$input = '';
-		$last = end($turns);
-		if ($last !== false && $last['role'] === 'user') {
-			array_pop($turns);
-			$input = $last['content'];
-		}
-
-		// The engine stores the user's turn before it builds the history, then appends
-		// the same turn again, so it arrives twice. Send it once, as `input`.
-		$previous = end($turns);
-		if ($previous !== false && $previous['role'] === 'user' && $previous['content'] === $input) {
-			array_pop($turns);
-		}
-
-		return [
-			'system' => implode("\n\n", $system),
-			'input' => $input,
-			'history' => array_map(fn (array $turn): string => $this->encode(value: $turn), $turns),
-		];
-	}//end splitHistory()
-
-	/**
-	 * Map OpenAI-style function definitions onto the chatwithtools `tools` JSON.
-	 *
-	 * @param array $functions Function definitions `{name, description, parameters}`.
-	 *
-	 * @return string The tools JSON: `[{type: "function", function: {...}}]`.
-	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
-	 */
-	public function buildTools(array $functions): string {
-		$tools = [];
-		foreach ($functions as $function) {
-			if (is_array($function) === false || isset($function['name']) === false) {
-				continue;
-			}
-
-			$schema = $function['parameters'] ?? null;
-			if (is_array($schema) === false) {
-				$schema = ['type' => 'object'];
-			}
-
-			if (isset($schema['type']) === false) {
-				$schema['type'] = 'object';
-			}
-
-			// An empty PHP array encodes as a JSON list; the schema needs an object.
-			if (isset($schema['properties']) === false || $schema['properties'] === []) {
-				$schema['properties'] = new stdClass();
-			}
-
-			$tools[] = [
-				'type' => 'function',
-				'function' => [
-					'name' => (string)$function['name'],
-					'description' => (string)($function['description'] ?? ''),
-					'parameters' => $schema,
-				],
-			];
-		}//end foreach
-
-		return $this->encode(value: $tools);
-	}//end buildTools()
-
-	/**
-	 * Parse the chatwithtools `tool_calls` output: `[{id, name, args}]`.
-	 *
-	 * @param mixed $raw The output slot value.
-	 *
-	 * @return list<array{id: string, name: string, args: array<string, mixed>}>
-	 *
-	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-2
-	 */
-	public function parseToolCalls(mixed $raw): array {
-		if (is_string($raw) === false || trim($raw) === '') {
-			return [];
-		}
-
-		$decoded = json_decode($raw, true);
-		if (is_array($decoded) === false) {
-			return [];
-		}
-
-		$calls = [];
-		foreach ($decoded as $call) {
-			if (is_array($call) === false || isset($call['name']) === false) {
-				continue;
-			}
-
-			$args = ($call['args'] ?? ($call['arguments'] ?? []));
-			if (is_string($args) === true) {
-				$args = json_decode($args, true);
-			}
-
-			if (is_array($args) === false) {
-				$args = [];
-			}
-
-			$calls[] = ['id' => (string)($call['id'] ?? ''), 'name' => (string)$call['name'], 'args' => $args];
-		}
-
-		return $calls;
-	}//end parseToolCalls()
-
-	/**
-	 * JSON-encode one value.
-	 *
-	 * @param array $value The value.
-	 *
-	 * @return string The JSON.
-	 */
-	private function encode(array $value): string {
-		return (string)json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-	}//end encode()
-
-	/**
-	 * JSON-encode a list, or the empty string for an empty one.
-	 *
-	 * @param array $list The list.
-	 *
-	 * @return string The JSON, or ''.
-	 */
-	private function encodeList(array $list): string {
-		if ($list === []) {
-			return '';
-		}
-
-		return $this->encode(value: array_values($list));
-	}//end encodeList()
 }//end class

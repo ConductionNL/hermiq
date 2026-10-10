@@ -146,7 +146,10 @@ class MessageTranslationEngine {
 
 		try {
 			$llmConfig = $this->providerFactory->getLlmConfig();
-			$provider  = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
+			$provider = (string)($llmConfig['chatProvider'] ?? '');
+			if (trim($provider) === '') {
+				$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+			}
 
 			$translatedText = trim($this->providerFactory->generateText(
 				prompt: $this->buildPrompt(sourceText: $sourceText, targetLanguage: $targetLanguage, glossary: $glossary)
@@ -234,7 +237,10 @@ class MessageTranslationEngine {
 	 */
 	private function modelLabel(array $llmConfig): string {
 		// Use-nextcloud-ai-settings: no saved provider means Nextcloud AI served it.
-		$provider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
+		$provider = (string)($llmConfig['chatProvider'] ?? '');
+		if (trim($provider) === '') {
+			$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
 
 		$providerConfig = $llmConfig[$provider . 'Config'] ?? [];
 		$model          = '';
