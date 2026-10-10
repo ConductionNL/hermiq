@@ -17,11 +17,11 @@
  * is supplied (blocking callers, background workers) we keep the blocking
  * `generateChat()` call exactly as before.
  *
- * The `nextcloud` TaskProcessing driver is deliberately NOT accepted here: its
- * scope (plan §8 move 1) is background/non-interactive work only — conversation
- * titles and summaries, served by `ConversationManagementHandler` — never chat
- * generation. Selecting it as `chatProvider` and then chatting raises a clear
- * `ProviderUnavailableException` instead of a silent wrong-path call.
+ * The `nextcloud` driver (Nextcloud AI) is accepted for chat and agent turns since
+ * use-nextcloud-ai-settings: the turn runs as `core:text2text:chat` or, with tools,
+ * `core:text2text:chatwithtools` tasks, with hermiq running the tool loop through the
+ * same governed executor as the Anthropic branch. TaskProcessing has no streaming
+ * surface, so the SSE caller receives the whole answer at once.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -348,15 +348,6 @@ class ResponseGenerationHandler {
 				);
 			}
 
-			if ($driver->provider === 'nextcloud') {
-				// Scope guard — see the class docblock.
-				throw new ProviderUnavailableException(
-					message: 'The nextcloud (TaskProcessing) chat provider serves background work only '
-					. '(titles, summaries) — select openai, ollama, or fireworks for chat.',
-					code: 503
-				);
-			}
-
 			$this->logger->info(
 				message: '[ResponseGenerationHandler] Using chat provider',
 				context: [
@@ -449,6 +440,32 @@ class ResponseGenerationHandler {
 				// The tokens Fireworks reported, which a token budget counts (hermiq#985).
 				$this->lastUsage = $this->providerFactory->lastCallUsage();
 				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
+			} elseif ($driver->provider === 'nextcloud') {
+				// Nextcloud AI (use-nextcloud-ai-settings): the turn runs as TaskProcessing
+				// tasks through the provider set up under Administration settings >
+				// Artificial intelligence, as the session user (a scheduled run
+				// impersonates its acting user). Tools go through the same governed
+				// executor as the Anthropic branch; without a chatwithtools provider a
+				// turn with tools fails loudly instead of running without them.
+				$response = $this->providerFactory->callNextcloudChat(
+					messageHistory: $messageHistory,
+					functions: $functions,
+					toolExecutor: $this->governedToolExecutor(
+						functions: $functions,
+						channel: $channel,
+						trace: $trace,
+						agent: $agent,
+						organisation: $organisation,
+						dryRun: $dryRun
+					),
+					maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $agent)
+				);
+				$llmTime = microtime(true) - $llmStartTime;
+
+				$trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+
+				// TaskProcessing reports no token usage; the latency is still recorded.
+				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
 			} elseif ($driver->provider === 'anthropic') {
 				// Anthropic uses direct HTTP through the broker (ProviderFactory::
 				// callAnthropicChat) with the auth headers selected by authMode.
@@ -463,31 +480,14 @@ class ResponseGenerationHandler {
 				// derive from `$functions['name']`, so they match. Executor is null when
 				// there are no tools → callAnthropicChat runs text-only (the fail-safe:
 				// never advertise a tool Hermiq cannot run).
-				$toolExecutor = null;
-				if (empty($functions) === false) {
-					$functionInfos = $this->toolLoop->buildFunctionInfos(
-						functions: $functions,
-						channel: $channel,
-						trace: $trace,
-						agent: $agent,
-						organisation: $organisation,
-						dryRun: $dryRun
-					);
-
-					$anthropicFnByName = [];
-					foreach ($functionInfos as $functionInfo) {
-						$anthropicFnByName[$functionInfo->name] = $functionInfo;
-					}
-
-					$toolExecutor = static function (string $toolName, array $toolInput) use ($anthropicFnByName): string {
-						$functionInfo = ($anthropicFnByName[$toolName] ?? null);
-						if ($functionInfo === null) {
-							return (string)json_encode(['error' => "Unknown tool: {$toolName}"]);
-						}
-
-						return (string)$functionInfo->callWithArguments($toolInput);
-					};
-				}//end if
+				$toolExecutor = $this->governedToolExecutor(
+					functions: $functions,
+					channel: $channel,
+					trace: $trace,
+					agent: $agent,
+					organisation: $organisation,
+					dryRun: $dryRun
+				);
 
 				// Bind the per-run token (cli-runner-governed-mcp-and-egress) so a
 				// tool-requiring `cli` turn is governed via Hermiq's MCP endpoint rather
@@ -633,6 +633,66 @@ class ResponseGenerationHandler {
 			throw new Exception('Failed to generate response: ' . $e->getMessage(), (int)$e->getCode(), $e);
 		}//end try
 	}//end generateResponse()
+
+	/**
+	 * A tool executor over the governed FunctionInfo path, or null without tools.
+	 *
+	 * Builds the SAME governed FunctionInfo objects the LLPhant branch uses
+	 * (ToolLoop::buildFunctionInfos: one shared FacadeToolInvoker, with agent,
+	 * guardrails, approval, redaction, trace and dry-run all applied) and returns a
+	 * callable that runs a requested tool by (name, args) through
+	 * FunctionInfo::callWithArguments(). Shared by the Anthropic and Nextcloud AI
+	 * branches, which both run the tool loop themselves. Null when there are no
+	 * tools, so a provider is never told about a tool hermiq cannot run.
+	 *
+	 * @param array $functions OpenAI-style function definitions.
+	 * @param StreamYieldChannel|null $channel The SSE channel, when streaming.
+	 * @param RunTraceCollector|null $trace The run trace.
+	 * @param ObjectEntity|null $agent The agent.
+	 * @param string|null $organisation The agent's organisation.
+	 * @param bool $dryRun Whether this is a dry run.
+	 *
+	 * @return callable|null fn(string $name, array $args): string, or null.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Dry-run is a cross-cutting mode threaded through the engine.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	private function governedToolExecutor(
+		array $functions,
+		?StreamYieldChannel $channel,
+		?RunTraceCollector $trace,
+		?ObjectEntity $agent,
+		?string $organisation,
+		bool $dryRun,
+	): ?callable {
+		if (empty($functions) === true) {
+			return null;
+		}
+
+		$functionInfos = $this->toolLoop->buildFunctionInfos(
+			functions: $functions,
+			channel: $channel,
+			trace: $trace,
+			agent: $agent,
+			organisation: $organisation,
+			dryRun: $dryRun
+		);
+
+		$byName = [];
+		foreach ($functionInfos as $functionInfo) {
+			$byName[$functionInfo->name] = $functionInfo;
+		}
+
+		return static function (string $toolName, array $toolInput) use ($byName): string {
+			$functionInfo = ($byName[$toolName] ?? null);
+			if ($functionInfo === null) {
+				return (string)json_encode(['error' => "Unknown tool: {$toolName}"]);
+			}
+
+			return (string)$functionInfo->callWithArguments($toolInput);
+		};
+	}//end governedToolExecutor()
 
 	/**
 	 * The tokens an OpenAI turn used, from LLPhant's running total.

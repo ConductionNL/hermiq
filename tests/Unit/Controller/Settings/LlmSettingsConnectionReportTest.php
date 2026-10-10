@@ -111,20 +111,30 @@ class LlmSettingsConnectionReportTest extends TestCase {
 	}//end reportSaved()
 
 	/**
-	 * A save without a provider reports unconfigured, and never simulated.
+	 * A save without a hermiq-specific provider means Nextcloud AI (use-nextcloud-ai-settings):
+	 * the factory is asked to build it, and a missing Nextcloud provider reads unconfigured
+	 * with the admin message.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
-	public function testASaveWithoutAProviderReportsUnconfigured(): void {
-		$this->factory->expects($this->never())->method('createChatDriver');
+	public function testASaveWithoutAProviderReportsNextcloudAi(): void {
+		$this->factory->expects($this->once())->method('createChatDriver')->willThrowException(
+			new ProviderUnavailableException(
+				message: 'Configure an AI provider under Administration settings > Artificial intelligence.',
+				code: 503
+			)
+		);
 
 		$this->reportSaved(config: ['chatProvider' => null]);
 
 		$this->assertSame(expected: 'unconfigured', actual: $this->reports['llm'][0]);
-		$this->assertStringContainsString(needle: '503', haystack: $this->reports['llm'][1]);
+		$this->assertStringContainsString(needle: 'Nextcloud AI', haystack: $this->reports['llm'][1]);
+		$this->assertStringContainsString(needle: 'Artificial intelligence', haystack: $this->reports['llm'][1]);
 		$this->assertSame(expected: 'unconfigured', actual: $this->reports['llm-runner'][0]);
 		$this->assertNotContains(needle: 'simulated', haystack: array_column($this->reports, 0));
-	}//end testASaveWithoutAProviderReportsUnconfigured()
+	}//end testASaveWithoutAProviderReportsNextcloudAi()
 
 	/**
 	 * A provider the factory builds reports configured, naming it and saying it is untested.
@@ -178,18 +188,20 @@ class LlmSettingsConnectionReportTest extends TestCase {
 	}//end testAnUnexpectedFailureReportsAnError()
 
 	/**
-	 * Nextcloud Assistant reads Limited, because chat refuses it.
+	 * Nextcloud AI reads configured: chat and agent turns run on it now.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
 	 */
-	public function testANextcloudProviderReportsLimited(): void {
+	public function testANextcloudProviderReportsConfigured(): void {
 		$this->factory->method('createChatDriver')->willReturn(new ChatDriver(provider: 'nextcloud', chat: null, model: 'core:text2text'));
 
 		$this->reportSaved(config: ['chatProvider' => 'nextcloud']);
 
-		$this->assertSame(expected: 'limited', actual: $this->reports['llm'][0]);
-		$this->assertStringContainsString(needle: 'Chat cannot run on it', haystack: $this->reports['llm'][1]);
-	}//end testANextcloudProviderReportsLimited()
+		$this->assertSame(expected: 'configured', actual: $this->reports['llm'][0]);
+		$this->assertStringContainsString(needle: 'Chat uses Nextcloud AI', haystack: $this->reports['llm'][1]);
+	}//end testANextcloudProviderReportsConfigured()
 
 	/**
 	 * Anthropic over HTTP does not touch the runner, so the runner reads Not configured.

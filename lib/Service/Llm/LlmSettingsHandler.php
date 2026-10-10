@@ -51,6 +51,15 @@ class LlmSettingsHandler {
 	public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'];
 
 	/**
+	 * The chat provider hermiq uses when no hermiq-specific one is configured: Nextcloud
+	 * AI, the provider an administrator set up under Administration settings > Artificial
+	 * intelligence (use-nextcloud-ai-settings).
+	 *
+	 * @var string
+	 */
+	public const DEFAULT_CHAT_PROVIDER = 'nextcloud';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IAppConfig $appConfig Nextcloud app configuration service.
@@ -65,6 +74,26 @@ class LlmSettingsHandler {
 		private readonly string $appName = 'hermiq',
 	) {
 	}//end __construct()
+
+	/**
+	 * The chat provider a config resolves to: its own `chatProvider`, or Nextcloud AI
+	 * when none is set. The stored config is never rewritten, so an empty value keeps
+	 * meaning "no hermiq-specific provider".
+	 *
+	 * @param array $llmConfig The `hermiq.llm` configuration.
+	 *
+	 * @return string The effective chat provider.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
+	 */
+	public static function effectiveChatProvider(array $llmConfig): string {
+		$provider = $llmConfig['chatProvider'] ?? null;
+		if (is_string($provider) === false || trim($provider) === '') {
+			return self::DEFAULT_CHAT_PROVIDER;
+		}
+
+		return $provider;
+	}//end effectiveChatProvider()
 
 	/**
 	 * Get the LLM settings, defaulting every field when the key is unset.

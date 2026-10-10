@@ -64,6 +64,12 @@ class ProviderFactoryTest extends TestCase {
 	private function factory(bool $hasProviders = false): array {
 		$manager = $this->createMock(IManager::class);
 		$manager->method('hasProviders')->willReturn($hasProviders);
+		// Nextcloud AI (use-nextcloud-ai-settings) checks the type is served and runs
+		// through the preferred provider: a synchronous one runs inline via runTask().
+		$manager->method('getAvailableTaskTypeIds')->willReturn($hasProviders ? [TextToText::ID] : []);
+		$provider = $this->createMock(\OCP\TaskProcessing\ISynchronousProvider::class);
+		$provider->method('getId')->willReturn('integration_openai-text2text');
+		$manager->method('getPreferredProvider')->willReturn($provider);
 
 		$settings = $this->createMock(LlmSettingsHandler::class);
 
@@ -662,6 +668,7 @@ class ProviderFactoryTest extends TestCase {
 				$this->assertSame(TextToText::ID, $task->getTaskTypeId());
 				$this->assertSame('hermiq', $task->getAppId());
 				$this->assertSame(['input' => 'Summarise this.'], $task->getInput());
+				$task->setStatus(Task::STATUS_SUCCESSFUL);
 				$task->setOutput(['output' => 'A concise summary.']);
 				return $task;
 			}
@@ -684,6 +691,7 @@ class ProviderFactoryTest extends TestCase {
 
 		$manager->method('runTask')->willReturnCallback(
 			static function (Task $task): Task {
+				$task->setStatus(Task::STATUS_SUCCESSFUL);
 				$task->setOutput([]);
 				return $task;
 			}

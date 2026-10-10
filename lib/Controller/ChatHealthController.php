@@ -32,10 +32,12 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\TaskProcessing\TaskTypes\TextToTextChat;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -58,6 +60,8 @@ class ChatHealthController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param LlmSettingsHandler $llmSettings Reads the `hermiq.llm` provider configuration.
 	 * @param LoggerInterface $logger PSR-3 logger for surfacing config errors.
+	 * @param NextcloudTaskClient|null $nextcloudAi Answers whether Nextcloud AI can chat;
+	 *                                              null when built by hand in a test.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -65,6 +69,7 @@ class ChatHealthController extends Controller {
 		IRequest $request,
 		private readonly LlmSettingsHandler $llmSettings,
 		private readonly LoggerInterface $logger,
+		private readonly ?NextcloudTaskClient $nextcloudAi = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -95,14 +100,19 @@ class ChatHealthController extends Controller {
 	 * the health check into the outage it was meant to detect.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-2
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {
 		try {
 			$llmConfig = $this->llmSettings->getLLMSettingsOnly();
-			$chatProvider = ($llmConfig['chatProvider'] ?? null);
+			// Use-nextcloud-ai-settings: no hermiq-specific provider means Nextcloud AI,
+			// which is only configured when a Nextcloud provider serves chat.
+			$chatProvider = LlmSettingsHandler::effectiveChatProvider(llmConfig: $llmConfig);
+			$nextcloudCannotChat = ($chatProvider === LlmSettingsHandler::DEFAULT_CHAT_PROVIDER
+				&& $this->nextcloudAi?->isAvailable(taskTypeId: TextToTextChat::ID) !== true);
 
-			if (empty($chatProvider) === true) {
+			if ($nextcloudCannotChat === true) {
 				return new JSONResponse(
 					data: [
 						'status' => 'unconfigured',
