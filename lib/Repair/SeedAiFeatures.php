@@ -182,6 +182,30 @@ class SeedAiFeatures implements IRepairStep {
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
+			[
+				// Registered separately from the chat companion on purpose. That one
+				// helps the person behind the desk; this one stands in front of it and
+				// files on a citizen's behalf, which is not a minimal-risk act and the
+				// register has to be able to say so independently.
+				'slug' => 'conversational-intake',
+				'name' => 'Conversational intake',
+				'description' => 'A conversation with a citizen who has no record yet, which either answers them '
+					. 'or files a request on their behalf through the owning app.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Chat-attachments-and-images D7: off until the organisation's DPO
+				// acknowledges it, like every other seeded feature.
+				'slug' => 'image-generation',
+				'name' => 'Create images in chat',
+				'description' => 'Creates an image from a description through the instance\'s text-to-image provider. '
+					. 'Every image is saved in the requester\'s Files and tagged Agent authored.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
 		];
 
 	}//end seedFeatures()

@@ -1,27 +1,7 @@
 {
-  "src/App.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
   "src/api/evals.js": {
     "eqeqeq": {
       "count": 1
-    }
-  },
-  "src/api/flows.js": {
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "src/components/AgentMemoryPanel.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    }
-  },
-  "src/components/AgentSelector.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
     }
   },
   "src/components/CnAgentChatTab/CnAgentChatTab.vue": {
@@ -32,9 +12,6 @@
   "src/components/CnAgentRunsWidget/CnAgentRunsWidget.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "src/components/TalkDeliverySettings.vue": {
@@ -67,14 +44,6 @@
   },
   "src/dialogs/DeadEndWarningDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
-  "src/dialogs/RunFlowDialog.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -128,59 +97,12 @@
       "count": 1
     }
   },
-  "src/modals/ChatSettingsModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
-  "src/modals/ConversationDeleteModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
-  "src/modals/ConversationRenameModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
   "src/modals/EvalDatasetFormModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 3
     }
   },
-  "src/modals/Flow/ConnectionEditModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 3
-    }
-  },
-  "src/modals/Flow/NodeEditModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "src/modals/Flow/PayloadModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
-  "src/modals/Flow/RunLogModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/modals/LlmProviderModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 3
     }
@@ -242,11 +164,6 @@
       "count": 1
     }
   },
-  "src/modals/TemplateImportModal.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 4
-    }
-  },
   "src/modals/WebResearchSettingsModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1
@@ -266,14 +183,6 @@
       "count": 1
     }
   },
-  "src/store/flowEditor.js": {
-    "no-console": {
-      "count": 3
-    },
-    "no-unused-vars": {
-      "count": 4
-    }
-  },
   "src/store/modules/object.js": {
     "no-console": {
       "count": 2
@@ -285,29 +194,13 @@
     }
   },
   "src/views/AdminRoot.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    },
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    }
-  },
-  "src/views/AiFeatureRegister.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 5
-    }
-  },
-  "src/views/ApprovalInbox.vue": {
-    "@nextcloud/no-deprecated-library-props": {
       "count": 2
     }
   },
   "src/views/Chat.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 11
-    },
     "@typescript-eslint/no-unused-vars": {
-      "count": 9
+      "count": 8
     },
     "vue/multi-word-component-names": {
       "count": 1
@@ -316,21 +209,6 @@
   "src/views/ComplianceDashboard.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1
-    }
-  },
-  "src/views/FlowBuilder.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/views/FlowIndex.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    }
-  },
-  "src/views/FlowSidebar.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 4
     }
   },
   "src/views/GuardrailPolicySettings.vue": {

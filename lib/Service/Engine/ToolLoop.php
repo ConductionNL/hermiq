@@ -58,12 +58,16 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use Closure;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use LLPhant\Chat\FunctionInfo\FunctionInfo;
 use LLPhant\Chat\FunctionInfo\Parameter;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
@@ -151,6 +155,9 @@ class ToolLoop {
 	 *                                       falls back to the agent record's own acting
 	 *                                       user, and with neither a flow-queueing tool
 	 *                                       is REFUSED rather than run unattributed.
+	 * @param AgentAvailabilityService|null $availabilityService Fresh read of the agent's switch, so a
+	 *                                                        turn stops at its next tool call once the
+	 *                                                        agent is switched off. Null: never stops.
 	 *
 	 * @return void
 	 *
@@ -173,6 +180,7 @@ class ToolLoop {
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
 		private readonly ?RedactionService $redactionService = null,
 		private readonly ?IUserSession $userSession = null,
+		private readonly ?AgentAvailabilityService $availabilityService = null,
 	) {
 	}//end __construct()
 
@@ -191,6 +199,8 @@ class ToolLoop {
 	 *                                          optional `mcpId`).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	public function listAgentFunctions(?ObjectEntity $agent, array $selectedTools = []): array {
 		if ($agent === null) {
@@ -236,7 +246,13 @@ class ToolLoop {
 			}
 		}//end if
 
-		$functions = $this->resolveFunctions(whitelist: $whitelist);
+		// Hermiq-runner-git-capability: a repo-effecting tool (the push) resolves
+		// only from a grant pinning the repository and constraining the branch, so
+		// a bare grant is never offered, and an agent with nothing else raises below.
+		$functions = RepoEffectingGrants::filterDescriptors(
+			descriptors: $this->resolveFunctions(whitelist: $whitelist),
+			constraints: $this->grantResolver->argumentConstraints(grants: $whitelist)
+		);
 
 		// An agent that WAS granted tools but resolved to none is broken, not
 		// tool-less: downstream both look like an empty function list, so the run
@@ -487,7 +503,9 @@ class ToolLoop {
 			redactionService: $this->redactionService,
 			argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $agent)),
 			ownerUid: $this->resolveOwnerUid(agent: $agent),
-			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $agent))
+			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $agent)),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $agent),
+			agentStillOn: $this->agentStillOn(agentId: $agentId)
 		);
 		$functionInfoObjects = [];
 
@@ -539,6 +557,26 @@ class ToolLoop {
 
 		return $functionInfoObjects;
 	}//end buildFunctionInfos()
+
+	/**
+	 * A fresh read of the agent's switch for the tool invoker, so a turn stops at
+	 * its next tool call once the agent is switched off (agents-switch-off-and-stop).
+	 *
+	 * @param string|null $agentId The acting agent, or null for agent-less chat.
+	 *
+	 * @return Closure|null The read, or null when there is no agent to switch.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 */
+	private function agentStillOn(?string $agentId): ?Closure {
+		if ($agentId === null || $agentId === '' || $this->availabilityService === null) {
+			return null;
+		}
+
+		$availability = $this->availabilityService;
+
+		return static fn (): bool => $availability->isOn(agentId: $agentId);
+	}//end agentStillOn()
 
 	/**
 	 * The raw `Agent.tools` grant strings for an agent, or `[]` when there is no

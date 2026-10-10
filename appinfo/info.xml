@@ -12,7 +12,7 @@
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
 **Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
-    <version>0.2.6-unstable.20260910171815</version>
+    <version>0.2.17-unstable.20261003150000</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
@@ -43,7 +43,7 @@
           run 31490144919.
         -->
         <php min-version="8.3"/>
-        <nextcloud min-version="32" max-version="34"/>
+        <nextcloud min-version="32" max-version="35"/>
     </dependencies>
 
     <!-- @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2 -->
@@ -54,6 +54,8 @@
         <job>OCA\Hermiq\BackgroundJob\SkillCuratorTask</job>
         <job>OCA\Hermiq\BackgroundJob\SkillLearningsPromotionTask</job>
         <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
+        <job>OCA\Hermiq\BackgroundJob\RunRetentionCleanupJob</job>
+        <job>OCA\Hermiq\BackgroundJob\WorkspaceReaperJob</job>
     </background-jobs>
 
     <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
@@ -97,9 +99,16 @@
             <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
             <step>OCA\Hermiq\Repair\SeedIncidents</step>
             <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedRecordSummary</step>
+            <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
+            <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
+            <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\CollectAppAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
@@ -119,6 +128,12 @@
                  their only path to getting the field backfilled. -->
             <step>OCA\Hermiq\Repair\BackfillAgentApplicationSlug</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
+            <!--
+              session-data-migration. Copies conversations onto the session schema; the
+              sources are never modified, so rollback is deleting the copies. Runs after
+              InitializeSettings, which is what imports the session schema it writes to.
+            -->
+            <step>OCA\Hermiq\Repair\MigrateConversationsToSessions</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
             <!-- Registers the in-process Talk bot. A no-op when Talk is absent,
@@ -168,9 +183,16 @@
             <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
             <step>OCA\Hermiq\Repair\SeedIncidents</step>
             <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedMessageTranslationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedRecordSummary</step>
+            <step>OCA\Hermiq\Repair\SeedLessonAuthoringFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
+            <!-- @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001 -->
+            <step>OCA\Hermiq\Repair\SeedLiteracyLessons</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\CollectAppAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
@@ -192,6 +214,8 @@
         <command>OCA\Hermiq\Command\RollbackApprovalTaskMirror</command>
         <!-- @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back -->
         <command>OCA\Hermiq\Command\RollbackScheduleFlowMirror</command>
+        <!-- @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs -->
+        <command>OCA\Hermiq\Command\GraphExtract</command>
     </commands>
 
     <settings>

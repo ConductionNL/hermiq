@@ -34,8 +34,12 @@ use Cron\CronExpression;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\Agent\StartFields;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
+use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -77,6 +81,9 @@ use Throwable;
  *   under the per-method complexity threshold; design.md's Trade-offs rejected a
  *   separate RetryPolicyService because it would duplicate the kill-switch/approval
  *   gate call site instead of inheriting it for free from dispatch().
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     gateFor() is public so a standing
+ *   goal's turn passes the very same gates as a scheduled run (agents-standing-goal)
+ *   instead of copying them.
  * @SuppressWarnings(PHPMD.LongVariable)             $guardrailPolicyService is a promoted
  *   constructor collaborator named after its class (GuardrailPolicyService) — the
  *   length IS the clarity.
@@ -121,7 +128,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * OpenRegister schema slug for message objects (run-replay-and-dry-run:
@@ -130,7 +137,7 @@ class ScheduleService {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * IAppConfig key (app `hermiq`) gating which engine runAgentAsOwner()
@@ -184,6 +191,16 @@ class ScheduleService {
 	 * @var array<int, array<string, mixed>>
 	 */
 	private array $lastRunSteps = [];
+
+	/**
+	 * The provider disclosure the last run's collector recorded: provider, model,
+	 * residency and the data-use term in force (models-no-training-guarantee).
+	 * Copied onto the run record so a later declaration cannot rewrite it. Null
+	 * when the run never reached a provider. Reset per run, read by writeRunAudit.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private ?array $lastRunDisclosure = null;
 
 	/**
 	 * The last (top-level or delegated) run's own fresh run identifier
@@ -288,6 +305,11 @@ class ScheduleService {
 	 *                          written (skill-learnings) — try/catch
 	 *                          wrapped; capture never sits on the run's
 	 *                          critical path.
+	 * @param RunRetentionPolicy|null $retentionPolicy Stamps each run entry with the
+	 *                          retention that applied when it was written
+	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
+	 *                          trailing: a service built by hand in a test writes the
+	 *                          entry it always wrote.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -313,6 +335,7 @@ class ScheduleService {
 		private readonly SkillVersionService $skillVersionService,
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
+		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 	) {
 	}//end __construct()
 
@@ -582,6 +605,79 @@ class ScheduleService {
 		$cache[$agentId] = $resolved;
 		return $resolved;
 	}//end rawAgentActingUser()
+
+	/**
+	 * Whether the agent is switched off (agents-switch-off-and-stop). An agent
+	 * that cannot be read is not called switched off: the run path that loads it
+	 * reports that failure itself.
+	 *
+	 * @param string $agentId The bound agent UUID.
+	 *
+	 * @return bool True when the stored agent's `active` is false.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	private function agentIsSwitchedOff(string $agentId): bool {
+		if ($agentId === '') {
+			return false;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return false;
+		}
+
+		return (new AgentAvailability())->isOn(agent: $agent) === false;
+	}//end agentIsSwitchedOff()
+
+	/**
+	 * The AI feature an agent's runs belong to, when it declares one.
+	 *
+	 * Read here rather than threaded through the run, because the retention stamp
+	 * is the only thing that needs it and a run that cannot resolve its agent still
+	 * has to be recorded with the instance default rather than with nothing.
+	 *
+	 * @param string $agentId The bound agent UUID.
+	 *
+	 * @return string|null The feature slug, or null when the agent names none.
+	 *
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-a-feature-may-keep-less
+	 */
+	private function aiFeatureForAgent(string $agentId): ?string {
+		if ($agentId === '') {
+			return null;
+		}
+
+		try {
+			$agent = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($agent === null) {
+			return null;
+		}
+
+		$slug = trim((string)($agent->getObject()['aiFeature'] ?? ''));
+		if ($slug === '') {
+			return null;
+		}
+
+		return $slug;
+	}//end aiFeatureForAgent()
 
 	/**
 	 * Flag an Agent for reassignment (agent-lifecycle-governance offboarding).
@@ -907,8 +1003,16 @@ class ScheduleService {
 		$this->lastRunAsUser = $owner;
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
+
+		// GATE 0 — THE AGENT IS SWITCHED OFF (agents-switch-off-and-stop): recorded
+		// like a kill-switch skip, and the next run still advances.
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			$this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_agent_off');
+			return;
+		}
 
 		// GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
 		if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
@@ -974,15 +1078,42 @@ class ScheduleService {
 	 *
 	 * @param ObjectEntity $schedule The schedule to evaluate.
 	 *
-	 * @return string|null One of `skipped_killswitch`|`skipped_budget`|`awaiting_approval`
+	 * @return string|null One of `skipped_agent_off`|`skipped_killswitch`|`skipped_budget`|`awaiting_approval`
 	 *                     when a gate blocks the run, or null when every gate passes.
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
 	 */
 	private function evaluateGates(ObjectEntity $schedule): ?string {
 		$data = $schedule->getObject();
-		$organisation = (string)($schedule->getOrganisation() ?? '');
-		$agentId = (string)($data['agentId'] ?? '');
+		$gate = $this->gateFor(organisation: (string)($schedule->getOrganisation() ?? ''), agentId: (string)($data['agentId'] ?? ''));
+		if ($gate !== null) {
+			return $gate;
+		}
+
+		if (($data['requiresApproval'] ?? false) === true) {
+			return 'awaiting_approval';
+		}
+
+		return null;
+	}//end evaluateGates()
+
+	/**
+	 * The gate that holds a run of this agent now, or null: the agent is switched
+	 * off, the organisation's kill switch is engaged, or the budget's hard cap is
+	 * reached. The same checks, in the same order, as a scheduled run; a standing
+	 * goal's turn passes them before it runs (agents-standing-goal). Read-only.
+	 *
+	 * @param string $organisation The organisation.
+	 * @param string $agentId      The agent.
+	 *
+	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_budget`, or null.
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	public function gateFor(string $organisation, string $agentId): ?string {
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			return 'skipped_agent_off';
+		}
 
 		if ($this->isOrganisationEngaged(organisation: $organisation) === true) {
 			return 'skipped_killswitch';
@@ -992,12 +1123,40 @@ class ScheduleService {
 			return 'skipped_budget';
 		}
 
-		if (($data['requiresApproval'] ?? false) === true) {
-			return 'awaiting_approval';
+		return null;
+	}//end gateFor()
+
+	/**
+	 * A goal's own session to continue, when it is the owner's and this is no dry run.
+	 *
+	 * @param string $sessionUuid The session ('' for none).
+	 * @param string $owner       The acting owner.
+	 * @param bool   $dryRun      A preview never continues a real session.
+	 *
+	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentViaEngine()'s dry-run mode.
+	 */
+	private function continuedSession(string $sessionUuid, string $owner, bool $dryRun): ?ObjectEntity {
+		if ($sessionUuid === '' || $dryRun === true) {
+			return null;
 		}
 
-		return null;
-	}//end evaluateGates()
+		$session = $this->objectService->find(
+			id: $sessionUuid,
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false,
+			_multitenancy: false
+		);
+		if ($session === null || (string)($session->getObject()['userId'] ?? '') !== $owner) {
+			return null;
+		}
+
+		return $session;
+	}//end continuedSession()
 
 	/**
 	 * Preview a schedule's agent run as a dry-run (run-replay-and-dry-run):
@@ -1034,6 +1193,7 @@ class ScheduleService {
 
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1118,6 +1278,7 @@ class ScheduleService {
 
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1178,72 +1339,31 @@ class ScheduleService {
 	}//end replayRun()
 
 	/**
-	 * Diff a replay's step timeline against the original run's, by tool-call
-	 * POSITION (run-replay-and-dry-run) — the ORIGINAL run's real tool
-	 * arguments/results were never persisted (`run-trace-observability` Risk
-	 * 4), so only the tool-NAME sequence and the final output text can be
-	 * compared, never a byte-for-byte replay of the original invocations.
+	 * Diff a replay's step timeline against the original run's (run-replay-and-dry-run).
+	 * The ORIGINAL run's real tool arguments/results were never persisted
+	 * (`run-trace-observability` Risk 4), so only the tool-name sequence, the
+	 * outcomes and the final output text can be compared. The steps are aligned by
+	 * RunComparator, the same alignment the run comparison uses, so one extra call
+	 * shows as one difference rather than shifting every later call.
 	 *
 	 * @param array<int,array<string,mixed>> $originalSteps The original run's step timeline.
 	 * @param array<int,array<string,mixed>> $replaySteps The replay's step timeline.
 	 * @param string $originalSummary The original run's redacted summary.
 	 * @param string $replaySummary The replay's redacted summary.
 	 *
-	 * @return array{toolSequenceMatches:bool,toolCalls:array<int,array{seq:int,original:?string,replay:?string,match:bool}>,outputChanged:bool}
+	 * @return array{toolSequenceMatches:bool,toolCalls:list<array>,outputChanged:bool}
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
 	 */
 	private function diffTrace(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array {
-		$originalToolNames = $this->toolStepNames(steps: $originalSteps);
-		$replayToolNames = $this->toolStepNames(steps: $replaySteps);
-
-		$count = max(count($originalToolNames), count($replayToolNames));
-		$toolCalls = [];
-		$allMatch = true;
-		for ($i = 0; $i < $count; $i++) {
-			$originalName = ($originalToolNames[$i] ?? null);
-			$replayName = ($replayToolNames[$i] ?? null);
-			$match = ($originalName !== null && $originalName === $replayName);
-			if ($match === false) {
-				$allMatch = false;
-			}
-
-			$toolCalls[] = [
-				'seq' => $i,
-				'original' => $originalName,
-				'replay' => $replayName,
-				'match' => $match,
-			];
-		}
-
-		return [
-			'toolSequenceMatches' => $allMatch,
-			'toolCalls' => $toolCalls,
-			'outputChanged' => ($originalSummary !== $replaySummary),
-		];
-
+		return (new RunComparator())->toReplayDiff(
+			originalSteps: $originalSteps,
+			replaySteps: $replaySteps,
+			originalSummary: $originalSummary,
+			replaySummary: $replaySummary
+		);
 	}//end diffTrace()
-
-	/**
-	 * Extract the ordered `tool`-type step names from a step timeline
-	 * (run-replay-and-dry-run), for the position-by-position replay diff.
-	 *
-	 * @param array<int,array<string,mixed>> $steps The step timeline.
-	 *
-	 * @return array<int,string> The tool names, in timeline order.
-	 *
-	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
-	 */
-	private function toolStepNames(array $steps): array {
-		$names = [];
-		foreach ($steps as $step) {
-			if (is_array($step) === true && ($step['type'] ?? null) === 'tool') {
-				$names[] = (string)($step['name'] ?? '');
-			}
-		}
-
-		return $names;
-	}//end toolStepNames()
 
 	/**
 	 * Record a gate skip: advance nextRun, set the gate status, persist, and audit.
@@ -1363,7 +1483,8 @@ class ScheduleService {
 				agentId: (string)($data['agentId'] ?? ''),
 				prompt: (string)($data['prompt'] ?? ''),
 				organisation: (string)($schedule->getOrganisation() ?? ''),
-				anchor: $schedule
+				anchor: $schedule,
+				startValues: (array)($data['startValues'] ?? [])
 			);
 
 			// Run-trace-observability: a `delivery` step timed around the existing
@@ -1750,6 +1871,9 @@ class ScheduleService {
 				// step (only ever true on the in-app Engine path; never fabricated).
 				'steps' => $this->lastRunSteps,
 				'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
+				// Models-no-training-guarantee: which provider saw this run, where it
+				// runs and what it declared about training, as it stood at run time.
+				'providerDisclosure' => $this->lastRunDisclosure,
 				// Skill-evals: the skill uuids the run-loop seam actually exposed to
 				// this run's context — persisted for EVERY run (not just evals) so
 				// skill-learnings can later attribute run outcomes to skills.
@@ -1775,11 +1899,7 @@ class ScheduleService {
 				'replayOf' => $replayOf,
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: $context
-			);
+			$this->persistRunAudit(schedule: $schedule, context: $context, agentId: $agentId);
 
 			// Skill-learnings: AFTER the run record is written, enqueue the post-run
 			// capture job for a REAL run that actually exposed skills. Never for a
@@ -1801,6 +1921,41 @@ class ScheduleService {
 		}//end try
 
 	}//end writeRunAudit()
+
+	/**
+	 * Stamp the retention this run was promised, then write the audit entry.
+	 *
+	 * Split out of writeRunAudit() to bring it under the method-length gate. It
+	 * is also the whole of the "persist" half: everything above it assembles the
+	 * context, and everything here writes it.
+	 *
+	 * What is kept, and for how long, is written ONTO the entry rather than
+	 * referenced, so changing the instance default later cannot shorten or
+	 * extend what this run was promised. A retention nobody set is a retention
+	 * of forever, so the policy always resolves to a number.
+	 *
+	 * @param ObjectEntity $schedule The schedule this run belongs to.
+	 * @param array<string, mixed> $context The assembled run context.
+	 * @param string $agentId The agent that ran, for the feature lookup.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude extracted verbatim from writeRunAudit(); covered by its tests
+	 */
+	private function persistRunAudit(ObjectEntity $schedule, array $context, string $agentId): void {
+		if ($this->retentionPolicy !== null) {
+			$context = $this->retentionPolicy->stamp(
+				context: $context,
+				featureSlug: $this->aiFeatureForAgent(agentId: $agentId)
+			);
+		}
+
+		$this->auditTrailMapper->createAuditTrailEntry(
+			object: $schedule,
+			action: 'run',
+			context: $context
+		);
+	}//end persistRunAudit()
 
 	/**
 	 * Enqueue the post-run learnings capture QueuedJob for the just-audited run
@@ -2084,6 +2239,12 @@ class ScheduleService {
 	 *                                     `installedOn` are never written. Null
 	 *                                     (every non-eval caller) exposes the
 	 *                                     agent's stored installs.
+	 * @param array<string, mixed> $startValues The schedule's start field values
+	 *                                          (agents-instruction-variables), filtered
+	 *                                          like the prompt and stored on the run's
+	 *                                          session; a field without one uses its default.
+	 * @param string|null $continueSessionUuid A standing goal's session: the run continues
+	 *                                         it instead of opening a new one (agents-standing-goal).
 	 *
 	 * @return string The agent's response text (already output-filtered).
 	 *
@@ -2115,6 +2276,9 @@ class ScheduleService {
 	 *   genuine two-mode authorisation inputs (preview vs. real; parent-forced vs.
 	 *   self-resolved identity), not a responsibility split — mirrors this class's
 	 *   existing `$bypassApprovalGate`/`$dryRun` precedent elsewhere.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Every parameter after $prompt is an
+	 *   optional named mode with a default; agents-standing-goal's $continueSessionUuid
+	 *   made it ten. Callers name only what they use.
 	 */
 	public function runAgentAsOwner(
 		string $owner,
@@ -2125,6 +2289,8 @@ class ScheduleService {
 		bool $forceOwner = false,
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
+		array $startValues = [],
+		?string $continueSessionUuid = null,
 	): string {
 		// Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
 		// on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
@@ -2137,9 +2303,16 @@ class ScheduleService {
 		// tokens, step timeline, or exposed skill set.
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
 		$this->lastRunAsUser = $owner;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
+
+		// Agents-switch-off-and-stop: the shared entry of schedules, run now, webhooks,
+		// flows and delegation refuses a switched-off agent before impersonating anyone.
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			throw new AgentSwitchedOffException();
+		}
 
 		// Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
 		$guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
@@ -2203,7 +2376,9 @@ class ScheduleService {
 					prompt: $prompt,
 					dryRun: $dryRun,
 					anchor: $anchor,
-					skillSetOverride: $skillSetOverride
+					skillSetOverride: $skillSetOverride,
+					startValues: $this->filterStartValues(policy: $guardrailPolicy, values: $startValues),
+					continueSessionUuid: $continueSessionUuid
 				);
 				return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
 			}
@@ -2545,6 +2720,9 @@ class ScheduleService {
 	 *                                     through to `Engine::processMessage()`;
 	 *                                     null (every non-eval caller) exposes the
 	 *                                     agent's stored installs.
+	 * @param array<string, mixed> $startValues The schedule's start field values,
+	 *                                          already through the input filter.
+	 * @param string|null $continueSessionUuid A goal's session to continue (agents-standing-goal).
 	 *
 	 * @return string The agent's response text.
 	 *
@@ -2568,6 +2746,8 @@ class ScheduleService {
 		bool $dryRun = false,
 		?ObjectEntity $anchor = null,
 		?array $skillSetOverride = null,
+		array $startValues = [],
+		?string $continueSessionUuid = null,
 	): string {
 		$agent = $this->objectService->find(
 			id: $agentId,
@@ -2583,15 +2763,12 @@ class ScheduleService {
 			$title = 'Hermiq dry-run preview';
 		}
 
-		$conversation = $this->objectService->saveObject(
-			object: [
-				'title' => $title,
-				'userId' => $owner,
-				'agentId' => (string)$agent->getUuid(),
-			],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
-		);
+		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun)
+			?? $this->objectService->saveObject(
+				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
 
 		// Remember which conversation this run produced so a Talk-room delivery
 		// can bind it and become repliable. A dry run's scratch conversation is
@@ -2655,6 +2832,7 @@ class ScheduleService {
 			// back to the envelope's `steps` key (identical content, per Engine's
 			// contract) only if a future engine swap ever stops accepting `$trace`.
 			$this->lastRunSteps = $trace->toArray();
+			$this->lastRunDisclosure = $trace->providerDisclosure();
 			if ($this->lastRunSteps === []) {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				$envelopeSteps = ($result['steps'] ?? []);
@@ -2701,7 +2879,7 @@ class ScheduleService {
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::MESSAGE_SCHEMA)
 				->findAll(
-					config: ['filters' => ['conversationId' => $conversationUuid]],
+					config: ['filters' => ['sessionId' => $conversationUuid]],
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -3292,4 +3470,65 @@ class ScheduleService {
 		}
 
 	}//end parseDate()
+	/**
+	 * The session a run creates: its title, owner and agent, plus the schedule's
+	 * values for the start fields this agent declares (agents-instruction-variables).
+	 * The engine reads them, or each field's default, per turn.
+	 *
+	 * @param string               $title       The session title.
+	 * @param string               $owner       The run's acting user.
+	 * @param ObjectEntity         $agent       The agent.
+	 * @param array<string, mixed> $startValues The schedule's filtered start values.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function runSession(string $title, string $owner, ObjectEntity $agent, array $startValues): array {
+		$session = [
+			'title' => $title,
+			'userId' => $owner,
+			'agentId' => (string)$agent->getUuid(),
+		];
+		$fields = new StartFields();
+		$answers = $fields->clean(fields: $fields->fieldsOf(agentData: $agent->getObject()), values: $startValues);
+		if ($answers !== []) {
+			$session['startValues'] = $answers;
+		}
+
+		return $session;
+	}//end runSession()
+
+	/**
+	 * A schedule's start field values through the same input filter as its
+	 * prompt (agents-instruction-variables): they reach the model inside the
+	 * agent's instructions, so a blocked value stops the run and a redacted
+	 * one is used redacted.
+	 *
+	 * @param array<string, mixed> $policy The effective guardrail policy.
+	 * @param array<string, mixed> $values The schedule's start values.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @throws GuardrailBlockedException When the filter blocks a value.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	private function filterStartValues(array $policy, array $values): array {
+		$filtered = [];
+		foreach ($values as $key => $value) {
+			if (is_scalar($value) === false || is_bool($value) === true) {
+				continue;
+			}
+
+			$filter = $this->guardrailPolicyService->filterInput(policy: $policy, text: (string)$value);
+			if ($filter['blocked'] === true) {
+				throw new GuardrailBlockedException(reason: (string)$filter['reason']);
+			}
+
+			$filtered[(string)$key] = (string)$filter['text'];
+		}
+
+		return $filtered;
+	}//end filterStartValues()
 }//end class

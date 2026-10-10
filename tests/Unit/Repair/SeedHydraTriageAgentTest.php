@@ -303,4 +303,16 @@ class SeedHydraTriageAgentTest extends TestCase {
 		$this->assertSame('hydra-console', SeedHydraTriageAgent::APPLICATION_SLUG);
 
 	}//end testTheSeededAgentDeclaresItsApplicationSlug()
+
+	/**
+	 * The seeded triage agent answers in the hydra console (agents-bound-to-their-app).
+	 *
+	 * @return void
+	 */
+	public function testTheSeededAgentIsTheHydraConsolesAssistant(): void {
+		$step = $this->step(flowId: '', stageProperties: null);
+
+		$this->assertSame('hydra-console', $step->agentObject(grants: $step->grants())['appAssistantFor'] ?? null);
+
+	}//end testTheSeededAgentIsTheHydraConsolesAssistant()
 }//end class

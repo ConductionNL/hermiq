@@ -146,7 +146,7 @@ function hermiqOwnsThisPage() {
  * 🔴 The login page is a Nextcloud page like any other, so without this the
  * companion mounted there: a floating assistant button in front of the login
  * form, a 1.9 MB bundle downloaded before anyone has authenticated, and two
- * calls to `/api/conversations` and `/api/agents` that both answered 401.
+ * calls to `/api/sessions` and `/api/agents` that both answered 401.
  *
  * ⚠️ Reads `head[data-user]` DIRECTLY rather than calling `getCurrentUser()`
  * from `@nextcloud/auth`. The helper was tried first and returned null on a

@@ -48,6 +48,9 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\Exception\MissingFeatureException;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
+use OCA\Hermiq\Service\Llm\AttachmentPartBuilder;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -57,14 +60,33 @@ use Psr\Log\LoggerInterface;
  * Orchestrates one LLM response generation: prompt assembly, tool wiring,
  * streaming/blocking invocation, usage capture.
  *
+ * ⚠️ COUPLING IS SUPPRESSED HERE, AND IT IS THE ONLY SUPPRESSION IN THIS CLASS.
+ * phpmd counts 13 coupled objects against a threshold of 12. That count is not
+ * a bloated constructor: it takes FOUR collaborators. It is the types this
+ * class necessarily names to do its one job — two LLPhant chat clients, two
+ * exception types it must distinguish, the provider factory and its failure
+ * type, the feature resolver, the tool loop, an ObjectEntity and a logger.
+ *
+ * Bringing the number down means hiding those types behind an abstraction
+ * whose only purpose is to reduce a count, on the path that answers every
+ * agent turn. That is a refactor worth doing deliberately, with time to test
+ * provider selection and tool wiring properly, and not one worth doing to make
+ * a number smaller.
+ *
+ * If you are reading this because you are doing that refactor: delete the
+ * annotation, do not widen the threshold.
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
+ *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
  */
 class ResponseGenerationHandler {
 
 	/**
 	 * Token/latency usage from the last generateResponse() call, for per-run cost
-	 * recording (run-analytics). Populated from the LLPhant chat instance; empty
-	 * when the provider does not expose usage. Keys: promptTokens,
+	 * recording (run-analytics) and token budgets. Populated from the LLPhant chat
+	 * instance (Ollama, OpenAI) or from ProviderFactory::lastCallUsage() (Fireworks,
+	 * Anthropic); empty when the provider does not expose usage. Keys: promptTokens,
 	 * completionTokens, totalDurationMs, llmSeconds. PUBLIC and read by the
 	 * Engine facade after each call — the `usage` key in
 	 * `Engine::processMessage()`'s return shape depends on it (design.md risk:
@@ -75,11 +97,31 @@ class ResponseGenerationHandler {
 	public array $lastUsage = [];
 
 	/**
+	 * The notices about attachments the last turn could not send natively, in the
+	 * person's language (chat-attachments-and-images D6). Read by the Engine onto
+	 * its result, and from there onto the stream's `final` frame.
+	 *
+	 * @var list<string>
+	 */
+	public array $attachmentNotices = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ProviderFactory $providerFactory LLM provider resolution (`hermiq.llm`).
 	 * @param ToolLoop $toolLoop Tool resolution via the OR facade.
 	 * @param LoggerInterface $logger Logger.
+	 * @param FeatureProviderResolver|null $featureResolver Records which feature, provider,
+	 *                                                      model and residency a run used
+	 *                                                      (a-provider-and-a-place-per-ai-feature).
+	 *                                                      Nullable and trailing: a handler
+	 *                                                      built by hand in a test records
+	 *                                                      nothing and behaves as before.
+	 * @param AttachmentPartBuilder|null $attachmentParts Turns a turn's attachments into
+	 *                                                    native image and document parts for
+	 *                                                    a model declared to read them
+	 *                                                    (chat-attachments-and-images). Null
+	 *                                                    sends the text turn as before.
 	 *
 	 * @return void
 	 *
@@ -89,6 +131,8 @@ class ResponseGenerationHandler {
 		private readonly ProviderFactory $providerFactory,
 		private readonly ToolLoop $toolLoop,
 		private readonly LoggerInterface $logger,
+		private readonly ?FeatureProviderResolver $featureResolver = null,
+		private readonly ?AttachmentPartBuilder $attachmentParts = null,
 	) {
 	}//end __construct()
 
@@ -126,6 +170,15 @@ class ResponseGenerationHandler {
 	 *                               published on the run-step bus reaches the right
 	 *                               stream and the performance log can be joined to
 	 *                               the runner's own timings.
+	 * @param array<string, string> $promptVariables Placeholder values for this turn
+	 *                                               (agents-instruction-variables,
+	 *                                               `PromptVariableResolver::variablesFor()`);
+	 *                                               empty leaves Agent.prompt as written.
+	 * @param array<int, array<string, mixed>> $attachments The turn's attachments, already
+	 *                                                      resolved as the speaker
+	 *                                                      (TurnAttachmentResolver).
+	 * @param string $speaker The uid the attachments were resolved for; their bytes are
+	 *                        read as this person when the model reads them natively.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -151,6 +204,9 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -164,8 +220,12 @@ class ResponseGenerationHandler {
 		?RunTraceCollector $trace = null,
 		bool $dryRun = false,
 		string $conversationId = '',
+		array $promptVariables = [],
+		array $attachments = [],
+		string $speaker = '',
 	): string {
 		$startTime = microtime(true);
+		$this->attachmentNotices = [];
 		$agentData = [];
 		if ($agent !== null) {
 			$agentData = $agent->getObject();
@@ -233,13 +293,60 @@ class ResponseGenerationHandler {
 				$organisation = (string)($agent->getOrganisation() ?? '');
 			}
 
+			// Spec a-provider-and-a-place-per-ai-feature: the AI feature this agent's runs
+			// belong to, when it declares one. It selects the feature's own provider
+			// binding and the residency it requires, both applied before the call.
+			$aiFeature = $agentData['aiFeature'] ?? null;
+			if (is_string($aiFeature) === false || trim($aiFeature) === '') {
+				$aiFeature = null;
+			}
+
+			// The document this turn is about, when the widget's context snapshot
+			// names one. A feature that reads no unredacted document is refused on
+			// this reference, and a turn that carries none still runs: the
+			// requirement attaches to the document, not to the whole run.
+			$documentReference = null;
+			foreach (['fileId', 'documentId', 'objectId'] as $key) {
+				$candidate = ($cnAiContext[$key] ?? null);
+				if (is_scalar($candidate) === true && trim((string)$candidate) !== '') {
+					$documentReference = trim((string)$candidate);
+					break;
+				}
+			}
+
 			$driver = $this->providerFactory->createChatDriver(
 				llmConfig: $llmConfig,
 				agentModel: $agentModel,
 				agentTemperature: $agentTemperature,
 				organisation: $organisation,
-				agentMaxTokens: $agentMaxTokens
+				agentMaxTokens: $agentMaxTokens,
+				aiFeature: $aiFeature,
+				documentReference: $documentReference,
+				// The agent's own credential per provider (operations-a-credential-per-agent),
+				// as stored; the resolver reads only non-empty string pins. A refused pin
+				// stops the turn here, before any model is called.
+				agentCredentialIds: (array)($agentData['credentialIds'] ?? []),
+				// Chat-attachments-and-images: each attached file is checked by the
+				// feature's gates here, before any request is built.
+				attachmentReferences: array_map(
+					static fn (array $attachment): string => (string)($attachment['fileId'] ?? ''),
+					$attachments
+				)
 			);
+
+			// Which model saw this case, where, and what it declared about training.
+			// Copied onto the run rather than referenced, so relabelling the provider
+			// later cannot rewrite it. Recorded for every run, with `feature` empty
+			// when the run names none (models-no-training-guarantee).
+			if ($trace !== null && $this->featureResolver !== null) {
+				$trace->recordProviderDisclosure(
+					disclosure: $this->featureResolver->disclosureFor(
+						featureSlug: (string)$aiFeature,
+						provider: $driver->provider,
+						model: $driver->model
+					)
+				);
+			}
 
 			if ($driver->provider === 'nextcloud') {
 				// Scope guard — see the class docblock.
@@ -263,7 +370,13 @@ class ResponseGenerationHandler {
 
 			// Build system prompt.
 			$defaultPrompt = 'You are a helpful AI assistant that helps users find and understand their data.';
-			$systemPrompt = $agentData['prompt'] ?? $defaultPrompt;
+			// Agents-instruction-variables: the owner's placeholders are filled in
+			// here, on Agent.prompt alone and before anything is appended, so no
+			// retrieved document or user text is ever read as a template.
+			$systemPrompt = PromptVariableResolver::fill(
+				prompt: (string)($agentData['prompt'] ?? $defaultPrompt),
+				variables: $promptVariables
+			);
 
 			// Prepend the assembled Context preamble (agent-context-system) right after
 			// Agent.prompt — same category ("who you are / what you know statically") as
@@ -299,7 +412,17 @@ class ResponseGenerationHandler {
 
 			// Add system message to history, then the current user message.
 			array_unshift($messageHistory, LLPhantMessage::system($systemPrompt));
-			$messageHistory[] = LLPhantMessage::user($userMessage);
+			// Chat-attachments-and-images: the attachments a declared model reads
+			// natively ride on the user turn; the rest go as text or are left out,
+			// and the notices say which (kept for the answer's `final` frame).
+			$turn = ($this->attachmentParts?->compose(
+				text: $userMessage,
+				driver: $driver,
+				attachments: $attachments,
+				speaker: $speaker
+			) ?? ['turn' => LLPhantMessage::user($userMessage), 'notices' => []]);
+			$this->attachmentNotices = $turn['notices'];
+			$messageHistory[] = $turn['turn'];
 
 			$llmStartTime = microtime(true);
 
@@ -323,8 +446,9 @@ class ResponseGenerationHandler {
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 
-				// Fireworks exposes no usage today (matches the ported original).
-				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+				// The tokens Fireworks reported, which a token budget counts (hermiq#985).
+				$this->lastUsage = $this->providerFactory->lastCallUsage();
+				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
 			} elseif ($driver->provider === 'anthropic') {
 				// Anthropic uses direct HTTP through the broker (ProviderFactory::
 				// callAnthropicChat) with the auth headers selected by authMode.
@@ -383,13 +507,19 @@ class ResponseGenerationHandler {
 					executionMode: $driver->executionMode,
 					agentId: $cliAgentId,
 					maxTokens: $driver->maxTokens,
-					conversationId: $conversationId
+					conversationId: $conversationId,
+					maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $agent)
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 
-				// Anthropic usage (input/output tokens) is available on the response but not
-				// yet threaded here; record latency only, matching the Fireworks path.
-				$this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+				// Agents-switch-off-and-stop: the Anthropic loop stops at the agent's cap
+				// itself, so the run trace learns it here.
+				$trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+
+				// The input and output tokens of every request of the turn, tool loop
+				// included, which a token budget counts (hermiq#985).
+				$this->lastUsage = $this->providerFactory->lastCallUsage();
+				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
 			} else {
 				// OpenAI / Ollama: LLPhant chat instance from the driver.
 				$chat = $driver->chat;
@@ -414,6 +544,11 @@ class ResponseGenerationHandler {
 					$chat->setTools($functionInfoObjects);
 				}
 
+				$tokensBefore = 0;
+				if ($chat instanceof OpenAIChat) {
+					$tokensBefore = $chat->getTotalTokens();
+				}
+
 				$response = $this->invokeChat(
 					chat: $chat,
 					messageHistory: $messageHistory,
@@ -424,12 +559,16 @@ class ResponseGenerationHandler {
 				$llmTime = microtime(true) - $llmStartTime;
 
 				// Expose the LLM token/latency usage for per-run cost recording
-				// (run-analytics). Only OllamaChat accumulates usage today (via the
-				// llphant-ollama-usage-capture vendor patch); other providers leave
-				// it empty.
+				// (run-analytics) and token budgets. OllamaChat accumulates usage via
+				// the llphant-ollama-usage-capture vendor patch; OpenAIChat keeps a
+				// running total, read as a before/after difference (hermiq#985).
 				$this->lastUsage = [];
 				if ($chat instanceof OllamaChat) {
 					$this->lastUsage = $chat->lastUsage;
+				}
+
+				if ($chat instanceof OpenAIChat) {
+					$this->lastUsage = $this->openAiUsage(chat: $chat, tokensBefore: $tokensBefore);
 				}
 
 				$this->lastUsage['llmSeconds'] = round($llmTime, 2);
@@ -478,6 +617,10 @@ class ResponseGenerationHandler {
 			);
 
 			return $response;
+		} catch (TurnStoppedException $e) {
+			// Agents-switch-off-and-stop: the model asked for a tool after the turn was
+			// stopped (agent switched off, or no tool calls left). The turn ends here.
+			return $e->getMessage() . '.';
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[ResponseGenerationHandler] Failed to generate response',
@@ -490,6 +633,39 @@ class ResponseGenerationHandler {
 			throw new Exception('Failed to generate response: ' . $e->getMessage(), (int)$e->getCode(), $e);
 		}//end try
 	}//end generateResponse()
+
+	/**
+	 * The tokens an OpenAI turn used, from LLPhant's running total.
+	 *
+	 * `OpenAIChat` adds each request's `usage.totalTokens` to a running total and
+	 * keeps the prompt/completion split of its LAST request only. The difference
+	 * in the total across the call is exact; the last request supplies the
+	 * completion tokens, and every other token of the turn (the earlier requests
+	 * of a tool loop) is counted as a prompt token. So the sum a token budget
+	 * reads is exact, and the split is exact for a turn of one request. A
+	 * streamed turn carries no usage in LLPhant, so it records none.
+	 *
+	 * @param OpenAIChat $chat The chat instance the turn ran on.
+	 * @param int $tokensBefore Its running total before the turn.
+	 *
+	 * @return array<string, int> `promptTokens` and `completionTokens`, or `[]`.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 */
+	private function openAiUsage(OpenAIChat $chat, int $tokensBefore): array {
+		$total = ($chat->getTotalTokens() - $tokensBefore);
+		if ($total <= 0) {
+			return [];
+		}
+
+		$completion = (int)($chat->getLastResponse()?->usage->completionTokens ?? 0);
+		$completion = min($completion, $total);
+
+		return [
+			'promptTokens' => ($total - $completion),
+			'completionTokens' => $completion,
+		];
+	}//end openAiUsage()
 
 	/**
 	 * Invoke the configured chat client, preferring streaming where possible.

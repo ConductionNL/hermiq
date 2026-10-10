@@ -93,6 +93,19 @@ export async function exportAgentToTemplate(agentId) {
 }
 
 /**
+ * "Save as template": the owner turns an agent into an active template in the Store.
+ *
+ * @param {string} agentId The Agent UUID.
+ * @return {Promise<object>} The new template.
+ */
+export async function saveAgentAsTemplate(agentId) {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/from-agent/${agentId}`),
+	)
+	return response.data
+}
+
+/**
  * Export an existing template's own fields to a shareable JSON package (the read-only
  * counterpart to importAgentTemplate — hand a locally-authored template to another org/hub).
  *
@@ -117,6 +130,19 @@ export async function importAgentTemplate(pkg, source = 'org') {
 		package: pkg,
 		source,
 	})
+	return response.data
+}
+
+/**
+ * Ask the installed apps for the agent templates they offer for themselves. Offers land
+ * quarantined; the response counts them.
+ *
+ * @return {Promise<{imported: number, updated: number, unchanged: number, refused: number}>} The counts.
+ */
+export async function collectAppTemplates() {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/collect-from-apps`),
+	)
 	return response.data
 }
 

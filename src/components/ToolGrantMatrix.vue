@@ -746,7 +746,7 @@ export default {
 				return kind
 			}
 
-			return t('hermiq', '{kind} — requires explicit grant', { kind })
+			return t('hermiq', '{kind}: requires explicit grant', { kind })
 		},
 
 		/**

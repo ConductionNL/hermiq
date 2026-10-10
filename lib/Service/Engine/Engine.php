@@ -60,12 +60,20 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
+use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
+use OCP\IUserManager;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Engine
@@ -114,7 +122,7 @@ class Engine {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Constructor.
@@ -153,6 +161,18 @@ class Engine {
 	 *                                                 Defaulted so every existing
 	 *                                                 caller constructs unchanged; the
 	 *                                                 class is dependency-free.
+	 * @param IUserManager|null $userManager Resolves a speaker's display name for a
+	 *                                       shared session's turn.
+	 * @param PromptVariableResolver|null $promptVariables Fills the placeholders in
+	 *                                                     Agent.prompt for the acting
+	 *                                                     person (agents-instruction-variables);
+	 *                                                     null leaves the prompt as written.
+	 * @param TurnAttachmentResolver|null $attachmentResolver Reads a turn's attachments as the
+	 *                                                        person who sent it
+	 *                                                        (chat-attachments-and-images); null
+	 *                                                        refuses any turn that carries one.
+	 * @param ImageGenerationService|null $images Hands over the images the agent created in the
+	 *                                            turn, for the answer (chat-attachments-and-images D8).
 	 *
 	 * @return void
 	 *
@@ -175,6 +195,10 @@ class Engine {
 		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
 		private readonly ?IJobList $jobList = null,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
+		private readonly ?IUserManager $userManager = null,
+		private readonly ?PromptVariableResolver $promptVariables = null,
+		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
+		private readonly ?ImageGenerationService $images = null,
 	) {
 	}//end __construct()
 
@@ -233,6 +257,10 @@ class Engine {
 	 *                                       captured deliberately and never re-resolved
 	 *                                       so a transcript stays legible after a
 	 *                                       rename or a deleted account (ADR-004).
+	 * @param array $attachments The files the turn names, as the request sent them
+	 *                           ({fileId} or {path}). Resolved in the speaker's Files
+	 *                           before the turn is stored or any model is called, and
+	 *                           kept on the user turn as references only.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -258,6 +286,7 @@ class Engine {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function processMessage(
 		string $conversationId,
@@ -273,6 +302,7 @@ class Engine {
 		?array $skillSetOverride = null,
 		?string $authorId = null,
 		?string $authorDisplayName = null,
+		array $attachments = [],
 	): array {
 		$this->logger->info(
 			message: '[Engine] Processing message',
@@ -305,16 +335,40 @@ class Engine {
 				throw new Exception('Access denied to conversation');
 			}
 
+			// Chat-work-together-in-one-session: in a session with participants every
+			// human turn names its speaker, whichever entry point sent it (the web chat
+			// and the stream pass none). A single-speaker session stays unchanged.
+			if ($authorId === null && $this->participation->roster(conversationData: $conversationData) !== []) {
+				$authorId = $userId;
+				$authorDisplayName = ($this->userManager?->get($userId)?->getDisplayName() ?? $userId);
+			}
+
+			// Chat-attachments-and-images: read every attached file as the person who
+			// sent the turn (the author in a shared session or on Talk, else the
+			// caller), never as the owner or the agent's acting user, and refuse
+			// before anything is stored or any model is called.
+			$resolvedAttachments = $this->resolveAttachments(attachments: $attachments, speaker: ($authorId ?? $userId));
+
 			// Get agent if configured.
 			$agent = null;
 			$agentId = $conversationData['agentId'] ?? null;
 			if (is_string($agentId) === true && $agentId !== '') {
+				// _rbac false: the Agent read rule (hermiq#976) admits the owner, invited
+				// users and group members, but a participant the session owner added may
+				// take a turn with the session's agent without being any of those. The
+				// owner-or-participant check above is the gate for this turn; tenancy
+				// still applies.
 				$agent = $this->objectService->find(
 					id: $agentId,
 					register: self::REGISTER_SLUG,
-					schema: self::AGENT_SCHEMA
+					schema: self::AGENT_SCHEMA,
+					_rbac: false
 				);
 			}
+
+			// Agents-switch-off-and-stop: a switched-off agent starts no turn, on any
+			// path that reaches the engine (chat, stream, Talk, ContextAgent, schedules).
+			(new AgentAvailability())->assertRunnable(agent: $agent);
 
 			// Capture the CnAiContext snapshot under its own name before
 			// the retrieveContext() call below reuses `$context` for the
@@ -395,7 +449,8 @@ class Engine {
 				sources: null,
 				context: $cnAiContext,
 				authorId: $authorId,
-				authorDisplayName: $authorDisplayName
+				authorDisplayName: $authorDisplayName,
+				attachments: $resolvedAttachments
 			);
 
 			// Check if conversation needs summarization.
@@ -439,19 +494,34 @@ class Engine {
 			// completes, matching design.md's documented step ordering.
 			$llmToken = $trace?->startStep(type: 'llm', name: 'LLM generation');
 			$llmStartTime = microtime(true);
-			$aiResponse = $this->responseHandler->generateResponse(
-				userMessage: $userMessage,
-				context: $context,
-				messageHistory: $messageHistory,
-				agent: $agent,
-				selectedTools: $selectedTools,
-				channel: $channel,
-				cnAiContext: $cnAiContext,
-				contextPreamble: $contextPreamble,
-				trace: $trace,
-				dryRun: $dryRun,
-				conversationId: $conversationId
-			);
+			try {
+				$aiResponse = $this->responseHandler->generateResponse(
+					userMessage: $userMessage,
+					context: $context,
+					messageHistory: $messageHistory,
+					agent: $agent,
+					selectedTools: $selectedTools,
+					channel: $channel,
+					cnAiContext: $cnAiContext,
+					contextPreamble: $contextPreamble,
+					trace: $trace,
+					dryRun: $dryRun,
+					conversationId: $conversationId,
+					promptVariables: $this->promptVariablesFor(
+						userId: $userId,
+						agent: $agent,
+						organisation: $organisation,
+						appContext: $cnAiContext,
+						conversationData: $conversationData
+					),
+					attachments: $resolvedAttachments,
+					speaker: ($authorId ?? $userId)
+				);
+			} catch (Exception $e) {
+				// A file the feature's checks refused is told by its name.
+				throw $this->attachmentRefusalFor(exception: $e, attachments: $resolvedAttachments);
+			}
+
 			$llmTime = microtime(true) - $llmStartTime;
 			if ($llmToken !== null) {
 				$trace?->endStep(token: $llmToken, outcome: 'ok');
@@ -485,11 +555,15 @@ class Engine {
 			// the persisted assistant message's id to the caller (the SSE stream
 			// controller needs it to populate the `final` event's messageId field;
 			// the widget uses it as the Vue render key for the assistant bubble).
+			// Chat-attachments-and-images D8: an image the agent created in this turn
+			// is stored on the answer, so the thread shows it where it was asked for.
+			$answerAttachments = ($this->images?->takeCreated() ?? []);
 			$assistantStored = $this->historyHandler->storeMessage(
 				conversationId: $conversationId,
 				role: 'assistant',
 				content: $aiResponse,
-				sources: $context['sources']
+				sources: $context['sources'],
+				attachments: $answerAttachments
 			);
 
 			// Name the conversation OFF this path. Naming is a second LLM round trip —
@@ -521,6 +595,11 @@ class Engine {
 				// (run-analytics / ScheduleService::lastRunUsage) — load-bearing,
 				// see class docblock.
 				'usage' => $this->responseHandler->lastUsage,
+				// Chat-attachments-and-images D6: what happened to each attachment
+				// the model could not read natively, for the answer's notice.
+				'attachmentNotices' => $this->responseHandler->attachmentNotices,
+				// The answer's attachments (D8), for the `final` frame.
+				'attachments' => $answerAttachments,
 				// Run-trace-observability: the collector's full ordered step
 				// timeline, empty when no collector was supplied.
 				'steps' => $trace?->toArray() ?? [],
@@ -542,6 +621,52 @@ class Engine {
 			throw $e;
 		}//end try
 	}//end processMessage()
+
+	/**
+	 * Resolve the turn's attachments as its speaker; none resolve to none.
+	 *
+	 * @param array  $attachments The entries the request sent.
+	 * @param string $speaker     The uid of the person who sent the turn.
+	 *
+	 * @return array<int, array{fileId: int, name: string, mimeType: string, size: int, origin: string}>
+	 *
+	 * @throws AttachmentRefusedException When a file is not available to the speaker.
+	 */
+	private function resolveAttachments(array $attachments, string $speaker): array {
+		if ($attachments === []) {
+			return [];
+		}
+
+		// Fail closed: without the resolver no file can be read as its speaker.
+		if ($this->attachmentResolver === null) {
+			throw new AttachmentRefusedException(message: 'This file is not available to you', code: 400);
+		}
+
+		return $this->attachmentResolver->resolve(requested: $attachments, speaker: $speaker);
+	}//end resolveAttachments()
+
+	/**
+	 * The exception to rethrow for a failed response: a redaction refusal on one of
+	 * the turn's files becomes a refusal naming that file; anything else as it was.
+	 *
+	 * @param Exception $exception   The failure, possibly wrapping the refusal.
+	 * @param array     $attachments The turn's resolved attachments.
+	 *
+	 * @return Exception
+	 */
+	private function attachmentRefusalFor(Exception $exception, array $attachments): Exception {
+		if ($attachments === [] || $this->attachmentResolver === null) {
+			return $exception;
+		}
+
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			if ($cause instanceof RedactionRequiredException) {
+				return ($this->attachmentResolver->redactionRefusal(refusal: $cause, attachments: $attachments) ?? $exception);
+			}
+		}
+
+		return $exception;
+	}//end attachmentRefusalFor()
 
 	/**
 	 * Generate a conversation title from the first message.
@@ -673,4 +798,47 @@ class Engine {
 
 		return ((string)$filter['text']) !== $originalText;
 	}//end guardrailActed()
+	/**
+	 * The placeholder values for this turn (agents-instruction-variables): the
+	 * acting person, the session's start field answers and the companion's app.
+	 * A failure to read one of them never stops the turn; the prompt is then
+	 * sent as written.
+	 *
+	 * @param string               $userId           The acting person.
+	 * @param ObjectEntity|null    $agent            The session's agent.
+	 * @param string               $organisation     The session's organisation.
+	 * @param array<string, mixed> $appContext       The companion's snapshot.
+	 * @param array<string, mixed> $conversationData The session's data.
+	 *
+	 * @return array<string, string>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+	 */
+	private function promptVariablesFor(
+		string $userId,
+		?ObjectEntity $agent,
+		string $organisation,
+		array $appContext,
+		array $conversationData,
+	): array {
+		if ($this->promptVariables === null || $agent === null) {
+			return [];
+		}
+
+		try {
+			return $this->promptVariables->variablesFor(
+				userId: $userId,
+				agentData: $agent->getObject(),
+				organisation: $organisation,
+				appContext: $appContext,
+				startValues: (array)($conversationData['startValues'] ?? [])
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[Engine] Placeholder values could not be read; the instructions go as written',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return [];
+		}
+	}//end promptVariablesFor()
 }//end class

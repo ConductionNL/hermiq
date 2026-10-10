@@ -162,40 +162,9 @@ jobs:
       app-name: hermiq
       php-version: "8.3"
       php-test-versions: '["8.3", "8.4"]'
-      # 🔴 ORDER IS LOAD-BEARING, not cosmetic. The PHPUnit matrix runs all three
-      # refs whatever the order, but four jobs read `nextcloud-test-refs[0]` as
-      # THEIR ONLY ref: playwright, newman, journeydoc-capture, and the coverage
-      # baseline leg. With `stable31` first, every browser test ran against a
-      # Nextcloud three majors behind the one hermiq's frontend targets, and the
-      # first thing that failed was the app shell — which is why 43 of 64 specs
-      # failed in the 2026-07-30 trial and the job was left switched off.
-      #
-      # Newest-first costs nothing (the matrix is unchanged) and points every
-      # single-ref job at the version closest to production.
-      #
-      # 🔴 `stable31` REMOVED 2026-08-11 — it was never testing this app.
-      # OpenRegister declares `min-version="32"`, and it is a REQUIRED
-      # additional app here (see `additional-apps` below), so on Nextcloud 31
-      # `occ app:enable openregister` refuses:
-      #
-      #   App "Open Register" cannot be installed because it is not compatible
-      #   with this version of the server.
-      #
-      # The shared workflow swallows that as `::warning::Failed to enable
-      # openregister, continuing...` and the run carries on WITHOUT the app
-      # hermiq's storage and interfaces come from. Both stable31 cells of run
-      # 31490144919 then reported 12 PHPUnit errors against the 5 the healthy
-      # cells reported — seven phantom failures that read as application debt
-      # and were an absent dependency. A cell that cannot install this app's
-      # hard dependency measures nothing, so it is gone, and appinfo/info.xml
-      # now declares `min-version="32"` to match.
-      #
-      # THE LIST IS THE WHOLE DECLARED RANGE. appinfo/info.xml declares
-      # <nextcloud min-version="32" max-version="34"/>, so 32, 33 and 34 each get
-      # a leg. Adopting NC 34 by REPLACING the list left 32 and 33 advertised to
-      # the App Store with no job touching them — the declared floor became the
-      # untested end, which is the same drift as never testing 34, reversed.
-      nextcloud-test-refs: '["stable34", "stable32", "stable33"]'
+      # No `nextcloud-test-refs` override: the shared quality.yml derives the
+      # Nextcloud matrix from appinfo/info.xml (min-version..max-version), so the
+      # declared range — now including stable35 — is exactly what gets tested.
       enable-psalm: true
       enable-phpstan: true
       enable-phpmetrics: true

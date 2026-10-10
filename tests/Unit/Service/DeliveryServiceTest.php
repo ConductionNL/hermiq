@@ -438,6 +438,54 @@ class DeliveryServiceTest extends TestCase {
 	}//end testEmptyDeliverTargetUsesNoteToSelf()
 
 	/**
+	 * A held tool call posted to Talk names the tool and how far it reaches.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testAToolApprovalInTalkNamesTheToolAndItsReach(): void {
+		$this->talkBroker->method('hasBackend')->willReturn(true);
+		$this->notificationManager->method('createNotification')->willReturn($this->createMock(\OCP\Notification\INotification::class));
+
+		$noteToSelf = $this->createMock(NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(Room::class));
+		$participantService = $this->createMock(ParticipantService::class);
+		$participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
+
+		$posted = [];
+		$chatManager = $this->createMock(ChatManager::class);
+		$chatManager->method('sendMessage')->willReturnCallback(
+			function (...$args) use (&$posted) {
+				$posted[] = (string)$args[4];
+				return null;
+			}
+		);
+
+		$builder = $this->createMock(\OCA\Hermiq\Service\ApprovalPreviewBuilder::class);
+		$builder->method('toolLine')->with('files.deleteFile')
+			->willReturn('The tool files.deleteFile deletes, and reaches your own files and data.');
+
+		$this->services = [
+			NoteToSelfService::class => $noteToSelf,
+			ParticipantService::class => $participantService,
+			ChatManager::class => $chatManager,
+			\OCA\Hermiq\Service\ApprovalPreviewBuilder::class => $builder,
+		];
+
+		$approval = new ObjectEntity();
+		$approval->setUuid('appr-1');
+		$approval->setObject(['sourceType' => 'toolcall', 'toolId' => 'files.deleteFile', 'agentId' => 'agent-1']);
+
+		$this->service->deliverApprovalRequestForToolInvocation($approval, ['bob']);
+
+		$this->assertSame(
+			['Approval needed to run “files.deleteFile”. The tool files.deleteFile deletes, and reaches your own files and data. Review it in Hermiq.'],
+			$posted
+		);
+	}//end testAToolApprovalInTalkNamesTheToolAndItsReach()
+
+	/**
 	 * No schedule target but a stored default-room preference posts to that room
 	 * (no creation, no Note-to-self).
 	 *

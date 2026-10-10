@@ -26,7 +26,7 @@
 				{{
 					t(
 						'hermiq',
-						'Choose which language-model provider Hermiq uses for background work such as conversation titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
+						'Choose which language-model provider Hermiq uses for background work such as session titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
 					)
 				}}
 			</p>
@@ -126,7 +126,7 @@
 						trackBy="value" />
 					<NcSelect
 						v-model="anthropicCredential"
-						:options="credentialsFor(anthropicCredentialProviderId)"
+						:options="credentialsFor(anthropicCredentialProviderIds)"
 						:inputLabel="
 							anthropicAuthModeValue === 'oauth'
 								? t(
@@ -139,7 +139,7 @@
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
 					<p class="llm-provider-modal__hint">
-						{{ credentialHint(anthropicCredentialProviderId) }}
+						{{ credentialHint(anthropicCredentialProviderIds) }}
 					</p>
 					<NcNoteCard
 						v-if="anthropicAuthModeValue === 'oauth'"
@@ -171,11 +171,54 @@
 					</NcNoteCard>
 				</template>
 
+				<!-- chat-attachments-and-images: what the configured model reads natively,
+					declared by the admin, never guessed from its name. -->
+				<fieldset
+					v-if="providerValue && providerValue !== 'nextcloud'"
+					class="llm-provider__capabilities"
+					data-testid="llm-model-capabilities">
+					<legend>
+						{{ t('hermiq', 'What this model reads directly') }}
+					</legend>
+					<template v-if="currentModel">
+						<NcCheckboxRadioSwitch
+							v-model="readsImages"
+							type="checkbox"
+							data-testid="llm-reads-images">
+							{{ t('hermiq', 'Reads images') }}
+						</NcCheckboxRadioSwitch>
+						<NcCheckboxRadioSwitch
+							v-model="readsPdfs"
+							type="checkbox"
+							data-testid="llm-reads-pdfs">
+							{{ t('hermiq', 'Reads PDFs') }}
+						</NcCheckboxRadioSwitch>
+						<p class="llm-provider-modal__hint">
+							{{
+								t(
+									'hermiq',
+									'Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.',
+								)
+							}}
+						</p>
+					</template>
+					<p v-else class="llm-provider-modal__hint">
+						{{ t('hermiq', 'Enter a model first.') }}
+					</p>
+				</fieldset>
+
+				<!-- models-no-training-guarantee: where the provider runs and what it
+					does with the data it is sent, stated by the admin who configures it. -->
+				<ProviderDeclarations
+					v-if="providerValue"
+					ref="declarations"
+					:provider="providerValue" />
+
 				<div class="llm-provider__actions">
 					<NcButton @click="$emit('close')">
 						{{ t('hermiq', 'Cancel') }}
 					</NcButton>
-					<NcButton type="primary" :disabled="saving" @click="save">
+					<NcButton variant="primary" :disabled="saving" @click="save">
 						<template v-if="saving" #icon>
 							<NcLoadingIcon :size="20" />
 						</template>
@@ -196,12 +239,14 @@ import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcModal,
 	NcNoteCard,
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
+import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
 
 export default {
@@ -209,11 +254,13 @@ export default {
 
 	components: {
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcModal,
 		NcNoteCard,
 		NcSelect,
 		NcTextField,
+		ProviderDeclarations,
 	},
 
 	props: {
@@ -261,6 +308,9 @@ export default {
 					label: 'Nextcloud Assistant (TaskProcessing)',
 				},
 			],
+
+			// Declared native inputs per `provider/model` (hermiq.modelCapabilities).
+			modelCapabilities: {},
 
 			form: {
 				openaiConfig: { chatModel: '', credentialId: '' },
@@ -324,22 +374,104 @@ export default {
 		},
 
 		/**
-		 * The credential-broker provider id whose credentials the Anthropic
-		 * credential picker should list, keyed off the selected auth mode.
+		 * The credential-broker provider ids whose credentials the Anthropic
+		 * credential picker lists, keyed off the selected auth mode.
 		 *
-		 * A Claude Max/Pro OAuth token is stored under the `anthropic-oauth`
-		 * broker provider (injected as `Authorization: Bearer`); an API key
-		 * under `anthropic` (injected as `x-api-key`). The picker must show the
-		 * matching set — otherwise an OAuth credential is invisible when the
-		 * user selects OAuth auth, and vice versa.
+		 * An API key lives under `anthropic` (injected as `x-api-key`). A Claude
+		 * Max or Pro subscription token lives under one of two providers, and
+		 * which one depends on the transport, not on the auth mode: `anthropic-oauth`
+		 * for `executionMode: http`, `anthropic-cli` for `executionMode: cli`.
 		 *
-		 * @return {string} The broker provider id.
+		 * Both are listed under OAuth auth. `executionMode` is API-only configuration
+		 * and this dialog cannot read it, so listing one provider hid the other:
+		 * a subscription credential stored for the CLI transport, which is the
+		 * only transport Anthropic permits for a subscription, could not be
+		 * selected here at all.
+		 *
+		 * @return {Array<string>} The broker provider ids to list.
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
-		anthropicCredentialProviderId() {
+		anthropicCredentialProviderIds() {
 			return this.anthropicAuthModeValue === 'oauth'
-				? 'anthropic-oauth'
-				: 'anthropic'
+				? ['anthropic-oauth', 'anthropic-cli']
+				: ['anthropic']
+		},
+
+		/**
+		 * The model id typed for the selected provider, trimmed.
+		 *
+		 * @return {string} The model id, or '' when none is set.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		currentModel() {
+			const block = this.form[`${this.providerValue}Config`]
+			return block ? String(block.chatModel || '').trim() : ''
+		},
+
+		/**
+		 * The `provider/model` key the capabilities are stored under.
+		 *
+		 * @return {string} The key, or '' when no model is set.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		capabilityKey() {
+			return this.currentModel
+				? `${this.providerValue}/${this.currentModel}`
+				: ''
+		},
+
+		/**
+		 * "Reads images" for the current model.
+		 *
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		readsImages: {
+			/**
+			 * Whether the current model is declared to read images.
+			 *
+			 * @return {boolean} True when declared.
+			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			get() {
+				return this.hasCapability('image')
+			},
+
+			/**
+			 * Declare or withdraw reading images for the current model.
+			 *
+			 * @param {boolean} value Ticked or not.
+			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			set(value) {
+				this.setCapability('image', value)
+			},
+		},
+
+		/**
+		 * "Reads PDFs" for the current model.
+		 *
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		readsPdfs: {
+			/**
+			 * Whether the current model is declared to read PDFs.
+			 *
+			 * @return {boolean} True when declared.
+			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			get() {
+				return this.hasCapability('pdf')
+			},
+
+			/**
+			 * Declare or withdraw reading PDFs for the current model.
+			 *
+			 * @param {boolean} value Ticked or not.
+			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			set(value) {
+				this.setCapability('pdf', value)
+			},
 		},
 	},
 
@@ -373,6 +505,39 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Whether the current model was declared to read one kind of input.
+		 *
+		 * @param {string} capability `image` or `pdf`.
+		 * @return {boolean} True when declared.
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		hasCapability(capability) {
+			const declared = this.modelCapabilities[this.capabilityKey] || []
+			return this.capabilityKey !== '' && declared.includes(capability)
+		},
+
+		/**
+		 * Tick or untick one capability for the current model.
+		 *
+		 * @param {string} capability `image` or `pdf`.
+		 * @param {boolean} value Whether it is ticked.
+		 * @return {void}
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		setCapability(capability, value) {
+			if (this.capabilityKey === '') {
+				return
+			}
+			const others = (this.modelCapabilities[this.capabilityKey] || []).filter(
+				(c) => c !== capability,
+			)
+			this.modelCapabilities = {
+				...this.modelCapabilities,
+				[this.capabilityKey]: value ? [...others, capability] : others,
+			}
+		},
+
 		/**
 		 * Load the current (masked) config into the form.
 		 *
@@ -415,6 +580,7 @@ export default {
 				this.form.anthropicConfig.authMode =
 					(config.anthropicConfig && config.anthropicConfig.authMode)
 					|| 'api_key'
+				this.modelCapabilities = { ...(config.modelCapabilities || {}) }
 
 				// Reflect the stored credential references back into the pickers.
 				this.openaiCredential =
@@ -475,21 +641,26 @@ export default {
 		/**
 		 * The broker credentials that can serve a given LLM provider.
 		 *
-		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
+		 * @param {string|Array<string>} provider One broker provider id, or several.
+		 *                                        Anthropic passes several: an OAuth
+		 *                                        subscription token is stored under
+		 *                                        `anthropic-oauth` or `anthropic-cli`
+		 *                                        depending on the transport.
 		 * @return {Array} NcSelect options.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		credentialsFor(provider) {
+			const providers = Array.isArray(provider) ? provider : [provider]
 			return this.credentials
-				.filter((c) => c.provider === provider)
+				.filter((c) => providers.includes(c.provider))
 				.map((c) => ({ label: c.name || c.id, value: c.id }))
 		},
 
 		/**
 		 * Explain where the key lives — or how to add one when there is none.
 		 *
-		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
+		 * @param {string|Array<string>} provider One broker provider id, or several.
 		 * @return {string} The hint text.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
@@ -498,7 +669,7 @@ export default {
 			if (!this.loadingCredentials && !this.credentialsFor(provider).length) {
 				return this.t(
 					'hermiq',
-					'No credential yet. Add one under Personal settings → Additional settings, then reopen this dialog.',
+					'No credential yet. Add one in Hermiq under Settings, Credentials. Then reopen this dialog.',
 				)
 			}
 			return this.t(
@@ -581,7 +752,17 @@ export default {
 				}
 			}
 			try {
+				// The ticks for the model being saved travel with it; an untouched
+				// model is sent as declared "neither", which is what the boxes show.
+				if (this.capabilityKey !== '') {
+					payload.modelCapabilities = {
+						[this.capabilityKey]:
+							this.modelCapabilities[this.capabilityKey] || [],
+					}
+				}
 				await patchLlmSettings(payload)
+				// The residency and data-use statements are saved with the provider.
+				await this.$refs.declarations?.save()
 				this.$emit('saved', this.providerValue)
 				this.$emit('close')
 			} catch (e) {
@@ -626,6 +807,18 @@ export default {
 	display: flex;
 	justify-content: center;
 	padding: 24px 0;
+}
+
+.llm-provider__capabilities {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	padding: 8px 12px;
+	margin: 0;
+}
+
+.llm-provider__capabilities legend {
+	padding: 0 4px;
+	font-weight: bold;
 }
 
 .llm-provider__actions {

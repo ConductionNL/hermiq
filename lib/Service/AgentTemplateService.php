@@ -102,6 +102,8 @@ class AgentTemplateService {
 		'quarantineReason',
 		'scanReport',
 		'createdBy',
+		'offeredBy',
+		'offerHash',
 	];
 
 	/**
@@ -186,8 +188,6 @@ class AgentTemplateService {
 		$data = $this->stripProtectedKeys(data: $payload);
 		$data['state'] = 'active';
 		$data['source'] = 'local';
-		$data['quarantineReason'] = null;
-		$data['scanReport'] = null;
 		$data['createdBy'] = $createdBy;
 
 		return $this->objectService->saveObject(
@@ -267,6 +267,27 @@ class AgentTemplateService {
 	}//end exportFromAgent()
 
 	/**
+	 * "Save as template": the agent's secret-free package, imported as an active
+	 * local template that records the agent it came from. The caller has checked
+	 * that the user owns the agent.
+	 *
+	 * @param string $agentId The Agent UUID.
+	 * @param string $createdBy The saving user id.
+	 *
+	 * @return ObjectEntity|null The new template, or null when the agent does not resolve.
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+	 */
+	public function saveAgentAsTemplate(string $agentId, string $createdBy): ?ObjectEntity {
+		$package = $this->exportFromAgent(agentId: $agentId);
+		if ($package === null) {
+			return null;
+		}
+
+		return $this->importPackage(package: $package, source: 'local', createdBy: $createdBy, derivedFrom: $agentId);
+	}//end saveAgentAsTemplate()
+
+	/**
 	 * Export an existing template's own portable fields to a shareable JSON package —
 	 * the read-only counterpart to importPackage(), letting a locally-authored template be
 	 * handed to another organisation/hub for their own import (never a hosted hub itself;
@@ -297,12 +318,13 @@ class AgentTemplateService {
 	 * @param string $package The JSON package string.
 	 * @param string $source The import source (`local`|`org`|`hub`).
 	 * @param string $createdBy The importing user id.
+	 * @param string|null $derivedFrom The agent the package was exported from, recorded on the template.
 	 *
 	 * @return ObjectEntity The persisted template.
 	 *
 	 * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
 	 */
-	public function importPackage(string $package, string $source, string $createdBy): ObjectEntity {
+	public function importPackage(string $package, string $source, string $createdBy, ?string $derivedFrom = null): ObjectEntity {
 		$parsed = $this->serializer->fromPackage(package: $package);
 
 		$name = $parsed['name'];
@@ -319,16 +341,22 @@ class AgentTemplateService {
 			'suggestedModel' => $parsed['suggestedModel'],
 			'tools' => $parsed['tools'],
 			'skillRefs' => $parsed['skillRefs'],
-			'suggestedSchedule' => $parsed['suggestedSchedule'],
 			'version' => $parsed['version'],
 			'source' => $source,
 			'createdBy' => $createdBy,
 		];
+		// Absent rather than null: the fragment types these as object and string,
+		// and the register refuses a null in either.
+		if ($parsed['suggestedSchedule'] !== []) {
+			$data['suggestedSchedule'] = $parsed['suggestedSchedule'];
+		}
+
+		if ($derivedFrom !== null) {
+			$data['derivedFrom'] = $derivedFrom;
+		}
 
 		if ($source === 'local') {
 			$data['state'] = 'active';
-			$data['quarantineReason'] = null;
-			$data['scanReport'] = null;
 
 			return $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
@@ -460,6 +488,7 @@ class AgentTemplateService {
 				'searchFiles' => true,
 				'searchObjects' => true,
 			],
+			$this->offeringApp(template: $data),
 			$this->stripProtectedKeys(data: $overrides)
 		);
 
@@ -486,6 +515,25 @@ class AgentTemplateService {
 		];
 
 	}//end instantiate()
+
+	/**
+	 * The app an offered template ties its agents to: `applicationSlug` set to the
+	 * offering app, or nothing for a template no app offered.
+	 *
+	 * @param array<string, mixed> $template The template data.
+	 *
+	 * @return array<string, string> Either `['applicationSlug' => <appId>]` or empty.
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+	 */
+	private function offeringApp(array $template): array {
+		$appId = (string)($template['offeredBy'] ?? '');
+		if ($appId === '') {
+			return [];
+		}
+
+		return ['applicationSlug' => $appId];
+	}//end offeringApp()
 
 	/**
 	 * Resolve the (provider, model) to apply to the created Agent: the suggestion verbatim
