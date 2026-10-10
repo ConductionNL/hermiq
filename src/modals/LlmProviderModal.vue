@@ -640,6 +640,28 @@ export default {
 		},
 
 		/**
+		 * The label of one credential option: its name, plus whose organisation it belongs to.
+		 *
+		 * @param {object} c The credential.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
+		 */
+		credentialLabel(c) {
+			const name = c.name || c.id
+			if (c.scope !== 'organisation') {
+				return name
+			}
+			if (c.organisationName) {
+				return this.t('hermiq', '{name} ({organisation})', {
+					name,
+					organisation: c.organisationName,
+				})
+			}
+			return this.t('hermiq', '{name} (organisation)', { name })
+		},
+
+		/**
 		 * The broker credentials that can serve a given LLM provider.
 		 *
 		 * @param {string|Array<string>} provider One broker provider id, or several.
@@ -657,12 +679,7 @@ export default {
 			return this.credentials
 				.filter((c) => providers.includes(c.provider))
 				.map((c) => ({
-					label:
-						c.scope === 'organisation'
-							? this.t('hermiq', '{name} (organisation)', {
-									name: c.name || c.id,
-								})
-							: c.name || c.id,
+					label: this.credentialLabel(c),
 					value: c.id,
 				}))
 		},

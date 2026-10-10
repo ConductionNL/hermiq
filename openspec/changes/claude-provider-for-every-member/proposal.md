@@ -48,6 +48,15 @@ round 5):
   task whose user is unknown or disabled is refused.
 - An empty Anthropic model (the dialog saves an untouched Model field as '') falls back to the
   default model instead of being sent to Anthropic as ''.
+- Ruben's answers (2026-10-10). Background work is judged by real membership only: work entered
+  without a session stays background inside a `runAs()` switch, and every broker call then goes
+  through OpenRegister's PHP-internal `requestForBackgroundUser()`, whose guards ignore the session.
+  An administrator's cron task can no longer spend the key of an organisation they are not a member
+  of. A background call naming no user, or meeting an OpenRegister without that entry, is refused.
+- The organisation credential section shows its organisation and lets the admin choose another one
+  they may manage (default: the active one). `OrganisationScopedCredentials` extends nextcloud-vue's
+  `CnCredentials` with an `organisation` prop for the list and create calls; the AI provider dialog
+  lists every manageable organisation's credentials, labelled with the organisation's name.
 - The Anthropic driver (API key over http) resolves a personal then organisation credential through
   `CredentialScopeResolver`, exactly as OpenAI and Fireworks do, before falling back to the
   configured instance credential. The OAuth and CLI modes keep the configured credential: those
@@ -72,7 +81,10 @@ TaskProcessing manager handing a provider the task's stored user.
 
 - `lib/Service/Llm/ProviderFactory.php`
 - `lib/Service/ContextAgentInteractionService.php` (acting user, `runAs` for a cron run)
-- `src/modals/LlmProviderModal.vue`, new `src/utils/llmCredentials.js`, `l10n/en.json`, `l10n/nl.json`
+- `lib/Service/Llm/BrokerHttpClient.php` (background entry)
+- `src/modals/LlmProviderModal.vue`, `src/views/AdminRoot.vue`, new `src/utils/llmCredentials.js`,
+  `src/utils/organisationCredentials.js`, `src/components/settings/OrganisationCredentialSettings.vue`,
+  `src/components/settings/OrganisationScopedCredentials.js`, `l10n/en.json`, `l10n/nl.json`
 - Tests: `tests/Unit/Service/Llm/ProviderFactoryActingForTest.php`,
   `tests/Unit/Service/ContextAgent/ContextAgentInteractionServiceTest.php`,
   `tests/llm-credentials.spec.js`

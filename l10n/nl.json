@@ -1977,7 +1977,11 @@
         "You do not have permission to start a session with this agent.": "Je hebt geen toestemming om een sessie met deze agent te starten.",
         "This agent does not exist or is not shared with you.": "Deze agent bestaat niet of is niet met je gedeeld.",
         "Could not start the session: {reason}": "Kon de sessie niet starten: {reason}",
-        "{name} (organisation)": "{name} (organisatie)"
+        "{name} (organisation)": "{name} (organisatie)",
+        "You see the credentials of {organisation}. New credentials are stored for {organisation}.": "Je ziet de credentials van {organisation}. Nieuwe credentials worden opgeslagen voor {organisation}.",
+        "Could not load the organisations you manage. You see the credentials of your active organisation.": "De organisaties die je beheert konden niet worden geladen. Je ziet de credentials van je actieve organisatie.",
+        "Could not save the credential": "De credential kon niet worden opgeslagen",
+        "{name} ({organisation})": "{name} ({organisation})"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

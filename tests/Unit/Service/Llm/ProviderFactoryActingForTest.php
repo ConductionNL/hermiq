@@ -58,6 +58,20 @@ class ProviderFactoryActingForTest extends TestCase {
 	private array $calls = [];
 
 	/**
+	 * How many broker calls went through the broker's background entry.
+	 *
+	 * @var int
+	 */
+	private int $backgroundCalls = 0;
+
+	/**
+	 * The session user the mocked session reports; a test may change it mid-work.
+	 *
+	 * @var string|null
+	 */
+	private ?string $sessionUid = null;
+
+	/**
 	 * Build a factory configured for Anthropic (API key over http) through a stub broker.
 	 *
 	 * @param string|null $sessionUid The session user, or null for a cron run.
@@ -74,17 +88,20 @@ class ProviderFactoryActingForTest extends TestCase {
 		?CredentialScopeResolver $resolver = null,
 	): ProviderFactory {
 		$broker = $this->createMock(CredentialBrokerService::class);
-		$broker->method('request')->willReturnCallback(
-			function (
-				string $credentialId,
-				string $appId,
-				string $method,
-				string $path,
-				array $headers = [],
-				?string $body = null,
-				?string $actingUserId = null,
-			) use ($brokerFails): array {
+		$answer = function (
+			string $credentialId,
+			string $appId,
+			string $method,
+			string $path,
+			array $headers = [],
+			?string $body = null,
+			?string $actingUserId = null,
+			bool $background = false,
+		) use ($brokerFails): array {
 				$this->calls[] = ['credentialId' => $credentialId, 'path' => $path, 'actingUserId' => $actingUserId];
+				if ($background === true) {
+					$this->backgroundCalls++;
+				}
 				if ($brokerFails === true) {
 					throw new RuntimeException('Request not permitted');
 				}
@@ -99,7 +116,11 @@ class ProviderFactoryActingForTest extends TestCase {
 						]
 					),
 				];
-			}
+		};
+		$broker->method('request')->willReturnCallback($answer);
+		$broker->method('requestForBackgroundUser')->willReturnCallback(
+			static fn (string $credentialId, string $appId, string $method, string $path, array $headers = [], ?string $body = null, string $actingUserId = ''): array
+				=> $answer($credentialId, $appId, $method, $path, $headers, $body, $actingUserId, true)
 		);
 
 		$container = $this->createMock(ContainerInterface::class);
@@ -107,14 +128,19 @@ class ProviderFactoryActingForTest extends TestCase {
 			static fn (string $id) => ($id === BrokerHttpClient::BROKER_CLASS ? $broker : null)
 		);
 
-		$user = null;
-		if ($sessionUid !== null) {
-			$user = $this->createMock(IUser::class);
-			$user->method('getUID')->willReturn($sessionUid);
-		}
-
+		$this->sessionUid = $sessionUid;
 		$userSession = $this->createMock(IUserSession::class);
-		$userSession->method('getUser')->willReturn($user);
+		$userSession->method('getUser')->willReturnCallback(
+			function (): ?IUser {
+				if ($this->sessionUid === null) {
+					return null;
+				}
+
+				$user = $this->createMock(IUser::class);
+				$user->method('getUID')->willReturn($this->sessionUid);
+				return $user;
+			}
+		);
 
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$settings->method('getLLMSettingsOnly')->willReturn(
@@ -164,7 +190,39 @@ class ProviderFactoryActingForTest extends TestCase {
 		$this->assertSame('/v1/messages', $this->calls[0]['path']);
 		$this->assertSame('cred-org', $this->calls[0]['credentialId']);
 		$this->assertSame('bob', $this->calls[0]['actingUserId']);
+		// The broker was asked through its background entry: the sessionless rule applies.
+		$this->assertSame(1, $this->backgroundCalls);
 	}//end testASessionlessTaskActsForItsUser()
+
+	/**
+	 * A user switch inside background work (the contextagent turn runs inside OpenRegister's
+	 * runAs()) never turns the call into a session call: the broker still judges the task's
+	 * user by the background rule, with the session hidden.
+	 *
+	 * Fails on the first version of this change: the switched-in user was sent as a session
+	 * user, so an administrator passed the session rule for every organisation.
+	 *
+	 * @return void
+	 */
+	public function testAUserSwitchInsideBackgroundWorkStaysABackgroundCall(): void {
+		$factory = $this->factory(sessionUid: null);
+		$factory->actingFor(
+			userId: 'admin',
+			work: function () use ($factory): void {
+				// What runAs('admin') does: a session user appears mid-work.
+				$this->sessionUid = 'admin';
+				$factory->callAnthropicChat(
+					credentialId: 'cred-org',
+					model: 'claude-opus-4-8',
+					baseUrl: 'https://api.anthropic.com/v1',
+					messageHistory: [LLPhantMessage::user('Hi.')]
+				);
+			}
+		);
+
+		$this->assertSame('admin', $this->calls[0]['actingUserId']);
+		$this->assertSame(1, $this->backgroundCalls, 'the broker call must go through the background entry');
+	}//end testAUserSwitchInsideBackgroundWorkStaysABackgroundCall()
 
 	/**
 	 * A signed-in user is never replaced by the named one.
@@ -175,6 +233,7 @@ class ProviderFactoryActingForTest extends TestCase {
 		$this->factory(sessionUid: 'alice')->generateText(prompt: 'Summarise this.', userId: 'bob', allowNextcloud: false);
 
 		$this->assertSame('alice', $this->calls[0]['actingUserId']);
+		$this->assertSame(0, $this->backgroundCalls, 'a real session is never hidden');
 	}//end testASessionAlwaysWins()
 
 	/**
@@ -240,16 +299,25 @@ class ProviderFactoryActingForTest extends TestCase {
 			messageHistory: [LLPhantMessage::user('Hi.')]
 		);
 
+		$refused = false;
 		$factory->actingFor(
 			userId: 'bob',
-			work: static function () use ($factory, $send): void {
-				$factory->actingFor(userId: '', work: $send);
+			work: static function () use ($factory, $send, &$refused): void {
+				// An inner scope naming nobody acts for nobody: the call is refused before
+				// it reaches the broker, never sent as bob.
+				try {
+					$factory->actingFor(userId: '', work: $send);
+				} catch (\Throwable $e) {
+					$refused = true;
+				}
+
 				$send();
 			}
 		);
 
-		$this->assertNull($this->calls[0]['actingUserId']);
-		$this->assertSame('bob', $this->calls[1]['actingUserId']);
+		$this->assertTrue($refused);
+		$this->assertCount(1, $this->calls);
+		$this->assertSame('bob', $this->calls[0]['actingUserId']);
 	}//end testNestedScopesUnwindAndAnEmptyIdActsForNobody()
 
 	/**

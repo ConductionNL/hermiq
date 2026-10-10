@@ -90,6 +90,108 @@ async function main() {
 	)
 
 	await check(
+		'with organisations listed, each one is asked for and named',
+		async () => {
+			const { get, asked } = fakeGet({
+				'/index.php/apps/openregister/api/credentials': PERSONAL,
+				'/index.php/apps/openregister/api/credentials/organisations': [
+					{ uuid: 'org-a', name: 'Municipality A', active: true },
+					{ uuid: 'org-b', name: 'Municipality B', active: false },
+				],
+				'/index.php/apps/openregister/api/credentials?scope=organisation&organisation=org-a':
+					ORGANISATION,
+				'/index.php/apps/openregister/api/credentials?scope=organisation&organisation=org-b':
+					[
+						{
+							id: 'o2',
+							name: 'B key',
+							provider: 'anthropic',
+							scope: 'organisation',
+						},
+					],
+			})
+			const list = await lib.loadLlmCredentials(get, urlFor)
+			assert.ok(
+				asked.includes(
+					'/index.php/apps/openregister/api/credentials?scope=organisation&organisation=org-b',
+				),
+				'the second organisation was never asked for',
+			)
+			assert.deepStrictEqual(
+				list.map((c) => [c.id, c.scope, c.organisationName]),
+				[
+					['p1', 'personal', undefined],
+					['o1', 'organisation', 'Municipality A'],
+					['o2', 'organisation', 'Municipality B'],
+				],
+			)
+		},
+	)
+
+	await check('the picker defaults to the active organisation', async () => {
+		const orgLib = await import(
+			pathToFileURL(
+				path.join(ROOT, 'src', 'utils', 'organisationCredentials.js'),
+			)
+		)
+		const options = orgLib.organisationOptions([
+			{ uuid: 'org-a', name: 'Municipality A', active: false },
+			{ uuid: 'org-b', name: 'Municipality B', active: true },
+			{ name: 'no uuid' },
+		])
+		assert.deepStrictEqual(
+			options.map((o) => o.value),
+			['org-a', 'org-b'],
+		)
+		assert.strictEqual(orgLib.defaultOrganisation(options).value, 'org-b')
+		assert.strictEqual(orgLib.defaultOrganisation([]), null)
+	})
+
+	await check(
+		'the organisation form sends the chosen organisation and the settings page uses it',
+		async () => {
+			const scoped = fs.readFileSync(
+				path.join(
+					ROOT,
+					'src',
+					'components',
+					'settings',
+					'OrganisationScopedCredentials.js',
+				),
+				'utf8',
+			)
+			assert.ok(
+				scoped.includes('extends: CnCredentials'),
+				'does not extend CnCredentials',
+			)
+			assert.ok(
+				/scope: 'organisation',\s*organisation: this\.organisation/.test(
+					scoped,
+				),
+				'the list does not carry the chosen organisation',
+			)
+			assert.ok(
+				/organisation: this\.organisation,/.test(
+					scoped.slice(scoped.indexOf('async onCreate')),
+				),
+				'the create call does not carry the chosen organisation',
+			)
+			const admin = fs.readFileSync(
+				path.join(ROOT, 'src', 'views', 'AdminRoot.vue'),
+				'utf8',
+			)
+			assert.ok(
+				admin.includes('<OrganisationCredentialSettings'),
+				'AdminRoot does not mount the picker',
+			)
+			assert.ok(
+				!/<CnCredentials\s+scope="organisation"/.test(admin),
+				'AdminRoot still mounts the unscoped form',
+			)
+		},
+	)
+
+	await check(
 		'a failing organisation list still shows the personal one',
 		async () => {
 			const { get } = fakeGet({
@@ -145,7 +247,8 @@ async function main() {
 				'LlmProviderModal does not use loadLlmCredentials()',
 			)
 			assert.ok(
-				modal.includes("'{name} (organisation)'"),
+				modal.includes("'{name} (organisation)'")
+					&& modal.includes("'{name} ({organisation})'"),
 				'LlmProviderModal does not mark organisation credentials',
 			)
 			const nl = JSON.parse(

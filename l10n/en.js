@@ -2677,7 +2677,11 @@ OC.L10N.register(
         "Could not start the session: {reason}": "Could not start the session: {reason}",
         "This agent does not exist or is not shared with you.": "This agent does not exist or is not shared with you.",
         "You do not have permission to start a session with this agent.": "You do not have permission to start a session with this agent.",
-        "{name} (organisation)": "{name} (organisation)"
+        "{name} (organisation)": "{name} (organisation)",
+        "You see the credentials of {organisation}. New credentials are stored for {organisation}.": "You see the credentials of {organisation}. New credentials are stored for {organisation}.",
+        "Could not load the organisations you manage. You see the credentials of your active organisation.": "Could not load the organisations you manage. You see the credentials of your active organisation.",
+        "Could not save the credential": "Could not save the credential",
+        "{name} ({organisation})": "{name} ({organisation})"
     },
     "nplurals=2; plural=(n != 1);"
 )

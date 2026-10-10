@@ -13,6 +13,8 @@
  * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
  */
 
+import { loadManageableOrganisations } from './organisationCredentials.js'
+
 /**
  * Merge the personal and organisation lists into one, marking each entry's scope.
  *
@@ -41,7 +43,10 @@ export function mergeCredentialLists(personal, organisation) {
 }
 
 /**
- * Load both lists; a failure of one still returns the other.
+ * Load the personal list and the organisation credentials of every organisation the
+ * caller may manage, each tagged with its organisation's name; a failure of one list
+ * still returns the others. When the organisations cannot be listed, the active
+ * organisation's credentials are loaded instead, without a name.
  *
  * @param {function(string): Promise<{data: {results: Array<object>}}>} get An axios-style `get(url)`.
  * @param {function(string): string} urlFor Builds an app URL from a path (`generateUrl`).
@@ -58,9 +63,28 @@ export async function loadLlmCredentials(get, urlFor) {
 			return []
 		}
 	}
-	const [personal, organisation] = await Promise.all([
+	const [personal, organisations] = await Promise.all([
 		results('/apps/openregister/api/credentials'),
-		results('/apps/openregister/api/credentials?scope=organisation'),
+		loadManageableOrganisations(get, urlFor),
 	])
-	return mergeCredentialLists(personal, organisation)
+	if (!organisations.length) {
+		return mergeCredentialLists(
+			personal,
+			await results('/apps/openregister/api/credentials?scope=organisation'),
+		)
+	}
+	const perOrganisation = await Promise.all(
+		organisations.map(async (organisation) =>
+			(
+				await results(
+					'/apps/openregister/api/credentials?scope=organisation&organisation='
+						+ encodeURIComponent(organisation.value),
+				)
+			).map((credential) => ({
+				...credential,
+				organisationName: organisation.label,
+			})),
+		),
+	)
+	return mergeCredentialLists(personal, perOrganisation.flat())
 }

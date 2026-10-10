@@ -77,6 +77,38 @@ class CredentialBrokerService {
 	}//end request()
 
 	/**
+	 * Proxy a request for a background task's user, judged by the sessionless rules only.
+	 *
+	 * Declaration-only, like request() above. The real method (openregister
+	 * broker-acts-for-an-organisation-member) makes every guard ignore the session.
+	 *
+	 * @param string $credentialId The credential UUID.
+	 * @param string $appId The calling app.
+	 * @param string $method The HTTP method.
+	 * @param string $path The provider-relative path.
+	 * @param array<string, string> $headers Request headers (auth headers discarded).
+	 * @param string|null $body The raw request body.
+	 * @param string $actingUserId The task's user.
+	 *
+	 * @return array{status?: int, headers?: array<string, array<int, string>>, body?: string} The proxied response.
+	 */
+	public function requestForBackgroundUser(
+		string $credentialId,
+		string $appId,
+		string $method,
+		string $path,
+		array $headers = [],
+		?string $body = null,
+		string $actingUserId = '',
+	): array {
+		return [
+			'status' => 200,
+			'headers' => ['content-type' => ['application/json']],
+			'body' => '{}',
+		];
+	}//end requestForBackgroundUser()
+
+	/**
 	 * Resolve an inject-only credential's secret for direct use by the calling app.
 	 *
 	 * Returns null as a ROUTING signal ("not inject-only — use request() instead"),

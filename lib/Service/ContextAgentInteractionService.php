@@ -179,7 +179,7 @@ class ContextAgentInteractionService {
 			throw new ProcessingException('Hermiq ContextAgent requires a non-empty message.');
 		}
 
-		return $this->runAsTaskUser(
+		$work = fn (): array => $this->runAsTaskUser(
 			userId: $userId,
 			work: fn (): array => $this->interactAsTaskUser(
 				userId: $userId,
@@ -188,6 +188,16 @@ class ContextAgentInteractionService {
 				conversationToken: $conversationToken
 			)
 		);
+
+		// The acting scope is entered OUTSIDE the runAs() switch: entered without a
+		// session, it marks the work as background, so every broker call in the turn is
+		// judged by the broker's sessionless rule (real membership of the credential's
+		// organisation) and not by the session rule runAs() would otherwise present.
+		if ($this->providerFactory === null) {
+			return $work();
+		}
+
+		return $this->providerFactory->actingFor(userId: $userId, work: $work);
 	}//end interact()
 
 	/**
@@ -240,7 +250,11 @@ class ContextAgentInteractionService {
 		// Run one governed turn through Hermiq's engine (its own allowlist-gated tool
 		// loop executes inline).
 		try {
-			$result = $this->runTurnActingFor(userId: $userId, conversationId: $conversationId, input: $input);
+			$result = $this->engine->processMessage(
+				conversationId: $conversationId,
+				userId: $userId,
+				userMessage: $input
+			);
 		} catch (Throwable $e) {
 			$this->audit(object: $conversation, status: 'error', summary: $e->getMessage(), agentId: $agentId);
 			$this->logger->warning(
@@ -303,33 +317,6 @@ class ContextAgentInteractionService {
 
 		return $this->objectService->runAs($user, $work);
 	}//end runAsTaskUser()
-
-	/**
-	 * Run the engine turn with every broker call acting for the task's user.
-	 *
-	 * See {@see ProviderFactory::actingFor()}: a session, when there is one, still wins.
-	 *
-	 * @param string $userId The task user (never request input: Nextcloud's stored task user).
-	 * @param string $conversationId The conversation UUID.
-	 * @param string $input The chat message.
-	 *
-	 * @return array The engine's result.
-	 *
-	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
-	 */
-	private function runTurnActingFor(string $userId, string $conversationId, string $input): array {
-		$turn = fn (): array => $this->engine->processMessage(
-			conversationId: $conversationId,
-			userId: $userId,
-			userMessage: $input
-		);
-
-		if ($this->providerFactory === null) {
-			return $turn();
-		}
-
-		return $this->providerFactory->actingFor(userId: $userId, work: $turn);
-	}//end runTurnActingFor()
 
 	/**
 	 * Resolve the agent that serves ContextAgent interactions: the configured

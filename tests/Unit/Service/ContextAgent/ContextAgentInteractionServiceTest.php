@@ -515,7 +515,9 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$acting = [];
 		$broker = $this->createMock(CredentialBrokerService::class);
-		$broker->method('request')->willReturnCallback(
+		// Background work must reach the broker through its background entry only.
+		$broker->expects($this->never())->method('request');
+		$broker->method('requestForBackgroundUser')->willReturnCallback(
 			static function (
 				string $credentialId,
 				string $appId,
@@ -523,7 +525,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 				string $path,
 				array $headers = [],
 				?string $body = null,
-				?string $actingUserId = null,
+				string $actingUserId = '',
 			) use (&$acting): array {
 				$acting[] = $actingUserId;
 				return [

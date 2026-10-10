@@ -191,4 +191,81 @@ class BrokerHttpClientTest extends TestCase {
 		$this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, []));
 		$this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, null));
 	}//end testMissingBrokerHeadersFallBackToJson()
+
+	/**
+	 * Background work reaches the broker through its background entry, never request().
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function testBackgroundWorkUsesTheBrokersBackgroundEntry(): void {
+		$broker = $this->createMock(\OCA\OpenRegister\Service\Credential\CredentialBrokerService::class);
+		$broker->expects($this->never())->method('request');
+		$broker->expects($this->once())->method('requestForBackgroundUser')
+			->with('cred-1', 'hermiq', 'POST', '/v1/messages', $this->anything(), '{}', 'bob')
+			->willReturn(['status' => 200, 'headers' => [], 'body' => '{}']);
+
+		$client = new BrokerHttpClient(
+			credentialId: 'cred-1',
+			logger: new NullLogger(),
+			actingUserId: 'bob',
+			container: $this->containerWith(broker: $broker),
+			sessionless: true
+		);
+
+		$this->assertSame(200, $client->sendRequest(new Request('POST', 'https://api.anthropic.com/v1/messages', [], '{}'))->getStatusCode());
+	}//end testBackgroundWorkUsesTheBrokersBackgroundEntry()
+
+	/**
+	 * Background work fails closed on a broker without the background entry, and when it
+	 * names no user: request() would judge a runAs() user as a session.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function testBackgroundWorkFailsClosedWithoutTheEntryOrAUser(): void {
+		$oldBroker = new class {
+			public int $calls = 0;
+
+			public function request(): array {
+				$this->calls++;
+				return ['status' => 200, 'headers' => [], 'body' => '{}'];
+			}
+		};
+
+		foreach ([['bob', $oldBroker], ['', $this->createMock(\OCA\OpenRegister\Service\Credential\CredentialBrokerService::class)]] as [$user, $broker]) {
+			$client = new BrokerHttpClient(
+				credentialId: 'cred-1',
+				logger: new NullLogger(),
+				actingUserId: $user,
+				container: $this->containerWith(broker: $broker),
+				sessionless: true
+			);
+			try {
+				$client->sendRequest(new Request('POST', 'https://api.anthropic.com/v1/messages', [], '{}'));
+				$this->fail('Background work must fail closed here.');
+			} catch (RuntimeException $e) {
+				$this->assertStringContainsString('refused', $e->getMessage());
+			}
+		}
+
+		$this->assertSame(0, $oldBroker->calls);
+	}//end testBackgroundWorkFailsClosedWithoutTheEntryOrAUser()
+
+	/**
+	 * A container that answers the broker.
+	 *
+	 * @param object $broker The broker.
+	 *
+	 * @return \Psr\Container\ContainerInterface
+	 */
+	private function containerWith(object $broker): \Psr\Container\ContainerInterface {
+		$container = $this->createMock(\Psr\Container\ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id) => ($id === BrokerHttpClient::BROKER_CLASS ? $broker : null)
+		);
+		return $container;
+	}//end containerWith()
 }//end class

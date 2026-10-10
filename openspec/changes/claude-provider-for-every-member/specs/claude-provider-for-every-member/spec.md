@@ -7,6 +7,12 @@ whenever it answers that task without a session: for `core:text2text`, `core:tex
 `core:text2text:headline` and `core:contextagent:interaction`. A session user SHALL always win over
 the task's user. The acting user SHALL be set only for the duration of that task's work and cleared
 afterwards, also when the work fails. Hermiq SHALL NOT read the acting user from any request input.
+Work entered without a session SHALL stay background work for its whole duration, also inside a
+`runAs()` user switch: every broker call SHALL go through OpenRegister's PHP-internal
+`requestForBackgroundUser()`, so the broker judges the task's user by its sessionless rule (owner of
+a personal credential, real member of an organisation's credential, no administrator pass). Hermiq
+SHALL refuse a background broker call that names no user, or that meets an OpenRegister without
+that entry, rather than fall back to `request()`.
 
 #### Scenario: An Assistant summary runs on Claude from cron
 
@@ -32,6 +38,14 @@ afterwards, also when the work fails. Hermiq SHALL NOT read the acting user from
 
 - **GIVEN** cron runs a `core:contextagent:interaction` task whose user is disabled or no longer exists
 - **THEN** the interaction is refused before a session is saved or the engine runs
+
+#### Scenario: An administrator's background task outside the organisation is refused
+
+- **GIVEN** a Nextcloud administrator A who is not a member of organisation O
+- **AND** the chat provider uses O's organisation credential
+- **WHEN** cron runs A's Assistant task, including a contextagent turn inside `runAs(A)`
+- **THEN** the broker refuses the call
+- **AND** a member's task on the same credential still reaches Anthropic
 
 #### Scenario: A session is never replaced
 
@@ -80,3 +94,25 @@ other.
 - **GIVEN** the admin's active organisation holds an `anthropic` credential "Claude for the municipality"
 - **WHEN** the admin opens Admin, Hermiq, AI provider and selects Anthropic
 - **THEN** the credential list offers "Claude for the municipality (organisation)"
+
+### Requirement: The organisation credential form shows and chooses its organisation
+
+The organisation credential section in Admin, Hermiq SHALL show which organisation its list and
+new credentials belong to, and SHALL let the admin choose another organisation they may manage
+(from OpenRegister's `GET /api/credentials/organisations`), defaulting to their active organisation.
+The list and the create call SHALL carry the chosen organisation; OpenRegister re-checks the
+admin's right to it on both. The AI provider dialog SHALL list the organisation credentials of every
+organisation the admin may manage, labelled with the organisation's name.
+
+#### Scenario: The admin stores a key for another organisation
+
+- **GIVEN** an administrator whose active organisation is D and who may manage organisation O
+- **WHEN** they choose O in the Organisation picker and add an Anthropic credential
+- **THEN** the credential is stored for O and listed under O
+- **AND** the AI provider dialog offers it as "<name> (O)"
+
+#### Scenario: A non-manager cannot store a key for someone else's organisation
+
+- **GIVEN** a user who may not manage organisation D
+- **WHEN** they ask to list or create an organisation credential for D
+- **THEN** OpenRegister answers 403 and stores nothing

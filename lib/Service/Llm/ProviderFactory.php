@@ -249,6 +249,17 @@ class ProviderFactory {
 	private ?string $actingUserId = null;
 
 	/**
+	 * Whether the work in progress acts for a background task's user.
+	 *
+	 * True only inside an {@see actingFor()} scope entered WITHOUT a session. It survives a
+	 * `runAs()` user switch inside that scope, so the broker still applies its sessionless
+	 * rule (real membership) rather than the session rule an administrator passes.
+	 *
+	 * @var boolean
+	 */
+	private bool $backgroundActing = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
@@ -911,7 +922,8 @@ class ProviderFactory {
 			credentialId: $credentialId,
 			logger: $this->logger,
 			actingUserId: $this->currentUid(),
-			container: $this->container
+			container: $this->container,
+			sessionless: $this->backgroundActing
 		);
 
 		try {
@@ -2448,7 +2460,8 @@ class ProviderFactory {
 			credentialId: $credentialId,
 			logger: $this->logger,
 			actingUserId: $this->currentUid(),
-			container: $this->container
+			container: $this->container,
+			sessionless: $this->backgroundActing
 		);
 
 		try {
@@ -2799,7 +2812,8 @@ class ProviderFactory {
 					credentialId: $credentialId,
 					logger: $this->logger,
 					actingUserId: $this->currentUid(),
-					container: $this->container
+					container: $this->container,
+					sessionless: $this->backgroundActing
 				)
 			)
 			->make();
@@ -3111,15 +3125,24 @@ class ProviderFactory {
 	 */
 	public function actingFor(?string $userId, callable $work): mixed {
 		$previous = $this->actingUserId;
+		$previousBackground = $this->backgroundActing;
 		$this->actingUserId = null;
 		if ($userId !== null && $userId !== '') {
 			$this->actingUserId = $userId;
+		}
+
+		// Background mode is decided once, where the scope is entered: no session there
+		// means a cron run, whatever user switch the work makes later. A nested scope
+		// never turns it off.
+		if ($this->backgroundActing === false) {
+			$this->backgroundActing = ($this->actingUserId !== null && $this->userSession->getUser() === null);
 		}
 
 		try {
 			return $work();
 		} finally {
 			$this->actingUserId = $previous;
+			$this->backgroundActing = $previousBackground;
 		}
 	}//end actingFor()
 
@@ -3135,6 +3158,13 @@ class ProviderFactory {
 	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	private function currentUid(): ?string {
+		// Background work answers for the task's user, also when the work runs inside a
+		// `runAs()` user switch (the contextagent turn), so a switch can never change who
+		// the broker judges.
+		if ($this->backgroundActing === true) {
+			return $this->actingUserId;
+		}
+
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return $this->actingUserId;
