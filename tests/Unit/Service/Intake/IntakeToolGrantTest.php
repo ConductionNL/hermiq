@@ -83,7 +83,7 @@ class IntakeToolGrantTest extends TestCase {
 				'scope' => 'create',
 				'action' => 'create',
 			],
-			// Create taxonomy and the mark, but OpenRegister classifies it read-only.
+			// Create taxonomy and the mark, but it also claims to be read-only: a contradiction.
 			[
 				'name' => 'dossiq_previewCase',
 				'mcpId' => 'dossiq.previewCase',

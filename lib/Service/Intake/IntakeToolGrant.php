@@ -279,6 +279,13 @@ class IntakeToolGrant {
 			return false;
 		}
 
+		// OpenRegister's classification lets a declared scope outrank the hints,
+		// so a tool that says `scope: create` AND `readOnlyHint: true` would pass
+		// it. The two contradict each other, and a contradiction does not qualify.
+		if (($descriptor['readOnlyHint'] ?? null) === true) {
+			return false;
+		}
+
 		return ToolGrantResolver::isWriteOrDestructive(id: $toolId, descriptor: $descriptor);
 	}//end createsOnly()
 }//end class
