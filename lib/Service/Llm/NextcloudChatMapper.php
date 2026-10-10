@@ -248,15 +248,9 @@ class NextcloudChatMapper {
 	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
 	 */
 	public function errorOf(Task $task): string {
-		$error = null;
-		if (method_exists($task, 'getUserFacingErrorMessage') === true) {
-			$error = $task->getUserFacingErrorMessage();
-		}
-
-		if ($error === null || $error === '') {
-			$error = $task->getErrorMessage();
-		}
-
+		// The provider's own message. getUserFacingErrorMessage() is newer (NC 33) than
+		// hermiq's floor (NC 32), and the provider message is the one an admin needs.
+		$error = $task->getErrorMessage();
 		if ($error === null || $error === '') {
 			return 'status ' . $task->getStatus();
 		}

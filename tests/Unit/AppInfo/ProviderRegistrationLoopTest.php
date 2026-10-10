@@ -3,8 +3,8 @@
 /**
  * Hermiq provides no TaskProcessing type it consumes (use-nextcloud-ai-settings).
  *
- * Runs the real Application::register() against a recording registration context and
- * checks every registered TaskProcessing provider's task type against the types hermiq
+ * Reads every TaskProcessing provider Application::register() registers and checks its
+ * task type against the types hermiq
  * sends its own LLM work to. On the old code hermiq registered core:text2text, summary and
  * headline providers, so an admin who preferred hermiq would loop hermiq's own request.
  *
@@ -26,7 +26,6 @@ namespace OCA\Hermiq\Tests\Unit\AppInfo;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
-use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
 use OCP\TaskProcessing\TaskTypes\TextToTextHeadline;
 use OCP\TaskProcessing\TaskTypes\TextToTextSummary;
@@ -42,24 +41,31 @@ class ProviderRegistrationLoopTest extends TestCase {
 	/**
 	 * The task types of every provider Application::register() registers.
 	 *
+	 * Read from the source of register(), the same way VersionFloorGuardTest reads it:
+	 * running register() for real needs a booted Nextcloud (it calls \OCP\Util), which
+	 * a host PHPUnit run does not have. Each `registerTaskProcessingProvider(X::class)`
+	 * is resolved through the file's `use` statements and asked for its task type.
+	 *
 	 * @return list<string>
 	 */
 	private function registeredTaskTypes(): array {
-		$providers = [];
-		$context = $this->createMock(IRegistrationContext::class);
-		$context->method('registerTaskProcessingProvider')->willReturnCallback(
-			static function (string $class) use (&$providers): void {
-				$providers[] = $class;
-			}
-		);
+		$source = (string)file_get_contents((new ReflectionClass(Application::class))->getFileName());
 
-		$app = (new ReflectionClass(Application::class))->newInstanceWithoutConstructor();
-		$app->register($context);
+		$imports = [];
+		preg_match_all('/^use\s+([A-Za-z0-9_\\\\]+);/m', $source, $uses);
+		foreach ($uses[1] as $fqcn) {
+			$parts = explode('\\', $fqcn);
+			$imports[end($parts)] = $fqcn;
+		}
+
+		preg_match_all('/registerTaskProcessingProvider\(\s*([A-Za-z0-9_]+)::class\s*\)/', $source, $calls);
+		$this->assertNotEmpty($calls[1], 'register() is expected to register at least one provider');
 
 		$types = [];
-		foreach ($providers as $class) {
+		foreach ($calls[1] as $short) {
+			$this->assertArrayHasKey($short, $imports, "Provider {$short} is not imported in Application.php");
 			// getTaskTypeId() reads a constant; no collaborator is needed to answer it.
-			$types[] = (new ReflectionClass($class))->newInstanceWithoutConstructor()->getTaskTypeId();
+			$types[] = (new ReflectionClass($imports[$short]))->newInstanceWithoutConstructor()->getTaskTypeId();
 		}
 
 		return $types;
