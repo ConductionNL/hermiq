@@ -241,10 +241,12 @@ class AssistantService {
 
 		// The earlier turns only: generateResponse() appends this turn itself
 		// (user-turn-sent-once).
-		$messageHistory = $this->historyHandler->buildMessageHistory(
+		$turnHistory = $this->historyHandler->buildTurnHistory(
 			conversationId: $conversationId,
-			exceptMessageId: $userTurn->getUuid()
+			currentTurn: $userTurn,
+			turnText: $message
 		);
+		$messageHistory = $turnHistory['history'];
 
 		$ragContext = [
 			'text' => $this->renderContextData(context: $context),
@@ -252,7 +254,7 @@ class AssistantService {
 		];
 
 		$reply = $this->responseHandler->generateResponse(
-			userMessage: $message,
+			userMessage: $turnHistory['turnText'],
 			context: $ragContext,
 			messageHistory: $messageHistory,
 			agent: $agent,

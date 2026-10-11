@@ -27,13 +27,22 @@ own client. That fixes one provider out of five, at the wrong layer.
 
 ## What changes
 
-- `MessageHistoryHandler::buildMessageHistory()` takes an optional
-  `exceptMessageId`: the stored turn with that uuid is left out of the history.
-- `Engine::processMessage()` and `AssistantService::converse()` pass the uuid of
-  the user turn they just stored. The history they hand on holds earlier turns only.
+- `MessageHistoryHandler::buildTurnHistory(conversationId, currentTurn, turnText)`
+  returns the history before the stored current turn (that turn left out) and
+  `turnText`: the turn's text, labelled with its author when the session has
+  several speakers, exactly as the history labelled it before.
+- `Engine::processMessage()` and `AssistantService::converse()` call it with the
+  user turn they just stored, and hand `turnText` to the response handler as the
+  current turn. The history they hand on holds earlier turns only.
 - `ResponseGenerationHandler::generateResponse()` documents the contract it
   already followed: `$messageHistory` is the turns before this one, and this method
   is the single place the current turn joins the messages.
+- `buildMessageHistory()` is unchanged for any caller that has not stored a turn.
+
+Why `turnText` and not just "leave it out": in a shared session the stored copy
+was the only one carrying the speaker's name ("Bram: ..."); the appended copy had
+none. Dropping the stored copy alone would have lost who is asking. The current
+turn now carries the label itself, once.
 
 The fetch window is unchanged (ten stored turns), so the request carries the same
 number of messages as before minus the duplicate.

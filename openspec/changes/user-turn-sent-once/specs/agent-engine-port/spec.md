@@ -24,3 +24,9 @@ response handler SHALL be the single place that appends the current turn.
 - **WHEN** the history is built for the model
 - **THEN** the stored copy of the current turn is left out of the history
 - **AND** the stored turn itself is unchanged
+
+#### Scenario: A shared session still names who is asking
+- **GIVEN** a session where two people have taken turns
+- **WHEN** one of them asks a question
+- **THEN** the provider request carries that question once, prefixed with the asker's name
+- **AND** the earlier turns keep their speakers' names as before

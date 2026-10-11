@@ -271,4 +271,58 @@ class MessageHistoryHandlerTest extends TestCase {
 		$this->assertSame("Wat staat erin?\n\nAttached earlier: offerte-2026.pdf, file 48213", $history[0]->content);
 
 	}//end testAttachmentsAreStoredAndNamedInTheHistory()
+
+	/**
+	 * The history for a stored turn leaves that turn out and hands back its text,
+	 * labelled with its author in a shared session exactly as the history labels
+	 * the earlier turns (user-turn-sent-once).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	public function testTurnHistoryLeavesTheCurrentTurnOutAndKeepsItsSpeaker(): void {
+		$turn = static function (string $uuid, string $role, string $content, ?string $author = null): ObjectEntity {
+			$entity = new ObjectEntity();
+			$entity->setUuid($uuid);
+			$data = ['sessionId' => 'conv-1', 'role' => $role, 'content' => $content];
+			if ($author !== null) {
+				$data['authorId'] = strtolower($author);
+				$data['authorDisplayName'] = $author;
+			}
+
+			$entity->setObject($data);
+			return $entity;
+		};
+
+		$earlier = $turn('t-1', 'user', 'Which cases are open?', 'Anne');
+		$answer = $turn('t-2', 'assistant', 'Two cases.');
+		$current = $turn('t-3', 'user', 'Which of them is due?', 'Bram');
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn([$current, $answer, $earlier]);
+
+		$result = (new MessageHistoryHandler($objectService, new NullLogger()))->buildTurnHistory(
+			conversationId: 'conv-1',
+			currentTurn: $current,
+			turnText: 'Which of them is due?'
+		);
+
+		$this->assertSame(
+			[['user', 'Anne: Which cases are open?'], ['assistant', 'Two cases.']],
+			array_map(static fn ($message): array => [$message->role->value, $message->content], $result['history']),
+			'The stored current turn must not be in the history.'
+		);
+		$this->assertSame('Bram: Which of them is due?', $result['turnText']);
+
+		// A single-speaker session keeps the text as it is.
+		$solo = (new MessageHistoryHandler($objectService, new NullLogger()))->buildTurnHistory(
+			conversationId: 'conv-1',
+			currentTurn: $turn('t-3', 'user', 'Which of them is due?'),
+			turnText: 'Which of them is due?'
+		);
+		$this->assertSame('Which of them is due?', $solo['turnText']);
+	}//end testTurnHistoryLeavesTheCurrentTurnOutAndKeepsItsSpeaker()
 }//end class

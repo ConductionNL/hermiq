@@ -478,11 +478,15 @@ class Engine {
 			$historyToken = $trace?->startStep(type: 'history', name: 'History build');
 			$historyStartTime = microtime(true);
 			// The earlier turns only: the response handler appends this turn itself, so
-			// the stored copy is left out and the model reads it once (user-turn-sent-once).
-			$messageHistory = $this->historyHandler->buildMessageHistory(
+			// the stored copy is left out and the model reads it once. `turnText` is
+			// the turn as the history would have shown it, speaker-labelled in a
+			// shared session (user-turn-sent-once).
+			$turnHistory = $this->historyHandler->buildTurnHistory(
 				conversationId: $conversationId,
-				exceptMessageId: $userTurn->getUuid()
+				currentTurn: $userTurn,
+				turnText: $userMessage
 			);
+			$messageHistory = $turnHistory['history'];
 			$historyTime = microtime(true) - $historyStartTime;
 			if ($historyToken !== null) {
 				$trace?->endStep(token: $historyToken, outcome: 'ok');
@@ -502,7 +506,7 @@ class Engine {
 			$llmStartTime = microtime(true);
 			try {
 				$aiResponse = $this->responseHandler->generateResponse(
-					userMessage: $userMessage,
+					userMessage: $turnHistory['turnText'],
 					context: $context,
 					messageHistory: $messageHistory,
 					agent: $agent,
