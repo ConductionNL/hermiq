@@ -85,7 +85,15 @@ class MessageHistoryHandler {
 	 * Converts the most recent Message objects for the conversation into
 	 * LLPhant `Message` instances, oldest-first.
 	 *
+	 * The history holds the turns BEFORE the one being answered. A caller that has
+	 * already stored the current user turn names it in `$exceptMessageId`, so it is
+	 * left out here: `ResponseGenerationHandler::generateResponse()` is the single
+	 * place that appends the current turn (with its attachments), and the model gets
+	 * it once rather than twice (user-turn-sent-once).
+	 *
 	 * @param string $conversationId Conversation UUID.
+	 * @param string|null $exceptMessageId The uuid of the stored current user turn, which
+	 *                                     the history leaves out; null keeps every turn.
 	 *
 	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
 	 *
@@ -94,8 +102,9 @@ class MessageHistoryHandler {
 	 * there is no injectable seam.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
-	public function buildMessageHistory(string $conversationId): array {
+	public function buildMessageHistory(string $conversationId, ?string $exceptMessageId = null): array {
 		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and in
 		// a shared session the other participants' turns are owned by them, while the
 		// model needs the whole thread. Engine::processMessage() runs the
@@ -113,7 +122,15 @@ class MessageHistoryHandler {
 			);
 
 		// The findAll() fetch is most-recent-first; the LLM needs chronological order.
-		$messages = array_reverse(array_filter($recent, static fn ($object): bool => $object instanceof ObjectEntity));
+		// The current turn, already stored by the caller, is appended by the response
+		// handler; keeping it here as well sent it to the model twice.
+		$messages = array_reverse(
+			array_filter(
+				$recent,
+				static fn ($object): bool => $object instanceof ObjectEntity
+					&& ($exceptMessageId === null || $object->getUuid() !== $exceptMessageId)
+			)
+		);
 
 		$this->logger->debug(
 			message: '[MessageHistoryHandler] Building message history',

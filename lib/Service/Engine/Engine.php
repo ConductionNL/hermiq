@@ -287,6 +287,7 @@ class Engine {
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function processMessage(
 		string $conversationId,
@@ -442,7 +443,7 @@ class Engine {
 			// threaded through to this single writer rather than persisted by
 			// the caller, so a shared session records who spoke without any
 			// path double-storing the turn (talk-shared-sessions).
-			$this->historyHandler->storeMessage(
+			$userTurn = $this->historyHandler->storeMessage(
 				conversationId: $conversationId,
 				role: 'user',
 				content: $userMessage,
@@ -476,7 +477,12 @@ class Engine {
 			// Build message history (timed as a `history` step — see above).
 			$historyToken = $trace?->startStep(type: 'history', name: 'History build');
 			$historyStartTime = microtime(true);
-			$messageHistory = $this->historyHandler->buildMessageHistory(conversationId: $conversationId);
+			// The earlier turns only: the response handler appends this turn itself, so
+			// the stored copy is left out and the model reads it once (user-turn-sent-once).
+			$messageHistory = $this->historyHandler->buildMessageHistory(
+				conversationId: $conversationId,
+				exceptMessageId: $userTurn->getUuid()
+			);
 			$historyTime = microtime(true) - $historyStartTime;
 			if ($historyToken !== null) {
 				$trace?->endStep(token: $historyToken, outcome: 'ok');
