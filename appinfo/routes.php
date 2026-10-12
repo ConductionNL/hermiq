@@ -468,6 +468,7 @@ return [
         // bind one feature to a provider and model within the organisation's model policy,
         // and read which provider each feature will use and where that provider runs.
         ['name' => 'aiFeature#residencyOverview', 'url' => '/api/ai-features/residency', 'verb' => 'GET'],
+        ['name' => 'aiFeatureRun#runOnDocument', 'url' => '/api/ai-features/{slug}/run-on-document', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
         ['name' => 'aiFeature#bind', 'url' => '/api/ai-features/{id}/binding', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'Settings\ProviderResidencySettings#get', 'url' => '/api/settings/provider-residency', 'verb' => 'GET'],
 

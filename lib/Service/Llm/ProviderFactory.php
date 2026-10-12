@@ -2588,6 +2588,12 @@ class ProviderFactory {
 	 *                                  like any other Hermiq LLM call. Default `null`
 	 *                                  preserves every pre-existing caller's behaviour
 	 *                                  unchanged (opt-in, no enforcement).
+	 * @param string|null $aiFeature The AI feature this generation belongs to, when it
+	 *                               names one. Its binding, residency and redaction
+	 *                               gates run before any request (createChatDriver()).
+	 * @param string|null $documentReference The document the generation reads, when it
+	 *                               reads one, so the feature's redaction gate is
+	 *                               applied to that document.
 	 *
 	 * @return string The generated text.
 	 *
@@ -2608,10 +2614,23 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
 	 * @spec openspec/changes/agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
+	 * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
 	 */
-	public function generateText(string $prompt, ?string $userId = null, bool $allowNextcloud = true, ?string $organisation = null): string {
+	public function generateText(
+		string $prompt,
+		?string $userId = null,
+		bool $allowNextcloud = true,
+		?string $organisation = null,
+		?string $aiFeature = null,
+		?string $documentReference = null,
+	): string {
 		$llmConfig = $this->getLlmConfig();
-		$driver = $this->createChatDriver(llmConfig: $llmConfig, organisation: $organisation);
+		$driver = $this->createChatDriver(
+			llmConfig: $llmConfig,
+			organisation: $organisation,
+			aiFeature: $aiFeature,
+			documentReference: $documentReference
+		);
 
 		if ($driver->provider === 'fireworks') {
 			return $this->callFireworksChat(
