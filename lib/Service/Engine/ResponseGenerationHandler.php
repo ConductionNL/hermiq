@@ -141,7 +141,10 @@ class ResponseGenerationHandler {
 	 *
 	 * @param string $userMessage User's message text.
 	 * @param array $context RAG context with 'text' and 'sources' keys.
-	 * @param array $messageHistory Array of LLPhant Message objects.
+	 * @param array $messageHistory Array of LLPhant Message objects: the turns BEFORE
+	 *                              this one. This method appends the current turn
+	 *                              (`$userMessage` plus its attachments) exactly once,
+	 *                              so a caller never includes it (user-turn-sent-once).
 	 * @param ObjectEntity|null $agent Agent object (optional).
 	 * @param array $selectedTools Tools selected for this request (optional).
 	 * @param StreamYieldChannel|null $channel Streaming channel; when supplied the handler
@@ -207,6 +210,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -410,7 +414,8 @@ class ResponseGenerationHandler {
 				$systemPrompt .= 'Always cite which sources you used when answering.';
 			}
 
-			// Add system message to history, then the current user message.
+			// Add system message to history, then the current user message. This is the
+			// ONE place the current turn joins the history; callers pass earlier turns only.
 			array_unshift($messageHistory, LLPhantMessage::system($systemPrompt));
 			// Chat-attachments-and-images: the attachments a declared model reads
 			// natively ride on the user turn; the rest go as text or are left out,
