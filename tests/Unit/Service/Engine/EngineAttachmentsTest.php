@@ -137,7 +137,9 @@ class EngineAttachmentsTest extends TestCase {
 				return $turn;
 			}
 		);
-		$history->method('buildMessageHistory')->willReturn([]);
+		$history->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$response = $this->createMock(ResponseGenerationHandler::class);
 		$response->method('generateResponse')->willReturnCallback(
