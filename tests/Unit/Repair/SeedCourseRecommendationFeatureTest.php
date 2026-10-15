@@ -143,6 +143,7 @@ class SeedCourseRecommendationFeatureTest extends TestCase {
 				bool $_unowned = false,
 				// Added by openregister (duplicate detection), seen 2026-09-16.
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				if ($this->failWrites === true) {
 					throw new RuntimeException('register unavailable');

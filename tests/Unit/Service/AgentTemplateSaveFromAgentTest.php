@@ -150,6 +150,7 @@ final class AgentTemplateSaveFromAgentTest extends TestCase {
 				bool $failIfExists = false,
 				bool $_unowned = false,
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->test->saved[] = ['schema' => (string)$schema, 'object' => $payload];

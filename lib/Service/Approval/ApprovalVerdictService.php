@@ -82,16 +82,7 @@ class ApprovalVerdictService
      */
     public function verify(array $request): array
     {
-        $verdict = [];
-        foreach (self::REQUEST_FIELDS as $field) {
-            $value = ($request[$field] ?? null);
-            if (is_string($value) === false || $value === '') {
-                throw new InvalidArgumentException($field.' is missing or not a string.');
-            }
-
-            $verdict[$field] = $value;
-        }
-
+        $verdict  = $this->requestFields(request: $request);
         $now      = $this->timeFactory->getTime();
         $approval = $this->approvals->loadApproval(uuid: $verdict['approvalId']);
         $data     = [];
@@ -133,6 +124,33 @@ class ApprovalVerdictService
         ];
 
     }//end verify()
+
+    /**
+     * The five request fields, each a non-empty string.
+     *
+     * @param array<string, mixed> $request The raw request.
+     *
+     * @return array<string, string>
+     *
+     * @throws InvalidArgumentException When a field is missing, empty or not a string.
+     *
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     */
+    private function requestFields(array $request): array
+    {
+        $fields = [];
+        foreach (self::REQUEST_FIELDS as $field) {
+            $value = ($request[$field] ?? null);
+            if (is_string($value) === false || $value === '') {
+                throw new InvalidArgumentException($field.' is missing or not a string.');
+            }
+
+            $fields[$field] = $value;
+        }
+
+        return $fields;
+
+    }//end requestFields()
 
     /**
      * The first check that fails, in the contract's order, or 'approved'.

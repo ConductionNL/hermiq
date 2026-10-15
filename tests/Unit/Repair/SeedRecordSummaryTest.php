@@ -122,6 +122,7 @@ final class SeedRecordSummaryTest extends TestCase {
 				bool $failIfExists = false,
 				bool $_unowned = false,
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				if ($this->failWrites === true) {
 					throw new RuntimeException('register unavailable');

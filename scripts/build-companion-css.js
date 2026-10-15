@@ -67,7 +67,8 @@ const ROOT = '#hermiq-companion-root'
  * At-rules that cannot live inside `@scope` and style nothing by themselves:
  * they are kept at the top level.
  */
-const HOISTED = /^@(charset|import|namespace|font-face|keyframes|-webkit-keyframes|page|property|layer\s*[^{]*;)/i
+const HOISTED =
+	/^@(charset|import|namespace|font-face|keyframes|-webkit-keyframes|page|property|layer\s*[^{]*;)/i
 
 /**
  * Split a stylesheet into its top-level statements and blocks, skipping
@@ -144,10 +145,19 @@ function scopeToCompanion(css) {
 		if (HOISTED.test(chunk)) {
 			hoisted.push(chunk)
 		} else {
-			scoped.push(chunk.replace(/(^|[\s,(>+~])(?:html\s+)?:root\b/g, '$1:scope'))
+			scoped.push(
+				chunk.replace(/(^|[\s,(>+~])(?:html\s+)?:root\b/g, '$1:scope'),
+			)
 		}
 	}
-	return hoisted.join('\n') + '\n@scope (' + ROOT + ') {\n' + scoped.join('\n') + '\n}\n'
+	return (
+		hoisted.join('\n')
+		+ '\n@scope ('
+		+ ROOT
+		+ ') {\n'
+		+ scoped.join('\n')
+		+ '\n}\n'
+	)
 }
 
 /**
@@ -170,7 +180,9 @@ if (require.main === module) {
 
 	fs.mkdirSync(OUT_DIR, { recursive: true })
 	fs.writeFileSync(OUT, contents)
-	console.log(`Wrote css/companion.css (${(contents.length / 1024).toFixed(0)} KB).`)
+	console.log(
+		`Wrote css/companion.css (${(contents.length / 1024).toFixed(0)} KB).`,
+	)
 }
 
 module.exports = { scopeToCompanion, topLevel }

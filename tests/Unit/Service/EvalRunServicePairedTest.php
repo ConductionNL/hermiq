@@ -187,6 +187,7 @@ class RecordingObjectService extends ObjectService {
 		// openregister and PHP refused to declare this class, killing all six
 		// cells with a fatal before a single test ran.
 		bool $_dedupOverride = false,
+		?string $_owner = null,
 	): ObjectEntity {
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
 		$this->saves[] = [

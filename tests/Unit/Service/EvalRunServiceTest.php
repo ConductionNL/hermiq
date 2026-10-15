@@ -109,6 +109,7 @@ class EvalRunServiceTest extends TestCase {
 				bool $_unowned = false,
 				// Added by openregister (duplicate detection), seen 2026-09-16.
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$entity = new ObjectEntity();
 				$entity->setUuid('eval-run-uuid');

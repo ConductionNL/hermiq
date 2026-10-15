@@ -165,6 +165,7 @@ class ObjectService {
 		bool $_unowned = false,
 		// Added by openregister (duplicate detection), seen 2026-09-16.
 		bool $_dedupOverride = false,
+		?string $_owner = null,
 	): ObjectEntity {
 		return new ObjectEntity();
 	}//end saveObject()
