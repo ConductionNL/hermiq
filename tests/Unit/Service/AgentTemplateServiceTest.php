@@ -118,6 +118,9 @@ class AgentTemplateServiceTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload, 'uuid' => $uuid];
@@ -329,7 +332,9 @@ class AgentTemplateServiceTest extends TestCase {
 
 		$saved = $objectService->saved[0]['object'];
 		$this->assertSame('active', $saved['state']);
-		$this->assertNull($saved['scanReport']);
+		// Absent, not null: the AgentTemplate fragment refuses a null scanReport.
+		$this->assertArrayNotHasKey('scanReport', $saved);
+		$this->assertArrayNotHasKey('quarantineReason', $saved);
 
 	}//end testImportPackageActiveForLocalSource()
 

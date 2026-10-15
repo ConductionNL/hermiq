@@ -21,6 +21,8 @@ declare(strict_types=1);
  *
  * Verified live four ways: non-owner UPDATE 200 -> 403, non-owner READ stays
  * 200, owner UPDATE stays 200, and a refused attack leaves the grants untouched.
+ * The non-owner READ is now conditional on sharing (hermiq#976), see
+ * testReadFollowsTheSharingPredicate().
  *
  * @category Tests
  * @package  OCA\Hermiq\Tests\Unit\Settings
@@ -68,12 +70,27 @@ class AgentAuthorizationTest extends TestCase {
 	}//end agentAuthorization()
 
 	/**
-	 * Read stays open, so invited users keep seeing shared agents.
+	 * Read follows the sharing predicate, not "every signed-in user" (hermiq#976).
+	 *
+	 * The block used to read `["authenticated"]`, which let any colleague read a
+	 * private agent and its prompt through the object API. Now each entry is
+	 * conditional: an organisation-wide agent (isPrivate false or unset), an
+	 * invited user, or a member of one of the agent's groups. The owner and
+	 * admins are admitted before any rule. PrivateSchemaReadRulesTest decides
+	 * reads against these rules.
 	 */
-	public function testReadIsGrantedToAuthenticatedUsers(): void {
-		$this->assertSame(['authenticated'], ($this->agentAuthorization()['read'] ?? null));
+	public function testReadFollowsTheSharingPredicate(): void {
+		$this->assertSame(
+			[
+				['group' => 'authenticated', 'match' => ['isPrivate' => false]],
+				['group' => 'authenticated', 'match' => ['isPrivate' => null]],
+				['group' => 'authenticated', 'match' => ['invitedUsers' => ['$contains' => '$userId']]],
+				['group' => 'authenticated', 'match' => ['groups' => ['$contains' => '$user.groups']]],
+			],
+			($this->agentAuthorization()['read'] ?? null)
+		);
 
-	}//end testReadIsGrantedToAuthenticatedUsers()
+	}//end testReadFollowsTheSharingPredicate()
 
 	/**
 	 * 🔴 The load-bearing assertion. Every write action MUST stay absent.
@@ -104,6 +121,7 @@ class AgentAuthorizationTest extends TestCase {
 	/**
 	 * `scope` must stay unused: it is a single key covering EVERY action, so it
 	 * would close reads for invited users at the same time as closing writes.
+	 * The conditional read rules close reads for everyone else instead.
 	 */
 	public function testScopeIsNotUsed(): void {
 		$this->assertArrayNotHasKey(

@@ -329,7 +329,8 @@ export default {
 		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		heading() {
-			return this.schedule
+			// A schedule without an id is a proposal to attach (agents-plain-language-builder).
+			return this.schedule?.id
 				? this.t('hermiq', 'Edit schedule')
 				: this.t('hermiq', 'Attach schedule')
 		},

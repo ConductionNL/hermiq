@@ -27,7 +27,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller\Settings;
 
 use OCA\Hermiq\Controller\Settings\LlmSettingsController;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\ModelCapabilityRegistry;
 use OCP\AppFramework\Http;
+use OCP\IAppConfig;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -64,7 +66,12 @@ class LlmSettingsControllerTest extends TestCase {
 	 * @return LlmSettingsController
 	 */
 	private function controller(IRequest $request, LlmSettingsHandler $handler): LlmSettingsController {
-		return new LlmSettingsController($request, $handler, new NullLogger());
+		return new LlmSettingsController(
+			$request,
+			$handler,
+			new NullLogger(),
+			new ModelCapabilityRegistry(appConfig: $this->createMock(IAppConfig::class))
+		);
 	}//end controller()
 
 	/**

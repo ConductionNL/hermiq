@@ -49,6 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
 use OCP\ICacheFactory;
@@ -273,6 +274,9 @@ class GitHubTemplateCatalogService {
 	 * @param ContainerInterface|null $container The app container the optional cross-app
 	 *                                           classes are resolved from; null when the
 	 *                                           class is built by hand in a test.
+	 * @param ConnectionReporter|null $connectionReporter Tells integriq's connection registry what a
+	 *                                                    live store search met; null when built by
+	 *                                                    hand in a test.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
@@ -280,6 +284,7 @@ class GitHubTemplateCatalogService {
 		private readonly LoggerInterface $logger,
 		private readonly GitHubArchiveExtractor $archiveExtractor,
 		private readonly ?ContainerInterface $container = null,
+		private readonly ?ConnectionReporter $connectionReporter = null,
 	) {
 		$cache = null;
 		if ($cacheFactory->isAvailable() === true) {
@@ -351,6 +356,7 @@ class GitHubTemplateCatalogService {
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function search(?string $query, ?string $actingUserId, ?string $credentialId = null, string $kind = self::KIND_AGENT_TEMPLATE): array {
 		$term = trim((string)$query);
@@ -370,6 +376,8 @@ class GitHubTemplateCatalogService {
 		$path = '/search/repositories?q=' . rawurlencode($queryString) . '&per_page=' . self::MAX_HITS;
 
 		$result = $this->get(path: $path, actingUserId: $actingUserId, credentialId: $credentialId);
+		// A live answer is the one moment hermiq meets GitHub; a cached one met nothing.
+		$this->reportSearchOutcome(result: $result);
 		if ($result['ok'] === false) {
 			// Rate-limited/unreachable with no fresh result — surface a generic outcome,
 			// never a 5xx (the caller — githubSearch() — always returns HTTP 200).
@@ -1055,6 +1063,42 @@ class GitHubTemplateCatalogService {
 
 		return $content;
 	}//end fetchFileContents()
+
+	/**
+	 * Tell integriq what a live store search met, at most once an hour per status.
+	 *
+	 * Throttled, because a search runs whenever someone opens the store
+	 * (adopt-connection-registry design D4). A rate limit reads Limited: the
+	 * store still works from cache and with a credential.
+	 *
+	 * @param array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool} $result The GET result.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function reportSearchOutcome(array $result): void {
+		if ($this->connectionReporter === null) {
+			return;
+		}
+
+		$status  = 'error';
+		$message = 'GitHub could not be reached on the last store search.';
+		if ($result['ok'] === true) {
+			$status  = 'configured';
+			$message = 'GitHub answered the last store search without a credential. Anonymous calls get a low rate limit.';
+			if ($result['brokerUsed'] === true) {
+				$message = 'GitHub answered the last store search with a credential.';
+			}
+		} else if ($result['rateLimited'] === true) {
+			$status  = 'limited';
+			$message = 'GitHub rate-limited the last store search. Add a GitHub credential under Organisation credentials to raise the limit.';
+		} else if ($result['status'] > 0) {
+			$message = 'GitHub answered HTTP ' . $result['status'] . ' on the last store search.';
+		}
+
+		$this->connectionReporter->reportThrottled(key: 'github-templates', status: $status, message: $message);
+	}//end reportSearchOutcome()
 
 	/**
 	 * Perform a GET — via the broker when a credential is supplied and the broker

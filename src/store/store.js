@@ -95,3 +95,15 @@ export const useSkillStore = createObjectStore('agentskill', {
 })
 
 export { useSettingsStore }
+
+/**
+ * Canonical OpenRegister object store for the 'context' schema
+ * (hermiq-context-documents): ContextFormModal creates and edits Context bundles
+ * through the generic object write path.
+ *
+ * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+ */
+export const useContextStore = createObjectStore('context', {
+	register: 'hermiq',
+	schema: 'context',
+})

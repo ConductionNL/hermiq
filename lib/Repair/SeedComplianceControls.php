@@ -220,7 +220,7 @@ class SeedComplianceControls implements IRepairStep {
 
 	/**
 	 * The seed Control rows (design.md Seed Data): 3 EU AI Act + 3 ISO/IEC 42001 + 4
-	 * NIST AI RMF, each mapped to exactly one of the six evidenceSource seams.
+	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams.
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
@@ -230,6 +230,17 @@ class SeedComplianceControls implements IRepairStep {
 	 */
 	private function seedControls(): array {
 		return [
+			[
+				'frameworkSlug' => 'eu-ai-act',
+				'controlId' => 'art.4',
+				'title' => 'AI literacy',
+				'description' => 'Providers and deployers of AI systems must ensure, to their best extent, a sufficient level '
+					. 'of AI literacy of their staff and other persons dealing with the operation and use of AI systems.',
+				'sourceUrl' => 'https://artificialintelligenceact.eu/article/4/',
+				'evidenceSource' => 'ai-literacy-completion',
+				'evidenceDescription' => 'Satisfied when every person who used an agent in the last 90 days completed '
+					. 'the current lessons of Working with AI; partial when some did.',
+			],
 			[
 				'frameworkSlug' => 'eu-ai-act',
 				'controlId' => 'art.12',

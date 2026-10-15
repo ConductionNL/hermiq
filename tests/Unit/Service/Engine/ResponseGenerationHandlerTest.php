@@ -33,7 +33,10 @@ use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use LLPhant\Chat\OpenAIChat;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OpenAI\Responses\Chat\CreateResponse;
+use OpenAI\Responses\Meta\MetaInformation;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -137,7 +140,7 @@ class ResponseGenerationHandlerTest extends TestCase {
 		$this->assertSame(ChatRole::User, $last->role);
 		$this->assertSame('What now?', $last->content);
 
-		// Fireworks exposes no token usage; llmSeconds is still recorded.
+		// llmSeconds is recorded next to whatever usage Fireworks reported (none here).
 		$this->assertArrayHasKey('llmSeconds', $handler->lastUsage);
 
 	}//end testFireworksPathAssemblesPromptAndForwardsOverrides()
@@ -276,6 +279,89 @@ class ResponseGenerationHandlerTest extends TestCase {
 	}//end testProviderUnavailableIsWrapped()
 
 	/**
+	 * The agent's pinned credentials reach the provider factory, and a refusal there
+	 * stops the turn before any model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testTheAgentsPinsReachTheFactoryAndARefusalStopsTheTurn(): void {
+		$seen = null;
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (...$args) use (&$seen): ChatDriver {
+				$seen = $args;
+				throw new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'fireworks');
+			}
+		);
+		$factory->expects($this->never())->method('callFireworksChat');
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+
+		try {
+			$handler->generateResponse(
+				userMessage: 'Hi',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $this->agent(['credentialIds' => ['fireworks' => 'cred-fw', 'openai' => '', 'bad' => 7]])
+			);
+			$this->fail('A refused pin must stop the turn.');
+		} catch (Exception $e) {
+			$this->assertInstanceOf(\OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException::class, $e->getPrevious());
+		}
+
+		// The eighth argument is agentCredentialIds, passed as stored; the resolver
+		// reads only non-empty string pins (CredentialScopeResolverTest).
+		$this->assertSame(['fireworks' => 'cred-fw', 'openai' => '', 'bad' => 7], $seen[7] ?? null);
+
+	}//end testTheAgentsPinsReachTheFactoryAndARefusalStopsTheTurn()
+
+	/**
+	 * The turn's attachments reach the provider factory as file ids, so each one is
+	 * checked by the feature's gates before any model is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	public function testTheTurnsAttachmentsReachTheFactory(): void {
+		$seen = null;
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('createChatDriver')->willReturnCallback(
+			function (...$args) use (&$seen): ChatDriver {
+				$seen = $args;
+				throw new \RuntimeException('stop before the model');
+			}
+		);
+		$factory->expects($this->never())->method('callFireworksChat');
+
+		$handler = new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+
+		try {
+			$handler->generateResponse(
+				userMessage: 'Vat samen',
+				context: ['text' => '', 'sources' => []],
+				messageHistory: [],
+				agent: $this->agent([]),
+				attachments: [
+					['fileId' => 48213, 'name' => 'offerte.pdf', 'mimeType' => 'application/pdf', 'size' => 1, 'origin' => 'files'],
+					['fileId' => 501, 'name' => 'dak.jpg', 'mimeType' => 'image/jpeg', 'size' => 1, 'origin' => 'upload'],
+				]
+			);
+			$this->fail('The sentinel did not stop the turn.');
+		} catch (Exception) {
+			// Expected: the factory double stops the turn.
+		}
+
+		// The ninth argument is attachmentReferences.
+		$this->assertSame(['48213', '501'], $seen[8] ?? null);
+
+	}//end testTheTurnsAttachmentsReachTheFactory()
+
+	/**
 	 * When the agent defines no prompt, the default system prompt is used and
 	 * no APP CONTEXT block appears without a CnAiContext snapshot.
 	 *
@@ -317,4 +403,106 @@ class ResponseGenerationHandlerTest extends TestCase {
 		$this->assertStringNotContainsString('CONTEXT:', $system->content);
 
 	}//end testDefaultPromptWithoutAgentOrContext()
+	/**
+	 * A handler over a factory that resolves one driver and reports $usage.
+	 *
+	 * @param ChatDriver $driver The resolved driver.
+	 * @param array<string, int> $usage What ProviderFactory::lastCallUsage() reports.
+	 *
+	 * @return ResponseGenerationHandler
+	 */
+	private function handlerFor(ChatDriver $driver, array $usage = []): ResponseGenerationHandler {
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => $driver->provider]);
+		$factory->method('createChatDriver')->willReturn($driver);
+		$factory->method('callFireworksChat')->willReturn('Fireworks answer.');
+		$factory->method('callAnthropicChat')->willReturn('Anthropic answer.');
+		if ($usage !== []) {
+			$factory->method('lastCallUsage')->willReturn($usage);
+		}
+
+		return new ResponseGenerationHandler($factory, $this->toollessLoop(), new NullLogger());
+	}//end handlerFor()
+
+	/**
+	 * Run one turn through a handler.
+	 *
+	 * @param ResponseGenerationHandler $handler The handler.
+	 *
+	 * @return string The answer.
+	 */
+	private function turn(ResponseGenerationHandler $handler): string {
+		return $handler->generateResponse(
+			userMessage: 'What is due?',
+			context: ['text' => '', 'sources' => []],
+			messageHistory: [],
+			agent: $this->agent(['prompt' => 'You are helpful.']),
+			cnAiContext: []
+		);
+	}//end turn()
+
+	/**
+	 * A Fireworks or Anthropic turn records the tokens the provider reported,
+	 * which is what a token budget counts (hermiq#985).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 */
+	public function testHostedTurnsRecordTheirTokens(): void {
+		$drivers = [
+			new ChatDriver(provider: 'fireworks', chat: null, model: 'llama', credentialId: 'cred-f', baseUrl: 'https://api.fireworks.ai/inference/v1'),
+			new ChatDriver(provider: 'anthropic', chat: null, model: 'claude-opus-4-8', credentialId: 'cred-a', baseUrl: 'https://api.anthropic.com/v1', authMode: 'api_key'),
+		];
+
+		foreach ($drivers as $driver) {
+			$handler = $this->handlerFor(driver: $driver, usage: ['promptTokens' => 900, 'completionTokens' => 80]);
+			$this->turn(handler: $handler);
+
+			$this->assertSame(900, ($handler->lastUsage['promptTokens'] ?? null), $driver->provider . ' turn recorded no prompt tokens.');
+			$this->assertSame(80, ($handler->lastUsage['completionTokens'] ?? null), $driver->provider . ' turn recorded no completion tokens.');
+			$this->assertArrayHasKey('llmSeconds', $handler->lastUsage);
+		}
+	}//end testHostedTurnsRecordTheirTokens()
+
+	/**
+	 * An OpenAI turn records the tokens LLPhant counted during the call.
+	 *
+	 * LLPhant keeps a running total and the prompt/completion split of the last
+	 * request only. Tokens from earlier requests of a tool loop are counted as
+	 * prompt tokens, so the sum a budget reads is exact.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 */
+	public function testAnOpenAiTurnRecordsTheTokensOfTheCall(): void {
+		$last = CreateResponse::from(
+			[
+				'id' => 'chatcmpl-1',
+				'object' => 'chat.completion',
+				'created' => 1759000000,
+				'model' => 'gpt-5',
+				'choices' => [['index' => 0, 'message' => ['role' => 'assistant', 'content' => 'OpenAI answer.'], 'finish_reason' => 'stop']],
+				'usage' => ['prompt_tokens' => 300, 'completion_tokens' => 50, 'total_tokens' => 350],
+			],
+			MetaInformation::from([])
+		);
+
+		$chat = $this->createMock(OpenAIChat::class);
+		$chat->method('generateChat')->willReturn('OpenAI answer.');
+		$chat->method('getLastResponse')->willReturn($last);
+		// 1000 tokens were already on this instance; the turn used 500, of which
+		// the last request was 300 + 50 and an earlier tool round 150.
+		$chat->method('getTotalTokens')->willReturnOnConsecutiveCalls(1000, 1500);
+
+		$handler = $this->handlerFor(
+			driver: new ChatDriver(provider: 'openai', chat: $chat, model: 'gpt-5', credentialId: 'cred-o', baseUrl: 'https://api.openai.com/v1')
+		);
+
+		$this->assertSame('OpenAI answer.', $this->turn(handler: $handler));
+		$this->assertSame(450, ($handler->lastUsage['promptTokens'] ?? null));
+		$this->assertSame(50, ($handler->lastUsage['completionTokens'] ?? null));
+		$this->assertArrayHasKey('llmSeconds', $handler->lastUsage);
+	}//end testAnOpenAiTurnRecordsTheTokensOfTheCall()
 }//end class

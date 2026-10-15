@@ -32,6 +32,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
@@ -54,6 +55,8 @@ class WebResearchSettingsController extends Controller {
 	 * @param IRequest $request The request.
 	 * @param WebResearchSettingsHandler $settingsHandler Reads/writes `hermiq.webResearch`.
 	 * @param LoggerInterface $logger Logger.
+	 * @param ConnectionReporter|null $connectionReporter Reports the saved search backend to integriq's
+	 *                                                   connection registry; null when built by hand in a test.
 	 *
 	 * @return void
 	 */
@@ -61,6 +64,7 @@ class WebResearchSettingsController extends Controller {
 		IRequest $request,
 		private readonly WebResearchSettingsHandler $settingsHandler,
 		private readonly LoggerInterface $logger,
+		private readonly ?ConnectionReporter $connectionReporter = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -96,6 +100,7 @@ class WebResearchSettingsController extends Controller {
 	 *                      unsupported search provider.
 	 *
 	 * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
@@ -131,6 +136,10 @@ class WebResearchSettingsController extends Controller {
 			return new JSONResponse(['error' => 'Failed to save web-research configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
+		// Tell integriq what the saved backend means for the web search row. A failed
+		// save above reports nothing.
+		$this->reportSearchBackend(config: $merged);
+
 		return new JSONResponse(
 			[
 				'success' => true,
@@ -139,6 +148,53 @@ class WebResearchSettingsController extends Controller {
 		);
 
 	}//end update()
+
+	/**
+	 * Report the `web-search` connection row for a saved configuration.
+	 *
+	 * An empty provider or endpoint is off, not mocked: `web.search` answers
+	 * `search_unavailable`. So the row reads Not configured, never Simulated
+	 * (adopt-connection-registry design D3). The message names the endpoint host
+	 * only, because the full endpoint may carry a key in its query string.
+	 *
+	 * @param array<string, mixed> $config The merged `webResearch` configuration.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function reportSearchBackend(array $config): void {
+		if ($this->connectionReporter === null) {
+			return;
+		}
+
+		$provider = (string)($config['searchProvider'] ?? '');
+		$endpoint = trim((string)($config['searchEndpoint'] ?? ''));
+		if ($provider === '' || $endpoint === '') {
+			$this->connectionReporter->report(
+				key: 'web-search',
+				status: 'unconfigured',
+				message: 'No search provider or endpoint is set, so web search answers search_unavailable.'
+			);
+			return;
+		}
+
+		$backend = 'a JSON search API';
+		if ($provider === 'searxng') {
+			$backend = 'SearXNG';
+		}
+
+		$host = parse_url($endpoint, PHP_URL_HOST);
+		if (is_string($host) === true && $host !== '') {
+			$backend .= ' at ' . $host;
+		}
+
+		$this->connectionReporter->report(
+			key: 'web-search',
+			status: 'configured',
+			message: 'Searches go to ' . $backend . '. Saved, not tested.'
+		);
+	}//end reportSearchBackend()
 
 	/**
 	 * Replace the raw credential reference with a derived boolean before the config

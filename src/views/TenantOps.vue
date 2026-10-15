@@ -212,6 +212,38 @@
 							v-model="policyDraft.defaultModel"
 							:label="t('hermiq', 'Default model (optional)')"
 							placeholder="qwen2.5" />
+						<NcCheckboxRadioSwitch
+							v-model="policyDraft.requireNoTraining"
+							type="switch">
+							{{
+								t(
+									'hermiq',
+									'Only use providers that never train on our data',
+								)
+							}}
+						</NcCheckboxRadioSwitch>
+						<NcNoteCard
+							v-if="
+								policyDraft.requireNoTraining
+								&& refusedProviders.length > 0
+							"
+							type="warning">
+							<p>
+								{{
+									t(
+										'hermiq',
+										'Runs on this provider will be refused.',
+									)
+								}}
+							</p>
+							<ul class="tenant-ops__refused">
+								<li
+									v-for="provider in refusedProviders"
+									:key="provider">
+									{{ provider }}
+								</li>
+							</ul>
+						</NcNoteCard>
 						<div class="tenant-ops__card-actions">
 							<NcButton
 								type="primary"
@@ -308,6 +340,7 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { loadState } from '@nextcloud/initial-state'
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcEmptyContent,
 	NcLoadingIcon,
 	NcNoteCard,
@@ -318,7 +351,10 @@ import {
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
-import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
+import {
+	listModelPoliciesWithDataUse,
+	updateModelPolicy,
+} from '../api/modelPolicy.js'
 import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 
@@ -329,6 +365,7 @@ export default {
 		BudgetFormModal,
 		CnDataTable,
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -357,7 +394,14 @@ export default {
 			modelPolicies: [],
 			policyError: '',
 			editingPolicyId: null,
-			policyDraft: { allowedText: '', defaultModel: '' },
+			policyDraft: {
+				allowedText: '',
+				defaultModel: '',
+				requireNoTraining: false,
+			},
+
+			// What each provider declared about training (models-no-training-guarantee).
+			providerDataUse: {},
 			policySaving: false,
 			// Access review (agent-lifecycle-governance): agent inventory + attestation + reassignment.
 			reviewAgents: [],
@@ -369,6 +413,27 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The providers in the policy being edited that have not declared they
+		 * never train, so the admin sees who the switch refuses before saving.
+		 *
+		 * @return {Array<string>} The provider ids.
+		 *
+		 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+		 */
+		refusedProviders() {
+			const providers = this.policyDraft.allowedText
+				.split('\n')
+				.map((line) => line.split(':')[0].trim())
+				.filter((provider) => provider !== '')
+			return [...new Set(providers)].filter(
+				(provider) =>
+					!['zero-retention', 'no-training'].includes(
+						this.providerDataUse[provider],
+					),
+			)
+		},
+
 		/**
 		 * The manageable organisations as NcSelect options.
 		 *
@@ -573,7 +638,9 @@ export default {
 		async loadModelPolicies() {
 			this.policyError = ''
 			try {
-				this.modelPolicies = await listModelPolicies()
+				const { policies, dataUse } = await listModelPoliciesWithDataUse()
+				this.modelPolicies = policies
+				this.providerDataUse = dataUse
 			} catch (e) {
 				this.policyError =
 					e?.response?.data?.error
@@ -602,7 +669,11 @@ export default {
 			const suffix = policy.defaultModel
 				? ` — ${this.t('hermiq', 'default')}: ${policy.defaultModel}`
 				: ''
-			return parts.join(' · ') + suffix
+			const training =
+				policy.requireNoTraining === true
+					? ` · ${this.t('hermiq', 'only providers that never train on our data')}`
+					: ''
+			return parts.join(' · ') + suffix + training
 		},
 
 		/**
@@ -630,6 +701,7 @@ export default {
 					.join('\n'),
 
 				defaultModel: policy.defaultModel || '',
+				requireNoTraining: policy.requireNoTraining === true,
 			}
 			this.editingPolicyId = policy.id
 		},
@@ -663,6 +735,7 @@ export default {
 				await updateModelPolicy(policy.id, {
 					allowed,
 					defaultModel: this.policyDraft.defaultModel || null,
+					requireNoTraining: this.policyDraft.requireNoTraining,
 				})
 				showSuccess(this.t('hermiq', 'Model policy saved.'))
 				this.editingPolicyId = null
@@ -867,6 +940,12 @@ export default {
 
 .tenant-ops__card-label {
 	color: var(--color-text-maxcontrast);
+}
+
+.tenant-ops__refused {
+	margin: 4px 0 0;
+	padding-inline-start: 20px;
+	list-style: disc;
 }
 
 .tenant-ops__card-warn {

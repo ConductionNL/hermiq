@@ -48,6 +48,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\Literacy\LiteracyReport;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
@@ -113,6 +114,7 @@ class ComplianceService {
 	 * @param TenantControlService $tenantControlService Per-org kill-switch (stop mechanism).
 	 * @param TenantModelPolicyService $modelPolicyService Per-org model-provider allowlist.
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
+	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator (one per evidence seam), not a logic-bearing argument list.
@@ -124,6 +126,7 @@ class ComplianceService {
 		private readonly TenantControlService $tenantControlService,
 		private readonly TenantModelPolicyService $modelPolicyService,
 		private readonly AiFeatureService $aiFeatureService,
+		private readonly ?LiteracyReport $literacyReport = null,
 	) {
 	}//end __construct()
 
@@ -298,6 +301,8 @@ class ComplianceService {
 			'model-policy-risk-control' => $this->evidenceFromModelPolicy(organisation: $organisation),
 			'capability-review-least-privilege' => $this->evidenceFromAccessReview(),
 			'dpo-ack-design-time-gate' => $this->evidenceFromAiFeatures(),
+			'ai-literacy-completion' => $this->literacyReport?->evidence(organisation: $organisation)
+				?? ['status' => 'unevidenced', 'detail' => 'The AI literacy report is not available.'],
 			default => ['status' => 'unevidenced', 'detail' => 'No evidence source mapped for this control.'],
 		};
 

@@ -56,6 +56,13 @@
 			"order": 18
 		},
 		{
+			"id": "Contexts",
+			"label": "Contexts",
+			"icon": "FileDocumentMultipleOutline",
+			"route": "Contexts",
+			"order": 19
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "ViewDashboardOutline",
@@ -133,12 +140,34 @@
 			"order": 96
 		},
 		{
+			"id": "IntegrationsMenu",
+			"label": "Integrations",
+			"icon": "Connection",
+			"route": "Integrations",
+			"query": {
+				"app": "hermiq"
+			},
+			"section": "settings",
+			"order": 97,
+			"permission": "admin",
+			"visibleIf": {
+				"appInstalled": "integriq"
+			}
+		},
+		{
 			"id": "ReportsMenu",
 			"label": "Reports",
 			"icon": "ChartBoxOutline",
 			"route": "Reports",
-			"section": "footer",
+			"section": "settings",
 			"order": 95
+		},
+		{
+			"id": "AiLiteracy",
+			"label": "Working with AI",
+			"icon": "SchoolOutline",
+			"route": "AiLiteracy",
+			"order": 20
 		}
 	],
 	"pages": [
@@ -148,7 +177,7 @@
 			"type": "custom",
 			"component": "Chat",
 			"title": "Chat",
-			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a conversation archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
+			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a session archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
 		},
 		{
 			"id": "AgentCatalog",
@@ -165,6 +194,21 @@
 						"label": "Name"
 					},
 					{
+						"key": "owner",
+						"label": "Owner"
+					},
+					{
+						"key": "isPrivate",
+						"label": "Who can use it",
+						"formatter": "agentSharing",
+						"sortable": false
+					},
+					{
+						"key": "active",
+						"label": "Status",
+						"formatter": "agentStatus"
+					},
+					{
 						"key": "model",
 						"label": "Model"
 					}
@@ -177,11 +221,23 @@
 						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
+					},
+					{
+						"id": "import-agent",
+						"label": "Import agent",
+						"type": "open-modal",
+						"target": "template-import",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true,
+							"mode": "agent"
+						}
 					}
 				]
 			},
 			"slots": {
-				"form-dialog": "AgentFormModal"
+				"form-dialog": "AgentFormModal",
+				"delete-dialog": "AgentDeleteDialog"
 			}
 		},
 		{
@@ -212,7 +268,7 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"active"
+								"maxToolCalls"
 							]
 						}
 					},
@@ -361,6 +417,13 @@
 						"title": "Eval baseline mode",
 						"icon": "ClipboardCheckOutline",
 						"_note": "skill-evals: the data widget holding Agent.evalBaselineMode — edited here, with the register property's consequence-explaining description (joint vs per-skill, 2x vs (N+1)x cost) surfaced as an info affordance exactly where the value is changed (spec scenario). Resolved via page.slots.widget-agent-eval-baseline -> agent-eval-baseline."
+					},
+					{
+						"id": "agent-ratings",
+						"type": "custom",
+						"title": "Ratings",
+						"icon": "ThumbUpOutline",
+						"_note": "observability-feedback-per-agent: share rated helpful with the thumbs up and down counts, and the latest thumbs-down comments. Resolved via page.slots.widget-agent-ratings -> agent-ratings."
 					}
 				],
 				"layout": [
@@ -471,6 +534,15 @@
 						"gridWidth": 12,
 						"gridHeight": 4,
 						"showTitle": true
+					},
+					{
+						"id": "12",
+						"widgetId": "agent-ratings",
+						"gridX": 0,
+						"gridY": 33,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": true
 					}
 				],
 				"headerActions": [
@@ -485,11 +557,53 @@
 						}
 					},
 					{
+						"id": "switch-availability",
+						"label": "Switch off or on",
+						"type": "open-modal",
+						"target": "agent-availability",
+						"icon": "Power",
+						"props": {
+							"show": true
+						}
+					},
+					{
 						"id": "version-history",
 						"label": "Version history",
 						"type": "open-modal",
 						"target": "agent-version-history",
 						"icon": "History",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "export-agent",
+						"label": "Export",
+						"type": "open-modal",
+						"target": "agent-export",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true,
+							"mode": "export"
+						}
+					},
+					{
+						"id": "save-as-template",
+						"label": "Save as template",
+						"type": "open-modal",
+						"target": "agent-export",
+						"icon": "PackageVariant",
+						"props": {
+							"show": true,
+							"mode": "save"
+						}
+					},
+					{
+						"id": "keep-in-git",
+						"label": "Keep in git",
+						"type": "open-modal",
+						"target": "agent-git",
+						"icon": "SourceBranch",
 						"props": {
 							"show": true
 						}
@@ -516,7 +630,8 @@
 				"widget-agent-run-operations": "agent-run-operations",
 				"widget-agent-memory": "agent-memory",
 				"widget-agent-run-history": "agent-run-history",
-				"widget-agent-eval-baseline": "agent-eval-baseline"
+				"widget-agent-eval-baseline": "agent-eval-baseline",
+				"widget-agent-ratings": "agent-ratings"
 			}
 		},
 		{
@@ -542,6 +657,22 @@
 			"component": "Runs",
 			"title": "Runs",
 			"_note": "Custom page: the cross-agent run list. Not an index page, because runs are not OpenRegister objects — they are `action` in ('run','agent-run') AuditTrail entries, read through AnalyticsService so the list and the dashboard KPIs share one tenant boundary. Two things had no surface before it: the failures behind a dropped success rate (the only run listing was per-schedule), and flow-triggered runs, whose audit entries hang on the triggering object and so matched no schedule-scoped query at all. `?schedule=` narrows it to one schedule, which is where run-history and Talk delivery links now point — both previously built /apps/hermiq/schedules/<uuid>, a route this manifest never declared, so they answered 200 with the app shell and landed the reader on the dashboard. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "RunCompare",
+			"route": "/runs/compare",
+			"type": "custom",
+			"component": "RunCompare",
+			"title": "Compare runs",
+			"_note": "Two agent runs side by side (observability-compare-two-runs). Opened from the Runs page with ?left=&right=; the server compares only runs of agents the caller may see in the run list and answers any other run 404, like a run that does not exist."
+		},
+		{
+			"id": "FlowRunCompare",
+			"route": "/flow-runs/compare",
+			"type": "custom",
+			"component": "FlowRunCompare",
+			"title": "Compare flow runs",
+			"_note": "Two runs of one flow, node by node (observability-compare-two-runs). Flows and runs are read from OpenRegister in the browser with the person's own session; hermiq stores no flow runs. Its own page because the flow detail page is the shared flow page type."
 		},
 		{
 			"id": "SkillsCatalog",
@@ -580,6 +711,34 @@
 			"slots": {
 				"row-actions": "skill-row-actions",
 				"form-dialog": "SkillFormModal"
+			}
+		},
+		{
+			"id": "Contexts",
+			"route": "/contexts",
+			"type": "index",
+			"title": "Contexts",
+			"config": {
+				"register": "hermiq",
+				"schema": "context",
+				"_note": "hermiq-context-documents: create and edit Context bundles (documents, files, live data queries) that agents read at run start. The form-dialog slot mounts ContextFormModal in place of the generic dialog, so documents get a markdown editor per entry.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "needsConsolidation",
+						"label": "Over budget"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "ContextFormModal"
 			}
 		},
 		{
@@ -732,6 +891,16 @@
 						"type": "open-modal",
 						"target": "template-import",
 						"icon": "TrayArrowDown",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "collect-app-templates",
+						"label": "Check apps for templates",
+						"type": "open-modal",
+						"target": "app-template-collect",
+						"icon": "PuzzleOutline",
 						"props": {
 							"show": true
 						}
@@ -1263,6 +1432,71 @@
 			}
 		},
 		{
+			"id": "Integrations",
+			"route": "/settings/integrations",
+			"type": "index",
+			"title": "Integrations",
+			"permission": "admin",
+			"requiresApp": {
+				"id": "integriq",
+				"name": "Integriq"
+			},
+			"_note": "Hermiq's outside connections (adopt-connection-registry, hydra connection-registry D8). The rows are integriq's `app_connection` objects, synced from lib/Settings/connections.json. Integriq works out each status; hermiq only reports. The app=hermiq preset is the menu entry's `query` (ADR-097 decision 5), which the index page merges into the fetch as a bare filter key. `showAdd` is false because a row nothing declared has nothing to check (D9). Add integration leaves for integriq's overview through the openIntegriqConnections handler in src/customComponents.js, because a header action's `navigate` only pushes a route inside this app.",
+			"config": {
+				"register": "integriq",
+				"schema": "app_connection",
+				"showViewAction": false,
+				"showAdd": false,
+				"headerActions": [
+					{
+						"id": "add-integration",
+						"label": "Add integration",
+						"icon": "Connection",
+						"handler": "openIntegriqConnections"
+					}
+				],
+				"defaultSort": {
+					"field": "order",
+					"direction": "asc"
+				},
+				"folderSidebar": {
+					"source": "field",
+					"field": "status",
+					"allLabel": "All connections"
+				},
+				"columns": [
+					{
+						"key": "title",
+						"label": "Connection"
+					},
+					{
+						"key": "status",
+						"label": "Status",
+						"formatter": "connectionStatus"
+					},
+					{
+						"key": "statusMessage",
+						"label": "Status message",
+						"sortable": false
+					},
+					{
+						"key": "checkedAt",
+						"label": "Last checked"
+					},
+					{
+						"key": "settingsUrl",
+						"label": "Settings",
+						"sortable": false,
+						"formatter": "connectionSettingsLabel",
+						"widget": "link",
+						"widgetProps": {
+							"href": "{settingsUrl}"
+						}
+					}
+				]
+			}
+		},
+		{
 			"id": "FlowIndexLegacyRedirect",
 			"route": "/graphs",
 			"type": "index",
@@ -1506,6 +1740,14 @@
 					]
 				}
 			}
+		},
+		{
+			"id": "AiLiteracy",
+			"route": "/ai-literacy",
+			"type": "custom",
+			"component": "AiLiteracy",
+			"title": "Working with AI",
+			"_note": "compliance-ai-literacy: six lessons on working with AI, each with a check question; an organisation admin also sees completion per person, exports it as CSV and may require the course before first use. Custom because reading, answering and checking a lesson happen on one page."
 		}
 	],
 	"setup": {
@@ -1525,17 +1767,10 @@
 				"display": "cards",
 				"optionsSource": "datasets",
 				"configKey": "demo_dataset",
+				"loadAction": "load-demo-data",
 				"title": "Load example data?",
 				"required": false,
-				"body": "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install."
-			},
-			{
-				"id": "load-demo-data",
-				"type": "run-action",
-				"action": "load-demo-data",
-				"title": "Load the example data",
-				"required": false,
-				"body": "Loads what you picked. The data is obviously sample data, it is safe to run more than once, and you can delete it afterwards."
+				"body": "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Each card has its own Load button. Pick \"None\" on a production install."
 			},
 			{
 				"id": "llm-endpoint",
@@ -1683,6 +1918,75 @@
 						},
 						"advanceOn": {
 							"type": "manual"
+						}
+					}
+				]
+			},
+			{
+				"id": "hermiq:ai-literacy",
+				"title": "Working with AI",
+				"trigger": "manual",
+				"minAppVersion": "0.2.17",
+				"steps": [
+					{
+						"id": "course",
+						"sinceVersion": "0.2.17",
+						"placement": "center",
+						"title": "Working with AI",
+						"body": "Six short lessons on working with AI agents: what an agent is, why answers can be wrong, and when a person decides. Each ends with one question.",
+						"target": {
+							"kind": "page",
+							"ref": "AiLiteracy"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
+					},
+					{
+						"id": "go-chat",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"body": "In a chat, the sources an agent used are listed under its answer. Open them before you use the answer.",
+						"task": "Click Chat in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "Chat"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "Chat"
+						}
+					},
+					{
+						"id": "see-flows",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"optional": true,
+						"allowManualNext": true,
+						"body": "A flow runs agents on a schedule or after an event, without anyone clicking. Read what a flow does before you switch it on.",
+						"task": "Open Flows in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "FlowIndex"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "FlowIndex"
+						}
+					},
+					{
+						"id": "go-approvals",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"body": "When an agent wants to change something that needs a person, the request waits here with what it will do. You decide.",
+						"task": "Click Approvals in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "ApprovalInbox"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "ApprovalInbox"
 						}
 					}
 				]

@@ -26,6 +26,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use Exception;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
+use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -284,4 +285,85 @@ class ContextRetrievalHandlerTest extends TestCase {
 		$this->assertSame('uuid-9', $context['sources'][0]['id']);
 
 	}//end testObjectEntityResultsAreUnwrapped()
+
+	/**
+	 * A graph retriever double: returns the given context, or throws when told to.
+	 *
+	 * @param array<string, mixed>|null $context What retrieve() returns.
+	 * @param bool $throws Whether retrieve() throws.
+	 * @param int $calls How many calls are expected.
+	 *
+	 * @return GraphContextRetriever
+	 */
+	private function graphRetriever(?array $context, bool $throws = false, int $calls = 1): GraphContextRetriever {
+		$retriever = $this->createMock(GraphContextRetriever::class);
+		$expectation = $retriever->expects($this->exactly($calls))->method('retrieve');
+		if ($throws === true) {
+			$expectation->willThrowException(new Exception('graph down'));
+		} else {
+			$expectation->willReturn($context);
+		}
+
+		return $retriever;
+
+	}//end graphRetriever()
+
+	/**
+	 * Graph mode on a graph-enabled agent uses the graph's sources and relations and
+	 * never runs the keyword search.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-graph-mode-turn-assembles-a-neighborhood
+	 */
+	public function testGraphModeUsesTheGraph(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('searchObjectsPaginated');
+		$graph = $this->graphRetriever(
+			[
+				'results' => [
+					['entity_id' => 'rec-jan', 'entity_type' => 'object', 'text' => 'Jan is a buyer', 'score' => 1.0, 'metadata' => ['uuid' => 'rec-jan', 'name' => 'Jan Jansen']],
+				],
+				'relations' => "Relations:\nJan Jansen -[worksFor]-> Acme\n",
+			]
+		);
+
+		$handler = new ContextRetrievalHandler($objectService, new NullLogger(), $graph);
+		$context = $handler->retrieveContext(query: 'Jan Jansen', agent: $this->agent(['ragSearchMode' => 'graph', 'graphEnabled' => true]));
+
+		$this->assertCount(1, $context['sources']);
+		$this->assertSame('rec-jan', $context['sources'][0]['uuid']);
+		$this->assertStringContainsString('Jan is a buyer', $context['text']);
+		$this->assertStringContainsString('Jan Jansen -[worksFor]-> Acme', $context['text']);
+
+	}//end testGraphModeUsesTheGraph()
+
+	/**
+	 * Graph mode degrades to the keyword path, without failing the turn, when the graph
+	 * finds no seed, when it throws, and when the agent has not enabled the graph.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-an-empty-graph-degrades-to-keyword-retrieval
+	 */
+	public function testGraphModeDegradesToKeyword(): void {
+		$cases = [
+			'no seed' => [$this->graphRetriever(null), true],
+			'graph throws' => [$this->graphRetriever(null, true), true],
+			'not enabled' => [$this->graphRetriever(null, false, 0), false],
+		];
+		foreach ($cases as $name => [$graph, $enabled]) {
+			$objectService = $this->createMock(ObjectService::class);
+			$objectService->expects($this->once())->method('searchObjectsPaginated')->willReturn(
+				['results' => [['id' => 'obj-1', 'name' => 'Leave policy']], 'total' => 1]
+			);
+
+			$handler = new ContextRetrievalHandler($objectService, new NullLogger(), $graph);
+			$context = $handler->retrieveContext(query: 'leave', agent: $this->agent(['ragSearchMode' => 'graph', 'graphEnabled' => $enabled]));
+
+			$this->assertCount(1, $context['sources'], $name);
+			$this->assertStringNotContainsString('Relations:', $context['text'], $name);
+		}
+
+	}//end testGraphModeDegradesToKeyword()
 }//end class

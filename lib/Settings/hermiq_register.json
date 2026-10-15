@@ -2,8 +2,8 @@
 	"openapi": "3.0.0",
 	"info": {
 		"title": "Hermiq Register",
-		"description": "Hermiq register v0.31.0, schedules-onto-engine-triggers: Schedule gains the OPTIONAL, derived engineFlowId — the uuid of the OpenRegister flow that now owns this schedule's clock. Written by the ScheduleFlowBridge when a schedule is mirrored onto the engine's schedule trigger, cleared by occ hermiq:schedules:rollback-flow-mirror. While set, the app-local dispatcher no longer selects the schedule as due by nextRun (a pending retry still fires locally). ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
-		"version": "0.31.0"
+		"description": "Hermiq register v0.49.0, chat-attachments-and-images: SessionTurn gains attachments, an array of {fileId, name, mimeType, size, origin} with origin upload, files or generated. A reference only: no bytes and no extracted text are stored on the turn, and the engine reads each file in the Files of the person who sent the turn. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.48.0, agents-standing-goal: adds the Goal schema (agentgoal), a standing goal an agent keeps working on in one session, a turn at a time, until its check (an object count or a judge question) passes, the person stops it or its turn limit is used. Read by the person who set it (setBy); ScheduleTask takes the due turns. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.47.0, agents-instruction-variables: Agent gains startFields (at most ten {key, label, type, options, required, default}), agentsession and Schedule gain startValues (an object of strings by field key): the fields a person fills in before a conversation, usable as {{field.<key>}} in the instructions. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.46.0, agents-export-import-and-git-sync part B: Agent gains the OPTIONAL gitOwner, gitRepo, gitRef and gitLastPulledHash (strings): the GitHub repository an owner keeps the agent in, stamped by a publish and read by push and pull, never taken from a request. Each carries an update rule for the admin group, so through the object API only an instance admin can change them; AgentGitService writes them for the checked owner. Previous v0.45.0, part A: AgentTemplate gains derivedFrom (uuid, $ref agent), the agent a template was saved from. Previous v0.44.0, agents-bound-to-their-app part 3: AgentTemplate gains offeredBy and offerHash and the source value app, for templates an installed app offers through CollectAgentTemplatesEvent. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.43.0, agents-bound-to-their-app part 2: adds the RecordSummary schema (agentrecordsummary): an AI-written summary of one record, kept per record content hash so it shows again without a model call until the record changes. Only an admin reads or writes it through the object API, because a summary repeats its record; RecordSummaryService reads the record as the caller first and is the one reader for everyone else. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.42.0, agents-bound-to-their-app: Agent gains the OPTIONAL appAssistantFor (string): the app this agent answers in as its assistant when a chat names no agent, valid only while it equals applicationSlug, one per app per organisation, set by an organisation admin through POST /api/agents/{id}/app-assistant. The property carries an update rule for the admin group, so an agent owner cannot set it through the object API. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.41.0, approval-verification-contract: Approval gains the OPTIONAL binding (string), the sha256 binding of a batch another app staged, which Hermiq stores and compares when that app asks for a signed verdict (POST /api/approvals/verify). THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.40.0, agents-switch-off-and-stop: Agent gains maxToolCalls (integer 1 to 100, default 10: the tool calls one answer may make) and availabilityChangedBy, availabilityChangedAt and availabilityReason (who switched the agent off or on, when and why); Schedule.agentId declares onDelete CASCADE, so deleting an agent deletes its schedules. The three availability fields are strings with nullable true, never a union type: OpenRegister's import refuses a type list and leaves the whole schema out of the register. For the same reason GraphEntity and GraphRelation sourceRef.messageId (integer for mail, string for a conversation) carries no type; a nested property may omit one. THE VERSION BUMP IS THE POINT: the import is gated on info.version. Previous v0.39.0, compliance-ai-literacy: adds the LiteracyLesson (literacylesson, readable by every signed-in user) and LiteracyCompletion (literacycompletion, readable by its owner) schemas for the course Working with AI, the OPTIONAL TenantControl.aiLiteracyRequired (boolean, default false) and the Control evidenceSource ai-literacy-completion for the EU AI Act article 4 control. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install. Previous v0.38.0, models-no-training-guarantee: ModelPolicy gains the OPTIONAL requireNoTraining (boolean, default false). When an organisation's effective policy sets it, a run on a provider that has not declared zero-retention or no-training is refused before any request is sent, whether or not the run names an AI feature. The per-provider declaration itself lives in app config beside the residency map, not in the register. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a property shipped without one is inert on every existing install. Previous v0.37.0, knowledge-graph: adds the GraphEntity (graphentity) and GraphRelation (graphrelation) schemas and the OPTIONAL Agent.graphEnabled (boolean, default false). A node is a typed reference to one record (object, file, mail or conversation) and never a copy of it; an edge joins two node uuids. Direct reads of both schemas are owner-only; every other reader goes through GraphService, which shows a node only while the acting user can read its record and an edge only when both endpoints are visible. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install. Previous v0.34.0, private-reads (hermiq#976): eight schemas stop granting read to every signed-in user. Agent is read by its owner, by anyone when it is not private (isPrivate false or unset), by a user in invitedUsers, and by a member of a group in groups, the same predicate as AgentAccessService::canUserAccessAgent(). Session and Conversation are read by the user in userId and by the users in participants. UserProfile is read by the user it describes (subjectUid). SessionTurn, Message, Memory and IntakeConversation are read by their owner only. Owners and admins are admitted before any rule, and write actions stay omitted, so writes stay owner-only. Every rule is conditional on the authenticated pseudo-group, so no rule opens a schema to anonymous callers. THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a rule shipped without one is inert on every existing install. Previous v0.33.0, ai-translation-provenance: AiFeature gains the OPTIONAL outputsLabelled (boolean, default false) and outputLabelling (text), so the register records whether a feature tells the people who read its output that AI made it (EU AI Act Art. 50), and how. The message-translation feature is seeded with both. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.32.0, session-schema-declaration: Session and SessionTurn take over every property of Conversation and Message so the migration can copy field for field, and Session gains the OPTIONAL triggerOrigin (human|cron|event|flow, default human) that the Chat page splits human sessions from automated ones on. The slug stays `agentsession`, NOT `session`: the bare slug resolves to scholiq's schema, and this register already prefixes for exactly that reason (agentskill, agentbudget, agentwebhook). Conversation and Message stay declared and untouched until the migration is verified in production. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.31.0, schedules-onto-engine-triggers: Schedule gains the OPTIONAL, derived engineFlowId — the uuid of the OpenRegister flow that now owns this schedule's clock. Written by the ScheduleFlowBridge when a schedule is mirrored onto the engine's schedule trigger, cleared by occ hermiq:schedules:rollback-flow-mirror. While set, the app-local dispatcher no longer selects the schedule as due by nextRun (a pending retry still fires locally). ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.30.0, finish-agentflow-retirement: the AgentFlow and AgentFlowRun schemas leave the descriptor. The object store they described is retired: hermiq authors flows in OpenRegister's native flow store, and the agentflow runner, resolver and frontend are already gone. The import unions schema ids and never removes one, so the PruneRetiredAgentFlowSchemas repair step deletes the leftover rows, their objects and their tables. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
+		"version": "0.49.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -27,6 +27,8 @@
 					"agentbudget",
 					"agentcompliancecontrol",
 					"agentcontrolframework",
+					"agentgoal",
+					"agentrecordsummary",
 					"agentsession",
 					"agentsessionturn",
 					"agentskill",
@@ -41,6 +43,8 @@
 					"evaldataset",
 					"evalrun",
 					"feedback",
+					"graphentity",
+					"graphrelation",
 					"guardrailpolicy",
 					"incident",
 					"memory",
@@ -57,7 +61,7 @@
 			"Schedule": {
 				"slug": "schedule",
 				"icon": "ClockOutline",
-				"version": "0.2.0",
+				"version": "0.4.0",
 				"title": "Schedule",
 				"description": "A schedule that fires an OpenRegister agent on a cron expression, a fixed interval, or once at a future time.",
 				"type": "object",
@@ -87,7 +91,8 @@
 						"title": "Agent",
 						"description": "UUID of the OpenRegister Agent this schedule runs (reference to the Agent entity owned by OpenRegister)",
 						"example": "00000000-0000-0000-0000-000000000000",
-						"$ref": "agent"
+						"$ref": "agent",
+						"onDelete": "CASCADE"
 					},
 					"kind": {
 						"type": "string",
@@ -122,6 +127,12 @@
 						"type": "string",
 						"title": "Prompt",
 						"description": "Optional task text passed to the agent run"
+					},
+					"startValues": {
+						"type": "object",
+						"title": "Start values",
+						"description": "Values for the agent's start fields on this schedule's runs, by field key. A field without a value here uses its default.",
+						"additionalProperties": {"type": "string"}
 					},
 					"deliver": {
 						"type": "string",
@@ -298,10 +309,136 @@
 					}
 				}
 			},
+			"Goal": {
+				"slug": "agentgoal",
+				"icon": "FlagCheckered",
+				"version": "0.1.0",
+				"title": "Goal",
+				"description": "A standing goal an agent keeps working on in one session, a turn at a time, until its check says it is reached, its owner stops it or its turn limit is used (agents-standing-goal).",
+				"type": "object",
+				"required": [
+					"agentId",
+					"sessionId",
+					"statement",
+					"check",
+					"setBy"
+				],
+				"authorization": {
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"setBy": "$userId"
+							}
+						}
+					]
+				},
+				"x-openregister-lifecycle": {
+					"property": "status",
+					"initial": "active",
+					"transitions": {
+						"reach": {
+							"from": "active",
+							"to": "reached"
+						},
+						"stop": {
+							"from": "active",
+							"to": "stopped"
+						},
+						"exhaust": {
+							"from": "active",
+							"to": "exhausted"
+						}
+					}
+				},
+				"properties": {
+					"agentId": {
+						"type": "string",
+						"format": "uuid",
+						"title": "Agent",
+						"description": "The agent that works on the goal.",
+						"$ref": "agent",
+						"onDelete": "CASCADE"
+					},
+					"sessionId": {
+						"type": "string",
+						"title": "Session",
+						"description": "The session the goal's turns continue."
+					},
+					"statement": {
+						"type": "string",
+						"title": "Goal",
+						"description": "What the agent works towards, in the person's words.",
+						"maxLength": 500
+					},
+					"check": {
+						"type": "object",
+						"title": "Check",
+						"description": "How a turn's result is checked: {kind: objectCount, register, schema, filters, target} or {kind: judge, question}."
+					},
+					"intervalMinutes": {
+						"type": "integer",
+						"title": "Every (minutes)",
+						"description": "How often the agent takes a turn.",
+						"minimum": 15,
+						"maximum": 1440,
+						"default": 60
+					},
+					"maxTurns": {
+						"type": "integer",
+						"title": "Turn limit",
+						"description": "The most turns the agent takes before the goal is exhausted.",
+						"minimum": 1,
+						"maximum": 50,
+						"default": 10
+					},
+					"turnsUsed": {
+						"type": "integer",
+						"title": "Turns used",
+						"description": "Turns the agent has taken.",
+						"minimum": 0,
+						"default": 0
+					},
+					"status": {
+						"type": "string",
+						"title": "Status",
+						"description": "active, reached, stopped or exhausted.",
+						"enum": [
+							"active",
+							"reached",
+							"stopped",
+							"exhausted"
+						],
+						"default": "active"
+					},
+					"blocked": {
+						"type": "string",
+						"title": "Blocked by",
+						"description": "The gate that held the last due turn (agent off, kill switch, budget), empty when the last turn ran.",
+						"default": ""
+					},
+					"lastCheckResult": {
+						"type": "object",
+						"title": "Last check",
+						"description": "The last check: {reached, value, summary, checkedAt}."
+					},
+					"nextTurnAt": {
+						"type": "string",
+						"format": "date-time",
+						"title": "Next turn",
+						"description": "When the next turn is due."
+					},
+					"setBy": {
+						"type": "string",
+						"title": "Set by",
+						"description": "The person who set the goal; the turns run and the checks count as them."
+					}
+				}
+			},
 			"Approval": {
 				"slug": "approval",
 				"icon": "CheckDecagramOutline",
-				"version": "0.6.0",
+				"version": "0.7.0",
 				"title": "Approval",
 				"description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision).",
 				"type": "object",
@@ -335,11 +472,12 @@
 							"tool",
 							"toolcall",
 							"skill-draft",
-							"advisory"
+							"advisory",
+							"workspace-run"
 						],
 						"default": "schedule",
 						"title": "Source type",
-						"description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires), or a skill consolidation draft (skill-self-improvement: the pending→approved transition applies the draft onto the Skill as a new version from ANY surface; denial reconciles the draft to rejected)., or an ADVISORY AI decision recorded after the fact (ai-oversight — the only NON-BLOCKING variant: nothing was ever gated, the human already acted, and the record is Art. 14 evidence rather than a permission. Created terminal; an advisory Approval is never `pending`.)"
+						"description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires), or a skill consolidation draft (skill-self-improvement: the pending→approved transition applies the draft onto the Skill as a new version from ANY surface; denial reconciles the draft to rejected)., or an ADVISORY AI decision recorded after the fact (ai-oversight — the only NON-BLOCKING variant: nothing was ever gated, the human already acted, and the record is Art. 14 evidence rather than a permission. Created terminal; an advisory Approval is never `pending`.), or a workspace-run pre-authorisation (hermiq-runner-git-capability: nothing auto-resumes; once approved it lets one run's governed workspace writes through, keyed by agentId and the run id in toolArguments, and no other run)."
 					},
 					"scheduleId": {
 						"type": "string",
@@ -377,6 +515,11 @@
 						"type": "object",
 						"title": "Tool arguments",
 						"description": "The gated tool call's arguments (redacted before persistence — redaction-before-persist). Present only when sourceType=toolcall."
+					},
+					"binding": {
+						"type": "string",
+						"title": "Batch binding",
+						"description": "The sha256 binding of a batch another app staged (integriq: proposal, tool and sorted target ids). Stored as given when the batch is staged and only compared when that app asks Hermiq for a signed verdict. Present only for a staged-batch sourceType=toolcall approval."
 					},
 					"consumedAt": {
 						"type": "string",
@@ -639,10 +782,295 @@
 					}
 				}
 			},
+			"OutsideAgentRegistration": {
+				"slug": "agentoutsideregistration",
+				"icon": "RobotOutline",
+				"version": "0.1.0",
+				"title": "Outside agent registration",
+				"description": "What one AI agent outside this instance may call, and as whom. The registration narrows what its principal may already do and never raises it: revoking the person's access revokes the agent's on the next call, with nothing to edit here.",
+				"type": "object",
+				"required": [
+					"label",
+					"principal"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"label": {
+						"type": "string",
+						"title": "Label",
+						"description": "Human-readable name of the outside agent this registration is for."
+					},
+					"principal": {
+						"type": "string",
+						"title": "Principal",
+						"description": "The Nextcloud user the outside agent authenticates as. Every call is authorised by the owning app for this person, exactly as a call from them would be."
+					},
+					"tools": {
+						"type": "array",
+						"title": "Granted tools",
+						"description": "The tool ids this registration may call. A tool that writes is denied unless it is named here, which is the same default-deny rule the per-agent grants already state.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"fieldAllowlist": {
+						"type": "array",
+						"title": "Response fields",
+						"description": "The fields a tool response may carry for this registration. Empty means the owning app's own response, unnarrowed. The filter narrows only: it never renames, reshapes or computes a value.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"enabled": {
+						"type": "boolean",
+						"default": true,
+						"title": "Enabled",
+						"description": "Whether this registration may call anything at all."
+					}
+				}
+			},
+			"AssistantPrompt": {
+				"slug": "agentassistantprompt",
+				"icon": "TextBoxOutline",
+				"version": "0.1.0",
+				"title": "Assistant prompt",
+				"description": "One prompt the assistant offers on a record, as an object an administrator can read and edit. A gemeente that cannot read the prompt cannot defend the output: when a citizen asks why the assistant summarised their bezwaar as it did, the answer is this text.",
+				"type": "object",
+				"required": [
+					"label",
+					"prompt"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"label": {
+						"type": "string",
+						"title": "Label",
+						"description": "What the person clicking it reads."
+					},
+					"prompt": {
+						"type": "string",
+						"title": "Prompt",
+						"description": "The exact text that is sent to the model. What an administrator reads here is what the model is told."
+					},
+					"usageScope": {
+						"type": "string",
+						"title": "Usage scope",
+						"description": "Where this prompt is offered, named by the record type it belongs to. An empty scope is offered everywhere."
+					},
+					"order": {
+						"type": "integer",
+						"default": 0,
+						"title": "Order",
+						"description": "The administrator's order. The surface renders the library in it, unsorted."
+					},
+					"enabled": {
+						"type": "boolean",
+						"default": true,
+						"title": "Enabled",
+						"description": "Whether this prompt is offered. Disabling every prompt is one act; re-enabling is per prompt, because a bulk re-enable would restore a prompt switched off weeks earlier for a different reason."
+					},
+					"source": {
+						"type": "string",
+						"title": "Shipped by",
+						"description": "The app that shipped this prompt as an initial library entry, when one did."
+					},
+					"administered": {
+						"type": "boolean",
+						"default": false,
+						"title": "Administered",
+						"description": "Set once an administrator has edited, reordered, scoped or disabled this prompt. The shipping app may no longer restore it: the edited state lives here."
+					}
+				}
+			},
+			"ReportGroup": {
+				"slug": "agentreportgroup",
+				"icon": "AccountGroupOutline",
+				"version": "0.1.0",
+				"title": "Report group",
+				"description": "One underlying event that several incoming reports describe. A group is a judgement and a set of references: every report in it stays a complete record of its own, nothing was discarded to form it, and removing a member leaves that report standing alone.",
+				"type": "object",
+				"required": [
+					"reportType"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"reportType": {
+						"type": "string",
+						"title": "Report type",
+						"description": "The kind of report this group holds, as the owning app names it. The comparison window is administered per type."
+					},
+					"deterministicKey": {
+						"type": "string",
+						"title": "Deterministic key",
+						"description": "The key the owning app supplied for this group, such as a location and a category within a period. Where a key decides, the model is not asked."
+					},
+					"windowMinutes": {
+						"type": "integer",
+						"title": "Window (minutes)",
+						"description": "The comparison window in force when this group was formed, recorded so a handler can read what was compared rather than what is configured today."
+					},
+					"terms": {
+						"type": "array",
+						"title": "Terms",
+						"description": "The words this group's members have in common. A citizen who disagrees with a grouping is owed a reason, and the reason cannot be that the model said so.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"members": {
+						"type": "array",
+						"title": "Members",
+						"description": "One entry per report in the group, carrying its score, whether the key or the model decided, and whether it is a near-duplicate a human should look at.",
+						"items": {
+							"type": "object",
+							"properties": {
+								"reportId": {
+									"type": "string",
+									"title": "Report",
+									"description": "The owning app's identifier for the report. A reference, never a copy."
+								},
+								"score": {
+									"type": "number",
+									"title": "Score",
+									"description": "How alike this report and the group are, between 0 and 1."
+								},
+								"decidedBy": {
+									"type": "string",
+									"enum": ["key", "model"],
+									"title": "Decided by",
+									"description": "Whether the owning app's deterministic key or the similarity judgement put this report in the group."
+								},
+								"scorer": {
+									"type": "string",
+									"title": "Scorer",
+									"description": "Which judgement produced the score, named rather than implied."
+								},
+								"uncertain": {
+									"type": "boolean",
+									"title": "Near-duplicate",
+									"description": "Set when the score fell between the two thresholds. The report is attached and listed beside the group rather than counted silently into it."
+								},
+								"joinedAt": {
+									"type": "string",
+									"format": "date-time",
+									"title": "Joined at",
+									"description": "When this report joined the group."
+								}
+							}
+						}
+					}
+				}
+			},
+			"IntakeConversation": {
+				"slug": "agentintakeconversation",
+				"icon": "ForumOutline",
+				"version": "0.2.0",
+				"title": "Intake conversation",
+				"description": "One conversation with a person who has no record yet, keyed by the person and the subject rather than by the channel, so somebody who starts by e-mail and continues in the portal is not asked to repeat themselves. It ends in a filed request or in a handover to a person, and in nothing else.",
+				"type": "object",
+				"required": [
+					"person",
+					"subject"
+				],
+				"authorization": {
+					"read": [
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
+					]
+				},
+				"properties": {
+					"person": {
+						"type": "string",
+						"title": "Person",
+						"description": "Who this conversation is with."
+					},
+					"subject": {
+						"type": "string",
+						"title": "Subject",
+						"description": "What it is about, as the owning app names it. Together with the person it is the key, which is what joins the channels into one conversation."
+					},
+					"state": {
+						"type": "string",
+						"enum": ["open", "filed", "handover"],
+						"default": "open",
+						"title": "State",
+						"description": "Open, or one of the two endings. A citizen who gives up leaves no case and no complaint, so there is no third."
+					},
+					"messages": {
+						"type": "array",
+						"title": "Messages",
+						"description": "What was said, and on which channel it arrived. The channel is recorded because it is worth knowing; it decides nothing.",
+						"items": {
+							"type": "object",
+							"properties": {
+								"channel": {"type": "string", "title": "Channel", "description": "The channel this message arrived on."},
+								"text": {"type": "string", "title": "Text", "description": "What was written."},
+								"at": {"type": "string", "format": "date-time", "title": "At", "description": "When it arrived."}
+							}
+						}
+					},
+					"classification": {
+						"type": "object",
+						"title": "Classification",
+						"description": "What kind of request this was proposed to be, with the confidence and the threshold that applied. The type is drawn from the catalogue the owning app declares and is never invented.",
+						"properties": {
+							"type": {"type": "string", "title": "Type", "description": "The proposed request type."},
+							"confidence": {"type": "number", "title": "Confidence", "description": "How certain the proposal was, between 0 and 1."},
+							"threshold": {"type": "number", "title": "Threshold", "description": "The abstention threshold in force at the time."}
+						}
+					},
+					"escalation": {
+						"type": "object",
+						"title": "Escalation",
+						"description": "How urgent this is, and who said so. A level the owning app decided by rule is preferred over a model one, and a model score is labelled as a model output wherever it is shown.",
+						"properties": {
+							"level": {"type": "string", "title": "Level", "description": "The escalation level."},
+							"decidedBy": {"type": "string", "enum": ["deterministic", "model"], "title": "Decided by", "description": "Whether a rule or a model produced this level."},
+							"label": {"type": "string", "title": "Label", "description": "The words shown beside the level, so a reader can tell a rule from a model without asking."}
+						}
+					},
+					"reviews": {
+						"type": "array",
+						"title": "External reviews",
+						"description": "Verdicts another party formed, carried into the conversation with whose they were and when. Hermiq forms no opinion of its own about what was reviewed.",
+						"items": {"type": "object"}
+					},
+					"handover": {
+						"type": "object",
+						"title": "Handover",
+						"description": "Why a person has it and what they were given. The transcript travels, so nobody has to ask the citizen to say it all again.",
+						"properties": {
+							"reason": {"type": "string", "title": "Reason", "description": "Why it could not be filed."},
+							"at": {"type": "string", "format": "date-time", "title": "At", "description": "When it was handed over."}
+						}
+					},
+					"filed": {
+						"type": "object",
+						"title": "Filed",
+						"description": "Which declared intake tool was called and what the owning app created. Hermiq proposes; the owning app validates and creates.",
+						"properties": {
+							"tool": {"type": "string", "title": "Tool", "description": "The declared intake tool that was called."},
+							"type": {"type": "string", "title": "Type", "description": "The request type that was filed."},
+							"at": {"type": "string", "format": "date-time", "title": "At", "description": "When it was filed."}
+						}
+					}
+				}
+			},
 			"AiFeature": {
 				"slug": "agentaifeature",
 				"icon": "RobotOutline",
-				"version": "0.2.0",
+				"version": "0.5.0",
 				"title": "AI feature",
 				"description": "A design-time inventory entry for a high-risk AI feature this platform provides (EU AI Act registration/oversight). Risk-classified and gated by a declarative lifecycle whose enable transition requires a DPO acknowledgement.",
 				"type": "object",
@@ -686,6 +1114,34 @@
 						"title": "Description",
 						"description": "What the AI feature does and why it is risk-relevant."
 					},
+					"provider": {
+					    "type": "string",
+					    "enum": ["", "openai", "ollama", "fireworks", "nextcloud", "anthropic"],
+					    "title": "Provider",
+					    "description": "The chat provider this feature's runs use. Empty means the organisation's effective model policy decides, which is the behaviour of a feature that has never been bound. A binding narrows the policy and can never widen it."
+					},
+					"model": {
+					    "type": "string",
+					    "title": "Model",
+					    "description": "The model this feature's runs use, alongside the bound provider. Set both or neither."
+					},
+					"requiredResidency": {
+					    "type": "string",
+					    "enum": ["", "on-premise", "eu", "outside-eu"],
+					    "title": "Required residency",
+					    "description": "Where the provider serving this feature must run. A run whose provider carries a different residency is refused before any request reaches it."
+					},
+					"requiresRedaction": {
+						"type": "boolean",
+						"default": false,
+						"title": "Requires redaction",
+						"description": "Whether this feature refuses to read a document that filinq has not redacted. The requirement attaches to a document reference, so the feature still runs on typed text. Hermiq never redacts and never treats a detection result as a redaction."
+					},
+					"retentionDays": {
+						"type": "integer",
+						"title": "Retention (days)",
+						"description": "How long this feature's run records are kept, overriding the instance default. The resolved period is copied onto each run, so changing it later does not move a promise already made."
+					},
 					"riskCategory": {
 						"type": "string",
 						"enum": [
@@ -696,6 +1152,17 @@
 						],
 						"title": "Risk category",
 						"description": "EU AI Act risk classification of the feature."
+					},
+					"outputsLabelled": {
+						"type": "boolean",
+						"default": false,
+						"title": "Outputs labelled as AI-made",
+						"description": "Whether the people who read this feature's output are told that AI made it (EU AI Act Art. 50)."
+					},
+					"outputLabelling": {
+						"type": "string",
+						"title": "How outputs are labelled",
+						"description": "How readers are told that AI made the output, for example a notice with the source language and a link to the original."
 					},
 					"lifecycle": {
 						"type": "string",
@@ -812,7 +1279,7 @@
 			"TenantControl": {
 				"slug": "tenantcontrol",
 				"icon": "StopCircleOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Tenant control",
 				"description": "Per-organisation kill-switch plus the stated EU AI Act Art. 12 retention-period policy (agent-lifecycle-governance). When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
 				"type": "object",
@@ -825,6 +1292,12 @@
 					]
 				},
 				"properties": {
+					"aiLiteracyRequired": {
+						"type": "boolean",
+						"default": false,
+						"title": "Require the AI course before first use",
+						"description": "When on, a person who has not finished the course Working with AI cannot start a chat, a run by hand or a Talk session with an agent. Scheduled and flow runs are not blocked."
+					},
 					"engaged": {
 						"type": "boolean",
 						"default": false,
@@ -859,7 +1332,7 @@
 			"ModelPolicy": {
 				"slug": "modelpolicy",
 				"icon": "ShieldCheckOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Model policy",
 				"description": "Per-organisation allowlist of chat provider/model pairs an organisation's agents may use, plus an optional default model. A policy with no organisation (tenant scope empty) is the instance-wide default applied when an organisation has none of its own (tenant-model-policy). Enforced at ProviderFactory::createChatDriver() — every agent-turn trigger path (schedule, Run now, conversation, flow listener) is checked against the caller's effective policy.",
 				"type": "object",
@@ -903,6 +1376,12 @@
 								}
 							}
 						}
+					},
+					"requireNoTraining": {
+						"type": "boolean",
+						"default": false,
+						"title": "Only providers that never train on our data",
+						"description": "When on, a run on a provider that has not declared zero retention or no training is refused before any data is sent. An organisation without a policy of its own inherits the instance default's setting."
 					},
 					"defaultModel": {
 						"type": "object",
@@ -1113,7 +1592,7 @@
 			"Memory": {
 				"slug": "memory",
 				"icon": "Brain",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Agent memory",
 				"description": "An agent's long-term memory (the MEMORY.md port): durable facts stored as JSON entries with a character budget. Exceeding the budget flags needsConsolidation — a nudge to summarise, never a silent truncation.",
 				"type": "object",
@@ -1122,7 +1601,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {
@@ -1185,7 +1664,7 @@
 			"UserProfile": {
 				"slug": "userprofile",
 				"icon": "AccountDetailsOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "User profile",
 				"description": "Facts an agent keeps about a subject user (the USER.md port): durable entries with a character budget and consolidation nudge, scoped to the owning organisation.",
 				"type": "object",
@@ -1194,7 +1673,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"subjectUid": "$userId"}}
 					]
 				},
 				"properties": {
@@ -1262,16 +1741,17 @@
 			"Session": {
 				"slug": "agentsession",
 				"icon": "ChatOutline",
-				"version": "0.1.0",
+				"version": "0.4.0",
 				"title": "Session",
-				"description": "A conversation session between a user and an agent (the FTS5 session port). Turns are stored as SessionTurn children so each is individually searchable and org-scoped.",
+				"description": "A chat thread between a person and an agent. The canonical name for what the UI, the API and the code all now call a session; `Conversation` is its retired predecessor and stays declared until the migration is verified in production. Tenant scope and soft-delete/timestamps are inherited from ObjectEntity and not declared here.",
 				"type": "object",
 				"required": [
 					"agentId"
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"userId": "$userId"}},
+						{"group": "authenticated", "match": {"participants": {"$contains": "$userId"}}}
 					]
 				},
 				"properties": {
@@ -1279,42 +1759,89 @@
 						"type": "string",
 						"format": "uuid",
 						"title": "Agent",
-						"description": "UUID of the agent in this session.",
+						"description": "UUID of the Agent object this conversation runs against.",
 						"example": "00000000-0000-0000-0000-000000000000",
 						"$ref": "agent"
 					},
 					"title": {
 						"type": "string",
 						"title": "Title",
-						"description": "Human-readable session title."
+						"description": "Human-readable conversation title (typically auto-generated by the LLM)."
 					},
 					"startedAt": {
 						"type": "string",
 						"format": "date-time",
 						"title": "Started at",
-						"description": "When the session started."
+						"description": "When the session started. Set on creation and never changed afterwards."
 					},
 					"lastActivityAt": {
 						"type": "string",
 						"format": "date-time",
 						"title": "Last activity at",
-						"description": "When the most recent turn was recorded."
+						"description": "When the most recent turn was recorded, so a list can be ordered by recency without counting turns."
+					},
+					"userId": {
+						"type": "string",
+						"title": "User ID",
+						"description": "The user id who owns this conversation."
+					},
+					"metadata": {
+						"type": "object",
+						"title": "Metadata",
+						"description": "Additional JSON metadata such as a summary, token count, or message count."
+					},
+					"startValues": {
+						"type": "object",
+						"title": "Start values",
+						"description": "The answers to the agent's start fields for this session, by field key, set once before the first message and fixed for the session. They fill {{field.<key>}} in the agent's instructions.",
+						"additionalProperties": {"type": "string"}
+					},
+					"talkRoomToken": {
+						"type": "string",
+						"title": "Talk room token",
+						"description": "The Nextcloud Talk room this conversation is bound to, written by the delivery layer when it posts a run's output to a room and by the Talk bridge when a room's first message opens a session. Declared top-level (not inside metadata) because the bridge resolves an inbound room token to a conversation by filter query. Empty or unset means the conversation has no Talk binding and is web-UI only."
+					},
+					"participants": {
+						"type": "array",
+						"default": [],
+						"title": "Participants",
+						"description": "User ids permitted to take a turn in this conversation in addition to the owner. The userId owner is implicitly a participant and need not be listed, so an empty or unset roster means owner-only.",
+						"items": {
+							"type": "string"
+						}
+					},
+					"talkRoomOrigin": {
+						"type": "string",
+						"title": "Talk room origin",
+						"description": "How this conversation came to have a Talk room. 'created' means Hermiq created the room for this session and the agent treats every human message in it as a turn. 'bound' means Hermiq was invited into, or delivered a report into, a room somebody else owns, and the mention gate applies. Unset is treated as 'bound', which is the pre-existing behaviour, so no backfill is required."
+					},
+					"triggerOrigin": {
+						"type": "string",
+						"default": "human",
+						"enum": [
+							"human",
+							"cron",
+							"event",
+							"flow"
+						],
+						"title": "Trigger origin",
+						"description": "What started this session. 'human' is a person opening a chat, and is what every migrated session is. 'cron' is a schedule firing, 'event' an object change, 'flow' a flow step. The Chat page splits human sessions from automated ones on this field, so without it every automated run appears in a person's chat list."
 					}
 				}
 			},
 			"SessionTurn": {
 				"slug": "agentsessionturn",
 				"icon": "MessageOutline",
-				"version": "0.1.0",
+				"version": "0.4.0",
 				"title": "Session turn",
-				"description": "A single turn within a Session — the searchable unit for cross-session recall via OpenRegister search/vectorization (no bespoke SQLite/FTS5 index).",
+				"description": "One turn within a Session, optionally carrying RAG sources and an AI Chat Companion context snapshot. The canonical name for what was a Message. Each turn is a separate object so it is individually searchable and org-scoped.",
 				"type": "object",
 				"required": [
 					"sessionId"
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {
@@ -1339,24 +1866,112 @@
 					"role": {
 						"type": "string",
 						"enum": [
+							"system",
 							"user",
 							"assistant",
-							"system",
 							"tool"
 						],
 						"title": "Role",
-						"description": "Who produced this turn."
+						"description": "Who produced this message: system, user, assistant, or tool."
 					},
 					"content": {
 						"type": "string",
 						"title": "Content",
-						"description": "The turn content — the field searched for recall."
+						"description": "The message text."
 					},
 					"createdAt": {
 						"type": "string",
 						"format": "date-time",
 						"title": "Created at",
-						"description": "When the turn was recorded."
+						"description": "When this turn was recorded."
+					},
+					"sources": {
+						"type": "array",
+						"default": [],
+						"title": "Sources",
+						"description": "RAG sources used to generate the response (assistant messages only).",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"title": "Source ID",
+									"description": "UUID of the source file or object."
+								},
+								"type": {
+									"type": "string",
+									"title": "Source type",
+									"description": "Whether the source is a file or an object."
+								},
+								"name": {
+									"type": "string",
+									"title": "Source name",
+									"description": "Human-readable name of the source."
+								},
+								"similarity": {
+									"type": "number",
+									"title": "Similarity",
+									"description": "Similarity score of the source to the query."
+								},
+								"text": {
+									"type": "string",
+									"title": "Excerpt",
+									"description": "Relevant excerpt from the source."
+								}
+							}
+						}
+					},
+					"context": {
+						"type": "object",
+						"title": "Context",
+						"description": "AI Chat Companion context snapshot captured when the message was sent (appId, pageKind, objectUuid, registerSlug, schemaSlug, route, capturedAt), preserved verbatim as free-form JSON."
+					},
+					"attachments": {
+						"type": "array",
+						"default": [],
+						"title": "Attachments",
+						"description": "Files the person attached to this turn, as references only: no bytes and no extracted text. Each file is read in the Files of the person who sent the turn.",
+						"items": {
+							"type": "object",
+							"properties": {
+								"fileId": {
+									"type": "integer",
+									"title": "File ID",
+									"description": "The Nextcloud file id."
+								},
+								"name": {
+									"type": "string",
+									"title": "File name",
+									"description": "The file name when it was attached."
+								},
+								"mimeType": {
+									"type": "string",
+									"title": "File type",
+									"description": "The file's type, for example application/pdf."
+								},
+								"size": {
+									"type": "integer",
+									"title": "Size",
+									"description": "The file size in bytes."
+								},
+								"origin": {
+									"type": "string",
+									"enum": ["upload", "files", "generated"],
+									"title": "Origin",
+									"description": "Where the file came from: uploaded from a device, chosen from Files, or created by the assistant."
+								}
+							}
+						}
+					},
+					"authorId": {
+						"type": "string",
+						"title": "Author",
+						"description": "User id of the human who produced this turn. Set on role=user messages; left unset for system, assistant and tool turns, which have no human author."
+					},
+					"authorDisplayName": {
+						"type": "string",
+						"title": "Author display name",
+						"description": "The author's display name as it read at send time, captured deliberately and never re-resolved on read, so a transcript stays legible after a rename or a deleted account. Set alongside authorId on role=user messages only."
 					}
 				}
 			},
@@ -2026,7 +2641,7 @@
 			"Agent": {
 				"slug": "agent",
 				"icon": "RobotOutline",
-				"version": "0.6.0",
+				"version": "0.12.0",
 				"title": "Agent",
 				"description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target). v0.5.0 (hermiq-agent-application-slug): gains the OPTIONAL applicationSlug. v0.6.0 (speech-services): gains the four voice* fields — which engine transcribes, which speaks, the silence that closes the microphone, and whether spoken conversation is offered. ⚠️ voice* is NOT talkEnabled: that one is about Nextcloud Talk rooms, this family is about microphones, and naming a voice flag 'talk*' would collide with it.",
 				"type": "object",
@@ -2050,6 +2665,66 @@
 						"title": "Application slug",
 						"description": "The slug of the external Application (e.g. an OpenBuild application) this agent belongs to, when it was created or is owned as part of one. Empty for an agent hermiq owns outright. Mirrors Flow.applicationSlug (hydra-flow-application-slug): lets a consumer select exactly one application's agents without also matching hermiq's own unrelated agents."
 					},
+					"gitOwner": {
+						"type": "string",
+						"title": "Git owner",
+						"description": "The GitHub user or organisation of the repository this agent is kept in. Set by Publish to GitHub on the agent page; push and pull read it from here, never from a request. Through the object API only an instance admin may change it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
+					},
+					"gitRepo": {
+						"type": "string",
+						"title": "Git repository",
+						"description": "The GitHub repository this agent is kept in, set by Publish to GitHub together with gitOwner. Through the object API only an instance admin may change it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
+					},
+					"gitRef": {
+						"type": "string",
+						"title": "Git branch",
+						"description": "The branch or tag a pull reads. Empty means the repository's default branch. Through the object API only an instance admin may change it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
+					},
+					"gitLastPulledHash": {
+						"type": "string",
+						"title": "Last pulled package",
+						"description": "The sha256 of the package the last confirmed pull wrote onto this agent. Through the object API only an instance admin may change it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
+					},
+					"appAssistantFor": {
+						"type": "string",
+						"title": "Assistant for this app",
+						"description": "The app this agent answers in as its assistant when a chat names no agent. It holds only while it equals applicationSlug, so moving the agent to another app ends it. One per app per organisation, chosen by an organisation admin through POST /api/agents/{id}/app-assistant; through the object API only an instance admin may change it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
+					},
 					"icon": {
 						"type": "string",
 						"title": "Icon",
@@ -2071,10 +2746,43 @@
 						"title": "Model",
 						"description": "Model identifier used by the provider (e.g. gpt-4o-mini, llama3)."
 					},
+					"aiFeature": {
+						"type": "string",
+						"title": "AI feature",
+						"description": "The slug of the registered AI feature this agent's runs belong to. It decides which provider binding, required residency and audit disclosure apply to every turn."
+					},
+					"credentialIds": {
+						"type": "object",
+						"title": "Credentials per provider",
+						"description": "This agent's own provider credential, per provider: the credential broker uuid of a key the owner may use for hermiq. A pinned credential is used before the personal and organisation ones, and when it cannot be used the turn stops rather than use another.",
+						"additionalProperties": {
+							"type": "string",
+							"format": "uuid"
+						}
+					},
 					"prompt": {
 						"type": "string",
 						"title": "Prompt",
 						"description": "System prompt: instructions and context given to the LLM."
+					},
+					"startFields": {
+						"type": "array",
+						"default": [],
+						"maxItems": 10,
+						"title": "Start fields",
+						"description": "Fields a person fills in before a conversation with this agent starts, at most ten. Each answer is stored on the session as startValues and is usable in the instructions as {{field.<key>}}. A scheduled run uses each field's default unless the schedule sets its own value.",
+						"items": {
+							"type": "object",
+							"required": ["key", "label", "type"],
+							"properties": {
+								"key": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "title": "Key", "description": "The placeholder name, {{field.<key>}}: lower case letters, digits and underscores, starting with a letter."},
+								"label": {"type": "string", "maxLength": 120, "title": "Label", "description": "What the person sees above the field."},
+								"type": {"type": "string", "enum": ["text", "paragraph", "select", "number", "date"], "title": "Type", "description": "Short text, long text, a choice from options, a number, or a date (YYYY-MM-DD)."},
+								"options": {"type": "array", "default": [], "title": "Options", "description": "The choices of a select field.", "items": {"type": "string"}},
+								"required": {"type": "boolean", "default": false, "title": "Required", "description": "Whether the first message waits until this field is filled."},
+								"default": {"type": "string", "title": "Default", "description": "The value used when the field is left empty, and on scheduled runs."}
+							}
+						}
 					},
 					"temperature": {
 						"type": "number",
@@ -2095,7 +2803,34 @@
 						"type": "boolean",
 						"default": true,
 						"title": "Active",
-						"description": "Whether the agent is active and available to run."
+						"description": "Whether the agent is switched on. A switched-off agent does not run on any path; switch it on its agent page."
+					},
+					"maxToolCalls": {
+						"type": "integer",
+						"default": 10,
+						"minimum": 1,
+						"maximum": 100,
+						"title": "Maximum tool calls per answer",
+						"description": "The agent stops after this many tool calls in one answer."
+					},
+					"availabilityChangedBy": {
+						"type": "string",
+						"nullable": true,
+						"title": "Switched by",
+						"description": "Who last switched the agent off or on."
+					},
+					"availabilityChangedAt": {
+						"type": "string",
+						"nullable": true,
+						"format": "date-time",
+						"title": "Switched at",
+						"description": "When the agent was last switched off or on."
+					},
+					"availabilityReason": {
+						"type": "string",
+						"nullable": true,
+						"title": "Reason",
+						"description": "Why the agent was switched off."
 					},
 					"enableRag": {
 						"type": "boolean",
@@ -2262,6 +2997,12 @@
 						"title": "Requires approval",
 						"description": "When true, this agent cannot be reached as a sub-agent-delegation target — a delegation attempt is refused outright (delegation_requires_approval) rather than creating a pending Approval, since a delegate call has no synchronous pause/resume mechanism. The agent remains runnable via its own schedule or flow trigger, which enforce the full pending/approved/denied gate (mirrors Schedule.requiresApproval's EU AI Act Art. 14 semantics, applied here at the agent level for delegation targets)."
 					},
+					"graphEnabled": {
+						"type": "boolean",
+						"default": false,
+						"title": "Knowledge graph",
+						"description": "When true, and the search mode is graph, this agent's context comes from the knowledge graph. Defaults to false. The graph tools are granted separately, like every other tool."
+					},
 					"talkEnabled": {
 						"type": "boolean",
 						"default": false,
@@ -2307,14 +3048,17 @@
 				},
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"isPrivate": false}},
+						{"group": "authenticated", "match": {"isPrivate": null}},
+						{"group": "authenticated", "match": {"invitedUsers": {"$contains": "$userId"}}},
+						{"group": "authenticated", "match": {"groups": {"$contains": "$user.groups"}}}
 					]
 				}
 			},
 			"Conversation": {
 				"slug": "conversation",
 				"icon": "ForumOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Conversation",
 				"description": "A chat thread bound to one Agent. Tenant scope and soft-delete/timestamps are inherited from ObjectEntity and not declared here.",
 				"type": "object",
@@ -2323,7 +3067,8 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"userId": "$userId"}},
+						{"group": "authenticated", "match": {"participants": {"$contains": "$userId"}}}
 					]
 				},
 				"properties": {
@@ -2374,7 +3119,7 @@
 			"Message": {
 				"slug": "message",
 				"icon": "MessageTextOutline",
-				"version": "0.1.0",
+				"version": "0.2.0",
 				"title": "Message",
 				"description": "One turn within a Conversation, optionally carrying RAG sources and an AI Chat Companion context snapshot.",
 				"type": "object",
@@ -2384,7 +3129,7 @@
 				],
 				"authorization": {
 					"read": [
-						"authenticated"
+						{"group": "authenticated", "match": {"_owner": "$userId"}}
 					]
 				},
 				"properties": {
@@ -2784,7 +3529,7 @@
 			"Control": {
 				"slug": "agentcompliancecontrol",
 				"icon": "ClipboardCheckOutline",
-				"version": "0.1.0",
+				"version": "0.2.0",
 				"title": "Compliance control",
 				"description": "One control from a ControlFramework (compliance-control-packs), e.g. EU AI Act Art. 12 record-keeping. Carries a short, source-cited description and an `evidenceSource` tag that ComplianceService dispatches on to compute the control's satisfied/partial/unevidenced status LIVE from Hermiq's own existing governance data — this schema deliberately carries NO status field; status is never persisted or hand-set. Instance-wide reference/catalogue data, seeded on install.",
 				"type": "object",
@@ -2835,7 +3580,8 @@
 							"kill-switch-stop-mechanism",
 							"model-policy-risk-control",
 							"capability-review-least-privilege",
-							"dpo-ack-design-time-gate"
+							"dpo-ack-design-time-gate",
+							"ai-literacy-completion"
 						],
 						"title": "Evidence source",
 						"description": "Which existing Hermiq seam ComplianceService reads to compute this control's live status: the Art. 12 audit export, human-approval-gate decisions, the per-org kill-switch, the org's model policy, the periodic access review, or the AI-feature DPO-ack gate."
@@ -3032,7 +3778,7 @@
 			"AgentTemplate": {
 				"slug": "agenttemplate",
 				"icon": "PackageVariant",
-				"version": "0.3.0",
+				"version": "0.5.0",
 				"title": "Agent template",
 				"configuration": {
 					"x-openregister-shareable": {
@@ -3169,11 +3915,29 @@
 						"enum": [
 							"local",
 							"org",
-							"hub"
+							"hub",
+							"app"
 						],
 						"default": "local",
 						"title": "Source",
-						"description": "Where the template came from: locally authored, another organisation, or an external hub. Mirrors Skill.source."
+						"description": "Where the template came from: locally authored, another organisation, an external hub, or an installed app that offered it for itself (see offeredBy). Mirrors Skill.source."
+					},
+					"offeredBy": {
+						"type": "string",
+						"title": "Offered by",
+						"description": "The id of the installed app that offered this template for itself through CollectAgentTemplatesEvent. An agent created from it is tied to that app (applicationSlug). Empty for a template no app offered."
+					},
+					"offerHash": {
+						"type": "string",
+						"title": "Offer hash",
+						"description": "The sha256 of the package the app offered, so a collect skips an unchanged offer instead of importing it twice."
+					},
+					"derivedFrom": {
+						"type": "string",
+						"format": "uuid",
+						"$ref": "agent",
+						"title": "Saved from agent",
+						"description": "The agent this template was saved from with Save as template on the agent page. Empty for a template written or imported directly."
 					},
 					"quarantineReason": {
 						"type": "string",
@@ -3711,6 +4475,489 @@
 						"format": "date-time",
 						"title": "Decided at",
 						"description": "When the owner resolved it. Empty while the request is pending; together with decidedBy it is the audit record of who widened the agent's tool grants and when."
+					}
+				}
+			},
+			"GraphEntity": {
+				"slug": "graphentity",
+				"icon": "GraphOutline",
+				"version": "0.1.0",
+				"title": "Graph entity",
+				"description": "A knowledge-graph node (knowledge-graph): a typed reference to exactly one record Hermiq can reach, an OpenRegister object, a Nextcloud file, a mail message or a Hermiq conversation. It stores a label, a type, aliases and provenance, never the record's content. Direct reads are owner-only; every other reader goes through GraphService, which shows a node only while the acting user can read the record in sourceRef.",
+				"type": "object",
+				"required": [
+					"label",
+					"entityType",
+					"sourceType",
+					"sourceRef"
+				],
+				"authorization": {
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"_owner": "$userId"
+							}
+						}
+					]
+				},
+				"properties": {
+					"label": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Label",
+						"description": "The entity's name as the extractor found it."
+					},
+					"labelKey": {
+						"type": "string",
+						"title": "Label key",
+						"description": "The label trimmed and in lower case, used to find the same entity again."
+					},
+					"entityType": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Entity type",
+						"description": "What the entity is, e.g. person, organisation, case, document or topic."
+					},
+					"sourceType": {
+						"type": "string",
+						"enum": [
+							"object",
+							"file",
+							"mail",
+							"conversation"
+						],
+						"title": "Source type",
+						"description": "Which kind of record sourceRef points at."
+					},
+					"sourceRef": {
+						"type": "object",
+						"title": "Source reference",
+						"description": "A pointer to the one record this entry came from, never its content. The entry is shown only while the reader can open that record.",
+						"properties": {
+							"register": {
+								"type": "string",
+								"title": "Register",
+								"description": "sourceType object: the register slug or id."
+							},
+							"schema": {
+								"type": "string",
+								"title": "Schema",
+								"description": "sourceType object: the schema slug or id."
+							},
+							"uuid": {
+								"type": "string",
+								"title": "Object",
+								"description": "sourceType object: the object uuid."
+							},
+							"fileId": {
+								"type": "integer",
+								"title": "File id",
+								"description": "sourceType file: the Nextcloud file id, the authoritative pointer."
+							},
+							"path": {
+								"type": "string",
+								"title": "Path",
+								"description": "sourceType file: the path when extracted, informational only."
+							},
+							"accountId": {
+								"type": "integer",
+								"title": "Mail account",
+								"description": "sourceType mail: the Mail account id."
+							},
+							"mailboxId": {
+								"type": "integer",
+								"title": "Mailbox",
+								"description": "sourceType mail: the Mail mailbox id."
+							},
+							"messageId": {
+																"title": "Message",
+								"description": "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid."
+							},
+							"conversationUuid": {
+								"type": "string",
+								"title": "Conversation",
+								"description": "sourceType conversation: the session or conversation uuid."
+							}
+						}
+					},
+					"aliases": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"title": "Aliases",
+						"description": "Other names an extractor explicitly proposed for this entity."
+					},
+					"confidence": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 1,
+						"title": "Confidence",
+						"description": "How sure the extractor was, from 0 to 1."
+					},
+					"extractedBy": {
+						"type": "string",
+						"title": "Extracted by",
+						"description": "The extractor and version that wrote this entry, so entries from a bad version can be found and removed."
+					}
+				}
+			},
+			"GraphRelation": {
+				"slug": "graphrelation",
+				"icon": "VectorLine",
+				"version": "0.1.0",
+				"title": "Graph relation",
+				"description": "A knowledge-graph edge (knowledge-graph): fromEntity, predicate, toEntity between two GraphEntity uuids, with the record it was extracted from as provenance. GraphService returns an edge only when the acting user can read the records behind BOTH endpoints.",
+				"type": "object",
+				"required": [
+					"fromEntity",
+					"predicate",
+					"toEntity"
+				],
+				"authorization": {
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"_owner": "$userId"
+							}
+						}
+					]
+				},
+				"properties": {
+					"fromEntity": {
+						"type": "string",
+						"format": "uuid",
+						"title": "From",
+						"description": "UUID of the graph entity the relation starts at.",
+						"$ref": "graphentity"
+					},
+					"predicate": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Predicate",
+						"description": "The relation label. The seed vocabulary is worksFor, partOf, relatesTo, mentions, authoredBy and about; anything else is stored with custom set to true."
+					},
+					"toEntity": {
+						"type": "string",
+						"format": "uuid",
+						"title": "To",
+						"description": "UUID of the graph entity the relation points to.",
+						"$ref": "graphentity"
+					},
+					"custom": {
+						"type": "boolean",
+						"default": false,
+						"title": "Custom predicate",
+						"description": "True when the predicate is outside the seed vocabulary."
+					},
+					"sourceType": {
+						"type": "string",
+						"enum": [
+							"object",
+							"file",
+							"mail",
+							"conversation"
+						],
+						"title": "Source type",
+						"description": "Which kind of record sourceRef points at. A relation whose source record the acting user cannot read is hidden, even when both endpoints are visible."
+					},
+					"sourceRef": {
+						"type": "object",
+						"title": "Source reference",
+						"description": "A pointer to the one record this entry came from, never its content. The entry is shown only while the reader can open that record.",
+						"properties": {
+							"register": {
+								"type": "string",
+								"title": "Register",
+								"description": "sourceType object: the register slug or id."
+							},
+							"schema": {
+								"type": "string",
+								"title": "Schema",
+								"description": "sourceType object: the schema slug or id."
+							},
+							"uuid": {
+								"type": "string",
+								"title": "Object",
+								"description": "sourceType object: the object uuid."
+							},
+							"fileId": {
+								"type": "integer",
+								"title": "File id",
+								"description": "sourceType file: the Nextcloud file id, the authoritative pointer."
+							},
+							"path": {
+								"type": "string",
+								"title": "Path",
+								"description": "sourceType file: the path when extracted, informational only."
+							},
+							"accountId": {
+								"type": "integer",
+								"title": "Mail account",
+								"description": "sourceType mail: the Mail account id."
+							},
+							"mailboxId": {
+								"type": "integer",
+								"title": "Mailbox",
+								"description": "sourceType mail: the Mail mailbox id."
+							},
+							"messageId": {
+																"title": "Message",
+								"description": "sourceType mail: the Mail message id. sourceType conversation: the optional message uuid."
+							},
+							"conversationUuid": {
+								"type": "string",
+								"title": "Conversation",
+								"description": "sourceType conversation: the session or conversation uuid."
+							}
+						}
+					},
+					"confidence": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 1,
+						"title": "Confidence",
+						"description": "How sure the extractor was, from 0 to 1."
+					},
+					"extractedBy": {
+						"type": "string",
+						"title": "Extracted by",
+						"description": "The extractor and version that wrote this entry, so entries from a bad version can be found and removed."
+					}
+				}
+			},
+			"LiteracyLesson": {
+				"slug": "literacylesson",
+				"icon": "SchoolOutline",
+				"version": "0.1.0",
+				"title": "AI literacy lesson",
+				"description": "One lesson of the course Working with AI (compliance-ai-literacy), in one language. Seeded once per locale; an admin may edit the text, and raising version asks everyone who finished the old text again. checkAnswer is the zero-based index into checkOptions; the lesson page never sends it to the browser.",
+				"type": "object",
+				"required": [
+					"slug",
+					"locale",
+					"title",
+					"body",
+					"checkQuestion",
+					"checkOptions",
+					"checkAnswer"
+				],
+				"authorization": {
+					"read": [
+						"authenticated"
+					]
+				},
+				"properties": {
+					"slug": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Lesson",
+						"description": "Stable identifier of the lesson, shared by its translations."
+					},
+					"order": {
+						"type": "integer",
+						"minimum": 1,
+						"default": 1,
+						"title": "Order",
+						"description": "Position of the lesson in the course."
+					},
+					"locale": {
+						"type": "string",
+						"enum": [
+							"en",
+							"nl"
+						],
+						"title": "Language",
+						"description": "Language of this text."
+					},
+					"version": {
+						"type": "integer",
+						"minimum": 1,
+						"default": 1,
+						"title": "Version",
+						"description": "Raised on every edit of the text, so a person who finished an older version is asked the lesson again."
+					},
+					"title": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Title",
+						"description": "The lesson's title."
+					},
+					"body": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Text",
+						"description": "The lesson text, in Markdown."
+					},
+					"checkQuestion": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Check question",
+						"description": "The question that ends the lesson."
+					},
+					"checkOptions": {
+						"type": "array",
+						"minItems": 2,
+						"items": {
+							"type": "string"
+						},
+						"title": "Answer options",
+						"description": "The answers to choose from."
+					},
+					"checkAnswer": {
+						"type": "integer",
+						"minimum": 0,
+						"title": "Right answer",
+						"description": "Zero-based index of the right option."
+					},
+					"explanation": {
+						"type": "string",
+						"title": "Explanation",
+						"description": "Why the right answer is right, shown after a wrong answer."
+					}
+				}
+			},
+			"LiteracyCompletion": {
+				"slug": "literacycompletion",
+				"icon": "CheckDecagramOutline",
+				"version": "0.1.0",
+				"title": "AI literacy completion",
+				"description": "One person's completion of one lesson version (compliance-ai-literacy), in the organisation they worked in. Read by its owner; the organisation report and the EU AI Act article 4 control read completions through LiteracyReport after an organisation-admin check.",
+				"type": "object",
+				"required": [
+					"userId",
+					"lessonSlug",
+					"lessonVersion",
+					"locale",
+					"completedAt"
+				],
+				"authorization": {
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"_owner": "$userId"
+							}
+						}
+					]
+				},
+				"properties": {
+					"userId": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Person",
+						"description": "The Nextcloud user who completed the lesson."
+					},
+					"lessonSlug": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Lesson",
+						"description": "The lesson that was completed."
+					},
+					"lessonVersion": {
+						"type": "integer",
+						"minimum": 1,
+						"title": "Lesson version",
+						"description": "The version of the lesson text that was completed."
+					},
+					"locale": {
+						"type": "string",
+						"enum": [
+							"en",
+							"nl"
+						],
+						"title": "Language",
+						"description": "The language the lesson was read in."
+					},
+					"completedAt": {
+						"type": "string",
+						"format": "date-time",
+						"title": "Completed at",
+						"description": "When the right answer was given."
+					}
+				}
+			},
+			"RecordSummary": {
+				"slug": "agentrecordsummary",
+				"icon": "TextBoxOutline",
+				"version": "0.1.0",
+				"title": "Record summary",
+				"description": "An AI-written summary of one OpenRegister record, kept for the record as it was when the summary was written, so it shows again without a model call until the record changes. A summary repeats what its record says, so only an admin reads it through the object API: everyone else reads it through POST and GET /api/assistant/summar*, which first reads the record as the caller.",
+				"type": "object",
+				"required": [
+					"objectUuid",
+					"summary"
+				],
+				"authorization": {
+					"read": [
+						"admin"
+					],
+					"create": [
+						"admin"
+					],
+					"update": [
+						"admin"
+					],
+					"delete": [
+						"admin"
+					]
+				},
+				"properties": {
+					"objectUuid": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Record",
+						"description": "The uuid of the record this summary is about."
+					},
+					"register": {
+						"type": "string",
+						"title": "Register",
+						"description": "The register the record was read from, as the page named it."
+					},
+					"schema": {
+						"type": "string",
+						"title": "Schema",
+						"description": "The schema the record was read from, as the page named it."
+					},
+					"objectVersion": {
+						"type": "string",
+						"title": "Record version",
+						"description": "The record's version when the summary was written."
+					},
+					"contentHash": {
+						"type": "string",
+						"title": "Record content hash",
+						"description": "The sha256 of the record's data when the summary was written. A different hash means the record changed and the summary is written again."
+					},
+					"summary": {
+						"type": "string",
+						"minLength": 1,
+						"title": "Summary",
+						"description": "The text the agent wrote. It is shown beside the record, labelled as written by AI, and never written into the record."
+					},
+					"agentId": {
+						"type": "string",
+						"title": "Agent",
+						"description": "The uuid of the agent that wrote the summary: the assistant of the record's app."
+					},
+					"agentName": {
+						"type": "string",
+						"title": "Agent name",
+						"description": "The agent's name when it wrote the summary."
+					},
+					"promptId": {
+						"type": "string",
+						"title": "Prompt",
+						"description": "The uuid of the administered record-summary prompt that was used, or empty when none existed and the shipped default text was used."
+					},
+					"generatedAt": {
+						"type": "string",
+						"format": "date-time",
+						"title": "Written at",
+						"description": "When the summary was written."
 					}
 				}
 			}

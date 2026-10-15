@@ -191,7 +191,7 @@ class SkillControllerTest extends TestCase {
 	private function agentAccess(?ObjectEntity $agent): AgentAccessService {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturn($agent);
-		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class));
 	}//end agentAccess()
 
 	/**

@@ -741,6 +741,57 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testWriteStepRecordsTheArtefactIdentity()
 
 	/**
+	 * tools-nextcloud-tasks: the two task writes receive the run's agent id for
+	 * their mark, and their step records the list and uid, never the summary.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
+	 */
+	public function testTaskWritesGetTheAgentIdAndRecordListAndUidOnly(): void {
+		$seen = [];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturnCallback(
+			function (string $toolId, array $arguments) use (&$seen): array {
+				$seen[$toolId] = ($arguments['agentId'] ?? null);
+				return [
+					'result' => [
+						'created' => true,
+						'summary' => 'Besluit bezwaar Kerkstraat 12 versturen',
+						'artefact' => ['type' => 'task', 'id' => 'werkvoorraad/t-1'],
+					],
+					'isError' => false,
+				];
+			}
+		);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			agentId: 'agent-1',
+			mcpIdByName: [
+				'hermiq_createTask' => 'hermiq.createTask',
+				'hermiq_completeTask' => 'hermiq.completeTask',
+				'hermiq_listTasks' => 'hermiq.listTasks',
+			]
+		);
+
+		$invoker->hermiq_createTask(summary: 'Besluit bezwaar Kerkstraat 12 versturen');
+		$invoker->hermiq_completeTask(uid: 't-1');
+		$invoker->hermiq_listTasks(status: 'open');
+
+		$this->assertSame(
+			['hermiq_createTask' => 'agent-1', 'hermiq_completeTask' => 'agent-1', 'hermiq_listTasks' => null],
+			$seen
+		);
+		$steps = $trace->toArray();
+		$this->assertSame(['type' => 'task', 'id' => 'werkvoorraad/t-1'], $steps[0]['artefact']);
+		$this->assertStringNotContainsString('Kerkstraat', (string)json_encode($steps));
+
+	}//end testTaskWritesGetTheAgentIdAndRecordListAndUidOnly()
+
+	/**
 	 * The artefact descriptor carries identity ONLY. A tool cannot smuggle content
 	 * into the audit trail by nesting it under the key the recorder reads — the
 	 * shape enforces the no-content rule rather than trusting each tool to honour it.

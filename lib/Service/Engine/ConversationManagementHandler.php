@@ -71,7 +71,7 @@ class ConversationManagementHandler {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Maximum tokens before triggering summarisation.
@@ -369,15 +369,19 @@ class ConversationManagementHandler {
 	 * @return array<int, ObjectEntity> The conversation's Message objects, ascending.
 	 */
 	private function fetchAllMessages(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and a
+		// summary of a shared session must cover every participant's turns. This runs
+		// inside the engine turn, after its owner-or-participant check on the session.
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
-			->setSchema('message')
+			->setSchema('agentsessionturn')
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'ASC'],
 					'limit' => self::MAX_MESSAGES_FOR_SUMMARY,
-				]
+				],
+				_rbac: false
 			);
 
 		return array_values(array_filter($messages, static fn ($object): bool => $object instanceof ObjectEntity));
@@ -418,6 +422,23 @@ class ConversationManagementHandler {
 
 		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
 	}//end generateSummary()
+
+	/**
+	 * One completion from the configured model, under the organisation's model policy.
+	 *
+	 * The same path the conversation title uses, for other one-shot callers (the
+	 * knowledge-graph extractor). Throws when no provider is available.
+	 *
+	 * @param string $prompt The prompt.
+	 * @param string|null $organisation The organisation whose model policy applies.
+	 *
+	 * @return string The model's answer.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 */
+	public function generateText(string $prompt, ?string $organisation = null): string {
+		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
+	}//end generateText()
 
 	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently

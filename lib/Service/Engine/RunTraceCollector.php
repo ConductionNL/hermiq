@@ -75,6 +75,14 @@ class RunTraceCollector {
 	private array $steps = [];
 
 	/**
+	 * What this run used, and where it ran: the feature, the provider, the model,
+	 * and the residency and location as they stood when the run happened.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private ?array $providerDisclosure = null;
+
+	/**
 	 * Monotonic token counter for `startStep()`.
 	 *
 	 * @var integer
@@ -163,6 +171,76 @@ class RunTraceCollector {
 		);
 
 	}//end endStep()
+
+	/**
+	 * Record that the turn was stopped, as one step named by the reason
+	 * (agents-switch-off-and-stop).
+	 *
+	 * @param string $reason The stop reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function recordStop(string $reason): void {
+		$this->endStep(token: $this->startStep(type: 'guard', name: $reason), outcome: 'stopped');
+	}//end recordStop()
+
+	/**
+	 * Record the stop only when it happened.
+	 *
+	 * @param bool   $stopped Whether the turn stopped.
+	 * @param string $reason  The stop reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-stops-after-the-tool-calls-its-owner-allows-req-agoff-005
+	 */
+	public function recordStopWhen(bool $stopped, string $reason): void {
+		if ($stopped === true) {
+			$this->recordStop(reason: $reason);
+		}
+	}//end recordStopWhen()
+
+	/**
+	 * Record which AI feature this run belongs to, which provider and model it
+	 * actually used, and where that provider ran at the time.
+	 *
+	 * The residency is copied onto the run, never referenced, so relabelling a
+	 * provider next year cannot rewrite what this run says. "Which model saw this
+	 * case, and where" then becomes a read rather than an investigation.
+	 *
+	 * @param array<string, mixed> $disclosure As resolved: feature, provider, model, residency, location, dataUse, termsReference.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 */
+	public function recordProviderDisclosure(array $disclosure): void {
+		$this->providerDisclosure = [
+			'feature' => (string)($disclosure['feature'] ?? ''),
+			'provider' => (string)($disclosure['provider'] ?? ''),
+			'model' => (string)($disclosure['model'] ?? ''),
+			'residency' => (string)($disclosure['residency'] ?? ''),
+			'location' => (string)($disclosure['location'] ?? ''),
+			'dataUse' => (string)($disclosure['dataUse'] ?? ''),
+			'termsReference' => (string)($disclosure['termsReference'] ?? ''),
+		];
+
+	}//end recordProviderDisclosure()
+
+	/**
+	 * What this run recorded about the provider it used, or null when nothing was
+	 * recorded (a run that never reached a provider).
+	 *
+	 * @return array<string, string>|null
+	 *         The disclosure, or null.
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 */
+	public function providerDisclosure(): ?array {
+		return $this->providerDisclosure;
+	}//end providerDisclosure()
 
 	/**
 	 * Return every recorded step, in completion order (see class docblock).

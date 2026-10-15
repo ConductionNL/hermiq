@@ -59,6 +59,108 @@ const HEADER =
 	+ ' * Regenerate with `npm run companion-css:build`. */\n'
 
 /**
+ * The element the companion mounts in (src/companion.js `root.id`).
+ */
+const ROOT = '#hermiq-companion-root'
+
+/**
+ * At-rules that cannot live inside `@scope` and style nothing by themselves:
+ * they are kept at the top level.
+ */
+const HOISTED =
+	/^@(charset|import|namespace|font-face|keyframes|-webkit-keyframes|page|property|layer\s*[^{]*;)/i
+
+/**
+ * Split a stylesheet into its top-level statements and blocks, skipping
+ * comments and keeping strings intact.
+ *
+ * @param {string} css The stylesheet.
+ * @return {string[]} The top-level chunks, in order.
+ */
+function topLevel(css) {
+	const chunks = []
+	let depth = 0
+	let start = 0
+	for (let index = 0; index < css.length; index++) {
+		const char = css[index]
+		if (char === '/' && css[index + 1] === '*') {
+			const end = css.indexOf('*/', index + 2)
+			index = end === -1 ? css.length : end + 1
+			continue
+		}
+		if (char === '"' || char === "'") {
+			let cursor = index + 1
+			while (cursor < css.length && css[cursor] !== char) {
+				cursor += css[cursor] === '\\' ? 2 : 1
+			}
+			index = cursor
+			continue
+		}
+		if (char === '{') {
+			depth++
+		} else if (char === '}') {
+			depth--
+			if (depth === 0) {
+				chunks.push(css.slice(start, index + 1).trim())
+				start = index + 1
+			}
+		} else if (char === ';' && depth === 0) {
+			chunks.push(css.slice(start, index + 1).trim())
+			start = index + 1
+		}
+	}
+	const rest = css.slice(start).trim()
+	if (rest !== '') {
+		chunks.push(rest)
+	}
+	return chunks.filter((chunk) => chunk !== '')
+}
+
+/**
+ * Keep the library's rules inside the companion.
+ *
+ * 🔴 WHY. This file is fetched on every page of every app, and the library
+ * styles its components with SCOPED selectors (`.cn-x[data-v-1234]`) whose hash
+ * is the same in every version of the library. Copied whole, an older library
+ * here overrode the NEWER library of whatever app the page belonged to, rule by
+ * rule, wherever both had the same selector. Measured on pipelinq's lead page:
+ * a list footer kept `margin: auto -16px -16px !important` from this file (built
+ * from nextcloud-vue 2.57.3) over the app's own 2.81.0 rule that bleeds 12px,
+ * and the tab panel scrolled by 4px. `:root` custom properties leaked the same
+ * way.
+ *
+ * Every style rule now sits in `@scope (#hermiq-companion-root)`, so it only
+ * matches inside the companion; `:root` becomes `:scope`, the companion's root.
+ * At-rules that cannot be scoped and style nothing on their own (keyframes,
+ * font faces, @page) stay at the top level. `@scope` adds no specificity, so the
+ * companion looks as it did.
+ *
+ * @param {string} css The library stylesheet.
+ * @return {string} The scoped stylesheet.
+ */
+function scopeToCompanion(css) {
+	const hoisted = []
+	const scoped = []
+	for (const chunk of topLevel(css)) {
+		if (HOISTED.test(chunk)) {
+			hoisted.push(chunk)
+		} else {
+			scoped.push(
+				chunk.replace(/(^|[\s,(>+~])(?:html\s+)?:root\b/g, '$1:scope'),
+			)
+		}
+	}
+	return (
+		hoisted.join('\n')
+		+ '\n@scope ('
+		+ ROOT
+		+ ') {\n'
+		+ scoped.join('\n')
+		+ '\n}\n'
+	)
+}
+
+/**
  * Build the stylesheet contents.
  *
  * @return {string} The file body.
@@ -70,11 +172,17 @@ function build() {
 		process.exit(1)
 	}
 
-	return HEADER + fs.readFileSync(SOURCE, 'utf8')
+	return HEADER + scopeToCompanion(fs.readFileSync(SOURCE, 'utf8'))
 }
 
-const contents = build()
+if (require.main === module) {
+	const contents = build()
 
-fs.mkdirSync(OUT_DIR, { recursive: true })
-fs.writeFileSync(OUT, contents)
-console.log(`Wrote css/companion.css (${(contents.length / 1024).toFixed(0)} KB).`)
+	fs.mkdirSync(OUT_DIR, { recursive: true })
+	fs.writeFileSync(OUT, contents)
+	console.log(
+		`Wrote css/companion.css (${(contents.length / 1024).toFixed(0)} KB).`,
+	)
+}
+
+module.exports = { scopeToCompanion, topLevel }
