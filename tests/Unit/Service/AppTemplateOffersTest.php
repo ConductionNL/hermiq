@@ -435,6 +435,7 @@ final class AppTemplateOffersTest extends TestCase {
 				bool $failIfExists = false,
 				bool $_unowned = false,
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$uuid = ($uuid ?? ('uuid-' . (count($this->store) + 1)));
