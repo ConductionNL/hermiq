@@ -1219,16 +1219,16 @@
         },
         {
             "name": "smalot/pdfparser",
-            "version": "v2.12.5",
+            "version": "v2.13.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/smalot/pdfparser.git",
-                "reference": "2cfa0d92bd557875c9f52a75fde0e8392302a354"
+                "reference": "a71c6dd38e60a995fdb4d36e4433b8b3557c65dc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/smalot/pdfparser/zipball/2cfa0d92bd557875c9f52a75fde0e8392302a354",
-                "reference": "2cfa0d92bd557875c9f52a75fde0e8392302a354",
+                "url": "https://api.github.com/repos/smalot/pdfparser/zipball/a71c6dd38e60a995fdb4d36e4433b8b3557c65dc",
+                "reference": "a71c6dd38e60a995fdb4d36e4433b8b3557c65dc",
                 "shasum": ""
             },
             "require": {
@@ -1264,9 +1264,9 @@
             ],
             "support": {
                 "issues": "https://github.com/smalot/pdfparser/issues",
-                "source": "https://github.com/smalot/pdfparser/tree/v2.12.5"
+                "source": "https://github.com/smalot/pdfparser/tree/v2.13.1"
             },
-            "time": "2026-04-17T11:37:58+00:00"
+            "time": "2026-10-13T08:49:45+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
@@ -1597,16 +1597,16 @@
         },
         {
             "name": "theodo-group/llphant",
-            "version": "1.0.3",
+            "version": "1.0.7",
             "source": {
                 "type": "git",
                 "url": "https://github.com/LLPhant/LLPhant.git",
-                "reference": "52fcd7afd58e6d289b9e304ea357695ece9dc518"
+                "reference": "5e0f3f39620ee9fcc0826f3385ecaf829c9a371c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/52fcd7afd58e6d289b9e304ea357695ece9dc518",
-                "reference": "52fcd7afd58e6d289b9e304ea357695ece9dc518",
+                "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/5e0f3f39620ee9fcc0826f3385ecaf829c9a371c",
+                "reference": "5e0f3f39620ee9fcc0826f3385ecaf829c9a371c",
                 "shasum": ""
             },
             "require": {
@@ -1630,7 +1630,7 @@
                 "doctrine/orm": "^3",
                 "elasticsearch/elasticsearch": "^8.15",
                 "ext-mongodb": "*",
-                "hkulekci/qdrant": "^v0.5.7",
+                "hkulekci/qdrant": "^1.19",
                 "laravel/pint": "v1.15.3",
                 "mockery/mockery": "^1.6.12",
                 "mongodb/mongodb": "^2.1",
@@ -1730,10 +1730,10 @@
                 "vectorstore"
             ],
             "support": {
-                "source": "https://github.com/LLPhant/LLPhant/tree/1.0.3",
+                "source": "https://github.com/LLPhant/LLPhant/tree/1.0.7",
                 "issues": "https://github.com/LLPhant/LLPhant/issues"
             },
-            "time": "2026-09-25T13:46:01+00:00"
+            "time": "2026-10-06T20:25:54+00:00"
         },
         {
             "name": "yethee/tiktoken",
@@ -9755,5 +9755,5 @@
         "php": "8.3",
         "ext-xsl": "1"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
