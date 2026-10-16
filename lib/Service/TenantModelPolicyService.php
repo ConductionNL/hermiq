@@ -188,20 +188,22 @@ class TenantModelPolicyService {
 	/**
 	 * The fail-closed synthetic policy used when no ModelPolicy exists anywhere
 	 * (organisation-specific or instance-wide): the single provider currently
-	 * configured in `hermiq.llm.chatProvider`, or nothing when even that is unset
-	 * — never "every provider is allowed".
+	 * configured in `hermiq.llm.chatProvider`, never "every provider is allowed".
+	 * An unset chatProvider resolves to Nextcloud AI, the provider hermiq then
+	 * actually runs on (use-nextcloud-ai-settings); allowing nothing there would
+	 * refuse every default run.
 	 *
 	 * @return array{source: string, allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: null}
 	 *
 	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
 	 */
 	private function fallbackPolicy(): array {
-		$chatProvider = $this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? null;
-
-		$allowed = [];
-		if (is_string($chatProvider) === true && $chatProvider !== '') {
-			$allowed[] = ['provider' => $chatProvider, 'models' => []];
+		$chatProvider = (string)($this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? '');
+		if (trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
 		}
+		$allowed = [['provider' => $chatProvider, 'models' => []]];
 
 		return [
 			'source' => 'fallback',

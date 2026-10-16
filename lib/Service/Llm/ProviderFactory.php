@@ -29,11 +29,12 @@
  *   per the port contract) but is not wired anywhere — LLPhant 0.9.x's
  *   `OpenAIChat` has no organization-header hook to give it.
  *
- * The `nextcloud` driver (plan §8 move 1) is additive: `OCP\TaskProcessing\IManager`-
- * backed, guarded by `hasProviders()` (verified against the real OCP 31.0 interface —
- * exact method name, not assumed), non-streaming, background/non-interactive use only
- * (conversation titles/summaries). It never returns an LLPhant chat instance because
- * TaskProcessing has no streaming surface; callers needing SSE chat MUST NOT select it.
+ * The `nextcloud` driver (Nextcloud AI) is the default when no hermiq-specific provider
+ * is configured (use-nextcloud-ai-settings). It sends chat, agent turns with tools and
+ * plain generation as TaskProcessing tasks through `NextcloudTaskClient`, as the acting
+ * user, to the provider set up under Administration settings > Artificial intelligence.
+ * It never returns an LLPhant chat instance: TaskProcessing has no streaming surface, so
+ * an SSE caller receives the whole answer at once, as it does on the Anthropic path.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -73,7 +74,6 @@ use OCP\IAppConfig;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
-use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
 use Psr\Container\ContainerInterface;
@@ -240,6 +240,13 @@ class ProviderFactory {
 	private bool $lastCallHitToolCap = false;
 
 	/**
+	 * The Nextcloud AI client built on first use when none was injected.
+	 *
+	 * @var NextcloudTaskClient|null
+	 */
+	private ?NextcloudTaskClient $builtNcClient = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
@@ -341,6 +348,9 @@ class ProviderFactory {
 	 *                                                      call site unchanged.
 	 * @param DataUseGate|null $dataUseGate The data-use step on the path without an AI
 	 *                                      feature (models-no-training-guarantee).
+	 * @param NextcloudTaskClient|null $nextcloudClient Runs Nextcloud AI tasks
+	 *                                                  (use-nextcloud-ai-settings). Null
+	 *                                                  builds one over `$taskManager`.
 	 *
 	 * @return void
 	 *
@@ -368,8 +378,29 @@ class ProviderFactory {
 		private readonly ?ContainerInterface $container = null,
 		private readonly ?FeatureProviderResolver $featureResolver = null,
 		private readonly ?DataUseGate $dataUseGate = null,
+		private readonly ?NextcloudTaskClient $nextcloudClient = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The Nextcloud AI client: the injected one, or one built over the task manager when
+	 * the factory was built by hand (unit tests build it with four collaborators).
+	 *
+	 * @return NextcloudTaskClient The client.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-1
+	 */
+	private function nextcloudClient(): NextcloudTaskClient {
+		if ($this->nextcloudClient !== null) {
+			return $this->nextcloudClient;
+		}
+
+		if ($this->builtNcClient === null) {
+			$this->builtNcClient = new NextcloudTaskClient(taskManager: $this->taskManager, logger: $this->logger, appName: $this->appName);
+		}
+
+		return $this->builtNcClient;
+	}//end nextcloudClient()
 
 	/**
 	 * The container AppAPI and the OpenRegister credential broker are resolved from.
@@ -672,7 +703,12 @@ class ProviderFactory {
 		?array $agentCredentialIds = null,
 		array $attachmentReferences = [],
 	): ChatDriver {
-		$chatProvider = $llmConfig['chatProvider'] ?? null;
+		// Use-nextcloud-ai-settings: with no hermiq-specific provider saved, hermiq runs
+		// on Nextcloud AI, the provider set up for the whole instance.
+		$chatProvider = (string)($llmConfig['chatProvider'] ?? '');
+		if (trim($chatProvider) === '') {
+			$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
 
 		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
 		// resolve the feature's own binding. It only resolves; the ceiling is
@@ -2516,12 +2552,12 @@ class ProviderFactory {
 	/**
 	 * Generate text via the `nextcloud` TaskProcessing driver.
 	 *
-	 * Non-streaming, background/non-interactive only (conversation titles,
-	 * summaries) — never call this for SSE chat. Runs the `core:text2text` task
-	 * type synchronously via `IManager::runTask()`.
+	 * Runs a `core:text2text` task as the acting user through `NextcloudTaskClient`:
+	 * inline for a synchronous provider, scheduled with a bounded wait otherwise.
 	 *
 	 * @param string $prompt The prompt text.
-	 * @param string|null $userId The user id scheduling the task (optional).
+	 * @param string|null $userId The user hermiq works for; null uses the session user
+	 *                            (a scheduled run impersonates its acting user).
 	 * @param string|null $customId Optional custom task id for correlation.
 	 *
 	 * @return string The generated text.
@@ -2530,35 +2566,59 @@ class ProviderFactory {
 	 *                                      or the task fails/returns no output.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-3
 	 */
 	public function generateViaNextcloud(string $prompt, ?string $userId = null, ?string $customId = null): string {
-		if ($this->taskManager->hasProviders() === false) {
-			throw new ProviderUnavailableException('No Nextcloud Assistant (TaskProcessing) provider is installed.', 503);
-		}
-
-		$task = new Task(TextToText::ID, ['input' => $prompt], $this->appName, $userId, ($customId ?? ''));
-
-		try {
-			$result = $this->taskManager->runTask($task);
-		} catch (\Throwable $e) {
-			$this->logger->warning(
-				message: '[ProviderFactory] Nextcloud Assistant task failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-			throw new ProviderUnavailableException('Nextcloud Assistant task failed: ' . $e->getMessage(), 0, $e);
-		}
-
-		$output = $result->getOutput()['output'] ?? null;
-		if (is_string($output) === false || $output === '') {
-			throw new ProviderUnavailableException('Nextcloud Assistant returned no output.', 503);
-		}
-
-		return $output;
+		return $this->nextcloudClient()->generate(
+			prompt: $prompt,
+			userId: ($userId ?? $this->currentUid()),
+			timeoutSeconds: NextcloudTaskClient::TIMEOUT_BACKGROUND,
+			customId: ($customId ?? '')
+		);
 	}//end generateViaNextcloud()
+
+	/**
+	 * Run one chat or agent turn on Nextcloud AI.
+	 *
+	 * `core:text2text:chat` without tools, `core:text2text:chatwithtools` with tools and
+	 * an executor; each tool call runs through the governed executor the caller built.
+	 * The task runs as the given user, else the session user.
+	 *
+	 * @param array $messageHistory LLPhant messages, system first and the user turn last.
+	 * @param array $functions OpenAI-style function definitions.
+	 * @param callable|null $toolExecutor Runs one tool: fn(string $name, array $args): string.
+	 * @param integer|null $maxToolCalls The agent's tool-call cap.
+	 * @param string|null $userId The user hermiq works for.
+	 *
+	 * @return string The reply.
+	 *
+	 * @throws ProviderUnavailableException When no Nextcloud provider serves the turn, a
+	 *                                      task fails, or the wait runs out.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-2-4
+	 */
+	public function callNextcloudChat(
+		array $messageHistory,
+		array $functions = [],
+		?callable $toolExecutor = null,
+		?int $maxToolCalls = null,
+		?string $userId = null,
+	): string {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+
+		$client = $this->nextcloudClient();
+		$reply = $client->chat(
+			messageHistory: $messageHistory,
+			userId: ($userId ?? $this->currentUid()),
+			functions: $functions,
+			toolExecutor: $toolExecutor,
+			maxToolCalls: $maxToolCalls
+		);
+		$this->lastCallHitToolCap = $client->lastCallHitToolCap();
+
+		return $reply;
+	}//end callNextcloudChat()
 
 	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently
@@ -3012,16 +3072,19 @@ class ProviderFactory {
 	}//end currentUid()
 
 	/**
-	 * Build the `nextcloud` driver descriptor. No LLPhant chat instance — the
-	 * caller must use `generateViaNextcloud()` instead of `$driver->chat`.
+	 * Build the `nextcloud` driver descriptor. No LLPhant chat instance: the caller uses
+	 * `callNextcloudChat()` or `generateViaNextcloud()` instead of `$driver->chat`.
 	 *
 	 * @return ChatDriver
 	 *
-	 * @throws ProviderUnavailableException When no TaskProcessing provider is installed.
+	 * @throws ProviderUnavailableException When Nextcloud has no AI provider at all, with
+	 *                                      the admin message saying where to set one up.
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-1
 	 */
 	private function createNextcloudDriver(): ChatDriver {
 		if ($this->taskManager->hasProviders() === false) {
-			throw new ProviderUnavailableException('No Nextcloud Assistant (TaskProcessing) provider is installed.', 503);
+			throw new ProviderUnavailableException($this->nextcloudClient()->adminMessage(), 503);
 		}
 
 		return new ChatDriver(provider: 'nextcloud', chat: null, model: TextToText::ID);

@@ -51,6 +51,17 @@ class LlmSettingsHandler {
 	public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'];
 
 	/**
+	 * The chat provider hermiq uses when no hermiq-specific one is configured: Nextcloud
+	 * AI, the provider an administrator set up under Administration settings > Artificial
+	 * intelligence (use-nextcloud-ai-settings). Callers resolve an empty
+	 * `chatProvider` to this; the stored config is never rewritten, so empty keeps
+	 * meaning "no hermiq-specific provider".
+	 *
+	 * @var string
+	 */
+	public const DEFAULT_CHAT_PROVIDER = 'nextcloud';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IAppConfig $appConfig Nextcloud app configuration service.

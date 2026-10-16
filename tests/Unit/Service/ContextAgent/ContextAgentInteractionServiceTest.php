@@ -313,6 +313,34 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	}//end testExistingTokenIsReused()
 
 	/**
+	 * Nextcloud Assistant's first turn sends `{}` as the token, and a stale token makes
+	 * OpenRegister's find() throw. Both start a fresh conversation instead of failing the
+	 * task with "Object not found in magic table" (seen live on :8099, task 17).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-6-2
+	 */
+	public function testAnEmptyObjectOrUnknownTokenStartsAConversation(): void {
+		$agent = $this->agent('agent-1');
+		$this->appConfig->method('getValueString')->willReturn('agent-1');
+		$this->objectService->method('find')->willReturnCallback(
+			function (int|string $id) use ($agent): ObjectEntity {
+				if ($id === 'agent-1') {
+					return $agent;
+				}
+				throw new \OCP\AppFramework\Db\DoesNotExistException('Object not found in magic table');
+			}
+		);
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->objectService->expects($this->exactly(2))->method('saveObject')->willReturn($this->conversation('conv-new', 'alice'));
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello']);
+
+		$this->assertSame('conv-new', $this->service()->interact('alice', 'hi', null, '{}')['conversation_token']);
+		$this->assertSame('conv-new', $this->service()->interact('alice', 'hi', null, 'gone-uuid')['conversation_token']);
+	}//end testAnEmptyObjectOrUnknownTokenStartsAConversation()
+
+	/**
 	 * confirmation=1 approves the user's matching pending Approval.
 	 *
 	 * @return void

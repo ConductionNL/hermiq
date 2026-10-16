@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ChatHealthController;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -46,11 +47,12 @@ class ChatHealthControllerTest extends TestCase {
 	 *
 	 * @return ChatHealthController
 	 */
-	private function controller(LlmSettingsHandler $llmSettings): ChatHealthController {
+	private function controller(LlmSettingsHandler $llmSettings, ?NextcloudTaskClient $nextcloudAi = null): ChatHealthController {
 		return new ChatHealthController(
 			$this->createMock(IRequest::class),
 			$llmSettings,
-			$this->createMock(LoggerInterface::class)
+			$this->createMock(LoggerInterface::class),
+			$nextcloudAi
 		);
 
 	}//end controller()
@@ -95,6 +97,28 @@ class ChatHealthControllerTest extends TestCase {
 		$this->assertSame([], $response->getData()['capabilities']);
 
 	}//end testHealthUnconfiguredIsStillHealthy()
+
+	/**
+	 * With no hermiq-specific provider and a Nextcloud provider serving chat, hermiq is
+	 * configured: it chats through Nextcloud AI (use-nextcloud-ai-settings). On the old code
+	 * this answered unconfigured.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-3-2
+	 */
+	public function testHealthOkOnNextcloudAiWhenAProviderServesChat(): void {
+		$llmSettings = $this->createMock(LlmSettingsHandler::class);
+		$llmSettings->method('getLLMSettingsOnly')->willReturn(['chatProvider' => null]);
+		$nextcloudAi = $this->createMock(NextcloudTaskClient::class);
+		$nextcloudAi->method('isAvailable')->with('core:text2text:chat')->willReturn(true);
+
+		$response = $this->controller($llmSettings, $nextcloudAi)->health();
+
+		$this->assertSame('ok', $response->getData()['status']);
+		$this->assertTrue($response->getData()['configured']);
+
+	}//end testHealthOkOnNextcloudAiWhenAProviderServesChat()
 
 	/**
 	 * A failing config read yields 503 {status:config_error}, not no_provider.

@@ -38,12 +38,14 @@ use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use InvalidArgumentException;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ModelCapabilityRegistry;
+use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\IURLGenerator;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -62,6 +64,9 @@ class LlmSettingsController extends Controller {
 	 * @param ModelCapabilityRegistry $modelCapabilities The declared native inputs per model.
 	 * @param LlmConnectionReport|null $connectionReport Reports the saved provider to integriq's connection
 	 *                                                  registry; null when built by hand in a test.
+	 * @param NextcloudTaskClient|null $nextcloudAi Reports which Nextcloud AI task types have a
+	 *                                              provider; null when built by hand in a test.
+	 * @param IURLGenerator|null $urlGenerator Builds the link to Nextcloud's AI admin settings.
 	 *
 	 * @return void
 	 *
@@ -73,6 +78,8 @@ class LlmSettingsController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ModelCapabilityRegistry $modelCapabilities,
 		private readonly ?LlmConnectionReport $connectionReport = null,
+		private readonly ?NextcloudTaskClient $nextcloudAi = null,
+		private readonly ?IURLGenerator $urlGenerator = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -103,9 +110,35 @@ class LlmSettingsController extends Controller {
 
 		$masked = $this->maskCredentials(config: $config);
 		$masked['modelCapabilities'] = $this->modelCapabilities->all();
+		$masked['effectiveChatProvider'] = (string)($config['chatProvider'] ?? '');
+		if (trim($masked['effectiveChatProvider']) === '') {
+			$masked['effectiveChatProvider'] = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+		}
+		$masked['nextcloudAi'] = $this->nextcloudAiStatus();
 
 		return new JSONResponse($masked);
 	}//end get()
+
+	/**
+	 * What the admin page shows about Nextcloud AI: per consumed task type whether a
+	 * provider serves it, the admin message, and the link to Nextcloud's AI settings.
+	 *
+	 * @return array{taskTypes: array<string, mixed>, adminMessage: string, settingsUrl: string}
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-5-1
+	 */
+	private function nextcloudAiStatus(): array {
+		$settingsUrl = '';
+		if ($this->urlGenerator !== null) {
+			$settingsUrl = $this->urlGenerator->linkToRoute('settings.AdminSettings.index', ['section' => 'ai']);
+		}
+
+		return [
+			'taskTypes' => ($this->nextcloudAi?->availability() ?? []),
+			'adminMessage' => ($this->nextcloudAi?->adminMessage() ?? NextcloudTaskClient::ADMIN_MESSAGE),
+			'settingsUrl' => $settingsUrl,
+		];
+	}//end nextcloudAiStatus()
 
 	/**
 	 * Update the LLM provider configuration (PATCH/merge semantics).

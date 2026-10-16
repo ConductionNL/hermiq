@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Connection;
 
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use Throwable;
@@ -51,7 +52,7 @@ class LlmConnectionReport {
 		'ollama'    => 'Ollama',
 		'fireworks' => 'Fireworks AI',
 		'anthropic' => 'Anthropic',
-		'nextcloud' => 'Nextcloud Assistant',
+		'nextcloud' => 'Nextcloud AI',
 	];
 
 	/**
@@ -91,11 +92,11 @@ class LlmConnectionReport {
 	 * @return array{0: string, 1: string} The status and the message.
 	 */
 	private function describeProvider(array $config): array {
+		// Use-nextcloud-ai-settings: no hermiq-specific provider means Nextcloud AI.
 		$provider = (string)($config['chatProvider'] ?? '');
-		if ($provider === '') {
-			return ['unconfigured', 'No chat provider is chosen. Chat answers 503 until one is.'];
+		if (trim($provider) === '') {
+			$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
 		}
-
 		$name = (self::PROVIDER_NAMES[$provider] ?? $provider);
 
 		try {
@@ -108,8 +109,8 @@ class LlmConnectionReport {
 
 		if ($provider === 'nextcloud') {
 			return [
-				'limited',
-				'Nextcloud Assistant runs background work, such as titles and summaries. Chat cannot run on it. Saved, not tested.',
+				'configured',
+				'Chat uses Nextcloud AI, the provider set up under Administration settings > Artificial intelligence. Saved, not tested.',
 			];
 		}
 

@@ -171,6 +171,24 @@ class TenantModelPolicyServiceTest extends TestCase {
 	}//end testFallbackPolicyIsFailClosedToTheConfiguredProvider()
 
 	/**
+	 * With no policy anywhere and no chatProvider saved, hermiq runs on Nextcloud AI, so
+	 * the fallback allows exactly that (use-nextcloud-ai-settings). On the old code it
+	 * allowed nothing, which refused every default run with a model-policy error.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/use-nextcloud-ai-settings/tasks.md#task-1-1
+	 */
+	public function testFallbackPolicyAllowsNextcloudAiWhenNoProviderIsSaved(): void {
+		$service = $this->service([]);
+
+		$this->assertSame([['provider' => 'nextcloud', 'models' => []]], $service->effectivePolicyFor(organisation: 'org-a')['allowed']);
+		$this->assertTrue($service->isAllowed(organisation: 'org-a', provider: 'nextcloud', model: 'core:text2text'));
+		$this->assertFalse($service->isAllowed(organisation: 'org-a', provider: 'openai', model: 'gpt-4o'));
+
+	}//end testFallbackPolicyAllowsNextcloudAiWhenNoProviderIsSaved()
+
+	/**
 	 * isAllowed(): unlisted provider refused; empty models list means any model;
 	 * non-empty models list is an allowlist.
 	 *
