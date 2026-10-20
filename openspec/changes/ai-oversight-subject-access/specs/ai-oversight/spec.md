@@ -31,6 +31,20 @@ access decision SHALL be taken on the server before the records are read.
 - **GIVEN** a member of `ai-oversight`, or an administrator
 - **THEN** every advisory record is readable, through the subject route and through OpenRegister
 
+#### Scenario: Records under an app's former id
+
+- **GIVEN** records about case `C` stored with `originApp: procest`, dossiq's former id
+- **WHEN** a reader allowed on `C` asks for the records with `originApp=dossiq`
+- **THEN** those records are included, newest first with the ones stored under `dossiq`
+- **AND** no stored record is rewritten
+
+#### Scenario: The oversight group exists after install or upgrade
+
+- **GIVEN** no `ai-oversight` group
+- **WHEN** hermiq is installed or upgraded
+- **THEN** the group exists, without members
+- **AND** an existing group is left untouched
+
 ### Requirement: A shown suggestion nobody acted on is recorded as unused
 
 Hermiq SHALL accept `humanAction: ignored` and store it as `status: unused`, terminal at creation, with

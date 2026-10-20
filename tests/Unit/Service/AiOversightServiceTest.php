@@ -327,12 +327,12 @@ class AiOversightServiceTest extends TestCase {
         $about = [
             'sourceType'      => 'advisory',
             'status'          => 'approved',
-            'advisoryContext' => ['originApp' => 'dossiq', 'subjectType' => 'case', 'subjectId' => 'case-1'],
+            'advisoryContext' => ['originApp' => 'pipelinq', 'subjectType' => 'case', 'subjectId' => 'case-1'],
         ];
         $other = [
             'sourceType'      => 'advisory',
             'status'          => 'denied',
-            'advisoryContext' => ['originApp' => 'dossiq', 'subjectType' => 'case', 'subjectId' => 'case-2'],
+            'advisoryContext' => ['originApp' => 'pipelinq', 'subjectType' => 'case', 'subjectId' => 'case-2'],
         ];
         $gate  = ['sourceType' => 'schedule', 'status' => 'pending'];
 
@@ -343,7 +343,7 @@ class AiOversightServiceTest extends TestCase {
             ->with(
                 $this->callback(
                     static fn (array $query): bool => $query['sourceType'] === 'advisory'
-                        && $query['advisoryContext.originApp'] === 'dossiq'
+                        && $query['advisoryContext.originApp'] === 'pipelinq'
                         && $query['advisoryContext.subjectId'] === 'case-1'
                         && $query['_limit'] === 200
                 ),
@@ -352,12 +352,60 @@ class AiOversightServiceTest extends TestCase {
             )
             ->willReturn(['results' => [$about, $other, $gate], 'total' => 3]);
 
-        $page = $this->service->listForSubject(originApp: 'dossiq', subjectId: 'case-1', limit: 5000);
+        $page = $this->service->listForSubject(originApp: 'pipelinq', subjectId: 'case-1', limit: 5000);
 
         $this->assertSame([$about], $page['results']);
         $this->assertSame(1, $page['total']);
 
     }//end testListForSubjectKeepsOnlyRowsAboutTheSubject()
+
+
+    /**
+     * Records stored under the origin app's former id are found too, newest
+     * first across both ids, and rows of another app are still dropped.
+     *
+     * @return void
+     */
+    public function testListForSubjectIncludesRecordsUnderTheFormerAppId(): void {
+        $old   = [
+            'sourceType'      => 'advisory',
+            'decidedAt'       => '2026-08-01T10:00:00+00:00',
+            'advisoryContext' => ['originApp' => 'procest', 'subjectType' => 'case', 'subjectId' => 'case-1'],
+        ];
+        $new   = [
+            'sourceType'      => 'advisory',
+            'decidedAt'       => '2026-10-20T10:00:00+00:00',
+            'advisoryContext' => ['originApp' => 'dossiq', 'subjectType' => 'case', 'subjectId' => 'case-1'],
+        ];
+        $other = [
+            'sourceType'      => 'advisory',
+            'decidedAt'       => '2026-10-21T10:00:00+00:00',
+            'advisoryContext' => ['originApp' => 'pipelinq', 'subjectType' => 'case', 'subjectId' => 'case-1'],
+        ];
+
+        $this->objectService->method('setRegister')->willReturnSelf();
+        $this->objectService->method('setSchema')->willReturnSelf();
+        $asked = [];
+        $this->objectService->expects($this->exactly(2))
+            ->method('searchObjectsPaginated')
+            ->willReturnCallback(
+                function (array $query) use (&$asked, $old, $new, $other): array {
+                    $asked[] = $query['advisoryContext.originApp'];
+                    if ($query['advisoryContext.originApp'] === 'procest') {
+                        return ['results' => [$old], 'total' => 1];
+                    }
+
+                    return ['results' => [$new, $other], 'total' => 2];
+                }
+            );
+
+        $page = $this->service->listForSubject(originApp: 'dossiq', subjectId: 'case-1');
+
+        $this->assertSame(['dossiq', 'procest'], $asked);
+        $this->assertSame([$new, $old], $page['results']);
+        $this->assertSame(2, $page['total']);
+
+    }//end testListForSubjectIncludesRecordsUnderTheFormerAppId()
 
 
 }//end class

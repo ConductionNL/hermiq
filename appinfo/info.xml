@@ -93,6 +93,7 @@
             <step>OCA\Hermiq\Repair\RemoveRetiredCronJobs</step>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\ProvisionAiOversightGroup</step>
             <step>OCA\Hermiq\Repair\InitializeActions</step>
             <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
             <step>OCA\Hermiq\Repair\SeedBudgets</step>
@@ -177,6 +178,7 @@
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\ProvisionAiOversightGroup</step>
             <step>OCA\Hermiq\Repair\InitializeActions</step>
             <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
             <step>OCA\Hermiq\Repair\SeedBudgets</step>

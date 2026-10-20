@@ -101,14 +101,16 @@ class AiOversightService {
     /**
      * Constructor.
      *
-     * @param ObjectService   $objectService OpenRegister object service.
-     * @param LoggerInterface $logger        The logger.
+     * @param ObjectService    $objectService OpenRegister object service.
+     * @param LoggerInterface  $logger        The logger.
+     * @param OriginAppAliases $aliases       Every id an origin app has carried.
      *
      * @return void
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly LoggerInterface $logger,
+        private readonly OriginAppAliases $aliases=new OriginAppAliases(),
     ) {
 
     }//end __construct()
@@ -165,7 +167,8 @@ class AiOversightService {
      * to the oversight role. The caller MUST have decided access first through
      * AiOversightAccess::maySeeSubject(); this method does no access check.
      * Every returned row is checked against the requested subject again, so a
-     * filter OpenRegister ignored can never widen the answer.
+     * filter OpenRegister ignored can never widen the answer. Records stored
+     * under a former id of the origin app are included.
      *
      * @param string      $originApp   The origin app id.
      * @param string      $subjectId   The subject's id in that app.
@@ -184,12 +187,69 @@ class AiOversightService {
         int $limit=25,
         int $offset=0
     ): array {
+        $limit  = max(1, min($limit, self::MAX_LIMIT));
+        $offset = max(0, $offset);
+        $origins = $this->aliases->idsOf(appId: $originApp);
+
+        $results = [];
+        $total   = 0;
+        foreach ($origins as $origin) {
+            $page = $this->searchSubject(
+                origin: $origin,
+                subjectId: $subjectId,
+                subjectType: $subjectType,
+                window: ($offset + $limit)
+            );
+
+            $kept = array_values(
+                array_filter(
+                    $page['rows'],
+                    fn (array $data): bool => $this->isAbout(
+                        data: $data,
+                        origins: $origins,
+                        subjectId: $subjectId,
+                        subjectType: $subjectType
+                    )
+                )
+            );
+
+            $results = array_merge($results, $kept);
+            $total  += count($kept);
+            if (count($kept) === count($page['rows'])) {
+                $total += max(0, ($page['total'] - count($kept)));
+            }
+        }//end foreach
+
+        usort(
+            $results,
+            static fn (array $left, array $right): int => strcmp(
+                (string) ($right['decidedAt'] ?? ''),
+                (string) ($left['decidedAt'] ?? '')
+            )
+        );
+
+        return ['results' => array_slice($results, $offset, $limit), 'total' => $total];
+
+    }//end listForSubject()
+
+
+    /**
+     * Read the first rows about a subject under one origin app id, newest first.
+     *
+     * @param string      $origin      One origin app id.
+     * @param string      $subjectId   The subject id.
+     * @param string|null $subjectType The subject type, or null for any.
+     * @param integer     $window      How many rows from the top to read.
+     *
+     * @return array{rows: array<int, array<string, mixed>>, total: integer}
+     */
+    private function searchSubject(string $origin, string $subjectId, ?string $subjectType, int $window): array {
         $query = [
             'sourceType'                => 'advisory',
-            'advisoryContext.originApp' => $originApp,
+            'advisoryContext.originApp' => $origin,
             'advisoryContext.subjectId' => $subjectId,
-            '_limit'                    => max(1, min($limit, self::MAX_LIMIT)),
-            '_offset'                   => max(0, $offset),
+            '_limit'                    => $window,
+            '_offset'                   => 0,
             '_order'                    => ['decidedAt' => 'DESC'],
         ];
         if ($subjectType !== null && $subjectType !== '') {
@@ -201,22 +261,14 @@ class AiOversightService {
             ->setSchema(self::APPROVAL_SCHEMA)
             ->searchObjectsPaginated(query: $query, _rbac: false, _multitenancy: false);
 
-        $results = [];
+        $rows = [];
         foreach (($page['results'] ?? []) as $row) {
-            $data = $this->toArray(row: $row);
-            if ($this->isAbout(data: $data, originApp: $originApp, subjectId: $subjectId, subjectType: $subjectType) === true) {
-                $results[] = $data;
-            }
+            $rows[] = $this->toArray(row: $row);
         }
 
-        $total = count($results);
-        if (count($results) === count($page['results'] ?? [])) {
-            $total = (int) ($page['total'] ?? $total);
-        }
+        return ['rows' => $rows, 'total' => (int) ($page['total'] ?? count($rows))];
 
-        return ['results' => $results, 'total' => $total];
-
-    }//end listForSubject()
+    }//end searchSubject()
 
 
     /**
@@ -244,19 +296,19 @@ class AiOversightService {
      * Whether a row is an advisory Approval about exactly the requested subject.
      *
      * @param array<string, mixed> $data        The row.
-     * @param string               $originApp   The origin app id.
+     * @param string[]             $origins     Every id of the origin app.
      * @param string               $subjectId   The subject id.
      * @param string|null          $subjectType The subject type, or null for any.
      *
      * @return boolean True when the row belongs in the answer.
      */
-    private function isAbout(array $data, string $originApp, string $subjectId, ?string $subjectType): bool {
+    private function isAbout(array $data, array $origins, string $subjectId, ?string $subjectType): bool {
         $context = ($data['advisoryContext'] ?? null);
         if (($data['sourceType'] ?? null) !== 'advisory' || is_array($context) === false) {
             return false;
         }
 
-        if (($context['originApp'] ?? null) !== $originApp || ($context['subjectId'] ?? null) !== $subjectId) {
+        if (in_array(($context['originApp'] ?? null), $origins, true) === false || ($context['subjectId'] ?? null) !== $subjectId) {
             return false;
         }
 

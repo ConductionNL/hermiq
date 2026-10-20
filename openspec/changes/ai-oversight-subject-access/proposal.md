@@ -17,6 +17,10 @@ Hermiq also heard only about suggestions somebody acted on. A suggestion that wa
 - `humanAction: ignored` records a shown suggestion nobody acted on as `status: unused`, with
   `advisoryContext.unusedBecause` set to `closed`, `expired` or `superseded`.
 
+- A repair step creates the `ai-oversight` group when it is missing.
+- The subject route also finds records stored under a former id of the origin app (`procest` for `dossiq`), through
+  an alias map. Stored data is not rewritten.
+
 ## Scope
 
 hermiq only. Consumer apps report `ignored` through the existing event.
