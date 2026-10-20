@@ -178,6 +178,9 @@ return [
             'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
         ],
 
+        // Advisory AI-oversight records about one subject, for whoever may open that subject.
+        ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
+
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
         ['name' => 'approvalVerify#verify', 'url' => '/api/approvals/verify', 'verb' => 'POST'],
