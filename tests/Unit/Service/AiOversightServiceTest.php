@@ -285,4 +285,79 @@ class AiOversightServiceTest extends TestCase {
     }//end testMissingDecidedAtIsStamped()
 
 
+    /**
+     * A shown suggestion nobody acted on becomes a terminal `unused` record.
+     *
+     * @return void
+     */
+    public function testIgnoredIsWrittenAsUnusedWithItsCause(): void {
+        $captured = null;
+        $this->expectSave($captured);
+
+        $this->service->record($this->record(['humanAction' => 'ignored', 'unusedBecause' => 'superseded']));
+
+        $this->assertSame('unused', $captured['status']);
+        $this->assertSame('superseded', $captured['advisoryContext']['unusedBecause']);
+
+    }//end testIgnoredIsWrittenAsUnusedWithItsCause()
+
+
+    /**
+     * An unknown unusedBecause is refused rather than stored.
+     *
+     * @return void
+     */
+    public function testUnknownUnusedBecauseIsRefused(): void {
+        $this->objectService->expects($this->never())->method('saveObject');
+
+        $this->assertNull(
+            $this->service->record($this->record(['humanAction' => 'ignored', 'unusedBecause' => 'bored']))
+        );
+
+    }//end testUnknownUnusedBecauseIsRefused()
+
+
+    /**
+     * The subject listing reads without RBAC, filters on the subject and
+     * drops any row that is not about exactly that subject.
+     *
+     * @return void
+     */
+    public function testListForSubjectKeepsOnlyRowsAboutTheSubject(): void {
+        $about = [
+            'sourceType'      => 'advisory',
+            'status'          => 'approved',
+            'advisoryContext' => ['originApp' => 'dossiq', 'subjectType' => 'case', 'subjectId' => 'case-1'],
+        ];
+        $other = [
+            'sourceType'      => 'advisory',
+            'status'          => 'denied',
+            'advisoryContext' => ['originApp' => 'dossiq', 'subjectType' => 'case', 'subjectId' => 'case-2'],
+        ];
+        $gate  = ['sourceType' => 'schedule', 'status' => 'pending'];
+
+        $this->objectService->method('setRegister')->willReturnSelf();
+        $this->objectService->method('setSchema')->willReturnSelf();
+        $this->objectService->expects($this->once())
+            ->method('searchObjectsPaginated')
+            ->with(
+                $this->callback(
+                    static fn (array $query): bool => $query['sourceType'] === 'advisory'
+                        && $query['advisoryContext.originApp'] === 'dossiq'
+                        && $query['advisoryContext.subjectId'] === 'case-1'
+                        && $query['_limit'] === 200
+                ),
+                false,
+                false
+            )
+            ->willReturn(['results' => [$about, $other, $gate], 'total' => 3]);
+
+        $page = $this->service->listForSubject(originApp: 'dossiq', subjectId: 'case-1', limit: 5000);
+
+        $this->assertSame([$about], $page['results']);
+        $this->assertSame(1, $page['total']);
+
+    }//end testListForSubjectKeepsOnlyRowsAboutTheSubject()
+
+
 }//end class

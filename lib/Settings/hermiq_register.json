@@ -438,7 +438,7 @@
 			"Approval": {
 				"slug": "approval",
 				"icon": "CheckDecagramOutline",
-				"version": "0.7.0",
+				"version": "0.8.0",
 				"title": "Approval",
 				"description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision).",
 				"type": "object",
@@ -447,8 +447,24 @@
 					"requestedAt"
 				],
 				"authorization": {
+					"_note": "Advisory rows (sourceType advisory) are evidence about another app's record. Through this schema only the ai-oversight group and admins read them; everyone else reads them through GET /api/ai-oversight/subject, which first asks OpenRegister whether the reader may open the subject. Gating rows stay readable by every signed-in user, as before; the null rule keeps legacy rows without a sourceType readable.",
 					"read": [
-						"authenticated"
+						{
+							"group": "authenticated",
+							"match": {
+								"sourceType": {
+									"$ne": "advisory"
+								}
+							}
+						},
+						{
+							"group": "authenticated",
+							"match": {
+								"sourceType": null
+							}
+						},
+						"ai-oversight",
+						"admin"
 					]
 				},
 				"properties": {
@@ -458,10 +474,11 @@
 							"pending",
 							"approved",
 							"denied",
-							"overridden"
+							"overridden",
+							"unused"
 						],
 						"title": "Status",
-						"description": "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it."
+						"description": "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause)."
 					},
 					"sourceType": {
 						"type": "string",
@@ -692,6 +709,17 @@
 								"type": "integer",
 								"title": "Response time (ms)",
 								"description": "How long the model took, kept because a suggestion nobody waited for is a different oversight risk than one that blocked a handler."
+							},
+							"unusedBecause": {
+								"type": "string",
+								"enum": [
+									"",
+									"closed",
+									"expired",
+									"superseded"
+								],
+								"title": "Unused because",
+								"description": "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status."
 							}
 						}
 					}

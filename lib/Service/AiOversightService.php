@@ -18,6 +18,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -68,7 +69,26 @@ class AiOversightService {
         'accepted'   => 'approved',
         'rejected'   => 'denied',
         'overridden' => 'overridden',
+        'ignored'    => 'unused',
     ];
+
+    /**
+     * Why a suggestion that was shown went unused.
+     *
+     * `closed`: the person closed the surface it was shown on. `expired`: it
+     * was left open past its lifetime. `superseded`: a newer suggestion
+     * replaced it before anyone acted on it.
+     *
+     * @var string[]
+     */
+    private const UNUSED_BECAUSE = ['closed', 'expired', 'superseded'];
+
+    /**
+     * Largest page the subject listing returns.
+     *
+     * @var integer
+     */
+    private const MAX_LIMIT = 200;
 
     /**
      * Keys without which the record is evidence of nothing.
@@ -139,6 +159,113 @@ class AiOversightService {
 
 
     /**
+     * List the advisory Approvals about one subject, newest decision first.
+     *
+     * Reads WITHOUT OpenRegister RBAC, because the schema keeps advisory rows
+     * to the oversight role. The caller MUST have decided access first through
+     * AiOversightAccess::maySeeSubject(); this method does no access check.
+     * Every returned row is checked against the requested subject again, so a
+     * filter OpenRegister ignored can never widen the answer.
+     *
+     * @param string      $originApp   The origin app id.
+     * @param string      $subjectId   The subject's id in that app.
+     * @param string|null $subjectType The subject type, or null for any.
+     * @param integer     $limit       Page size.
+     * @param integer     $offset      Paging offset.
+     *
+     * @return array{results: array<int, array<string, mixed>>, total: integer}
+     *
+     * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+     */
+    public function listForSubject(
+        string $originApp,
+        string $subjectId,
+        ?string $subjectType=null,
+        int $limit=25,
+        int $offset=0
+    ): array {
+        $query = [
+            'sourceType'                => 'advisory',
+            'advisoryContext.originApp' => $originApp,
+            'advisoryContext.subjectId' => $subjectId,
+            '_limit'                    => max(1, min($limit, self::MAX_LIMIT)),
+            '_offset'                   => max(0, $offset),
+            '_order'                    => ['decidedAt' => 'DESC'],
+        ];
+        if ($subjectType !== null && $subjectType !== '') {
+            $query['advisoryContext.subjectType'] = $subjectType;
+        }
+
+        $page = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->searchObjectsPaginated(query: $query, _rbac: false, _multitenancy: false);
+
+        $results = [];
+        foreach (($page['results'] ?? []) as $row) {
+            $data = $this->toArray(row: $row);
+            if ($this->isAbout(data: $data, originApp: $originApp, subjectId: $subjectId, subjectType: $subjectType) === true) {
+                $results[] = $data;
+            }
+        }
+
+        $total = count($results);
+        if (count($results) === count($page['results'] ?? [])) {
+            $total = (int) ($page['total'] ?? $total);
+        }
+
+        return ['results' => $results, 'total' => $total];
+
+    }//end listForSubject()
+
+
+    /**
+     * Normalise one search row to an array.
+     *
+     * @param mixed $row An ObjectEntity or an already rendered array.
+     *
+     * @return array<string, mixed> The row's data.
+     */
+    private function toArray(mixed $row): array {
+        if ($row instanceof ObjectEntity) {
+            return $row->jsonSerialize();
+        }
+
+        if (is_array($row) === true) {
+            return $row;
+        }
+
+        return [];
+
+    }//end toArray()
+
+
+    /**
+     * Whether a row is an advisory Approval about exactly the requested subject.
+     *
+     * @param array<string, mixed> $data        The row.
+     * @param string               $originApp   The origin app id.
+     * @param string               $subjectId   The subject id.
+     * @param string|null          $subjectType The subject type, or null for any.
+     *
+     * @return boolean True when the row belongs in the answer.
+     */
+    private function isAbout(array $data, string $originApp, string $subjectId, ?string $subjectType): bool {
+        $context = ($data['advisoryContext'] ?? null);
+        if (($data['sourceType'] ?? null) !== 'advisory' || is_array($context) === false) {
+            return false;
+        }
+
+        if (($context['originApp'] ?? null) !== $originApp || ($context['subjectId'] ?? null) !== $subjectId) {
+            return false;
+        }
+
+        return $subjectType === null || $subjectType === '' || ($context['subjectType'] ?? null) === $subjectType;
+
+    }//end isAbout()
+
+
+    /**
      * Whether this record can be stored as evidence at all.
      *
      * Split out of record() so the write path reads as one statement and the
@@ -172,6 +299,15 @@ class AiOversightService {
             $this->logger->warning(
                 'AI oversight: refusing advisory record, unknown humanAction',
                 ['humanAction' => $action, 'allowed' => array_keys(self::ACTION_STATUS)]
+            );
+            return false;
+        }
+
+        $because = (string) ($record['unusedBecause'] ?? '');
+        if ($because !== '' && in_array($because, self::UNUSED_BECAUSE, true) === false) {
+            $this->logger->warning(
+                'AI oversight: refusing advisory record, unknown unusedBecause',
+                ['unusedBecause' => $because, 'allowed' => self::UNUSED_BECAUSE]
             );
             return false;
         }
@@ -229,6 +365,7 @@ class AiOversightService {
                 'confidence'     => $confidence,
                 'actualValue'    => (string) ($record['actualValue'] ?? ''),
                 'responseTimeMs' => $responseTimeMs,
+                'unusedBecause'  => (string) ($record['unusedBecause'] ?? ''),
             ],
         ];
 
