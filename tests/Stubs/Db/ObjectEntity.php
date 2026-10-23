@@ -325,4 +325,31 @@ class ObjectEntity {
 	public function setSchema(string|int|null $schema): void {
 		$this->schema = $schema;
 	}//end setSchema()
+
+	/**
+	 * The object's version, as OpenRegister records it on each save.
+	 *
+	 * @var string|null
+	 */
+	private ?string $version = null;
+
+	/**
+	 * Get the object's version.
+	 *
+	 * @return string|null
+	 */
+	public function getVersion(): ?string {
+		return $this->version;
+	}//end getVersion()
+
+	/**
+	 * Set the object's version.
+	 *
+	 * @param string|null $version The version.
+	 *
+	 * @return void
+	 */
+	public function setVersion(?string $version): void {
+		$this->version = $version;
+	}//end setVersion()
 }//end class

@@ -1,0 +1,51 @@
+{
+    "app": "hermiq",
+    "connections": [
+        {
+            "key": "llm",
+            "title": "AI provider",
+            "description": "The language model agents run on: OpenAI, Anthropic, Fireworks AI, Ollama or Nextcloud Assistant.",
+            "order": 10,
+            "settingsUrl": "/settings/admin/hermiq#section-ai-provider",
+            "unconfiguredMessage": "Nothing saved yet. Choose a provider in the AI provider section. Chat answers 503 until one is chosen."
+        },
+        {
+            "key": "llm-runner",
+            "title": "LLM runner ExApp",
+            "description": "The hermiq-llm-runner ExApp runs Anthropic turns through the claude CLI, reached through AppAPI.",
+            "order": 20,
+            "unconfiguredMessage": "Not checked yet. Hermiq checks the runner when the AI provider settings are saved with Anthropic executionMode set to cli."
+        },
+        {
+            "key": "speech",
+            "title": "Speech services",
+            "description": "The Whisper and Kokoro sidecar that turns speech into text and text into speech.",
+            "order": 30,
+            "requiredConfig": ["speech_base_url"],
+            "unconfiguredMessage": "No speech_base_url is set, so hermiq tries a sidecar at http://127.0.0.1:8000. Set speech_base_url with occ to point at your speech service."
+        },
+        {
+            "key": "web-search",
+            "title": "Web search",
+            "description": "The SearXNG or JSON search API that agents search the web with.",
+            "order": 40,
+            "settingsUrl": "/settings/admin/hermiq#section-web-research",
+            "unconfiguredMessage": "Nothing saved yet. Set a search backend in the web research section. Until then web search answers search_unavailable."
+        },
+        {
+            "key": "webhook-delivery",
+            "title": "Webhook delivery",
+            "description": "Signed webhooks that deliver agent output. Each schedule sets its own target, so this row shows the last delivery.",
+            "order": 50,
+            "unconfiguredMessage": "No webhook delivery has run yet. The row shows the outcome of the last one."
+        },
+        {
+            "key": "github-templates",
+            "title": "GitHub store",
+            "description": "Finds and installs agent templates and skills from GitHub repositories.",
+            "order": 60,
+            "settingsUrl": "/settings/admin/hermiq#section-organisation-credentials",
+            "unconfiguredMessage": "Not checked yet. The row shows what GitHub answered on the last store search."
+        }
+    ]
+}

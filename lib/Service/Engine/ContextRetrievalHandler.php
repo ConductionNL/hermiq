@@ -44,9 +44,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
+use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Handles context retrieval for RAG chat responses against OpenRegister's
@@ -62,6 +64,8 @@ class ContextRetrievalHandler {
 	 *
 	 * @param ObjectService $objectService OpenRegister object search (public surface).
 	 * @param LoggerInterface $logger Logger.
+	 * @param GraphContextRetriever|null $graphRetriever The graph mode (knowledge-graph); null keeps graph mode on the keyword path.
+	 * @param AppRegisterScope|null $appScope The registers of an agent's app (agents-bound-to-their-app).
 	 *
 	 * @return void
 	 *
@@ -70,6 +74,8 @@ class ContextRetrievalHandler {
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
+		private readonly ?GraphContextRetriever $graphRetriever = null,
+		private readonly ?AppRegisterScope $appScope = null,
 	) {
 	}//end __construct()
 
@@ -146,6 +152,13 @@ class ContextRetrievalHandler {
 			// Fetch more results than needed for type filtering.
 			$fetchLimit = $totalSources * 2;
 
+			// Graph mode (knowledge-graph): the graph's live-hydrated neighbourhood,
+			// or null, in which case the keyword path below runs as before.
+			$graph = null;
+			if ($searchMode === 'graph') {
+				$graph = $this->graphContext(query: $query, agentData: $agentData, limit: $fetchLimit);
+			}
+
 			// Semantic/hybrid degrade to keyword — see the class docblock's
 			// ground-truth adaptation note.
 			if ($searchMode === 'semantic' || $searchMode === 'hybrid') {
@@ -161,11 +174,16 @@ class ContextRetrievalHandler {
 				);
 			}
 
-			$results = $this->searchScoped(
-				query: $query,
-				limit: $fetchLimit,
-				viewFilters: $viewFilters
-			);
+			$results = ($graph['results'] ?? []);
+			$contextText = ($graph['relations'] ?? '');
+			if ($graph === null) {
+				$results = $this->searchScoped(
+					query: $query,
+					limit: $fetchLimit,
+					viewFilters: $viewFilters,
+					applicationSlug: (string)($agentData['applicationSlug'] ?? '')
+				);
+			}
 
 			// Filter and build context - track file and object counts separately.
 			$fileSourceCount = 0;
@@ -209,7 +227,7 @@ class ContextRetrievalHandler {
 				// For objects: add UUID, register, schema.
 				if ($source['type'] === 'object') {
 					$source['uuid'] = $metadata['uuid'] ?? null;
-					$source['register'] = $metadata['register_id'] ?? $metadata['register'] ?? null;
+					$source['register'] = $result['register_name'] ?? $metadata['register_id'] ?? $metadata['register'] ?? null;
 					$source['schema'] = $metadata['schema_id'] ?? $metadata['schema'] ?? null;
 					$source['uri'] = $metadata['uri'] ?? null;
 				}
@@ -231,7 +249,7 @@ class ContextRetrievalHandler {
 				}
 
 				// Add to context text.
-				$contextText .= "Source: {$source['name']}\n";
+				$contextText .= $this->sourceLine(name: $source['name'], registerName: ($result['register_name'] ?? null));
 				$contextText .= "{$source['text']}\n\n";
 
 				// Stop if we've reached limits for both types.
@@ -283,6 +301,43 @@ class ContextRetrievalHandler {
 	}//end retrieveContext()
 
 	/**
+	 * The graph mode's context, or null to degrade to the keyword path.
+	 *
+	 * Null when the agent has not enabled the graph, no retriever is wired, the graph
+	 * names no visible seed, or it fails; each is logged at info, never thrown.
+	 *
+	 * @param string $query The user's query.
+	 * @param array<string, mixed> $agentData The agent payload.
+	 * @param int $limit The most records to hydrate.
+	 *
+	 * @return array{results: array<int, array<string, mixed>>, relations: string}|null
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-available-to-context-assembly
+	 */
+	private function graphContext(string $query, array $agentData, int $limit): ?array {
+		$reason = 'the agent has not enabled the knowledge graph';
+		$graph = null;
+		if (($agentData['graphEnabled'] ?? false) === true && $this->graphRetriever !== null) {
+			$reason = 'the graph names no visible entity in the query';
+			try {
+				$graph = $this->graphRetriever->retrieve(query: $query, limit: $limit);
+			} catch (Throwable $e) {
+				$reason = 'the graph could not be read: ' . $e->getMessage();
+			}
+		}
+
+		if ($graph === null) {
+			$this->logger->info(
+				message: '[ContextRetrievalHandler] graph RAG mode degrades to keyword search: ' . $reason,
+				context: ['file' => __FILE__, 'line' => __LINE__]
+			);
+		}
+
+		return $graph;
+
+	}//end graphContext()
+
+	/**
 	 * Resolve the effective view filter set from agent views + user selection.
 	 *
 	 * Ported from the original's inline branching: agent views intersected with
@@ -324,14 +379,20 @@ class ContextRetrievalHandler {
 	 * @param string $query Query text.
 	 * @param int $limit Result limit.
 	 * @param array<string> $viewFilters Resolved view UUIDs; empty disables retrieval.
+	 * @param string $applicationSlug The app the agent is tied to; with no views, its registers are the scope.
 	 *
 	 * @return array Search rows, or an empty list when out of scope.
 	 *
 	 * @psalm-return list<array<string, mixed>>
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
-	private function searchScoped(string $query, int $limit, array $viewFilters): array {
+	private function searchScoped(string $query, int $limit, array $viewFilters, string $applicationSlug = ''): array {
+		if (empty($viewFilters) === true && trim($applicationSlug) !== '' && $this->appScope !== null) {
+			return $this->searchAppRegisters(query: $query, limit: $limit, applicationSlug: $applicationSlug);
+		}
+
 		if (empty($viewFilters) === true) {
 			$this->logger->info(
 				message: '[ContextRetrievalHandler] object retrieval skipped: the agent resolved to no views, '
@@ -396,8 +457,54 @@ class ContextRetrievalHandler {
 			views: $views
 		);
 
+		return $this->transform(results: ($results['results'] ?? []), registerName: null);
+	}//end searchKeywordOnly()
+
+	/**
+	 * Search each of the app's registers and merge the hits by score
+	 * (agents-bound-to-their-app): an agent tied to an app, with no views of its
+	 * own, answers from that app's data, and each hit names its register.
+	 *
+	 * @param string $query           The query.
+	 * @param int    $limit           The maximum number of hits.
+	 * @param string $applicationSlug The app.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 */
+	private function searchAppRegisters(string $query, int $limit, string $applicationSlug): array {
+		$hits = [];
+		foreach ($this->appScope?->registersFor(app: $applicationSlug) ?? [] as $register) {
+			$results = $this->objectService->searchObjectsPaginated(
+				query: [
+					'_search' => $query,
+					'_limit' => $limit,
+					'_register' => $register['id'],
+					'_schema' => null,
+				]
+			);
+			array_push($hits, ...$this->transform(results: ($results['results'] ?? []), registerName: $register['name']));
+		}
+
+		usort($hits, fn (array $left, array $right): int => ((float)$right['score'] <=> (float)$left['score']));
+
+		return array_slice($hits, 0, $limit);
+	}//end searchAppRegisters()
+
+	/**
+	 * Turn search results into retrieval hits.
+	 *
+	 * @param array<int, mixed> $results      The search results.
+	 * @param string|null       $registerName The register they came from, when known.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 */
+	private function transform(array $results, ?string $registerName): array {
 		$transformed = [];
-		foreach ($results['results'] ?? [] as $result) {
+		foreach ($results as $result) {
 			if (($result instanceof ObjectEntity) === true) {
 				$result = array_merge(
 					['id' => $result->getUuid()],
@@ -415,11 +522,30 @@ class ContextRetrievalHandler {
 				'text' => $result['_source']['data'] ?? json_encode($result),
 				'score' => $result['_score'] ?? 1.0,
 				'name' => $result['name'] ?? $result['title'] ?? null,
+				'register_name' => $registerName,
 			];
 		}
 
 		return $transformed;
-	}//end searchKeywordOnly()
+	}//end transform()
+
+	/**
+	 * One source line of the context text, naming the register when known.
+	 *
+	 * @param string      $name         The source name.
+	 * @param string|null $registerName The register.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
+	 */
+	private function sourceLine(string $name, ?string $registerName): string {
+		if ($registerName === null || $registerName === '') {
+			return "Source: {$name}\n";
+		}
+
+		return "Source: {$name} (register: {$registerName})\n";
+	}//end sourceLine()
 
 	/**
 	 * Extract a human-readable name from a search result.

@@ -33,6 +33,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ChatStreamController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\ToolAccessRequestService;
@@ -41,6 +42,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IDBConnection;
+use OCP\IGroupManager;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUser;
@@ -228,7 +230,8 @@ class ChatStreamControllerTest extends TestCase {
 			$this->createMock(LoggerInterface::class),
 			$l10n,
 			$this->createMock(RunStepBus::class),
-			$this->createMock(ToolAccessRequestService::class)
+			$this->createMock(ToolAccessRequestService::class),
+			new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class))
 		);
 		$controller->requestBody = $body;
 		return $controller;
@@ -389,6 +392,144 @@ class ChatStreamControllerTest extends TestCase {
 		$this->assertSame('final', $last['type']);
 
 	}//end testSuccessfulTurnEmitsExactlyOneFinal()
+
+	/**
+	 * The attachment notices of the turn ride on the `final` frame, and no new event type is added.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	public function testTheAttachmentNoticesRideOnTheFinalFrame(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$notice = 'This model does not read PDFs directly. hermiq used the text of jaarverslag-2025.pdf instead.';
+		$this->engine->method('processMessage')->willReturn(
+			['message' => 'EUR 412.000', 'messageId' => 'msg-43', 'sources' => [], 'attachmentNotices' => [$notice]]
+		);
+
+		$controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+		$this->runStream($controller);
+
+		$finals = $this->frames($controller, 'final');
+		$this->assertCount(1, $finals);
+		$this->assertSame([$notice], ($finals[0]['payload']['attachmentNotices'] ?? null));
+		$types = array_unique(array_column($controller->capturedEvents, 'type'));
+		$this->assertSame([], array_values(array_diff($types, ['token', 'tool_call', 'tool_result', 'heartbeat', 'final', 'error'])));
+
+	}//end testTheAttachmentNoticesRideOnTheFinalFrame()
+
+	/**
+	 * A turn whose result names no notices sends an empty list, so the page can rely on the key.
+	 *
+	 * @return void
+	 */
+	public function testAFinalFrameWithoutNoticesCarriesAnEmptyList(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(['message' => 'ok', 'messageId' => 'msg-44', 'sources' => []]);
+
+		$controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+		$this->runStream($controller);
+
+		$this->assertSame([], ($this->frames($controller, 'final')[0]['payload']['attachmentNotices'] ?? null));
+
+	}//end testAFinalFrameWithoutNoticesCarriesAnEmptyList()
+
+	/**
+	 * The final frame carries the answer's attachments, such as an image the agent created; none is an empty list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 */
+	public function testTheFinalFrameCarriesTheAnswersAttachments(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$image = ['fileId' => 902, 'name' => 'image-1.png', 'mimeType' => 'image/png', 'size' => 2048, 'origin' => 'generated'];
+		$this->engine->method('processMessage')->willReturnOnConsecutiveCalls(
+			['message' => 'Hier is de afvalkalender.', 'messageId' => 'msg-45', 'sources' => [], 'attachments' => [$image]],
+			['message' => 'ok', 'messageId' => 'msg-46', 'sources' => []]
+		);
+
+		$withImage = $this->makeController('{"message":"teken","conversationUuid":"conv-1"}');
+		$this->runStream($withImage);
+		$this->assertSame([$image], ($this->frames($withImage, 'final')[0]['payload']['attachments'] ?? null));
+
+		$without = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+		$this->runStream($without);
+		$this->assertSame([], ($this->frames($without, 'final')[0]['payload']['attachments'] ?? null));
+
+	}//end testTheFinalFrameCarriesTheAnswersAttachments()
+
+	/**
+	 * A streamed first message opens a non-admin's session past OpenRegister's
+	 * create check (hermiq#1086).
+	 *
+	 * The Session schema lists no `create` grant on purpose (hermiq#319), so the
+	 * default `_rbac: true` save is refused for every non-admin and the stream
+	 * ended in an error before the first token. The agent access check just above
+	 * the save is the guard, so the session is saved with `_rbac: false`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	public function testAFirstMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$agent = new ObjectEntity();
+				$agent->setUuid('agent-1');
+				$agent->setObject(['name' => 'Agent builder', 'isPrivate' => false]);
+				return $agent;
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(
+			['message' => 'hello', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []]
+		);
+
+		$args = null;
+		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$args = $passed;
+				$session = new ObjectEntity();
+				$session->setUuid('conv-new');
+				$session->setObject($passed[0]);
+				return $session;
+			}
+		);
+
+		$controller = $this->makeController('{"message":"hi","agentUuid":"agent-1"}');
+		$this->runStream($controller);
+
+		$this->assertCount(1, $this->frames($controller, 'final'), json_encode($controller->capturedEvents));
+		$this->assertSame('alice', $args[0]['userId']);
+		$this->assertSame('agentsession', $args[3]);
+		$this->assertFalse($args[5], 'The new session must not depend on an object-API create grant (_rbac).');
+
+	}//end testAFirstMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck()
 
 	/**
 	 * A failed turn (engine throws) emits exactly one terminal `error`

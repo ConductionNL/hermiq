@@ -37,6 +37,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\AppAssistantResolver;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -110,7 +118,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Wall-clock timestamp (microtime float) of the most recently emitted
@@ -141,6 +149,12 @@ class ChatStreamController extends Controller {
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
+	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
 	 */
@@ -154,6 +168,9 @@ class ChatStreamController extends Controller {
 		private readonly IL10N $l10n,
 		private readonly RunStepBus $runStepBus,
 		private readonly ToolAccessRequestService $accessRequests,
+		private readonly AgentAccessService $agentAccess,
+		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?AppAssistantResolver $assistants = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -227,15 +244,44 @@ class ChatStreamController extends Controller {
 			// Resolve agent + conversation.
 			$agentUuid = (string)($body['agentUuid'] ?? '');
 			$conversationUuid = (string)($body['conversationUuid'] ?? '');
+			// The raw snapshot is echoed back on the `final` frame, unchanged, so
+			// the wire contract keeps whatever the client sent (including null).
 			$context = ($body['context'] ?? null);
 
-			// Widget UX: when the widget opens a fresh chat it doesn't know which
-			// agent to use (no agent picker in v1). Fall back to an agent the
-			// CURRENT USER can access (owner / non-private / invited), never the
-			// first agent in the register — that would cross tenant/user boundaries
-			// in a multi-user deployment.
+			// The CnAiContext snapshot is persisted on the user-authored Message
+			// object Engine::processMessage will create. Reject anything other
+			// than an associative array so a bad client payload doesn't break
+			// the JSON encoding. Normalised HERE rather than further down
+			// because the agent fallback below reads the app out of it too.
+			$contextArr = [];
+			if (is_array($context) === true) {
+				$contextArr = $context;
+			}
+
+			// Chat-attachments-and-images: the files the companion attached (what the
+			// upload route answered) or the Chat page picked from Files. The engine
+			// reads each one as the speaker before anything is stored.
+			$attachments = [];
+			if (is_array($body['attachments'] ?? null) === true) {
+				$attachments = array_values($body['attachments']);
+			}
+
+			// Widget UX: when a client opens a fresh chat without naming an agent,
+			// fall back to an agent the CURRENT USER can access (owner /
+			// non-private / invited), never the first agent in the register —
+			// that would cross tenant/user boundaries in a multi-user deployment.
+			//
+			// Prefer one that belongs to the app the caller is sitting in. The
+			// panel already tells us which app that is, in `context.appId`, and
+			// without this a Hydra agent answered inside Buildiq: it was simply
+			// first in the register. An agent from another app is not a degraded
+			// answer, it is a confusing one, because its tools are for a product
+			// the person is not looking at.
 			if ($conversationUuid === '' && $agentUuid === '') {
-				$agentUuid = $this->pickFallbackAgentForUser(userId: $userId);
+				$agentUuid = $this->pickFallbackAgentForUser(
+					userId: $userId,
+					applicationSlug: trim((string)($contextArr['appId'] ?? ''))
+				);
 			}
 
 			if ($conversationUuid === '' && $agentUuid === '') {
@@ -263,15 +309,6 @@ class ChatStreamController extends Controller {
 				}
 
 				throw $e;
-			}
-
-			// The CnAiContext snapshot is persisted on the user-authored Message
-			// object Engine::processMessage will create. Reject anything other
-			// than an associative array so a bad client payload doesn't break
-			// the JSON encoding.
-			$contextArr = [];
-			if (is_array($context) === true) {
-				$contextArr = $context;
 			}
 
 			// Emit a heartbeat right after headers so the client knows we're alive
@@ -314,6 +351,9 @@ class ChatStreamController extends Controller {
 			// never replayed against this one.
 			$this->runStepBus->clear(conversationId: (string)$conversation->getUuid());
 
+			// Compliance-ai-literacy: an organisation may require the course first.
+			$this->literacy?->assertMayUseAgents(uid: $userId);
+
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,
@@ -322,7 +362,8 @@ class ChatStreamController extends Controller {
 				selectedTools: [],
 				ragSettings: [],
 				context: $contextArr,
-				channel: $channel
+				channel: $channel,
+				attachments: $attachments
 			);
 
 			// Replay the tool calls this turn made over the governed MCP
@@ -376,6 +417,13 @@ class ChatStreamController extends Controller {
 				'pendingApprovals' => $this->accessRequests->pendingApprovals(
 					agentId: $agentUuid
 				),
+				// Chat-attachments-and-images D6: a notice per attachment the model
+				// could not read natively, shown above the answer. On `final`, so no
+				// new SSE event type is added (hydra ADR-034 Decision 6).
+				'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
+				// Chat-attachments-and-images D8: the answer's attachments, such as an
+				// image the agent created, so a client can show them without a reload.
+				'attachments' => array_values((array)($result['attachments'] ?? [])),
 			];
 			$this->emitAndExit(eventType: 'final', payload: $finalPayload);
 		} catch (ToolGrantResolutionException $e) {
@@ -419,6 +467,63 @@ class ChatStreamController extends Controller {
 				]
 			);
 		} catch (Throwable $e) {
+			// A refused pinned credential is told as it is: the person can act on it
+			// (operations-a-credential-per-agent). Everything else stays masked.
+			for ($cause = $e; $cause !== null; $cause = $cause->getPrevious()) {
+				// An attachment that is not available to the speaker, or that the
+				// feature refuses unredacted: the sentence is written for the person.
+				if ($cause instanceof AttachmentRefusedException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: ['code' => 'attachment_refused', 'message' => $cause->getMessage()]
+					);
+				}
+
+				if ($cause instanceof PinnedCredentialRefusedException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => PinnedCredentialRefusedException::ERROR_CODE,
+							'message' => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+						]
+					);
+				}
+
+				// Agents-switch-off-and-stop: the agent is switched off; no answer.
+				if ($cause instanceof AgentSwitchedOffException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => AgentSwitchedOffException::ERROR_CODE,
+							'message' => $this->l10n->t('This agent is switched off.'),
+						]
+					);
+				}
+
+				// Compliance-ai-literacy: the person is sent to the course.
+				if ($cause instanceof LiteracyRequiredException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => LiteracyRequiredException::ERROR_CODE,
+							'message' => $this->l10n->t('Finish the short course Working with AI first.'),
+							'courseUrl' => LiteracyRequiredException::COURSE_PATH,
+						]
+					);
+				}
+
+				// Models-no-training-guarantee: the person reads why, not the step text.
+				if ($cause instanceof DataUseViolationException) {
+					$this->emitAndExit(
+						eventType: 'error',
+						payload: [
+							'code' => DataUseViolationException::ERROR_CODE,
+							'message' => $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.'),
+						]
+					);
+				}
+			}
+
 			$this->logger->error(
 				message: '[ChatStreamController] Stream failed',
 				context: [
@@ -627,87 +732,29 @@ class ChatStreamController extends Controller {
 	}//end emitSseHeaders()
 
 	/**
-	 * Find an agent the current user is allowed to start a conversation with.
-	 *
-	 * Iterates agents (bounded fetch) and returns the first uuid whose access
-	 * check passes — non-private OR owned-by-user OR invited (the same
-	 * semantics OR's AgentMapper::canUserAccessAgent applied). Falls back to
-	 * '' when no accessible agent exists. NEVER returns "the first agent
-	 * regardless of owner": that caused cross-user data exposure in
-	 * multi-user deployments.
+	 * Find the agent the current user starts a conversation with when the
+	 * request names none: the app's assistant, else an agent of that app, else
+	 * the first agent the user may use (AppAssistantResolver, shared with
+	 * ChatController). Never "the first agent regardless of owner": that caused
+	 * cross-user data exposure in multi-user deployments.
 	 *
 	 * @param string $userId Nextcloud user id.
+	 * @param string $applicationSlug The app the caller is sitting in, or '' when unknown.
 	 *
 	 * @return string The accessible agent uuid, or '' when none is found.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
 	 */
-	private function pickFallbackAgentForUser(string $userId): string {
-		try {
-			// Cheap cap — we only need the first match. Twenty rows is
-			// enough headroom for any realistic instance.
-			$agents = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::AGENT_SCHEMA)
-				->findAll(config: ['limit' => 20]);
-			foreach ($agents as $agent) {
-				if (($agent instanceof ObjectEntity) === false) {
-					continue;
-				}
+	private function pickFallbackAgentForUser(string $userId, string $applicationSlug = ''): string {
+		$resolver = $this->assistants ?? new AppAssistantResolver(
+			objectService: $this->objectService,
+			agentAccess: $this->agentAccess,
+			logger: $this->logger
+		);
 
-				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
-					return (string)$agent->getUuid();
-				}
-			}
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[ChatStreamController] Agent fallback lookup failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-		}//end try
-
-		return '';
+		return $resolver->resolve(userId: $userId, appId: $applicationSlug);
 	}//end pickFallbackAgentForUser()
-
-	/**
-	 * Whether the user may use an agent: non-private agents are open to the
-	 * organisation (multitenancy already scoped the read), private agents
-	 * only to their owner or explicitly invited users — mirrors OR's
-	 * AgentMapper::canUserAccessAgent() against the hermiq `agent` payload.
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may access the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-	 */
-	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $agent->getObject();
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		// Non-private agents are accessible to all users in the organisation.
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		// Owner always has access.
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		// Check if user is invited.
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-			return true;
-		}
-
-		return false;
-	}//end canUserAccessAgent()
 
 	/**
 	 * Resolve (load or create) the conversation referenced by the request.
@@ -761,20 +808,27 @@ class ChatStreamController extends Controller {
 			register: self::REGISTER_SLUG,
 			schema: self::AGENT_SCHEMA
 		);
-		if ($agent === null) {
+		// A private agent the caller may not use answers exactly like a missing
+		// one, so the stream cannot confirm it exists (hermiq#976).
+		if ($agent === null || $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
 			throw new RuntimeException('Agent not found: ' . $agentUuid);
 		}
 
+		// `_rbac: false`: the Session schema lists no `create` grant on purpose
+		// (hermiq#319), so the default save refuses every non-admin (hermiq#1086).
+		// The agent access check above is the guard, and the session is always
+		// the caller's. OpenRegister still stamps `_owner` from the user session.
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
 				data: [
 					'userId' => $userId,
 					'agentId' => (string)$agent->getUuid(),
-					'title' => 'New conversation',
+					'title' => 'New session',
 				]
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 	}//end resolveConversation()
 }//end class

@@ -35,7 +35,17 @@
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 
-import { registerIntegration } from '@conduction/nextcloud-vue'
+// DEEP import, not the barrel. This bundle loads on EVERY page, and webpack.config.js
+// forces `sideEffects: true` on the library dist, so naming one export off the barrel
+// pulls the whole library in, its main stylesheet included. style-loader then
+// injected all of that CSS (built from whatever library version hermiq had) as an
+// inline <style> on every page of every app, where it overrode the page's own,
+// newer library rules with the same scoped selectors: pipelinq's lead page kept a
+// list footer's old `margin: auto -16px -16px !important` and its tab panel
+// scrolled by 4px. The registry module is the only thing this leaf needs from the
+// library, and the registry itself is a window global (see the comment above), so
+// a module of our own is the same registry.
+import { registerIntegration } from '@conduction/nextcloud-vue/dist/esm/integrations/registry.js'
 import { translate as t } from '@nextcloud/l10n'
 import { createApp } from 'vue'
 import CnAgentChatTab from './components/CnAgentChatTab/CnAgentChatTab.vue'

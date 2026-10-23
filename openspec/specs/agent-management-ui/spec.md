@@ -6,6 +6,7 @@
 
 **OpenSpec changes:**
 - `openspec/changes/agent-management-ui/` — agent catalog + detail + schedule modals + run-now endpoint + run-history view (kind: code)
+- `openspec/changes/archive/2026-10-02-agents-instruction-variables/`: placeholders in an agent's instructions and start fields before a conversation (kind: code)
 
 ## Purpose
 
@@ -13,7 +14,9 @@ Give users a Nextcloud-native interface to manage agents and their schedules: br
 agent catalog, create/configure an agent, attach schedules, trigger a run manually, and
 review run history. This is the "+" in Option C+ — Hermiq owns the management surface while
 the agents themselves live in OpenRegister.
+
 ## Requirements
+
 ### Requirement: Agent catalog [MVP]
 The system MUST list the agents the user may see, showing name, model, whether a schedule is attached, and last-run status.
 
@@ -279,6 +282,122 @@ the hole and break sharing in the same commit.
 - **WHEN** its owner updates it
 - **THEN** the update MUST succeed
 @e2e exclude The control row that distinguishes a working fix from one that denies everybody; covered by the live four-way check recorded in the archived proposal.
+
+### Requirement: An agent can be switched off and on without deleting it (REQ-AGOFF-001)
+
+The system MUST let the agent owner, an instance admin, or the owner of the agent's organisation switch an agent off and on from the agent page. Switching off MUST require a reason. The system MUST record who switched the agent, when and why, on the agent and in the audit trail. Any other user MUST get HTTP 403.
+
+#### Scenario: An organisation admin switches off an agent that sends wrong reminders
+- GIVEN an organisation admin on the page of the agent "Permit reminder" owned by a colleague
+- WHEN they choose "Switch off", enter the reason "Sends reminders for closed permits" and confirm
+- THEN the page shows "Switched off" with their name, the time and the reason, and the agent catalog shows the agent as switched off
+
+#### Scenario: A colleague without rights cannot switch the agent
+- GIVEN a user who neither owns the agent nor administers its organisation
+- WHEN they call `POST /api/agents/{id}/availability` with `active` false
+- THEN the answer is HTTP 403 and the agent stays on
+- @e2e exclude authorization contract on the endpoint, covered by PHPUnit and Newman
+
+#### Scenario: Switching on again
+- GIVEN a switched-off agent
+- WHEN its owner chooses "Switch on"
+- THEN the agent runs again from chat and its schedules fire at their next due time
+
+### Requirement: A switched-off agent does not run on any path (REQ-AGOFF-002)
+
+The system MUST refuse to start a turn for a switched-off agent from chat, the chat stream, Talk, the ContextAgent provider, the case assistant surface, a schedule, run now, a webhook, a flow and a delegation. A scheduled occurrence MUST be recorded as `skipped_agent_off` and its next run MUST advance. A chat request MUST get HTTP 409 with the message "This agent is switched off."
+
+#### Scenario: A schedule of a switched-off agent is skipped and recorded
+- GIVEN a switched-off agent with a schedule due now
+- WHEN the scheduler runs
+- THEN no model is called, the run history shows the occurrence as skipped because the agent is switched off, and the next run moves to the following due time
+- @e2e exclude background job, covered by PHPUnit on ScheduleService
+
+#### Scenario: A person opens chat with a switched-off agent
+- GIVEN a switched-off agent
+- WHEN a user sends it a message on the chat page
+- THEN the chat shows "This agent is switched off." and no answer is generated
+
+### Requirement: A run in progress stops when its agent is switched off (REQ-AGOFF-003)
+
+The system MUST stop a running turn of an agent that is switched off while it runs, no later than the turn's next tool call. The run trace MUST record the step "Stopped: agent switched off".
+
+#### Scenario: An agent in a loop is stopped by its owner
+- GIVEN an agent in the middle of a turn that keeps calling a search tool
+- WHEN its owner switches it off
+- THEN the next tool call is not made, the turn ends, and the run trace shows "Stopped: agent switched off"
+- @e2e exclude timing-dependent engine behaviour, covered by PHPUnit on FacadeToolInvoker and ToolLoop
+
+### Requirement: Deleting an agent removes its schedules (REQ-AGOFF-004)
+
+The system MUST delete every schedule of an agent when the agent is deleted, declared as `onDelete: CASCADE` on `Schedule.agentId`. The delete confirmation MUST say how many schedules are deleted with the agent.
+
+#### Scenario: An agent with two schedules is deleted
+- GIVEN the owner of an agent with two schedules on the agent catalog
+- WHEN they choose delete on its row
+- THEN the confirmation says "2 schedules are deleted with this agent", and after confirming neither schedule exists or fires
+
+### Requirement: An agent owner ties an agent to the app it serves (REQ-APPAG-001)
+
+The system MUST let an agent owner choose on the agent form the app the agent serves, from the installed apps and OpenBuild applications, and store it in `applicationSlug`.
+
+#### Scenario: An owner ties an agent to a built app
+- GIVEN the owner of the agent "Subsidy desk helper" on its agent form
+- WHEN they choose the app "subsidies" under "App this agent serves" and save
+- THEN the agent page shows "App: subsidies"
+
+### Requirement: An organisation admin picks the agent that answers in an app (REQ-APPAG-002)
+
+The system MUST let an organisation admin mark one agent per app per organisation as the app's assistant, and the choice MUST hold only while the agent serves that app. When a chat request names no agent, both chat endpoints MUST answer with that app's assistant if the user may use it, else with an accessible agent of that app, else with the first accessible agent. A second assistant for the same app MUST be refused with HTTP 409.
+
+#### Scenario: The companion in a built app answers with that app's agent
+- GIVEN the agent "Subsidy desk helper" marked as the assistant for "subsidies"
+- WHEN a user opens the companion on a page of the subsidies app and asks a question
+- THEN the answer comes from "Subsidy desk helper", named at the top of the chat panel
+
+#### Scenario: A second assistant for the same app is refused
+- GIVEN an app that already has an assistant
+- WHEN an organisation admin marks another agent as its assistant
+- THEN the save is refused with "Another agent already answers in this app"
+
+### Requirement: An app's agent answers from the app's data first (REQ-APPAG-003)
+
+The system MUST scope object retrieval of an agent tied to an app, and with no views of its own, to that app's registers (the registers OpenRegister records as imported by that app). Each source in the answer MUST name the register it came from.
+
+#### Scenario: A question in a built app is answered from its records
+- GIVEN a built app "subsidies" with a register of applications and an agent tied to it
+- WHEN a user asks the companion "How many applications are waiting for a decision?"
+- THEN the answer cites records from the subsidies register only
+
+### Requirement: Placeholders in an agent's instructions are filled in per turn (REQ-AGVAR-001)
+
+The system MUST replace the placeholders `{{user.displayName}}`, `{{user.id}}`, `{{user.language}}`, `{{organisation.name}}`, `{{today}}`, `{{now}}`, `{{agent.name}}`, `{{app.id}}` and `{{field.<key>}}` in `Agent.prompt` at the start of every turn, for the acting person. It MUST NOT treat any other text of the turn as a template. An unknown placeholder MUST be left as written.
+
+#### Scenario: An agent greets a person by name and knows the date
+- GIVEN an agent whose instructions say "Address {{user.displayName}}. Today is {{today}}."
+- WHEN the case handler Fatima el Amrani sends it a message on 27 September 2026
+- THEN the model receives "Address Fatima el Amrani. Today is 2026-09-27."
+- @e2e exclude model input, covered by PHPUnit on PromptVariableResolver and ResponseGenerationHandler
+
+#### Scenario: The owner previews the filled-in instructions
+- GIVEN the owner of that agent on its agent form
+- WHEN they choose "Preview"
+- THEN the preview shows the instructions with their own name and today's date
+
+### Requirement: An agent can ask for fields before a conversation starts (REQ-AGVAR-002)
+
+The system MUST let an agent owner declare up to ten start fields of type short text, long text, choice, number or date. When a person starts a session with that agent, the chat page MUST show the fields before the composer and MUST NOT send the first message until every required field is filled. The answers MUST be stored on the session and usable as `{{field.<key>}}`.
+
+#### Scenario: A person picks a department before asking
+- GIVEN an agent with a required choice field "Department" with the options "Permits" and "Taxes"
+- WHEN a person starts a new session with it
+- THEN the chat page asks for the department first, and after choosing "Permits" and sending a question the session header shows "Department: Permits"
+
+#### Scenario: A scheduled run uses the default answers
+- GIVEN an agent with a start field whose default is "Permits" and a schedule with no values of its own
+- WHEN the schedule runs
+- THEN the instructions receive "Permits" for that field
+- @e2e exclude background job, covered by PHPUnit on ScheduleService
 
 ## User Stories
 

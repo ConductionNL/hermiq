@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Service\ApprovalPreviewBuilder;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
@@ -715,6 +716,36 @@ class ApprovalServiceTest extends TestCase {
 		$this->assertSame('mine', $records[0]['id']);
 
 	}//end testListPendingForReviewer()
+
+	/**
+	 * Each inbox record carries its source type, the stored arguments and the
+	 * preview; still only the reviewer's own approvals are listed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 */
+	public function testInboxRecordsCarryThePreview(): void {
+		$mine = $this->approval(['status' => 'pending', 'sourceType' => 'toolcall', 'toolId' => 'files.deleteFile', 'toolArguments' => ['path' => '/a.pdf'], 'agentId' => 'agent-1', 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$mine->setUuid('mine');
+		$other = $this->approval(['status' => 'pending', 'sourceType' => 'toolcall', 'toolId' => 'files.deleteFile', 'reviewer' => 'carol', 'reviewerType' => 'user']);
+		$other->setUuid('other');
+
+		$this->objectService->method('findAll')->willReturn([$mine, $other]);
+		$this->groupManager->method('isInGroup')->willReturn(false);
+
+		$preview = ['kind' => 'toolcall', 'heldBecause' => 'x', 'tools' => [['id' => 'files.deleteFile', 'effect' => 'deletes']]];
+		$builder = $this->createMock(ApprovalPreviewBuilder::class);
+		$builder->expects($this->once())->method('build')->willReturn($preview);
+		$this->container->method('get')->willReturn($builder);
+
+		$records = $this->service()->listPendingForReviewer('bob');
+
+		$this->assertCount(1, $records);
+		$this->assertSame('toolcall', $records[0]['sourceType']);
+		$this->assertSame(['path' => '/a.pdf'], $records[0]['toolArguments']);
+		$this->assertSame($preview, $records[0]['preview']);
+	}//end testInboxRecordsCarryThePreview()
 
 	/**
 	 * listForOrganisation() returns every Approval the tenant-scoped read yields

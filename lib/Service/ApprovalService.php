@@ -157,7 +157,7 @@ class ApprovalService {
 	 *
 	 * @var int
 	 */
-	private const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
+	public const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
 
 	/**
 	 * Constructor.
@@ -558,6 +558,78 @@ class ApprovalService {
 	}//end ensurePendingApprovalForToolCall()
 
 	/**
+	 * Idempotently raise one pending `toolcall` Approval for a batch another app
+	 * staged (integriq's agent tools answer `status: staged` with a binding).
+	 *
+	 * The approval stores the binding as given: Hermiq never recomputes it, it
+	 * only compares it when the staging app asks for a verdict. The key is
+	 * sha256 over agent, tool and binding, so the same batch is raised once and
+	 * another batch, tool or agent gets its own approval. The decision fields are
+	 * omitted rather than null: the register types them and refuses a null.
+	 *
+	 * @param string            $agentId    The agent that staged the batch.
+	 * @param string            $toolId     The staging tool id.
+	 * @param string            $proposalId The staging app's proposal id.
+	 * @param string            $binding    The staging app's sha256 batch binding.
+	 * @param array<int,string> $targetIds  The ids the batch would act on.
+	 *
+	 * @return ObjectEntity The pending (or already pending) Approval.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 */
+	public function ensurePendingApprovalForStagedBatch(
+		string $agentId,
+		string $toolId,
+		string $proposalId,
+		string $binding,
+		array $targetIds,
+	): ObjectEntity {
+		$correlationId = hash('sha256', (string)json_encode([$agentId, $toolId, 'batch', $binding]));
+		$existing = $this->findPendingApprovalForToolCall(correlationId: $correlationId);
+		if ($existing !== null) {
+			return $existing;
+		}
+
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+		$reviewer = $owner;
+		$reviewerType = 'user';
+		if ($reviewer === '') {
+			$reviewer = 'admin';
+			$reviewerType = 'group';
+		}
+
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'toolcall',
+			'correlationId' => $correlationId,
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'binding' => $binding,
+			'toolArguments' => ['proposalId' => $proposalId, 'targetIds' => array_values($targetIds)],
+			'prompt' => 'Run ' . $toolId . ' on ' . count($targetIds) . ' records (proposal ' . $proposalId . ').',
+			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+			'reviewer' => $reviewer,
+			'reviewerType' => $reviewerType,
+		];
+
+		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify the reviewer of staged batch approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return $approval;
+	}//end ensurePendingApprovalForStagedBatch()
+
+	/**
 	 * Idempotently ensure a single pending Approval exists for a pre-qualified
 	 * skill consolidation draft (skill-self-improvement, EU AI Act Art. 14).
 	 * Mirrors the other ensure* shapes, keyed by the draft's UUID.
@@ -769,6 +841,134 @@ class ApprovalService {
 
 		return null;
 	}//end findApprovedUnconsumedToolCallApproval()
+
+	/**
+	 * The run-scoped pre-authorisation for a governed workspace, if one was
+	 * requested for this agent and run (hermiq-runner-git-capability).
+	 *
+	 * An approved one wins over a pending or denied one, so a re-request after a
+	 * decision cannot shadow it; a denied one wins over a pending one.
+	 *
+	 * @param string $agentId The agent UUID, from the verified run token.
+	 * @param string $runId   The run id, from the verified run token.
+	 *
+	 * @return array{uuid: string, status: string, decidedBy: string}|null
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-run-scoped-pre-authorisation-covers-the-run-and-nothing-else
+	 */
+	public function runPreAuthorisation(string $agentId, string $runId): ?array {
+		$found = null;
+		$rank = ['pending' => 1, 'denied' => 2, 'approved' => 3];
+		foreach ($this->runPreAuthorisations(correlationId: $this->runPreAuthorisationKey(agentId: $agentId, runId: $runId)) as $object) {
+			$data = $object->getObject();
+			$status = (string)($data['status'] ?? '');
+			if (isset($rank[$status]) === false) {
+				continue;
+			}
+
+			if ($found === null || $rank[$status] > $rank[$found['status']]) {
+				$found = ['uuid' => (string)$object->getUuid(), 'status' => $status, 'decidedBy' => (string)($data['decidedBy'] ?? '')];
+			}
+		}
+
+		return $found;
+	}//end runPreAuthorisation()
+
+	/**
+	 * Request a run-scoped pre-authorisation: one pending Approval naming the
+	 * agent, the run, the repository and the ref, routed to the agent's owner
+	 * (or the `admin` group for an agent without one).
+	 *
+	 * @param string $agentId    The agent UUID.
+	 * @param string $runId      The run id.
+	 * @param string $toolId     The write-shaped tool that asked first.
+	 * @param string $repository The workspace's repository slug.
+	 * @param string $ref        The workspace's starting ref.
+	 *
+	 * @return array{uuid: string, status: string, decidedBy: string}
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-write-shaped-tools-route-through-the-approval-gate-with-a-run-scoped-pre-authorisation-form
+	 */
+	public function requestRunPreAuthorisation(string $agentId, string $runId, string $toolId, string $repository, string $ref): array {
+		$owner = $this->resolveAgentOwner(agentId: $agentId);
+		$reviewer = $owner;
+		$reviewerType = 'user';
+		if ($reviewer === '') {
+			$reviewer = 'admin';
+			$reviewerType = 'group';
+		}
+
+		$payload = [
+			'status' => 'pending',
+			'sourceType' => 'workspace-run',
+			'correlationId' => $this->runPreAuthorisationKey(agentId: $agentId, runId: $runId),
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'toolArguments' => ['runId' => $runId, 'repository' => $repository, 'ref' => $ref],
+			'prompt' => 'Let this agent change files and commit in ' . $repository . ' (from ' . $ref . ') for the rest of this run.',
+			'requestedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+			'reviewer' => $reviewer,
+			'reviewerType' => $reviewerType,
+		];
+
+		// The decision fields (decidedAt, decidedBy, reason) are OMITTED rather
+		// than null: the register types them string and date-time and refuses a
+		// null, and a pending record has none.
+		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+		try {
+			$this->deliveryService->deliverApprovalRequestForToolInvocation(
+				approval: $approval,
+				reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not notify the reviewer of workspace approval ' . ((string)$approval->getUuid()) . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+		return ['uuid' => (string)$approval->getUuid(), 'status' => 'pending', 'decidedBy' => ''];
+	}//end requestRunPreAuthorisation()
+
+	/**
+	 * The correlation key of a run's pre-authorisation.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $runId   The run id.
+	 *
+	 * @return string
+	 */
+	private function runPreAuthorisationKey(string $agentId, string $runId): string {
+		return hash('sha256', 'workspace-run|' . $agentId . '|' . $runId);
+	}//end runPreAuthorisationKey()
+
+	/**
+	 * Every `workspace-run` Approval with the given correlation key.
+	 *
+	 * @param string $correlationId The key.
+	 *
+	 * @return array<int, ObjectEntity>
+	 */
+	private function runPreAuthorisations(string $correlationId): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::APPROVAL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['correlationId' => $correlationId, 'sourceType' => 'workspace-run']],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		return array_values(
+			array_filter(
+				$objects,
+				static fn ($object): bool => $object instanceof ObjectEntity
+					&& (string)($object->getObject()['correlationId'] ?? '') === $correlationId
+					&& (string)($object->getObject()['sourceType'] ?? '') === 'workspace-run'
+			)
+		);
+	}//end runPreAuthorisations()
 
 	/**
 	 * Mark an approved `toolcall` Approval as consumed (`consumedAt` set) so it
@@ -1071,6 +1271,7 @@ class ApprovalService {
 			);
 
 		$records = [];
+		$previews = $this->previewBuilder();
 		foreach ($objects as $object) {
 			if (($object instanceof ObjectEntity) === false) {
 				continue;
@@ -1085,6 +1286,11 @@ class ApprovalService {
 				continue;
 			}
 
+			$toolArguments = null;
+			if (is_array($data['toolArguments'] ?? null) === true) {
+				$toolArguments = $data['toolArguments'];
+			}
+
 			$records[] = [
 				'id' => (string)$object->getUuid(),
 				'scheduleId' => (string)($data['scheduleId'] ?? ''),
@@ -1094,11 +1300,39 @@ class ApprovalService {
 				'reviewer' => (string)($data['reviewer'] ?? ''),
 				'reviewerType' => (string)($data['reviewerType'] ?? 'user'),
 				'status' => 'pending',
+				'sourceType' => (string)($data['sourceType'] ?? 'schedule'),
+				'toolId' => (string)($data['toolId'] ?? ''),
+				// As stored: redacted before persistence, never re-read unredacted.
+				'toolArguments' => $toolArguments,
+				'preview' => $previews?->build(approval: $data),
 			];
 		}//end foreach
 
 		return $records;
 	}//end listPendingForReviewer()
+
+	/**
+	 * The preview builder, or null when it cannot be had (the inbox then lists
+	 * the approvals without their preview rather than failing).
+	 *
+	 * @return ApprovalPreviewBuilder|null The builder.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 */
+	private function previewBuilder(): ?ApprovalPreviewBuilder {
+		try {
+			$builder = $this->container->get(ApprovalPreviewBuilder::class);
+		} catch (Throwable $e) {
+			$this->logger->warning('[ApprovalService] approval preview unavailable: ' . $e->getMessage());
+			return null;
+		}
+
+		if (($builder instanceof ApprovalPreviewBuilder) === false) {
+			return null;
+		}
+
+		return $builder;
+	}//end previewBuilder()
 
 	/**
 	 * List every Approval visible in the caller's own tenant (RBAC + tenancy
@@ -1322,12 +1556,14 @@ class ApprovalService {
 			return ($versionId !== null);
 		}
 
-		if ($sourceType === 'toolcall' || $sourceType === 'tool') {
+		if ($sourceType === 'toolcall' || $sourceType === 'tool' || $sourceType === 'workspace-run') {
 			// Design.md Decision 5: approving authorises exactly one future
 			// matching retry (toolcall) or flips a permanent per-(agentId,toolId)
-			// decision (tool) — neither has a paused run to resume here. There
+			// decision (tool), or covers the rest of one run's workspace writes
+			// (workspace-run) — none has a paused run to resume here. There
 			// is deliberately no re-execution: `FacadeToolInvoker` is the ONLY
-			// place either decision is ever acted on.
+			// place the first two are acted on, `WorkspaceWriteAuthoriser` the
+			// only place the third is.
 			return false;
 		}
 

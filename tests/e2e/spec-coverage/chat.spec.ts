@@ -9,10 +9,10 @@
  * are PATH-form: /apps/hermiq/chat — never a #/ hash fragment.
  *
  * UI MECHANICS ONLY — no live LLM backend is required or assumed:
- *   - the conversation-list column renders coherently (rows XOR empty note)
- *   - with no active conversation, the composer is intentionally absent and
+ *   - the session-list column renders coherently (rows XOR empty note)
+ *   - with no active session, the composer is intentionally absent and
  *     the agent-selector empty state shows instead
- *   - with a seeded agent, starting a conversation reveals the composer, and
+ *   - with a seeded agent, starting a session reveals the composer, and
  *     the Send control's disabled state is coherent with the input state
  *   - sending a message surfaces the optimistic user bubble immediately; the
  *     turn then settles into EITHER an assistant reply (backend configured)
@@ -38,6 +38,7 @@ import {
 	jsonHeaders,
 	resolveRegisterSchema,
 	seedAgent,
+	seedObject,
 	TEST_PREFIX,
 } from './_fixtures.ts'
 
@@ -88,7 +89,7 @@ function collectConsoleErrors(page: Page): string[] {
  * confirmed and is not the cause.
  */
 test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
-	test('chat page renders: conversation list column + thread empty state, composer absent without a conversation', async ({
+	test('chat page renders: session list column + thread empty state, composer absent without a session', async ({
 		page,
 	}) => {
 		const errors = collectConsoleErrors(page)
@@ -99,16 +100,16 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 
 		// The chat shell renders both columns.
 		await expect(page.locator('.chat-page')).toBeVisible({ timeout: 15_000 })
-		// Scoped to the list column and matched exactly: conversations are titled
+		// Scoped to the list column and matched exactly: sessions are titled
 		// from their first message, so a real instance carries rows literally
-		// named "New Conversation 7/27/2026". An unscoped substring match on
-		// "New conversation" therefore resolves to the action button AND every
-		// such row (15 on the dev instance) and dies on strict mode — a failure
+		// named "New session 7/27/2026". An unscoped substring match on
+		// "New session" therefore resolves to the action button AND every
+		// such row (15 on the dev instance) and dies on strict mode: a failure
 		// about seed data, not about the surface under test.
 		await expect(
 			page
 				.locator('.chat-page__list')
-				.getByRole('button', { name: 'New conversation', exact: true }),
+				.getByRole('button', { name: 'New session', exact: true }),
 		).toBeVisible()
 		// Active/Archive list tabs.
 		await expect(page.getByText('Active', { exact: true }).first()).toBeVisible()
@@ -117,21 +118,21 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 		).toBeVisible()
 
 		// The list column settles into a coherent state: loading spinner gone,
-		// then EITHER conversation rows OR the empty-state note — never neither.
+		// then EITHER session rows OR the empty-state note, never neither.
 		await expect(page.locator('.chat-page__list-state')).toBeHidden({
 			timeout: 20_000,
 		})
 		const rows = page.locator('.chat-page__row')
 		const emptyNote = page.getByText(
-			'No conversations yet. Start one to chat with an agent.',
+			'No sessions yet. Start one to chat with an agent.',
 		)
 		await expect(rows.first().or(emptyNote)).toBeVisible({ timeout: 15_000 })
 
-		// No active conversation on entry → the thread column shows the
-		// agent-selector empty state, and the composer (message input + Send)
-		// is intentionally NOT rendered — coherent with "nothing to send to".
+		// No active session on entry: the thread column shows the
+		// start-a-session empty state, and the composer (message input + Send)
+		// is intentionally NOT rendered, coherent with "nothing to send to".
 		await expect(
-			page.getByRole('heading', { name: 'Start a conversation' }),
+			page.getByRole('heading', { name: 'Start a session' }),
 		).toBeVisible()
 		await expect(page.locator('.chat-page__composer')).toHaveCount(0)
 		await expect(page.getByRole('button', { name: 'Send message' })).toHaveCount(
@@ -144,7 +145,7 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 		).toHaveLength(0)
 	})
 
-	test('with a seeded agent: start conversation, Send disabled/enabled coherent with input, optimistic bubble + honest turn outcome', async ({
+	test('with a seeded agent: start session, Send disabled/enabled coherent with input, optimistic bubble + honest turn outcome', async ({
 		page,
 	}) => {
 		// 🔴 The turn-settles assertion below waits up to 90s, and the config's own
@@ -173,27 +174,29 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 
 		const root = await appRoot(page)
 
-		let conversationUuid = ''
+		let sessionUuid = ''
 		try {
 			await page.goto(`${root}/chat`, { waitUntil: 'domcontentloaded' })
 			await dismissTour(page)
 			await expect(page.locator('.chat-page')).toBeVisible({ timeout: 15_000 })
 
-			// The seeded agent appears in the selector; start a conversation.
+			// The seeded agent appears in the selector; start a session.
 			const card = page
 				.locator('.agent-selector__card')
 				.filter({ hasText: agent.name })
 			await expect(card).toBeVisible({ timeout: 20_000 })
-			// Capture the created conversation uuid from the POST response so
-			// the test can clean it up afterwards.
+			// Capture the created session uuid from the POST response so
+			// the test can clean it up afterwards. The URL is asserted as
+			// `/api/sessions`, which also pins the rename: a frontend that
+			// silently fell back to the deprecated alias would never match.
 			const createResponse = page.waitForResponse(
 				(res) =>
-					res.url().includes('/apps/hermiq/api/conversations')
+					res.url().includes('/apps/hermiq/api/sessions')
 					&& res.request().method() === 'POST',
 			)
-			await card.getByRole('button', { name: 'Start conversation' }).click()
+			await card.getByRole('button', { name: 'Start session' }).click()
 			const created = await (await createResponse).json().catch(() => ({}))
-			conversationUuid = String(created.uuid ?? created.id ?? '')
+			sessionUuid = String(created.uuid ?? created.id ?? '')
 
 			// The composer replaces the empty state.
 			const composer = page.locator('.chat-page__composer')
@@ -222,7 +225,7 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 
 			// The turn must SETTLE honestly: either an assistant message
 			// (working backend) or the composer's error note card (no LLM
-			// configured — sendError). A silent hang is the only failure.
+			// configured, i.e. sendError). A silent hang is the only failure.
 			const assistantBubble = page.locator('.chat-page__message--assistant')
 			const errorNote = composer
 				.locator('.notecard, [class*="note-card"], .notecard--error')
@@ -232,23 +235,20 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 			})
 
 			// Whatever the outcome, the composer must be usable again
-			// (sending=false re-enables the input) — no stuck spinner.
+			// (sending=false re-enables the input), with no stuck spinner.
 			await expect(input).toBeEnabled({ timeout: 30_000 })
 		} finally {
-			// Cleanup: archive + permanently delete the conversation, then the
+			// Cleanup: archive + permanently delete the session, then the
 			// seeded agent family (best-effort; never masks the test result).
-			if (conversationUuid) {
+			if (sessionUuid) {
 				await page.request
-					.delete(
-						`/index.php/apps/hermiq/api/conversations/${conversationUuid}`,
-						{
-							headers: jsonHeaders(token),
-						},
-					)
+					.delete(`/index.php/apps/hermiq/api/sessions/${sessionUuid}`, {
+						headers: jsonHeaders(token),
+					})
 					.catch(() => null)
 				await page.request
 					.delete(
-						`/index.php/apps/hermiq/api/conversations/${conversationUuid}/permanent`,
+						`/index.php/apps/hermiq/api/sessions/${sessionUuid}/permanent`,
 						{
 							headers: jsonHeaders(token),
 						},
@@ -257,5 +257,109 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 			}
 			await cleanupFamily(page.request, token, 'agent').catch(() => {})
 		}
+	})
+	test('the session list separates human sessions from automated ones', async ({
+		page,
+	}) => {
+		// 🔴 Both halves are asserted on purpose. Every session an installation
+		// migrates carries `human`, so the automated group is empty by default
+		// and the list renders identically whether the split works or matches
+		// nothing at all. Only a session that actually carries a non-`human`
+		// origin can tell the two apart, so this test seeds one.
+		const token = await harvestToken(page)
+		const root = await appRoot(page)
+		await resolveRegisterSchema(page.request, token, 'agentsession')
+
+		const agent = await seedAgent(page.request, token, {
+			name: `${TEST_PREFIX} split agent`,
+		})
+		const humanTitle = `${TEST_PREFIX} human session`
+		const cronTitle = `${TEST_PREFIX} cron session`
+
+		await seedObject(page.request, token, 'agentsession', {
+			name: humanTitle,
+			title: humanTitle,
+			agentId: agent.id,
+			userId: 'admin',
+			triggerOrigin: 'human',
+		})
+		await seedObject(page.request, token, 'agentsession', {
+			name: cronTitle,
+			title: cronTitle,
+			agentId: agent.id,
+			userId: 'admin',
+			triggerOrigin: 'cron',
+		})
+
+		try {
+			await page.goto(`${root}/chat`, { waitUntil: 'domcontentloaded' })
+			await dismissTour(page)
+			await expect(page.locator('.chat-page')).toBeVisible({ timeout: 15_000 })
+			await expect(page.locator('.chat-page__list-state')).toBeHidden({
+				timeout: 20_000,
+			})
+
+			const humanRows = page.locator('[data-testid="chat-session-row-human"]')
+			const automatedRows = page.locator(
+				'[data-testid="chat-session-row-automated"]',
+			)
+
+			// Present in its own group ...
+			await expect(humanRows.filter({ hasText: humanTitle })).toHaveCount(1, {
+				timeout: 20_000,
+			})
+			await expect(automatedRows.filter({ hasText: cronTitle })).toHaveCount(
+				1,
+				{ timeout: 20_000 },
+			)
+
+			// ... and ABSENT from the other. A filter that let everything through
+			// would satisfy the two assertions above and fail these two.
+			await expect(automatedRows.filter({ hasText: humanTitle })).toHaveCount(
+				0,
+			)
+			await expect(humanRows.filter({ hasText: cronTitle })).toHaveCount(0)
+
+			// With both groups populated, both headings are shown.
+			await expect(
+				page.locator('[data-testid="chat-session-group-human"]'),
+			).toBeVisible()
+			await expect(
+				page.locator('[data-testid="chat-session-group-automated"]'),
+			).toBeVisible()
+		} finally {
+			await cleanupFamily(page.request, token, 'agentsession').catch(() => {})
+			await cleanupFamily(page.request, token, 'agent').catch(() => {})
+		}
+	})
+
+	test('the deprecated /api/conversations aliases still answer', async ({
+		page,
+	}) => {
+		// The aliases are this rename's rollback path: if they stopped answering,
+		// reverting the frontend alone would not restore a working app. Asserted
+		// as a real request rather than read off the route table, because a
+		// duplicate route NAME displaces its twin silently and the table still
+		// looks right.
+		const token = await harvestToken(page)
+
+		const canonical = await page.request.get(
+			'/index.php/apps/hermiq/api/sessions',
+			{ headers: jsonHeaders(token) },
+		)
+		const alias = await page.request.get(
+			'/index.php/apps/hermiq/api/conversations',
+			{ headers: jsonHeaders(token) },
+		)
+
+		expect(canonical.status(), 'the canonical route must answer').toBe(200)
+		expect(alias.status(), 'the deprecated alias must still answer').toBe(200)
+
+		const canonicalBody = await canonical.json()
+		const aliasBody = await alias.json()
+		expect(
+			aliasBody.total,
+			'the alias must reach the same controller, not a different list',
+		).toBe(canonicalBody.total)
 	})
 })

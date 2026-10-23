@@ -44,8 +44,50 @@ Exactly three origins, and nothing else:
 | Hermiq's **tools** origin | the governed MCP endpoint (`/apps/hermiq/api/mcp/run`) |
 | Hermiq's **egress** origin | the PDP itself (`/apps/hermiq/api/egress/authorize`) |
 
-Configure these in Hermiq's web-research allowlist (Admin → Hermiq); the PDP
-reads them from there. Every other host is denied at the network layer.
+Configure the provider origin in Hermiq's web-research allowlist (Admin → Hermiq);
+the PDP reads it from there. Every other host is denied at the network layer.
+
+**Hermiq's own origin is admitted by the PDP, not by that allowlist.** It has to
+be. `WebResearchEgressGuard` is an SSRF guard: it blocks private and RFC1918
+destinations, because the question it answers is *"may the model fetch this URL
+off the internet?"*. Hermiq's tools origin is not an internet host. It is the
+control plane, and on a container deployment it is deliberately private
+(`mcp_run_base_url`, typically `http://nextcloud`). Putting it on the
+web-research allowlist would not even work, because the private-address block
+fires first. Turning on the insecure-HTTP opt-in to reach it over `http://` would
+hand the model's own `webFetch` tool the ability to fetch internal HTTP hosts.
+That is the exact hole the guard exists to close.
+
+So `EgressAuthorizeController` recognises that one origin itself, through
+`GovernedMcpEndpoint::matches()`, and passes it to the guard at the same trust
+tier the admin-configured search endpoint already uses. Three properties keep it
+honest:
+
+- the match is on the **exact** `host:port`. A different port, a subdomain, a
+  superstring and a parent domain are all strangers, and each is judged by the
+  ordinary policy. `tests/Unit/Service/Llm/GovernedMcpEndpointTest.php` is mostly
+  near-misses for that reason.
+- the origin is **admin-configured**, never model-supplied. It comes from
+  `mcp_run_base_url`, or from the URL Nextcloud publishes.
+- `webFetch` is **untouched**. It calls the guard with its own arguments and
+  never with this flag, so the model still cannot fetch an internal address.
+
+The connection is still policed. It still presents the run token, the PDP is
+still asked, and when the run's token is consumed the route closes with it.
+
+### Why not `NO_PROXY`
+
+Exempting the tools origin with `NO_PROXY` in the runner would have been three
+lines instead of a hundred, and it was rejected. Three reasons:
+
+1. it removes the connection from the enforcement point entirely. There is no
+   per-run verdict, so the exemption outlives the run that earned it.
+2. `NO_PROXY` matching is client-defined and mostly **suffix**-based. libcurl and
+   Node's `proxy-from-env` both read `NO_PROXY=tools.example.org` as covering
+   `evil.tools.example.org`. Exact-authority matching at the PDP has no such
+   ambiguity.
+3. it would put the policy in two places: an env-var list in the runner, and the
+   PDP. A second copy is a second policy, and the second one drifts.
 
 ## How a connection is authorized
 
@@ -56,8 +98,19 @@ reads them from there. Every other host is denied at the network layer.
    CLI's **environment** — never on argv, where the process table would expose
    it. `NO_PROXY` is deliberately never set: an exemption list would be a hole
    in the only route out.
-3. The CLI issues `CONNECT host:443`; the proxy reads the token from
-   `Proxy-Authorization` and asks the PDP: `POST {host, port}`, token as bearer.
+3. The CLI issues `CONNECT host:443` for an `https://` URL, or an absolute-form
+   request line (`POST http://host/path`) for an `http://` one. Either way the
+   proxy reads the token from `Proxy-Authorization` and asks the PDP:
+   `POST {host, port}`, token as bearer.
+
+   Both shapes matter. The governed MCP endpoint is an HTTP POST, and until
+   2026-09-18 the proxy answered anything but `CONNECT` with a flat 405. That
+   made the runner's own governance unreachable: a governed tool call died on
+   `this proxy serves CONNECT only`, and the model then answered as if it had no
+   tools at all. On the forward path the proxy copies the request through
+   verbatim, strips the hop-by-hop headers RFC 9110 §7.6.1 forbids forwarding
+   (`Proxy-Authorization` first, so the run token never reaches the origin), and
+   streams the response without buffering, which is what an SSE reply needs.
 4. `allowed: true` is the **only** permit signal. Then the tunnel opens.
 5. When the run closes its token is consumed, so both capabilities — tools and
    egress — die together.

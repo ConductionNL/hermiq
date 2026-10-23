@@ -26,6 +26,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
+use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
+use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
@@ -36,6 +38,8 @@ use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
+use OCA\Hermiq\Service\Llm\DatabaseRunTokenStore;
+use OCA\Hermiq\Service\Llm\RunTokenStore;
 use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
 use OCA\Hermiq\TaskProcessing\AudioToTextProvider;
@@ -291,6 +295,23 @@ class Application extends App implements IBootstrap {
 		$context->registerServiceAlias(
 			ManageableOrganisations::class,
 			OpenRegisterManageableOrganisations::class
+		);
+
+		// The governed workspace seam (hermiq-runner-git-capability): Hermiq's
+		// runtime keeps run-keyed checkouts in app data on the governed side.
+		$context->registerServiceAlias(
+			WorkspaceProvider::class,
+			ServerSideWorkspaceProvider::class
+		);
+
+		// Run tokens live in the database, the one store every PHP process of the
+		// instance shares (hermiq ADR-025). The distributed cache is not that store
+		// on an instance without `memcache.distributed`: there it is APCu, per
+		// process pool, and a token a cron job minted was invisible to the web
+		// server verifying it.
+		$context->registerServiceAlias(
+			RunTokenStore::class,
+			DatabaseRunTokenStore::class
 		);
 
 		// The register-slug resolver, published by OpenRegister (ADR-084's shape:

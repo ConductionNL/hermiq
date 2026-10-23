@@ -47,7 +47,7 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 		const page = await browser.newPage()
 		try {
 			const token = await harvestToken(page)
-			await cleanupFamily(page.request, token, 'conversation')
+			await cleanupFamily(page.request, token, 'agentsession')
 			await cleanupFamily(page.request, token, 'agent')
 		} finally {
 			await page.close()
@@ -77,14 +77,14 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 		})
 
 		const title = `${TEST_PREFIX} owned session`
-		const created = await page.request.post(`${HERMIQ_API}/conversations`, {
+		const created = await page.request.post(`${HERMIQ_API}/sessions`, {
 			headers: jsonHeaders(token),
 			data: { title, agentId: agent.id },
 		})
 		expect(created.ok(), `create session HTTP ${created.status()}`).toBeTruthy()
 
 		const body = await created.json()
-		const uuid = String(body.conversation?.uuid ?? body.uuid ?? body.id ?? '')
+		const uuid = String(body.uuid ?? body.id ?? '')
 		expect(uuid, 'the created session must carry a uuid').not.toEqual('')
 
 		// 🔴 Read the STORED session, not the create response. The room is
@@ -93,7 +93,7 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 		// stale while the stored session is correct. Storage is what every
 		// other reader uses, so storage is what this asserts.
 		const stored = await page.request.get(
-			`${OR_API}/objects/hermiq/conversation/${uuid}`,
+			`${OR_API}/objects/hermiq/agentsession/${uuid}`,
 			{
 				headers: jsonHeaders(token),
 			},
@@ -133,18 +133,16 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 			talkEnabled: true,
 		})
 
-		const created = await page.request.post(`${HERMIQ_API}/conversations`, {
+		const created = await page.request.post(`${HERMIQ_API}/sessions`, {
 			headers: jsonHeaders(token),
 			data: { title: `${TEST_PREFIX} before`, agentId: agent.id },
 		})
 		const uuid = String(
-			(await created.json()).conversation?.uuid
-				?? (await created.json()).uuid
-				?? '',
+			(await created.json()).uuid ?? (await created.json()).uuid ?? '',
 		)
 
 		const stored = await (
-			await page.request.get(`${OR_API}/objects/hermiq/conversation/${uuid}`, {
+			await page.request.get(`${OR_API}/objects/hermiq/agentsession/${uuid}`, {
 				headers: jsonHeaders(token),
 			})
 		).json()
@@ -158,13 +156,10 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 
 		// PATCH, not PUT — the route declares PATCH and a PUT answers 405.
 		const renamed = `${TEST_PREFIX} after`
-		const update = await page.request.patch(
-			`${HERMIQ_API}/conversations/${uuid}`,
-			{
-				headers: jsonHeaders(token),
-				data: { title: renamed },
-			},
-		)
+		const update = await page.request.patch(`${HERMIQ_API}/sessions/${uuid}`, {
+			headers: jsonHeaders(token),
+			data: { title: renamed },
+		})
 		expect(update.ok(), `rename HTTP ${update.status()}`).toBeTruthy()
 
 		await expect
@@ -199,7 +194,7 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 			talkEnabled: false,
 		})
 
-		const created = await page.request.post(`${HERMIQ_API}/conversations`, {
+		const created = await page.request.post(`${HERMIQ_API}/sessions`, {
 			headers: jsonHeaders(token),
 			data: { title: `${TEST_PREFIX} roomless session`, agentId: agent.id },
 		})
@@ -209,12 +204,10 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 		).toBeTruthy()
 
 		const uuid = String(
-			(await created.json()).conversation?.uuid
-				?? (await created.json()).uuid
-				?? '',
+			(await created.json()).uuid ?? (await created.json()).uuid ?? '',
 		)
 		const session = await (
-			await page.request.get(`${OR_API}/objects/hermiq/conversation/${uuid}`, {
+			await page.request.get(`${OR_API}/objects/hermiq/agentsession/${uuid}`, {
 				headers: jsonHeaders(token),
 			})
 		).json()
@@ -241,7 +234,7 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 		await expect(
 			page
 				.locator('.chat-page__list')
-				.getByRole('button', { name: 'New conversation', exact: true }),
+				.getByRole('button', { name: 'New session', exact: true }),
 		).toBeVisible()
 	})
 })

@@ -132,6 +132,40 @@ class RunNowControllerTest extends TestCase {
 	}//end testOwnerRunsSchedule()
 
 	/**
+	 * compliance-ai-literacy: a run by hand is refused for a person who must
+	 * finish the course first; the schedule's own clock is not.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
+	 */
+	public function testARunByHandNeedsTheCourseFirst(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willReturn($this->schedule('alice', ['lastStatus' => 'ok']));
+		$scheduleService = $this->createMock(ScheduleService::class);
+		$scheduleService->expects($this->never())->method('runNow');
+		$literacy = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyRequirement::class);
+		$literacy->method('refusal')->with('alice')->willReturn(
+			['message' => 'Finish the short course Working with AI first.', 'errorCode' => 'ai_literacy_required', 'courseUrl' => '/apps/hermiq/ai-literacy']
+		);
+
+		$controller = new RunNowController(
+			$this->createMock(IRequest::class),
+			$objectService,
+			$this->session('alice'),
+			$scheduleService,
+			$this->createMock(LoggerInterface::class),
+			$literacy
+		);
+		$response = $controller->run('sched-1');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+		$this->assertSame('ai_literacy_required', $response->getData()['errorCode']);
+		$this->assertSame('Finish the short course Working with AI first.', $response->getData()['message']);
+
+	}//end testARunByHandNeedsTheCourseFirst()
+
+	/**
 	 * An OpenRegister agent error recorded on the schedule surfaces as status=error.
 	 *
 	 * @return void

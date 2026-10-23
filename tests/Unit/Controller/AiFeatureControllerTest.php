@@ -26,6 +26,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AiFeatureController;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureBindingService;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\AlgoritmekaderMapper;
 use OCA\Hermiq\Service\PublicationGateway;
@@ -86,6 +88,8 @@ class AiFeatureControllerTest extends TestCase {
 	 * @param IUserSession $session The user session.
 	 * @param AlgoritmekaderMapper|null $mapper The Algoritmekader mapper (readiness + map).
 	 * @param PublicationGateway|null $gateway The publication gateway (runtime seam).
+	 * @param AiFeatureBindingService|null $binding The provider-binding write path.
+	 * @param FeatureProviderResolver|null $resolver The feature/provider/residency resolver.
 	 *
 	 * @return AiFeatureController
 	 */
@@ -95,6 +99,8 @@ class AiFeatureControllerTest extends TestCase {
 		IUserSession $session,
 		?AlgoritmekaderMapper $mapper = null,
 		?PublicationGateway $gateway = null,
+		?AiFeatureBindingService $binding = null,
+		?FeatureProviderResolver $resolver = null,
 	): AiFeatureController {
 		return new AiFeatureController(
 			$this->createMock(IRequest::class),
@@ -103,7 +109,9 @@ class AiFeatureControllerTest extends TestCase {
 			$session,
 			$this->createMock(LoggerInterface::class),
 			($mapper ?? $this->createMock(AlgoritmekaderMapper::class)),
-			($gateway ?? $this->createMock(PublicationGateway::class))
+			($gateway ?? $this->createMock(PublicationGateway::class)),
+			($binding ?? $this->createMock(AiFeatureBindingService::class)),
+			($resolver ?? $this->createMock(FeatureProviderResolver::class))
 		);
 
 	}//end controller()
@@ -539,4 +547,99 @@ class AiFeatureControllerTest extends TestCase {
 		$this->assertSame('ingetrokken', $response->getData()['algoritmeregisterStatus']);
 
 	}//end testWithdrawStampsIngetrokken()
+
+	/**
+	 * The least privileged principal that should be refused: an ordinary
+	 * authenticated user, who is not in the group the `aifeature.bind` action seeds
+	 * to. The binding never reaches the write path, so a caller who cannot
+	 * administer the register cannot decide which model reads a case.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 */
+	public function testBindIsForbiddenForAnOrdinaryUser(): void {
+		$binding = $this->createMock(AiFeatureBindingService::class);
+		$binding->expects($this->never())->method('bind');
+
+		$actionAuth = $this->createMock(ActionAuthService::class);
+		$actionAuth->method('requireAction')->willThrowException(new OCSForbiddenException('nope'));
+
+		$response = $this->controller(
+			$this->createMock(AiFeatureService::class),
+			$actionAuth,
+			$this->session('mallory'),
+			null,
+			null,
+			$binding
+		)->bind('feat-1');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+	}//end testBindIsForbiddenForAnOrdinaryUser()
+
+	/**
+	 * A binding outside the organisation's model policy is refused with a 422
+	 * carrying the message that names the policy, so an administrator reads a reason
+	 * rather than a failure.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#scenario-a-binding-outside-the-policy-is-refused-at-write-time
+	 */
+	public function testBindOutsideThePolicyIsRefusedWithTheReason(): void {
+		$binding = $this->createMock(AiFeatureBindingService::class);
+		$binding->method('bind')->willThrowException(
+			new \InvalidArgumentException('Refused by the model-policy check: the organisation model policy for \'gemeente\' does not permit provider \'openai\' model \'gpt-4o\'.')
+		);
+
+		$response = $this->controller(
+			$this->createMock(AiFeatureService::class),
+			$this->createMock(ActionAuthService::class),
+			$this->session('admin'),
+			null,
+			null,
+			$binding
+		)->bind('feat-1');
+
+		$this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+		$this->assertStringContainsString('model-policy check', $response->getData()['error']);
+
+	}//end testBindOutsideThePolicyIsRefusedWithTheReason()
+
+	/**
+	 * The residency overview is a read for any authenticated caller, and refuses an
+	 * unauthenticated one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#scenario-what-leaves-the-building-is-readable-in-one-place
+	 */
+	public function testTheResidencyOverviewListsWhatEachFeatureWillUse(): void {
+		$binding = $this->createMock(AiFeatureBindingService::class);
+		$binding->method('overview')->willReturn(
+			[
+				[
+					'slug' => 'samenvatten',
+					'provider' => 'ollama',
+					'model' => 'llama3',
+					'residency' => 'on-premise',
+					'location' => 'Serverruimte Stadskantoor',
+				],
+			]
+		);
+
+		$response = $this->controller(
+			$this->createMock(AiFeatureService::class),
+			$this->createMock(ActionAuthService::class),
+			$this->session('admin'),
+			null,
+			null,
+			$binding
+		)->residencyOverview();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('on-premise', $response->getData()['results'][0]['residency']);
+
+	}//end testTheResidencyOverviewListsWhatEachFeatureWillUse()
 }//end class

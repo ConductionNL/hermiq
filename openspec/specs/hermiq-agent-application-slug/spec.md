@@ -10,6 +10,13 @@ capability declares the field, sets it at creation time on the one seeded agent
 `hydra-console` as of this change — one seeded, three hand-created via the UI with
 no seed script of their own.
 
+Since agents-bound-to-their-app (archived 2026-10-01) the field also has a user
+write path: the owner sets it with the App field on the agent form
+(agent-management-ui, REQ-APPAG-001), and an agent made from an app-offered
+template gets the offering app (agent-template-gallery, REQ-APPAG-005). The
+"backend-only" notes on the requirements below describe the repair-step write
+paths they cover, not the field as a whole.
+
 ## Requirements
 
 ### Requirement: hermiq's `Agent` schema declares an optional `applicationSlug`
