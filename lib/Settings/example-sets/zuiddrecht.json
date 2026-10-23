@@ -1,0 +1,25 @@
+{
+	"set": "zuiddrecht",
+	"$comment": "hermiq's part of the Zuiddrecht example set: the Woo-triage agent that the HmTalk board shows in its own Talk room. It is private, open to the demo employee Pieter and the Woo team lead Anouk, and reachable from Talk, so its bot is registered when the agent is written. The room itself is not example data: hermiq creates a session's Talk room only when the session is created through its API, so after the install the session is created as Pieter (POST /apps/hermiq/api/sessions with this agent) and Anouk is added to it (POST /apps/hermiq/api/sessions/{uuid}/participants). Install with `occ openregister:example-set:install zuiddrecht`.",
+	"objects": [
+		{
+			"key": "agent-woo-triage",
+			"register": "hermiq",
+			"schema": "agent",
+			"data": {
+				"name": "Woo-triage",
+				"description": "Beoordeelt binnengekomen Woo-verzoeken: zijn de documenten verzameld en beoordeeld, en kan de zaak door naar de besluitfase. Vraagt goedkeuring voor elke statuswijziging.",
+				"type": "chat",
+				"prompt": "Je helpt het team Woo en informatie van de gemeente Zuiddrecht. Beoordeel of een Woo-verzoek compleet is en noem je bronnen. Wijzig een zaak alleen na goedkeuring.",
+				"active": true,
+				"isPrivate": true,
+				"invitedUsers": [
+					"{{cast:pieter.uid}}",
+					"{{cast:anouk.uid}}"
+				],
+				"requiresApproval": true,
+				"talkEnabled": true
+			}
+		}
+	]
+}
