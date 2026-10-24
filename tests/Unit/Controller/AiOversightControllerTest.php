@@ -20,6 +20,7 @@ use OCA\Hermiq\Controller\AiOversightController;
 use OCA\Hermiq\Service\AiOversightAccess;
 use OCA\Hermiq\Service\AiOversightService;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -178,6 +179,97 @@ class AiOversightControllerTest extends TestCase {
         $this->assertStringNotContainsString('db gone', (string) json_encode($response->getData()));
 
     }//end testReadFailureIsAServerError()
+
+    /**
+     * An oversight holder who may open the subject downloads its records as
+     * CSV, newest first, with a formula-like cell neutralised.
+     *
+     * @return void
+     */
+    public function testOversightHolderDownloadsTheRecordsAsCsv(): void {
+        $this->signIn('olga');
+        $this->access->method('hasOversightRole')->with('olga')->willReturn(true);
+        $this->access->method('maySeeSubject')->with('olga', 'case-1')->willReturn(true);
+        $this->oversight->expects($this->once())
+            ->method('listForSubject')
+            ->with('dossiq', 'case-1', '', 200, 0)
+            ->willReturn(
+                [
+                    'results' => [
+                        [
+                            'decidedAt'       => '2026-10-08T10:14:00+00:00',
+                            'decidedBy'       => 'pieter',
+                            'prompt'          => 'Welke documenten moeten nog beoordeeld?',
+                            'status'          => 'approved',
+                            'advisoryContext' => ['model' => 'Hermiq, lokaal'],
+                        ],
+                        ['decidedAt' => '2026-10-07T15:41:00+00:00', 'decidedBy' => 'anouk', 'prompt' => '=HYPERLINK("x")', 'status' => 'denied'],
+                    ],
+                    'total'   => 2,
+                ]
+            );
+
+        $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
+
+        $this->assertInstanceOf(DataDownloadResponse::class, $response);
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $lines = explode("\n", trim($response->render()));
+        $this->assertSame('decidedAt,decidedBy,prompt,status,model', $lines[0]);
+        $this->assertSame('2026-10-08T10:14:00+00:00,pieter,"Welke documenten moeten nog beoordeeld?",approved,"Hermiq, lokaal"', $lines[1]);
+        $this->assertStringContainsString("'=HYPERLINK", $lines[2]);
+        $this->assertCount(3, $lines);
+
+    }//end testOversightHolderDownloadsTheRecordsAsCsv()
+
+
+    /**
+     * A reader of the subject without the oversight role may not download.
+     *
+     * @return void
+     */
+    public function testReaderWithoutTheOversightRoleMayNotDownload(): void {
+        $this->signIn('alice');
+        $this->access->method('hasOversightRole')->willReturn(false);
+        $this->access->method('maySeeSubject')->willReturn(true);
+        $this->oversight->expects($this->never())->method('listForSubject');
+
+        $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testReaderWithoutTheOversightRoleMayNotDownload()
+
+
+    /**
+     * The oversight role does not open a subject its holder may not see.
+     *
+     * @return void
+     */
+    public function testOversightHolderWhoMayNotSeeTheSubjectMayNotDownload(): void {
+        $this->signIn('olga');
+        $this->access->method('hasOversightRole')->willReturn(true);
+        $this->access->method('maySeeSubject')->willReturn(false);
+        $this->oversight->expects($this->never())->method('listForSubject');
+
+        $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testOversightHolderWhoMayNotSeeTheSubjectMayNotDownload()
+
+
+    /**
+     * The download needs a session and a subject.
+     *
+     * @return void
+     */
+    public function testDownloadNeedsASessionAndASubject(): void {
+        $this->userSession->method('getUser')->willReturn(null);
+        $this->oversight->expects($this->never())->method('listForSubject');
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1')->getStatus());
+
+    }//end testDownloadNeedsASessionAndASubject()
 
 
 }//end class
