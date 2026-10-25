@@ -50,4 +50,16 @@ class ExampleSetWooTriageAgentTest extends TestCase {
 		$this->assertTrue(condition: $agent['data']['requiresApproval']);
 		$this->assertSame(expected: ['{{cast:pieter.uid}}', '{{cast:anouk.uid}}'], actual: $agent['data']['invitedUsers']);
 	}//end testTheWooTriageAgentIsReachableFromTalk()
+
+	/**
+	 * Pieter is in the AI-oversight group, the only group that may download the assistant's record on a case.
+	 *
+	 * @return void
+	 */
+	public function testPieterOverseesTheAssistant(): void {
+		$fragment = json_decode((string)file_get_contents(self::FRAGMENT), true);
+		$groups   = array_column($fragment['groups'], 'members', 'group');
+
+		$this->assertSame(expected: ['pieter'], actual: $groups[\OCA\Hermiq\Service\AiOversightAccess::OVERSIGHT_GROUP]);
+	}//end testPieterOverseesTheAssistant()
 }//end class
