@@ -63,15 +63,15 @@ class AiOversightControllerTest extends TestCase {
      */
     protected function setUp(): void {
         parent::setUp();
-        $this->userSession = $this->createMock(IUserSession::class);
-        $this->access      = $this->createMock(AiOversightAccess::class);
-        $this->oversight   = $this->createMock(AiOversightService::class);
+        $this->userSession = $this->createMock(originalClassName: IUserSession::class);
+        $this->access      = $this->createMock(originalClassName: AiOversightAccess::class);
+        $this->oversight   = $this->createMock(originalClassName: AiOversightService::class);
         $this->controller  = new AiOversightController(
-            $this->createMock(IRequest::class),
-            $this->userSession,
-            $this->access,
-            $this->oversight,
-            $this->createMock(LoggerInterface::class)
+            request: $this->createMock(originalClassName: IRequest::class),
+            userSession: $this->userSession,
+            access: $this->access,
+            oversight: $this->oversight,
+            logger: $this->createMock(originalClassName: LoggerInterface::class)
         );
 
     }//end setUp()
@@ -85,7 +85,7 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     private function signIn(string $uid): void {
-        $user = $this->createMock(IUser::class);
+        $user = $this->createMock(originalClassName: IUser::class);
         $user->method('getUID')->willReturn($uid);
         $this->userSession->method('getUser')->willReturn($user);
 
@@ -98,7 +98,7 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testAllowedReaderGetsTheRecords(): void {
-        $this->signIn('alice');
+        $this->signIn(uid: 'alice');
         $this->access->method('maySeeSubject')->with('alice', 'case-1')->willReturn(true);
         $this->oversight->expects($this->once())
             ->method('listForSubject')
@@ -107,8 +107,8 @@ class AiOversightControllerTest extends TestCase {
 
         $response = $this->controller->subject(originApp: 'dossiq', subjectId: 'case-1', subjectType: 'case');
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame(1, $response->getData()['total']);
+        $this->assertSame(expected: Http::STATUS_OK, actual: $response->getStatus());
+        $this->assertSame(expected: 1, actual: $response->getData()['total']);
 
     }//end testAllowedReaderGetsTheRecords()
 
@@ -119,13 +119,13 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testDeniedReaderGetsForbiddenAndNothingIsRead(): void {
-        $this->signIn('mallory');
+        $this->signIn(uid: 'mallory');
         $this->access->method('maySeeSubject')->willReturn(false);
         $this->oversight->expects($this->never())->method('listForSubject');
 
         $response = $this->controller->subject(originApp: 'dossiq', subjectId: 'case-1');
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+        $this->assertSame(expected: Http::STATUS_FORBIDDEN, actual: $response->getStatus());
 
     }//end testDeniedReaderGetsForbiddenAndNothingIsRead()
 
@@ -136,13 +136,13 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testMissingSubjectIsABadRequest(): void {
-        $this->signIn('alice');
+        $this->signIn(uid: 'alice');
         $this->access->expects($this->never())->method('maySeeSubject');
         $this->oversight->expects($this->never())->method('listForSubject');
 
         $response = $this->controller->subject(originApp: 'dossiq');
 
-        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+        $this->assertSame(expected: Http::STATUS_BAD_REQUEST, actual: $response->getStatus());
 
     }//end testMissingSubjectIsABadRequest()
 
@@ -158,7 +158,7 @@ class AiOversightControllerTest extends TestCase {
 
         $response = $this->controller->subject(originApp: 'dossiq', subjectId: 'case-1');
 
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+        $this->assertSame(expected: Http::STATUS_UNAUTHORIZED, actual: $response->getStatus());
 
     }//end testAnonymousIsUnauthorized()
 
@@ -169,14 +169,14 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testReadFailureIsAServerError(): void {
-        $this->signIn('olga');
+        $this->signIn(uid: 'olga');
         $this->access->method('maySeeSubject')->willReturn(true);
         $this->oversight->method('listForSubject')->willThrowException(new \RuntimeException('db gone'));
 
         $response = $this->controller->subject(originApp: 'dossiq', subjectId: 'case-1');
 
-        $this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $response->getStatus());
-        $this->assertStringNotContainsString('db gone', (string) json_encode($response->getData()));
+        $this->assertSame(expected: Http::STATUS_INTERNAL_SERVER_ERROR, actual: $response->getStatus());
+        $this->assertStringNotContainsString(needle: 'db gone', haystack: (string) json_encode($response->getData()));
 
     }//end testReadFailureIsAServerError()
 
@@ -187,7 +187,7 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testOversightHolderDownloadsTheRecordsAsCsv(): void {
-        $this->signIn('olga');
+        $this->signIn(uid: 'olga');
         $this->access->method('hasOversightRole')->with('olga')->willReturn(true);
         $this->access->method('maySeeSubject')->with('olga', 'case-1')->willReturn(true);
         $this->oversight->expects($this->once())
@@ -211,13 +211,14 @@ class AiOversightControllerTest extends TestCase {
 
         $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
 
-        $this->assertInstanceOf(DataDownloadResponse::class, $response);
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertInstanceOf(expected: DataDownloadResponse::class, actual: $response);
+        $this->assertSame(expected: Http::STATUS_OK, actual: $response->getStatus());
         $lines = explode("\n", trim($response->render()));
-        $this->assertSame('decidedAt,decidedBy,prompt,status,model', $lines[0]);
-        $this->assertSame('2026-10-08T10:14:00+00:00,pieter,"Welke documenten moeten nog beoordeeld?",approved,"Hermiq, lokaal"', $lines[1]);
-        $this->assertStringContainsString("'=HYPERLINK", $lines[2]);
-        $this->assertCount(3, $lines);
+        $this->assertSame(expected: 'decidedAt,decidedBy,prompt,status,model', actual: $lines[0]);
+        $first = '2026-10-08T10:14:00+00:00,pieter,"Welke documenten moeten nog beoordeeld?",approved,"Hermiq, lokaal"';
+        $this->assertSame(expected: $first, actual: $lines[1]);
+        $this->assertStringContainsString(needle: "'=HYPERLINK", haystack: $lines[2]);
+        $this->assertCount(expectedCount: 3, haystack: $lines);
 
     }//end testOversightHolderDownloadsTheRecordsAsCsv()
 
@@ -228,14 +229,14 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testReaderWithoutTheOversightRoleMayNotDownload(): void {
-        $this->signIn('alice');
+        $this->signIn(uid: 'alice');
         $this->access->method('hasOversightRole')->willReturn(false);
         $this->access->method('maySeeSubject')->willReturn(true);
         $this->oversight->expects($this->never())->method('listForSubject');
 
         $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+        $this->assertSame(expected: Http::STATUS_FORBIDDEN, actual: $response->getStatus());
 
     }//end testReaderWithoutTheOversightRoleMayNotDownload()
 
@@ -246,14 +247,14 @@ class AiOversightControllerTest extends TestCase {
      * @return void
      */
     public function testOversightHolderWhoMayNotSeeTheSubjectMayNotDownload(): void {
-        $this->signIn('olga');
+        $this->signIn(uid: 'olga');
         $this->access->method('hasOversightRole')->willReturn(true);
         $this->access->method('maySeeSubject')->willReturn(false);
         $this->oversight->expects($this->never())->method('listForSubject');
 
         $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+        $this->assertSame(expected: Http::STATUS_FORBIDDEN, actual: $response->getStatus());
 
     }//end testOversightHolderWhoMayNotSeeTheSubjectMayNotDownload()
 
@@ -267,7 +268,8 @@ class AiOversightControllerTest extends TestCase {
         $this->userSession->method('getUser')->willReturn(null);
         $this->oversight->expects($this->never())->method('listForSubject');
 
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1')->getStatus());
+        $response = $this->controller->subjectExport(originApp: 'dossiq', subjectId: 'case-1');
+        $this->assertSame(expected: Http::STATUS_UNAUTHORIZED, actual: $response->getStatus());
 
     }//end testDownloadNeedsASessionAndASubject()
 
