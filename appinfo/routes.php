@@ -180,6 +180,7 @@ return [
 
         // Advisory AI-oversight records about one subject, for whoever may open that subject.
         ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
+        ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
 
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
