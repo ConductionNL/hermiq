@@ -2,7 +2,7 @@
 
 ### Requirement: An oversight holder downloads a subject's records
 
-The system SHALL offer a subject's advisory Approvals as a CSV download to an administrator or a member of the `ai-oversight` group who may also open the subject, and SHALL refuse anyone else before reading a record.
+The system SHALL offer a subject's advisory Approvals as a CSV download only to an administrator or a member of the `ai-oversight` group, and SHALL refuse anyone else before reading a record. A reader who may open the subject but holds no oversight role SHALL NOT download it.
 
 #### Scenario: an oversight holder downloads
 - **GIVEN** Olga is in the ai-oversight group and may open case-1

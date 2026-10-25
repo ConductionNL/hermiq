@@ -131,9 +131,11 @@ class AiOversightController extends Controller {
 	/**
 	 * Download the advisory Approvals about one subject as CSV.
 	 *
-	 * Only a holder of the oversight role (or an admin) who may also open the
-	 * subject downloads; both are decided before anything is read. Rows are
-	 * newest first, at most EXPORT_MAX_ROWS.
+	 * Only a holder of the oversight role (or an admin) downloads: the role is
+	 * decided before anything is read, and nobody else gets a row. The subject
+	 * check after it is the subject route's own; for a holder it passes, as the
+	 * oversight role reads every advisory record. Rows are newest first, at most
+	 * EXPORT_MAX_ROWS.
 	 *
 	 * @param string $originApp   The origin app id.
 	 * @param string $subjectId   The subject's id in that app.

@@ -7,7 +7,7 @@ Board DqZaakAssistent draws "Downloaden" on the card "Wat de assistent op deze z
 ## What changes
 
 - `GET /api/ai-oversight/subject/export?originApp=&subjectId=[&subjectType=]` answers a CSV (moment, user, question or suggestion, outcome, model), newest first, at most 5000 rows.
-- Only an admin or a member of the `ai-oversight` group who may also open the subject downloads; both are decided before anything is read. A cell a spreadsheet would read as a formula gets a leading quote.
+- Only an admin or a member of the `ai-oversight` group downloads; the role is decided before anything is read (the oversight role reads every advisory record, so the subject check after it passes for a holder). A cell a spreadsheet would read as a formula gets a leading quote.
 
 ## Impact
 
