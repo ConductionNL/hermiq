@@ -1,6 +1,15 @@
 {
 	"set": "zuiddrecht",
-	"$comment": "hermiq's part of the Zuiddrecht example set: the Woo-triage agent that the HmTalk board shows in its own Talk room. It is private, open to the demo employee Pieter and the Woo team lead Anouk, and reachable from Talk, so its bot is registered when the agent is written. The room itself is not example data: hermiq creates a session's Talk room only when the session is created through its API, so after the install the session is created as Pieter (POST /apps/hermiq/api/sessions with this agent) and Anouk is added to it (POST /apps/hermiq/api/sessions/{uuid}/participants). Install with `occ openregister:example-set:install zuiddrecht`.",
+	"$comment": "hermiq's part of the Zuiddrecht example set: the Woo-triage agent that the HmTalk board shows in its own Talk room. It is private, open to the demo employee Pieter and the Woo team lead Anouk, and reachable from Talk, so its bot is registered when the agent is written. The room itself is not example data: hermiq creates a session's Talk room only when the session is created through its API, so after the install the session is created as Pieter (POST /apps/hermiq/api/sessions with this agent) and Anouk is added to it (POST /apps/hermiq/api/sessions/{uuid}/participants). Install with `occ openregister:example-set:install zuiddrecht`. Pieter is in the AI-oversight group, so he may download what the assistant did on a case (DqZaakAssistent).",
+	"groups": [
+		{
+			"group": "ai-oversight",
+			"displayName": "AI-toezicht",
+			"members": [
+				"pieter"
+			]
+		}
+	],
 	"objects": [
 		{
 			"key": "agent-woo-triage",
