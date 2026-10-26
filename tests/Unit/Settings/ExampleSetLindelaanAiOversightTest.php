@@ -45,7 +45,7 @@ class ExampleSetLindelaanAiOversightTest extends TestCase {
 				expected: ['dossiq', 'case', '{{lookup:case}}'],
 				actual: [$context['originApp'], $context['subjectType'], $context['subjectId']]
 			);
-			$this->assertSame(expected: ['title' => 'Verlichting fietspad Lindelaan'], actual: $object['lookups']['case']['where']);
+			$this->assertSame(expected: ['externalReference' => 'MZ-ZDR-2026-0412'], actual: $object['lookups']['case']['where']);
 			$this->assertSame(expected: $statusOf[$context['action']], actual: $object['data']['status']);
 			$actions[] = $context['action'];
 		}
