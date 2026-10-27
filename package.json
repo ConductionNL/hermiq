@@ -7,7 +7,7 @@
     "npm": "^11.0.0"
   },
   "scripts": {
-    "build": "node scripts/build-companion-css.js && NODE_ENV=production webpack --config webpack.config.js --progress",
+    "build": "NODE_ENV=production webpack --config webpack.config.js --progress && node scripts/build-companion-css.js",
     "postbuild": "node scripts/check-single-dexie.js",
     "dev": "NODE_ENV=development webpack --config webpack.config.js --progress",
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
@@ -55,7 +55,7 @@
   "dependencies": {
     "@babel/core": "^7.22.9",
     "@babel/preset-env": "^7.29.7",
-    "@conduction/nextcloud-vue": "^2.65.0",
+    "@conduction/nextcloud-vue": "^2.156.0",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.6.0",
     "@nextcloud/dialogs": "^7.5.0",

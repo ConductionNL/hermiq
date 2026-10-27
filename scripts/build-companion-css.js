@@ -165,6 +165,95 @@ function scopeToCompanion(css) {
  *
  * @return {string} The file body.
  */
+// The companion's built bundles: the purge keeps the library rules these use.
+const BUNDLES = ['hermiq-companion.js', 'hermiq-companion-panel.js'].map((file) => path.join(__dirname, '..', 'js', file))
+
+// Classes no bundle spells out: states the libraries set at runtime, Vue's
+// transition classes, and the popover/button internals of @nextcloud/vue.
+const SAFELIST = [
+	/^(is|has)-/,
+	/-(enter|leave)(-from|-to|-active)?$/,
+	/^(v-popper|button-vue|action-item|material-design-icon|checkbox-|input-field|modal-|dialog)/,
+	/^(active|open|disabled|selected|focus|focus-visible|hidden)$/,
+]
+
+/**
+ * The names the bundles carry: every identifier-like token, and the ones that
+ * end in a dash as prefixes (a BEM modifier built at runtime, `cn-x--${pos}`).
+ *
+ * @param {string[]} texts The bundles' source.
+ * @return {{names: Set<string>, prefixes: string[]}} What a class may match.
+ */
+function usedNames(texts) {
+	const names = new Set()
+	for (const text of texts) {
+		for (const match of text.matchAll(/[A-Za-z_][\w-]*/g)) {
+			names.add(match[0])
+		}
+	}
+	const prefixes = [...names].filter((name) => name.endsWith('-') && name.length > 3)
+	return { names, prefixes }
+}
+
+/**
+ * A selector list split at its top-level commas (not those inside `:is()`).
+ *
+ * @param {string} list The selector list.
+ * @return {string[]} The selectors.
+ */
+function selectorsOf(list) {
+	const out = []
+	let depth = 0
+	let start = 0
+	for (let index = 0; index < list.length; index++) {
+		const char = list[index]
+		if (char === '(' || char === '[') {
+			depth++
+		} else if (char === ')' || char === ']') {
+			depth--
+		} else if (char === ',' && depth === 0) {
+			out.push(list.slice(start, index))
+			start = index + 1
+		}
+	}
+	out.push(list.slice(start))
+	return out.map((selector) => selector.trim()).filter(Boolean)
+}
+
+/**
+ * Keep the rules a selector of which can match in the companion; drop the rest,
+ * looking into @media, @supports, @container and @layer blocks.
+ *
+ * @param {string} css The library stylesheet.
+ * @param {{names: Set<string>, prefixes: string[]}} used What the bundles use.
+ * @return {string} The purged stylesheet.
+ */
+function purge(css, used) {
+	const known = (name) => used.names.has(name) || used.prefixes.some((prefix) => name.startsWith(prefix)) || SAFELIST.some((pattern) => pattern.test(name))
+	const matches = (selector) => [...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].every((match) => known(match[1]))
+	const kept = []
+	for (const chunk of topLevel(css)) {
+		const brace = chunk.indexOf('{')
+		if (brace === -1 || HOISTED.test(chunk)) {
+			kept.push(chunk)
+			continue
+		}
+		// The comments before a rule are part of its chunk; a comma in one would read as a selector.
+		const head = chunk.slice(0, brace).replace(/\/\*[\s\S]*?\*\//g, '').trim()
+		if (/^@(media|supports|container|layer)\b/i.test(head)) {
+			const inner = purge(chunk.slice(brace + 1, chunk.lastIndexOf('}')), used)
+			if (inner.trim() !== '') {
+				kept.push(head + ' {' + inner + '}')
+			}
+			continue
+		}
+		if (head.startsWith('@') || selectorsOf(head).some(matches)) {
+			kept.push(chunk)
+		}
+	}
+	return kept.join('\n')
+}
+
 function build() {
 	if (fs.existsSync(SOURCE) === false) {
 		console.error(`Source stylesheet not found: ${SOURCE}`)
@@ -172,7 +261,14 @@ function build() {
 		process.exit(1)
 	}
 
-	return HEADER + scopeToCompanion(fs.readFileSync(SOURCE, 'utf8'))
+	let css = fs.readFileSync(SOURCE, 'utf8')
+	if (BUNDLES.every((file) => fs.existsSync(file))) {
+		css = purge(css, usedNames(BUNDLES.map((file) => fs.readFileSync(file, 'utf8'))))
+	} else {
+		console.warn('Companion bundles not built yet: the stylesheet is not purged. Run it after webpack.')
+	}
+
+	return HEADER + scopeToCompanion(css)
 }
 
 if (require.main === module) {
@@ -185,4 +281,4 @@ if (require.main === module) {
 	)
 }
 
-module.exports = { scopeToCompanion, topLevel }
+module.exports = { purge, scopeToCompanion, selectorsOf, topLevel, usedNames }
