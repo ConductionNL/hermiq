@@ -7,7 +7,7 @@
     "npm": "^11.0.0"
   },
   "scripts": {
-    "build": "node scripts/build-companion-css.js && NODE_ENV=production webpack --config webpack.config.js --progress",
+    "build": "NODE_ENV=production webpack --config webpack.config.js --progress && node scripts/build-companion-css.js",
     "postbuild": "node scripts/check-single-dexie.js",
     "dev": "NODE_ENV=development webpack --config webpack.config.js --progress",
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
