@@ -7767,7 +7767,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "hermiq is an ordinary Nextcloud app (appinfo/info.xml, composer.json requiring nextcloud/*); its LLM providers enum includes 'ollama' and 'nextcloud' (lib/Settings/hermiq_register.json:976) alongside SaaS providers, and the setup wizard's first step (src/manifest.json setup.steps[0] 'llm-endpoint') points at a local Ollama host by default (http://host.docker.internal:11434); no code path requires a Conduction-hosted service for core agent execution.",
-				"spec": "openspec/specs/app-runtime-requirements"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: hermiq SHALL run on any self-managed Nextcloud in its declared range (REQ-PLAT-003)"
 			},
 			"reachedOn": "Any self-managed Nextcloud instance with hermiq installed",
 			"provider": "nextcloud",
@@ -7835,7 +7836,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "LICENSE file (root) is the full EUPL v1.2 text; REUSE.toml documents SPDX EUPL-1.2 headers as the project-wide convention; every PHP file opened during this review (e.g. TenantOpsController.php, ComplianceController.php) carries 'SPDX-License-Identifier: EUPL-1.2'; the repo is public at ConductionNL/hermiq.",
-				"spec": "openspec/specs/app-manifest"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: hermiq SHALL be distributed under the EUPL 1.2 (REQ-PLAT-004)"
 			},
 			"reachedOn": "n/a (licensing fact, not a runtime path)",
 			"provider": "hermiq",
@@ -7981,7 +7983,8 @@
 				"state": "built",
 				"owner": "nextcloud/server",
 				"evidence": "Every hermiq controller resolves the caller exclusively through OCP\\IUserSession (e.g. every controller read in this review: TenantOpsController, ComplianceController, AiFeatureController), so hermiq has no login path of its own; it inherits whatever authentication backend the Nextcloud instance is configured with (LDAP/SAML/OIDC apps).",
-				"spec": "none"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: Sign-in and single sign-on SHALL be Nextcloud's (REQ-PLAT-001)"
 			},
 			"reachedOn": "Nextcloud's own login page, however the instance is configured",
 			"note": "Inherited capability: hermiq contains no SSO-specific code, positive or negative, because it never authenticates a user itself.",
@@ -8199,10 +8202,9 @@
 			"source": "demand-derived",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ and src/ for 'subscription'/'billing'/'license key'/'stripe'/'payment': the only 'subscription' hits are about a user's OWN Claude Max/Pro OAuth subscription used as an LLM credential (lib/Service/Llm/ProviderFactory.php, LlmSettingsController.php), never a hermiq-side seat or usage metering/billing mechanism. No per-user or per-message billing code exists anywhere in the app.",
-				"spec": "none"
+				"evidence": "decided-no on 2026-10-30 (coverage lane hm-cover, reversible): a flat price per instance is a pricing and contract fact, not a capability with code or a screen. hermiq has no metering, seat count or per-message billing to build (searched lib/ and src/ for subscription, billing, licence key, stripe, payment: the only subscription hits are a person's own model-provider subscription used as a credential). Earlier evidence: built, since nothing in hermiq charges per seat or per message."
 			},
 			"reachedOn": "n/a (absence of any metering/billing code, consistent with an EUPL-licensed self-hosted install)",
 			"note": "This is inferred from the absence of any licensing/billing gate rather than a specific 'flat price' feature; hermiq has request/token quotas (Agent.requestQuota/tokenQuota) but those are operational caps, not a pricing mechanism.",
@@ -9238,7 +9240,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "every hermiq page and API route requires a Nextcloud session (only Health, ChatHealth, Metrics, EgressAuthorize, McpRun and the two webhook controllers carry PublicPage, each token- or secret-guarded), so Nextcloud's own sign-in applies, where two-factor providers are enforced (server and twofactor apps, not read)",
-				"spec": "none"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: A second factor at sign-in SHALL be Nextcloud's (REQ-PLAT-002)"
 			},
 			"feature": "hosting-and-security",
 			"reachedOn": "Nextcloud sign-in",
