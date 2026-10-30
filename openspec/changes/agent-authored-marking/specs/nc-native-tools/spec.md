@@ -7,9 +7,10 @@
 hermiq SHALL mark each object an agent creates or updates as agent-authored, in the same operation
 as the write, with the mechanism native to that object's subsystem: a Nextcloud system tag for
 files and notes, and the `X-HERMIQ-AGENT-AUTHORED` property on the object itself for contacts
-(vCard), calendar items and tasks (iCalendar). The system tag SHALL have one name in every UI
-language, so one filter finds every tagged file. A write whose mark cannot be applied SHALL report
-failure, never success.
+(vCard), calendar items and tasks (iCalendar). The stored system tag name SHALL be the
+untranslated identifier `Agent authored` in every UI language, so one filter finds every tagged
+file, and hermiq SHALL NOT rename or translate the stored tag. A write whose mark cannot be applied
+SHALL report failure, never success.
 
 Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
 
@@ -25,6 +26,14 @@ Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
 - **AND** the property survives export and synchronisation of the object
 
 @e2e exclude asserting stored vCard and iCalendar bytes needs a CardDAV or CalDAV fetch, not a page; covered by ContactWriteServiceTest and CalendarWriteServiceTest.
+
+#### Scenario: The stored tag name does not follow the UI language
+- **GIVEN** one person uses Nextcloud in Dutch and another in English
+- **WHEN** an agent writes a file for each of them
+- **THEN** both files carry the system tag `Agent authored`
+- **AND** filtering Files on that one tag finds both
+
+@e2e exclude a second user with another UI language plus an agent write; covered by the AgentArtefactMarker unit test.
 
 #### Scenario: The mark cannot be applied
 - **GIVEN** the object was written
@@ -53,6 +62,23 @@ Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
 - **GIVEN** an agent-authored file the caller cannot read
 - **WHEN** they ask to mark it as reviewed
 - **THEN** the request is refused with 404 and the file's tags are unchanged
+
+### Requirement: hermiq shows the AI label as "Gemaakt met AI" (REQ-AILBL-004)
+
+Wherever hermiq's own pages show the label of REQ-AILBL-001 (the label section on the AI oversight
+page, the reviewed action, and any badge on an agent-authored object), they SHALL show the
+translatable display text "Gemaakt met AI" (English source "Made with AI"), never the stored
+identifier `Agent authored`. The link that opens Files filtered on the label SHALL filter on the
+stored tag. Files itself shows a system tag by its stored name; hermiq does not change that.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: The oversight section shows the display text
+- **GIVEN** a person using Nextcloud in Dutch
+- **WHEN** they open the AI oversight page
+- **THEN** the label section names the label "Gemaakt met AI"
+- **AND** the text `Agent authored` does not appear in the section
+- **AND** its link opens Files filtered on the tag `Agent authored`
 
 ### Requirement: Chat answers are shown as the agent's, without a separate label (REQ-AILBL-003)
 

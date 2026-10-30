@@ -21,9 +21,8 @@ Read at hermiq `development` 0a36e2a1: `AgentArtefactMarker::TAG_NAME = 'Agent a
 - **D4. Chat answers.** The chat page already shows each answer under the agent's name and avatar in
   a conversation with that agent, so no label is added there.
 
-## Open question
-
-- The tag's visible name. The board says "Gemaakt met AI", the code says `Agent authored`, and the
-  code keeps one untranslated name so a filter finds every tagged file. Renaming orphans existing
-  tags unless they are renamed in place by a repair step. Until decided, the requirement names no
-  string, and the section shows whichever name the tag has.
+- **D5. Stored identifier, translated display.** The stored tag stays `Agent authored`
+  (`AgentArtefactMarker::TAG_NAME`), untranslated, so one filter finds every tagged file and no
+  existing tag is orphaned; no repair step renames it. hermiq's own pages show the label through
+  l10n as "Gemaakt met AI" (source "Made with AI"), the board's wording (REQ-AILBL-004). Files
+  lists the tag by its stored name, which hermiq cannot translate.
