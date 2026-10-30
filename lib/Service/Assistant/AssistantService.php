@@ -187,7 +187,7 @@ class AssistantService {
 	 * @throws GuardrailBlockedException When the input is refused by the effective GuardrailPolicy.
 	 *
 	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function converse(string $userId, ?string $sessionId, string $message, array $context): array {
 		// Compliance-ai-literacy: an organisation may require the course first.

@@ -27,7 +27,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Covers who may read the advisory Approvals about a subject.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightAccessTest extends TestCase {
 

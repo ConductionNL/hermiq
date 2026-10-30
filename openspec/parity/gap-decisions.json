@@ -1262,5 +1262,13 @@
 		"reason": "owned by integriq: the catalogue of ready-made connectors to outside services is integriq's, and hermiq's seam to it (a signed outbound webhook to an integriq source) is built under dl-webhook-out (coverage lane hm-cover, 2026-10-30).",
 		"change": null,
 		"decidedOn": "2026-10-30"
+	},
+	{
+		"row": "op-flat-cost",
+		"matrix": "hermiq",
+		"decision": "decided-no",
+		"reason": "pricing fact, not a capability: a flat price per instance is set in the contract, and hermiq has no metering, seat count or per-message billing that a spec, board or build could cover (coverage lane hm-cover, 2026-10-30).",
+		"change": null,
+		"decidedOn": "2026-10-30"
 	}
 ]

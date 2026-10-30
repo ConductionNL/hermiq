@@ -178,7 +178,7 @@ class AiOversightService {
      *
      * @return array{results: array<int, array<string, mixed>>, total: integer}
      *
-     * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+     * @spec openspec/specs/ai-oversight/spec.md
      */
     public function listForSubject(
         string $originApp,

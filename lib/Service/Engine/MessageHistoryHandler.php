@@ -118,7 +118,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return array{history: array<int, LLPhantMessage>, turnText: string}
 	 *
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function buildTurnHistory(string $conversationId, ObjectEntity $currentTurn, string $turnText): array {
 		$messages = $this->recentMessages(conversationId: $conversationId);
@@ -150,7 +150,7 @@ class MessageHistoryHandler {
 	 * @return list<ObjectEntity>
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	private function recentMessages(string $conversationId): array {
 		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and in
@@ -204,7 +204,7 @@ class MessageHistoryHandler {
 	 * whole recent window, so it is handed in rather than recomputed per subset.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	private function toLlmHistory(array $messages, bool $isMultiSpeaker): array {
 		$history = [];

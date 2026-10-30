@@ -23,7 +23,7 @@ namespace OCA\Hermiq\Service;
  * rewritten when an app is renamed. A lookup by either id therefore searches
  * every id of the same app.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class OriginAppAliases {
 
@@ -57,7 +57,7 @@ class OriginAppAliases {
      *
      * @return string[] The ids, without duplicates.
      *
-     * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+     * @spec openspec/specs/ai-oversight/spec.md
      */
     public function idsOf(string $appId): array {
         foreach (self::FORMER_IDS as $current => $former) {
