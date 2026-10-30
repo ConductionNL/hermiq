@@ -11029,9 +11029,9 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/DelegationService.php:126-408 bounds a per-turn 'fan-out' (maxFanOut) so a single turn may call hermiq.delegateAgent more than once, but grep for async/concurrent/parallel/Promise in lib/Service/Engine/ToolLoop.php found nothing: tool calls in the loop show no concurrency primitives.",
-				"change": "openspec/changes/archive/2026-07-14-sub-agent-delegation",
-				"spec": "openspec/specs/sub-agent-delegation",
-				"requirement": "openspec/specs/sub-agent-delegation :: Delegation depth and fan-out are bounded"
+				"change": "openspec/changes/delegation-runs-in-parallel",
+				"spec": "openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation",
+				"requirement": "openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation :: Several parts of one task run on sub-agents at the same time (REQ-DLGPAR-001)"
 			},
 			"reachedOn": "An agent's turn issuing multiple hermiq.delegateAgent calls up to maxFanOut",
 			"note": "Fan-out (calling several sub-agents within a turn) is real and bounded; whether those calls execute concurrently or one after another could not be settled by reading the code alone, and the PHP synchronous request model suggests sequential. Moved from pending 2026-10-30: Fan-out (several sub-agents in one turn) is built and bounded; the calls run one after another, and no change plans running them at the same time.",
