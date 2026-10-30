@@ -82,3 +82,20 @@ where the viewer supports it.
 - WHEN the person removes it and asks again
 - THEN the turn carries no scope
 - @e2e exclude component behaviour; covered by vitest in nextcloud-vue (CnAiChatPanel.spec.js)
+
+### Requirement: The chat page lists the sources of every answer as links (REQ-DCHAT-005)
+
+On hermiq's own chat page, every answer whose message carries `sources`,
+scoped or not, MUST list them under the answer in the stored order, each
+with its name and, for a file source, a link that opens the file
+(`/f/{fileId}`), at the cited page where the viewer supports it. A source
+the person can no longer open MUST show its name without a link.
+
+Rows: `ch-citations` (hermiq matrix). Board: `hermiq/HmChat`.
+
+#### Scenario: An unscoped answer shows linked sources
+
+- GIVEN an agent with a knowledge context and a turn without a scope
+- WHEN the answer rests on two files
+- THEN the chat page lists both files under the answer, each as a link that opens it
+- @e2e tests/e2e/spec-coverage/document-chat.spec.ts

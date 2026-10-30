@@ -1,8 +1,8 @@
 # Tasks: chat-about-a-document-cites-its-sources
 
-<!-- HYDRA CAP: max 20 unindented `- [ ]` lines. This file uses 14. -->
+<!-- HYDRA CAP: max 20 unindented `- [ ]` lines. This file uses 16. -->
 
-Kind: code. Size M. Row `filinq:wk-ai-chat`.
+Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
 
 ## Implementation tasks
 
@@ -48,7 +48,15 @@ Kind: code. Size M. Row `filinq:wk-ai-chat`.
   - GIVEN a filinq document page WHEN the companion opens THEN its context carries that document's `fileId` and `pageKind: "document"`; on a dossier, the dossier folder's id and `pageKind: "folder"`
 - [ ] Implement (PR in ConductionNL/filinq)
 
-### Task 6: End to end
+### Task 6: The chat page links every answer's sources
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005`
+- **files**: `src/views/Chat.vue` (the `chat-page__sources` list: a link through `generateUrl('/f/{fileId}')` for `type === 'file'`, page when present), `tests/javascript/views/ChatSources.spec.js`
+- **acceptance_criteria**:
+  - GIVEN an unscoped answer with two file sources WHEN it renders THEN each source is a link to its file; a non-file source shows its name only
+- [ ] Implement
+- [ ] Test
+
+### Task 7: End to end
 - **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003`
 - **files**: `tests/e2e/spec-coverage/document-chat.spec.ts`, `docs/features/document-chat.md`
 - **acceptance_criteria**:
