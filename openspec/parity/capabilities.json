@@ -2833,7 +2833,7 @@
 			},
 			"screen": {
 				"canvas": "design-system",
-				"board": "HmAgent"
+				"board": "HmPlanningen"
 			}
 		},
 		{
@@ -5389,7 +5389,7 @@
 			},
 			"screen": {
 				"canvas": "design-system",
-				"board": "HmPubliekeChat"
+				"board": "HmPubliekeChatBeheer"
 			}
 		},
 		{
