@@ -8317,7 +8317,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:45-46 preferences#getPreference/setPreference GET/PUT /api/preferences/{key}; lib/Controller/PreferencesController.php:1-47 generic per-user key/value store backed by Nextcloud IConfig; src/api/talk.js:56,68 uses it for the concrete 'delivertarget' preference, read/written from src/components/TalkDeliverySettings.vue.",
-				"spec": "openspec/specs/talk-delivery"
+				"spec": "openspec/changes/personal-preferences",
+				"requirement": "openspec/changes/personal-preferences/specs/personal-preferences :: A person's agent preferences are kept per person and set in hermiq's settings dialog (REQ-PREF-001)"
 			},
 			"reachedOn": "Talk delivery settings (per-user delivery-target preference); also consumed by shared nextcloud-vue widgets (e.g. CnSupportDialog per the controller's own docblock)",
 			"note": "The only concrete hermiq-side preference wired up today is the Talk delivery target; the endpoint is generic so other per-user preferences could be added without new routes.",
