@@ -29,6 +29,8 @@ labelled files in Files. The counts, the reviewed mark and the link are not buil
   section the board draws (REQ-AILBL-002).
 - Chat answers get no separate label: they show under the agent's name in a conversation with
   that agent (REQ-AILBL-003).
+- The stored tag stays the untranslated identifier `Agent authored`; hermiq's own pages show the
+  label as "Gemaakt met AI", the board's wording (REQ-AILBL-004).
 - `openspec/parity/capabilities.json` records `built.spec` and `built.requirement` for `dm-ai-label`.
 
 ## Non-goals

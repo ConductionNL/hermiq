@@ -21,7 +21,10 @@
       `GET /api/ai-label/stats` on `AiLabelController`. Verify: unit tests for each count.
 - [ ] 3.2 Add the "AI label" section to the AI oversight page as drawn on HmToezicht, as a widget in
       `src/widgets/AiLabelSection.vue` placed through `src/manifest.json` on the `AiOversight` page,
-      with the link that opens Files filtered on the agent-authored tag. Verify: `npm run lint` exits 0.
+      with the link that opens Files filtered on the agent-authored tag. The section names the label
+      `t('hermiq', 'Made with AI')` with the Dutch translation "Gemaakt met AI" in `l10n/nl.json`
+      and `l10n/nl.js`, never the stored `Agent authored` (REQ-AILBL-004). Verify: `npm run lint`
+      exits 0 and a Vitest test asserts the section renders the translated label, not the tag name.
 
 ## 4. Verification
 
