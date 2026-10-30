@@ -179,6 +179,47 @@ class AiFeatureService {
 			->setSchema(self::AIFEATURE_SCHEMA)
 			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200]);
 
+		return $this->firstWithSlug(objects: $objects, slug: $slug);
+	}//end findBySlug()
+
+	/**
+	 * Find the AiFeature a delegate engine gates on, whoever the caller is.
+	 *
+	 * Whether a feature is enabled is instance configuration a DPO decided, not
+	 * something the caller must be allowed to read. A consuming app that serves a
+	 * portal subject (portaliq's guardian messages) calls the engine with no
+	 * Nextcloud session; under RBAC the row reads as absent and the gate answers
+	 * "feature-not-enabled" even after the DPO enabled it. This read skips RBAC
+	 * and keeps tenant scoping. The row itself is never returned to a client.
+	 *
+	 * @param string $slug The feature slug.
+	 *
+	 * @return ObjectEntity|null The AiFeature object, or null.
+	 *
+	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
+	 */
+	public function findBySlugForGate(string $slug): ?ObjectEntity {
+		if ($slug === '') {
+			return null;
+		}
+
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::AIFEATURE_SCHEMA)
+			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200], _rbac: false);
+
+		return $this->firstWithSlug(objects: $objects, slug: $slug);
+	}//end findBySlugForGate()
+
+	/**
+	 * The first object in `$objects` whose slug is exactly `$slug`.
+	 *
+	 * @param iterable<mixed> $objects The candidates.
+	 * @param string $slug The slug to match.
+	 *
+	 * @return ObjectEntity|null The match, or null.
+	 */
+	private function firstWithSlug(iterable $objects, string $slug): ?ObjectEntity {
 		foreach ($objects as $object) {
 			if (($object instanceof ObjectEntity) === false) {
 				continue;
@@ -190,7 +231,7 @@ class AiFeatureService {
 		}
 
 		return null;
-	}//end findBySlug()
+	}//end firstWithSlug()
 
 	/**
 	 * Record the DPO acknowledgement for a feature and stamp the object.

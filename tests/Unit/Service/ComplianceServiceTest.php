@@ -219,6 +219,36 @@ class ComplianceServiceTest extends TestCase {
 	}//end statusFor()
 
 	/**
+	 * compliance-ai-literacy: the article 4 control dispatches to the literacy
+	 * report, and nothing else decides its status.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-ai-act-article-4-control-reads-its-status-from-completions-req-ailit-003
+	 */
+	public function testTheAiLiteracyControlReadsTheLiteracyReport(): void {
+		$report = $this->createMock(\OCA\Hermiq\Service\Literacy\LiteracyReport::class);
+		$report->expects($this->once())->method('evidence')->with('org-a')->willReturn(
+			['status' => 'partial', 'detail' => '40 of 50 people who used an agent in the last 90 days completed the course.']
+		);
+
+		$service = new ComplianceService(
+			objectService: $this->catalogueWith(evidenceSource: 'ai-literacy-completion'),
+			tenantOpsService: $this->createMock(TenantOpsService::class),
+			approvalService: $this->createMock(ApprovalService::class),
+			tenantControlService: $this->createMock(TenantControlService::class),
+			modelPolicyService: $this->createMock(TenantModelPolicyService::class),
+			aiFeatureService: $this->createMock(AiFeatureService::class),
+			literacyReport: $report,
+		);
+
+		$control = $service->dashboard(organisation: 'org-a')['frameworks'][0]['controls'][0];
+		$this->assertSame('partial', $control['status']);
+		$this->assertSame('40 of 50 people who used an agent in the last 90 days completed the course.', $control['detail']);
+
+	}//end testTheAiLiteracyControlReadsTheLiteracyReport()
+
+	/**
 	 * The audit-trail-recordkeeping evidence branch reads exportAuditTrail() and
 	 * reports satisfied/unevidenced by recordCount only — never partial.
 	 *

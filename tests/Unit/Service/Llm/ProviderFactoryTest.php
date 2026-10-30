@@ -30,6 +30,9 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
@@ -37,6 +40,7 @@ use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\IUser;
 use OCP\IUserSession;
+use OCP\IAppConfig;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
@@ -246,6 +250,59 @@ class ProviderFactoryTest extends TestCase {
 		$this->assertSame('ollama', $driver->provider);
 
 	}//end testInPolicyPairResolvesTheDriver()
+
+	/**
+	 * On the path without an AI feature the data-use step still runs after the
+	 * model policy, and refuses before any request is built.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
+	 */
+	public function testTheDataUseStepRefusesARunWithoutAFeature(): void {
+		$manager = $this->createMock(IManager::class);
+		$manager->expects($this->never())->method('scheduleTask');
+		$settings = $this->createMock(LlmSettingsHandler::class);
+		$userSession = $this->createMock(IUserSession::class);
+
+		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy->method('isAllowed')->willReturn(true);
+		$policy->method('requiresNoTraining')->willReturn(true);
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturn('');
+		$gate = new DataUseGate($policy, new ProviderDataUseRegistry($config));
+
+		$factory = new ProviderFactory(
+			$settings,
+			$manager,
+			$userSession,
+			new NullLogger(),
+			'hermiq',
+			$policy,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			$gate
+		);
+
+		$this->expectException(DataUseViolationException::class);
+		$this->expectExceptionMessage("Refused by the data-use check: organisation 'org-a' requires providers that never train on its data");
+		$factory->createChatDriver(
+			llmConfig: [
+				'chatProvider' => 'ollama',
+				'ollamaConfig' => [
+					'url' => 'http://localhost:11434',
+					'chatModel' => 'llama2',
+				],
+			],
+			organisation: 'org-a'
+		);
+
+	}//end testTheDataUseStepRefusesARunWithoutAFeature()
 
 	/**
 	 * Ollama resolves to an OllamaChat instance; the agent model override wins
@@ -748,6 +805,161 @@ class ProviderFactoryTest extends TestCase {
 	}//end testCredentialResolverNotConsultedWithoutAnOrganisation()
 
 	/**
+	 * A REAL CredentialScopeResolver over a fixed credential collection.
+	 *
+	 * @param array<int, array{0: string, 1: string, 2: string, 3: string, 4: string, 5: array<int, string>}> $rows uuid, provider, owner, scope, organisation, allowedApps.
+	 *
+	 * @return CredentialScopeResolver The resolver.
+	 */
+	private function realResolver(array $rows): CredentialScopeResolver {
+		$credentials = [];
+		foreach ($rows as [$uuid, $provider, $owner, $scope, $organisation, $apps]) {
+			$entity = new \OCA\OpenRegister\Db\ObjectEntity();
+			$entity->setUuid($uuid);
+			$entity->setOwner($owner);
+			$entity->setObject(['provider' => $provider, 'scope' => $scope, 'organisation' => $organisation, 'allowedApps' => $apps]);
+			$credentials[] = $entity;
+		}
+
+		$objects = new class($credentials) extends \OCA\OpenRegister\Service\ObjectService {
+			/**
+			 * @param array<int, \OCA\OpenRegister\Db\ObjectEntity> $credentials The collection.
+			 */
+			public function __construct(private array $credentials) {
+			}
+
+			public function setRegister(mixed $register): static {
+				return $this;
+			}
+
+			public function setSchema(mixed $schema): static {
+				return $this;
+			}
+
+			public function findAll(array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
+				return $this->credentials;
+			}
+		};
+
+		return new CredentialScopeResolver(objectService: $objects);
+	}//end realResolver()
+
+	/**
+	 * The openai config every pinned case runs with (an instance credential is configured).
+	 *
+	 * @return array<string, mixed> The LLM config.
+	 */
+	private function openAiConfig(): array {
+		return [
+			'chatProvider' => 'openai',
+			'openaiConfig' => ['credentialId' => 'cred-instance-openai', 'chatModel' => 'gpt-4o-mini'],
+		];
+	}//end openAiConfig()
+
+	/**
+	 * The agent's pinned credential is the one the turn uses.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testAPinnedCredentialIsTheOneTheTurnUses(): void {
+		$factory = $this->factoryWithCredentialResolver(
+			$this->realResolver(
+				[
+					['cred-alice', 'openai', 'alice', 'personal', '', ['hermiq']],
+					['cred-digest', 'openai', 'admin', 'organisation', 'org-a', ['hermiq']],
+				]
+			)
+		);
+
+		$driver = $factory->createChatDriver(
+			llmConfig: $this->openAiConfig(),
+			organisation: 'org-a',
+			agentCredentialIds: ['openai' => 'cred-digest']
+		);
+
+		$this->assertSame('cred-digest', $driver->credentialId);
+
+	}//end testAPinnedCredentialIsTheOneTheTurnUses()
+
+	/**
+	 * A refused pin stops the turn: no driver, so no model call under any other identity.
+	 *
+	 * alice's own key and the instance key are both there and usable; neither may be used.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testARefusedPinStopsTheTurnAndNoOtherIdentityIsUsed(): void {
+		$factory = $this->factoryWithCredentialResolver(
+			$this->realResolver(
+				[
+					['cred-alice', 'openai', 'alice', 'personal', '', ['hermiq']],
+					['cred-digest', 'openai', 'admin', 'organisation', 'org-a', ['filinq']],
+				]
+			)
+		);
+
+		foreach (['org-a', null] as $organisation) {
+			try {
+				$factory->createChatDriver(
+					llmConfig: $this->openAiConfig(),
+					organisation: $organisation,
+					agentCredentialIds: ['openai' => 'cred-digest']
+				);
+				$this->fail('A refused pin must stop the turn.');
+			} catch (\OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException $e) {
+				$this->assertSame('The credential pinned to this agent cannot be used for this run.', $e->getMessage());
+			}
+		}
+
+	}//end testARefusedPinStopsTheTurnAndNoOtherIdentityIsUsed()
+
+	/**
+	 * A pin with no resolver to check it is refused, never ignored.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testAPinWithoutAResolverIsRefused(): void {
+		$this->expectException(\OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException::class);
+
+		$this->factoryWithCredentialResolver(null)->createChatDriver(
+			llmConfig: $this->openAiConfig(),
+			organisation: 'org-a',
+			agentCredentialIds: ['openai' => 'cred-digest']
+		);
+
+	}//end testAPinWithoutAResolverIsRefused()
+
+	/**
+	 * An agent without a pin for this provider resolves exactly as before.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testAnAgentWithoutAPinForTheProviderBehavesAsBefore(): void {
+		$factory = $this->factoryWithCredentialResolver(
+			$this->realResolver([['cred-alice', 'openai', 'alice', 'personal', '', ['hermiq']]])
+		);
+
+		$driver = $factory->createChatDriver(
+			llmConfig: $this->openAiConfig(),
+			organisation: 'org-a',
+			agentCredentialIds: ['fireworks' => 'cred-fw']
+		);
+		$this->assertSame('cred-alice', $driver->credentialId);
+
+		$unscoped = $factory->createChatDriver(llmConfig: $this->openAiConfig());
+		$this->assertSame('cred-instance-openai', $unscoped->credentialId);
+
+	}//end testAnAgentWithoutAPinForTheProviderBehavesAsBefore()
+
+	/**
 	 * When no resolver is injected at all, the configured instance credential is used
 	 * unchanged — the nullable-defaulted constructor param never breaks a caller that
 	 * doesn't provide one (agent-credentials).
@@ -1167,41 +1379,12 @@ class ProviderFactoryTest extends TestCase {
 	}//end governedFactory()
 
 	/**
-	 * A real `RunTokenService` backed by an in-memory cache and a deterministic CSPRNG stub,
+	 * A real `RunTokenService` backed by an in-memory store and a deterministic CSPRNG stub,
 	 * so mint→verify round-trips without a live Nextcloud cache.
 	 *
 	 * @return \OCA\Hermiq\Service\Llm\RunTokenService
 	 */
 	private function realRunTokenService(): \OCA\Hermiq\Service\Llm\RunTokenService {
-		$store = new class implements \OCP\ICache {
-			/** @var array<string, mixed> */
-			private array $data = [];
-			public function get($key) {
-				return ($this->data[$key] ?? null);
-			}
-			public function set($key, $value, $ttl = 0) {
-				$this->data[$key] = $value;
-				return true;
-			}
-			public function hasKey($key) {
-				return isset($this->data[$key]);
-			}
-			public function remove($key) {
-				unset($this->data[$key]);
-				return true;
-			}
-			public function clear($prefix = '') {
-				$this->data = [];
-				return true;
-			}
-			public static function isAvailable(): bool {
-				return true;
-			}
-		};
-
-		$cacheFactory = $this->createMock(\OCP\ICacheFactory::class);
-		$cacheFactory->method('createDistributed')->willReturn($store);
-
 		$secureRandom = $this->createMock(\OCP\Security\ISecureRandom::class);
 		$counter = 0;
 		$secureRandom->method('generate')->willReturnCallback(
@@ -1211,7 +1394,11 @@ class ProviderFactoryTest extends TestCase {
 			}
 		);
 
-		return new \OCA\Hermiq\Service\Llm\RunTokenService($cacheFactory, $secureRandom);
+		return new \OCA\Hermiq\Service\Llm\RunTokenService(
+			new \OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore(),
+			$secureRandom,
+			$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class)
+		);
 	}//end realRunTokenService()
 
 	/**

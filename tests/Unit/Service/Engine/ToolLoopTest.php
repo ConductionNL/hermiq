@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use OCA\Hermiq\Mcp\ImageToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -653,4 +654,81 @@ class ToolLoopTest extends TestCase {
 		);
 
 	}//end testBuildFunctionInfosDryRunNeutralisesAnEgressReadTool()
+	/**
+	 * The push is offered only from a grant that pins the repository and the branch;
+	 * a bare push grant beside other tools drops the push and keeps the rest.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testABarePushGrantIsNotOfferedAndAScopedOneIs(): void {
+		$open = ['name' => 'hermiq_workspaceOpen', 'mcpId' => 'hermiq.workspaceOpen'];
+		$push = ['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush', 'destructiveHint' => true];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn([$open, $push]);
+
+		$bare = $this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.workspaceOpen', 'hermiq.workspacePush']));
+		$this->assertSame(['hermiq.workspaceOpen'], array_column($bare, 'mcpId'));
+
+		$scoped = $this->loop(facade: $facade)->listAgentFunctions(
+			agent: $this->agent(tools: ['hermiq.workspaceOpen', 'hermiq.workspacePush?repository=example-org/example-app&branch=in:feature-a,feature-b'])
+		);
+		$this->assertSame(['hermiq.workspaceOpen', 'hermiq.workspacePush'], array_column($scoped, 'mcpId'));
+
+	}//end testABarePushGrantIsNotOfferedAndAScopedOneIs()
+
+	/**
+	 * An agent whose only grant is a bare push resolves to nothing and says so,
+	 * at configuration time rather than mid-run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-bare-push-grant-does-not-resolve
+	 */
+	public function testAnAgentWithOnlyABarePushGrantFailsVisibly(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn([['name' => 'hermiq_workspacePush', 'mcpId' => 'hermiq.workspacePush']]);
+
+		$this->expectException(ToolGrantResolutionException::class);
+		$this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.workspacePush']));
+
+	}//end testAnAgentWithOnlyABarePushGrantFailsVisibly()
+
+	/**
+	 * An agent without the image grant is never offered hermiq.generateImage; one with it is.
+	 *
+	 * The facade stands in for OpenRegister's, which returns only the whitelisted ids;
+	 * the assertion on what it is ASKED for is Hermiq's half of the filter.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-an-agent-without-the-grant-asks-for-an-image
+	 */
+	public function testTheImageToolIsOfferedOnlyWithItsGrant(): void {
+		$catalog = [
+			['name' => 'hermiq_readFile', 'mcpId' => 'hermiq.readFile'],
+			['name' => 'hermiq_generateImage', 'mcpId' => ImageToolDescriptors::GENERATE_IMAGE],
+		];
+		$asked = [];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturnCallback(
+			function (array $whitelist) use ($catalog, &$asked): array {
+				$asked[] = $whitelist;
+				return array_values(
+					array_filter($catalog, static fn (array $tool): bool => in_array($tool['mcpId'], $whitelist, true))
+				);
+			}
+		);
+
+		$without = $this->loop(facade: $facade)->listAgentFunctions(agent: $this->agent(tools: ['hermiq.readFile']));
+		$this->assertSame(['hermiq.readFile'], array_column($without, 'mcpId'));
+		$this->assertNotContains(ImageToolDescriptors::GENERATE_IMAGE, array_merge(...$asked));
+
+		$with = $this->loop(facade: $facade)->listAgentFunctions(
+			agent: $this->agent(tools: ['hermiq.readFile', ImageToolDescriptors::GENERATE_IMAGE])
+		);
+		$this->assertSame(['hermiq.readFile', ImageToolDescriptors::GENERATE_IMAGE], array_column($with, 'mcpId'));
+
+	}//end testTheImageToolIsOfferedOnlyWithItsGrant()
 }//end class

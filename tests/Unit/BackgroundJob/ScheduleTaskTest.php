@@ -23,6 +23,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\BackgroundJob;
 
 use OCA\Hermiq\BackgroundJob\ScheduleTask;
+use OCA\Hermiq\Service\GoalService;
 use OCA\Hermiq\Service\Schedule\ScheduleFlowBridge;
 use OCA\Hermiq\Service\ScheduleService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -67,6 +68,7 @@ class ScheduleTaskTest extends TestCase {
 			time: $this->createMock(ITimeFactory::class),
 			scheduleService: $scheduleService,
 			flowBridge: $bridge,
+			goals: $this->createMock(GoalService::class),
 			logger: $this->createMock(LoggerInterface::class),
 		);
 		$task->run(argument: null);
@@ -94,9 +96,47 @@ class ScheduleTaskTest extends TestCase {
 			time: $this->createMock(ITimeFactory::class),
 			scheduleService: $scheduleService,
 			flowBridge: $bridge,
+			goals: $this->createMock(GoalService::class),
 			logger: $this->createMock(LoggerInterface::class),
 		);
 		$task->run(argument: null);
 
 	}//end testBridgeFailureNeverBlocksTheTick()
+
+	/**
+	 * The tick takes the due goals' turns after the schedules, and a goal
+	 * failure never breaks the tick (agents-standing-goal).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	public function testTheTickTakesGoalTurnsAfterTheSchedules(): void {
+		$order = [];
+		$scheduleService = $this->createMock(ScheduleService::class);
+		$scheduleService->method('run')->willReturnCallback(
+			function () use (&$order): void {
+				$order[] = 'dispatch';
+			}
+		);
+		$goals = $this->createMock(GoalService::class);
+		$goals->expects($this->once())->method('run')->willReturnCallback(
+			function () use (&$order): int {
+				$order[] = 'goals';
+				throw new RuntimeException('goal store down');
+			}
+		);
+
+		$task = new ScheduleTask(
+			time: $this->createMock(ITimeFactory::class),
+			scheduleService: $scheduleService,
+			flowBridge: $this->createMock(ScheduleFlowBridge::class),
+			goals: $goals,
+			logger: $this->createMock(LoggerInterface::class),
+		);
+		$task->run(argument: null);
+
+		$this->assertSame(['dispatch', 'goals'], $order);
+
+	}//end testTheTickTakesGoalTurnsAfterTheSchedules()
 }//end class

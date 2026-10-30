@@ -193,7 +193,7 @@ class AgentTemplateControllerTest extends TestCase {
 	private function agentAccess(?ObjectEntity $agent): AgentAccessService {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturn($agent);
-		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class));
 	}//end agentAccess()
 
 	/**
@@ -979,4 +979,87 @@ class AgentTemplateControllerTest extends TestCase {
 		$this->assertSame('{"name":"Example template"}', $response->getData()['package']);
 
 	}//end testExportPackageReturnsThePackage()
+	/**
+	 * "Save as template" needs a signed-in user.
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+	 *
+	 * @return void
+	 */
+	public function testSaveFromAgentUnauthenticated(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->expects($this->never())->method('saveAgentAsTemplate');
+
+		$response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session(null))->saveFromAgent('agent-1');
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+	}//end testSaveFromAgentUnauthenticated()
+
+	/**
+	 * A private agent the caller cannot read is 404: its existence is not confirmed.
+	 *
+	 * @return void
+	 */
+	public function testSaveFromAgentIsNotFoundForAnAgentTheCallerCannotRead(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->expects($this->never())->method('saveAgentAsTemplate');
+
+		$response = $this->controller(
+			$service,
+			$this->createMock(ActionAuthService::class),
+			$this->session('mallory'),
+			null,
+			null,
+			null,
+			null,
+			$this->agent('alice', true)
+		)->saveFromAgent('agent-1');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	}//end testSaveFromAgentIsNotFoundForAnAgentTheCallerCannotRead()
+
+	/**
+	 * A colleague who may use a shared agent may export it, but only its owner saves it as a template.
+	 *
+	 * @return void
+	 */
+	public function testSaveFromAgentIsForbiddenForAReaderWhoIsNotTheOwner(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->expects($this->never())->method('saveAgentAsTemplate');
+
+		$response = $this->controller(
+			$service,
+			$this->createMock(ActionAuthService::class),
+			$this->session('bob'),
+			null,
+			null,
+			null,
+			null,
+			$this->agent('alice', false)
+		)->saveFromAgent('agent-1');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+	}//end testSaveFromAgentIsForbiddenForAReaderWhoIsNotTheOwner()
+
+	/**
+	 * The owner gets the new active template.
+	 *
+	 * @return void
+	 */
+	public function testSaveFromAgentCreatesTheTemplateForTheOwner(): void {
+		$template = $this->template('active');
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->expects($this->once())->method('saveAgentAsTemplate')
+			->with('agent-1', 'alice')
+			->willReturn($template);
+
+		$response = $this->controller(
+			$service,
+			$this->createMock(ActionAuthService::class),
+			$this->session('alice')
+		)->saveFromAgent('agent-1');
+
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame('active', $response->getData()['state']);
+	}//end testSaveFromAgentCreatesTheTemplateForTheOwner()
 }//end class

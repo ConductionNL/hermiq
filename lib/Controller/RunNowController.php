@@ -35,6 +35,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\ScheduleService;
@@ -77,6 +78,7 @@ class RunNowController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
 	 * @param ScheduleService $scheduleService Runs the schedule via the shared dispatch path.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param LiteracyRequirement|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
 	 *
 	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
 	 */
@@ -86,6 +88,7 @@ class RunNowController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly ScheduleService $scheduleService,
 		private readonly LoggerInterface $logger,
+		private readonly ?LiteracyRequirement $literacy = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -112,6 +115,13 @@ class RunNowController extends Controller {
 		if ($schedule === null) {
 			// 404 (not 403) so a non-owner cannot even confirm the schedule exists.
 			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		// Compliance-ai-literacy: a run by hand needs the course first when the
+		// organisation requires it; the schedule's own clock never does.
+		$refusal = $this->literacy?->refusal(uid: $user->getUID());
+		if ($refusal !== null) {
+			return new JSONResponse(['error' => $refusal['message']] + $refusal, Http::STATUS_FORBIDDEN);
 		}
 
 		try {

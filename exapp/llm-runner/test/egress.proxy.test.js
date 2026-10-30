@@ -445,3 +445,241 @@ test('with no proxy configured the runner injects nothing (Option A jail unchang
 	assert.deepStrictEqual(buildEgressProxyEnv('tok-xyz'), {})
 	delete require.cache[require.resolve('../src/runner.js')]
 })
+
+/**
+ * Issue a plain-HTTP forward-proxy request (absolute-form request line, which is
+ * what an `http://` URL under `HTTP_PROXY` produces) through the proxy.
+ *
+ * This is the shape the governed MCP transport uses: Hermiq's `/api/mcp/run` is
+ * an HTTP POST, not a CONNECT, so it never reached the tunnel path at all.
+ *
+ * @param {number} port Proxy port.
+ * @param {string} absoluteUrl The absolute `http://host:port/path` to request.
+ * @param {string|null} token Run token, or null to omit Proxy-Authorization.
+ * @param {string} [body] Optional request body.
+ * @returns {Promise<{status: number, denyCode: string, body: string, headers: object}>} The answer.
+ */
+function forwardThrough(port, absoluteUrl, token, body) {
+	return new Promise((resolve, reject) => {
+		const headers = { Host: new URL(absoluteUrl).host }
+		if (token !== null) {
+			headers['Proxy-Authorization'] =
+				`Basic ${Buffer.from(`run:${token}`).toString('base64')}`
+		}
+		if (typeof body === 'string') {
+			headers['Content-Type'] = 'application/json'
+			headers['Content-Length'] = String(Buffer.byteLength(body))
+		}
+		const req = http.request(
+			{
+				port,
+				host: '127.0.0.1',
+				method: typeof body === 'string' ? 'POST' : 'GET',
+				// Absolute-form: exactly what a client sends to a forward proxy.
+				path: absoluteUrl,
+				headers,
+			},
+			(res) => {
+				let raw = ''
+				res.setEncoding('utf8')
+				res.on('data', (c) => {
+					raw += c
+				})
+				res.on('end', () =>
+					resolve({
+						status: res.statusCode,
+						denyCode: res.headers['x-egress-deny-code'] || '',
+						body: raw,
+						headers: res.headers,
+					}),
+				)
+			},
+		)
+		req.on('error', reject)
+		if (typeof body === 'string') {
+			req.write(body)
+		}
+		req.end()
+	})
+}
+
+test('an ALLOWED plain-HTTP forward request is forwarded (the governed MCP hop)', async () => {
+	const seen = []
+	const origin = http.createServer((req, res) => {
+		let raw = ''
+		req.on('data', (c) => {
+			raw += c
+		})
+		req.on('end', () => {
+			seen.push({
+				method: req.method,
+				url: req.url,
+				headers: req.headers,
+				body: raw,
+			})
+			res.writeHead(200, { 'Content-Type': 'application/json' })
+			res.end(JSON.stringify({ ok: true }))
+		})
+	})
+	await new Promise((r) => origin.listen(0, '127.0.0.1', r))
+	const originPort = origin.address().port
+
+	const pdp = await startFakePdp((req, res) => {
+		res.writeHead(200, { 'Content-Type': 'application/json' })
+		res.end(JSON.stringify({ allowed: true, code: 'allowed', message: '' }))
+	})
+	const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }))
+
+	const out = await forwardThrough(
+		proxy.port,
+		`http://127.0.0.1:${originPort}/apps/hermiq/api/mcp/run`,
+		'tok-123',
+		'{"jsonrpc":"2.0","method":"tools/list","id":1}',
+	)
+
+	assert.strictEqual(
+		out.status,
+		200,
+		'an allowed plain-HTTP request must be forwarded',
+	)
+	assert.strictEqual(out.body, '{"ok":true}')
+	assert.strictEqual(
+		seen.length,
+		1,
+		'the origin must have seen exactly one request',
+	)
+	// ORIGIN-form is what the origin must receive: a proxy rewrites the request
+	// line, and Nextcloud's router cannot match an absolute-form URL.
+	assert.strictEqual(seen[0].url, '/apps/hermiq/api/mcp/run')
+	assert.strictEqual(seen[0].method, 'POST')
+	assert.strictEqual(
+		seen[0].body,
+		'{"jsonrpc":"2.0","method":"tools/list","id":1}',
+	)
+	// The proxy credential is hop-by-hop: it must NEVER reach the origin.
+	assert.strictEqual(
+		'proxy-authorization' in seen[0].headers,
+		false,
+		'the run token must not be forwarded to the origin',
+	)
+
+	// The PDP was asked about the EXACT host:port, with the run token as bearer.
+	assert.strictEqual(pdp.calls.length, 1)
+	assert.deepStrictEqual(pdp.calls[0].body, {
+		host: '127.0.0.1',
+		port: originPort,
+	})
+	assert.strictEqual(pdp.calls[0].headers.authorization, 'Bearer tok-123')
+
+	proxy.close()
+	pdp.close()
+	origin.close()
+})
+
+test('a DENIED plain-HTTP forward request reaches no origin at all', async () => {
+	let hits = 0
+	const origin = http.createServer((req, res) => {
+		hits += 1
+		res.end('should never happen')
+	})
+	await new Promise((r) => origin.listen(0, '127.0.0.1', r))
+	const originPort = origin.address().port
+
+	const pdp = await startFakePdp((req, res) => {
+		res.writeHead(200, { 'Content-Type': 'application/json' })
+		res.end(
+			JSON.stringify({
+				allowed: false,
+				code: 'not_allowlisted',
+				message: 'nope',
+			}),
+		)
+	})
+	const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }))
+
+	const out = await forwardThrough(
+		proxy.port,
+		`http://127.0.0.1:${originPort}/anything`,
+		'tok-123',
+	)
+	assert.strictEqual(out.status, 403)
+	assert.strictEqual(out.denyCode, 'not_allowlisted')
+	assert.strictEqual(hits, 0, 'a denied request must never touch the origin')
+
+	proxy.close()
+	pdp.close()
+	origin.close()
+})
+
+test('an UNREACHABLE PDP denies a plain-HTTP forward request too (fail-closed)', async () => {
+	let hits = 0
+	const origin = http.createServer((req, res) => {
+		hits += 1
+		res.end('should never happen')
+	})
+	await new Promise((r) => origin.listen(0, '127.0.0.1', r))
+	const originPort = origin.address().port
+
+	// Port 1 is not listening: the PDP cannot be reached.
+	const proxy = await listen(
+		loadProxy({ EGRESS_PDP_URL: 'http://127.0.0.1:1/authorize' }),
+	)
+
+	const out = await forwardThrough(
+		proxy.port,
+		`http://127.0.0.1:${originPort}/anything`,
+		'tok-123',
+	)
+	assert.strictEqual(out.status, 403)
+	assert.strictEqual(out.denyCode, 'pdp_unreachable')
+	assert.strictEqual(hits, 0)
+
+	proxy.close()
+	origin.close()
+})
+
+test('a plain-HTTP forward request with no run token is CHALLENGED and never reaches the PDP', async () => {
+	const pdp = await startFakePdp((req, res) => {
+		res.writeHead(200, { 'Content-Type': 'application/json' })
+		res.end(JSON.stringify({ allowed: true, code: 'allowed', message: '' }))
+	})
+	const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }))
+
+	const out = await forwardThrough(proxy.port, 'http://127.0.0.1:1/x', null)
+	assert.strictEqual(
+		out.status,
+		407,
+		'no credential ⇒ challenge, never a silent pass',
+	)
+	assert.match(out.headers['proxy-authenticate'] || '', /^Basic/)
+	assert.strictEqual(out.denyCode, 'no_run_token')
+	assert.strictEqual(pdp.calls.length, 0, 'there is no run to ask the PDP about')
+
+	proxy.close()
+	pdp.close()
+})
+
+test('an ORIGIN-form request is still a 405 — the proxy is not a web server', async () => {
+	const pdp = await startFakePdp((req, res) => {
+		res.writeHead(200, { 'Content-Type': 'application/json' })
+		res.end(JSON.stringify({ allowed: true, code: 'allowed', message: '' }))
+	})
+	const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }))
+
+	const out = await new Promise((resolve, reject) => {
+		const req = http.request(
+			{ port: proxy.port, host: '127.0.0.1', method: 'GET', path: '/health' },
+			(res) => {
+				res.resume()
+				res.on('end', () => resolve({ status: res.statusCode }))
+			},
+		)
+		req.on('error', reject)
+		req.end()
+	})
+	assert.strictEqual(out.status, 405)
+	assert.strictEqual(pdp.calls.length, 0)
+
+	proxy.close()
+	pdp.close()
+})

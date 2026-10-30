@@ -121,18 +121,36 @@ class CredentialScopeResolver {
 	 *                                  `createChatDriver()`/`enforceModelPolicy()` opt-in
 	 *                                  shape — an organisation-less call never resolves
 	 *                                  an organisation-scope credential).
+	 * @param array<string, string>|null $pinned The agent's own credential per provider
+	 *                                  (`credentialIds`). A pin for `$provider` goes first
+	 *                                  and is never bypassed: when it cannot be used the
+	 *                                  resolution stops rather than trying another.
 	 *
 	 * @return string|null The resolved credential uuid, or null when neither a personal
 	 *                     nor an organisation match exists (fall back to instance).
+	 *
+	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
 	 *
 	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) The personal-scope predicate closure
 	 *   must keep `$_data`: `firstMatch()`'s callable contract is (ObjectEntity, array)
 	 *   even when a predicate only inspects the entity.
 	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
-	public function resolve(string $provider, ?string $actingUserId, ?string $organisation): ?string {
+	public function resolve(string $provider, ?string $actingUserId, ?string $organisation, ?array $pinned = null): ?string {
 		$candidates = $this->loadCandidates();
+
+		$pin = $pinned[$provider] ?? null;
+		if (is_string($pin) === true && trim($pin) !== '') {
+			return $this->usablePin(
+				candidates: $candidates,
+				pin: trim($pin),
+				provider: $provider,
+				actingUserId: $actingUserId,
+				organisation: $organisation
+			);
+		}
 
 		if ($actingUserId !== null && $actingUserId !== '') {
 			$personal = $this->firstMatch(
@@ -197,6 +215,72 @@ class CredentialScopeResolver {
 
 		return null;
 	}//end scopeOfCredential()
+
+	/**
+	 * The owner of ONE known credential id, or null when no such credential exists.
+	 *
+	 * The companion of {@see scopeOfCredential()} that the governed push needs: a run
+	 * that would assemble two people's personal credentials is refused, and only the
+	 * owners can tell (hermiq-runner-git-capability).
+	 *
+	 * @param string $credentialId The `credential` object UUID.
+	 *
+	 * @return string|null The owner's uid, or null.
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 */
+	public function ownerOfCredential(string $credentialId): ?string {
+		foreach ($this->loadCandidates() as $candidate) {
+			if ((string)$candidate->getUuid() === $credentialId) {
+				return (string)($candidate->getOwner() ?? '');
+			}
+		}
+
+		return null;
+	}//end ownerOfCredential()
+
+	/**
+	 * The pinned credential, when the broker would admit it for this run; else a stop.
+	 *
+	 * The same tests the broker runs before it touches a secret, read from the same
+	 * collection: the credential exists, is for this provider, allows hermiq, and is
+	 * the acting user's own personal key or a key of the agent's organisation. The
+	 * broker still re-runs its own guards on use; this check is what keeps a refusal
+	 * from ever reaching another credential.
+	 *
+	 * @param array<int, ObjectEntity> $candidates   Every brokered-credential object.
+	 * @param string                   $pin          The pinned credential uuid.
+	 * @param string                   $provider     The provider of the turn.
+	 * @param string|null              $actingUserId The acting user's uid.
+	 * @param string|null              $organisation The agent's organisation.
+	 *
+	 * @return string The pinned uuid.
+	 *
+	 * @throws PinnedCredentialRefusedException When the pin cannot be used for this run.
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	private function usablePin(array $candidates, string $pin, string $provider, ?string $actingUserId, ?string $organisation): string {
+		foreach ($candidates as $candidate) {
+			if ((string)$candidate->getUuid() !== $pin) {
+				continue;
+			}
+
+			$data = $candidate->getObject();
+			$ownerOrMember = ($candidate->getOwner() === $actingUserId && ($actingUserId ?? '') !== '');
+			if ($this->scopeOf(data: $data) === self::SCOPE_ORGANISATION) {
+				$ownerOrMember = ((string)($data['organisation'] ?? '') === (string)$organisation && ($organisation ?? '') !== '');
+			}
+
+			if (($data['provider'] ?? null) === $provider && $this->allowsHermiq(data: $data) === true && $ownerOrMember === true) {
+				return $pin;
+			}
+
+			break;
+		}//end foreach
+
+		throw new PinnedCredentialRefusedException(provider: $provider);
+	}//end usablePin()
 
 	/**
 	 * Load every brokered-credential object, system-wide — the same small,

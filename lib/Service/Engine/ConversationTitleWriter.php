@@ -65,11 +65,21 @@ class ConversationTitleWriter {
 	private const REGISTER_SLUG = 'hermiq';
 
 	/**
+	 * The titles that mean "this session has not been named yet".
+	 *
+	 * Both spellings are kept on purpose: rows created before the session rename
+	 * hold the older one, and they must still be picked up for auto-titling.
+	 *
+	 * @var array<int, string>
+	 */
+	private const PLACEHOLDER_TITLES = ['New session', 'New conversation'];
+
+	/**
 	 * Schema slug for conversation objects.
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Constructor.
@@ -277,9 +287,19 @@ class ConversationTitleWriter {
 			return true;
 		}
 
-		// Case-insensitive: the create path writes "New conversation" while the
-		// pre-existing check matched "New Conversation". Matching only one casing
-		// would leave the other permanently unnamed.
-		return (stripos((string)$currentTitle, 'New conversation') === 0);
+		// Both placeholders, and case-insensitively.
+		//
+		// The create path writes "New session" since the session rename, but every
+		// row created before it says "New conversation", and the pre-existing check
+		// matched "New Conversation" with a capital C. A check that recognised only
+		// the current spelling would leave every older session permanently unnamed,
+		// which is invisible: the row still renders, it just never gets a title.
+		foreach (self::PLACEHOLDER_TITLES as $placeholder) {
+			if (stripos((string)$currentTitle, $placeholder) === 0) {
+				return true;
+			}
+		}
+
+		return false;
 	}//end needsTitle()
 }//end class

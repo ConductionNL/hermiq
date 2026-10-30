@@ -307,12 +307,13 @@ class StageDispatchService {
 	 * mid-workload: the clone at the start succeeds and the push at the end is
 	 * refused `invalid_token`.
 	 *
-	 * ⚠️ The token lives in `ICacheFactory::createDistributed()`. With no
+	 * The token used to live in `ICacheFactory::createDistributed()`. With no
 	 * `memcache.distributed` configured that falls back to APCu, which is PER
-	 * PROCESS POOL — so a stage dispatched from a cron-mode background job mints
-	 * into the CLI pool while the PDP reads the web pool, and every CONNECT is
+	 * PROCESS POOL, so a stage dispatched from a cron-mode background job minted
+	 * into the CLI pool while the PDP read the web pool, and every CONNECT was
 	 * refused. Measured on a live instance: a token minted in a CLI process and
 	 * POSTed to the PDP within the same second came back 401 `invalid_token`.
+	 * `RunTokenService` now stores tokens in the database (hermiq ADR-025).
 	 *
 	 * @param string|null $uid The acting user's UID.
 	 * @param int $ceiling The stage's ceiling in milliseconds.

@@ -1,0 +1,149 @@
+{
+	"_note": "compliance-ai-literacy: the six lessons of Working with AI, seeded once per locale by SeedLiteracyLessons. Admin edits in the register survive a reseed; an edit raises version, so people who finished the old text are asked again. checkAnswer is the zero-based index into checkOptions.",
+	"lessons": [
+		{
+			"slug": "what-an-agent-is",
+			"order": 1,
+			"locale": "en",
+			"version": 1,
+			"title": "What an agent is and what it is not",
+			"body": "An agent is a program that reads what you type, calls a language model, and can use tools your organisation granted it, such as searching files or drafting an email. It does not know your case the way you do. It predicts likely text from what it was given and what it learned before.\n\nAn agent is not a colleague who takes responsibility. You decide what happens with its answer. If a tool needs approval, a person approves it before anything changes.",
+			"checkQuestion": "Who is responsible for what you do with an agent's answer?",
+			"checkOptions": ["The agent", "You, the person who uses the answer", "The supplier of the language model"],
+			"checkAnswer": 1,
+			"explanation": "The agent only suggests. You decide what to do with its answer, and you are accountable for that decision."
+		},
+		{
+			"slug": "answers-can-be-wrong",
+			"order": 2,
+			"locale": "en",
+			"version": 1,
+			"title": "Answers can be wrong: why, and how to spot it",
+			"body": "A language model writes text that sounds right. It can mix up names, invent a rule, miss a recent change or give a figure that does not exist. It says this with the same confidence as a correct answer.\n\nWatch for answers without a source, very precise figures, quotes you cannot find, and answers that contradict what you know. When the answer matters, check it.",
+			"checkQuestion": "An answer sounds confident and detailed. What does that tell you about whether it is right?",
+			"checkOptions": ["It is almost certainly right", "Nothing: confidence is not evidence", "It is right if the agent used a tool"],
+			"checkAnswer": 1,
+			"explanation": "A model sounds just as sure when it is wrong. Only a check against the source tells you."
+		},
+		{
+			"slug": "check-the-sources",
+			"order": 3,
+			"locale": "en",
+			"version": 1,
+			"title": "Check the sources before you use an answer",
+			"body": "When an agent used documents or records, it shows them as sources under its answer. Open them. Check that the source says what the answer claims, and that it is the current version.\n\nNo source means the answer came from the model alone. Treat it as a draft, and look the fact up in the system that holds it before you use it in a decision or a letter.",
+			"checkQuestion": "An agent gives you a figure without a source. What do you do?",
+			"checkOptions": ["Use it, the agent is usually right", "Check the figure in the source system before you use it", "Ask the agent to repeat it"],
+			"checkAnswer": 1,
+			"explanation": "Asking again gives you another guess, not a check. Look the figure up where it is kept."
+		},
+		{
+			"slug": "what-not-to-type",
+			"order": 4,
+			"locale": "en",
+			"version": 1,
+			"title": "What not to put in a chat: personal data and secrets",
+			"body": "Everything you type goes to the model your organisation chose, and may be stored with the run. Only share what the task needs. Leave out citizen service numbers, medical details, passwords and access keys, unless the agent is set up for that data and your organisation allows it.\n\nIf you are not sure, describe the situation without names, or ask your privacy officer.",
+			"checkQuestion": "You want help with a letter to a resident. What do you type?",
+			"checkOptions": ["The full case file, so the agent has everything", "The situation and what the letter must say, without the citizen service number", "Your password, so the agent can look up the case itself"],
+			"checkAnswer": 1,
+			"explanation": "Give the agent what the task needs and nothing more. A citizen service number or a password does not help it write a letter."
+		},
+		{
+			"slug": "when-a-person-decides",
+			"order": 5,
+			"locale": "en",
+			"version": 1,
+			"title": "When a person has to decide: approvals and escalation",
+			"body": "Some agent actions change things: sending mail, updating a record, making a payment. Your organisation can require a person to approve those first. The request then appears in the approval inbox, with what the action will do.\n\nDecisions about people, such as a permit, a benefit or a fine, are made by a person. Use the agent to prepare, not to decide. If an answer seems wrong or unfair, stop and ask a colleague or your manager.",
+			"checkQuestion": "An agent proposes to reject a permit application. What happens next?",
+			"checkOptions": ["The agent rejects it, it has read the rules", "A person reviews the case and decides", "Nothing, the proposal is final"],
+			"checkAnswer": 1,
+			"explanation": "A decision about a person is taken by a person. The agent's proposal is input for that decision."
+		},
+		{
+			"slug": "rights-and-duties",
+			"order": 6,
+			"locale": "en",
+			"version": 1,
+			"title": "Your rights and the organisation's duties under the AI Act, in plain words",
+			"body": "The EU AI Act asks organisations that use AI to make sure the people who work with it understand it well enough. That is what this course is for. It also asks for human oversight, a record of what the AI did, and openness towards the people it affects.\n\nYou may ask how an answer came about. People affected by a decision have a right to an explanation and to a decision by a person. When you see AI used in a way that worries you, report it to your privacy officer or compliance officer.",
+			"checkQuestion": "Someone asks whether AI played a part in the decision on their case. What do you do?",
+			"checkOptions": ["Say nothing, it is internal", "Tell them honestly how AI was used and who decided", "Say no, a person signed it"],
+			"checkAnswer": 1,
+			"explanation": "People have a right to know how a decision about them was made. Be open about the part AI played."
+		},
+		{
+			"slug": "what-an-agent-is",
+			"order": 1,
+			"locale": "nl",
+			"version": 1,
+			"title": "Wat een agent is en wat niet",
+			"body": "Een agent is een programma dat leest wat je typt, een taalmodel aanroept en tools kan gebruiken die je organisatie heeft toegestaan, zoals bestanden doorzoeken of een e-mail opstellen. Een agent kent je zaak niet zoals jij die kent. Hij voorspelt waarschijnlijke tekst op basis van wat hij kreeg en wat hij eerder leerde.\n\nEen agent is geen collega die verantwoordelijkheid neemt. Jij beslist wat er met het antwoord gebeurt. Heeft een tool goedkeuring nodig, dan keurt een mens die goed voordat er iets verandert.",
+			"checkQuestion": "Wie is verantwoordelijk voor wat je met het antwoord van een agent doet?",
+			"checkOptions": ["De agent", "Jij, degene die het antwoord gebruikt", "De leverancier van het taalmodel"],
+			"checkAnswer": 1,
+			"explanation": "De agent doet alleen een voorstel. Jij beslist wat je met het antwoord doet, en jij bent daarop aanspreekbaar."
+		},
+		{
+			"slug": "answers-can-be-wrong",
+			"order": 2,
+			"locale": "nl",
+			"version": 1,
+			"title": "Antwoorden kunnen fout zijn: waarom, en hoe je het merkt",
+			"body": "Een taalmodel schrijft tekst die klopt lijkt. Het kan namen door elkaar halen, een regel verzinnen, een recente wijziging missen of een getal noemen dat niet bestaat. Dat zegt het met dezelfde stelligheid als een goed antwoord.\n\nLet op antwoorden zonder bron, heel precieze getallen, citaten die je niet terugvindt en antwoorden die ingaan tegen wat je weet. Doet het antwoord ertoe, controleer het dan.",
+			"checkQuestion": "Een antwoord klinkt zeker en gedetailleerd. Wat zegt dat over of het klopt?",
+			"checkOptions": ["Dan klopt het vrijwel zeker", "Niets: stelligheid is geen bewijs", "Het klopt als de agent een tool gebruikte"],
+			"checkAnswer": 1,
+			"explanation": "Een model klinkt net zo zeker als het ernaast zit. Alleen een controle in de bron vertelt je of het klopt."
+		},
+		{
+			"slug": "check-the-sources",
+			"order": 3,
+			"locale": "nl",
+			"version": 1,
+			"title": "Controleer de bronnen voordat je een antwoord gebruikt",
+			"body": "Gebruikte een agent documenten of dossiers, dan toont hij die als bronnen onder het antwoord. Open ze. Controleer of de bron zegt wat het antwoord beweert, en of het de actuele versie is.\n\nGeen bron betekent dat het antwoord alleen uit het model komt. Behandel het als concept en zoek het gegeven op in het systeem waar het staat, voordat je het in een besluit of brief gebruikt.",
+			"checkQuestion": "Een agent geeft je een getal zonder bron. Wat doe je?",
+			"checkOptions": ["Gebruiken, de agent heeft meestal gelijk", "Het getal in het bronsysteem controleren voordat je het gebruikt", "De agent vragen het te herhalen"],
+			"checkAnswer": 1,
+			"explanation": "Opnieuw vragen geeft je een nieuwe gok, geen controle. Zoek het getal op waar het wordt bijgehouden."
+		},
+		{
+			"slug": "what-not-to-type",
+			"order": 4,
+			"locale": "nl",
+			"version": 1,
+			"title": "Wat je niet in een chat zet: persoonsgegevens en geheimen",
+			"body": "Alles wat je typt gaat naar het model dat je organisatie koos, en kan bij de run worden bewaard. Deel alleen wat de taak nodig heeft. Laat burgerservicenummers, medische gegevens, wachtwoorden en toegangssleutels weg, tenzij de agent voor die gegevens is ingericht en je organisatie het toestaat.\n\nTwijfel je, beschrijf de situatie dan zonder namen of vraag het je privacyfunctionaris.",
+			"checkQuestion": "Je wilt hulp bij een brief aan een inwoner. Wat typ je?",
+			"checkOptions": ["Het hele dossier, dan heeft de agent alles", "De situatie en wat er in de brief moet staan, zonder burgerservicenummer", "Je wachtwoord, dan zoekt de agent de zaak zelf op"],
+			"checkAnswer": 1,
+			"explanation": "Geef de agent wat de taak nodig heeft en niet meer. Een burgerservicenummer of wachtwoord helpt niet bij het schrijven van een brief."
+		},
+		{
+			"slug": "when-a-person-decides",
+			"order": 5,
+			"locale": "nl",
+			"version": 1,
+			"title": "Wanneer een mens beslist: goedkeuring en opschalen",
+			"body": "Sommige acties van een agent veranderen iets: een e-mail versturen, een dossier bijwerken, een betaling doen. Je organisatie kan eisen dat een mens die eerst goedkeurt. Het verzoek komt dan in de goedkeuringsinbox, met wat de actie gaat doen.\n\nBesluiten over mensen, zoals een vergunning, een uitkering of een boete, neemt een mens. Gebruik de agent om voor te bereiden, niet om te beslissen. Lijkt een antwoord fout of onterecht, stop dan en vraag het een collega of je leidinggevende.",
+			"checkQuestion": "Een agent stelt voor een vergunningaanvraag af te wijzen. Wat gebeurt er dan?",
+			"checkOptions": ["De agent wijst af, hij heeft de regels gelezen", "Een mens bekijkt de zaak en beslist", "Niets, het voorstel is definitief"],
+			"checkAnswer": 1,
+			"explanation": "Een besluit over een mens neemt een mens. Het voorstel van de agent is input voor dat besluit."
+		},
+		{
+			"slug": "rights-and-duties",
+			"order": 6,
+			"locale": "nl",
+			"version": 1,
+			"title": "Jouw rechten en de plichten van de organisatie onder de AI-verordening, in gewone woorden",
+			"body": "De Europese AI-verordening vraagt organisaties die AI gebruiken ervoor te zorgen dat de mensen die ermee werken het goed genoeg begrijpen. Daar is deze cursus voor. Ze vraagt ook om menselijk toezicht, vastlegging van wat de AI deed en openheid naar de mensen die het raakt.\n\nJe mag vragen hoe een antwoord tot stand kwam. Mensen over wie besloten wordt, hebben recht op uitleg en op een besluit door een mens. Zie je AI gebruikt worden op een manier die je zorgen baart, meld het dan bij je privacyfunctionaris of compliance officer.",
+			"checkQuestion": "Iemand vraagt of AI een rol speelde bij het besluit over zijn zaak. Wat doe je?",
+			"checkOptions": ["Niets zeggen, het is intern", "Eerlijk vertellen hoe AI is gebruikt en wie besliste", "Nee zeggen, een mens heeft getekend"],
+			"checkAnswer": 1,
+			"explanation": "Mensen hebben recht te weten hoe een besluit over hen tot stand kwam. Wees open over de rol van AI."
+		}
+	]
+}

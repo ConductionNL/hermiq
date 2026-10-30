@@ -80,7 +80,7 @@
 									)
 								: t(
 										'hermiq',
-										'Unavailable — this version of Talk does not support conversation tags.',
+										'Unavailable: this version of Talk does not support conversation tags.',
 									)
 						}}
 					</dd>

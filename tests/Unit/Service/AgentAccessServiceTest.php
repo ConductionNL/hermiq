@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IGroupManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -50,14 +51,15 @@ class AgentAccessServiceTest extends TestCase {
 	 * @param string $owner The owning uid.
 	 * @param bool|null $isPrivate The privacy flag (null = unset).
 	 * @param array<int, string> $invitedUsers Explicitly invited uids.
+	 * @param array<int, string> $groups Group ids the agent is shared with.
 	 *
 	 * @return ObjectEntity
 	 */
-	private function agent(string $owner, ?bool $isPrivate = true, array $invitedUsers = []): ObjectEntity {
+	private function agent(string $owner, ?bool $isPrivate = true, array $invitedUsers = [], array $groups = []): ObjectEntity {
 		$entity = new ObjectEntity();
 		$entity->setUuid('agent-1');
 		$entity->setOwner($owner);
-		$entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => $invitedUsers]);
+		$entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => $invitedUsers, 'groups' => $groups]);
 		return $entity;
 	}//end agent()
 
@@ -66,10 +68,11 @@ class AgentAccessServiceTest extends TestCase {
 	 *
 	 * @param ObjectEntity|null $agent The agent the lookup resolves to.
 	 * @param bool $throws Whether the lookup throws instead.
+	 * @param array<string, array<int, string>> $memberships Group ids per uid.
 	 *
 	 * @return AgentAccessService
 	 */
-	private function service(?ObjectEntity $agent, bool $throws = false): AgentAccessService {
+	private function service(?ObjectEntity $agent, bool $throws = false, array $memberships = []): AgentAccessService {
 		$objectService = $this->createMock(ObjectService::class);
 		if ($throws === true) {
 			$objectService->method('find')->willThrowException(new RuntimeException('not found'));
@@ -77,7 +80,12 @@ class AgentAccessServiceTest extends TestCase {
 			$objectService->method('find')->willReturn($agent);
 		}
 
-		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isInGroup')->willReturnCallback(
+			static fn (string $uid, string $group): bool => in_array($group, ($memberships[$uid] ?? []), true)
+		);
+
+		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class), $groupManager);
 	}//end service()
 
 	/**
@@ -118,6 +126,36 @@ class AgentAccessServiceTest extends TestCase {
 		$this->assertNull($service->loadModifiableAgent('agent-1', 'bob'));
 
 	}//end testInvitedUserMayReadButNotModify()
+
+	/**
+	 * A member of one of the agent's groups may READ a private agent but NOT
+	 * modify it; a user in none of its groups may do neither (hermiq#951).
+	 *
+	 * @return void
+	 */
+	public function testGroupMemberMayReadButNotModify(): void {
+		$memberships = ['bob' => ['staff', 'planning-desk'], 'mallory' => ['staff']];
+		$service = $this->service($this->agent('alice', true, [], ['planning-desk']), false, $memberships);
+
+		$this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
+		$this->assertNull($service->loadModifiableAgent('agent-1', 'bob'));
+		$this->assertNull($service->loadAccessibleAgent('agent-1', 'mallory'));
+
+	}//end testGroupMemberMayReadButNotModify()
+
+	/**
+	 * A malformed `groups` value grants nothing.
+	 *
+	 * @return void
+	 */
+	public function testMalformedGroupsGrantNothing(): void {
+		$entity = $this->agent('alice');
+		$entity->setObject(['isPrivate' => true, 'groups' => 'planning-desk']);
+		$service = $this->service($entity, false, ['bob' => ['planning-desk']]);
+
+		$this->assertNull($service->loadAccessibleAgent('agent-1', 'bob'));
+
+	}//end testMalformedGroupsGrantNothing()
 
 	/**
 	 * A NON-private agent is readable across the organisation but still only

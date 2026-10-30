@@ -54,7 +54,7 @@ class MessageHistoryHandler {
 	 *
 	 * @var string
 	 */
-	private const MESSAGE_SCHEMA = 'message';
+	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
 	 * Number of recent messages to keep in context.
@@ -83,32 +83,94 @@ class MessageHistoryHandler {
 	 * Build message history array for the LLM.
 	 *
 	 * Converts the most recent Message objects for the conversation into
-	 * LLPhant `Message` instances, oldest-first.
+	 * LLPhant `Message` instances, oldest-first. A caller that has just stored the
+	 * turn it is about to answer uses buildTurnHistory() instead, so that turn is
+	 * not sent twice.
 	 *
 	 * @param string $conversationId Conversation UUID.
 	 *
 	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
-	 * (Message::user()/assistant()/system()) are the library's public API —
-	 * there is no injectable seam.
-	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
 	public function buildMessageHistory(string $conversationId): array {
+		$messages = $this->recentMessages(conversationId: $conversationId);
+
+		return $this->toLlmHistory(messages: $messages, isMultiSpeaker: $this->hasMultipleHumanAuthors(messages: $messages));
+	}//end buildMessageHistory()
+
+	/**
+	 * The history before a stored turn, and the text that turn is sent as.
+	 *
+	 * The engine stores the person's turn before it builds the history, so the
+	 * stored history already ends with it. `ResponseGenerationHandler::generateResponse()`
+	 * is the single place the current turn joins the messages (with its attachments),
+	 * so the history returned here leaves it out, and the model reads it once.
+	 *
+	 * `turnText` is what the response handler sends as the current turn: the given
+	 * text, labelled with the turn's author when the session has several speakers,
+	 * exactly as the history would have labelled it. Whether a session has several
+	 * speakers is decided over the same recent turns as before, current turn included.
+	 *
+	 * @param string $conversationId Conversation UUID.
+	 * @param ObjectEntity $currentTurn The stored turn being answered.
+	 * @param string $turnText The text of that turn as stored (after any redaction).
+	 *
+	 * @return array{history: array<int, LLPhantMessage>, turnText: string}
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	public function buildTurnHistory(string $conversationId, ObjectEntity $currentTurn, string $turnText): array {
+		$messages = $this->recentMessages(conversationId: $conversationId);
+		$isMultiSpeaker = $this->hasMultipleHumanAuthors(messages: array_merge($messages, [$currentTurn]));
+
+		$currentId = $currentTurn->getUuid();
+		$earlier = array_values(
+			array_filter(
+				$messages,
+				static fn (ObjectEntity $message): bool => $currentId === null || $message->getUuid() !== $currentId
+			)
+		);
+
+		if ($isMultiSpeaker === true) {
+			$turnText = $this->labelWithAuthor(content: $turnText, data: $currentTurn->getObject());
+		}
+
+		return [
+			'history' => $this->toLlmHistory(messages: $earlier, isMultiSpeaker: $isMultiSpeaker),
+			'turnText' => $turnText,
+		];
+	}//end buildTurnHistory()
+
+	/**
+	 * The session's most recent turns, oldest-first.
+	 *
+	 * @param string $conversationId Conversation UUID.
+	 *
+	 * @return list<ObjectEntity>
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	private function recentMessages(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and in
+		// a shared session the other participants' turns are owned by them, while the
+		// model needs the whole thread. Engine::processMessage() runs the
+		// owner-or-participant check on the session before it asks for this history.
 		$recent = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::MESSAGE_SCHEMA)
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'DESC'],
 					'limit' => self::RECENT_MESSAGES_COUNT,
-				]
+				],
+				_rbac: false
 			);
 
 		// The findAll() fetch is most-recent-first; the LLM needs chronological order.
-		$messages = array_reverse(array_filter($recent, static fn ($object): bool => $object instanceof ObjectEntity));
+		$messages = array_values(array_reverse(array_filter($recent, static fn ($object): bool => $object instanceof ObjectEntity)));
 
 		$this->logger->debug(
 			message: '[MessageHistoryHandler] Building message history',
@@ -120,11 +182,31 @@ class MessageHistoryHandler {
 			]
 		);
 
-		// A conversation is "shared" when its human turns come from more than
-		// one author. Only then is speaker labelling added — a single-speaker
-		// session keeps byte-identical prompts to before talk-shared-sessions.
-		$isMultiSpeaker = $this->hasMultipleHumanAuthors(messages: $messages);
+		return $messages;
+	}//end recentMessages()
 
+	/**
+	 * Stored turns as LLPhant messages, speaker-labelled in a shared session.
+	 *
+	 * A conversation is "shared" when its human turns come from more than one
+	 * author. Only then is speaker labelling added; a single-speaker session keeps
+	 * byte-identical prompts to before talk-shared-sessions.
+	 *
+	 * @param list<ObjectEntity> $messages Stored turns, oldest-first.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
+	 * (Message::user()/assistant()/system()) are the library's public API;
+	 * there is no injectable seam.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per subset.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	private function toLlmHistory(array $messages, bool $isMultiSpeaker): array {
 		$history = [];
 		foreach ($messages as $message) {
 			$data = $message->getObject();
@@ -160,6 +242,10 @@ class MessageHistoryHandler {
 				$content = $this->labelWithAuthor(content: $content, data: $data);
 			}
 
+			if ($role === 'user') {
+				$content = $this->withAttachmentLines(content: (string)$content, data: $data);
+			}
+
 			$history[] = match ($role) {
 				'user' => LLPhantMessage::user($content),
 				'assistant' => LLPhantMessage::assistant($content),
@@ -177,7 +263,7 @@ class MessageHistoryHandler {
 		);
 
 		return $history;
-	}//end buildMessageHistory()
+	}//end toLlmHistory()
 
 	/**
 	 * Attach authorship to a message payload, for human turns only.
@@ -273,6 +359,40 @@ class MessageHistoryHandler {
 	}//end labelWithAuthor()
 
 	/**
+	 * Name a turn's attachments in one line each, so a later turn knows what was
+	 * attached without the file being sent again; the agent can read it again by
+	 * its id with hermiq.readFile (chat-attachments-and-images, D3).
+	 *
+	 * @param string               $content The turn's text.
+	 * @param array<string, mixed> $data    The stored turn.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function withAttachmentLines(string $content, array $data): string {
+		$attachments = ($data['attachments'] ?? []);
+		if (is_array($attachments) === false || $attachments === []) {
+			return $content;
+		}
+
+		$lines = [];
+		foreach ($attachments as $attachment) {
+			if (is_array($attachment) === false || isset($attachment['fileId']) === false) {
+				continue;
+			}
+
+			$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
+		}
+
+		if ($lines === []) {
+			return $content;
+		}
+
+		return $content . "\n\n" . implode("\n", $lines);
+	}//end withAttachmentLines()
+
+	/**
 	 * Store a message as a `Message` OR object.
 	 *
 	 * @param string $conversationId Conversation UUID.
@@ -282,12 +402,15 @@ class MessageHistoryHandler {
 	 * @param array|null $context Optional AI Chat Companion context snapshot.
 	 * @param string|null $authorId Uid of the human who produced this turn — `role=user` only.
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
+	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
+	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
 	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -297,9 +420,10 @@ class MessageHistoryHandler {
 		?array $context = null,
 		?string $authorId = null,
 		?string $authorDisplayName = null,
+		array $attachments = [],
 	): ObjectEntity {
 		$payload = [
-			'conversationId' => $conversationId,
+			'sessionId' => $conversationId,
 			'role' => $role,
 			'content' => $content,
 		];
@@ -312,6 +436,10 @@ class MessageHistoryHandler {
 			$payload['context'] = $context;
 		}
 
+		if ($attachments !== []) {
+			$payload['attachments'] = array_values($attachments);
+		}
+
 		$payload = $this->withAuthorship(
 			payload: $payload,
 			role: $role,
@@ -319,10 +447,18 @@ class MessageHistoryHandler {
 			authorDisplayName: $authorDisplayName
 		);
 
+		// `_rbac: false`: SessionTurn grants an owner-only `read` and lists no
+		// `create`, on purpose (hermiq#319): a create grant would let anyone POST a
+		// turn into somebody else's sessionId through the object API, and a thread
+		// is read by sessionId. So the default save refuses every non-admin
+		// (hermiq#1086), and every caller of this method reaches it only after its
+		// own session guard (the chat controllers' ownership and participation
+		// checks). OpenRegister still stamps `_owner` from the user session.
 		$stored = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
 			register: self::REGISTER_SLUG,
-			schema: self::MESSAGE_SCHEMA
+			schema: self::MESSAGE_SCHEMA,
+			_rbac: false
 		);
 
 		$this->logger->debug(

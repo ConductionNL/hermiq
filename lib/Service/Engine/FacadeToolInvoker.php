@@ -135,6 +135,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use Closure;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
@@ -208,6 +209,23 @@ class FacadeToolInvoker {
 	private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
 
 	/**
+	 * The six integriq agent tools (approval-verification-contract, hermiq#1045)
+	 * that get the running agent's id as `agentId`, overwriting whatever the model
+	 * sent: integriq records it on a staged batch and names it as `actingAgent`
+	 * when it asks Hermiq for a verdict.
+	 *
+	 * @var array<int, string>
+	 */
+	private const INTEGRIQ_AGENT_TOOL_IDS = [
+		'integriq.runSynchronization',
+		'integriq.replayDeadLetters',
+		'integriq.discardDeadLetters',
+		'integriq.testSynchronization',
+		'integriq.testSource',
+		'integriq.listDeadLetters',
+	];
+
+	/**
 	 * The two web-research-tool ids whose trace step carries an additional redacted
 	 * `target` (see class docblock and `resolveWebResearchTarget()`).
 	 *
@@ -232,6 +250,8 @@ class FacadeToolInvoker {
 	private const ARTEFACT_WRITE_TOOL_IDS = [
 		'hermiq.createCalendarEvent',
 		'hermiq.upsertContact',
+		'hermiq.createTask',
+		'hermiq.completeTask',
 	];
 
 	/**
@@ -271,6 +291,13 @@ class FacadeToolInvoker {
 	 * @var string
 	 */
 	private const FLOW_OWNER_ARGUMENT = 'triggeredBy';
+
+	/**
+	 * The stop rule of this turn (agents-switch-off-and-stop).
+	 *
+	 * @var TurnGuard
+	 */
+	private readonly TurnGuard $turnGuard;
 
 	/**
 	 * Constructor.
@@ -387,6 +414,10 @@ class FacadeToolInvoker {
 	 *                                                             identically so the same pure checker
 	 *                                                             decides conformance. Empty (every
 	 *                                                             pre-existing caller) waives nothing.
+	 * @param int|null     $maxToolCalls Tool calls this turn may make (agents-switch-off-and-stop);
+	 *                                   null, every pre-existing caller, is no cap.
+	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
+	 *                                   null is always on.
 	 *
 	 * @return void
 	 *
@@ -419,8 +450,23 @@ class FacadeToolInvoker {
 		private readonly array $argumentConstraints = [],
 		private readonly ?string $ownerUid = null,
 		private readonly array $waivedConstraintSets = [],
+		?int $maxToolCalls = null,
+		?Closure $agentStillOn = null,
 	) {
+		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
+
+	/**
+	 * Whether this turn was stopped: its agent was switched off, or it used every
+	 * tool call its owner allows (agents-switch-off-and-stop).
+	 *
+	 * @return bool True once a tool call was refused for either reason.
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-run-in-progress-stops-when-its-agent-is-switched-off-req-agoff-003
+	 */
+	public function isStopped(): bool {
+		return $this->turnGuard->isStopped();
+	}//end isStopped()
 
 	/**
 	 * Catch LLPhant's `$instance->{$functionName}(...$args)` dispatch and route
@@ -446,6 +492,29 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 */
 	public function __call(string $name, array $arguments): string {
+		// Agents-switch-off-and-stop: before anything else, the turn may be over.
+		$stopReason = $this->turnGuard->admit();
+		if ($stopReason !== null) {
+			$this->trace?->recordStop(reason: $stopReason);
+			return $this->turnGuard->refusal(reason: $stopReason);
+		}
+
+		return $this->route(name: $name, arguments: $arguments);
+	}//end __call()
+
+	/**
+	 * Route one admitted tool call through the governance gates to the facade.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 */
+	private function route(string $name, array $arguments): string {
 		if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
@@ -489,7 +558,7 @@ class FacadeToolInvoker {
 		}
 
 		return $this->dispatchToFacade(name: $name, arguments: $arguments);
-	}//end __call()
+	}//end route()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).
@@ -1166,6 +1235,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
 	 */
 	private function withAgentId(string $name, array $arguments): array {
 		if ($this->agentId === null) {
@@ -1175,6 +1245,7 @@ class FacadeToolInvoker {
 		$toolId = $this->resolveToolId(name: $name);
 		if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false
 			&& in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === false
+			&& in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === false
 			&& $toolId !== self::DELEGATE_AGENT_TOOL_ID
 		) {
 			return $arguments;
@@ -1209,6 +1280,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
 		$this->channel?->emitToolCall(
@@ -1242,6 +1314,7 @@ class FacadeToolInvoker {
 				arguments: $this->withAgentId(name: $name, arguments: $arguments)
 			)
 		);
+		$envelope['result'] = $this->withStagedBatchApproval(name: $name, result: $envelope['result'], isError: $envelope['isError']);
 
 		if ($this->trace !== null && $traceToken !== null) {
 			$outcome = 'ok';
@@ -1275,6 +1348,46 @@ class FacadeToolInvoker {
 
 		return $encoded;
 	}//end dispatchToFacade()
+
+	/**
+	 * When an integriq agent tool staged a batch (`status: staged` with a proposal
+	 * and a binding), raise the pending approval that keeps the binding and hand its
+	 * id back to the agent as `approvalId`. Every other result is returned as is.
+	 *
+	 * @param string $name    The LLPhant-side function name.
+	 * @param mixed  $result  The facade's result.
+	 * @param bool   $isError Whether the facade reported an error.
+	 *
+	 * @return mixed The result, with `approvalId` on a staged batch.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
+	 */
+	private function withStagedBatchApproval(string $name, mixed $result, bool $isError): mixed {
+		$toolId = $this->resolveToolId(name: $name);
+		if ($isError === true
+			|| $this->approvalService === null
+			|| $this->agentId === null
+			|| str_starts_with($toolId, 'integriq.') === false
+			|| is_array($result) === false
+			|| ($result['status'] ?? null) !== 'staged'
+			|| is_string($result['binding'] ?? null) === false
+			|| $result['binding'] === ''
+		) {
+			return $result;
+		}
+
+		$targetIds = array_values(array_filter((array)($result['targetIds'] ?? []), 'is_string'));
+		$approval = $this->approvalService->ensurePendingApprovalForStagedBatch(
+			agentId: $this->agentId,
+			toolId: $toolId,
+			proposalId: (string)($result['proposal'] ?? ''),
+			binding: $result['binding'],
+			targetIds: $targetIds
+		);
+		$result['approvalId'] = (string)$approval->getUuid();
+
+		return $result;
+	}//end withStagedBatchApproval()
 
 	/**
 	 * The `endStep()` `$extra` payload for `$name`'s trace step — `['target' =>

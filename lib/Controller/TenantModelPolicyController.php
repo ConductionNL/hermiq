@@ -40,6 +40,8 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -77,6 +79,8 @@ class TenantModelPolicyController extends Controller {
 	 *                                               (owner check + effective-read
 	 *                                               org resolution).
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ProviderDataUseRegistry|null $dataUse Each provider's data-use label, for the
+	 *                                              no-training switch in the editor.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -85,6 +89,7 @@ class TenantModelPolicyController extends Controller {
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
+		private readonly ?ProviderDataUseRegistry $dataUse = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -164,7 +169,15 @@ class TenantModelPolicyController extends Controller {
 				$visible
 			);
 
-			return new JSONResponse(['policies' => $shaped]);
+			// Models-no-training-guarantee: what each provider declared about
+			// training, so the policy editor can name the providers the switch would
+			// refuse before anyone saves. Labels only, never the terms or who declared.
+			$dataUse = [];
+			foreach (LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS as $provider) {
+				$dataUse[$provider] = ($this->dataUse?->forProvider(provider: $provider)['dataUse'] ?? ProviderDataUseRegistry::UNDECLARED);
+			}
+
+			return new JSONResponse(['policies' => $shaped, 'dataUse' => $dataUse]);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq model-policy list failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Could not load model policies'], Http::STATUS_INTERNAL_SERVER_ERROR);
