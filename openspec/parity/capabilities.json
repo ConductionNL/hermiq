@@ -2219,7 +2219,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:266-296 renders message.sources with name/type/similarity for each RAG source under an assistant message.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/changes/chat-about-a-document-cites-its-sources",
+				"requirement": "openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat :: The chat page lists the sources of every answer as links (REQ-DCHAT-005)"
 			},
 			"reachedOn": "/chat Chat page, under an assistant reply that used RAG",
 			"provider": "hermiq",
