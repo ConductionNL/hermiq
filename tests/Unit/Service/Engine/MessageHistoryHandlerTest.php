@@ -279,7 +279,7 @@ class MessageHistoryHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/user-turn-sent-once/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function testTurnHistoryLeavesTheCurrentTurnOutAndKeepsItsSpeaker(): void {
 		$turn = static function (string $uuid, string $role, string $content, ?string $author = null): ObjectEntity {

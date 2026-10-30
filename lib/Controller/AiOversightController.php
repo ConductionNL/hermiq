@@ -35,7 +35,7 @@ use Throwable;
  * GET /api/ai-oversight/subject?originApp=&subjectId=[&subjectType=&limit=&offset=]
  * GET /api/ai-oversight/subject/export?originApp=&subjectId=[&subjectType=] (CSV, oversight role)
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightController extends Controller {
 
@@ -88,7 +88,7 @@ class AiOversightController extends Controller {
 	 *
 	 * @return JSONResponse `{results, total}`, or an error.
 	 *
-	 * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	#[NoAdminRequired]
 	public function subject(
