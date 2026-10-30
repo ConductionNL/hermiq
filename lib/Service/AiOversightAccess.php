@@ -34,7 +34,7 @@ use Throwable;
  * to the oversight group and admins, and the subject route asks OpenRegister,
  * as the signed-in user, whether that user can read the subject.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightAccess {
 
@@ -84,7 +84,7 @@ class AiOversightAccess {
      *
      * @return boolean True for an admin or a member of the oversight group.
      *
-     * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+     * @spec openspec/specs/ai-oversight/spec.md
      */
     public function hasOversightRole(string $userId): bool {
         if ($userId === '') {
@@ -111,7 +111,7 @@ class AiOversightAccess {
      *
      * @return boolean True when the user may read them.
      *
-     * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+     * @spec openspec/specs/ai-oversight/spec.md
      */
     public function maySeeSubject(string $userId, string $subjectId): bool {
         if ($this->hasOversightRole(userId: $userId) === true) {

@@ -30,7 +30,7 @@ use Psr\Log\LoggerInterface;
  * creates the group empty, never adds members, and leaves an existing group
  * untouched, so it is safe on every upgrade.
  *
- * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class ProvisionAiOversightGroup implements IRepairStep {
 
@@ -56,7 +56,7 @@ class ProvisionAiOversightGroup implements IRepairStep {
 	 *
 	 * @return string The name.
 	 *
-	 * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	public function getName(): string {
 		return 'Create the AI oversight group';
@@ -71,7 +71,7 @@ class ProvisionAiOversightGroup implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-oversight-subject-access/specs/ai-oversight/spec.md
+	 * @spec openspec/specs/ai-oversight/spec.md
 	 */
 	public function run(IOutput $output): void {
 		$groupId = AiOversightAccess::OVERSIGHT_GROUP;

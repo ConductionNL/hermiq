@@ -1361,7 +1361,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/dialogs/AgentFactsheetDialog.vue:68 dd factsheet.agent.owner; src/views/TenantOps.vue:228-229 access review table lists owner/actingUser per agent (admin-only page).",
-				"spec": "openspec/specs/compliance-control-packs"
+				"spec": "openspec/specs/agent-management-ui",
+				"requirement": "openspec/specs/agent-management-ui :: Only an agent's owner may change it"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> View compliance factsheet; /tenant-ops access review",
 			"note": "Owner is the OpenRegister object owner (whoever created it), read-only and shown on the factsheet and the admin access review; there is no separate 'assign an owner' field.",
@@ -1435,7 +1436,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Repair/SeedAgentBuilder.php seeds an agent-builder agent that answers with a hermiq-agent-draft block; lib/Service/Agent/AgentDraftService.php + lib/Controller/AgentDraftController.php (route agent_draft#check, POST /api/agents/draft-check, appinfo/routes.php:536) check the draft; src/utils/agentDraft.js finds the block and src/views/Chat.vue:469,735-749 opens the checked draft in the agent form",
 				"change": "openspec/changes/agents-plain-language-builder",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": "openspec/changes/agents-plain-language-builder/specs/agent-management-ui :: A described agent becomes a draft in chat (REQ-AGBUILD-001)"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -1663,7 +1665,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:1173-1200 sendViaStream() calls streamChatMessage with onToken appending to streamingText live; src/api/chat.js:313-364 streamChatMessage() parses the SSE frames; routes.php:551 chatStream#stream POST /api/chat/stream.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/changes/chat-streaming-and-feedback",
+				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)"
 			},
 			"reachedOn": "/chat Chat page, streamed by default with a POST /send fallback on transport failure",
 			"provider": "hermiq",
@@ -1846,7 +1849,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:299-365 thumbs up/down buttons + optional comment box, :1271 sendFeedback(message, type); routes.php:527-532 chat#sendFeedback POST /api/conversations/{uuid}/messages/{id}/feedback.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/changes/chat-streaming-and-feedback",
+				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: A person rates an answer up or down, with an optional comment (REQ-CHFB-001)"
 			},
 			"reachedOn": "/chat Chat page, per assistant message",
 			"provider": "hermiq",
@@ -1995,7 +1999,9 @@
 				"evidence": "src/views/Chat.vue places src/components/DictateButton.vue beside Send when speechControls().dictate (src/utils/speech.js: agent voiceInputEngine not off, GET /api/speech/capabilities available, MediaRecorder present); createDictation() records, posts field audio to /api/speech/transcriptions (src/api/speech.js transcribe) and appends the words to the message box without sending. tests/chat-speech.spec.js (check:specs) and tests/e2e/spec-coverage/chat-speak-and-listen.spec.ts.",
 				"reachedOn": "/chat page composer, microphone button beside Send; also the nextcloud-vue AI companion",
 				"change": "openspec/changes/archive/2026-09-29-chat-speak-and-listen",
-				"readOn": "2026-09-29"
+				"readOn": "2026-09-29",
+				"requirement": "openspec/specs/speech-services :: The chat page offers dictation (REQ-CHVOICE-001)",
+				"spec": "openspec/specs/speech-services"
 			},
 			"reachedOn": "hermiq's /chat page composer (microphone beside Send) and the nextcloud-vue AI companion microphone",
 			"note": "Re-rated no to partial on 2026-09-26: speaking to an agent works through the companion panel from nextcloud-vue 2.55.1, backed by hermiq's transcription endpoint. hermiq's own chat page still has no microphone.",
@@ -2071,7 +2077,8 @@
 				"state": "built",
 				"owner": "nextcloud/server",
 				"evidence": "lib/TaskProcessing/ContextAgentProvider.php implements ISynchronousProvider over OCP\\TaskProcessing\\TaskTypes\\ContextAgentInteraction (the core task type behind Nextcloud's Smart Picker 'Ask AI' flow); lib/AppInfo/Application.php:353 registerTaskProcessingProvider(ContextAgentProvider::class).",
-				"change": "openspec/changes/contextagent-provider"
+				"change": "openspec/changes/contextagent-provider",
+				"requirement": "openspec/changes/contextagent-provider/specs/contextagent-provider :: Hermiq registers as an alternative ContextAgent provider"
 			},
 			"reachedOn": "Nextcloud's Smart Picker in any text field (core UI) -> ContextAgentInteraction task -> hermiq's ContextAgentProvider",
 			"note": "This is a machine/task-type integration point, not a hermiq-owned screen; the picker UI itself is Nextcloud core's.",
@@ -2219,7 +2226,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:266-296 renders message.sources with name/type/similarity for each RAG source under an assistant message.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/changes/chat-about-a-document-cites-its-sources",
+				"requirement": "openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat :: The chat page lists the sources of every answer as links (REQ-DCHAT-005)"
 			},
 			"reachedOn": "/chat Chat page, under an assistant reply that used RAG",
 			"provider": "hermiq",
@@ -2616,7 +2624,9 @@
 				"state": "built",
 				"owner": "ConductionNL/openregister",
 				"evidence": "lib/AppInfo/Application.php:124-126 registers AgentRunRequestedListener on OpenRegister's AgentRunRequestedEvent, enqueuing lib/BackgroundJob/AgentRunRequestedJob.php (QueuedJob via IJobList, listener at lib/Listener/AgentRunRequestedListener.php:94); Application.php also registers HermiqFlowNodeListener on RegisterFlowNodesEvent so hermiq contributes an 'agent' action node to OpenRegister's flow canvas; src/manifest.json:1357-1370 FlowDetail page type:'flow' is in hermiq's own menu (FlowIndex, id:128).",
-				"change": "openspec/changes/archive/2026-09-06-flow-agent-listener"
+				"change": "openspec/changes/archive/2026-09-06-flow-agent-listener",
+				"requirement": "openspec/specs/flow-agent-listener :: Listener enqueues a governed run for an async agent-run request",
+				"spec": "openspec/specs/flow-agent-listener"
 			},
 			"reachedOn": "/flows FlowIndex -> a flow with an event trigger (e.g. ObjectCreatedEvent on file upload/new record) and hermiq's agent action node",
 			"note": "The trigger UI itself is OpenRegister's flow canvas; hermiq contributes only the agent action node and the governed dispatch.",
@@ -2823,7 +2833,7 @@
 			},
 			"screen": {
 				"canvas": "design-system",
-				"board": "HmAgent"
+				"board": "HmPlanningen"
 			}
 		},
 		{
@@ -2908,7 +2918,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:202-224,859-880 (searchContacts) and lib/Mcp/NcNativeWriteToolDescriptors.php:96-127 (upsertContact), dispatched at HermiqToolProvider.php:702-703.",
-				"spec": "openspec/specs/nc-native-tools"
+				"spec": "openspec/specs/nc-native-tools",
+				"requirement": "openspec/specs/nc-native-tools :: NC-native capabilities registered as IMcpToolProvider tools"
 			},
 			"reachedOn": "Agent tool grant -> hermiq.searchContacts / hermiq.upsertContact",
 			"provider": "hermiq",
@@ -2976,7 +2987,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:242-273 (sendMail descriptor) and :916-943 (impl) sends via OCP\\Mail\\IMailer, From set to the acting user's own address.",
-				"spec": "openspec/specs/nc-native-tools"
+				"spec": "openspec/specs/nc-native-tools",
+				"requirement": "openspec/specs/nc-native-tools :: NC-native capabilities registered as IMcpToolProvider tools"
 			},
 			"reachedOn": "Agent tool grant -> hermiq.sendMail",
 			"provider": "hermiq",
@@ -4442,7 +4454,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/LlmProviderModal.vue:73-81 Ollama URL + Model free-text fields (placeholder http://localhost:11434); lib/Service/Llm/ProviderFactory.php:470 dispatches 'ollama' to createOllamaDriver() at line 2467.",
-				"change": "openspec/changes/taskprocessing-consume-ui"
+				"change": "openspec/changes/taskprocessing-consume-ui",
+				"requirement": "openspec/changes/taskprocessing-consume-ui/specs/taskprocessing-consume-ui :: Admins can select any supported chat provider, including nextcloud"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI provider section -> Configure provider -> LlmProviderModal.vue provider=ollama",
 			"provider": "hermiq",
@@ -5204,7 +5217,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Repair/SeedAgentTemplates.php:177-190 seeds a 'Morning briefing' agent template with suggestedSchedule {kind: cron, cronExpr: '0 7 * * *', deliver: 'talk'} that composes agent-schedule (cron trigger) with talk-delivery (posts to the owner's chosen Talk room, which can be a shared team room per dl-target-pref).",
-				"spec": "openspec/specs/agent-template-gallery"
+				"spec": "openspec/specs/talk-delivery",
+				"requirement": "openspec/specs/talk-delivery :: Deliver run output to Nextcloud Talk [MVP]"
 			},
 			"reachedOn": "AgentTemplateGithubStore / template gallery -> instantiate 'Morning briefing' -> ScheduleFormModal.vue cron + deliver=talk",
 			"note": "There is no dedicated 'digest' feature; the capability is composed from the already-built cron scheduler and Talk delivery channel, demonstrated by name in the seeded template.",
@@ -5312,7 +5326,9 @@
 				"evidence": "A voice recording made on hermiq's own chat page is transcribed on the instance: src/components/DictateButton.vue records with MediaRecorder and src/api/speech.js transcribe() posts it to /api/speech/transcriptions (SpeechController::transcribe, faster-whisper sidecar); the transcript lands in the message box. tests/chat-speech.spec.js and tests/e2e/spec-coverage/chat-speak-and-listen.spec.ts.",
 				"reachedOn": "/chat page composer, microphone button beside Send",
 				"change": "openspec/changes/archive/2026-09-29-chat-speak-and-listen",
-				"readOn": "2026-09-29"
+				"readOn": "2026-09-29",
+				"requirement": "openspec/specs/speech-services :: TaskProcessing providers accept the input Nextcloud passes",
+				"spec": "openspec/specs/speech-services"
 			},
 			"reachedOn": "nothing; src/modals/AgentFormModal.vue:252-297 lets an admin pick a per-agent 'voice input engine' preference, but no page ever records audio to send to the transcribe endpoint",
 			"note": "The per-agent voice-engine setting is stored but has no consumer: the actual composer mic capture UI does not exist in src/.",
@@ -5373,7 +5389,7 @@
 			},
 			"screen": {
 				"canvas": "design-system",
-				"board": "HmPubliekeChat"
+				"board": "HmPubliekeChatBeheer"
 			}
 		},
 		{
@@ -5862,7 +5878,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json:1387-1542 AiOversight (dashboard) and AiOversightDetail pages, rowRoute wired; lib/Service/AiOversightService.php + lib/Event/AiOversightRecordedEvent.php + lib/Listener/AiOversightRecordedListener.php (registered lib/AppInfo/Application.php:136-137) record oversight-worthy AI decisions after the fact.",
-				"spec": "openspec/specs/observability"
+				"spec": "openspec/specs/reports",
+				"requirement": "openspec/specs/reports :: The AI oversight report counts and lists advisory decisions"
 			},
 			"reachedOn": "/ai-oversight AiOversight page -> row -> AiOversightDetail",
 			"provider": "hermiq",
@@ -6537,7 +6554,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:56-60 runHistory#trace GET /api/schedules/{scheduleId}/runs/{runId}/trace; lib/Service/RunHistoryService.php:163+ getRunTrace() reconstructs the ordered step timeline incl. a synthetic gate_wait step for approval waits; src/widgets/AgentRunHistoryWidget.vue:311,463 imports and calls getRunTrace() from src/api/agents.js:127.",
-				"spec": "openspec/specs/observability"
+				"spec": "openspec/specs/run-audit-log",
+				"requirement": "openspec/specs/run-audit-log :: Downloadable, redacted run trace [MVP]"
 			},
 			"reachedOn": "AgentDetail (/agents/:id) -> Run history widget -> open a run's trace",
 			"provider": "hermiq",
@@ -7078,7 +7096,8 @@
 				"state": "built",
 				"owner": "ConductionNL/openregister",
 				"evidence": "Sibling checkout apps-extra/openregister/lib/Service/Flow/Nodes/UserTaskNode.php:97 implements IFlowNode/IFlowNodeConfigKeys/IFlowNodeConfigForm/IFlowNodeTaxonomy; its docblock at lines 25-41 explicitly describes it as the approvals a municipal case is made of. hermiq's own lib/Flow/ contributes no approval-specific node itself; grep for 'approval' across lib/Flow/*.php in hermiq found nothing.",
-				"change": "openregister/openspec/changes/archive/2026-10-05-flow-user-task-node"
+				"change": "openregister/openspec/changes/archive/2026-10-05-flow-user-task-node",
+				"requirement": "openregister/openspec/specs/flow-user-task-node :: A user-task step creates exactly one task and suspends the run"
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> User task node (OpenRegister-provided, available on any flow authored from hermiq's shared canvas)",
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale; hermiq itself contributes no approval node, the capability comes entirely from the shared engine.",
@@ -7115,7 +7134,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/DelegationService.php implements the governed `hermiq.delegateAgent` tool: refuses by default unless the caller's delegationAllowlist explicitly names the target (openspec/specs/sub-agent-delegation/spec.md, self/cycle -> allowlist -> depth/fan-out -> same-organisation -> model-policy -> kill-switch -> budget gate chain at line 8/196).",
-				"spec": "openspec/specs/sub-agent-delegation"
+				"spec": "openspec/specs/sub-agent-delegation",
+				"requirement": "openspec/specs/sub-agent-delegation :: A delegated sub-agent runs in an isolated conversation"
 			},
 			"reachedOn": "An agent's turn calling its own hermiq.delegateAgent tool, gated by that agent's delegationAllowlist (set in AgentFormModal.vue delegationAllowlist field, line 199)",
 			"provider": "hermiq",
@@ -7335,7 +7355,8 @@
 				"state": "built",
 				"owner": "ConductionNL/openregister",
 				"evidence": "Sibling checkout apps-extra/openregister/lib/Service/Flow/Nodes/SubFlowNode.php exists as a registered IFlowNode-implementing node type, available on the same shared canvas hermiq's FlowDetail page uses.",
-				"change": "openregister/openspec/changes/or-flow-sub-flow"
+				"change": "openregister/openspec/changes/or-flow-sub-flow",
+				"requirement": "openregister/openspec/changes/or-flow-sub-flow/specs/flow-sub-flow :: A flow can run another flow as a step (REQ-SF-001)"
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> Sub-flow node",
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale.",
@@ -7409,7 +7430,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json page 'Store' route /store type index over hermiq/agenttemplate, headerActions 'Import template', slots row-actions=agent-template-row-actions and below-header=agent-template-github-store; appinfo/routes.php:436-441 agentTemplate#instantiate POST /api/agent-templates/{id}/instantiate; src/api/agentTemplates.js:147-150 instantiateAgentTemplate() ('Use this template').",
-				"spec": "openspec/specs/agent-template-gallery"
+				"spec": "openspec/specs/agent-template-github-store",
+				"requirement": "openspec/specs/agent-template-github-store :: A single unified Store page replaces the Agent templates gallery"
 			},
 			"reachedOn": "footer menu -> Store (/store) -> row action 'Use this template'",
 			"provider": "hermiq",
@@ -7766,7 +7788,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "hermiq is an ordinary Nextcloud app (appinfo/info.xml, composer.json requiring nextcloud/*); its LLM providers enum includes 'ollama' and 'nextcloud' (lib/Settings/hermiq_register.json:976) alongside SaaS providers, and the setup wizard's first step (src/manifest.json setup.steps[0] 'llm-endpoint') points at a local Ollama host by default (http://host.docker.internal:11434); no code path requires a Conduction-hosted service for core agent execution.",
-				"spec": "openspec/specs/app-runtime-requirements"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: hermiq SHALL run on any self-managed Nextcloud in its declared range (REQ-PLAT-003)"
 			},
 			"reachedOn": "Any self-managed Nextcloud instance with hermiq installed",
 			"provider": "nextcloud",
@@ -7834,7 +7857,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "LICENSE file (root) is the full EUPL v1.2 text; REUSE.toml documents SPDX EUPL-1.2 headers as the project-wide convention; every PHP file opened during this review (e.g. TenantOpsController.php, ComplianceController.php) carries 'SPDX-License-Identifier: EUPL-1.2'; the repo is public at ConductionNL/hermiq.",
-				"spec": "openspec/specs/app-manifest"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: hermiq SHALL be distributed under the EUPL 1.2 (REQ-PLAT-004)"
 			},
 			"reachedOn": "n/a (licensing fact, not a runtime path)",
 			"provider": "hermiq",
@@ -7980,7 +8004,8 @@
 				"state": "built",
 				"owner": "nextcloud/server",
 				"evidence": "Every hermiq controller resolves the caller exclusively through OCP\\IUserSession (e.g. every controller read in this review: TenantOpsController, ComplianceController, AiFeatureController), so hermiq has no login path of its own; it inherits whatever authentication backend the Nextcloud instance is configured with (LDAP/SAML/OIDC apps).",
-				"spec": "none"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: Sign-in and single sign-on SHALL be Nextcloud's (REQ-PLAT-001)"
 			},
 			"reachedOn": "Nextcloud's own login page, however the instance is configured",
 			"note": "Inherited capability: hermiq contains no SSO-specific code, positive or negative, because it never authenticates a user itself.",
@@ -8198,10 +8223,9 @@
 			"source": "demand-derived",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/ and src/ for 'subscription'/'billing'/'license key'/'stripe'/'payment': the only 'subscription' hits are about a user's OWN Claude Max/Pro OAuth subscription used as an LLM credential (lib/Service/Llm/ProviderFactory.php, LlmSettingsController.php), never a hermiq-side seat or usage metering/billing mechanism. No per-user or per-message billing code exists anywhere in the app.",
-				"spec": "none"
+				"evidence": "decided-no on 2026-10-30 (coverage lane hm-cover, reversible): a flat price per instance is a pricing and contract fact, not a capability with code or a screen. hermiq has no metering, seat count or per-message billing to build (searched lib/ and src/ for subscription, billing, licence key, stripe, payment: the only subscription hits are a person's own model-provider subscription used as a credential). Earlier evidence: built, since nothing in hermiq charges per seat or per message."
 			},
 			"reachedOn": "n/a (absence of any metering/billing code, consistent with an EUPL-licensed self-hosted install)",
 			"note": "This is inferred from the absence of any licensing/billing gate rather than a specific 'flat price' feature; hermiq has request/token quotas (Agent.requestQuota/tokenQuota) but those are operational caps, not a pricing mechanism.",
@@ -8312,7 +8336,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:45-46 preferences#getPreference/setPreference GET/PUT /api/preferences/{key}; lib/Controller/PreferencesController.php:1-47 generic per-user key/value store backed by Nextcloud IConfig; src/api/talk.js:56,68 uses it for the concrete 'delivertarget' preference, read/written from src/components/TalkDeliverySettings.vue.",
-				"spec": "openspec/specs/talk-delivery"
+				"spec": "openspec/changes/personal-preferences",
+				"requirement": "openspec/changes/personal-preferences/specs/personal-preferences :: A person's agent preferences are kept per person and set in hermiq's settings dialog (REQ-PREF-001)"
 			},
 			"reachedOn": "Talk delivery settings (per-user delivery-target preference); also consumed by shared nextcloud-vue widgets (e.g. CnSupportDialog per the controller's own docblock)",
 			"note": "The only concrete hermiq-side preference wired up today is the Talk delivery target; the endpoint is generic so other per-user preferences could be added without new routes.",
@@ -8481,7 +8506,8 @@
 				"evidence": "Working with AI (/ai-literacy, src/views/AiLiteracy.vue): six lessons in English and Dutch (lib/Settings/literacy_lessons.json, seeded by lib/Repair/SeedLiteracyLessons.php into LiteracyLesson, register 0.39.0), each with a check question; a right answer writes a LiteracyCompletion for that lesson version (lib/Service/Literacy/LiteracyCourse.php). An organisation admin sees completion per person with a CSV export and can require the course (TenantControl.aiLiteracyRequired, LiteracyRequirement), which refuses chat, stream, assistant, Talk and run by hand until the course is done, never scheduled or flow runs. The seeded EU AI Act art.4 control reads its status from completions (LiteracyReport::evidence via ComplianceService, evidenceSource ai-literacy-completion). Proven in tests/Unit/Service/Literacy/LiteracyTest.php, LiteracyControllerTest, ChatControllerTest, AssistantServiceTest, TalkTurnLiteracyTest, RunNowControllerTest, ComplianceServiceTest.",
 				"reachedOn": "Menu: Working with AI (/ai-literacy); Settings, Compliance: EU AI Act art.4 AI literacy",
 				"change": "openspec/changes/archive/2026-09-30-compliance-ai-literacy",
-				"readOn": "2026-09-30"
+				"readOn": "2026-09-30",
+				"requirement": "openspec/specs/compliance-control-packs :: People can follow short lessons on working with AI (REQ-AILIT-001)"
 			},
 			"feature": "explainable-ai",
 			"reachedOn": "none",
@@ -9237,7 +9263,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "every hermiq page and API route requires a Nextcloud session (only Health, ChatHealth, Metrics, EgressAuthorize, McpRun and the two webhook controllers carry PublicPage, each token- or secret-guarded), so Nextcloud's own sign-in applies, where two-factor providers are enforced (server and twofactor apps, not read)",
-				"spec": "none"
+				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
+				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: A second factor at sign-in SHALL be Nextcloud's (REQ-PLAT-002)"
 			},
 			"feature": "hosting-and-security",
 			"reachedOn": "Nextcloud sign-in",
@@ -9936,7 +9963,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/NcNative/AgentArtefactMarker.php:75 system tag 'Agent authored' on files, :82 X-HERMIQ-AGENT-AUTHORED on vCard and iCalendar objects, applied in the same write (NotesWriteService.php:228, ContactWriteService.php:137, CalendarWriteService.php:236) behind the agent tools in lib/Mcp/NcNativeWriteToolDescriptors.php:66,106,155; searched 'AI-generated|generated by AI' in src/: chat answers carry no label",
-				"spec": "openspec/specs/nc-native-tools"
+				"spec": "openspec/changes/agent-authored-marking",
+				"requirement": "openspec/changes/agent-authored-marking/specs/nc-native-tools :: Every object an agent writes is marked as agent-authored (REQ-AILBL-001)"
 			},
 			"feature": "explainable-ai",
 			"reachedOn": "Files tag on notes the agent wrote; Contacts and Calendar objects",
@@ -10568,9 +10596,7 @@
 				"canvas": "design-system",
 				"board": "HmTalk"
 			}
-		}
-	],
-	"pending": [
+		},
 		{
 			"id": "ag-identity",
 			"area": "agents",
@@ -10581,10 +10607,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Settings/hermiq_register.json:2599 Agent.actingUser property; lib/Service/ScheduleService.php:582-589 resolves actingUser, :2231,:2578 refuses the run when a declared actingUser no longer resolves (agent-identity-narrows), falls back to schedule owner when unset; lib/Service/Engine/Engine.php:329 and ContextAssembler.php:180 thread actingUserId through the turn. No component sets actingUser: src/modals/AgentFormModal.vue has no such field; it only appears read-only in src/dialogs/AgentFactsheetDialog.vue and src/components/ToolInvocationTable.vue.",
-				"spec": "openspec/specs/agent-identity"
+				"spec": "openspec/changes/agent-acting-identity-picker/specs/agent-identity",
+				"requirement": "openspec/changes/agent-acting-identity-picker/specs/agent-identity :: The agent edit page sets whose rights the agent works with (REQ-AGID-001)",
+				"change": "openspec/changes/agent-acting-identity-picker"
 			},
 			"reachedOn": "nothing",
-			"note": "The choose-owner-vs-actingUser-vs-refuse logic is fully implemented server-side and openspec/specs/agent-identity/spec.md is marked DONE, but no screen lets a user pick actingUser; it is only settable via a direct object write and only viewable, not editable, in the UI.",
+			"note": "The choose-owner-vs-actingUser-vs-refuse logic is fully implemented server-side and openspec/specs/agent-identity/spec.md is marked DONE, but no screen lets a user pick actingUser; it is only settable via a direct object write and only viewable, not editable, in the UI. Moved from pending 2026-10-30: Built server-side (actingUser resolved, a run refused when it no longer resolves); HmAgentBewerken draws the picker 'Namens wie werkt de agent', which no change plans yet.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-builder",
@@ -10603,7 +10631,10 @@
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the agent always runs with the rights of the person who asked (context_agent:ex_app/lib/main.py:190-191) and MCP calls with the caller's login (context_agent:ex_app/lib/mcp_server.py:31-41); no choice of owner or service account.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-use-entra-agent-identities per tool \"use the user's (End user) or maker's (Maker-provided) credentials\"; each agent also has its own Microsoft Entra Agent ID for scoped connector permissions (service-account style)."
 			},
-			"pendingReason": "Whether actingUser is set anywhere outside seed/repair scripts on a live instance could not be settled without running the app."
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmAgentBewerken"
+			}
 		},
 		{
 			"id": "ch-shared-session",
@@ -10617,10 +10648,12 @@
 				"evidence": "Talk path: TalkRoomBinding::syncParticipants, ConversationParticipation, per-turn authorship (archived talk-chat-bridge). Web path: lib/Service/SessionParticipantService.php and lib/Controller/SessionParticipantController.php (GET, POST, DELETE /api/sessions/{uuid}/participants, owner only, Talk-bound 409, notification session_participant_added); SessionController index lists sessions the caller is a participant in (role participant) and show/messages admit participants; Engine names the speaker on every turn of a shared session; src/modals/SessionParticipantsModal.vue from the session menu on /chat, 'Shared with me' group, the author's name above each colleague's turn.",
 				"reachedOn": "Chat (/chat), session menu, Invite colleagues; the colleague opens it under Shared with me",
 				"change": "openspec/changes/archive/2026-09-29-chat-work-together-in-one-session",
-				"readOn": "2026-09-29"
+				"readOn": "2026-09-29",
+				"spec": "openspec/specs/session-participants",
+				"requirement": "openspec/specs/session-participants :: The owner invites colleagues into a session (REQ-SPART-001)"
 			},
 			"reachedOn": "a Nextcloud Talk room with the Hermiq bot invited (machine path: OCA\\Talk\\Events\\BotInvokeEvent -> TalkBotInvokeListener)",
-			"note": "Substantial code exists (participant roster sync, per-speaker authorship), but the spec itself is still marked in-progress, so full end-to-end behaviour could not be confirmed by reading alone.",
+			"note": "Substantial code exists (participant roster sync, per-speaker authorship), but the spec itself is still marked in-progress, so full end-to-end behaviour could not be confirmed by reading alone. Moved from pending 2026-10-30: Change archived 2026-09-29, requirements synced into specs/session-participants.",
 			"provider": "talk",
 			"providerHow": "read-from-code",
 			"feature": "chat",
@@ -10639,7 +10672,10 @@
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: sessions belong to one user (assistant:lib/Service/ChatService.php:50,175-180 by userId); searched 'share|participant' in chat code: none.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/memory-overview an agent added to a Teams group chat or channel converses with several colleagues in one thread (memory and SSO are off there); no shared session in the web chat."
 			},
-			"pendingReason": "Whether every talk-shared-sessions requirement is complete cannot be settled without running a live Talk room."
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmChat"
+			}
 		},
 		{
 			"id": "ch-intake",
@@ -10652,10 +10688,12 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/IntakeController.php:76-197 receive()/show()/conclude()/review() implement the conversational-intake spec (abstention threshold, one thread across channels per design.md D2/D4); routes.php:693-713 intake routes + Settings\\IntakeSettings; but every IntakeController method carries only @NoAdminRequired/@NoCSRFRequired (checked lines 76-197), never #[PublicPage], so the endpoint still requires an authenticated Nextcloud session.",
 				"readOn": "2026-09-26",
-				"change": "openspec/changes/archive/2026-10-07-a-conversational-intake-that-files-for-the-citizen"
+				"change": "openspec/changes/archive/2026-10-07-a-conversational-intake-that-files-for-the-citizen",
+				"spec": "openspec/specs/conversational-intake",
+				"requirement": "openspec/specs/conversational-intake :: An intake conversation MUST be able to file, on its own surface"
 			},
 			"reachedOn": "nothing directly reachable by an account-less caller",
-			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive. Corrected 2026-09-26: intake#receive answering 401 to an anonymous caller is by design, because channel apps call it logged in; the earlier defect candidate is withdrawn.",
+			"note": "design.md says 'hermiq transports nothing: each channel arrives here through the app that owns it', so an actual public-facing widget may live in a different, out-of-repo app; from hermiq's own code alone a resident with no Nextcloud account cannot call intake#receive. Corrected 2026-09-26: intake#receive answering 401 to an anonymous caller is by design, because channel apps call it logged in; the earlier defect candidate is withdrawn. Moved from pending 2026-10-30: Change archived 2026-10-07; specs/conversational-intake/screens.md already names HmPubliekeChat. The public channel itself is the open change delivery-public-web-chat (row dl-embed-web).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "public-chat",
@@ -10666,7 +10704,6 @@
 			"dify": "partial",
 			"n8n": "partial",
 			"open-webui": "no",
-			"pendingReason": "Whether another app relays anonymous citizens into this endpoint as an authenticated service account could not be settled from this repo alone.",
 			"evidence": {
 				"hermes-agent": "source read at v2026.9.24, not driven: gateway/authz_mixin.py:35 <PLATFORM>_ALLOW_ALL_USERS lets anyone message the bot on WhatsApp, SMS, Telegram and others without an account; gateway/run_inbound_unauthorized.py:1-9 strangers otherwise get a pairing code; searched 'intake|case|file.{0,10}request' in gateway/ and tools/: no intake flow that files a request Note: A public bot is possible; filing the request somewhere is left to whatever tools the agent has.",
 				"dify": "source read at 1.17.1, not driven: web/i18n/en-US/app.json:2 web app access 'Anyone with the link'; api/controllers/web/passport.py:53-72 issues a token to an anonymous end-user session, so a resident chats without an account; filing the request needs a builder-built HTTP Request node or custom tool (web/i18n/en-US/workflow.json:11,45); no ready-made intake to a case or request system in core Note: anonymous chat is core; the filing target has to be wired by hand",
@@ -10674,6 +10711,10 @@
 				"n8n": "source read at n8n@2.40.7, not driven: a public chat page or embedded widget needs no n8n account (packages/@n8n/nodes-langchain/nodes/trigger/ChatTrigger/ChatTrigger.node.ts:408-452 'public', packages/frontend/@n8n/chat), and the agent behind it can file a request with any tool node; the filing flow has to be built as a workflow Note: The anonymous chat is shipped; the request filing is hand-built.",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: searched 'PublicPage|guest|anonymous' in assistant:lib/Controller: every route needs a logged-in user.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/configuration-end-user-authentication https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-connect-bot-to-web-channels \"No authentication\" lets anyone on a public website chat with the agent, and topics/flows file the request (Dataverse, connectors); the IT Helpdesk and Website Q&A templates show the pattern."
+			},
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmPubliekeChat"
 			}
 		},
 		{
@@ -10683,9 +10724,9 @@
 			"source": "competitor-derived",
 			"hermiq": "partial",
 			"built": {
-				"state": "built",
+				"state": "decided-no",
 				"owner": "ConductionNL/integriq",
-				"evidence": "Hermiq ships no connector catalogue and no per-connector agent tool. What is built is the seam: an agent or schedule webhook (appinfo/routes.php budget/agent-webhook routes) posts signed HTTP to an integriq Source, and lib/Settings/hermiq_register.json:136,562 names that integriq's job. Integriq's own catalogue (/catalog, lib/Service/Catalog/ConnectorTemplateLibrary.php, docs/features/connector-catalog.md) lists tens of adapters and source templates (BRP, KvK, SharePoint, Microsoft 365, S3, PDOK), not hundreds, and none is offered to a hermiq agent as a tool.",
+				"evidence": "decided-no for hermiq on 2026-10-30 (coverage lane hm-cover, reversible): the catalogue of ready-made connectors is integriq's. hermiq's part, a signed outbound webhook to an integriq source, is built and counted under dl-webhook-out. If agents should call integriq's catalogue as tools, that change belongs in integriq. Earlier evidence: Hermiq ships no connector catalogue and no per-connector agent tool. What is built is the seam: an agent or schedule webhook (appinfo/routes.php budget/agent-webhook routes) posts signed HTTP to an integriq Source, and lib/Settings/hermiq_register.json:136,562 names that integriq's job. Integriq's own catalogue (/catalog, lib/Service/Catalog/ConnectorTemplateLibrary.php, docs/features/connector-catalog.md) lists tens of adapters and source templates (BRP, KvK, SharePoint, Microsoft 365, S3, PDOK), not hundreds, and none is offered to a hermiq agent as a tool.",
 				"change": "integriq/openspec/changes/hermiq-ai-tooling",
 				"readOn": "2026-10-07"
 			},
@@ -10708,8 +10749,11 @@
 				"open-webui": "source read at v0.11.4, not driven: outside services connect through generic MCP and OpenAPI tool servers (src/lib/components/AddToolServerModal.svelte:43, utils/mcp/client.py) and community Tools from openwebui.com (workspace/Tools.svelte:639); searched 'connector' in backend/open_webui: no shipped catalogue of ready-made connectors Note: ready-made connectors are community Tools, not core",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: about 30 built-in tool modules for Nextcloud apps and a few web services (context_agent:ex_app/lib/all_tools/: calendar, deck, mail, talk, tables, forms, bookmarks, cookbook, openproject, weather, osm, here, youtube) plus any admin-added MCP server (mcp.py). Not hundreds of ready-made connectors."
 			},
-			"pendingReason": "Needs Ruben: whether 'agents reach outside services through integriq's catalogue as tools' gets a change (in integriq, which owns the catalogue) or this row becomes decided-no for hermiq.",
-			"note": "Re-rated 2026-10-07, rating stays partial. The linked change integriq hermiq-ai-tooling gives agents integriq's own operational actions (run or test a synchronisation, replay dead letters), not ready-made connectors to outside services, so it does not specify this row; it stays linked as the nearest change. No spec anywhere offers integriq's catalogue to agents as tools."
+			"note": "Re-rated 2026-10-07, rating stays partial. The linked change integriq hermiq-ai-tooling gives agents integriq's own operational actions (run or test a synchronisation, replay dead letters), not ready-made connectors to outside services, so it does not specify this row; it stays linked as the nearest change. No spec anywhere offers integriq's catalogue to agents as tools.",
+			"screen": {
+				"board": null,
+				"reason": "Koppelingen naar buitendiensten staan in de catalogus van integriq, niet in Hermiq."
+			}
 		},
 		{
 			"id": "me-rag-files",
@@ -10721,7 +10765,8 @@
 				"state": "building",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:1-24 states plainly that ragSearchMode semantic/hybrid 'DEGRADE GRACEFULLY to keyword search' (searchKeywordOnly, line 388, via ObjectService::searchObjectsPaginated); openspec/changes/vector-rag/tasks.md has 0 of 14 tasks checked and its proposal.md confirms no public OpenRegister vector-search facade exists yet.",
-				"change": "openspec/changes/vector-rag"
+				"change": "openspec/changes/vector-rag",
+				"requirement": "openspec/changes/vector-rag/specs/vector-rag :: Semantic and hybrid retrieval run through the facade"
 			},
 			"reachedOn": "Chat turn with an agent whose ragSearchMode/searchFiles is configured -> ContextRetrievalHandler::retrieveContext (keyword search only)",
 			"provider": "hermiq",
@@ -10742,7 +10787,11 @@
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/file_tools.py:1133-1270 read_file and search_files let the agent read and grep documents on the host on demand; gateway/platforms/base.py:1183-1231 attached documents are read into the turn; searched 'nextcloud' repo-wide: none, and no document index in core (RAG only via plugins/memory/retaindb, openviking) Note: Grounding in local files by reading them, not in Nextcloud Files and not through an index.",
 				"n8n": "source read at n8n@2.40.7, not driven: the Nextcloud node downloads files (packages/nodes-base/nodes/NextCloud/NextCloud.node.ts:124-125 download) that a Default Data Loader and a vector store insert node index (packages/@n8n/nodes-langchain/nodes/document_loaders/DocumentDefaultDataLoader, nodes/vector_store/), then a vector store tool grounds the agent (nodes/tools/ToolVectorStore); searched 'nextcloud' in packages/cli/src/modules/agents and chat-hub: knowledge upload takes local files only Note: Works as a hand-built ingestion workflow; no Nextcloud source in the agent's knowledge settings."
 			},
-			"pendingReason": "Real semantic/vector grounding is unbuilt (vector-rag change open); today's grounding is keyword search over the agent's declared views/files."
+			"note": "Moved from pending 2026-10-30: Plan: open change vector-rag (0/14 tasks); keyword grounding is built today.",
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmAgentBewerken"
+			}
 		},
 		{
 			"id": "me-permissions",
@@ -10754,10 +10803,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/ContextRetrievalHandler.php:388-410 (searchKeywordOnly) calls OpenRegister's public ObjectService::searchObjectsPaginated, scoped by the agent's declared 'views' (a tenancy filter), not by any per-caller file-ACL check visible in hermiq's own code.",
-				"change": "openspec/changes/vector-rag"
+				"change": "openspec/changes/vector-rag",
+				"requirement": "openspec/changes/vector-rag/specs/vector-rag :: A public vector-search facade is the only vector dependency"
 			},
 			"reachedOn": "Chat turn -> ContextRetrievalHandler -> ObjectService::searchObjectsPaginated",
-			"note": "Whether OpenRegister enforces the ASKING PERSON's own file/object permissions on top of the agent's view scope (rather than a run/system identity) lives entirely inside OpenRegister and could not be settled from hermiq's code alone.",
+			"note": "Whether OpenRegister enforces the ASKING PERSON's own file/object permissions on top of the agent's view scope (rather than a run/system identity) lives entirely inside OpenRegister and could not be settled from hermiq's code alone. Moved from pending 2026-10-30: The vector-rag requirement says the facade returns only chunks the acting user may read; the keyword path's enforcement lives in OpenRegister and was not re-read.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "knowledge-bases",
@@ -10776,7 +10826,10 @@
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: every agent run and MCP call executes as the requesting user (context_agent:ex_app/lib/main.py:190-191, mcp_server.py:31-41), so file, share and search results are limited to what that user may see; memories and skills live in the user's own folder (context_agent:ex_app/lib/all_tools/memory.py:26).",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-add-sharepoint https://learn.microsoft.com/en-us/microsoft-copilot-studio/microsoft-365-copilot-extend-with-agents with SharePoint knowledge \"the agent surfaces only content that the user has permission to access\"; Microsoft 365 Copilot uses the user's credentials for mail and files."
 			},
-			"pendingReason": "Needs checking OpenRegister's ObjectService/ACL enforcement for the session identity the chat request actually runs under; out of scope for a hermiq-only read."
+			"screen": {
+				"board": null,
+				"reason": "Geen eigen scherm: de rechten van de vrager gelden bij het zoeken, niet op een pagina."
+			}
 		},
 		{
 			"id": "me-context-docs",
@@ -10790,7 +10843,9 @@
 				"evidence": "lib/Service/Engine/ContextAssembler.php resolveDocuments() renders each Context.documents entry as a 'Document: {name}' section inside the charBudget accounting, skipping an entry without a name or body (tests/Unit/Service/Engine/ContextAssemblerDocumentsTest.php). The Contexts page (src/manifest.json page Contexts, /contexts) mounts src/modals/ContextFormModal.vue through slots.form-dialog: name, description, documents with a markdown editor per entry, files; saves through the context object store with the stored object spread first.",
 				"reachedOn": "Contexts (/contexts), New context or a row, Documents, Add document",
 				"change": "openspec/changes/archive/2026-09-29-hermiq-context-documents",
-				"readOn": "2026-09-29"
+				"readOn": "2026-09-29",
+				"spec": "openspec/specs/context-documents",
+				"requirement": "openspec/specs/context-documents :: A Context editor authors documents with a markdown editor per entry"
 			},
 			"reachedOn": "nothing",
 			"provider": "hermiq",
@@ -10811,7 +10866,11 @@
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: skills are markdown instruction documents (SKILL.md) the agent loads when relevant (context_agent:ex_app/lib/agent.py:165-177, context_agent:ex_app/lib/all_tools/skills.py:84-113); admins also set chat user instructions (assistant:src/components/AdminSettings.vue:123-141).",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-instructions https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-overview instructions up to 8,000 characters plus uploaded files and skills written in Markdown give an agent standards and guidance documents. Note: Skills are preview."
 			},
-			"pendingReason": "hermiq-context-documents change (assembler + editor) is open, not implemented -- the schema field exists but nothing reads or writes it yet."
+			"note": "Moved from pending 2026-10-30: Change archived 2026-09-29, requirements synced into specs/context-documents.",
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmContexten"
+			}
 		},
 		{
 			"id": "sk-share-tenants",
@@ -10835,7 +10894,6 @@
 			"dify": "partial",
 			"n8n": "no",
 			"open-webui": "no",
-			"pendingReason": "The spec's own e2e-exclude note says no committed Playwright fixture provisions a second organisation, and a live shared hub needs an OpenConnector connector not configured by default -- cross-org sharing works as a manual paste/GitHub install, not a live in-instance marketplace browse.",
 			"evidence": {
 				"hermes-agent": "source read at v2026.9.24, not driven: tools/skills_sync_client_org.py:1-7 org-shared skills under ~/.hermes/skills/_org/<org_id>/ with pull and propose; tools/skills_sync_client.py:6-8 the sync is INERT unless the user is a Nous portal admin (pre-launch gate); hermes_cli/subcommands/profile.py:20-23 --clone copies skills to another profile Note: Org skill sharing exists in code but is switched off for ordinary users; profiles on one install share by cloning.",
 				"dify": "source read at 1.17.1, not driven: api/models/skill.py:62,66 skills are unique per tenant_id (workspace); api/controllers/console/workspace/skills.py:494 export and :385 import (web/i18n/en-US/skill.json:224 '.zip with SKILL.md, agentskills.io format') copy a skill into another workspace; searched 'share' in skill.json and skills.py: no live cross-workspace sharing Note: copy by export/import only, updates do not follow",
@@ -10843,6 +10901,10 @@
 				"n8n": "source read at n8n@2.40.7, not driven: skills are stored inside one agent (packages/cli/src/modules/agents/entities/agent.entity.ts:35-36 skills column); searched 'share' in packages/cli/src/modules/agents/agents-skills.controller.ts and agent-skills.service.ts: no sharing of a skill with other projects or organisations; the shared Skills area is 'Coming soon' (en.json:3231-3232)",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: an admin can point a global skills folder that all users of the instance get (assistant:lib/Service/AgentSkillsService.php:331-361, src/components/AdminSettings.vue:183-214); no organisations to share between.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-manage https://learn.microsoft.com/en-us/microsoft-copilot-studio/multi-tenant-overview searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"share.{0,30}skill|tenant\" in skills pages: skills are shared only by downloading and re-uploading the file; no cross-tenant skill sharing."
+			},
+			"screen": {
+				"board": null,
+				"reason": "Besloten: niet bouwen."
 			}
 		},
 		{
@@ -10855,10 +10917,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Controller/OutsideAgentController.php:90-134 tools()/call(), both @NoAdminRequired @NoCSRFRequired; appinfo/routes.php outsideAgent#tools GET /api/outside-agent/tools, outsideAgent#call POST /api/outside-agent/call; lib/Controller/ChatController.php:261-266 sendMessage() same auth attributes, POST /api/chat/send.",
-				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library"
+				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library",
+				"spec": "openspec/specs/agent-tool-governance",
+				"requirement": "openspec/specs/agent-tool-governance :: An outside agent MUST reach declared tools through a registration"
 			},
 			"reachedOn": "Machine surface: an authenticated program (app password, no CSRF token needed) calls GET /api/outside-agent/tools then POST /api/outside-agent/call, or POST /api/chat/send directly",
-			"note": "No published OpenAPI/API doc page was found in docs/ describing these endpoints for third-party integrators; reachability is real, discoverability from outside the codebase is not verified.",
+			"note": "No published OpenAPI/API doc page was found in docs/ describing these endpoints for third-party integrators; reachability is real, discoverability from outside the codebase is not verified. Moved from pending 2026-10-30: The outside-agent API (outsideAgent#tools, outsideAgent#call) is registered and governed on the MCP tools page, as for op-outside-agent.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "outside-tools-and-api",
@@ -10877,7 +10941,10 @@
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: documented OCS API in assistant:openapi.json for chat sessions, messages, /chat/generate and /assignments (assistant:appinfo/routes.php:40-60, lib/Controller/AssignmentsApiController.php:59-208); the agent itself is reachable as TaskProcessing task type core:contextagent:interaction (context_agent:ex_app/lib/provider.py:20-26).",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-connect-bot-to-custom-application https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk programs talk to an agent through the documented Bot Framework Direct Line API (token, conversationId) or the Microsoft 365 Agents SDK and Client SDK."
 			},
-			"pendingReason": "whether third-party integrators are actually told about this API anywhere outside the code cannot be settled by reading the repo alone"
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmMcpTools"
+			}
 		},
 		{
 			"id": "co-algoritmeregister",
@@ -10889,10 +10956,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:477,483 aiFeature#publish/withdraw '/api/ai-features/{id}/publish' and '/withdraw'; lib/Controller/AiFeatureController.php:299-408 publishToAlgoritmeregister()/withdrawFromAlgoritmeregister() gate on ActionAuthService, run AlgoritmekaderMapper::assessReadiness(), and delegate to PublicationGateway (OpenCatalogi), 503 when absent; src/views/AiFeatureRegister.vue:149-161,507,540 renders Publish/Withdraw buttons calling src/api/aiFeatures.js:99,112.",
-				"spec": "openspec/specs/algoritmeregister-publication"
+				"spec": "openspec/specs/algoritmeregister-publication",
+				"requirement": "openspec/specs/algoritmeregister-publication :: Publication is delegated to the fleet publication path, not re-implemented"
 			},
 			"reachedOn": "AdminRoot.vue -> AiFeatureRegister.vue -> Publish/Withdraw buttons per row",
-			"note": "Publication is delegated to OpenCatalogi via PublicationGateway; publish returns 503 (feature stays internally governable) when that fleet leaf is absent.",
+			"note": "Publication is delegated to OpenCatalogi via PublicationGateway; publish returns 503 (feature stays internally governable) when that fleet leaf is absent. Moved from pending 2026-10-30: Publishing needs OpenCatalogi; without it publish answers 503 and the feature stays governed internally.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "ai-governance",
@@ -10903,7 +10971,6 @@
 			"dify": "no",
 			"n8n": "no",
 			"open-webui": "no",
-			"pendingReason": "Live publish success depends on OpenCatalogi being installed and reachable; could not verify a live 200 without running the app.",
 			"evidence": {
 				"hermes-agent": "source read at v2026.9.24, not driven: searched 'algoritme|algorithm register' in agent/ tools/ hermes_cli/ gateway/ cron/ plugins/ web/src: none",
 				"dify": "source read at 1.17.1, not driven: searched 'algoritme|algorithm.?regist|register|ai act' in api/, web/app and web/i18n/en-US: no hits for an algorithm register or any export to one; apps and agents carry no register fields (api/models/agent.py, api/models/model.py)",
@@ -10911,6 +10978,10 @@
 				"n8n": "source read at n8n@2.40.7, not driven: searched 'algoritme|algorithm register|algoritmeregister' in packages/cli/src, packages/nodes-base/nodes and packages/frontend/editor-ui/src: no connection to the Dutch Algoritmeregister",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: searched 'algoritme|register' in both repos: none.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/geo-data-residency searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"algoritme|algorithm register|public register\": no publication to the Dutch Algoritmeregister."
+			},
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmAlgoritmeregister"
 			}
 		},
 		{
@@ -10936,7 +11007,6 @@
 			"dify": "no",
 			"n8n": "no",
 			"open-webui": "no",
-			"pendingReason": "Could not confirm without running the app whether the generic OpenRegister index-page edit form actually renders and saves the impactAssessments array-of-object field, or whether it is write-only through occ/API.",
 			"evidence": {
 				"hermes-agent": "source read at v2026.9.24, not driven: searched 'ai.?act|risk.?class|iso.?42001|dpia|data protection officer|algoritme' in agent/ tools/ hermes_cli/ gateway/ cron/ plugins/ web/src: none; hermes_cli/profiles.py:538-575 ProfileInfo has no link or document field for an assessment",
 				"dify": "source read at 1.17.1, not driven: searched 'dpia|impact assessment|fundamental rights|privacy assessment' in api/, web/app and web/i18n/en-US: no hits; agents have name, description, role and icon only (api/controllers/console/agent/roster.py:706), no field or link for an assessment",
@@ -10944,6 +11014,10 @@
 				"n8n": "source read at n8n@2.40.7, not driven: searched 'DPIA|IAMA|fundamental rights|impact assessment' in packages/cli/src, packages/@n8n/api-types/src/agents and packages/frontend/editor-ui/src: no link from an agent or workflow to an assessment record",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: searched 'dpia|assessment' in both repos: none.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/geo-data-residency https://learn.microsoft.com/en-us/microsoft-copilot-studio/personal-data-summary Microsoft supplies DPIA guidance for the service through the Service Trust portal; searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"DPIA|impact assessment\" in agent settings: no link from an agent to its DPIA or FRIA."
+			},
+			"screen": {
+				"board": null,
+				"reason": "Besloten: niet bouwen."
 			}
 		},
 		{
@@ -10956,10 +11030,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/DelegationService.php:126-408 bounds a per-turn 'fan-out' (maxFanOut) so a single turn may call hermiq.delegateAgent more than once, but grep for async/concurrent/parallel/Promise in lib/Service/Engine/ToolLoop.php found nothing: tool calls in the loop show no concurrency primitives.",
-				"change": "openspec/changes/archive/2026-07-14-sub-agent-delegation"
+				"change": "openspec/changes/delegation-runs-in-parallel",
+				"spec": "openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation",
+				"requirement": "openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation :: Several parts of one task run on sub-agents at the same time (REQ-DLGPAR-001)"
 			},
 			"reachedOn": "An agent's turn issuing multiple hermiq.delegateAgent calls up to maxFanOut",
-			"note": "Fan-out (calling several sub-agents within a turn) is real and bounded; whether those calls execute concurrently or one after another could not be settled by reading the code alone, and the PHP synchronous request model suggests sequential.",
+			"note": "Fan-out (calling several sub-agents within a turn) is real and bounded; whether those calls execute concurrently or one after another could not be settled by reading the code alone, and the PHP synchronous request model suggests sequential. Moved from pending 2026-10-30: Fan-out (several sub-agents in one turn) is built and bounded; the calls run one after another, and no change plans running them at the same time.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "multi-agent",
@@ -10978,23 +11054,28 @@
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: the graph routes on the first tool call only ('This assumes single tool calls', context_agent:ex_app/lib/graph.py:62-66); searched 'parallel|subagent' in context_agent:ex_app: no sub-agents.",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents https://learn.microsoft.com/en-us/microsoft-copilot-studio/flows-overview orchestration delegates to child and connected agents, and flows run branches in parallel; searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"parallel\" for agents: no documented concurrent run of several sub-agents on one task."
 			},
-			"pendingReason": "whether delegated sub-agent calls actually run concurrently needs a live run to confirm timing"
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmChat"
+			}
 		},
 		{
 			"id": "op-rbac",
 			"area": "operations",
 			"name": "Give people different rights: admin, builder or user.",
 			"source": "competitor-derived",
-			"hermiq": "yes",
+			"hermiq": "partial",
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
-				"spec": "openspec/specs/action-authorization",
-				"readOn": "2026-10-07"
+				"spec": "openspec/changes/action-matrix-screen/specs/action-authorization",
+				"readOn": "2026-10-07",
+				"requirement": "openspec/changes/action-matrix-screen/specs/action-authorization :: An administrator edits the action matrix on the tenant management page (REQ-ACTMX-001)",
+				"change": "openspec/changes/action-matrix-screen"
 			},
 			"reachedOn": "Every action-auth-gated endpoint in the app (compliance.*, tenantops.*, aifeature.*, agenttemplate.approve-quarantined, etc.); the matrix itself is admin-configured (not directly observed which UI edits it)",
-			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles; agents add an owner (builder) versus shared-user split. No screen edits the action matrix: lib/actions.seed.json's comment names an admin settings page that does not exist, and the matrix lives in the app config key hermiq/actions (checked 2026-10-07). Specified after the fact in openspec/specs/action-authorization.",
+			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles; agents add an owner (builder) versus shared-user split. No screen edits the action matrix: lib/actions.seed.json's comment names an admin settings page that does not exist, and the matrix lives in the app config key hermiq/actions (checked 2026-10-07). Specified after the fact in openspec/specs/action-authorization. Moved from pending 2026-10-30: specScreens names HmAgents and HmTenantOps for action-authorization. No screen edits the action matrix yet; it lives in app config.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "hosting-and-security",
@@ -11013,7 +11094,10 @@
 				"open-webui": "source read at v0.11.4, not driven: roles admin, user, pending (backend/open_webui/utils/auth.py get_admin_user / get_verified_user); per-group permissions for workspace models, knowledge, tools, skills (builder rights) and chat features (src/lib/components/admin/Users/Groups/Permissions.svelte:44-71, config.py DEFAULT_USER_PERMISSIONS)",
 				"hermes-agent": "source read at v2026.9.24, not driven: gateway/slash_access.py:1-27 per platform allow_admin_from (all commands) vs user_allowed_commands for other allowed users; gateway/authz_mixin.py:32-37 allowlists decide who may chat; plugins/dashboard_auth/basic/__init__.py:1-8 the dashboard has one username and every signed-in user has full control (hermes_cli/dashboard_auth/base.py:12-16 no role field) Note: Two chat roles (admin, user) for slash commands; no builder role and no roles in the dashboard."
 			},
-			"pendingReason": "The page question is answered (there is none). Needs Ruben: rate yes with the matrix edited through app config, or partial until a screen edits it, then move the row into capabilities."
+			"screen": {
+				"canvas": "design-system",
+				"board": "HmTenantOps"
+			}
 		},
 		{
 			"id": "op-languages",
@@ -11025,10 +11109,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "l10n/ contains en.json/en.js, en_US.json/en_US.js, and nl.json/nl.js (Dutch translation pair alongside English).",
-				"change": "openspec/changes/nl-locale-completeness"
+				"change": "openspec/changes/nl-locale-completeness",
+				"requirement": "openspec/changes/nl-locale-completeness/specs/i18n-completeness :: Every English translation key MUST have a non-empty Dutch translation"
 			},
 			"reachedOn": "Nextcloud's own language switcher (personal settings) once nl is selected",
-			"note": "Confirmed the nl.json/nl.js translation files exist; did not diff their key coverage against en.json to confirm every string is actually translated (nl-locale-completeness is exactly the spec that tracks that gap).",
+			"note": "Confirmed the nl.json/nl.js translation files exist; did not diff their key coverage against en.json to confirm every string is actually translated (nl-locale-completeness is exactly the spec that tracks that gap). Moved from pending 2026-10-30: Plan: open change nl-locale-completeness (0/8 tasks) checks Dutch key parity.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "setup-and-admin",
@@ -11039,7 +11124,6 @@
 			"dify": "partial",
 			"n8n": "no",
 			"open-webui": "yes",
-			"pendingReason": "Did not verify nl.json has full key parity with en.json (that is the subject of the nl-locale-completeness spec itself).",
 			"evidence": {
 				"hermes-agent": "source read at v2026.9.24, not driven: web/src/i18n/ ships af, ar, de, en, es, fr, ga, hu, it, ja, ko, pt, ru, tr, uk, zh, zh-hant; locales/*.yaml the same set for CLI and gateway strings; apps/desktop/src/i18n adds no nl either; searched for nl locale files repo-wide: none Note: The model answers in Dutch when addressed in Dutch, but dashboard, CLI and desktop text have no Dutch translation.",
 				"dify": "source read at 1.17.1, not driven: web/i18n-config/languages.ts:158-162 nl-NL 'Nederlands' marked supported; web/i18n/nl-NL has all 37 namespaces, but about 3,800 of 5,947 values are identical to en-US (e.g. workflow.json 921 of 1161, dataset-documents.json 258 of 260 untranslated), while agent-v-2, permission and skill are translated Note: Dutch is selectable, roughly two thirds of the UI still shows English",
@@ -11047,9 +11131,14 @@
 				"n8n": "source read at n8n@2.40.7, not driven: packages/frontend/@n8n/i18n/src/locales/ holds only en.json; packages/@n8n/config/src/index.ts:253-254 N8N_DEFAULT_LOCALE defaults to 'en' with no Dutch locale shipped Note: Agents answer in Dutch if prompted in Dutch; the product UI is English only.",
 				"nextcloud-assistant": "source read at assistant v4.0.0 and context_agent v2.8.0, not driven: assistant:l10n/nl.json (209 translated strings) and context_agent:l10n/nl.json; tools answer in the user's language (context_agent:ex_app/lib/agent.py:136-138).",
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-language-support the authoring canvas and agent languages include Dutch (nl-NL); agents can be multilingual."
+			},
+			"screen": {
+				"board": null,
+				"reason": "Taal volgt de taalinstelling van de gebruiker in Nextcloud; Hermiq heeft geen eigen taalkeuze."
 			}
 		}
 	],
+	"pending": [],
 	"specScreens": {
 		"action-authorization": {
 			"board": [
