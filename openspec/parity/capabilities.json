@@ -1663,7 +1663,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:1173-1200 sendViaStream() calls streamChatMessage with onToken appending to streamingText live; src/api/chat.js:313-364 streamChatMessage() parses the SSE frames; routes.php:551 chatStream#stream POST /api/chat/stream.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/changes/chat-streaming-and-feedback",
+				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)"
 			},
 			"reachedOn": "/chat Chat page, streamed by default with a POST /send fallback on transport failure",
 			"provider": "hermiq",
@@ -1846,7 +1847,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:299-365 thumbs up/down buttons + optional comment box, :1271 sendFeedback(message, type); routes.php:527-532 chat#sendFeedback POST /api/conversations/{uuid}/messages/{id}/feedback.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/changes/chat-streaming-and-feedback",
+				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: A person rates an answer up or down, with an optional comment (REQ-CHFB-001)"
 			},
 			"reachedOn": "/chat Chat page, per assistant message",
 			"provider": "hermiq",
