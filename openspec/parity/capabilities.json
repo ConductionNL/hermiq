@@ -10607,8 +10607,9 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Settings/hermiq_register.json:2599 Agent.actingUser property; lib/Service/ScheduleService.php:582-589 resolves actingUser, :2231,:2578 refuses the run when a declared actingUser no longer resolves (agent-identity-narrows), falls back to schedule owner when unset; lib/Service/Engine/Engine.php:329 and ContextAssembler.php:180 thread actingUserId through the turn. No component sets actingUser: src/modals/AgentFormModal.vue has no such field; it only appears read-only in src/dialogs/AgentFactsheetDialog.vue and src/components/ToolInvocationTable.vue.",
-				"spec": "openspec/specs/agent-identity",
-				"requirement": "openspec/specs/agent-identity :: A declared acting identity MUST NOT be replaced by another"
+				"spec": "openspec/changes/agent-acting-identity-picker/specs/agent-identity",
+				"requirement": "openspec/changes/agent-acting-identity-picker/specs/agent-identity :: The agent edit page sets whose rights the agent works with (REQ-AGID-001)",
+				"change": "openspec/changes/agent-acting-identity-picker"
 			},
 			"reachedOn": "nothing",
 			"note": "The choose-owner-vs-actingUser-vs-refuse logic is fully implemented server-side and openspec/specs/agent-identity/spec.md is marked DONE, but no screen lets a user pick actingUser; it is only settable via a direct object write and only viewable, not editable, in the UI. Moved from pending 2026-10-30: Built server-side (actingUser resolved, a run refused when it no longer resolves); HmAgentBewerken draws the picker 'Namens wie werkt de agent', which no change plans yet.",
