@@ -11064,14 +11064,15 @@
 			"area": "operations",
 			"name": "Give people different rights: admin, builder or user.",
 			"source": "competitor-derived",
-			"hermiq": "yes",
+			"hermiq": "partial",
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
-				"spec": "openspec/specs/action-authorization",
+				"spec": "openspec/changes/action-matrix-screen/specs/action-authorization",
 				"readOn": "2026-10-07",
-				"requirement": "openspec/specs/action-authorization :: A governance action runs only for an administrator or a group the matrix names"
+				"requirement": "openspec/changes/action-matrix-screen/specs/action-authorization :: An administrator edits the action matrix on the tenant management page (REQ-ACTMX-001)",
+				"change": "openspec/changes/action-matrix-screen"
 			},
 			"reachedOn": "Every action-auth-gated endpoint in the app (compliance.*, tenantops.*, aifeature.*, agenttemplate.approve-quarantined, etc.); the matrix itself is admin-configured (not directly observed which UI edits it)",
 			"note": "Roles are admin-defined groups mapped per action, not three fixed named roles; agents add an owner (builder) versus shared-user split. No screen edits the action matrix: lib/actions.seed.json's comment names an admin settings page that does not exist, and the matrix lives in the app config key hermiq/actions (checked 2026-10-07). Specified after the fact in openspec/specs/action-authorization. Moved from pending 2026-10-30: specScreens names HmAgents and HmTenantOps for action-authorization. No screen edits the action matrix yet; it lives in app config.",
