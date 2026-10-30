@@ -123,7 +123,9 @@ class EnginePromptVariablesTest extends TestCase {
 		$retrieval = $this->createMock(ContextRetrievalHandler::class);
 		$retrieval->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
 		$history = $this->createMock(MessageHistoryHandler::class);
-		$history->method('buildMessageHistory')->willReturn([]);
+		$history->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$engine = new Engine(
 			$objectService,

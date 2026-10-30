@@ -101,6 +101,7 @@ class GoalServiceTest extends TestCase {
 				bool $failIfExists = false,
 				bool $_unowned = false,
 				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$this->writes++;
 				$id = $uuid ?? sprintf('00000000-0000-4000-8000-%012d', $this->writes);

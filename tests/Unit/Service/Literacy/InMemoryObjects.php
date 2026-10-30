@@ -122,6 +122,7 @@ final class InMemoryObjects extends ObjectService {
 		bool $failIfExists = false,
 		bool $_unowned = false,
 		bool $_dedupOverride = false,
+		?string $_owner = null,
 	): ObjectEntity {
 		$data = is_array($object) === true ? $object : $object->getObject();
 		$self = (array)($data['@self'] ?? []);

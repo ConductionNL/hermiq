@@ -137,6 +137,8 @@ class IntakeServiceTest extends TestCase {
 		return [
 			[
 				'name' => 'dossiq.melding.create',
+				'scope' => 'create',
+				'action' => 'create',
 				'annotations' => [IntakeToolGrant::INTAKE_ANNOTATION => true, 'destructiveHint' => true],
 			],
 			[

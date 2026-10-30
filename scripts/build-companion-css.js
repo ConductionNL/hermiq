@@ -59,10 +59,201 @@ const HEADER =
 	+ ' * Regenerate with `npm run companion-css:build`. */\n'
 
 /**
+ * The element the companion mounts in (src/companion.js `root.id`).
+ */
+const ROOT = '#hermiq-companion-root'
+
+/**
+ * At-rules that cannot live inside `@scope` and style nothing by themselves:
+ * they are kept at the top level.
+ */
+const HOISTED =
+	/^@(charset|import|namespace|font-face|keyframes|-webkit-keyframes|page|property|layer\s*[^{]*;)/i
+
+/**
+ * Split a stylesheet into its top-level statements and blocks, skipping
+ * comments and keeping strings intact.
+ *
+ * @param {string} css The stylesheet.
+ * @return {string[]} The top-level chunks, in order.
+ */
+function topLevel(css) {
+	const chunks = []
+	let depth = 0
+	let start = 0
+	for (let index = 0; index < css.length; index++) {
+		const char = css[index]
+		if (char === '/' && css[index + 1] === '*') {
+			const end = css.indexOf('*/', index + 2)
+			index = end === -1 ? css.length : end + 1
+			continue
+		}
+		if (char === '"' || char === "'") {
+			let cursor = index + 1
+			while (cursor < css.length && css[cursor] !== char) {
+				cursor += css[cursor] === '\\' ? 2 : 1
+			}
+			index = cursor
+			continue
+		}
+		if (char === '{') {
+			depth++
+		} else if (char === '}') {
+			depth--
+			if (depth === 0) {
+				chunks.push(css.slice(start, index + 1).trim())
+				start = index + 1
+			}
+		} else if (char === ';' && depth === 0) {
+			chunks.push(css.slice(start, index + 1).trim())
+			start = index + 1
+		}
+	}
+	const rest = css.slice(start).trim()
+	if (rest !== '') {
+		chunks.push(rest)
+	}
+	return chunks.filter((chunk) => chunk !== '')
+}
+
+/**
+ * Keep the library's rules inside the companion.
+ *
+ * 🔴 WHY. This file is fetched on every page of every app, and the library
+ * styles its components with SCOPED selectors (`.cn-x[data-v-1234]`) whose hash
+ * is the same in every version of the library. Copied whole, an older library
+ * here overrode the NEWER library of whatever app the page belonged to, rule by
+ * rule, wherever both had the same selector. Measured on pipelinq's lead page:
+ * a list footer kept `margin: auto -16px -16px !important` from this file (built
+ * from nextcloud-vue 2.57.3) over the app's own 2.81.0 rule that bleeds 12px,
+ * and the tab panel scrolled by 4px. `:root` custom properties leaked the same
+ * way.
+ *
+ * Every style rule now sits in `@scope (#hermiq-companion-root)`, so it only
+ * matches inside the companion; `:root` becomes `:scope`, the companion's root.
+ * At-rules that cannot be scoped and style nothing on their own (keyframes,
+ * font faces, @page) stay at the top level. `@scope` adds no specificity, so the
+ * companion looks as it did.
+ *
+ * @param {string} css The library stylesheet.
+ * @return {string} The scoped stylesheet.
+ */
+function scopeToCompanion(css) {
+	const hoisted = []
+	const scoped = []
+	for (const chunk of topLevel(css)) {
+		if (HOISTED.test(chunk)) {
+			hoisted.push(chunk)
+		} else {
+			scoped.push(
+				chunk.replace(/(^|[\s,(>+~])(?:html\s+)?:root\b/g, '$1:scope'),
+			)
+		}
+	}
+	return (
+		hoisted.join('\n')
+		+ '\n@scope ('
+		+ ROOT
+		+ ') {\n'
+		+ scoped.join('\n')
+		+ '\n}\n'
+	)
+}
+
+/**
  * Build the stylesheet contents.
  *
  * @return {string} The file body.
  */
+// The companion's built bundles: the purge keeps the library rules these use.
+const BUNDLES = ['hermiq-companion.js', 'hermiq-companion-panel.js'].map((file) => path.join(__dirname, '..', 'js', file))
+
+// Classes no bundle spells out: states the libraries set at runtime, Vue's
+// transition classes, and the popover/button internals of @nextcloud/vue.
+const SAFELIST = [
+	/^(is|has)-/,
+	/-(enter|leave)(-from|-to|-active)?$/,
+	/^(v-popper|button-vue|action-item|material-design-icon|checkbox-|input-field|modal-|dialog)/,
+	/^(active|open|disabled|selected|focus|focus-visible|hidden)$/,
+]
+
+/**
+ * The names the bundles carry: every identifier-like token, and the ones that
+ * end in a dash as prefixes (a BEM modifier built at runtime, `cn-x--${pos}`).
+ *
+ * @param {string[]} texts The bundles' source.
+ * @return {{names: Set<string>, prefixes: string[]}} What a class may match.
+ */
+function usedNames(texts) {
+	const names = new Set()
+	for (const text of texts) {
+		for (const match of text.matchAll(/[A-Za-z_][\w-]*/g)) {
+			names.add(match[0])
+		}
+	}
+	const prefixes = [...names].filter((name) => name.endsWith('-') && name.length > 3)
+	return { names, prefixes }
+}
+
+/**
+ * A selector list split at its top-level commas (not those inside `:is()`).
+ *
+ * @param {string} list The selector list.
+ * @return {string[]} The selectors.
+ */
+function selectorsOf(list) {
+	const out = []
+	let depth = 0
+	let start = 0
+	for (let index = 0; index < list.length; index++) {
+		const char = list[index]
+		if (char === '(' || char === '[') {
+			depth++
+		} else if (char === ')' || char === ']') {
+			depth--
+		} else if (char === ',' && depth === 0) {
+			out.push(list.slice(start, index))
+			start = index + 1
+		}
+	}
+	out.push(list.slice(start))
+	return out.map((selector) => selector.trim()).filter(Boolean)
+}
+
+/**
+ * Keep the rules a selector of which can match in the companion; drop the rest,
+ * looking into @media, @supports, @container and @layer blocks.
+ *
+ * @param {string} css The library stylesheet.
+ * @param {{names: Set<string>, prefixes: string[]}} used What the bundles use.
+ * @return {string} The purged stylesheet.
+ */
+function purge(css, used) {
+	const known = (name) => used.names.has(name) || used.prefixes.some((prefix) => name.startsWith(prefix)) || SAFELIST.some((pattern) => pattern.test(name))
+	const matches = (selector) => [...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].every((match) => known(match[1]))
+	const kept = []
+	for (const chunk of topLevel(css)) {
+		const brace = chunk.indexOf('{')
+		if (brace === -1 || HOISTED.test(chunk)) {
+			kept.push(chunk)
+			continue
+		}
+		// The comments before a rule are part of its chunk; a comma in one would read as a selector.
+		const head = chunk.slice(0, brace).replace(/\/\*[\s\S]*?\*\//g, '').trim()
+		if (/^@(media|supports|container|layer)\b/i.test(head)) {
+			const inner = purge(chunk.slice(brace + 1, chunk.lastIndexOf('}')), used)
+			if (inner.trim() !== '') {
+				kept.push(head + ' {' + inner + '}')
+			}
+			continue
+		}
+		if (head.startsWith('@') || selectorsOf(head).some(matches)) {
+			kept.push(chunk)
+		}
+	}
+	return kept.join('\n')
+}
+
 function build() {
 	if (fs.existsSync(SOURCE) === false) {
 		console.error(`Source stylesheet not found: ${SOURCE}`)
@@ -70,11 +261,24 @@ function build() {
 		process.exit(1)
 	}
 
-	return HEADER + fs.readFileSync(SOURCE, 'utf8')
+	let css = fs.readFileSync(SOURCE, 'utf8')
+	if (BUNDLES.every((file) => fs.existsSync(file))) {
+		css = purge(css, usedNames(BUNDLES.map((file) => fs.readFileSync(file, 'utf8'))))
+	} else {
+		console.warn('Companion bundles not built yet: the stylesheet is not purged. Run it after webpack.')
+	}
+
+	return HEADER + scopeToCompanion(css)
 }
 
-const contents = build()
+if (require.main === module) {
+	const contents = build()
 
-fs.mkdirSync(OUT_DIR, { recursive: true })
-fs.writeFileSync(OUT, contents)
-console.log(`Wrote css/companion.css (${(contents.length / 1024).toFixed(0)} KB).`)
+	fs.mkdirSync(OUT_DIR, { recursive: true })
+	fs.writeFileSync(OUT, contents)
+	console.log(
+		`Wrote css/companion.css (${(contents.length / 1024).toFixed(0)} KB).`,
+	)
+}
+
+module.exports = { purge, scopeToCompanion, selectorsOf, topLevel, usedNames }

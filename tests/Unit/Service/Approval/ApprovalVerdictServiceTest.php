@@ -217,6 +217,42 @@ class ApprovalVerdictServiceTest extends TestCase {
 	}//end testARefusalNamesItsReason()
 
 	/**
+	 * Refusals that do not match the caller's own toolcall approval.
+	 *
+	 * @return array<string, array{array<string, mixed>, array<string, mixed>}>
+	 */
+	public static function identityRefusals(): array {
+		return [
+			'not a toolcall' => [['sourceType' => 'schedule'], []],
+			'another batch' => [[], ['binding' => str_repeat('c', 64)]],
+			'another tool' => [[], ['toolId' => 'integriq.discardDeadLetters']],
+			'another agent' => [[], ['actingAgent' => 'g2']],
+		];
+
+	}//end identityRefusals()
+
+	/**
+	 * The endpoint is public: an approval id alone must not reveal who decided it, or when.
+	 *
+	 * @param array<string, mixed> $approval Approval overrides.
+	 * @param array<string, mixed> $request  Request overrides.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider identityRefusals
+	 */
+	public function testAnIdentityRefusalRevealsNoDecision(array $approval, array $request): void {
+		$verdict = $this->service(approval: $this->approval(override: $approval))
+			->verify(request: $this->request(override: $request))['verdict'];
+
+		$this->assertContains(needle: $verdict['reason'], haystack: ['unknown', 'binding-mismatch']);
+		$this->assertNull(actual: $verdict['decidedBy']);
+		$this->assertNull(actual: $verdict['decidedAt']);
+		$this->assertNull(actual: $verdict['expiresAt']);
+
+	}//end testAnIdentityRefusalRevealsNoDecision()
+
+	/**
 	 * The legacy `user` field is the principal when `actingUser` is unset.
 	 *
 	 * @return void

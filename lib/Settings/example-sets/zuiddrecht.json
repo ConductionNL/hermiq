@@ -1,0 +1,165 @@
+{
+	"set": "zuiddrecht",
+	"$comment": "hermiq's part of the Zuiddrecht example set: the Woo-triage agent that the HmTalk board shows in its own Talk room. It is private, open to the demo employee Pieter and the Woo team lead Anouk, and reachable from Talk, so its bot is registered when the agent is written. The room itself is not example data: hermiq creates a session's Talk room only when the session is created through its API, so after the install the session is created as Pieter (POST /apps/hermiq/api/sessions with this agent) and Anouk is added to it (POST /apps/hermiq/api/sessions/{uuid}/participants). Four advisory records on the Lindelaan Woo case (portaliq's fragment writes the case) give its AI oversight card (DqZaakAssistent) what Pieter and Anouk did with the assistant's suggestions. Install with `occ openregister:example-set:install zuiddrecht`. Pieter is in the AI-oversight group, so he may download what the assistant did on a case (DqZaakAssistent).",
+	"after": [
+		"portaliq"
+	],
+	"groups": [
+		{
+			"group": "ai-oversight",
+			"displayName": "AI-toezicht",
+			"members": [
+				"pieter"
+			]
+		}
+	],
+	"objects": [
+		{
+			"key": "agent-woo-triage",
+			"register": "hermiq",
+			"schema": "agent",
+			"data": {
+				"name": "Woo-triage",
+				"description": "Beoordeelt binnengekomen Woo-verzoeken: zijn de documenten verzameld en beoordeeld, en kan de zaak door naar de besluitfase. Vraagt goedkeuring voor elke statuswijziging.",
+				"type": "chat",
+				"prompt": "Je helpt het team Woo en informatie van de gemeente Zuiddrecht. Beoordeel of een Woo-verzoek compleet is en noem je bronnen. Wijzig een zaak alleen na goedkeuring.",
+				"active": true,
+				"isPrivate": true,
+				"invitedUsers": [
+					"{{cast:pieter.uid}}",
+					"{{cast:anouk.uid}}"
+				],
+				"requiresApproval": true,
+				"talkEnabled": true
+			}
+		},
+		{
+			"key": "ai-lindelaan-documenten",
+			"register": "hermiq",
+			"schema": "approval",
+			"lookups": {
+				"case": {
+					"register": "dossiq",
+					"schema": "case",
+					"where": {
+						"externalReference": "MZ-ZDR-2026-0412"
+					}
+				}
+			},
+			"data": {
+				"status": "approved",
+				"sourceType": "advisory",
+				"requestedAt": "{{datetime:-9 10:14}}",
+				"decidedAt": "{{datetime:-9 10:14}}",
+				"decidedBy": "{{cast:pieter.uid}}",
+				"decidedVia": "origin-app",
+				"prompt": "Welke documenten moeten nog beoordeeld?",
+				"advisoryContext": {
+					"originApp": "dossiq",
+					"suggestionType": "question",
+					"action": "accepted",
+					"subjectType": "case",
+					"subjectId": "{{lookup:case}}",
+					"model": "Hermiq, lokaal",
+					"suggestion": "Drie documenten wachten nog: de mail van de aannemer, de klachtenlijst en de interne notitie."
+				}
+			}
+		},
+		{
+			"key": "ai-lindelaan-ontvangstbevestiging",
+			"register": "hermiq",
+			"schema": "approval",
+			"lookups": {
+				"case": {
+					"register": "dossiq",
+					"schema": "case",
+					"where": {
+						"externalReference": "MZ-ZDR-2026-0412"
+					}
+				}
+			},
+			"data": {
+				"status": "overridden",
+				"sourceType": "advisory",
+				"requestedAt": "{{datetime:-9 10:16}}",
+				"decidedAt": "{{datetime:-9 10:16}}",
+				"decidedBy": "{{cast:pieter.uid}}",
+				"decidedVia": "origin-app",
+				"prompt": "Concepttekst ontvangstbevestiging",
+				"advisoryContext": {
+					"originApp": "dossiq",
+					"suggestionType": "draft",
+					"action": "overridden",
+					"subjectType": "case",
+					"subjectId": "{{lookup:case}}",
+					"model": "Hermiq, lokaal",
+					"suggestion": "Wij hebben uw verzoek op 3 oktober ontvangen en beslissen uiterlijk op 1 november."
+				}
+			}
+		},
+		{
+			"key": "ai-lindelaan-samenvatting",
+			"register": "hermiq",
+			"schema": "approval",
+			"lookups": {
+				"case": {
+					"register": "dossiq",
+					"schema": "case",
+					"where": {
+						"externalReference": "MZ-ZDR-2026-0412"
+					}
+				}
+			},
+			"data": {
+				"status": "unused",
+				"sourceType": "advisory",
+				"requestedAt": "{{datetime:-10 15:40}}",
+				"decidedAt": "{{datetime:-10 15:40}}",
+				"decidedBy": "{{cast:anouk.uid}}",
+				"decidedVia": "origin-app",
+				"prompt": "Samenvatting van de mails",
+				"advisoryContext": {
+					"originApp": "dossiq",
+					"suggestionType": "summary",
+					"action": "ignored",
+					"subjectType": "case",
+					"subjectId": "{{lookup:case}}",
+					"model": "Hermiq, lokaal",
+					"suggestion": "De aannemer meldt vertraging in de planning; bewoners klagen over donkere stukken van het fietspad."
+				}
+			}
+		},
+		{
+			"key": "ai-lindelaan-weigeringsgrond",
+			"register": "hermiq",
+			"schema": "approval",
+			"lookups": {
+				"case": {
+					"register": "dossiq",
+					"schema": "case",
+					"where": {
+						"externalReference": "MZ-ZDR-2026-0412"
+					}
+				}
+			},
+			"data": {
+				"status": "denied",
+				"sourceType": "advisory",
+				"requestedAt": "{{datetime:-10 15:41}}",
+				"decidedAt": "{{datetime:-10 15:41}}",
+				"decidedBy": "{{cast:anouk.uid}}",
+				"decidedVia": "origin-app",
+				"prompt": "Voorstel weigeringsgrond",
+				"advisoryContext": {
+					"originApp": "dossiq",
+					"suggestionType": "refusal-ground",
+					"action": "rejected",
+					"subjectType": "case",
+					"subjectId": "{{lookup:case}}",
+					"model": "Hermiq, lokaal",
+					"suggestion": "Artikel 5.1, tweede lid, onder e (persoonlijke levenssfeer) voor de namen in de klachtenlijst."
+				}
+			}
+		}
+	]
+}

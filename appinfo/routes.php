@@ -178,6 +178,10 @@ return [
             'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
         ],
 
+        // Advisory AI-oversight records about one subject, for whoever may open that subject.
+        ['name' => 'aiOversight#subject', 'url' => '/api/ai-oversight/subject', 'verb' => 'GET'],
+        ['name' => 'aiOversight#subjectExport', 'url' => '/api/ai-oversight/subject/export', 'verb' => 'GET'],
+
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         // Approval verification contract (hermiq#1045): another app asks for a signed verdict.
         ['name' => 'approvalVerify#verify', 'url' => '/api/approvals/verify', 'verb' => 'POST'],
@@ -468,6 +472,7 @@ return [
         // bind one feature to a provider and model within the organisation's model policy,
         // and read which provider each feature will use and where that provider runs.
         ['name' => 'aiFeature#residencyOverview', 'url' => '/api/ai-features/residency', 'verb' => 'GET'],
+        ['name' => 'aiFeatureRun#runOnDocument', 'url' => '/api/ai-features/{slug}/run-on-document', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
         ['name' => 'aiFeature#bind', 'url' => '/api/ai-features/{id}/binding', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'Settings\ProviderResidencySettings#get', 'url' => '/api/settings/provider-residency', 'verb' => 'GET'],
 
