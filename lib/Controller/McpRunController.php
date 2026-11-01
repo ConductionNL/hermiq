@@ -62,6 +62,7 @@ use OCA\Hermiq\Service\Engine\TurnGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -160,6 +161,8 @@ class McpRunController extends Controller {
 	 *                                              workspace tools for the length of one dispatch.
 	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
 	 *                                                 for the agent's tool call cap.
+	 * @param GuardrailPolicyService|null $guardrailService Applies the output filters to
+	 *                                                      the steps shown in the chat.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -179,6 +182,7 @@ class McpRunController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
+		private readonly ?GuardrailPolicyService $guardrailService = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -498,6 +502,8 @@ class McpRunController extends Controller {
 			// the UI is listening to — is never touched. The run token binds this
 			// request to its conversation, which is what lets the two be joined.
 			$startedAt = microtime(true);
+			$policy = $this->guardrailService?->effectivePolicyFor(organisation: $this->organisationOf(agent: $agent));
+			$shownArguments = $this->shownInChat(policy: $policy, value: $arguments);
 
 			try {
 				$resultJson = (string)$functionInfo->callWithArguments($arguments);
@@ -510,7 +516,7 @@ class McpRunController extends Controller {
 				$this->runStepBus->record(
 					conversationId: $conversationId,
 					toolName: $name,
-					arguments: $arguments,
+					arguments: $shownArguments,
 					result: 'The tool call could not be completed.',
 					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
 					outcome: RunStepBus::OUTCOME_ERROR
@@ -522,8 +528,8 @@ class McpRunController extends Controller {
 			$this->runStepBus->record(
 				conversationId: $conversationId,
 				toolName: $name,
-				arguments: $arguments,
-				result: $resultJson,
+				arguments: $shownArguments,
+				result: (string)$this->shownInChat(policy: $policy, value: $resultJson),
 				durationMs: (int)round((microtime(true) - $startedAt) * 1000)
 			);
 
@@ -638,6 +644,25 @@ class McpRunController extends Controller {
 
 		return null;
 	}//end loadAgent()
+
+	/**
+	 * A tool step's arguments or result as the chat may show it: through the
+	 * policy's output filters, or as given when no policy is resolved.
+	 *
+	 * @param array<string,mixed>|null $policy The agent organisation's effective policy.
+	 * @param mixed                    $value  The arguments or the result text.
+	 *
+	 * @return mixed
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownInChat(?array $policy, mixed $value): mixed {
+		if ($policy === null || $this->guardrailService === null) {
+			return $value;
+		}
+
+		return $this->guardrailService->filterOutputValue(policy: $policy, value: $value);
+	}//end shownInChat()
 
 	/**
 	 * The agent's organisation (for the guardrail policy), or '' when unset.
