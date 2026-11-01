@@ -435,7 +435,7 @@ class GuardrailPolicyService {
 	 * `"password": "..."` match too. A value the filter does not change is returned
 	 * as given; a redacted one comes back decoded when the redacted JSON still
 	 * parses, and as the redacted text otherwise. A blocked value becomes the
-	 * withheld placeholder.
+	 * withheld placeholder, which is not JSON and so comes back as text.
 	 *
 	 * @param array<string,mixed> $policy The effective policy (from `effectivePolicyFor()`).
 	 * @param mixed               $value  The arguments or result to show.
@@ -460,7 +460,7 @@ class GuardrailPolicyService {
 			return $value;
 		}
 
-		if ($filtered['blocked'] === true || is_string($value) === true) {
+		if (is_string($value) === true) {
 			return $filtered['text'];
 		}
 

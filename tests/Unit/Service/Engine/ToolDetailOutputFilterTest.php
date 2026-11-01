@@ -56,6 +56,11 @@ use Psr\Log\NullLogger;
  * @covers \OCA\Hermiq\Service\GuardrailPolicyService
  * @covers \OCA\Hermiq\Controller\McpRunController
  * @covers \OCA\Hermiq\Service\Engine\RunStepBus
+ * @uses   \OCA\Hermiq\Service\Engine\FacadeToolInvoker
+ * @uses   \OCA\Hermiq\Service\Engine\TurnGuard
+ * @uses   \OCA\Hermiq\Service\Agent\AgentAvailability
+ * @uses   \OCA\Hermiq\Service\RedactionService
+ * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
  */
 final class ToolDetailOutputFilterTest extends TestCase {
 
@@ -247,11 +252,55 @@ final class ToolDetailOutputFilterTest extends TestCase {
 
 		$clean = ['q' => 'nothing here', 'n' => 3];
 		$this->assertSame($clean, $service->filterOutputValue(policy: $policy, value: $clean));
+		$object = new \stdClass();
+		$object->q = 'nothing here';
+		$this->assertSame($object, $service->filterOutputValue(policy: $policy, value: $object));
+
+		$url = $service->filterOutputValue(policy: $policy, value: ['u' => 'postgres://u:secretpw@h/db']);
+		$this->assertStringNotContainsString('secretpw', (string)json_encode($url));
+		$this->assertStringContainsString('postgres://', (string)json_encode($url, JSON_UNESCAPED_SLASHES));
 
 		$broken = $service->filterOutputValue(policy: $policy, value: ['h' => 'Authorization: Bearer abcdefghijklmnop"x']);
 		$this->assertIsString($broken);
 		$this->assertStringNotContainsString('abcdefghijklmnop', $broken);
 	}//end testFilterOutputValueShapes()
+
+	/**
+	 * The screen leaves a frame without the screened key as it is, and a turn
+	 * without a channel builds its tools under a policy as before.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-with-the-output-filter-off-tool-details-are-shown-as-they-are
+	 */
+	public function testScreenSkipsAbsentKeysAndAMissingChannel(): void {
+		$frames = [];
+		$channel = new StreamYieldChannel();
+		$channel->onToolResult(callback: static function (array $payload) use (&$frames): void {
+			$frames[] = $payload;
+		});
+		$channel->screenToolDetails(screen: static fn (mixed $value): string => 'screened');
+		$channel->emitToolResult(payload: ['toolId' => 't', 'isError' => true]);
+		$channel->emitToolResult(payload: ['toolId' => 't', 'result' => 'raw', 'isError' => false]);
+
+		$this->assertSame(
+			[['toolId' => 't', 'isError' => true], ['toolId' => 't', 'result' => 'screened', 'isError' => false]],
+			$frames
+		);
+
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('getValueInt')->willReturn(30);
+		$loop = new ToolLoop(
+			$this->createMock(ToolRegistryFacade::class),
+			new NullLogger(),
+			new ToolGrantResolver(),
+			new ToolSearchService(),
+			$this->createMock(ApprovalService::class),
+			$appConfig,
+			$this->guardrail(action: 'redact')
+		);
+		$this->assertCount(1, $loop->buildFunctionInfos(functions: [$this->descriptor()], organisation: 'org-1'));
+	}//end testScreenSkipsAbsentKeysAndAMissingChannel()
 
 	/**
 	 * A RunStepBus over an in-memory cache.
@@ -284,10 +333,11 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	 * @param RunStepBus                  $bus       The step bus the call records into.
 	 * @param GuardrailPolicyService|null $guardrail The guardrail service, or none.
 	 * @param array<string, mixed>        $sent      Filled with the arguments the tool received.
+	 * @param boolean                     $fails     Whether the tool throws.
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function cliCall(RunStepBus $bus, ?GuardrailPolicyService $guardrail, array &$sent): array {
+	private function cliCall(RunStepBus $bus, ?GuardrailPolicyService $guardrail, array &$sent, bool $fails = false): array {
 		$tokens = $this->createMock(RunTokenService::class);
 		$tokens->method('verify')->willReturn(
 			['runId' => 'r', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'c1']
@@ -302,7 +352,7 @@ final class ToolDetailOutputFilterTest extends TestCase {
 		$facade = $this->createMock(ToolRegistryFacade::class);
 		$facade->method('listTools')->willReturn([$this->descriptor()]);
 
-		$functionInfo = new class(self::SECRET) {
+		$functionInfo = new class(self::SECRET, $fails) {
 			public string $name = 'openregister_contact_search';
 
 			/**
@@ -316,8 +366,9 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			 * Constructor.
 			 *
 			 * @param string $secret The key the result carries.
+			 * @param bool   $fails  Whether the call throws.
 			 */
-			public function __construct(private string $secret) {
+			public function __construct(private string $secret, private bool $fails) {
 			}
 
 			/**
@@ -329,6 +380,10 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			 */
 			public function callWithArguments(array $args): string {
 				$this->received = $args;
+				if ($this->fails === true) {
+					throw new \RuntimeException('tool failed');
+				}
+
 				return (string)json_encode(['result' => ['note' => 'key ' . $this->secret], 'isError' => false]);
 			}
 		};
@@ -388,6 +443,24 @@ final class ToolDetailOutputFilterTest extends TestCase {
 		$this->assertSame('find ' . self::SECRET, $sent['q']);
 		$this->assertStringContainsString(self::SECRET, (string)json_encode($data['result']));
 	}//end testRecordedCliStepIsRedacted()
+
+	/**
+	 * Under `redact`, a cli step whose tool failed records the redacted arguments.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-a-cli-turns-recorded-steps-are-filtered-before-they-are-stored
+	 */
+	public function testFailedCliStepRecordsRedactedArguments(): void {
+		$bus = $this->bus();
+		$sent = [];
+		$this->cliCall(bus: $bus, guardrail: $this->guardrail(action: 'redact'), sent: $sent, fails: true);
+
+		$steps = $bus->read(conversationId: 'c1');
+		$this->assertSame(RunStepBus::OUTCOME_ERROR, $steps[0]['outcome']);
+		$this->assertStringNotContainsString(self::SECRET, (string)json_encode($steps[0]['arguments']));
+		$this->assertSame('find ' . self::SECRET, $sent['q']);
+	}//end testFailedCliStepRecordsRedactedArguments()
 
 	/**
 	 * Under `block`, the recorded cli step shows the placeholder for both.
