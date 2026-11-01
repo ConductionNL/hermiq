@@ -229,6 +229,13 @@ class EvalRunServicePairedTest extends TestCase {
 	private array $auditContexts = [];
 
 	/**
+	 * Recorded IJobList::add() calls: {job, argument}.
+	 *
+	 * @var array<int, array{job: mixed, argument: mixed}>
+	 */
+	private array $jobs = [];
+
+	/**
 	 * A target Agent (OR entity) owned by alice in org-a.
 	 *
 	 * @return Agent
@@ -416,10 +423,171 @@ class EvalRunServicePairedTest extends TestCase {
 			logger: $this->createMock(LoggerInterface::class),
 			contextAssembler: $this->createMock(ContextAssembler::class),
 			skillVersionService: $this->createMock(SkillVersionService::class),
-			jobList: $this->createMock(IJobList::class),
+			jobList: $this->jobList(),
 		);
 
 	}//end service()
+
+	/**
+	 * An IJobList mock whose add() calls are captured into $this->jobs.
+	 *
+	 * @return IJobList
+	 */
+	private function jobList(): IJobList {
+		$this->jobs = [];
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->method('add')->willReturnCallback(
+			function (mixed $job, mixed $argument = null): void {
+				$this->jobs[] = ['job' => $job, 'argument' => $argument];
+			}
+		);
+		return $jobList;
+	}//end jobList()
+
+	/**
+	 * Golden: every paired-run variant (baseline mode, installed and linked skills,
+	 * case count, an infra error, a previous run, a threshold override) writes and
+	 * returns exactly what was recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testPairedRunVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/eval-paired-run.json';
+		$actual = [];
+		$variant = 0;
+		foreach ([null, 'joint', 'per-skill'] as $mode) {
+			foreach ([[], ['skill-other'], ['skill-a', 'skill-other']] as $installed) {
+				foreach ([['skill-a'], ['skill-a', 'skill-b']] as $linked) {
+					// Case count, infra error, previous run and threshold vary together
+					// over four variants per combination instead of every product.
+					for ($round = 0; $round < 4; $round++) {
+						$scenario = [
+							'mode' => $mode,
+							'installed' => $installed,
+							'linked' => $linked,
+							'caseCount' => [1, 3][$round % 2],
+							'infra' => ($round >= 2),
+							'prior' => (($round + $variant) % 2 === 0),
+							'threshold' => [null, 0, 50][($round + $variant) % 3],
+						];
+						$actual[(string)json_encode($scenario)] = $this->pairedRunTrace(scenario: $scenario);
+					}
+
+					$variant++;
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+	}//end testPairedRunVariantsMatchTheRecordedFixture()
+
+	/**
+	 * Runs one paired-run scenario and returns everything it wrote and returned,
+	 * with timestamps and durations masked.
+	 *
+	 * @param array<string, mixed> $scenario The scenario values.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function pairedRunTrace(array $scenario): array {
+		$agentData = ['name' => 'demo-agent', 'skillInstalls' => $scenario['installed']];
+		if ($scenario['mode'] !== null) {
+			$agentData['evalBaselineMode'] = $scenario['mode'];
+		}
+
+		$priorRuns = [];
+		if ($scenario['prior'] === true) {
+			$previous = $this->entity(
+				'previous-run',
+				['datasetId' => 'dataset-uuid', 'agentId' => 'agent-uuid', 'status' => 'completed', 'passRate' => 0.6]
+			);
+			$previous->setCreated(new \DateTime('2026-07-01T00:00:00+00:00'));
+			$priorRuns[] = $previous;
+		}
+
+		$objects = ['agent-uuid' => $this->entity('agent-uuid', $agentData)];
+		foreach (['skill-a', 'skill-b'] as $skill) {
+			$objects[$skill] = $this->entity($skill, ['name' => $skill, 'state' => 'active', 'body' => 'B', 'maturityLevel' => 4]);
+		}
+
+		$objectService = new RecordingObjectService(objects: $objects, priorRuns: $priorRuns);
+		$overrides = [];
+		$schedule = $this->scheduleService($overrides);
+		if ($scenario['infra'] === true) {
+			$schedule = $this->createMock(ScheduleService::class);
+			$schedule->method('isOrganisationEngaged')->willReturn(false);
+			$schedule->method('runAgentAsOwner')->willReturnCallback(
+				function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null) use (&$overrides): string {
+					$overrides[] = $skillSetOverride;
+					if ($prompt === 'a' && in_array('skill-b', ($skillSetOverride ?? []), true) === false) {
+						throw new RuntimeException('no provider');
+					}
+
+					return in_array('skill-a', ($skillSetOverride ?? []), true) === true ? 'output MARKER' : 'plain output';
+				}
+			);
+			$schedule->method('getLastRunUsage')->willReturn(['promptTokens' => 7, 'completionTokens' => 3]);
+			$schedule->method('getLastRunSkillsUsed')->willReturnCallback(
+				static function () use (&$overrides): array {
+					$last = end($overrides);
+					return array_values(array_filter(is_array($last) === true ? $last : []));
+				}
+			);
+		}//end if
+
+		$service = $this->service(objectService: $objectService, schedule: $schedule, scoring: $this->scoring(passWithoutMarker: ['b'], failEvenWithMarker: ['c']));
+		$result = $service->run(
+			$this->dataset($this->cases($scenario['caseCount']), skillRefs: $scenario['linked']),
+			$this->agent(),
+			agentVersionId: 'version-1',
+			regressionThresholdOverride: $scenario['threshold'],
+			baseline: true
+		);
+
+		return $this->masked(
+			value: [
+				'result' => $result,
+				'overrides' => $overrides,
+				'saves' => $objectService->saves,
+				'audit' => $this->auditContexts,
+				'jobs' => $this->jobs,
+			]
+		);
+	}//end pairedRunTrace()
+
+	/**
+	 * Masks wall-clock values (ISO timestamps, durationMs) recursively.
+	 *
+	 * @param mixed $value The value to mask.
+	 *
+	 * @return mixed
+	 */
+	private function masked(mixed $value): mixed {
+		if (is_string($value) === true && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/', $value) === 1) {
+			return '<time>';
+		}
+
+		if (is_array($value) === false) {
+			return $value;
+		}
+
+		foreach ($value as $key => $item) {
+			$value[$key] = $this->masked(value: $item);
+			if ($key === 'durationMs') {
+				$value[$key] = '<duration>';
+			}
+		}
+
+		return $value;
+	}//end masked()
 
 	/**
 	 * Joint mode (agent's evalBaselineMode UNSET): a paired run over 4 cases and one
