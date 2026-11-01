@@ -86,7 +86,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -842,7 +854,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -1600,7 +1624,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -1967,7 +2003,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -2133,7 +2181,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -2594,7 +2654,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -3736,7 +3808,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -4215,7 +4299,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -5634,7 +5730,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -5874,7 +5982,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -6115,7 +6235,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -7985,7 +8117,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -8104,7 +8248,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -8314,7 +8470,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -8756,7 +8924,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -8873,7 +9053,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -9150,7 +9342,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -9644,7 +9848,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -9812,7 +10028,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -9913,7 +10141,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -10149,7 +10389,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -10751,7 +11003,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -10922,7 +11186,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -11007,7 +11283,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -11252,7 +11540,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -11703,7 +12003,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -11911,7 +12223,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -12265,7 +12589,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -12715,7 +13051,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -13103,7 +13451,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -13299,7 +13659,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -13808,7 +14180,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -14124,7 +14508,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -14439,7 +14835,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -14720,7 +15128,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -15218,7 +15638,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -16435,7 +16867,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -16980,7 +17424,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -17171,7 +17627,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -17443,7 +17911,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -17641,7 +18121,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -18112,7 +18604,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -18257,7 +18761,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -19180,7 +19696,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -21155,7 +21683,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -21295,7 +21835,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -21741,7 +22293,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -22574,7 +23138,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -24036,7 +24612,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -24080,7 +24668,7 @@
                 "payload": {
                     "messageId": "msg-1",
                     "conversationUuid": "conv-new",
-                    "fullText": "The answer.",
+                    "fullText": "abc",
                     "context": [],
                     "pendingApprovals": [
                         {
@@ -24602,7 +25190,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -24731,7 +25331,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -25086,7 +25698,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -25422,7 +26046,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -25625,7 +26261,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -26149,7 +26797,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {
@@ -26560,7 +27220,19 @@
             {
                 "frame": "token",
                 "payload": {
-                    "delta": "tok"
+                    "delta": "a"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "b"
+                }
+            },
+            {
+                "frame": "token",
+                "payload": {
+                    "delta": "c"
                 }
             },
             {

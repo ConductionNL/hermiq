@@ -220,6 +220,13 @@ class ChatStreamGoldenTest extends TestCase {
 	private array $events = [];
 
 	/**
+	 * Forces the scripted engine to stream (1) or not (0); null leaves it to the seed.
+	 *
+	 * @var int|null
+	 */
+	private ?int $forcedStreams = null;
+
+	/**
 	 * Every generated case streams exactly as recorded.
 	 *
 	 * @return void
@@ -245,6 +252,75 @@ class ChatStreamGoldenTest extends TestCase {
 	}//end testStreamMatchesTheRecordedFixture()
 
 	/**
+	 * The stream controller wired to recording doubles for one scenario.
+	 *
+	 * @param array<string, mixed> $scenario The user, engine outcome, and whether an app assistant and a literacy rule exist.
+	 * @param string               $body     The request body.
+	 *
+	 * @return GoldenChatStreamController
+	 */
+	private function controller(array $scenario, string $body): GoldenChatStreamController {
+		$controller = new GoldenChatStreamController(
+			$this->request(),
+			$this->engine(outcome: $scenario['outcome']),
+			$this->objectService(),
+			$this->session(uid: $scenario['user']),
+			$this->createMock(IDBConnection::class),
+			$this->logger(),
+			$this->l10n(),
+			$this->runStepBus(),
+			$this->accessRequests(),
+			$this->agentAccess(),
+			($scenario['literacy'] === true) ? $this->literacy() : null,
+			($scenario['assistants'] === true) ? $this->assistants() : $this->deadAssistants()
+		);
+		$controller->requestBody = $body;
+		$controller->ticks = [16.0, 2.0, 20.0, 1.0, 30.0, 0.5, 15.0, 3.0];
+		$controller->events = &$this->events;
+
+		return $controller;
+	}//end controller()
+
+	/**
+	 * Every streamed token reaches the wire, in order, before the final frame,
+	 * and the final frame carries the whole answer.
+	 *
+	 * @return void
+	 */
+	public function testStreamedTokensArriveInOrderBeforeFinal(): void {
+		mt_srand(7);
+		$this->events = [];
+		$this->forcedStreams = 1;
+		$controller = $this->controller(
+			scenario: ['user' => 'alice', 'outcome' => 'pass', 'assistants' => true, 'literacy' => false],
+			body: (string)json_encode(['message' => 'hi there', 'conversationUuid' => 'conv-alice'])
+		);
+
+		try {
+			$controller->stream();
+		} catch (ChatStreamGoldenStop) {
+			// The stream ends with its terminal frame.
+		}
+
+		$tokens = [];
+		$finalAt = null;
+		foreach ($this->events as $index => $event) {
+			if (is_array($event) === true && ($event['frame'] ?? null) === 'token') {
+				$this->assertNull($finalAt, 'A token arrived after the final frame.');
+				$tokens[] = $event['payload']['delta'];
+			}
+
+			if (is_array($event) === true && ($event['exit'] ?? null) === 'final') {
+				$finalAt = $index;
+				$this->assertSame('abc', $event['payload']['fullText']);
+			}
+		}
+
+		$this->assertSame(['a', 'b', 'c'], $tokens);
+		$this->assertNotNull($finalAt);
+	}//end testStreamedTokensArriveInOrderBeforeFinal()
+
+	/**
 	 * Runs one seeded case; returns its inputs and ordered events through JSON.
 	 *
 	 * @return array<string, mixed>
@@ -257,23 +333,10 @@ class ChatStreamGoldenTest extends TestCase {
 		$withAssistants = (mt_rand(0, 3) > 0);
 		$withLiteracy = (mt_rand(0, 2) > 0);
 
-		$controller = new GoldenChatStreamController(
-			$this->request(),
-			$this->engine(outcome: $outcome),
-			$this->objectService(),
-			$this->session(uid: $user),
-			$this->createMock(IDBConnection::class),
-			$this->logger(),
-			$this->l10n(),
-			$this->runStepBus(),
-			$this->accessRequests(),
-			$this->agentAccess(),
-			($withLiteracy === true) ? $this->literacy() : null,
-			($withAssistants === true) ? $this->assistants() : $this->deadAssistants()
+		$controller = $this->controller(
+			scenario: ['user' => $user, 'outcome' => $outcome, 'assistants' => $withAssistants, 'literacy' => $withLiteracy],
+			body: $body
 		);
-		$controller->requestBody = $body;
-		$controller->ticks = [16.0, 2.0, 20.0, 1.0, 30.0, 0.5, 15.0, 3.0];
-		$controller->events = &$this->events;
 
 		$escaped = null;
 		try {
@@ -591,6 +654,10 @@ class ChatStreamGoldenTest extends TestCase {
 	 */
 	private function engine(string $outcome): Engine {
 		$streams = mt_rand(0, 1);
+		if ($this->forcedStreams !== null) {
+			$streams = $this->forcedStreams;
+		}
+
 		$engine = $this->createMock(Engine::class);
 		$engine->method('processMessage')->willReturnCallback(
 			function (...$args) use ($outcome, $streams): array {
@@ -609,12 +676,19 @@ class ChatStreamGoldenTest extends TestCase {
 
 				$this->events[] = ['engine' => $named];
 				if ($streams === 1 && ($args[7] ?? null) instanceof StreamYieldChannel) {
-					$args[7]->emitToken('tok');
+					$args[7]->emitToken('a');
+					$args[7]->emitToken('b');
+					$args[7]->emitToken('c');
 					$args[7]->emitToolCall(['toolId' => 'call-1', 'name' => 'lookup', 'arguments' => []]);
 					$args[7]->emitToolResult(['toolId' => 'call-1', 'result' => 'done']);
 				}
 
-				return $this->outcome(outcome: $outcome);
+				$result = $this->outcome(outcome: $outcome);
+				if ($streams === 1 && $outcome === 'pass') {
+					$result['message'] = 'abc';
+				}
+
+				return $result;
 			}
 		);
 
