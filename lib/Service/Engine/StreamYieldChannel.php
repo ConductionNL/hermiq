@@ -8,10 +8,12 @@
  * a streaming LLM call. Heartbeats are not one of them — see the note at the
  * foot of the class.
  *
- * The channel is pure forwarding: it does not buffer, format, or filter
- * events. Buffering of partial tool-call frames lives in
- * `ResponseGenerationHandler`; SSE framing + heartbeat interleaving lives in
- * the (later-chunk) stream controller. Multiple callbacks per event type are
+ * The channel forwards events as they arrive, with one exception: after
+ * `holdTokens()` it keeps token deltas back until `releaseTokens()` hands it
+ * the text that may be shown, so an answer that still has to pass the output
+ * guardrail reaches the client only in its reviewed form. Buffering of
+ * partial tool-call frames lives in `ResponseGenerationHandler`; SSE framing
+ * + heartbeat interleaving lives in the (later-chunk) stream controller. Multiple callbacks per event type are
  * allowed (future-proofs for telemetry / logging interceptors). Late
  * registration after a prior emit is allowed; the new callback only sees
  * subsequent events (no replay).
@@ -79,6 +81,20 @@ class StreamYieldChannel {
 	private array $toolResultCallbacks = [];
 
 	/**
+	 * Whether token deltas are kept back until `releaseTokens()`.
+	 *
+	 * @var boolean
+	 */
+	private bool $holdingTokens = false;
+
+	/**
+	 * Token deltas kept back while holding, in arrival order.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $heldTokens = [];
+
+	/**
 	 * Register a callback invoked for each token delta emitted by the LLM
 	 * stream.
 	 *
@@ -132,13 +148,72 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec exclude Pure pub-sub forwarder plumbing — loops registered callbacks; carries no business logic.
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function emitToken(string $delta): void {
+		if ($this->holdingTokens === true) {
+			$this->heldTokens[] = $delta;
+			return;
+		}
+
+		$this->forwardToken(delta: $delta);
+	}//end emitToken()
+
+	/**
+	 * Keep every later token delta back until `releaseTokens()`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function holdTokens(): void {
+		$this->holdingTokens = true;
+	}//end holdTokens()
+
+	/**
+	 * Stop holding and forward the reviewed text in place of the held deltas.
+	 *
+	 * When the reviewed text equals the held deltas joined, the deltas are
+	 * forwarded as they arrived; otherwise the reviewed text is forwarded as
+	 * one delta. Nothing is forwarded when no delta was held, so a provider
+	 * that did not stream still sends no token frame. A no-op when not holding.
+	 *
+	 * @param string $reviewed The answer text the output guardrail let through.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function releaseTokens(string $reviewed): void {
+		$held = $this->heldTokens;
+		$this->holdingTokens = false;
+		$this->heldTokens = [];
+
+		if ($held === []) {
+			return;
+		}
+
+		if (implode('', $held) !== $reviewed) {
+			$held = [$reviewed];
+		}
+
+		foreach ($held as $delta) {
+			$this->forwardToken(delta: $delta);
+		}
+	}//end releaseTokens()
+
+	/**
+	 * Hand one token delta to every registered token callback.
+	 *
+	 * @param string $delta The token delta.
+	 *
+	 * @return void
+	 */
+	private function forwardToken(string $delta): void {
 		foreach ($this->tokenCallbacks as $callback) {
 			$callback($delta);
 		}
-	}//end emitToken()
+	}//end forwardToken()
 
 	/**
 	 * Emit one assembled tool-call payload to every registered tool-call

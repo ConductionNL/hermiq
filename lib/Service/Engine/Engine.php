@@ -492,6 +492,12 @@ class Engine {
 				$trace?->endStep(token: $historyToken, outcome: 'ok');
 			}
 
+			// A streamed answer that the output guardrail may still change is held
+			// on the channel and released below in its reviewed form.
+			if ($channel !== null && $this->guardrailPolicyService?->outputFilterApplies(policy: $guardrailPolicy) === true) {
+				$channel->holdTokens();
+			}
+
 			// Generate LLM response. Forward the CnAiContext snapshot so
 			// the system prompt can include "the user is currently in
 			// {app}" — without it the model would default to generic
@@ -560,6 +566,7 @@ class Engine {
 			}
 
 			$aiResponse = (string)$outputFilter['text'];
+			$channel?->releaseTokens(reviewed: $aiResponse);
 
 			// Store AI response with sources. Capture the return so we can surface
 			// the persisted assistant message's id to the caller (the SSE stream

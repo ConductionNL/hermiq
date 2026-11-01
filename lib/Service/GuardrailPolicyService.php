@@ -331,6 +331,21 @@ class GuardrailPolicyService {
 	}//end filterOutput()
 
 	/**
+	 * Whether `filterOutput()` can change or withhold text under this policy.
+	 *
+	 * @param array<string,mixed> $policy The effective policy (from `effectivePolicyFor()`).
+	 *
+	 * @return bool True when the output PII action is anything but `off`.
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function outputFilterApplies(array $policy): bool {
+		$outputFilters = (array)($policy['outputFilters'] ?? []);
+
+		return (string)($outputFilters['piiAction'] ?? 'off') !== 'off';
+	}//end outputFilterApplies()
+
+	/**
 	 * Classify a tool per the effective policy's `toolPolicy` list. A tool
 	 * absent from the list defaults to `auto` — zero behavior change for an
 	 * organisation with no policy, or one whose policy does not mention this

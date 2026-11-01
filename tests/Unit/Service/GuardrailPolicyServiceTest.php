@@ -390,6 +390,21 @@ class GuardrailPolicyServiceTest extends TestCase {
 	}//end testFilterOutputReplacesBlockedContentWithAPlaceholder()
 
 	/**
+	 * `outputFilterApplies()`: only an output PII action of `off` (or none) leaves output untouched.
+	 *
+	 * @return void
+	 */
+	public function testOutputFilterAppliesUnlessTheOutputActionIsOff(): void {
+		$service = $this->service();
+
+		$this->assertTrue($service->outputFilterApplies(policy: ['outputFilters' => ['piiAction' => 'redact']]));
+		$this->assertTrue($service->outputFilterApplies(policy: ['outputFilters' => ['piiAction' => 'block']]));
+		$this->assertFalse($service->outputFilterApplies(policy: ['outputFilters' => ['piiAction' => 'off']]));
+		$this->assertFalse($service->outputFilterApplies(policy: []));
+
+	}//end testOutputFilterAppliesUnlessTheOutputActionIsOff()
+
+	/**
 	 * `classifyTool()`: a tool absent from `toolPolicy` defaults to `auto` —
 	 * zero regression for an organisation whose policy does not mention it.
 	 *
