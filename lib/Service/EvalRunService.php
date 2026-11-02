@@ -347,10 +347,6 @@ class EvalRunService {
 	 *
 	 * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear gates → active-half →
-	 *   draft-half → persist → audit sequence mirroring run(); splitting it would
-	 *   scatter the draft-comparison invariants across helpers.
-	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
 	 */
@@ -360,123 +356,128 @@ class EvalRunService {
 		string $skillId,
 		array $draftContent,
 	): array {
-		$organisation = (string)($agent->getOrganisation() ?? '');
-		$agentId = (string)$agent->getUuid();
-		$datasetId = (string)$dataset->getUuid();
-		$owner = (string)($agent->getOwner() ?? '');
-		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-
-		// GATE 1 — KILL-SWITCH (exactly like run()).
-		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
-			$skip = $this->persistGateSkip(
-				dataset: $dataset,
-				agentId: $agentId,
-				organisation: $organisation,
-				agentVersionId: null,
-				status: 'blocked_killswitch',
-				startedAt: $startedAt
-			);
-			return [
-				'evalRunId' => (string)$skip['evalRunId'],
-				'status' => 'blocked_killswitch',
-				'draftPassRate' => 0.0,
-				'activePassRate' => 0.0,
-			];
+		$run = [
+			'organisation' => (string)($agent->getOrganisation() ?? ''),
+			'agentId' => (string)$agent->getUuid(),
+			'datasetId' => (string)$dataset->getUuid(),
+			'owner' => (string)($agent->getOwner() ?? ''),
+			'startedAt' => new DateTimeImmutable('now', new DateTimeZone('UTC')),
+		];
+		$skip = $this->draftComparisonGateSkip(dataset: $dataset, run: $run);
+		if ($skip !== null) {
+			return $skip;
 		}
 
-		// GATE 2 — BUDGET HARD CAP (exactly like run()).
-		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
-			$skip = $this->persistGateSkip(
-				dataset: $dataset,
-				agentId: $agentId,
-				organisation: $organisation,
-				agentVersionId: null,
-				status: 'blocked_budget',
-				startedAt: $startedAt
-			);
-			return [
-				'evalRunId' => (string)$skip['evalRunId'],
-				'status' => 'blocked_budget',
-				'draftPassRate' => 0.0,
-				'activePassRate' => 0.0,
-			];
-		}
-
-		$data = $dataset->getObject();
-		$cases = ($data['cases'] ?? []);
+		$cases = ($dataset->getObject()['cases'] ?? []);
 		if (is_array($cases) === false) {
 			$cases = [];
 		}
 
-		[$installedSkills] = $this->agentSkillProfile(agentId: $agentId);
-		$withSet = array_values(array_unique(array_merge($installedSkills, [$skillId])));
-
-		$aggregateUsage = [
-			'promptTokens' => 0,
-			'completionTokens' => 0,
+		[$installedSkills] = $this->agentSkillProfile(agentId: $run['agentId']);
+		$run += [
+			'cases' => $cases,
+			'skillId' => $skillId,
+			'withSet' => array_values(array_unique(array_merge($installedSkills, [$skillId]))),
+			'usage' => ['promptTokens' => 0, 'completionTokens' => 0],
+			'skillsUsed' => [],
 		];
-		$skillsUsed = [];
 
 		// ACTIVE half: the stored skill content, same effective set.
-		$activeHalf = $this->runHalf(
-			cases: $cases,
-			owner: $owner,
-			agentId: $agentId,
-			organisation: $organisation,
-			skillSetOverride: $withSet,
-			aggregateUsage: $aggregateUsage,
-			skillsUsed: $skillsUsed
-		);
+		$activeHalf = $this->runPairedHalf(run: $run, skillSet: $run['withSet']);
 
 		// DRAFT half: identical set, the draft's content swapped in IN MEMORY only —
 		// cleared in `finally` so no later run can ever see it.
 		$this->contextAssembler->setTransientSkillContentOverride(override: [$skillId => $draftContent]);
 		try {
-			$draftHalf = $this->runHalf(
-				cases: $cases,
-				owner: $owner,
-				agentId: $agentId,
-				organisation: $organisation,
-				skillSetOverride: $withSet,
-				aggregateUsage: $aggregateUsage,
-				skillsUsed: $skillsUsed
-			);
+			$draftHalf = $this->runPairedHalf(run: $run, skillSet: $run['withSet']);
 		} finally {
 			$this->contextAssembler->setTransientSkillContentOverride(override: null);
 		}
 
-		$activePassRate = $activeHalf['passRate'];
-		$draftPassRate = $draftHalf['passRate'];
-		$hadInfraError = ($activeHalf['hadInfraError'] === true || $draftHalf['hadInfraError'] === true);
+		return $this->recordDraftComparison(run: $run, halves: ['active' => $activeHalf, 'draft' => $draftHalf]);
 
+	}//end runDraftComparison()
+
+	/**
+	 * Applies the kill-switch and then the budget hard cap exactly as `run()` does,
+	 * and persists the skipped run when one of them blocks.
+	 *
+	 * @param ObjectEntity         $dataset The linked EvalDataset.
+	 * @param array<string, mixed> $run     The draft-comparison context.
+	 *
+	 * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}|null Null when neither gate blocks.
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
+	 */
+	private function draftComparisonGateSkip(ObjectEntity $dataset, array $run): ?array {
+		$organisation = $run['organisation'];
+		$status = null;
+		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+			$status = 'blocked_killswitch';
+		}
+
+		if ($status === null && $this->budgetService->isBlocked(organisation: $organisation, agentId: $run['agentId']) === true) {
+			$status = 'blocked_budget';
+		}
+
+		if ($status === null) {
+			return null;
+		}
+
+		$skip = $this->persistGateSkip(
+			dataset: $dataset,
+			agentId: $run['agentId'],
+			organisation: $organisation,
+			agentVersionId: null,
+			status: $status,
+			startedAt: $run['startedAt']
+		);
+
+		return ['evalRunId' => (string)$skip['evalRunId'], 'status' => $status, 'draftPassRate' => 0.0, 'activePassRate' => 0.0];
+	}//end draftComparisonGateSkip()
+
+	/**
+	 * Persists a finished draft comparison as ONE EvalRun (the draft half as its
+	 * results, the active half as its baseline) under the `draft-comparison`
+	 * status, or `failed` when either half hit an infrastructure error, and
+	 * writes its audit entry.
+	 *
+	 * @param array<string, mixed> $run    The draft-comparison context.
+	 * @param array<string, mixed> $halves The `active` and `draft` halves.
+	 *
+	 * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
+	 */
+	private function recordDraftComparison(array $run, array $halves): array {
+		$activePassRate = $halves['active']['passRate'];
+		$draftPassRate = $halves['draft']['passRate'];
 		$status = 'draft-comparison';
-		if ($hadInfraError === true) {
+		if ($halves['active']['hadInfraError'] === true || $halves['draft']['hadInfraError'] === true) {
 			// An infrastructure error means the comparison is NOT evidence — the
 			// caller treats a failed comparison as "eval unavailable" (fail closed).
 			$status = 'failed';
 		}
 
-		$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-
 		$saved = $this->persistEvalRun(
-			datasetId: $datasetId,
-			agentId: $agentId,
-			organisation: $organisation,
+			datasetId: $run['datasetId'],
+			agentId: $run['agentId'],
+			organisation: $run['organisation'],
 			agentVersionId: null,
 			status: $status,
-			startedAt: $startedAt,
-			endedAt: $endedAt,
-			results: $draftHalf['results'],
+			startedAt: $run['startedAt'],
+			endedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
+			results: $halves['draft']['results'],
 			passRate: $draftPassRate,
 			regressionGateResult: 'not_applicable',
 			previousPassRate: null,
 			regressionThresholdPercent: 0,
 			extra: [
-				'baselineResults' => $activeHalf['results'],
+				'baselineResults' => $halves['active']['results'],
 				'baselinePassRate' => $activePassRate,
 				'skillResults' => [
 					[
-						'skillId' => $skillId,
+						'skillId' => $run['skillId'],
 						'passRateWith' => $draftPassRate,
 						'passRateWithout' => $activePassRate,
 						'baselineDelta' => ($draftPassRate - $activePassRate),
@@ -490,20 +491,14 @@ class EvalRunService {
 		$this->writeRunAudit(
 			evalRun: $saved,
 			status: $status,
-			usage: $aggregateUsage,
+			usage: $run['usage'],
 			passRate: $draftPassRate,
-			startedAt: $startedAt,
-			skillsUsed: $skillsUsed
+			startedAt: $run['startedAt'],
+			skillsUsed: $run['skillsUsed']
 		);
 
-		return [
-			'evalRunId' => (string)$saved->getUuid(),
-			'status' => $status,
-			'draftPassRate' => $draftPassRate,
-			'activePassRate' => $activePassRate,
-		];
-
-	}//end runDraftComparison()
+		return ['evalRunId' => (string)$saved->getUuid(), 'status' => $status, 'draftPassRate' => $draftPassRate, 'activePassRate' => $activePassRate];
+	}//end recordDraftComparison()
 
 	/**
 	 * The dataset's linked skill uuids (`skillRefs`), filtered to non-empty strings.

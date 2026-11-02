@@ -1201,4 +1201,203 @@ class EvalRunServicePairedTest extends TestCase {
 		$this->assertSame(['alice', 'alice', 'alice', 'alice'], $this->owners);
 
 	}//end testAnInfraErrorInTheWithHalfFailsTheRunAndWritesNoEvidence()
+
+	/**
+	 * Golden: every draft-comparison variant (organisation, kill-switch, budget,
+	 * installed skills, case shape, an infra error or a scoring failure in either
+	 * half) writes, calls and returns exactly what was recorded. Each scenario is
+	 * compared on its own. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testDraftComparisonVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/eval-draft-comparison.json';
+		$actual = [];
+		foreach (['org-a', ''] as $organisation) {
+			foreach (['killswitch', 'budget'] as $gate) {
+				$scenario = ['organisation' => $organisation, 'gate' => $gate, 'installed' => [], 'cases' => 1, 'fault' => 'none'];
+				$actual[(string)json_encode($scenario)] = $this->draftComparisonTrace(scenario: $scenario);
+			}
+
+			foreach ([null, [], ['skill-other'], ['skill-1', 'skill-other']] as $installed) {
+				foreach ([0, 1, 3, 'scalar', 'mixed'] as $cases) {
+					foreach (['none', 'active-infra', 'draft-infra', 'draft-throws'] as $fault) {
+						$scenario = ['organisation' => $organisation, 'gate' => 'open', 'installed' => $installed, 'cases' => $cases, 'fault' => $fault];
+						$actual[(string)json_encode($scenario)] = $this->draftComparisonTrace(scenario: $scenario);
+					}
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame(array_keys($expected), array_keys($actual));
+		foreach ($expected as $key => $trace) {
+			$this->assertSame($trace, $actual[$key], $key);
+		}
+	}//end testDraftComparisonVariantsMatchTheRecordedFixture()
+
+	/**
+	 * Runs one draft-comparison scenario and returns everything it wrote, called
+	 * and returned, in call order, with timestamps and durations masked.
+	 *
+	 * @param array<string, mixed> $scenario The scenario values.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function draftComparisonTrace(array $scenario): array {
+		$calls = [];
+		$draftActive = false;
+
+		$objects = [];
+		if ($scenario['installed'] !== null) {
+			$objects['agent-uuid'] = $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => $scenario['installed']]);
+		}
+
+		$objectService = new RecordingObjectService(objects: $objects);
+		$objectService->onSave = function (?string $schema) use (&$calls): void {
+			$calls[] = ['save' => $schema];
+		};
+
+		$fault = $scenario['fault'];
+		$lastSkills = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturnCallback(
+			function (string $organisation) use (&$calls, $scenario): bool {
+				$calls[] = ['isOrganisationEngaged' => $organisation];
+				return $scenario['gate'] === 'killswitch';
+			}
+		);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null) use (&$calls, &$draftActive, &$lastSkills, $fault): string {
+				$calls[] = ['runAgentAsOwner' => [$owner, $agentId, $prompt, $organisation, $skillSetOverride, $draftActive]];
+				$lastSkills = ($skillSetOverride ?? []);
+				if ($prompt === 'a' && (($fault === 'active-infra' && $draftActive === false) || ($fault === 'draft-infra' && $draftActive === true))) {
+					throw new RuntimeException('no provider');
+				}
+
+				$output = in_array('skill-other', $lastSkills, true) === true ? 'MARKER' : 'plain';
+				return ($draftActive === true) ? 'DRAFT ' . $output : $output;
+			}
+		);
+		$schedule->method('getLastRunUsage')->willReturnCallback(
+			static function () use (&$lastSkills): array {
+				return ['promptTokens' => (10 + count($lastSkills)), 'completionTokens' => 3];
+			}
+		);
+		$schedule->method('getLastRunSkillsUsed')->willReturnCallback(
+			static function () use (&$lastSkills): array {
+				return array_values($lastSkills);
+			}
+		);
+
+		$budget = $this->createMock(BudgetService::class);
+		$budget->method('isBlocked')->willReturnCallback(
+			function (string $organisation, string $agentId) use (&$calls, $scenario): bool {
+				$calls[] = ['isBlocked' => [$organisation, $agentId]];
+				return $scenario['gate'] === 'budget';
+			}
+		);
+		$budget->method('checkAndDeliverWarnings')->willReturnCallback(
+			function (string $organisation, string $agentId) use (&$calls): void {
+				$calls[] = ['checkAndDeliverWarnings' => [$organisation, $agentId]];
+			}
+		);
+
+		$scoring = $this->createMock(EvalScoringService::class);
+		$scoring->method('score')->willReturnCallback(
+			static function (array $case, string $actualOutput, string $organisation) use ($fault): array {
+				$prompt = (string)($case['prompt'] ?? '');
+				if ($fault === 'draft-throws' && $prompt === 'a' && str_contains($actualOutput, 'DRAFT') === true) {
+					throw new RuntimeException('scoring failed');
+				}
+
+				return [
+					'passed' => (str_contains($actualOutput, 'MARKER') === true || (str_contains($actualOutput, 'DRAFT') === true && $prompt === 'b')),
+					'errorMessage' => null,
+					'score' => null,
+					'judgeRationale' => $organisation,
+				];
+			}
+		);
+
+		$contextAssembler = $this->createMock(ContextAssembler::class);
+		$contextAssembler->method('setTransientSkillContentOverride')->willReturnCallback(
+			function (?array $override) use (&$calls, &$draftActive): void {
+				$calls[] = ['setTransientSkillContentOverride' => $override];
+				$draftActive = ($override !== null);
+			}
+		);
+
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->method('createAuditTrailEntry')->willReturnCallback(
+			function (ObjectEntity $object, string $action, array $context = []) use (&$calls): AuditTrail {
+				$calls[] = ['audit' => [$object->getUuid(), $action, $context]];
+				$entry = new AuditTrail();
+				$entry->setUuid('audit-uuid');
+				return $entry;
+			}
+		);
+
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->method('add')->willReturnCallback(
+			function (mixed $job, mixed $argument = null) use (&$calls): void {
+				$calls[] = ['job' => [$job, $argument]];
+			}
+		);
+
+		$service = new EvalRunService(
+			objectService: $objectService,
+			scheduleService: $schedule,
+			budgetService: $budget,
+			scoringService: $scoring,
+			auditTrailMapper: $audit,
+			redactionService: $redaction,
+			appConfig: $this->createMock(IAppConfig::class),
+			logger: $this->createMock(LoggerInterface::class),
+			contextAssembler: $contextAssembler,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			jobList: $jobList,
+		);
+
+		$cases = match ($scenario['cases']) {
+			'scalar' => 'not-a-list',
+			'mixed' => [$this->cases(1)[0], 'not-a-case', ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'MARKER']],
+			default => $this->cases($scenario['cases']),
+		};
+		$dataset = $this->entity('dataset-uuid', ['name' => 'demo', 'cases' => $cases]);
+
+		$agent = new Agent();
+		$agent->setUuid('agent-uuid');
+		$agent->setOwner('alice');
+		$agent->setOrganisation($scenario['organisation']);
+
+		try {
+			$result = $service->runDraftComparison(
+				dataset: $dataset,
+				agent: $agent,
+				skillId: 'skill-1',
+				draftContent: ['name' => 's', 'description' => 'd', 'body' => 'DRAFT']
+			);
+		} catch (RuntimeException $e) {
+			$result = ['exception' => $e->getMessage()];
+		}
+
+		return $this->masked(
+			value: [
+				'result' => $result,
+				'calls' => $calls,
+				'saves' => $objectService->saves,
+			]
+		);
+	}//end draftComparisonTrace()
 }//end class
