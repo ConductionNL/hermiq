@@ -91,12 +91,15 @@ final class McpRunControllerToolPolicyTest extends TestCase {
 	}//end agent()
 
 	/**
-	 * A guardrail service whose policy for `org-1` denies the search tool, and
-	 * whose policy for every other organisation classifies nothing.
+	 * A guardrail service whose policy for `org-1` gives the search tool the
+	 * given classification, and whose policy for every other organisation
+	 * classifies nothing.
+	 *
+	 * @param string $classification The search tool's classification in org-1.
 	 *
 	 * @return GuardrailPolicyService
 	 */
-	private function guardrail(): GuardrailPolicyService {
+	private function guardrail(string $classification): GuardrailPolicyService {
 		$service = $this->createMock(GuardrailPolicyService::class);
 		$service->method('effectivePolicyFor')->willReturnCallback(
 			static fn (string $organisation): array => [
@@ -104,7 +107,7 @@ final class McpRunControllerToolPolicyTest extends TestCase {
 				'inputFilters' => ['piiAction' => 'off', 'promptInjectionAction' => 'off'],
 				'outputFilters' => ['piiAction' => 'off'],
 				'toolPolicy' => ($organisation === 'org-1')
-					? [['toolId' => 'openregister.contact.search', 'classification' => 'deny']]
+					? [['toolId' => 'openregister.contact.search', 'classification' => $classification]]
 					: [],
 				'enabled' => true,
 			]
@@ -152,11 +155,12 @@ final class McpRunControllerToolPolicyTest extends TestCase {
 	/**
 	 * A real tool loop over the facade, with the guardrail service.
 	 *
-	 * @param ToolRegistryFacade $facade The tool facade.
+	 * @param ToolRegistryFacade $facade         The tool facade.
+	 * @param string             $classification The search tool's classification in org-1.
 	 *
 	 * @return ToolLoop
 	 */
-	private function toolLoop(ToolRegistryFacade $facade): ToolLoop {
+	private function toolLoop(ToolRegistryFacade $facade, string $classification='deny'): ToolLoop {
 		$appConfig = $this->createMock(IAppConfig::class);
 		$appConfig->method('getValueInt')->willReturn(30);
 
@@ -167,7 +171,7 @@ final class McpRunControllerToolPolicyTest extends TestCase {
 			new ToolSearchService(),
 			$this->createMock(ApprovalService::class),
 			$appConfig,
-			$this->guardrail()
+			$this->guardrail(classification: $classification)
 		);
 	}//end toolLoop()
 
@@ -212,6 +216,29 @@ final class McpRunControllerToolPolicyTest extends TestCase {
 		$this->assertTrue($data['result']['isError']);
 		$this->assertStringContainsString('tool_denied_by_policy', (string)json_encode($data['result']));
 	}//end testADeniedToolIsRefusedOnACliTurn()
+
+	/**
+	 * A tool the agent's organisation classifies `confirm` waits for approval on
+	 * a cli turn and does not run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+	 */
+	public function testAConfirmToolAwaitsApprovalOnACliTurn(): void {
+		$facade = $this->createMock(originalClassName: ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn([$this->descriptor()]);
+		$facade->expects($this->never())->method('invokeTool');
+
+		$data = $this->cliCall(
+			agent: $this->agent(organisation: 'org-1'),
+			toolLoop: $this->toolLoop(facade: $facade, classification: 'confirm'),
+			facade: $facade
+		);
+
+		$this->assertTrue(condition: $data['result']['isError']);
+		$this->assertStringContainsString(needle: 'approval_required', haystack: (string)json_encode(value: $data['result']));
+	}//end testAConfirmToolAwaitsApprovalOnACliTurn()
 
 	/**
 	 * An agent of an organisation that classifies nothing runs the tool.
