@@ -167,12 +167,12 @@ class ObjectEntity {
 	}//end setOrganisation()
 
 	/**
-	 * Get the JSON object payload.
+	 * Get the JSON object payload, led by `id` (the uuid) as OpenRegister's entity returns it.
 	 *
 	 * @return array<string,mixed>
 	 */
 	public function getObject(): array {
-		return $this->object;
+		return array_merge(['id' => $this->uuid], $this->object);
 	}//end getObject()
 
 	/**
