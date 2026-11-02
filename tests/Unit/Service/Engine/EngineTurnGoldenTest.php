@@ -49,6 +49,8 @@ use OCP\IUser;
 use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
@@ -82,6 +84,14 @@ class EngineTurnGoldenTest extends TestCase {
 	private const VERDICTS = ['pass', 'pass', 'redact', 'block'];
 
 	/**
+	 * The seeded generator every draw of the current case comes from, so mock
+	 * creation (which calls mt_rand) cannot shift the generated values.
+	 *
+	 * @var Randomizer
+	 */
+	private Randomizer $random;
+
+	/**
 	 * The ordered events of the current case.
 	 *
 	 * @var array<int, mixed>
@@ -96,7 +106,7 @@ class EngineTurnGoldenTest extends TestCase {
 	public function testTurnMatchesTheRecordedFixture(): void {
 		$actual = [];
 		for ($case = 0; $case < self::CASES; $case++) {
-			mt_srand($case + 1);
+			$this->random = new Randomizer(new Mt19937($case + 1));
 			$actual[] = $this->runCase();
 		}
 
@@ -139,20 +149,20 @@ class EngineTurnGoldenTest extends TestCase {
 			'authorId' => $this->pick(self::AUTHORS),
 			'attachments' => $this->pick([[], [], [], [['fileId' => 1]], [['fileId' => 1]], [['path' => '/secret.txt']]]),
 			'skillSetOverride' => $this->pick([null, ['s1']]),
-			'dryRun' => (mt_rand(0, 3) === 0),
+			'dryRun' => ($this->random->getInt(0, 3) === 0),
 			'context' => $this->pick([[], ['appId' => 'dossiq']]),
-			'withTrace' => (mt_rand(0, 1) === 1),
+			'withTrace' => ($this->random->getInt(0, 1) === 1),
 			'conversation' => $conversationData,
 			'inputVerdict' => $this->pick(self::VERDICTS),
 			'outputVerdict' => $this->pick(self::VERDICTS),
 			'response' => $this->pick(['ok', 'ok', 'ok', 'fails', 'redaction-refused']),
 			'optional' => [
-				'guardrails' => (mt_rand(0, 4) > 0),
-				'jobList' => (mt_rand(0, 2) > 0),
-				'userManager' => (mt_rand(0, 2) > 0),
+				'guardrails' => ($this->random->getInt(0, 4) > 0),
+				'jobList' => ($this->random->getInt(0, 2) > 0),
+				'userManager' => ($this->random->getInt(0, 2) > 0),
 				'promptVariables' => $this->pick(['none', 'ok', 'throws']),
-				'attachments' => (mt_rand(0, 3) > 0),
-				'images' => (mt_rand(0, 1) === 1),
+				'attachments' => ($this->random->getInt(0, 3) > 0),
+				'images' => ($this->random->getInt(0, 1) === 1),
 			],
 		];
 
@@ -633,7 +643,7 @@ class EngineTurnGoldenTest extends TestCase {
 	 * @return array<string, mixed>
 	 */
 	private function maybe(array $fields): array {
-		return array_filter($fields, static fn (): bool => mt_rand(0, 1) === 1);
+		return array_filter($fields, fn (): bool => $this->random->getInt(0, 1) === 1);
 	}//end maybe()
 
 	/**
@@ -644,6 +654,6 @@ class EngineTurnGoldenTest extends TestCase {
 	 * @return mixed
 	 */
 	private function pick(array $values): mixed {
-		return $values[mt_rand(0, count($values) - 1)];
+		return $values[$this->random->getInt(0, count($values) - 1)];
 	}//end pick()
 }//end class
