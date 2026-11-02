@@ -63,6 +63,7 @@ use Psr\Log\NullLogger;
  * @covers \OCA\Hermiq\Service\GuardrailPolicyService
  * @covers \OCA\Hermiq\Controller\McpRunController
  * @covers \OCA\Hermiq\Service\Engine\RunStepBus
+ * @covers \OCA\Hermiq\Service\Engine\TurnGuardrail
  * @uses   \OCA\Hermiq\Service\Engine\FacadeToolInvoker
  * @uses   \OCA\Hermiq\Service\Engine\TurnGuard
  * @uses   \OCA\Hermiq\Service\Talk\ConversationParticipation
