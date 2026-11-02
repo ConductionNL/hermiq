@@ -232,6 +232,24 @@ async function handleStage(req, res, rawBody) {
 	await runSyncStage(res, args)
 }
 
+// The fields a /stage body may hand to the workload, in runStage()'s order.
+const STAGE_FIELDS = [
+	'repo',
+	'ref',
+	'command',
+	'toolRepo',
+	'toolRef',
+	'toolTarball',
+	'collect',
+	'forgeToken',
+	'forgeUser',
+	'timeoutMs',
+	'env',
+	'runToken',
+	'push',
+	'credentialEnv',
+]
+
 /**
  * The fields a `/stage` body may hand to the workload, and nothing else.
  *
@@ -250,41 +268,10 @@ async function handleStage(req, res, rawBody) {
  * for every field.
  *
  * @param {object} payload The parsed request body.
- * @returns {object} The workload arguments.
+ * @returns {object} The workload arguments, one key per field (undefined when absent).
  */
 function stageArgs(payload) {
-	const {
-		repo,
-		ref,
-		command,
-		toolRepo,
-		toolRef,
-		toolTarball,
-		collect,
-		forgeToken,
-		forgeUser,
-		timeoutMs,
-		env,
-		runToken,
-		push,
-		credentialEnv,
-	} = payload
-	return {
-		repo,
-		ref,
-		command,
-		toolRepo,
-		toolRef,
-		toolTarball,
-		collect,
-		forgeToken,
-		forgeUser,
-		timeoutMs,
-		env,
-		runToken,
-		push,
-		credentialEnv,
-	}
+	return Object.fromEntries(STAGE_FIELDS.map((field) => [field, payload[field]]))
 }
 
 /**
