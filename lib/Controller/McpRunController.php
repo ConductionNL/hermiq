@@ -128,6 +128,13 @@ class McpRunController extends Controller {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
+	 * Schema slug for the conversation (session) objects.
+	 *
+	 * @var string
+	 */
+	private const CONVERSATION_SCHEMA = 'agentsession';
+
+	/**
 	 * The MCP protocol version this server defaults to when the client names none.
 	 *
 	 * @var string
@@ -502,7 +509,9 @@ class McpRunController extends Controller {
 			// the UI is listening to — is never touched. The run token binds this
 			// request to its conversation, which is what lets the two be joined.
 			$startedAt = microtime(true);
-			$policy = $this->guardrailService?->effectivePolicyFor(organisation: $this->organisationOf(agent: $agent));
+			$policy = $this->guardrailService?->effectivePolicyFor(
+				organisation: $this->conversationOrganisation(conversationId: $conversationId)
+			);
 			$shownArguments = $this->shownInChat(policy: $policy, value: $arguments);
 
 			try {
@@ -529,7 +538,7 @@ class McpRunController extends Controller {
 				conversationId: $conversationId,
 				toolName: $name,
 				arguments: $shownArguments,
-				result: (string)$this->shownInChat(policy: $policy, value: $resultJson),
+				result: $this->shownResult(policy: $policy, resultJson: $resultJson),
 				durationMs: (int)round((microtime(true) - $startedAt) * 1000)
 			);
 
@@ -649,7 +658,7 @@ class McpRunController extends Controller {
 	 * A tool step's arguments or result as the chat may show it: through the
 	 * policy's output filters, or as given when no policy is resolved.
 	 *
-	 * @param array<string,mixed>|null $policy The agent organisation's effective policy.
+	 * @param array<string,mixed>|null $policy The conversation's effective policy.
 	 * @param mixed                    $value  The arguments or the result text.
 	 *
 	 * @return mixed
@@ -663,6 +672,71 @@ class McpRunController extends Controller {
 
 		return $this->guardrailService->filterOutputValue(policy: $policy, value: $value);
 	}//end shownInChat()
+
+	/**
+	 * The tool's result JSON as the chat may show it. The JSON is filtered as its
+	 * decoded value, so escaped characters such as `\/` do not hide a match.
+	 *
+	 * @param array<string,mixed>|null $policy     The conversation's effective policy.
+	 * @param string                   $resultJson The result JSON the tool returned.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownResult(?array $policy, string $resultJson): string {
+		$decoded = json_decode($resultJson, true);
+		if (is_array($decoded) === false) {
+			return (string)$this->shownInChat(policy: $policy, value: $resultJson);
+		}
+
+		$shown = $this->shownInChat(policy: $policy, value: $decoded);
+		if ($shown === $decoded) {
+			return $resultJson;
+		}
+
+		if (is_string($shown) === true) {
+			return $shown;
+		}
+
+		return (string)json_encode($shown, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+	}//end shownResult()
+
+	/**
+	 * The conversation's organisation, whose policy also filters the answer, or ''
+	 * when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function conversationOrganisation(string $conversationId): string {
+		if ($conversationId === '') {
+			return '';
+		}
+
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[McpRunController] Conversation lookup failed',
+				context: ['conversationId' => $conversationId, 'error' => $e->getMessage()]
+			);
+			return '';
+		}
+
+		if ($conversation instanceof ObjectEntity) {
+			return (string)($conversation->getOrganisation() ?? '');
+		}
+
+		return '';
+	}//end conversationOrganisation()
 
 	/**
 	 * The agent's organisation (for the guardrail policy), or '' when unset.

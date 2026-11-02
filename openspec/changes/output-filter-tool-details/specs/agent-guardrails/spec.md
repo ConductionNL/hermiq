@@ -23,6 +23,12 @@ The filters MUST NOT change what the tool runs with or what the model reads back
 receives the arguments the model wrote, and the model receives the tool's real result. Only the
 copy shown to the user, and the copy stored for the chat, is filtered.
 
+The policy that filters the tool call details MUST be the policy that filters the answer: the
+effective policy of the conversation's organisation. The organisation of the agent, or of the
+tools, MUST NOT decide it. This holds for in-process turns and for `cli` turns alike. A `cli`
+result MUST be filtered as its decoded value, so that JSON escaping (such as `\/` in a URL)
+does not keep a pattern from matching.
+
 With the output filter off, the tool call details MUST be shown exactly as before.
 
 #### Scenario: Secrets in the output are redacted before the chat message is stored
@@ -68,6 +74,23 @@ With the output filter off, the tool call details MUST be shown exactly as befor
   step
 - **AND** the CLI MUST still receive the tool's real result
 - @e2e exclude needs a running CLI runner; covered by ToolDetailOutputFilterTest
+
+#### Scenario: Tool details follow the conversation's policy
+- **GIVEN** a conversation of an organisation whose policy sets `outputFilters.piiAction: redact`
+- **AND** an agent of another organisation, whose policy filters nothing
+- **WHEN** the agent calls a tool in that conversation, in process or over the governed MCP
+  transport
+- **THEN** the tool call details shown in the chat MUST be redacted, as the answer is
+- **AND** when the conversation cannot be read on the `cli` path, the instance default policy
+  MUST apply
+- @e2e exclude needs two organisations, a live model and a seeded secret; covered by ToolDetailOutputFilterTest and ToolDetailDriveTest
+
+#### Scenario: A URL credential in a cli result is redacted
+- **GIVEN** an organisation's policy sets `outputFilters.piiAction: redact`
+- **WHEN** a `cli` tool call returns a result whose JSON carries a URL with a password, with its
+  slashes escaped
+- **THEN** the recorded step MUST NOT contain the password
+- @e2e exclude needs a running CLI runner; covered by ToolDetailOutputFilterTest and ToolDetailDriveTest
 
 #### Scenario: A blocked tool detail is shown as withheld
 - **GIVEN** an organisation's policy sets `outputFilters.piiAction: block`

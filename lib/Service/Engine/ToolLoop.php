@@ -489,9 +489,6 @@ class ToolLoop {
 			}
 		}
 
-		$policy = $this->guardrailPolicyFor(organisation: $organisation);
-		$this->screenToolDetails(channel: $channel, policy: $policy);
-
 		$invoker = new FacadeToolInvoker(
 			facade: $this->toolRegistryFacade,
 			channel: $channel,
@@ -500,7 +497,7 @@ class ToolLoop {
 			approvalService: $this->approvalService,
 			agentId: $agentId,
 			mcpIdByName: $mcpIdByName,
-			toolPolicy: $this->resolveToolPolicy(policy: $policy),
+			toolPolicy: $this->resolveToolPolicy(organisation: $organisation),
 			dryRun: $dryRun,
 			descriptorsByName: $descriptorsByName,
 			redactionService: $this->redactionService,
@@ -766,57 +763,24 @@ class ToolLoop {
 	}//end freeFormObjectDescription()
 
 	/**
-	 * The turn's effective GuardrailPolicy, resolved ONCE per turn (design.md
-	 * Decision 6), or null when no GuardrailPolicyService is wired.
+	 * Resolve the effective GuardrailPolicy's `toolPolicy` list into a
+	 * `toolId => classification` map for O(1) lookups inside `FacadeToolInvoker`
+	 * (design.md Decision 6 — resolved ONCE per turn, not once per tool call).
+	 * `null`/absent GuardrailPolicyService or organisation resolves to an empty
+	 * map (every tool `auto` — zero behavior change).
 	 *
 	 * @param string|null $organisation The turn's organisation.
-	 *
-	 * @return array<string,mixed>|null The effective policy.
-	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
-	 */
-	private function guardrailPolicyFor(?string $organisation): ?array {
-		return $this->guardrailPolicyService?->effectivePolicyFor(organisation: ($organisation ?? ''));
-	}//end guardrailPolicyFor()
-
-	/**
-	 * Have the channel's tool-call and tool-result frames pass the policy's output
-	 * filters. No channel, no service or no policy leaves the frames as they are.
-	 *
-	 * @param StreamYieldChannel|null  $channel The turn's streaming channel.
-	 * @param array<string,mixed>|null $policy  The turn's effective policy.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
-	 */
-	private function screenToolDetails(?StreamYieldChannel $channel, ?array $policy): void {
-		$service = $this->guardrailPolicyService;
-		if ($channel === null || $service === null || $policy === null) {
-			return;
-		}
-
-		$channel->screenToolDetails(
-			screen: static fn (mixed $value): mixed => $service->filterOutputValue(policy: $policy, value: $value)
-		);
-	}//end screenToolDetails()
-
-	/**
-	 * Resolve the effective GuardrailPolicy's `toolPolicy` list into a
-	 * `toolId => classification` map for O(1) lookups inside `FacadeToolInvoker`.
-	 * A null policy (no GuardrailPolicyService) resolves to an empty map (every
-	 * tool `auto`, zero behavior change).
-	 *
-	 * @param array<string,mixed>|null $policy The turn's effective policy.
 	 *
 	 * @return array<string,string> toolId => classification.
 	 *
 	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
-	private function resolveToolPolicy(?array $policy): array {
-		if ($policy === null) {
+	private function resolveToolPolicy(?string $organisation): array {
+		if ($this->guardrailPolicyService === null) {
 			return [];
 		}
+
+		$policy = $this->guardrailPolicyService->effectivePolicyFor(organisation: ($organisation ?? ''));
 
 		// `effectivePolicyFor()`'s return shape guarantees `toolPolicy` and each entry's
 		// `toolId`/`classification`, so no defensive re-checking is needed here.

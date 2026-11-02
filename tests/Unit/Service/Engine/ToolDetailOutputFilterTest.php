@@ -24,6 +24,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\Engine\ContextAssembler;
+use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
+use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
+use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
+use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolLoop;
@@ -51,6 +57,7 @@ use Psr\Log\NullLogger;
 /**
  * The stream frames, the recorded cli steps and their replay under an output policy.
  *
+ * @covers \OCA\Hermiq\Service\Engine\Engine
  * @covers \OCA\Hermiq\Service\Engine\ToolLoop
  * @covers \OCA\Hermiq\Service\Engine\StreamYieldChannel
  * @covers \OCA\Hermiq\Service\GuardrailPolicyService
@@ -58,6 +65,8 @@ use Psr\Log\NullLogger;
  * @covers \OCA\Hermiq\Service\Engine\RunStepBus
  * @uses   \OCA\Hermiq\Service\Engine\FacadeToolInvoker
  * @uses   \OCA\Hermiq\Service\Engine\TurnGuard
+ * @uses   \OCA\Hermiq\Service\Talk\ConversationParticipation
+ * @uses   \OCA\Hermiq\Service\Engine\RunTraceCollector
  * @uses   \OCA\Hermiq\Service\Agent\AgentAvailability
  * @uses   \OCA\Hermiq\Service\RedactionService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
@@ -69,13 +78,22 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	private const TOOL = 'openregister_contact_search';
 
 	/**
-	 * A guardrail service whose effective policy has the given output action.
+	 * How often the cli path read a conversation.
 	 *
-	 * @param string $action `off`, `redact` or `block`.
+	 * @var integer
+	 */
+	private int $conversationReads = 0;
+
+	/**
+	 * A guardrail service whose policy for one organisation has the given output
+	 * action, and whose policy for every other organisation filters nothing.
+	 *
+	 * @param string $action       `off`, `redact` or `block`.
+	 * @param string $organisation The organisation the action applies to.
 	 *
 	 * @return GuardrailPolicyService
 	 */
-	private function guardrail(string $action): GuardrailPolicyService {
+	private function guardrail(string $action, string $organisation = 'org-1'): GuardrailPolicyService {
 		$config = $this->createMock(IConfig::class);
 		$config->method('getAppValue')->willReturn('yes');
 
@@ -83,11 +101,11 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			->setConstructorArgs([$this->createMock(ObjectService::class), new RedactionService($config)])
 			->onlyMethods(['effectivePolicyFor'])
 			->getMock();
-		$service->method('effectivePolicyFor')->willReturn(
-			[
+		$service->method('effectivePolicyFor')->willReturnCallback(
+			static fn (string $asked): array => [
 				'source' => 'organisation',
 				'inputFilters' => ['piiAction' => 'off', 'promptInjectionAction' => 'off'],
-				'outputFilters' => ['piiAction' => $action],
+				'outputFilters' => ['piiAction' => ($asked === $organisation) ? $action : 'off'],
 				'toolPolicy' => [],
 				'enabled' => true,
 			]
@@ -111,14 +129,25 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	}//end descriptor()
 
 	/**
-	 * Run one in-process tool call through ToolLoop and collect the stream frames.
+	 * Run one streamed turn through the Engine whose response makes one in-process
+	 * tool call through ToolLoop, and collect the stream frames.
 	 *
-	 * @param GuardrailPolicyService|null $guardrail The guardrail service, or none.
-	 * @param array<string, mixed>        $sent      Filled with the arguments the tool received.
+	 * The conversation belongs to `$conversationOrg`; the tools are built for the
+	 * agent's organisation, `$agentOrg`.
+	 *
+	 * @param GuardrailPolicyService|null $guardrail       The guardrail service, or none.
+	 * @param array<string, mixed>        $sent            Filled with the arguments the tool received.
+	 * @param string                      $conversationOrg The conversation's organisation.
+	 * @param string                      $agentOrg        The organisation the tools are built for.
 	 *
 	 * @return array{frames: list<array{0: string, 1: array<string, mixed>}>, model: string}
 	 */
-	private function streamOneCall(?GuardrailPolicyService $guardrail, array &$sent): array {
+	private function streamOneCall(
+		?GuardrailPolicyService $guardrail,
+		array &$sent,
+		string $conversationOrg = 'org-1',
+		string $agentOrg = 'org-2',
+	): array {
 		$facade = $this->createMock(ToolRegistryFacade::class);
 		$facade->method('invokeTool')->willReturnCallback(
 			static function (string $toolId, array $arguments) use (&$sent): array {
@@ -139,6 +168,51 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			$guardrail
 		);
 
+		$model = '';
+		$responseHandler = $this->createMock(ResponseGenerationHandler::class);
+		$responseHandler->lastUsage = [];
+		$responseHandler->method('generateResponse')->willReturnCallback(
+			function (string $text, array $context, array $history, ?ObjectEntity $agent, array $tools, ?StreamYieldChannel $channel) use ($loop, $agentOrg, &$model): string {
+				$infos = $loop->buildFunctionInfos(functions: [$this->descriptor()], channel: $channel, organisation: $agentOrg);
+				$model = (string)$infos[0]->callWithArguments(['q' => 'find ' . self::SECRET]);
+				return 'done';
+			}
+		);
+
+		$conversation = new ObjectEntity();
+		$conversation->setUuid('conv-1');
+		$conversation->setObject(['userId' => 'alice', 'agentId' => null]);
+		$conversation->setOrganisation($conversationOrg);
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturn($conversation);
+
+		$contextHandler = $this->createMock(ContextRetrievalHandler::class);
+		$contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+		$historyHandler = $this->createMock(MessageHistoryHandler::class);
+		$historyHandler->method('storeMessage')->willReturnCallback(
+			static function (string $conversationId, string $role): ObjectEntity {
+				$message = new ObjectEntity();
+				$message->setUuid('msg-' . $role);
+				return $message;
+			}
+		);
+		$historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
+		$contextAssembler = $this->createMock(ContextAssembler::class);
+		$contextAssembler->method('assembleForAgent')->willReturn('');
+
+		$engine = new Engine(
+			$objects,
+			$contextHandler,
+			$responseHandler,
+			$this->createMock(ConversationManagementHandler::class),
+			$historyHandler,
+			$contextAssembler,
+			new NullLogger(),
+			$guardrail
+		);
+
 		$frames = [];
 		$channel = new StreamYieldChannel();
 		$channel->onToolCall(callback: static function (array $payload) use (&$frames): void {
@@ -148,8 +222,7 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			$frames[] = ['tool_result', $payload];
 		});
 
-		$infos = $loop->buildFunctionInfos(functions: [$this->descriptor()], channel: $channel, organisation: 'org-1');
-		$model = (string)$infos[0]->callWithArguments(['q' => 'find ' . self::SECRET]);
+		$engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'hi', channel: $channel);
 
 		return ['frames' => $frames, 'model' => $model];
 	}//end streamOneCall()
@@ -248,6 +321,10 @@ final class ToolDetailOutputFilterTest extends TestCase {
 		$this->assertStringStartsWith('key ', $text);
 		$this->assertStringNotContainsString(self::SECRET, $text);
 
+		$jsonText = $service->filterOutputValue(policy: $policy, value: '{"note":"key ' . self::SECRET . '"}');
+		$this->assertIsString($jsonText);
+		$this->assertStringNotContainsString(self::SECRET, $jsonText);
+
 		$this->assertSame(['password' => '***'], $service->filterOutputValue(policy: $policy, value: ['password' => 'hunter2']));
 
 		$clean = ['q' => 'nothing here', 'n' => 3];
@@ -266,14 +343,13 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	}//end testFilterOutputValueShapes()
 
 	/**
-	 * The screen leaves a frame without the screened key as it is, and a turn
-	 * without a channel builds its tools under a policy as before.
+	 * The screen leaves a frame without the screened key as it is.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-with-the-output-filter-off-tool-details-are-shown-as-they-are
 	 */
-	public function testScreenSkipsAbsentKeysAndAMissingChannel(): void {
+	public function testScreenSkipsAbsentKeys(): void {
 		$frames = [];
 		$channel = new StreamYieldChannel();
 		$channel->onToolResult(callback: static function (array $payload) use (&$frames): void {
@@ -288,19 +364,7 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			$frames
 		);
 
-		$appConfig = $this->createMock(IAppConfig::class);
-		$appConfig->method('getValueInt')->willReturn(30);
-		$loop = new ToolLoop(
-			$this->createMock(ToolRegistryFacade::class),
-			new NullLogger(),
-			new ToolGrantResolver(),
-			new ToolSearchService(),
-			$this->createMock(ApprovalService::class),
-			$appConfig,
-			$this->guardrail(action: 'redact')
-		);
-		$this->assertCount(1, $loop->buildFunctionInfos(functions: [$this->descriptor()], organisation: 'org-1'));
-	}//end testScreenSkipsAbsentKeysAndAMissingChannel()
+	}//end testScreenSkipsAbsentKeys()
 
 	/**
 	 * A RunStepBus over an in-memory cache.
@@ -334,25 +398,64 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	 * @param GuardrailPolicyService|null $guardrail The guardrail service, or none.
 	 * @param array<string, mixed>        $sent      Filled with the arguments the tool received.
 	 * @param boolean                     $fails     Whether the tool throws.
+	 * @param string                      $conversationOrg The organisation of the conversation the
+	 *                                                     token names; `#absent` reads no conversation,
+	 *                                                     `#throws` makes the read throw.
+	 * @param string|null                 $resultJson   The JSON the tool returns; defaults to a
+	 *                                                  result carrying the key.
+	 * @param string                      $conversationId The conversation id the token binds.
 	 *
 	 * @return array<string, mixed>
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Test helper: each parameter is one scenario knob.
 	 */
-	private function cliCall(RunStepBus $bus, ?GuardrailPolicyService $guardrail, array &$sent, bool $fails = false): array {
+	private function cliCall(
+		RunStepBus $bus,
+		?GuardrailPolicyService $guardrail,
+		array &$sent,
+		bool $fails = false,
+		string $conversationOrg = 'org-1',
+		?string $resultJson = null,
+		string $conversationId = 'c1',
+	): array {
 		$tokens = $this->createMock(RunTokenService::class);
 		$tokens->method('verify')->willReturn(
-			['runId' => 'r', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'c1']
+			['runId' => 'r', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => $conversationId]
 		);
 
+		// The agent belongs to another organisation than the conversation, in
+		// both places an organisation could be read from.
 		$agent = new ObjectEntity();
 		$agent->setUuid('agent-1');
-		$agent->setObject(['tools' => ['openregister.contact.*'], 'organisation' => 'org-1']);
+		$agent->setObject(['tools' => ['openregister.contact.*'], 'organisation' => 'org-2']);
+		$agent->setOrganisation('org-2');
+		$conversation = null;
+		if (str_starts_with($conversationOrg, '#') === false) {
+			$conversation = $this->conversation(organisation: $conversationOrg);
+		}
+
 		$objects = $this->createMock(ObjectService::class);
-		$objects->method('find')->willReturn($agent);
+		$objects->method('find')->willReturnCallback(
+			function (string $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) use ($agent, $conversation, $conversationOrg): ?ObjectEntity {
+				if ($schema !== 'agentsession') {
+					return $agent;
+				}
+
+				$this->conversationReads++;
+
+				if ($conversationOrg === '#throws') {
+					throw new \RuntimeException('not found');
+				}
+
+				return $conversation;
+			}
+		);
 
 		$facade = $this->createMock(ToolRegistryFacade::class);
 		$facade->method('listTools')->willReturn([$this->descriptor()]);
 
-		$functionInfo = new class(self::SECRET, $fails) {
+		$resultJson ??= (string)json_encode(['result' => ['note' => 'key ' . self::SECRET], 'isError' => false]);
+		$functionInfo = new class($resultJson, $fails) {
 			public string $name = 'openregister_contact_search';
 
 			/**
@@ -365,10 +468,10 @@ final class ToolDetailOutputFilterTest extends TestCase {
 			/**
 			 * Constructor.
 			 *
-			 * @param string $secret The key the result carries.
-			 * @param bool   $fails  Whether the call throws.
+			 * @param string $json  The result JSON.
+			 * @param bool   $fails Whether the call throws.
 			 */
-			public function __construct(private string $secret, private bool $fails) {
+			public function __construct(private string $json, private bool $fails) {
 			}
 
 			/**
@@ -384,7 +487,7 @@ final class ToolDetailOutputFilterTest extends TestCase {
 					throw new \RuntimeException('tool failed');
 				}
 
-				return (string)json_encode(['result' => ['note' => 'key ' . $this->secret], 'isError' => false]);
+				return $this->json;
 			}
 		};
 		$toolLoop = $this->createMock(ToolLoop::class);
@@ -419,6 +522,22 @@ final class ToolDetailOutputFilterTest extends TestCase {
 
 		return $data;
 	}//end cliCall()
+
+	/**
+	 * A conversation of the given organisation.
+	 *
+	 * @param string $organisation The organisation.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function conversation(string $organisation): ObjectEntity {
+		$conversation = new ObjectEntity();
+		$conversation->setUuid('c1');
+		$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+		$conversation->setOrganisation($organisation);
+
+		return $conversation;
+	}//end conversation()
 
 	/**
 	 * Under `redact`, the recorded cli step, which the stream replays and the
@@ -477,7 +596,7 @@ final class ToolDetailOutputFilterTest extends TestCase {
 		$steps = $bus->read(conversationId: 'c1');
 		$this->assertIsString($steps[0]['arguments']);
 		$this->assertStringContainsString('withheld', $steps[0]['arguments']);
-		$this->assertStringContainsString('withheld', $steps[0]['result']);
+		$this->assertStringStartsWith('This response was withheld', $steps[0]['result']);
 		$this->assertSame('find ' . self::SECRET, $sent['q']);
 	}//end testBlockedCliStepShowsThePlaceholder()
 
@@ -490,18 +609,119 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-with-the-output-filter-off-tool-details-are-shown-as-they-are
 	 */
 	public function testWithoutAnOutputFilterTheCliStepIsUnchanged(): void {
+		$json = (string)json_encode(['result' => ['note' => 'key ' . self::SECRET, 'url' => 'https://example.org/x'], 'isError' => false]);
 		foreach ([$this->guardrail(action: 'off'), null] as $guardrail) {
 			$bus = $this->bus();
 			$sent = [];
-			$this->cliCall(bus: $bus, guardrail: $guardrail, sent: $sent);
+			$this->cliCall(bus: $bus, guardrail: $guardrail, sent: $sent, resultJson: $json);
 
 			$steps = $bus->read(conversationId: 'c1');
 			$this->assertSame(['q' => 'find ' . self::SECRET], $steps[0]['arguments']);
-			$this->assertSame(
-				(string)json_encode(['result' => ['note' => 'key ' . self::SECRET], 'isError' => false]),
-				$steps[0]['result']
-			);
+			$this->assertSame($json, $steps[0]['result']);
 		}
 	}//end testWithoutAnOutputFilterTheCliStepIsUnchanged()
+
+	/**
+	 * The frames follow the conversation's policy, the one that filters the
+	 * answer, not the organisation the tools were built for.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	public function testFramesFollowTheConversationsPolicy(): void {
+		$sent = [];
+		$run = $this->streamOneCall(guardrail: $this->guardrail(action: 'redact'), sent: $sent, conversationOrg: 'org-2', agentOrg: 'org-1');
+
+		$this->assertSame(['q' => 'find ' . self::SECRET], $run['frames'][0][1]['arguments']);
+		$this->assertSame(['note' => 'key ' . self::SECRET], $run['frames'][1][1]['result']);
+	}//end testFramesFollowTheConversationsPolicy()
+
+	/**
+	 * The cli step follows the conversation's policy, not the agent's organisation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	public function testCliStepFollowsTheConversationsPolicy(): void {
+		$bus = $this->bus();
+		$sent = [];
+		$this->cliCall(bus: $bus, guardrail: $this->guardrail(action: 'redact', organisation: 'org-2'), sent: $sent);
+
+		$steps = $bus->read(conversationId: 'c1');
+		$this->assertSame(['q' => 'find ' . self::SECRET], $steps[0]['arguments']);
+		$this->assertStringContainsString(self::SECRET, $steps[0]['result']);
+	}//end testCliStepFollowsTheConversationsPolicy()
+
+	/**
+	 * A cli result is JSON with escaped slashes; a URL credential in it is still
+	 * redacted, and the rest of the result keeps its shape.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-a-cli-turns-recorded-steps-are-filtered-before-they-are-stored
+	 */
+	public function testCliResultWithEscapedSlashesIsFiltered(): void {
+		$bus = $this->bus();
+		$sent = [];
+		$json = (string)json_encode(['result' => ['dsn' => 'postgres://admin:Sup3rS3cretPw@db.internal:5432/app'], 'isError' => false]);
+		$this->assertStringContainsString('\/\/', $json);
+		$this->cliCall(bus: $bus, guardrail: $this->guardrail(action: 'redact'), sent: $sent, resultJson: $json);
+
+		$result = $bus->read(conversationId: 'c1')[0]['result'];
+		$this->assertStringNotContainsString('Sup3rS3cretPw', $result);
+		$this->assertStringContainsString('db.internal', $result);
+		$this->assertFalse(json_decode($result, true)['isError']);
+	}//end testCliResultWithEscapedSlashesIsFiltered()
+
+	/**
+	 * A cli result that is not JSON is filtered as text.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-a-cli-turns-recorded-steps-are-filtered-before-they-are-stored
+	 */
+	public function testPlainTextCliResultIsFiltered(): void {
+		$bus = $this->bus();
+		$sent = [];
+		$this->cliCall(bus: $bus, guardrail: $this->guardrail(action: 'redact'), sent: $sent, resultJson: 'key ' . self::SECRET);
+
+		$result = $bus->read(conversationId: 'c1')[0]['result'];
+		$this->assertStringStartsWith('key ', $result);
+		$this->assertStringNotContainsString(self::SECRET, $result);
+	}//end testPlainTextCliResultIsFiltered()
+
+	/**
+	 * When the conversation cannot be read, the cli step follows the instance
+	 * default policy.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	public function testUnreadableConversationUsesTheDefaultPolicy(): void {
+		foreach (['#throws', '#absent'] as $conversationOrg) {
+			$bus = $this->bus();
+			$sent = [];
+			$this->cliCall(
+				bus: $bus,
+				guardrail: $this->guardrail(action: 'redact', organisation: ''),
+				sent: $sent,
+				conversationOrg: $conversationOrg
+			);
+
+			$steps = $bus->read(conversationId: 'c1');
+			$this->assertCount(1, $steps, $conversationOrg);
+			$this->assertStringNotContainsString(self::SECRET, (string)json_encode($steps), $conversationOrg);
+		}
+
+		// A run without a conversation reads none.
+		$this->conversationReads = 0;
+		$sent = [];
+		$this->cliCall(bus: $this->bus(), guardrail: $this->guardrail(action: 'redact'), sent: $sent, conversationId: '');
+		$this->assertSame(0, $this->conversationReads);
+		$this->assertSame('find ' . self::SECRET, $sent['q']);
+	}//end testUnreadableConversationUsesTheDefaultPolicy()
 
 }//end class

@@ -18,6 +18,7 @@ the tool detail. That holds for the live chat stream and for the steps a `cli` t
 - The output filter applies to the arguments and the result of every tool call shown to the
   user. It covers the `tool_call` and `tool_result` stream frames, the recorded `cli` steps,
   their stream replay and the `toolCalls` of a blocking send.
+- The policy that decides is the conversation's, the same policy that filters the answer.
 - The tool still runs with the model's arguments, and the model still reads the real result.
 - With the filter off, nothing changes.
 
@@ -26,5 +27,8 @@ the tool detail. That holds for the live chat stream and for the steps a `cli` t
 - `GuardrailPolicyService::filterOutputValue()` applies the output filter to a tool argument
   set or result.
 - `StreamYieldChannel::screenToolDetails()` lets the turn filter tool frames before any
-  listener sees them. `ToolLoop` sets it from the turn's policy.
-- `McpRunController` filters a `cli` step before it records it on `RunStepBus`.
+  listener sees them. `Engine::processMessage()` sets it from the policy it resolved for the
+  conversation, the one that filters the answer.
+- `McpRunController` filters a `cli` step before it records it on `RunStepBus`, under the
+  policy of the conversation the run token names. A JSON result is filtered as its decoded
+  value.

@@ -409,6 +409,7 @@ class Engine {
 			// the LLM are the masked text, never the original.
 			$organisation = (string)($conversation->getOrganisation() ?? '');
 			$guardrailPolicy = $this->resolveGuardrailPolicy(organisation: $organisation);
+			$this->screenToolDetails(channel: $channel, policy: $guardrailPolicy);
 
 			$inputFilter = $this->guardrailPolicyService?->filterInput(
 				policy: $guardrailPolicy,
@@ -760,6 +761,29 @@ class Engine {
 		);
 
 	}//end queueTitleGeneration()
+
+	/**
+	 * Have the channel's tool-call and tool-result frames pass the output filters
+	 * of the policy that filters the answer. No channel or no guardrail service
+	 * leaves the frames as they are.
+	 *
+	 * @param StreamYieldChannel|null $channel The turn's streaming channel.
+	 * @param array<string,mixed>     $policy  The conversation's effective policy.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function screenToolDetails(?StreamYieldChannel $channel, array $policy): void {
+		$service = $this->guardrailPolicyService;
+		if ($channel === null || $service === null) {
+			return;
+		}
+
+		$channel->screenToolDetails(
+			screen: static fn (mixed $value): mixed => $service->filterOutputValue(policy: $policy, value: $value)
+		);
+	}//end screenToolDetails()
 
 	/**
 	 * Resolve the effective GuardrailPolicy for an organisation, or the
