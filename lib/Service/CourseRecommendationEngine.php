@@ -145,73 +145,39 @@ class CourseRecommendationEngine {
 	private const TOP_N_FOR_EXPLANATION = 5;
 
 	/**
-	 * Engagement-recency lookback window (days) for the xAPI signal.
-	 *
-	 * @var int
-	 */
-	private const ENGAGEMENT_RECENCY_WINDOW_DAYS = 90;
-
-	/**
 	 * Named signal: candidate overlaps an open LearningPlan goal.
 	 *
 	 * @var string
 	 */
-	public const SIGNAL_GOAL_ALIGNMENT = 'goal-alignment';
+	public const SIGNAL_GOAL_ALIGNMENT = CourseCandidateScorer::SIGNAL_GOAL_ALIGNMENT;
 
 	/**
 	 * Named signal: candidate continues a programme/parent the learner is already in.
 	 *
 	 * @var string
 	 */
-	public const SIGNAL_CURRICULUM_PATH = 'curriculum-path';
+	public const SIGNAL_CURRICULUM_PATH = CourseCandidateScorer::SIGNAL_CURRICULUM_PATH;
 
 	/**
 	 * Named signal: candidate is the renewal course for a completed mandatory course.
 	 *
 	 * @var string
 	 */
-	public const SIGNAL_MANDATORY_RENEWAL = 'mandatory-renewal';
+	public const SIGNAL_MANDATORY_RENEWAL = CourseCandidateScorer::SIGNAL_MANDATORY_RENEWAL;
 
 	/**
 	 * Named signal: the learner has recent xAPI activity on a sibling/parent course.
 	 *
 	 * @var string
 	 */
-	public const SIGNAL_ENGAGEMENT_RECENCY = 'engagement-recency';
+	public const SIGNAL_ENGAGEMENT_RECENCY = CourseCandidateScorer::SIGNAL_ENGAGEMENT_RECENCY;
 
 	/**
 	 * Named signal: candidate closes a documented competency gap (optional).
 	 *
 	 * @var string
 	 */
-	public const SIGNAL_COMPETENCY_GAP = 'competency-gap';
-
-	/**
-	 * Deterministic weight per signal (a plain weighted sum — see design.md
-	 * "Ranking approach"; not a trained/learned model).
-	 *
-	 * @var array<string, float>
-	 */
-	private const SIGNAL_WEIGHTS = [
-		self::SIGNAL_GOAL_ALIGNMENT => 40.0,
-		self::SIGNAL_CURRICULUM_PATH => 30.0,
-		self::SIGNAL_MANDATORY_RENEWAL => 50.0,
-		self::SIGNAL_ENGAGEMENT_RECENCY => 20.0,
-		self::SIGNAL_COMPETENCY_GAP => 25.0,
-	];
-
-	/**
-	 * Fixed enum order `matchedSignals` is emitted in, for deterministic output.
-	 *
-	 * @var array<int, string>
-	 */
-	private const SIGNAL_ORDER = [
-		self::SIGNAL_GOAL_ALIGNMENT,
-		self::SIGNAL_CURRICULUM_PATH,
-		self::SIGNAL_MANDATORY_RENEWAL,
-		self::SIGNAL_ENGAGEMENT_RECENCY,
-		self::SIGNAL_COMPETENCY_GAP,
-	];
+	public const SIGNAL_COMPETENCY_GAP = CourseCandidateScorer::SIGNAL_COMPETENCY_GAP;
 
 	/**
 	 * Constructor.
@@ -406,7 +372,7 @@ class CourseRecommendationEngine {
 	 * Pure, deterministic candidate filter + weighted score — no I/O, unit-testable
 	 * directly. Same inputs always produce the same `rank`/`score`/`matchedSignals`
 	 * (spec.md "Re-running the deterministic stage on the same data yields the same
-	 * ranking").
+	 * ranking"). The scoring itself lives in CourseCandidateScorer.
 	 *
 	 * Candidate set = published Course objects (already filtered by the caller's
 	 * read query) minus courses the learner has an active/completed Enrolment for.
@@ -423,11 +389,6 @@ class CourseRecommendationEngine {
 	 *
 	 * @return array{candidateCount: int, recommendations: array<int, array<string, mixed>>}
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)  One deterministic scoring pass over five
-	 *   independent signals — splitting would scatter the single source of truth for the ranking.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)       See above.
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) See above.
-	 *
 	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-6
 	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
@@ -439,223 +400,16 @@ class CourseRecommendationEngine {
 		array $gapIds,
 		DateTimeImmutable $now,
 	): array {
-		$coursesByUuid = [];
-		foreach ($courses as $course) {
-			$uuid = (string)($course['_uuid'] ?? '');
-			if ($uuid !== '') {
-				$coursesByUuid[$uuid] = $course;
-			}
-		}
-
-		$excludedCourseIds = [];
-		$mandatoryDoneIds = [];
-		foreach ($enrolments as $enrolment) {
-			$courseId = (string)($enrolment['courseId'] ?? '');
-			$lifecycle = (string)($enrolment['lifecycle'] ?? '');
-			if ($courseId === '') {
-				continue;
-			}
-
-			if (in_array($lifecycle, ['active', 'completed'], true) === true) {
-				$excludedCourseIds[$courseId] = true;
-			}
-
-			if ($lifecycle === 'completed' && ($enrolment['mandatory'] ?? false) === true) {
-				$mandatoryDoneIds[$courseId] = true;
-			}
-		}
-
-		// Curriculum-path continuation: programmes/parents the learner already continues.
-		$continuedProgrammes = [];
-		$continuedParentIds = [];
-		foreach (array_keys($excludedCourseIds) as $enrolledUuid) {
-			$continuedParentIds[$enrolledUuid] = true;
-			$enrolledCourse = $coursesByUuid[$enrolledUuid] ?? null;
-			if ($enrolledCourse === null) {
-				continue;
-			}
-
-			foreach ((array)($enrolledCourse['programmeIds'] ?? []) as $programmeId) {
-				$continuedProgrammes[(string)$programmeId] = true;
-			}
-		}
-
-		// Mandatory-renewal proximity: renewal slugs of completed mandatory courses.
-		$renewalSlugs = [];
-		foreach (array_keys($mandatoryDoneIds) as $mandatoryUuid) {
-			$slug = (string)($coursesByUuid[$mandatoryUuid]['renewalCourseSlug'] ?? '');
-			if ($slug !== '') {
-				$renewalSlugs[$slug] = true;
-			}
-		}
-
-		// Engagement recency: course ids with xAPI activity inside the window.
-		$recencyThreshold = $now->sub(new DateInterval('P' . self::ENGAGEMENT_RECENCY_WINDOW_DAYS . 'D'));
-		$recentCourseIds = [];
-		foreach ($xapiStatements as $statement) {
-			$courseId = (string)($statement['courseId'] ?? '');
-			$timestamp = $statement['timestamp'] ?? null;
-			if ($courseId === '' || is_string($timestamp) === false || $timestamp === '') {
-				continue;
-			}
-
-			try {
-				$statementTime = new DateTimeImmutable($timestamp);
-			} catch (Throwable $e) {
-				continue;
-			}
-
-			if ($statementTime >= $recencyThreshold) {
-				$recentCourseIds[$courseId] = true;
-			}
-		}
-
-		// Sibling map: courses sharing the same non-empty parentCourseId.
-		$siblingsByParent = [];
-		foreach ($coursesByUuid as $uuid => $course) {
-			$parentId = (string)($course['parentCourseId'] ?? '');
-			if ($parentId === '') {
-				continue;
-			}
-
-			$siblingsByParent[$parentId][] = $uuid;
-		}
-
-		// Goal alignment: haystacks built from every OPEN goal's domain + description.
-		$goalHaystacks = [];
-		foreach ($goals as $goal) {
-			$text = strtolower(
-				trim((string)($goal['domain'] ?? '') . ' ' . (string)($goal['description'] ?? ''))
-			);
-			if ($text !== '') {
-				$goalHaystacks[] = $text;
-			}
-		}
-
-		$gapCompetencyIds = array_fill_keys(array_map('strval', $gapIds), true);
-
-		$candidateCount = 0;
-		$scored = [];
-
-		foreach ($coursesByUuid as $uuid => $course) {
-			if ((string)($course['lifecycle'] ?? '') !== 'published') {
-				continue;
-			}
-
-			if (isset($excludedCourseIds[$uuid]) === true) {
-				continue;
-			}
-
-			$candidateCount++;
-			$signals = [];
-
-			// Goal alignment (array_filter's default callback already drops empty tags).
-			$tags = array_filter(array_map('strtolower', array_map('strval', (array)($course['tags'] ?? []))));
-			foreach ($tags as $tag) {
-				foreach ($goalHaystacks as $haystack) {
-					if (str_contains($haystack, $tag) === true) {
-						$signals[] = self::SIGNAL_GOAL_ALIGNMENT;
-						break 2;
-					}
-				}
-			}
-
-			// Curriculum-path continuation.
-			$parentId = (string)($course['parentCourseId'] ?? '');
-			$programmeIds = array_map('strval', (array)($course['programmeIds'] ?? []));
-			$continuesPath = ($parentId !== '' && isset($continuedParentIds[$parentId]) === true);
-			if ($continuesPath === false) {
-				foreach ($programmeIds as $programmeId) {
-					if (isset($continuedProgrammes[$programmeId]) === true) {
-						$continuesPath = true;
-						break;
-					}
-				}
-			}
-
-			if ($continuesPath === true) {
-				$signals[] = self::SIGNAL_CURRICULUM_PATH;
-			}
-
-			// Mandatory-renewal proximity.
-			$code = (string)($course['code'] ?? '');
-			if ($code !== '' && isset($renewalSlugs[$code]) === true) {
-				$signals[] = self::SIGNAL_MANDATORY_RENEWAL;
-			}
-
-			// Engagement recency (prerequisite = own parent; sibling = shares that parent).
-			$engaged = ($parentId !== '' && isset($recentCourseIds[$parentId]) === true);
-			if ($engaged === false) {
-				foreach (($siblingsByParent[$parentId] ?? []) as $siblingUuid) {
-					if ($siblingUuid !== $uuid && isset($recentCourseIds[$siblingUuid]) === true) {
-						$engaged = true;
-						break;
-					}
-				}
-			}
-
-			if ($engaged === true) {
-				$signals[] = self::SIGNAL_ENGAGEMENT_RECENCY;
-			}
-
-			// Competency-gap closure (optional; contributes nothing when absent).
-			if ($gapCompetencyIds !== []) {
-				foreach ((array)($course['competencyIds'] ?? []) as $competencyId) {
-					if (isset($gapCompetencyIds[(string)$competencyId]) === true) {
-						$signals[] = self::SIGNAL_COMPETENCY_GAP;
-						break;
-					}
-				}
-			}
-
-			if ($signals === []) {
-				// No evidence → no explanation possible; excluded (spec.md Requirement 4).
-				continue;
-			}
-
-			$signals = array_values(array_unique($signals));
-			usort(
-				$signals,
-				static fn (string $a, string $b): int => array_search($a, self::SIGNAL_ORDER, true) <=> array_search($b, self::SIGNAL_ORDER, true)
-			);
-
-			$score = 0.0;
-			foreach ($signals as $signal) {
-				// Every $signal here is one of the SIGNAL_* constants this method
-				// itself appended above, so the key always exists in SIGNAL_WEIGHTS.
-				$score += self::SIGNAL_WEIGHTS[$signal];
-			}
-
-			$scored[] = [
-				'courseId' => $uuid,
-				'courseCode' => $code,
-				'courseName' => (string)($course['name'] ?? ''),
-				'score' => $score,
-				'matchedSignals' => $signals,
-			];
-		}//end foreach
-
-		// Deterministic order: score desc, then course code asc (stable tie-break).
-		usort(
-			$scored,
-			static function (array $a, array $b): int {
-				if ($a['score'] === $b['score']) {
-					return $a['courseCode'] <=> $b['courseCode'];
-				}
-
-				return $b['score'] <=> $a['score'];
-			}
+		return (new CourseCandidateScorer())->score(
+			learner: [
+				'courses' => $courses,
+				'enrolments' => $enrolments,
+				'xapiStatements' => $xapiStatements,
+				'goals' => $goals,
+				'gapIds' => $gapIds,
+			],
+			now: $now
 		);
-
-		$rank = 1;
-		foreach ($scored as &$entry) {
-			$entry['rank'] = $rank;
-			$rank++;
-		}
-
-		unset($entry);
-
-		return ['candidateCount' => $candidateCount, 'recommendations' => $scored];
 	}//end scoreCandidates()
 
 	/**
