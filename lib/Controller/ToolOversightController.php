@@ -179,12 +179,8 @@ class ToolOversightController extends Controller {
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Access guards plus per-descriptor
-	 *   shaping (id fallback, write classification, grant annotation) each add a
-	 *   branch on one linear catalog-build path.
-	 * @SuppressWarnings(PHPMD.StaticAccess)         ToolGrantResolver and ToolReachResolver
-	 *   are pure static classification predicates — the same ones the engine's tool
-	 *   loop uses, called statically by design so the two cannot drift.
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants::filterIds is a pure static
+	 *   filter over the resolved ids.
 	 */
 	public function toolCatalog(string $agentId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -208,54 +204,10 @@ class ToolOversightController extends Controller {
 				resolvedIds: $this->grantResolver->resolve(grants: $grants, catalog: $catalog),
 				constraints: $this->grantResolver->argumentConstraints(grants: $grants)
 			);
-			$resolvedSet = array_flip($resolvedIds);
-
-			$tools = [];
-			foreach ($catalog as $descriptor) {
-				$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-				if (is_string($id) === false || $id === '') {
-					continue;
-				}
-
-				// 🔴 The descriptor is threaded through here. It was not before:
-				// this call was id-only, so every 2-segment native id fell to
-				// the fail-closed rule and the oversight UI showed `listFiles`
-				// and `readFile` as WRITE tools — the exact opposite of what
-				// their descriptors declare, and of what the engine's resolver
-				// concluded about the same tools three lines above. An operator
-				// deciding what to grant was reading a classification the
-				// runtime did not share.
-				$hints = null;
-				if (is_array($descriptor) === true) {
-					$hints = $descriptor;
-				}
-
-				$isWrite = ToolGrantResolver::isWriteOrDestructive(id: $id, descriptor: $hints);
-				$reach = ToolReachResolver::resolve(toolId: $id, descriptor: $hints);
-				$granted = isset($resolvedSet[$id]);
-
-				$scope = 'read';
-				if ($isWrite === true) {
-					$scope = 'write';
-				}
-
-				$tools[] = [
-					'id' => $id,
-					'name' => (string)($descriptor['name'] ?? $id),
-					'description' => (string)($descriptor['description'] ?? ''),
-					'scope' => $scope,
-					'reach' => $reach,
-					'destructiveHint' => $isWrite,
-					'granted' => $granted,
-					'grantedBy' => $this->grantedBy(id: $id, grants: $grants, granted: $granted),
-					// The UNION, not `$isWrite` — a read-scoped tool whose reach
-					// is `instance` or beyond needs naming just as explicitly.
-					'requiresExplicitGrant' => (
-						ToolGrantResolver::requiresGrant(id: $id, descriptor: $hints) === true
-						&& $granted === false
-					),
-				];
-			}//end foreach
+			$tools = $this->catalogEntries(
+				catalog: $catalog,
+				grantState: ['grants' => $grants, 'resolved' => array_flip($resolvedIds)]
+			);
 
 			$threshold = $this->disclosureThreshold();
 			$resolvedCount = count($resolvedIds);
@@ -275,6 +227,83 @@ class ToolOversightController extends Controller {
 		}//end try
 
 	}//end toolCatalog()
+
+	/**
+	 * The catalog descriptors as grant-annotated editor rows, nameless ones left out.
+	 *
+	 * @param array<int, mixed> $catalog The registry's tool descriptors.
+	 * @param array{grants: array<int, string>, resolved: array<string, int>} $grantState The agent's raw grants and its resolved id set.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function catalogEntries(array $catalog, array $grantState): array {
+		$tools = [];
+		foreach ($catalog as $descriptor) {
+			$entry = $this->catalogEntry(descriptor: $descriptor, grantState: $grantState);
+			if ($entry !== null) {
+				$tools[] = $entry;
+			}
+		}
+
+		return $tools;
+	}//end catalogEntries()
+
+	/**
+	 * One descriptor as a grant-annotated editor row, or null when it has no id.
+	 *
+	 * @param mixed $descriptor One registry tool descriptor.
+	 * @param array{grants: array<int, string>, resolved: array<string, int>} $grantState The agent's raw grants and its resolved id set.
+	 *
+	 * @return array<string, mixed>|null
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver and ToolReachResolver
+	 *   are pure static classification predicates — the same ones the engine's tool
+	 *   loop uses, called statically by design so the two cannot drift.
+	 */
+	private function catalogEntry(mixed $descriptor, array $grantState): ?array {
+		$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
+		if (is_string($id) === false || $id === '') {
+			return null;
+		}
+
+		// 🔴 The descriptor is threaded through here. It was not before:
+		// this call was id-only, so every 2-segment native id fell to
+		// the fail-closed rule and the oversight UI showed `listFiles`
+		// and `readFile` as WRITE tools — the exact opposite of what
+		// their descriptors declare, and of what the engine's resolver
+		// concluded about the same tools in toolCatalog(). An operator
+		// deciding what to grant was reading a classification the
+		// runtime did not share.
+		$hints = null;
+		if (is_array($descriptor) === true) {
+			$hints = $descriptor;
+		}
+
+		$isWrite = ToolGrantResolver::isWriteOrDestructive(id: $id, descriptor: $hints);
+		$granted = isset($grantState['resolved'][$id]);
+
+		$scope = 'read';
+		if ($isWrite === true) {
+			$scope = 'write';
+		}
+
+		return [
+			'id' => $id,
+			'name' => (string)($descriptor['name'] ?? $id),
+			'description' => (string)($descriptor['description'] ?? ''),
+			'scope' => $scope,
+			'reach' => ToolReachResolver::resolve(toolId: $id, descriptor: $hints),
+			'destructiveHint' => $isWrite,
+			'granted' => $granted,
+			'grantedBy' => $this->grantedBy(id: $id, grants: $grantState['grants'], granted: $granted),
+			// The UNION, not `$isWrite` — a read-scoped tool whose reach
+			// is `instance` or beyond needs naming just as explicitly.
+			'requiresExplicitGrant' => (
+				ToolGrantResolver::requiresGrant(id: $id, descriptor: $hints) === true
+				&& $granted === false
+			),
+		];
+	}//end catalogEntry()
 
 	/**
 	 * Resolve a pending tool-access request an agent raised.

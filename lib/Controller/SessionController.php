@@ -648,8 +648,6 @@ class SessionController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
-	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
 	public function destroy(string $uuid): JSONResponse {
@@ -669,9 +667,8 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'delete');
 			}
 
-			// Check if already archived.
+			// Already archived: a second delete is permanent.
 			if ($this->isArchived(conversation: $conversation) === true) {
-				// Already archived - perform permanent delete.
 				$this->logger->info(
 					message: '[SessionController] Permanently deleting archived conversation',
 					context: [
@@ -684,51 +681,12 @@ class SessionController extends Controller {
 				// Delete feedback first, then messages, then the conversation
 				// (OR's ordering).
 				$this->deleteRelatedObjects(schema: self::FEEDBACK_SCHEMA, conversationId: $uuid);
-				$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
-				$this->objectService->deleteObject(
-					uuid: $uuid,
-					register: self::REGISTER_SLUG,
-					schema: self::CONVERSATION_SCHEMA
-				);
-
-				$this->logger->info(
-					message: '[SessionController] Conversation permanently deleted',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'uuid' => $uuid,
-					]
-				);
-
-				return new JSONResponse(
-					data: [
-						'message' => 'Conversation permanently deleted',
-						'uuid' => $uuid,
-					],
-					statusCode: 200
-				);
-			}//end if
+				return $this->purgeConversation(uuid: $uuid);
+			}
 
 			// First delete - perform soft delete (archive marker on the payload).
 			$this->setArchiveMarker(conversation: $conversation, deletedBy: $userId);
-
-			$this->logger->info(
-				message: '[SessionController] Conversation archived (soft deleted)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uuid' => $uuid,
-				]
-			);
-
-			return new JSONResponse(
-				data: [
-					'message' => 'Conversation archived successfully',
-					'uuid' => $uuid,
-					'archived' => true,
-				],
-				statusCode: 200
-			);
+			return $this->archivedResponse(uuid: $uuid);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to delete conversation',
@@ -864,30 +822,7 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'delete');
 			}
 
-			// Delete messages first, then the conversation (OR's ordering).
-			$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
-			$this->objectService->deleteObject(
-				uuid: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
-			);
-
-			$this->logger->info(
-				message: '[SessionController] Conversation permanently deleted',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uuid' => $uuid,
-				]
-			);
-
-			return new JSONResponse(
-				data: [
-					'message' => 'Conversation permanently deleted',
-					'uuid' => $uuid,
-				],
-				statusCode: 200
-			);
+			return $this->purgeConversation(uuid: $uuid);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to permanently delete conversation',
@@ -909,6 +844,75 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end destroyPermanent()
+
+	/**
+	 * Delete a conversation's messages, then the conversation itself (OR's ordering).
+	 *
+	 * The caller has already checked that the user owns the conversation.
+	 *
+	 * @param string $uuid Conversation UUID.
+	 *
+	 * @return JSONResponse JSON response confirming permanent deletion.
+	 *
+	 * @throws Exception If a message or the conversation could not be deleted; the
+	 *                   callers translate it into their error envelope.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function purgeConversation(string $uuid): JSONResponse {
+		$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
+		$this->objectService->deleteObject(
+			uuid: $uuid,
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA
+		);
+
+		$this->logger->info(
+			message: '[SessionController] Conversation permanently deleted',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'uuid' => $uuid,
+			]
+		);
+
+		return new JSONResponse(
+			data: [
+				'message' => 'Conversation permanently deleted',
+				'uuid' => $uuid,
+			],
+			statusCode: 200
+		);
+	}//end purgeConversation()
+
+	/**
+	 * Log an archived conversation and confirm it to the caller.
+	 *
+	 * @param string $uuid Conversation UUID.
+	 *
+	 * @return JSONResponse JSON response confirming the archive.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function archivedResponse(string $uuid): JSONResponse {
+		$this->logger->info(
+			message: '[SessionController] Conversation archived (soft deleted)',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'uuid' => $uuid,
+			]
+		);
+
+		return new JSONResponse(
+			data: [
+				'message' => 'Conversation archived successfully',
+				'uuid' => $uuid,
+				'archived' => true,
+			],
+			statusCode: 200
+		);
+	}//end archivedResponse()
 
 	/**
 	 * Whether a conversation carries the payload-level archive marker.
