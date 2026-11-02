@@ -30,7 +30,7 @@
   - The recorded step holds the filtered arguments and result
   - The stream replay and the `toolCalls` of a blocking send show only the recorded step
   - The CLI still receives the real result
-  - The conversation's policy decides; an unreadable conversation falls back to the instance default
+  - The conversation's policy decides; when the conversation cannot be read, the step shows the withheld placeholder
   - A JSON result is filtered as its decoded value, so escaped slashes do not hide a match
 
 - [x] Filter before `RunStepBus::record()`

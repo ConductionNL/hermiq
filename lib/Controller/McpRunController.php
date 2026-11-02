@@ -135,6 +135,14 @@ class McpRunController extends Controller {
 	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
+	 * The chat policy for a run whose conversation cannot be read: the chat shows
+	 * the withheld placeholder for every tool step's arguments and result.
+	 *
+	 * @var array<string,string>
+	 */
+	private const WITHHOLD_ALL = ['source' => 'unreadable-conversation'];
+
+	/**
 	 * The MCP protocol version this server defaults to when the client names none.
 	 *
 	 * @var string
@@ -509,9 +517,7 @@ class McpRunController extends Controller {
 			// the UI is listening to — is never touched. The run token binds this
 			// request to its conversation, which is what lets the two be joined.
 			$startedAt = microtime(true);
-			$policy = $this->guardrailService?->effectivePolicyFor(
-				organisation: $this->conversationOrganisation(conversationId: $conversationId)
-			);
+			$policy = $this->chatPolicy(conversationId: $conversationId);
 			$shownArguments = $this->shownInChat(policy: $policy, value: $arguments);
 
 			try {
@@ -670,6 +676,10 @@ class McpRunController extends Controller {
 			return $value;
 		}
 
+		if ($policy === self::WITHHOLD_ALL) {
+			return $this->guardrailService->withheldPlaceholder();
+		}
+
 		return $this->guardrailService->filterOutputValue(policy: $policy, value: $value);
 	}//end shownInChat()
 
@@ -703,16 +713,40 @@ class McpRunController extends Controller {
 	}//end shownResult()
 
 	/**
-	 * The conversation's organisation, whose policy also filters the answer, or ''
-	 * when the conversation cannot be read.
+	 * The policy that decides what the chat shows of a tool step: the
+	 * conversation's, the same one that filters the answer. Null when there is no
+	 * guardrail service; WITHHOLD_ALL when the conversation cannot be read.
 	 *
 	 * @param string $conversationId The run's conversation UUID.
 	 *
-	 * @return string
+	 * @return array<string,mixed>|null
 	 *
 	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
 	 */
-	private function conversationOrganisation(string $conversationId): string {
+	private function chatPolicy(string $conversationId): ?array {
+		if ($this->guardrailService === null) {
+			return null;
+		}
+
+		$organisation = $this->conversationOrganisation(conversationId: $conversationId);
+		if ($organisation === null) {
+			return self::WITHHOLD_ALL;
+		}
+
+		return $this->guardrailService->effectivePolicyFor(organisation: $organisation);
+	}//end chatPolicy()
+
+	/**
+	 * The conversation's organisation, whose policy also filters the answer: ''
+	 * when the run has no conversation, null when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function conversationOrganisation(string $conversationId): ?string {
 		if ($conversationId === '') {
 			return '';
 		}
@@ -728,14 +762,14 @@ class McpRunController extends Controller {
 				message: '[McpRunController] Conversation lookup failed',
 				context: ['conversationId' => $conversationId, 'error' => $e->getMessage()]
 			);
-			return '';
+			return null;
 		}
 
 		if ($conversation instanceof ObjectEntity) {
 			return (string)($conversation->getOrganisation() ?? '');
 		}
 
-		return '';
+		return null;
 	}//end conversationOrganisation()
 
 	/**

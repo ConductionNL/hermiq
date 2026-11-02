@@ -27,7 +27,9 @@ The policy that filters the tool call details MUST be the policy that filters th
 effective policy of the conversation's organisation. The organisation of the agent, or of the
 tools, MUST NOT decide it. This holds for in-process turns and for `cli` turns alike. A `cli`
 result MUST be filtered as its decoded value, so that JSON escaping (such as `\/` in a URL)
-does not keep a pattern from matching.
+does not keep a pattern from matching. When the `cli` path cannot read the run's conversation,
+the chat MUST show the withheld placeholder for that step's arguments and result; it MUST NOT
+fall back to another policy.
 
 With the output filter off, the tool call details MUST be shown exactly as before.
 
@@ -81,9 +83,17 @@ With the output filter off, the tool call details MUST be shown exactly as befor
 - **WHEN** the agent calls a tool in that conversation, in process or over the governed MCP
   transport
 - **THEN** the tool call details shown in the chat MUST be redacted, as the answer is
-- **AND** when the conversation cannot be read on the `cli` path, the instance default policy
-  MUST apply
 - @e2e exclude needs two organisations, a live model and a seeded secret; covered by ToolDetailOutputFilterTest and ToolDetailDriveTest
+
+#### Scenario: An unreadable conversation shows the cli step as withheld
+- **GIVEN** an organisation's policy sets `outputFilters.piiAction: redact`
+- **AND** a `cli` run whose conversation cannot be read (the read fails, or no conversation
+  comes back)
+- **WHEN** the agent calls a tool over the governed MCP transport
+- **THEN** the recorded step MUST show the withheld placeholder for the arguments and the result
+- **AND** the tool MUST still run with the arguments the model wrote, and the CLI MUST still
+  receive the real result
+- @e2e exclude needs a running CLI runner and a conversation that cannot be read; covered by ToolDetailOutputFilterTest
 
 #### Scenario: A URL credential in a cli result is redacted
 - **GIVEN** an organisation's policy sets `outputFilters.piiAction: redact`

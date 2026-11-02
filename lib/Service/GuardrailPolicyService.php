@@ -423,8 +423,10 @@ class GuardrailPolicyService {
 	 * The placeholder text substituted for a `block`-classified output.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
-	private function withheldPlaceholder(): string {
+	public function withheldPlaceholder(): string {
 		return 'This response was withheld because it contained sensitive content blocked by the organisation\'s guardrail policy.';
 	}//end withheldPlaceholder()
 

@@ -693,35 +693,40 @@ final class ToolDetailOutputFilterTest extends TestCase {
 	}//end testPlainTextCliResultIsFiltered()
 
 	/**
-	 * When the conversation cannot be read, the cli step follows the instance
-	 * default policy.
+	 * When the conversation cannot be read (the read throws, or no conversation
+	 * comes back), the cli step shows the withheld placeholder for the arguments
+	 * and the result, even where the instance default filters nothing. The tool
+	 * and the CLI still get the real values.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-an-unreadable-conversation-shows-the-cli-step-as-withheld
 	 */
-	public function testUnreadableConversationUsesTheDefaultPolicy(): void {
+	public function testUnreadableConversationWithholdsTheCliStep(): void {
 		foreach (['#throws', '#absent'] as $conversationOrg) {
 			$bus = $this->bus();
 			$sent = [];
-			$this->cliCall(
+			$data = $this->cliCall(
 				bus: $bus,
-				guardrail: $this->guardrail(action: 'redact', organisation: ''),
+				guardrail: $this->guardrail(action: 'redact'),
 				sent: $sent,
 				conversationOrg: $conversationOrg
 			);
 
 			$steps = $bus->read(conversationId: 'c1');
-			$this->assertCount(1, $steps, $conversationOrg);
-			$this->assertStringNotContainsString(self::SECRET, (string)json_encode($steps), $conversationOrg);
+			$this->assertCount(expectedCount: 1, haystack: $steps, message: $conversationOrg);
+			$this->assertStringStartsWith(prefix: 'This response was withheld', string: $steps[0]['arguments'], message: $conversationOrg);
+			$this->assertStringStartsWith(prefix: 'This response was withheld', string: $steps[0]['result'], message: $conversationOrg);
+			$this->assertSame(expected: 'find ' . self::SECRET, actual: $sent['q'], message: $conversationOrg);
+			$this->assertStringContainsString(needle: self::SECRET, haystack: (string)json_encode(value: $data['result']), message: $conversationOrg);
 		}
 
 		// A run without a conversation reads none.
 		$this->conversationReads = 0;
 		$sent = [];
 		$this->cliCall(bus: $this->bus(), guardrail: $this->guardrail(action: 'redact'), sent: $sent, conversationId: '');
-		$this->assertSame(0, $this->conversationReads);
-		$this->assertSame('find ' . self::SECRET, $sent['q']);
-	}//end testUnreadableConversationUsesTheDefaultPolicy()
+		$this->assertSame(expected: 0, actual: $this->conversationReads);
+		$this->assertSame(expected: 'find ' . self::SECRET, actual: $sent['q']);
+	}//end testUnreadableConversationWithholdsTheCliStep()
 
 }//end class

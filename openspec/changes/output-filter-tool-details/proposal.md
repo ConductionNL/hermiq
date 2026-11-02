@@ -31,4 +31,4 @@ the tool detail. That holds for the live chat stream and for the steps a `cli` t
   conversation, the one that filters the answer.
 - `McpRunController` filters a `cli` step before it records it on `RunStepBus`, under the
   policy of the conversation the run token names. A JSON result is filtered as its decoded
-  value.
+  value. When that conversation cannot be read, the step shows the withheld placeholder.
