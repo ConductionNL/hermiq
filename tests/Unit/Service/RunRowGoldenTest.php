@@ -70,6 +70,13 @@ class RunRowGoldenTest extends TestCase {
 		['model' => null, 'location' => ''],
 	];
 
+	private const STEPS = [
+		[],
+		[['seq' => 1, 'type' => 'tool', 'name' => 'lookup', 'outcome' => 'ok', 'durationMs' => 5]],
+		['k' => ['seq' => 2, 'type' => 'tool', 'name' => 'write', 'outcome' => 'error']],
+		'none',
+	];
+
 	/**
 	 * The seeded generator of the current case.
 	 *
@@ -199,7 +206,7 @@ class RunRowGoldenTest extends TestCase {
 			'summary' => $this->pick(list: ['Checked the cases', '', null, 7]),
 			'attempt' => $this->pick(list: [1, 2, null, '3']),
 			'providerDisclosure' => $this->pick(list: self::DISCLOSURES),
-			'steps' => $this->pick(list: [[], [['seq' => 1, 'type' => 'tool', 'name' => 'lookup', 'outcome' => 'ok', 'durationMs' => 5]], ['k' => ['seq' => 2, 'type' => 'tool', 'name' => 'write', 'outcome' => 'error']], 'none']),
+			'steps' => $this->pick(list: self::STEPS),
 			'agentVersion' => $this->pick(list: ['v1', null]),
 			'provider' => $this->pick(list: ['anthropic', null]),
 			'model' => $this->pick(list: ['claude', null]),
