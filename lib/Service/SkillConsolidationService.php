@@ -766,46 +766,12 @@ class SkillConsolidationService {
 		}
 
 		$live = $skill->getObject();
-		$payload = $live;
-		$payload['frontmatter'] = (string)($data['proposedFrontmatter'] ?? '');
-		$payload['body'] = (string)($data['proposedBody'] ?? '');
-		$payload['files'] = $this->normalisedFiles(files: ($data['proposedFiles'] ?? []));
-
 		$behindBefore = $this->isBehind(data: $live);
 
-		// Stamp acceptance in the SAME versioned write; the computed-maturity guard
-		// keeps client-forgeable evidence fields at their stored values.
-		$payload['lastAcceptedVersionAt'] = $this->now();
-		$payload = $this->maturityService->preserveComputedFields(incoming: $payload, stored: $live);
-		unset($payload['id'], $payload['uuid'], $payload['@self']);
-
-		$this->objectService->saveObject(
-			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $skillId,
-			_rbac: false,
-			_multitenancy: false
-		);
+		$this->writeDraftOntoSkill(draftData: $data, live: $live);
 
 		$versionId = (string)($this->versionService->currentVersionId(skillUuid: $skillId) ?? '');
-
-		$data['status'] = self::STATUS_ACCEPTED;
-		$data['decidedBy'] = $deciderUid;
-		$data['decidedAt'] = $this->now();
-		$data['auditNote'] = 'Accepted — applied as skill version ' . $versionId . '.';
-
-		$draft = $this->persistDraft(data: $data, uuid: (string)$draft->getUuid(), owner: (string)($draft->getOwner() ?? ''));
-
-		$this->auditDraft(
-			draft: $draft,
-			context: [
-				'transition' => self::STATUS_ACCEPTED,
-				'actor' => $deciderUid,
-				'versionId' => $versionId,
-				'editedBeforeAccept' => (bool)($data['editedBeforeAccept'] ?? false),
-			]
-		);
+		$this->recordAcceptance(draft: $draft, decision: ['data' => $data, 'decider' => $deciderUid, 'versionId' => $versionId]);
 
 		// Republish signal: notify the publisher once per NEWLY-behind transition —
 		// acceptance always postdates publishedAt, so "newly" means it was not
@@ -820,6 +786,73 @@ class SkillConsolidationService {
 
 		return $versionId;
 	}//end applyDraft()
+
+	/**
+	 * Write a draft's proposed content onto its skill through the versioned write path.
+	 *
+	 * The payload starts from the live skill and replaces only `frontmatter`/`body`/
+	 * `files`, stamps `lastAcceptedVersionAt`, and keeps the computed maturity fields
+	 * at their stored values.
+	 *
+	 * @param array<string, mixed> $draftData The draft payload (its `skillId` names the skill).
+	 * @param array<string, mixed> $live The live skill payload.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	private function writeDraftOntoSkill(array $draftData, array $live): void {
+		$payload = $live;
+		$payload['frontmatter'] = (string)($draftData['proposedFrontmatter'] ?? '');
+		$payload['body'] = (string)($draftData['proposedBody'] ?? '');
+		$payload['files'] = $this->normalisedFiles(files: ($draftData['proposedFiles'] ?? []));
+
+		// Stamp acceptance in the SAME versioned write; the computed-maturity guard
+		// keeps client-forgeable evidence fields at their stored values.
+		$payload['lastAcceptedVersionAt'] = $this->now();
+		$payload = $this->maturityService->preserveComputedFields(incoming: $payload, stored: $live);
+		unset($payload['id'], $payload['uuid'], $payload['@self']);
+
+		$this->objectService->saveObject(
+			object: $payload,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)($draftData['skillId'] ?? ''),
+			_rbac: false,
+			_multitenancy: false
+		);
+	}//end writeDraftOntoSkill()
+
+	/**
+	 * Mark a draft accepted by its decider and audit the transition.
+	 *
+	 * @param ObjectEntity $draft The draft.
+	 * @param array{data: array<string, mixed>, decider: string, versionId: string} $decision The draft payload, the approving
+	 *                                                                                       uid and the applied version id.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-every-draft-state-transition-is-audited
+	 */
+	private function recordAcceptance(ObjectEntity $draft, array $decision): void {
+		$data = $decision['data'];
+		$data['status'] = self::STATUS_ACCEPTED;
+		$data['decidedBy'] = $decision['decider'];
+		$data['decidedAt'] = $this->now();
+		$data['auditNote'] = 'Accepted — applied as skill version ' . $decision['versionId'] . '.';
+
+		$draft = $this->persistDraft(data: $data, uuid: (string)$draft->getUuid(), owner: (string)($draft->getOwner() ?? ''));
+
+		$this->auditDraft(
+			draft: $draft,
+			context: [
+				'transition' => self::STATUS_ACCEPTED,
+				'actor' => $decision['decider'],
+				'versionId' => $decision['versionId'],
+				'editedBeforeAccept' => (bool)($data['editedBeforeAccept'] ?? false),
+			]
+		);
+	}//end recordAcceptance()
 
 	/**
 	 * Reconcile a draft to `rejected` — fired by the linked Approval's `denied`
