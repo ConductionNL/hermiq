@@ -118,11 +118,6 @@ class LearnerSignalReader {
 	 *     signalsUsed: array<string, mixed>
 	 * }
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Five independent, sequential signal
-	 *   reads (each its own degrade branch by design — spec.md "Cross-app signal reads
-	 *   degrade gracefully") plus the goal/gap derivation they feed; splitting further
-	 *   would scatter the single place `signalsUsed` is assembled.
-	 *
 	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
 	 */
 	public function collect(string $learnerUid, string $registerSlug): array {
@@ -159,6 +154,36 @@ class LearnerSignalReader {
 			limit: 200
 		);
 
+		$goals = $this->openGoals(plans: $plans);
+		$hasCompetencyData = ($competencyRaw !== null && $competencyRaw !== []);
+
+		return [
+			'courses' => $courses,
+			'enrolments' => $enrolments,
+			'xapiStatements' => $xapiStatements,
+			'goals' => $goals,
+			'gapIds' => $this->competencyGapIds(rows: ($competencyRaw ?? [])),
+			'signalsUsed' => [
+				'enrolmentCount' => count($enrolments),
+				'completedCourseCount' => $this->completedCount(enrolments: $enrolments),
+				'xapiStatementCount' => count($xapiStatements),
+				'goalCount' => count($goals),
+				'competencyDataAvailable' => $hasCompetencyData,
+			],
+		];
+
+	}//end collect()
+
+	/**
+	 * The open goals of the learning plans; a goal without a status is open.
+	 *
+	 * @param array<int, array<string, mixed>> $plans The learning plans.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 */
+	private function openGoals(array $plans): array {
 		$goals = [];
 		foreach ($plans as $plan) {
 			foreach ((array)($plan['goals'] ?? []) as $goal) {
@@ -168,40 +193,49 @@ class LearnerSignalReader {
 			}
 		}
 
-		$hasCompetencyData = ($competencyRaw !== null && $competencyRaw !== []);
+		return $goals;
+	}//end openGoals()
+
+	/**
+	 * The non-empty competency ids of the competency attainment rows.
+	 *
+	 * @param array<int, array<string, mixed>> $rows The competency attainment rows.
+	 *
+	 * @return array<int, string>
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 */
+	private function competencyGapIds(array $rows): array {
 		$gapIds = [];
-		if ($hasCompetencyData === true) {
-			foreach ($competencyRaw as $row) {
-				$id = (string)($row['competencyId'] ?? '');
-				if ($id !== '') {
-					$gapIds[] = $id;
-				}
+		foreach ($rows as $row) {
+			$id = (string)($row['competencyId'] ?? '');
+			if ($id !== '') {
+				$gapIds[] = $id;
 			}
 		}
 
-		$completedCount = 0;
+		return $gapIds;
+	}//end competencyGapIds()
+
+	/**
+	 * The number of enrolments whose lifecycle is `completed`.
+	 *
+	 * @param array<int, array<string, mixed>> $enrolments The learner's enrolments.
+	 *
+	 * @return int
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 */
+	private function completedCount(array $enrolments): int {
+		$completed = 0;
 		foreach ($enrolments as $enrolment) {
 			if ((string)($enrolment['lifecycle'] ?? '') === 'completed') {
-				$completedCount++;
+				$completed++;
 			}
 		}
 
-		return [
-			'courses' => $courses,
-			'enrolments' => $enrolments,
-			'xapiStatements' => $xapiStatements,
-			'goals' => $goals,
-			'gapIds' => $gapIds,
-			'signalsUsed' => [
-				'enrolmentCount' => count($enrolments),
-				'completedCourseCount' => $completedCount,
-				'xapiStatementCount' => count($xapiStatements),
-				'goalCount' => count($goals),
-				'competencyDataAvailable' => $hasCompetencyData,
-			],
-		];
-
-	}//end collect()
+		return $completed;
+	}//end completedCount()
 
 	/**
 	 * Read one Scholiq signal schema, independently degrading to null on ANY
