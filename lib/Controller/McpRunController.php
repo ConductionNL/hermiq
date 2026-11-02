@@ -62,6 +62,7 @@ use OCA\Hermiq\Service\Engine\TurnGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -127,6 +128,21 @@ class McpRunController extends Controller {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
+	 * Schema slug for the conversation (session) objects.
+	 *
+	 * @var string
+	 */
+	private const CONVERSATION_SCHEMA = 'agentsession';
+
+	/**
+	 * The chat policy for a run whose conversation cannot be read: the chat shows
+	 * the withheld placeholder for every tool step's arguments and result.
+	 *
+	 * @var array<string,string>
+	 */
+	private const WITHHOLD_ALL = ['source' => 'unreadable-conversation'];
+
+	/**
 	 * The MCP protocol version this server defaults to when the client names none.
 	 *
 	 * @var string
@@ -160,6 +176,8 @@ class McpRunController extends Controller {
 	 *                                              workspace tools for the length of one dispatch.
 	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
 	 *                                                 for the agent's tool call cap.
+	 * @param GuardrailPolicyService|null $guardrailService Applies the output filters to
+	 *                                                      the steps shown in the chat.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -179,6 +197,7 @@ class McpRunController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
+		private readonly ?GuardrailPolicyService $guardrailService = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -498,6 +517,8 @@ class McpRunController extends Controller {
 			// the UI is listening to — is never touched. The run token binds this
 			// request to its conversation, which is what lets the two be joined.
 			$startedAt = microtime(true);
+			$policy = $this->chatPolicy(conversationId: $conversationId);
+			$shownArguments = $this->shownInChat(policy: $policy, value: $arguments);
 
 			try {
 				$resultJson = (string)$functionInfo->callWithArguments($arguments);
@@ -510,7 +531,7 @@ class McpRunController extends Controller {
 				$this->runStepBus->record(
 					conversationId: $conversationId,
 					toolName: $name,
-					arguments: $arguments,
+					arguments: $shownArguments,
 					result: 'The tool call could not be completed.',
 					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
 					outcome: RunStepBus::OUTCOME_ERROR
@@ -522,8 +543,8 @@ class McpRunController extends Controller {
 			$this->runStepBus->record(
 				conversationId: $conversationId,
 				toolName: $name,
-				arguments: $arguments,
-				result: $resultJson,
+				arguments: $shownArguments,
+				result: $this->shownResult(policy: $policy, resultJson: $resultJson),
 				durationMs: (int)round((microtime(true) - $startedAt) * 1000)
 			);
 
@@ -638,6 +659,118 @@ class McpRunController extends Controller {
 
 		return null;
 	}//end loadAgent()
+
+	/**
+	 * A tool step's arguments or result as the chat may show it: through the
+	 * policy's output filters, or as given when no policy is resolved.
+	 *
+	 * @param array<string,mixed>|null $policy The conversation's effective policy.
+	 * @param mixed                    $value  The arguments or the result text.
+	 *
+	 * @return mixed
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownInChat(?array $policy, mixed $value): mixed {
+		if ($policy === null || $this->guardrailService === null) {
+			return $value;
+		}
+
+		if ($policy === self::WITHHOLD_ALL) {
+			return $this->guardrailService->withheldPlaceholder();
+		}
+
+		return $this->guardrailService->filterOutputValue(policy: $policy, value: $value);
+	}//end shownInChat()
+
+	/**
+	 * The tool's result JSON as the chat may show it. The JSON is filtered as its
+	 * decoded value, so escaped characters such as `\/` do not hide a match.
+	 *
+	 * @param array<string,mixed>|null $policy     The conversation's effective policy.
+	 * @param string                   $resultJson The result JSON the tool returned.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownResult(?array $policy, string $resultJson): string {
+		$decoded = json_decode($resultJson, true);
+		if (is_array($decoded) === false) {
+			return (string)$this->shownInChat(policy: $policy, value: $resultJson);
+		}
+
+		$shown = $this->shownInChat(policy: $policy, value: $decoded);
+		if ($shown === $decoded) {
+			return $resultJson;
+		}
+
+		if (is_string($shown) === true) {
+			return $shown;
+		}
+
+		return (string)json_encode($shown, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+	}//end shownResult()
+
+	/**
+	 * The policy that decides what the chat shows of a tool step: the
+	 * conversation's, the same one that filters the answer. Null when there is no
+	 * guardrail service; WITHHOLD_ALL when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return array<string,mixed>|null
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function chatPolicy(string $conversationId): ?array {
+		if ($this->guardrailService === null) {
+			return null;
+		}
+
+		$organisation = $this->conversationOrganisation(conversationId: $conversationId);
+		if ($organisation === null) {
+			return self::WITHHOLD_ALL;
+		}
+
+		return $this->guardrailService->effectivePolicyFor(organisation: $organisation);
+	}//end chatPolicy()
+
+	/**
+	 * The conversation's organisation, whose policy also filters the answer: ''
+	 * when the run has no conversation, null when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function conversationOrganisation(string $conversationId): ?string {
+		if ($conversationId === '') {
+			return '';
+		}
+
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[McpRunController] Conversation lookup failed',
+				context: ['conversationId' => $conversationId, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+		if ($conversation instanceof ObjectEntity) {
+			return (string)($conversation->getOrganisation() ?? '');
+		}
+
+		return null;
+	}//end conversationOrganisation()
 
 	/**
 	 * The agent's organisation (for the guardrail policy), or '' when unset.

@@ -343,6 +343,7 @@ class Engine {
 			$turn['organisation'] = (string)($turn['conversation']->getOrganisation() ?? '');
 			$guardrail = new TurnGuardrail(policies: $this->guardrailPolicyService, trace: $trace);
 			$guardrail->resolve(organisation: $turn['organisation']);
+			$guardrail->screenToolDetails(channel: $channel);
 			$turn['userMessage'] = $guardrail->screenInput(text: $userMessage);
 
 			$turn['userTurn'] = $this->storeUserTurn(turn: $turn);

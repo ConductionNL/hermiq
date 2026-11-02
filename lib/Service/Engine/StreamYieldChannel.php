@@ -41,6 +41,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use Closure;
+
 /**
  * StreamYieldChannel
  *
@@ -53,6 +55,14 @@ namespace OCA\Hermiq\Service\Engine;
  * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
  */
 class StreamYieldChannel {
+
+	/**
+	 * Screens the `arguments` of a tool-call payload and the `result` of a
+	 * tool-result payload before any callback sees them; null forwards them as given.
+	 *
+	 * @var Closure|null
+	 */
+	private ?Closure $toolDetailScreen = null;
 
 	/**
 	 * Registered token callbacks. Each receives the new token delta as a
@@ -227,6 +237,7 @@ class StreamYieldChannel {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolCall(array $payload): void {
+		$payload = $this->screenToolDetail(payload: $payload, key: 'arguments');
 		foreach ($this->toolCallCallbacks as $callback) {
 			$callback($payload);
 		}
@@ -244,10 +255,46 @@ class StreamYieldChannel {
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolResult(array $payload): void {
+		$payload = $this->screenToolDetail(payload: $payload, key: 'result');
 		foreach ($this->toolResultCallbacks as $callback) {
 			$callback($payload);
 		}
 	}//end emitToolResult()
+
+	/**
+	 * Screen what tool-call and tool-result frames show from now on.
+	 *
+	 * The screen receives a frame's `arguments` or `result` and returns what the
+	 * callbacks see instead. The payload is a copy, so the tool still runs with
+	 * its own arguments and the model still reads the real result.
+	 *
+	 * @param callable $screen Function from the value to the value to show.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function screenToolDetails(callable $screen): void {
+		$this->toolDetailScreen = $screen(...);
+	}//end screenToolDetails()
+
+	/**
+	 * The payload with its `$key` entry passed through the tool detail screen.
+	 *
+	 * @param array<string, mixed> $payload The frame payload.
+	 * @param string               $key     `arguments` or `result`.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function screenToolDetail(array $payload, string $key): array {
+		if ($this->toolDetailScreen === null || array_key_exists($key, $payload) === false) {
+			return $payload;
+		}
+
+		$payload[$key] = ($this->toolDetailScreen)($payload[$key]);
+
+		return $payload;
+	}//end screenToolDetail()
 
 	/*
 	 * NO HEARTBEAT PUB/SUB HERE, AND THERE CANNOT BE ONE.

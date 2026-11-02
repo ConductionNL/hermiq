@@ -438,10 +438,56 @@ class GuardrailPolicyService {
 	 * The placeholder text substituted for a `block`-classified output.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
-	private function withheldPlaceholder(): string {
+	public function withheldPlaceholder(): string {
 		return 'This response was withheld because it contained sensitive content blocked by the organisation\'s guardrail policy.';
 	}//end withheldPlaceholder()
+
+	/**
+	 * Apply the output filters to a tool call's arguments or result, as shown to the user.
+	 *
+	 * A non-string value is filtered as its JSON text, so key-based patterns such as
+	 * `"password": "..."` match too. A value the filter does not change is returned
+	 * as given; a redacted one comes back decoded when the redacted JSON still
+	 * parses, and as the redacted text otherwise. A blocked value becomes the
+	 * withheld placeholder, which is not JSON and so comes back as text.
+	 *
+	 * @param array<string,mixed> $policy The effective policy (from `effectivePolicyFor()`).
+	 * @param mixed               $value  The arguments or result to show.
+	 *
+	 * @return mixed The value to show in its place.
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function filterOutputValue(array $policy, mixed $value): mixed {
+		$outputFilters = (array)($policy['outputFilters'] ?? []);
+		if ((string)($outputFilters['piiAction'] ?? 'off') === 'off') {
+			return $value;
+		}
+
+		$text = $value;
+		if (is_string($value) === false) {
+			$text = (string)json_encode($value, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+		}
+
+		$filtered = $this->filterOutput(policy: $policy, text: $text);
+		if ($filtered['text'] === $text) {
+			return $value;
+		}
+
+		if (is_string($value) === true) {
+			return $filtered['text'];
+		}
+
+		$decoded = json_decode($filtered['text'], true);
+		if (json_last_error() !== JSON_ERROR_NONE) {
+			return $filtered['text'];
+		}
+
+		return $decoded;
+	}//end filterOutputValue()
 
 	/**
 	 * Create-or-update the GuardrailPolicy for an organisation (at most one per
