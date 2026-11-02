@@ -37,6 +37,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 
 /**
  * Tests for the token frames of a streamed answer under an output guardrail.
@@ -72,6 +73,13 @@ class EngineStreamedOutputGuardrailTest extends TestCase {
 	 * @var integer
 	 */
 	private int $tokensDuringGeneration = -1;
+
+	/**
+	 * The step that throws in this turn: `model`, `screen`, or '' for none.
+	 *
+	 * @var string
+	 */
+	private string $failingStep = '';
 
 	/**
 	 * A redacted answer reaches the client only in its redacted form.
@@ -151,6 +159,51 @@ class EngineStreamedOutputGuardrailTest extends TestCase {
 	}//end testWithoutAGuardrailTheChunksStreamLiveAndUnchanged()
 
 	/**
+	 * When the output screening throws, no held delta reaches the client.
+	 *
+	 * @return void
+	 */
+	public function testScreeningFailureReleasesNoHeldToken(): void {
+		$this->failingStep = 'screen';
+
+		$this->assertTurnFailsWith(message: 'screening failed');
+		$this->assertSame(expected: 0, actual: $this->tokensDuringGeneration);
+		$this->assertSame(expected: [], actual: $this->tokens);
+
+	}//end testScreeningFailureReleasesNoHeldToken()
+
+	/**
+	 * When the model call throws after streaming part of its answer, nothing is released.
+	 *
+	 * @return void
+	 */
+	public function testModelFailureReleasesNoHeldToken(): void {
+		$this->failingStep = 'model';
+
+		$this->assertTurnFailsWith(message: 'model call failed');
+		$this->assertSame(expected: 0, actual: $this->tokensDuringGeneration);
+		$this->assertSame(expected: [], actual: $this->tokens);
+
+	}//end testModelFailureReleasesNoHeldToken()
+
+	/**
+	 * Run a streamed turn under a redacting guardrail and assert that it throws.
+	 *
+	 * @param string $message The message of the expected exception.
+	 *
+	 * @return void
+	 */
+	private function assertTurnFailsWith(string $message): void {
+		try {
+			$this->streamTurn(outputAction: 'redact', chunks: self::CHUNKS);
+			$this->fail(message: 'The turn did not throw.');
+		} catch (RuntimeException $e) {
+			$this->assertSame(expected: $message, actual: $e->getMessage());
+		}
+
+	}//end assertTurnFailsWith()
+
+	/**
 	 * Assert that neither one frame nor the joined frames carry the raw secret.
 	 *
 	 * @return void
@@ -208,6 +261,9 @@ class EngineStreamedOutputGuardrailTest extends TestCase {
 				}
 
 				$this->tokensDuringGeneration = count($this->tokens);
+				if ($this->failingStep === 'model') {
+					throw new RuntimeException('model call failed');
+				}
 
 				return ($blockingAnswer ?? implode('', $chunks));
 			}
@@ -257,7 +313,13 @@ class EngineStreamedOutputGuardrailTest extends TestCase {
 	private function guardrails(string $outputAction): GuardrailPolicyService {
 		$redaction = $this->createMock(RedactionService::class);
 		$redaction->method('redact')->willReturnCallback(
-			static fn (string $text): string => str_replace(self::SECRET, '[REDACTED]', $text)
+			function (string $text): string {
+				if ($this->failingStep === 'screen') {
+					throw new RuntimeException('screening failed');
+				}
+
+				return str_replace(self::SECRET, '[REDACTED]', $text);
+			}
 		);
 
 		$guardrails = $this->getMockBuilder(GuardrailPolicyService::class)
