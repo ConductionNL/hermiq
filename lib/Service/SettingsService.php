@@ -181,33 +181,12 @@ class SettingsService {
 			];
 		}
 
-		$configPath = __DIR__ . '/../Settings/hermiq_register.json';
-		if (file_exists($configPath) === false) {
-			$this->logger->error('Hermiq: hermiq_register.json not found at ' . $configPath);
-			return [
-				'success' => false,
-				'message' => 'Configuration file hermiq_register.json not found.',
-			];
+		$read = $this->readRegisterConfig();
+		if (isset($read['failure']) === true) {
+			return $read['failure'];
 		}
 
-		$configContent = file_get_contents($configPath);
-		if ($configContent === false) {
-			$this->logger->error('Hermiq: failed to read hermiq_register.json');
-			return [
-				'success' => false,
-				'message' => 'Failed to read configuration file.',
-			];
-		}
-
-		$configData = json_decode($configContent, true);
-		if (json_last_error() !== JSON_ERROR_NONE) {
-			$this->logger->error('Hermiq: failed to parse hermiq_register.json: ' . json_last_error_msg());
-			return [
-				'success' => false,
-				'message' => 'Failed to parse configuration file: ' . json_last_error_msg(),
-			];
-		}
-
+		$configData = $read['config'];
 		$configVersion = ($configData['info']['version'] ?? '0.0.0');
 
 		try {
@@ -244,4 +223,43 @@ class SettingsService {
 			];
 		}//end try
 	}//end loadConfiguration()
+
+	/**
+	 * Read and decode hermiq_register.json.
+	 *
+	 * @return array{config?: mixed, failure?: array<string, mixed>} The decoded
+	 *         configuration, or the failed load result to return.
+	 *
+	 * @spec openspec/specs/settings-management/spec.md#req-cfg-003-reload-configuration-from-json-file-admin-only
+	 */
+	private function readRegisterConfig(): array {
+		$configPath = __DIR__ . '/../Settings/hermiq_register.json';
+		if (file_exists($configPath) === false) {
+			$this->logger->error('Hermiq: hermiq_register.json not found at ' . $configPath);
+			return ['failure' => [
+				'success' => false,
+				'message' => 'Configuration file hermiq_register.json not found.',
+			]];
+		}
+
+		$configContent = file_get_contents($configPath);
+		if ($configContent === false) {
+			$this->logger->error('Hermiq: failed to read hermiq_register.json');
+			return ['failure' => [
+				'success' => false,
+				'message' => 'Failed to read configuration file.',
+			]];
+		}
+
+		$configData = json_decode($configContent, true);
+		if (json_last_error() !== JSON_ERROR_NONE) {
+			$this->logger->error('Hermiq: failed to parse hermiq_register.json: ' . json_last_error_msg());
+			return ['failure' => [
+				'success' => false,
+				'message' => 'Failed to parse configuration file: ' . json_last_error_msg(),
+			]];
+		}
+
+		return ['config' => $configData];
+	}//end readRegisterConfig()
 }//end class
