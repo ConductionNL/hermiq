@@ -98,6 +98,8 @@ class SkillDraftEditGoldenTest extends TestCase {
 			5,
 			'(missing)',
 		],
+		'userId' => ['mallory', '(missing)'],
+		'editorUid' => ['mallory', '(missing)'],
 	];
 
 	/**
@@ -187,7 +189,7 @@ class SkillDraftEditGoldenTest extends TestCase {
 
 		$session = $this->createMock(originalClassName: IUserSession::class);
 		$reviewer = $this->createMock(originalClassName: IUser::class);
-		$reviewer->method('getUID')->willReturn('reviewer');
+		$reviewer->method('getUID')->willReturn($this->pick(pool: ['reviewer', 'second-reviewer']));
 		$user = $reviewer;
 		if ($this->random->getInt(0, 15) === 0) {
 			$user = null;
