@@ -1,6 +1,6 @@
 {
 	"set": "zuiddrecht",
-	"$comment": "hermiq's part of the Zuiddrecht example set: the Woo-triage agent that the HmTalk board shows in its own Talk room. It is private, open to the demo employee Pieter and the Woo team lead Anouk, and reachable from Talk, so its bot is registered when the agent is written. The room itself is not example data: hermiq creates a session's Talk room only when the session is created through its API, so after the install the session is created as Pieter (POST /apps/hermiq/api/sessions with this agent) and Anouk is added to it (POST /apps/hermiq/api/sessions/{uuid}/participants). Four advisory records on the Lindelaan Woo case (portaliq's fragment writes the case) give its AI oversight card (DqZaakAssistent) what Pieter and Anouk did with the assistant's suggestions. Install with `occ openregister:example-set:install zuiddrecht`. Pieter is in the AI-oversight group, so he may download what the assistant did on a case (DqZaakAssistent).",
+	"$comment": "hermiq's part of the Zuiddrecht example set: the Woo-triage agent that the HmTalk board shows in its own Talk room. It is private, open to the demo employee Pieter and the Woo team lead Anouk, and reachable from Talk, so its bot is registered when the agent is written. The room itself is not example data: hermiq creates a session's Talk room only when the session is created through its API, so after the install the session is created as Pieter (POST /apps/hermiq/api/sessions with this agent) and Anouk is added to it (POST /apps/hermiq/api/sessions/{uuid}/participants). Four advisory records on the Lindelaan Woo case (portaliq's fragment writes the case) give its AI oversight card (DqZaakAssistent) what Pieter and Anouk did with the assistant's suggestions. Install with `occ openregister:example-set:install zuiddrecht`. Pieter is in the AI-oversight group, so he may download what the assistant did on a case (DqZaakAssistent). Pieter's session about the Lindelaan case (`metadata.subject`, hermiq session-about-a-subject) holds the question and answer the Assistent card on DqZaakAssistent draws, and the assistant waits on him for one held tool call: create the task Offerte beoordelen.",
 	"after": [
 		"portaliq"
 	],
@@ -159,6 +159,78 @@
 					"model": "Hermiq, lokaal",
 					"suggestion": "Artikel 5.1, tweede lid, onder e (persoonlijke levenssfeer) voor de namen in de klachtenlijst."
 				}
+			}
+		},
+		{
+			"key": "session-lindelaan-pieter",
+			"register": "hermiq",
+			"schema": "agentsession",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"userId": "{{cast:pieter.uid}}",
+				"title": "Welke documenten moeten nog beoordeeld?",
+				"startedAt": "{{datetime:-9 10:14}}",
+				"lastActivityAt": "{{datetime:-9 10:15}}",
+				"triggerOrigin": "human",
+				"metadata": {
+					"subject": {
+						"objectUuid": "{{object:woo-fietspad.id}}",
+						"register": "dossiq",
+						"schema": "case",
+						"appId": "dossiq"
+					}
+				}
+			}
+		},
+		{
+			"key": "session-lindelaan-pieter-vraag",
+			"register": "hermiq",
+			"schema": "agentsessionturn",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"sessionId": "{{object:session-lindelaan-pieter.id}}",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"role": "user",
+				"content": "Welke documenten moeten nog beoordeeld?",
+				"createdAt": "{{datetime:-9 10:14}}",
+				"authorId": "{{cast:pieter.uid}}",
+				"authorDisplayName": "Pieter Jansen"
+			}
+		},
+		{
+			"key": "session-lindelaan-pieter-antwoord",
+			"register": "hermiq",
+			"schema": "agentsessionturn",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"sessionId": "{{object:session-lindelaan-pieter.id}}",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"role": "assistant",
+				"content": "Drie documenten staan nog op te beoordelen: het advies van Mobiliteit en verkeer, de mail van 12 maart en de offerte verlichting. De offerte bevat persoonsgegevens op pagina 2.",
+				"createdAt": "{{datetime:-9 10:15}}"
+			}
+		},
+		{
+			"key": "ai-lindelaan-voorstel-taak",
+			"register": "hermiq",
+			"schema": "approval",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"status": "pending",
+				"sourceType": "toolcall",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"toolId": "dossiq.createTask",
+				"toolArguments": {
+					"case": "{{object:woo-fietspad.id}}",
+					"title": "Offerte beoordelen",
+					"assignee": "{{cast:pieter.uid}}",
+					"dueDate": "{{date:-7}}"
+				},
+				"prompt": "Taak Offerte beoordelen voor Pieter Jansen, klaar op 10 okt.",
+				"requestedAt": "{{datetime:-9 10:15}}",
+				"reviewer": "{{cast:pieter.uid}}",
+				"reviewerType": "user"
 			}
 		}
 	]
