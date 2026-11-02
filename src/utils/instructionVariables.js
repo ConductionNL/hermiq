@@ -39,34 +39,87 @@ export const PLACEHOLDERS = [
  * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
  */
 export function startFieldsOf(agent) {
-	const raw = Array.isArray(agent?.startFields) ? agent.startFields : []
-	const seen = new Set()
-	const fields = []
-	for (const entry of raw) {
-		const key = String(entry?.key ?? '')
-		const type = String(entry?.type ?? 'text')
-		if (!KEY_PATTERN.test(key) || !FIELD_TYPES.includes(type) || seen.has(key)) {
-			continue
+	const fields = new Map()
+	for (const entry of storedStartFields(agent)) {
+		const field = startField(entry)
+		if (field !== null && !fields.has(field.key)) {
+			fields.set(field.key, field)
 		}
-		seen.add(key)
-		fields.push({
-			key,
-			label: String(entry?.label ?? '').trim() || key,
-			type,
-			options: (Array.isArray(entry?.options) ? entry.options : [])
-				.map((option) => String(option).trim())
-				.filter((option) => option !== ''),
-			required: entry?.required === true,
-			default:
-				entry?.default === null || entry?.default === undefined
-					? ''
-					: String(entry.default),
-		})
-		if (fields.length === MAX_FIELDS) {
+		if (fields.size === MAX_FIELDS) {
 			break
 		}
 	}
-	return fields
+	return [...fields.values()]
+}
+
+/**
+ * The agent's stored start field entries; none when it stores no list.
+ *
+ * @param {object|null|undefined} agent The agent's data.
+ * @return {Array} The stored entries.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ */
+function storedStartFields(agent) {
+	return Array.isArray(agent?.startFields) ? agent.startFields : []
+}
+
+/**
+ * One start field in the shape the page uses, or null when its key or type is not valid.
+ *
+ * @param {unknown} entry One entry of the agent's `startFields`.
+ * @return {{key: string, label: string, type: string, options: string[], required: boolean, default: string}|null}
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ */
+function startField(entry) {
+	const key = String(entry?.key ?? '')
+	const type = String(entry?.type ?? 'text')
+	if (!KEY_PATTERN.test(key) || !FIELD_TYPES.includes(type)) {
+		return null
+	}
+	return {
+		key,
+		label: fieldLabel(entry?.label, key),
+		type,
+		options: fieldOptions(entry?.options),
+		required: entry?.required === true,
+		default: fieldDefault(entry?.default),
+	}
+}
+
+/**
+ * A field's label, trimmed; the key when no label is stored.
+ *
+ * @param {unknown} label The stored label.
+ * @param {string} key The field's key.
+ * @return {string} The label.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ */
+function fieldLabel(label, key) {
+	return String(label ?? '').trim() || key
+}
+
+/**
+ * A field's choices as trimmed, non-empty strings.
+ *
+ * @param {unknown} options The stored options.
+ * @return {string[]} The choices; none when the stored value is not a list.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ */
+function fieldOptions(options) {
+	return (Array.isArray(options) ? options : [])
+		.map((option) => String(option).trim())
+		.filter((option) => option !== '')
+}
+
+/**
+ * A field's default as text; empty when none is stored.
+ *
+ * @param {unknown} value The stored default.
+ * @return {string} The default.
+ * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+ */
+function fieldDefault(value) {
+	return value === null || value === undefined ? '' : String(value)
 }
 
 /**
