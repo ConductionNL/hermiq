@@ -305,41 +305,7 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'access');
 			}
 
-			// Get query parameters for pagination.
-			$params = $this->request->getParams();
-			$limit = (int)($params['limit'] ?? $params['_limit'] ?? 50);
-			$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
-
-			// Get messages with pagination (oldest-first, mirroring OR).
-			// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
-			// in a shared session the other participants' turns are owned by them. The
-			// ownership guard above already decided this caller may read the thread.
-			$messages = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::MESSAGE_SCHEMA)
-				->findAll(
-					config: [
-						'filters' => ['sessionId' => $uuid],
-						'sort' => ['created' => 'ASC'],
-						'limit' => $limit,
-						'offset' => $offset,
-					],
-					_rbac: false
-				);
-			$messages = array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
-
-			return new JSONResponse(
-				data: [
-					'results' => array_map(
-						fn (ObjectEntity $msg): array => $this->serializeMessage(message: $msg),
-						$messages
-					),
-					'total' => $this->countMessages(conversationId: $uuid),
-					'limit' => $limit,
-					'offset' => $offset,
-				],
-				statusCode: 200
-			);
+			return $this->messagePage(uuid: $uuid);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to get messages',
@@ -361,6 +327,57 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end messages()
+
+	/**
+	 * One page of a session's turns, oldest first, with the unpaged total.
+	 *
+	 * The caller has already checked that the user may read the thread.
+	 *
+	 * @param string $uuid Conversation UUID.
+	 *
+	 * @return JSONResponse The page of turns.
+	 *
+	 * @throws Exception If the turn read fails; messages() turns it into its error envelope.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function messagePage(string $uuid): JSONResponse {
+		// Get query parameters for pagination.
+		$params = $this->request->getParams();
+		$limit = (int)($params['limit'] ?? $params['_limit'] ?? 50);
+		$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
+
+		// Get messages with pagination (oldest-first, mirroring OR).
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
+		// in a shared session the other participants' turns are owned by them. The
+		// ownership guard in messages() already decided this caller may read the thread.
+		$messages = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::MESSAGE_SCHEMA)
+			->findAll(
+				config: [
+					'filters' => ['sessionId' => $uuid],
+					'sort' => ['created' => 'ASC'],
+					'limit' => $limit,
+					'offset' => $offset,
+				],
+				_rbac: false
+			);
+		$messages = array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
+
+		return new JSONResponse(
+			data: [
+				'results' => array_map(
+					fn (ObjectEntity $msg): array => $this->serializeMessage(message: $msg),
+					$messages
+				),
+				'total' => $this->countMessages(conversationId: $uuid),
+				'limit' => $limit,
+				'offset' => $offset,
+			],
+			statusCode: 200
+		);
+	}//end messagePage()
 
 	/**
 	 * Create a new conversation.
