@@ -151,14 +151,17 @@ class TurnGuardrail {
 	}//end screenOutput()
 
 	/**
-	 * Whether `screenOutput()` can change or withhold the answer under this policy.
+	 * Whether `screenOutput()` can change or withhold the answer under this policy:
+	 * true when the output PII action is anything but `off`.
 	 *
 	 * @return bool
 	 *
 	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function screensOutput(): bool {
-		return $this->policies?->outputFilterApplies(policy: $this->policy) === true;
+		$outputFilters = (array)($this->policy['outputFilters'] ?? []);
+
+		return (string)($outputFilters['piiAction'] ?? 'off') !== 'off';
 	}//end screensOutput()
 
 	/**
