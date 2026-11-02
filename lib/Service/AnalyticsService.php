@@ -201,9 +201,7 @@ class AnalyticsService
     }//end computeAnalytics()
 
     /**
-     * Count the run entries of the visible agents in one pass over the audit rows.
-     *
-     * The tenant check sits in this loop, next to the counting it guards.
+     * Count the run entries of the visible agents.
      *
      * @param array<string, string> $visibleAgents Map of visible agent UUID to display name.
      *
@@ -216,17 +214,46 @@ class AnalyticsService
             return $totals;
         }
 
-        // Deliberately unlimited: a truncating limit would turn every metric on this
-        // page into a floor silently indistinguishable from a total. The filter is
-        // already narrow (two actions), and the per-row tenant check below is what
-        // bounds the result to the caller.
+        foreach ($this->visibleRuns(visibleAgents: $visibleAgents) as $run) {
+            $runAgent  = $run['agentId'];
+            $succeeded = $this->countRun(totals: $totals, context: $run['context']);
+
+            if (isset($totals['perAgent'][$runAgent]) === false) {
+                $totals['perAgent'][$runAgent] = $this->agentRow(agentId: $runAgent, name: $visibleAgents[$runAgent]);
+            }
+
+            $totals['perAgent'][$runAgent]['runs']++;
+            $totals['perAgent'][$runAgent]['success'] += (int) $succeeded;
+        }
+
+        return $totals;
+
+    }//end tallyRuns()
+
+    /**
+     * The run entries of the visible agents, dry runs left out, in audit order.
+     *
+     * This is the tenant boundary computeAnalytics() and listRuns() share, so the
+     * metrics and the list always count the same set.
+     *
+     * @param array<string, string> $visibleAgents Map of visible agent UUID to display name.
+     *
+     * @return array<int, array{log: AuditTrail, context: array<string, mixed>, agentId: string}> The visible runs.
+     */
+    private function visibleRuns(array $visibleAgents): array
+    {
+        // Deliberately unlimited: a truncating limit would turn every metric on the
+        // page into a floor silently indistinguishable from a total, and a limit
+        // applied BEFORE the per-row tenant check below would page over rows the
+        // caller cannot see. The filter is already narrow (two actions).
         $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
 
+        $runs = [];
         foreach ($logs as $log) {
             $context = ($log->getChanged() ?? []);
 
             // TENANT BOUNDARY. The run's agent — not the object the entry hangs on —
-            // decides whether this run is the caller's to count. `agent-run` entries
+            // decides whether this run is the caller's to see. `agent-run` entries
             // hang on the flow's triggering object, which routinely lives in another
             // register entirely, so `object_uuid` cannot serve as the scope key for
             // both channels; `agentId` is recorded by both writers and can.
@@ -236,28 +263,20 @@ class AnalyticsService
             }
 
             // Run-replay-and-dry-run: a dry-run/replay preview must never inflate the
-            // agent's real status/success-rate breakdown (or this aggregate's own
-            // token/latency figures, computed on the same pass) — it is excluded here
-            // entirely. Its token usage still counts toward BudgetService's spend total
-            // (a wholly separate service/read path, unaffected by this skip) because a
-            // real LLM call was made; only THIS analytics surface excludes it.
+            // agent's real status/success-rate breakdown or token/latency figures, nor
+            // show in the list beside them. Its token usage still counts toward
+            // BudgetService's spend total (a wholly separate read path) because a real
+            // LLM call was made; only this analytics surface excludes it.
             if (($context['dryRun'] ?? false) === true) {
                 continue;
             }
 
-            $succeeded = $this->countRun(totals: $totals, context: $context);
-
-            if (isset($totals['perAgent'][$runAgent]) === false) {
-                $totals['perAgent'][$runAgent] = $this->agentRow(agentId: $runAgent, name: $visibleAgents[$runAgent]);
-            }
-
-            $totals['perAgent'][$runAgent]['runs']++;
-            $totals['perAgent'][$runAgent]['success'] += (int) $succeeded;
+            $runs[] = ['log' => $log, 'context' => $context, 'agentId' => $runAgent];
         }//end foreach
 
-        return $totals;
+        return $runs;
 
-    }//end tallyRuns()
+    }//end visibleRuns()
 
     /**
      * Add one counted run to the status, latency and token totals.
@@ -364,38 +383,22 @@ class AnalyticsService
             ];
         }
 
-        // Unlimited for the same reason computeAnalytics() reads unlimited: the
-        // per-row tenant check below is what bounds the result, and a limit applied
-        // BEFORE it would page over rows the caller cannot see, making page two
-        // shorter than page one for no reason a user could understand.
-        $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
-
         $rows = [];
-        foreach ($logs as $log) {
-            $context = ($log->getChanged() ?? []);
-
-            $runAgent = trim((string) ($context['agentId'] ?? ''));
-            if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false) {
-                continue;
-            }
-
-            if (($context['dryRun'] ?? false) === true) {
-                continue;
-            }
-
+        foreach ($this->visibleRuns(visibleAgents: $visibleAgents) as $run) {
+            $context   = $run['context'];
             $rowStatus = (string) ($context['status'] ?? 'unknown');
             if ($status !== null && $status !== '' && $rowStatus !== $status) {
                 continue;
             }
 
             $rows[] = $this->toRunRow(
-                log: $log,
+                log: $run['log'],
                 context: $context,
-                agentId: $runAgent,
-                agentName: $visibleAgents[$runAgent],
+                agentId: $run['agentId'],
+                agentName: $visibleAgents[$run['agentId']],
                 status: $rowStatus
             );
-        }//end foreach
+        }
 
         usort(
             $rows,
