@@ -282,25 +282,11 @@ class ConversationManagementHandler {
 			$metadata = [];
 		}
 
-		$tokenCount = $metadata['token_count'] ?? 0;
-		if ($tokenCount < self::MAX_TOKENS_BEFORE_SUMMARY) {
+		if ($this->summaryIsDue(metadata: $metadata) === false) {
 			return;
 		}
 
-		$lastSummary = $metadata['last_summary_at'] ?? null;
-		if ($lastSummary !== null) {
-			try {
-				$lastSummaryTime = new DateTime($lastSummary);
-				$hoursSinceSummary = (time() - $lastSummaryTime->getTimestamp()) / 3600;
-				if ($hoursSinceSummary < 1) {
-					return;
-				}
-			} catch (Exception) {
-				// Malformed timestamp — fall through and re-summarise.
-				unset($lastSummary);
-			}
-		}
-
+		$tokenCount = $metadata['token_count'] ?? 0;
 		$conversationUuid = (string)$conversation->getUuid();
 
 		$this->logger->info(
@@ -359,6 +345,36 @@ class ConversationManagementHandler {
 		}//end try
 
 	}//end checkAndSummarize()
+
+	/**
+	 * Whether the token count reached the summary bound and no summary ran in
+	 * the last hour. A malformed last-summary time counts as no summary.
+	 *
+	 * @param array<string, mixed> $metadata The conversation's metadata.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 */
+	private function summaryIsDue(array $metadata): bool {
+		$tokenCount = $metadata['token_count'] ?? 0;
+		if ($tokenCount < self::MAX_TOKENS_BEFORE_SUMMARY) {
+			return false;
+		}
+
+		$lastSummary = $metadata['last_summary_at'] ?? null;
+		if ($lastSummary === null) {
+			return true;
+		}
+
+		try {
+			$lastSummaryTime = new DateTime($lastSummary);
+		} catch (Exception) {
+			return true;
+		}
+
+		return ((time() - $lastSummaryTime->getTimestamp()) / 3600) >= 1;
+	}//end summaryIsDue()
 
 	/**
 	 * Fetch every Message for a conversation, oldest-first, up to
