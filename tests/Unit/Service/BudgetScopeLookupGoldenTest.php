@@ -44,6 +44,7 @@ use ReflectionMethod;
  * Golden comparison of the tenant-scoped budget lookup.
  *
  * @covers \OCA\Hermiq\Service\BudgetService
+ * @uses   \OCA\Hermiq\Service\BudgetScopes
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
  */
@@ -91,6 +92,14 @@ class BudgetScopeLookupGoldenTest extends TestCase {
 				'found' => $found?->getUuid(),
 				'reads' => $reads,
 			];
+		}
+
+		foreach ($this->fixedPages() as $index => $page) {
+			$reads = [];
+			$service = $this->service(page: $page, reads: $reads);
+			$lookup = new ReflectionMethod(BudgetService::class, 'findBudgetTenantScoped');
+			$found = $lookup->invoke($service, 'org-a', 'ag-1');
+			$actual[] = ['fixed' => $index, 'found' => $found?->getUuid(), 'reads' => $reads];
 		}
 
 		if (getenv('GOLDEN_RECORD') === '1') {
@@ -189,6 +198,28 @@ class BudgetScopeLookupGoldenTest extends TestCase {
 		return $rows;
 
 	}//end page()
+
+	/**
+	 * Pages with two matches of the same kind, so the pick between them shows.
+	 *
+	 * @return array<int, array<int, ObjectEntity>>
+	 */
+	private function fixedPages(): array {
+		$budget = static function (string $uuid, string $scope): ObjectEntity {
+			$entity = new ObjectEntity();
+			$entity->setUuid($uuid);
+			$entity->setOrganisation('org-a');
+			$entity->setObject(['scope' => $scope, 'agentId' => 'ag-1']);
+			return $entity;
+		};
+
+		return [
+			[$budget('first-agent', 'agent'), $budget('second-agent', 'agent')],
+			[$budget('first-org', 'organisation'), $budget('second-org', 'organisation')],
+			[$budget('org', 'organisation'), $budget('agent', 'agent'), $budget('last-org', 'organisation')],
+		];
+
+	}//end fixedPages()
 
 	/**
 	 * A page row as recorded: an entity as uuid, organisation and payload.
