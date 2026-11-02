@@ -146,7 +146,7 @@ class BudgetService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_SOFT_THRESHOLD = 80;
+	private const DEFAULT_SOFT_THRESHOLD = BudgetLimits::DEFAULT_SOFT_THRESHOLD;
 
 	/**
 	 * Constructor.
@@ -309,12 +309,6 @@ class BudgetService {
 	 * @return array<string, mixed> The status payload (scope/agentId/period/periodKey/
 	 *                              tokens/eur/softThresholdReached/hardCapReached).
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single-pass threshold evaluation
-	 *   across the token AND (optional) EUR dimensions; splitting would duplicate the
-	 *   period-window/usage computation.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the optional tokenLimit/eurLimit/
-	 *   rate guards are independent, multiplying paths without adding real branching depth.
-	 *
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
 	 */
 	public function status(ObjectEntity $budget): array {
@@ -330,45 +324,9 @@ class BudgetService {
 		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
 		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
 
-		// `isset()` is already false for null, so the `!== null` conjunct these
-		// two conditions used to carry was unreachable.
-		$tokenLimit = null;
-		if (isset($data['tokenLimit']) === true && $data['tokenLimit'] !== '') {
-			$tokenLimit = (int)$data['tokenLimit'];
-		}
-
-		$eurLimit = null;
-		if (isset($data['eurLimit']) === true && $data['eurLimit'] !== '') {
-			$eurLimit = (float)$data['eurLimit'];
-		}
-
-		$softThresholdPercent = (int)($data['softThresholdPercent'] ?? self::DEFAULT_SOFT_THRESHOLD);
-
-		$tokenPercent = null;
-		if ($tokenLimit !== null && $tokenLimit > 0) {
-			$tokenPercent = round((($tokensUsed / $tokenLimit) * 100), 1);
-		}
-
-		$hardCapReached = ($tokenLimit !== null && $tokenLimit > 0 && $tokensUsed >= $tokenLimit);
-		$softReached = ($tokenPercent !== null && $tokenPercent >= $softThresholdPercent);
-
-		$rate = $this->eurRate();
-		$eurAvailable = ($rate !== null);
-		$eurUsed = null;
-		$eurPercent = null;
-		if ($eurAvailable === true) {
-			$eurUsed = round((($tokensUsed * $rate) / 1000), 4);
-			if ($eurLimit !== null && $eurLimit > 0) {
-				$eurPercent = round((($eurUsed / $eurLimit) * 100), 1);
-				if ($eurUsed >= $eurLimit) {
-					$hardCapReached = true;
-				}
-
-				if ($eurPercent >= $softThresholdPercent) {
-					$softReached = true;
-				}
-			}
-		}
+		$limits = new BudgetLimits(data: $data);
+		$tokens = $limits->tokenUsage(used: $tokensUsed);
+		$eur = $limits->eurUsage(tokensUsed: $tokensUsed, rate: $this->eurRate());
 
 		$agentIdOrNull = null;
 		if ($agentId !== '') {
@@ -380,22 +338,14 @@ class BudgetService {
 			'agentId' => $agentIdOrNull,
 			'period' => $period,
 			'periodKey' => $window['key'],
-			'tokens' => [
-				'used' => $tokensUsed,
-				'limit' => $tokenLimit,
-				'percent' => $tokenPercent,
-			],
-			'eur' => [
-				'available' => $eurAvailable,
-				'used' => $eurUsed,
-				'limit' => $eurLimit,
-				'percent' => $eurPercent,
-			],
-			'softThresholdReached' => $softReached,
-			'hardCapReached' => $hardCapReached,
+			'tokens' => $tokens['usage'],
+			'eur' => $eur['usage'],
+			'softThresholdReached' => ($tokens['soft'] || $eur['soft']),
+			'hardCapReached' => ($tokens['hard'] || $eur['hard']),
 		];
 
 	}//end status()
+
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,
