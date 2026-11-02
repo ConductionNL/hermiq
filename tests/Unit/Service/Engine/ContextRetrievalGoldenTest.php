@@ -227,7 +227,10 @@ class ContextRetrievalGoldenTest extends TestCase {
 
 			$row = ['id' => $this->pick(['r' . $this->random->getInt(0, 9), null]), 'uuid' => 'u' . $this->random->getInt(0, 9)];
 			$row = array_merge($row, $this->maybe(['name' => $this->pick(self::NAMES), 'title' => $this->pick(self::NAMES)]));
-			$row = array_merge($row, $this->maybe(['_score' => $this->pick([0.5, 2, '1.5', 0.9]), '_source' => ['data' => 'raw ' . $this->random->getInt(0, 9)]]));
+			$row = array_merge(
+				$row,
+				$this->maybe(['_score' => $this->pick([0.5, 2, '1.5', 0.9]), '_source' => ['data' => 'raw ' . $this->random->getInt(0, 9)]])
+			);
 			$rows[] = $row;
 		}
 

@@ -1,58 +1,14 @@
 [
     {
         "result": {
-            "text": "Source: Beta report\nraw 0\n\nSource: Beta report\nraw 9\n\nSource: Alpha\n{\"id\":\"ent-3\",\"name\":\"Alpha\",\"n\":5}\n\nSource: Beta report\n{\"id\":\"ent-3\",\"name\":\"Beta report\",\"n\":1}\n\nSource: Object #u6\nraw 8\n\n",
+            "text": "Source: Object #u3\n{\"id\":null,\"uuid\":\"u3\",\"name\":\"\",\"_score\":2}\n\n",
             "sources": [
                 {
-                    "id": "r1",
+                    "id": "u3",
                     "type": "object",
-                    "name": "Beta report",
-                    "similarity": 1,
-                    "text": "raw 0",
-                    "uuid": null,
-                    "register": null,
-                    "schema": null,
-                    "uri": null
-                },
-                {
-                    "id": "r1",
-                    "type": "object",
-                    "name": "Beta report",
-                    "similarity": "1.5",
-                    "text": "raw 9",
-                    "uuid": null,
-                    "register": null,
-                    "schema": null,
-                    "uri": null
-                },
-                {
-                    "id": "ent-3",
-                    "type": "object",
-                    "name": "Alpha",
-                    "similarity": 1,
-                    "text": "{\"id\":\"ent-3\",\"name\":\"Alpha\",\"n\":5}",
-                    "uuid": null,
-                    "register": null,
-                    "schema": null,
-                    "uri": null
-                },
-                {
-                    "id": "ent-3",
-                    "type": "object",
-                    "name": "Beta report",
-                    "similarity": 1,
-                    "text": "{\"id\":\"ent-3\",\"name\":\"Beta report\",\"n\":1}",
-                    "uuid": null,
-                    "register": null,
-                    "schema": null,
-                    "uri": null
-                },
-                {
-                    "id": "u6",
-                    "type": "object",
-                    "name": "Object #u6",
-                    "similarity": 0.5,
-                    "text": "raw 8",
+                    "name": "Object #u3",
+                    "similarity": 2,
+                    "text": "{\"id\":null,\"uuid\":\"u3\",\"name\":\"\",\"_score\":2}",
                     "uuid": null,
                     "register": null,
                     "schema": null,
@@ -64,13 +20,13 @@
         "calls": [
             {
                 "query": {
-                    "_search": "query 25",
-                    "_limit": 10,
+                    "_search": "query 94",
+                    "_limit": 2,
                     "_register": null,
                     "_schema": null
                 },
                 "views": [
-                    "v1",
+                    "v2",
                     "v3"
                 ]
             }
@@ -80,33 +36,32 @@
                 "level": "info",
                 "message": "[ContextRetrievalHandler] Retrieving context",
                 "context": {
-                    "query": "query 25",
+                    "query": "query 94",
                     "hasAgent": true,
-                    "ragSettings": {
-                        "includeFiles": null,
-                        "numSourcesFiles": 3
-                    }
+                    "ragSettings": []
                 }
             },
             {
                 "level": "info",
-                "message": "[ContextRetrievalHandler] graph RAG mode degrades to keyword search: the agent has not enabled the knowledge graph",
-                "context": []
+                "message": "[ContextRetrievalHandler] semantic\/hybrid RAG mode requested but no public OR vector-search facade exists yet at HEAD; degrading to keyword search \u2014 see agent-engine-port DEFERRED note",
+                "context": {
+                    "searchMode": "hybrid"
+                }
             },
             {
                 "level": "info",
                 "message": "[ContextRetrievalHandler] Context retrieved",
                 "context": {
-                    "numSources": 5,
+                    "numSources": 1,
                     "fileSources": 0,
-                    "objectSources": 5,
-                    "contextLength": 194,
-                    "searchMode": "graph",
+                    "objectSources": 1,
+                    "contextLength": 65,
+                    "searchMode": "hybrid",
                     "includeObjects": true,
                     "includeFiles": true,
-                    "numSourcesFiles": 3,
-                    "numSourcesObjects": 5,
-                    "rawResultsCount": 6,
+                    "numSourcesFiles": 1,
+                    "numSourcesObjects": 1,
+                    "rawResultsCount": 5,
                     "viewFilters": 2
                 }
             }
