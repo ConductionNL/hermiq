@@ -157,6 +157,33 @@ class SkillConsolidationService {
 	public const STATUS_AWAITING_APPROVAL = 'awaiting-approval';
 
 	/**
+	 * The text fields an edit may replace: edit key => draft field.
+	 *
+	 * @var array<string, string>
+	 */
+	private const EDITABLE_TEXT = ['frontmatter' => 'proposedFrontmatter', 'body' => 'proposedBody'];
+
+	/**
+	 * What an edit resets on the draft, besides marking it edited and by whom.
+	 *
+	 * The edit invalidates ALL prior gate evidence — nothing unscanned can be approved
+	 * anywhere; re-qualification re-earns it over the new content. TOCTOU hardening:
+	 * the link to the pre-edit Approval is severed too, so a decision recorded on the
+	 * OLD Approval (raced in around the edit) never applies the edited content; the
+	 * re-qualification pass links a fresh Approval.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private const EDIT_INVALIDATES = [
+		'scanVerdict' => '',
+		'scanReport' => [],
+		'evalEvidence' => [],
+		'noEvalEvidence' => false,
+		'approvalId' => '',
+		'status' => self::STATUS_PROPOSED,
+	];
+
+	/**
 	 * Applied onto the Skill as a new version (terminal).
 	 *
 	 * @var string
@@ -959,9 +986,8 @@ class SkillConsolidationService {
 	 * `isDraftApprovable()` gate every approve path consults).
 	 *
 	 * @param ObjectEntity $draft The draft in `awaiting-approval`.
-	 * @param string|null $frontmatter Replacement frontmatter (null = keep).
-	 * @param string|null $body Replacement body (null = keep).
-	 * @param array<int, mixed>|null $files Replacement files (null = keep).
+	 * @param array<string, mixed> $replacement `frontmatter` and `body` (strings) and `files` (a list);
+	 *                                          a missing or other-typed value keeps the current one.
 	 * @param string $editorUid The editing reviewer's uid.
 	 *
 	 * @return ObjectEntity The draft after re-qualification ran.
@@ -970,46 +996,29 @@ class SkillConsolidationService {
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
 	 */
-	public function editDraftContent(
-		ObjectEntity $draft,
-		?string $frontmatter,
-		?string $body,
-		?array $files,
-		string $editorUid,
-	): ObjectEntity {
+	public function editDraftContent(ObjectEntity $draft, array $replacement, string $editorUid): ObjectEntity {
 		$data = $draft->getObject();
 		if ((string)($data['status'] ?? '') !== self::STATUS_AWAITING_APPROVAL) {
 			throw new InvalidArgumentException('Only a draft awaiting approval can be edited.');
 		}
 
-		if ($frontmatter !== null) {
-			$data['proposedFrontmatter'] = $frontmatter;
-		}
-
-		if ($body !== null) {
-			$data['proposedBody'] = $body;
-		}
-
-		if ($files !== null) {
-			$data['proposedFiles'] = $this->normalisedFiles(files: $files);
-		}
-
-		// The edit invalidates ALL prior gate evidence — nothing unscanned can be
-		// approved anywhere; re-qualification below re-earns it over the new content.
-		$data['editedBeforeAccept'] = true;
-		$data['editedBy'] = $editorUid;
-		$data['scanVerdict'] = '';
-		$data['scanReport'] = [];
-		$data['evalEvidence'] = [];
-		$data['noEvalEvidence'] = false;
-		// TOCTOU hardening: sever the link to the pre-edit Approval too — a decision
-		// recorded on the OLD Approval (raced in around the edit) must never apply
-		// the edited content; the re-qualification pass links a fresh Approval.
-		$data['approvalId'] = '';
-		$data['status'] = self::STATUS_PROPOSED;
-
+		$data = $this->withReplacedContent(data: $data, replacement: $replacement);
+		$data = array_merge($data, ['editedBeforeAccept' => true, 'editedBy' => $editorUid], self::EDIT_INVALIDATES);
 		$draft = $this->persistDraft(data: $data, uuid: (string)$draft->getUuid(), owner: (string)($draft->getOwner() ?? ''));
+		$this->auditEdit(draft: $draft, editorUid: $editorUid);
 
+		return $this->prequalifyDraft(draft: $draft);
+	}//end editDraftContent()
+
+	/**
+	 * Record the edit-before-accept on the draft's audit trail.
+	 *
+	 * @param ObjectEntity $draft The edited draft, as stored.
+	 * @param string $editorUid The editing reviewer's uid.
+	 *
+	 * @return void
+	 */
+	private function auditEdit(ObjectEntity $draft, string $editorUid): void {
 		$this->auditDraft(
 			draft: $draft,
 			context: [
@@ -1018,9 +1027,29 @@ class SkillConsolidationService {
 				'note' => 'Content edited before accept — scan and eval evidence invalidated; re-qualification required.',
 			]
 		);
+	}//end auditEdit()
 
-		return $this->prequalifyDraft(draft: $draft);
-	}//end editDraftContent()
+	/**
+	 * A draft payload with the proposed content replaced where the edit supplies it.
+	 *
+	 * @param array<string, mixed> $data The draft payload.
+	 * @param array<string, mixed> $replacement The edit: `frontmatter`/`body` strings, a `files` list.
+	 *
+	 * @return array<string, mixed> The payload with the supplied content in place.
+	 */
+	private function withReplacedContent(array $data, array $replacement): array {
+		foreach (self::EDITABLE_TEXT as $key => $field) {
+			if (is_string($replacement[$key] ?? null) === true) {
+				$data[$field] = $replacement[$key];
+			}
+		}
+
+		if (is_array($replacement['files'] ?? null) === true) {
+			$data['proposedFiles'] = $this->normalisedFiles(files: $replacement['files']);
+		}
+
+		return $data;
+	}//end withReplacedContent()
 
 	/**
 	 * Idempotently reconcile a draft whose linked Approval was decided on a surface

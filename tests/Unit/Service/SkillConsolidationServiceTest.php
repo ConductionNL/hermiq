@@ -852,9 +852,7 @@ class SkillConsolidationServiceTest extends TestCase {
 
 		$edited = $service->editDraftContent(
 			draft: $draft,
-			frontmatter: null,
-			body: 'HUMAN-EDITED BODY',
-			files: null,
+			replacement: ['body' => 'HUMAN-EDITED BODY'],
 			editorUid: 'reviewer'
 		);
 
@@ -913,9 +911,7 @@ class SkillConsolidationServiceTest extends TestCase {
 
 		$edited = $service->editDraftContent(
 			draft: $draft,
-			frontmatter: null,
-			body: 'HUMAN-EDITED BODY',
-			files: null,
+			replacement: ['body' => 'HUMAN-EDITED BODY'],
 			editorUid: 'reviewer'
 		);
 
