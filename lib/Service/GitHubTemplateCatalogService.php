@@ -847,13 +847,38 @@ class GitHubTemplateCatalogService {
 		// failure (network, extraction, unexpected shape, or a bundle whose
 		// manifest the archive filter somehow missed) degrades gracefully
 		// rather than failing the install outright.
+		return $this->fetchBundlePerFile(
+			source: [
+				'owner' => $owner,
+				'repo' => $repo,
+				'ref' => $ref,
+				'actingUserId' => $actingUserId,
+				'credentialId' => $credentialId,
+			]
+		);
+
+	}//end fetchBundle()
+
+	/**
+	 * Fetch a bundle file by file: the manifest first, then every blob under
+	 * `skills/` or `agents/`, bounded by MAX_BUNDLE_BYTES with truncation reported.
+	 *
+	 * @param array{owner: string, repo: string, ref: string|null, actingUserId: string|null, credentialId: string|null} $source The repo
+	 *        coordinates and the caller's broker identity.
+	 *
+	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
+	 *                                                               or null when the repo has no readable manifest.
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	private function fetchBundlePerFile(array $source): ?array {
 		$manifest = $this->fetchFileContents(
-			owner: $owner,
-			repo: $repo,
+			owner: $source['owner'],
+			repo: $source['repo'],
 			path: self::BUNDLE_MANIFEST_FILE,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId
+			ref: $source['ref'],
+			actingUserId: $source['actingUserId'],
+			credentialId: $source['credentialId']
 		);
 		if ($manifest === null) {
 			return null;
@@ -862,11 +887,11 @@ class GitHubTemplateCatalogService {
 		// The manifest's own bytes count against the bound because it is part
 		// of what was fetched.
 		$collected = $this->collectTreeBlobs(
-			owner: $owner,
-			repo: $repo,
-			ref: $ref,
-			actingUserId: $actingUserId,
-			credentialId: $credentialId,
+			owner: $source['owner'],
+			repo: $source['repo'],
+			ref: $source['ref'],
+			actingUserId: $source['actingUserId'],
+			credentialId: $source['credentialId'],
 			accept: static function (string $path): bool {
 				return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX)
 					|| str_starts_with($path, self::BUNDLE_AGENTS_PREFIX);
@@ -878,7 +903,7 @@ class GitHubTemplateCatalogService {
 		if ($collected['truncated'] === true) {
 			$this->logger->warning(
 				'Hermiq bundle fetch: truncated at the bound — the installed set is INCOMPLETE.',
-				['owner' => $owner, 'repo' => $repo, 'limitBytes' => self::MAX_BUNDLE_BYTES]
+				['owner' => $source['owner'], 'repo' => $source['repo'], 'limitBytes' => self::MAX_BUNDLE_BYTES]
 			);
 		}
 
@@ -886,8 +911,7 @@ class GitHubTemplateCatalogService {
 			'files' => array_merge([self::BUNDLE_MANIFEST_FILE => $manifest], $collected['files']),
 			'truncated' => $collected['truncated'],
 		];
-
-	}//end fetchBundle()
+	}//end fetchBundlePerFile()
 
 	/**
 	 * Build a card from a search hit's package file (non-installable when the
