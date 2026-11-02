@@ -36,6 +36,8 @@ use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
 /**
  * Golden comparison of the deterministic course scoring.
@@ -75,6 +77,14 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 	private const BAD_TIMESTAMPS = ['not-a-date', '', null, 12345];
 
 	/**
+	 * The seeded generator every draw of the current case comes from, so mock
+	 * creation (which calls mt_rand) cannot shift the generated values.
+	 *
+	 * @var Randomizer
+	 */
+	private Randomizer $random;
+
+	/**
 	 * Every generated case scores exactly as recorded.
 	 *
 	 * @return void
@@ -84,7 +94,7 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 		$now = new DateTimeImmutable('2026-06-15T12:00:00+00:00', new DateTimeZone('UTC'));
 		$actual = [];
 		for ($case = 0; $case < self::CASES; $case++) {
-			mt_srand($case + 1);
+			$this->random = new Randomizer(new Mt19937($case + 1));
 			$input = $this->generateCase();
 			$result = $engine->scoreCandidates(
 				$input['courses'],
@@ -136,12 +146,12 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 	 */
 	private function generateCase(): array {
 		$courses = [];
-		for ($i = mt_rand(0, 9); $i > 0; $i--) {
+		for ($i = $this->random->getInt(0, 9); $i > 0; $i--) {
 			$courses[] = $this->course();
 		}
 
 		$enrolments = [];
-		for ($i = mt_rand(0, 5); $i > 0; $i--) {
+		for ($i = $this->random->getInt(0, 5); $i > 0; $i--) {
 			$enrolments[] = $this->omitSome(
 				payload: [
 					'courseId' => $this->pick(pool: self::UUIDS),
@@ -152,7 +162,7 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 		}
 
 		$goals = [];
-		for ($i = mt_rand(0, 3); $i > 0; $i--) {
+		for ($i = $this->random->getInt(0, 3); $i > 0; $i--) {
 			$goals[] = $this->omitSome(
 				payload: [
 					'domain' => $this->pick(pool: self::WORDS),
@@ -187,7 +197,7 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 				'code' => $this->pick(pool: self::CODES),
 				'renewalCourseSlug' => $this->pick(pool: self::CODES),
 				'competencyIds' => $this->subset(pool: self::COMPETENCIES),
-				'name' => 'Course ' . mt_rand(1, 99),
+				'name' => 'Course ' . $this->random->getInt(1, 99),
 			]
 		);
 	}//end course()
@@ -201,9 +211,9 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 	 */
 	private function statements(DateTimeImmutable $now): array {
 		$statements = [];
-		for ($i = mt_rand(0, 6); $i > 0; $i--) {
+		for ($i = $this->random->getInt(0, 6); $i > 0; $i--) {
 			$timestamp = $now->modify('-' . $this->pick(pool: self::AGES_IN_DAYS) . ' days')->format(DATE_ATOM);
-			if (mt_rand(0, 5) === 0) {
+			if ($this->random->getInt(0, 5) === 0) {
 				$timestamp = $this->pick(pool: self::BAD_TIMESTAMPS);
 			}
 
@@ -221,7 +231,7 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 	 * @return mixed
 	 */
 	private function pick(array $pool): mixed {
-		return $pool[mt_rand(0, count($pool) - 1)];
+		return $pool[$this->random->getInt(0, count($pool) - 1)];
 	}//end pick()
 
 	/**
@@ -232,7 +242,7 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 	 * @return array<int, mixed>
 	 */
 	private function subset(array $pool): array {
-		return array_values(array_filter($pool, static fn (): bool => mt_rand(0, 2) === 0));
+		return array_values(array_filter($pool, fn (): bool => $this->random->getInt(0, 2) === 0));
 	}//end subset()
 
 	/**
@@ -243,6 +253,6 @@ class CourseRecommendationScoringGoldenTest extends TestCase {
 	 * @return array<string, mixed>
 	 */
 	private function omitSome(array $payload): array {
-		return array_filter($payload, static fn (): bool => mt_rand(0, 9) !== 0);
+		return array_filter($payload, fn (): bool => $this->random->getInt(0, 9) !== 0);
 	}//end omitSome()
 }//end class
