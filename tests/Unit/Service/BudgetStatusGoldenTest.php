@@ -52,6 +52,7 @@ use Stringable;
  * Golden comparison of the budget status.
  *
  * @covers \OCA\Hermiq\Service\BudgetService
+ * @covers \OCA\Hermiq\Service\BudgetLimits
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */

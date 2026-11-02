@@ -146,7 +146,7 @@ class BudgetService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_SOFT_THRESHOLD = 80;
+	private const DEFAULT_SOFT_THRESHOLD = BudgetLimits::DEFAULT_SOFT_THRESHOLD;
 
 	/**
 	 * Constructor.
@@ -324,9 +324,9 @@ class BudgetService {
 		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
 		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
 
-		$limits = $this->budgetLimits(data: $data);
-		$tokens = $this->tokenUsage(used: $tokensUsed, limits: $limits);
-		$eur = $this->eurUsage(tokensUsed: $tokensUsed, limits: $limits);
+		$limits = new BudgetLimits(data: $data);
+		$tokens = $limits->tokenUsage(used: $tokensUsed);
+		$eur = $limits->eurUsage(tokensUsed: $tokensUsed, rate: $this->eurRate());
 
 		$agentIdOrNull = null;
 		if ($agentId !== '') {
@@ -346,94 +346,6 @@ class BudgetService {
 
 	}//end status()
 
-	/**
-	 * A budget's token limit, EUR limit and soft threshold, read from its payload.
-	 *
-	 * @param array<string, mixed> $data The budget payload.
-	 *
-	 * @return array{tokens: int|null, eur: float|null, soft: int} The limits (null when unset).
-	 */
-	private function budgetLimits(array $data): array {
-		// `isset()` is already false for null, so the `!== null` conjunct these
-		// two conditions used to carry was unreachable.
-		$tokenLimit = null;
-		if (isset($data['tokenLimit']) === true && $data['tokenLimit'] !== '') {
-			$tokenLimit = (int)$data['tokenLimit'];
-		}
-
-		$eurLimit = null;
-		if (isset($data['eurLimit']) === true && $data['eurLimit'] !== '') {
-			$eurLimit = (float)$data['eurLimit'];
-		}
-
-		return [
-			'tokens' => $tokenLimit,
-			'eur' => $eurLimit,
-			'soft' => (int)($data['softThresholdPercent'] ?? self::DEFAULT_SOFT_THRESHOLD),
-		];
-	}//end budgetLimits()
-
-	/**
-	 * The token dimension of a budget status: usage block plus its threshold flags.
-	 *
-	 * @param int $used Tokens used in the period.
-	 * @param array{tokens: int|null, eur: float|null, soft: int} $limits The budget's limits.
-	 *
-	 * @return array{usage: array<string, mixed>, hard: bool, soft: bool}
-	 */
-	private function tokenUsage(int $used, array $limits): array {
-		$tokenLimit = $limits['tokens'];
-		$tokenPercent = null;
-		if ($tokenLimit !== null && $tokenLimit > 0) {
-			$tokenPercent = round((($used / $tokenLimit) * 100), 1);
-		}
-
-		return [
-			'usage' => [
-				'used' => $used,
-				'limit' => $tokenLimit,
-				'percent' => $tokenPercent,
-			],
-			'hard' => ($tokenLimit !== null && $tokenLimit > 0 && $used >= $tokenLimit),
-			'soft' => ($tokenPercent !== null && $tokenPercent >= $limits['soft']),
-		];
-	}//end tokenUsage()
-
-	/**
-	 * The EUR dimension of a budget status, available only when a conversion rate is set.
-	 *
-	 * @param int $tokensUsed Tokens used in the period.
-	 * @param array{tokens: int|null, eur: float|null, soft: int} $limits The budget's limits.
-	 *
-	 * @return array{usage: array<string, mixed>, hard: bool, soft: bool}
-	 */
-	private function eurUsage(int $tokensUsed, array $limits): array {
-		$rate = $this->eurRate();
-		$eurLimit = $limits['eur'];
-		$eurUsed = null;
-		$eurPercent = null;
-		$hard = false;
-		$soft = false;
-		if ($rate !== null) {
-			$eurUsed = round((($tokensUsed * $rate) / 1000), 4);
-			if ($eurLimit !== null && $eurLimit > 0) {
-				$eurPercent = round((($eurUsed / $eurLimit) * 100), 1);
-				$hard = ($eurUsed >= $eurLimit);
-				$soft = ($eurPercent >= $limits['soft']);
-			}
-		}
-
-		return [
-			'usage' => [
-				'available' => ($rate !== null),
-				'used' => $eurUsed,
-				'limit' => $eurLimit,
-				'percent' => $eurPercent,
-			],
-			'hard' => $hard,
-			'soft' => $soft,
-		];
-	}//end eurUsage()
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,
