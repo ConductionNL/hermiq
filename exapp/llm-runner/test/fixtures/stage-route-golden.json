@@ -419,7 +419,7 @@
    "code": ""
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -1648,7 +1648,7 @@
    }
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -2472,7 +2472,7 @@
    "code": ""
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -2879,7 +2879,7 @@
    "code": "protected_branch"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -3870,7 +3870,7 @@
    "throws": "clone failed"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -3905,7 +3905,7 @@
    }
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -4375,7 +4375,7 @@
    "throws": "clone failed"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -4547,7 +4547,7 @@
    "code": ""
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -4908,7 +4908,7 @@
    "code": "protected_branch"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -6110,7 +6110,7 @@
    "exitCode": 0
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -6228,7 +6228,7 @@
    }
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -6727,7 +6727,7 @@
    }
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -7894,7 +7894,7 @@
    "exitCode": 0
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -8329,7 +8329,7 @@
    "throws": "clone failed"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -9369,7 +9369,7 @@
    "exitCode": 3
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -9488,7 +9488,7 @@
    "exitCode": 3
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -9778,7 +9778,7 @@
    "code": "protected_branch"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -10816,7 +10816,7 @@
    }
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -12166,7 +12166,7 @@
    "exitCode": 0
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  },
@@ -12294,7 +12294,7 @@
    "code": "protected_branch"
   },
   "status": 0,
-  "thrown": "TypeError: Cannot destructure property 'repo' of 'payload' as it is null.",
+  "thrown": "TypeError",
   "calls": [],
   "log": []
  }

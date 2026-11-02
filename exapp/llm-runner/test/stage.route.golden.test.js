@@ -202,7 +202,8 @@ test('every generated /stage request gives the recorded answer', async () => {
 					Buffer.from(c.raw),
 				)
 			} catch (e) {
-				thrown = `${e.name}: ${e.message}`
+				// The type only: V8 words a destructuring error by its source text.
+				thrown = e.name
 			}
 			const body = res.body.replace(
 				/"jobId":"[0-9a-f-]{36}"/,
