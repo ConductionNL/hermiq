@@ -7,7 +7,7 @@
  * agents, run audit entries (visible, foreign, unnamed, padded and missing agent
  * ids, dry runs, odd statuses, durations, usage and dates) and ratings, and
  * compares the results and every read they made with a recorded fixture. Set GOLDEN_RECORD=1 to (re)write
- * the fixture; a run in record mode compares nothing.
+ * the fixture; a run in record mode compares nothing. An empty array key is recorded as `(empty)`.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Service
@@ -131,7 +131,8 @@ class AnalyticsComputeGoldenTest extends TestCase {
 			$list = ['status' => self::STATUS_FILTERS[$this->random->getInt(0, count(self::STATUS_FILTERS) - 1)], 'limit' => [1, 3, 50, 0][$this->random->getInt(0, 3)], 'offset' => [0, 0, 2, -1][$this->random->getInt(0, 3)]];
 			$listed = $service->listRuns(agentId: $scope, status: $list['status'], limit: $list['limit'], offset: $list['offset']);
 
-			$actual[] = ['agentId' => $scope, 'result' => $result, 'reads' => $analyticsReads, 'list' => $list, 'listed' => $listed, 'listReads' => $reads];
+			$recorded = ['agentId' => $scope, 'result' => $result, 'reads' => $analyticsReads, 'list' => $list, 'listed' => $listed, 'listReads' => $reads];
+			$actual[] = $this->keyEmptyAsMarker(value: $recorded);
 		}
 
 		if (getenv('GOLDEN_RECORD') === '1') {
@@ -181,6 +182,31 @@ class AnalyticsComputeGoldenTest extends TestCase {
 		return $out;
 
 	}//end passed()
+
+	/**
+	 * The value with every empty array key renamed to `(empty)`, in place, so the fixture holds no empty JSON key.
+	 *
+	 * @param mixed $value The recorded value.
+	 *
+	 * @return mixed
+	 */
+	private function keyEmptyAsMarker(mixed $value): mixed {
+		if (is_array($value) === false) {
+			return $value;
+		}
+
+		$out = [];
+		foreach ($value as $key => $item) {
+			if ($key === '') {
+				$key = '(empty)';
+			}
+
+			$out[$key] = $this->keyEmptyAsMarker(value: $item);
+		}
+
+		return $out;
+
+	}//end keyEmptyAsMarker()
 
 	/**
 	 * The visible agents page: named, unnamed and non-entity rows.
