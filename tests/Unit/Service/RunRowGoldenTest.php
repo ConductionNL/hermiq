@@ -41,6 +41,7 @@ use Random\Randomizer;
  * Golden comparison of the run rows.
  *
  * @covers \OCA\Hermiq\Service\AnalyticsService
+ * @uses   \OCA\Hermiq\Service\AgentFeedbackStats
  * @uses   \OCA\Hermiq\Service\RunCompareService
  * @uses   \OCA\Hermiq\Service\RunComparator
  *
