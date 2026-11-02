@@ -312,7 +312,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
    "ref": "development",
    "files": {
     "out/result.json": {
@@ -755,7 +755,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
    "ref": "development",
    "files": {}
   }
@@ -1714,7 +1714,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=wrong-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=wrong-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
    "ref": "development",
    "files": {
     "res": {
@@ -2085,6 +2085,62 @@
    "exitCode": 3,
    "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=tok\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=both EVIL=unset\n",
    "ref": "development",
+   "files": {}
+  }
+ },
+ {
+  "case": 67,
+  "args": {
+   "repo": "http://<SERVER>/target.git",
+   "ref": "development",
+   "forgeUser": "",
+   "timeoutMs": 60000,
+   "command": [
+    "./probe.sh"
+   ]
+  },
+  "ambient": {},
+  "error": {
+   "name": "Error",
+   "message": "repo clone failed (exit 128): Cloning into '<SCRATCH>/repo'... | fatal: could not read Username for 'http://<SERVER>': terminal prompts disabled"
+  }
+ },
+ {
+  "case": 68,
+  "args": {
+   "repo": "http://<SERVER>/target.git",
+   "ref": "development",
+   "forgeToken": "golden-forge-token",
+   "forgeUser": "",
+   "timeoutMs": 60000,
+   "command": [
+    "./probe.sh"
+   ],
+   "toolRepo": "http://<SERVER>/tool.git"
+  },
+  "ambient": {},
+  "result": {
+   "exitCode": 3,
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "ref": "development",
+   "files": {}
+  }
+ },
+ {
+  "case": 69,
+  "args": {
+   "repo": "<ROOT>/target.git",
+   "ref": "main",
+   "command": [
+    "scripts/probe.sh"
+   ],
+   "toolRepo": "<ROOT>/tool.git"
+  },
+  "ambient": {},
+  "result": {
+   "exitCode": 3,
+   "output": "TREE=tool-development\nCWD=target-main\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "ref": "main",
    "files": {}
   }
  }

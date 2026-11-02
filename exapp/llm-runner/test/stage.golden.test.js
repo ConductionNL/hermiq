@@ -36,7 +36,7 @@ const { runStage } = require('../src/stage')
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'stage-golden.json')
 const CASES = 60
-const FIXED = 7
+const FIXED = 10
 const PASSWORD = 'golden-forge-token'
 
 const PROBE = [
@@ -109,6 +109,12 @@ function seedRepo(root, name) {
 	git(['commit', '-am', 'development'], work)
 	git(['remote', 'add', 'origin', bare], work)
 	git(['push', 'origin', 'main', 'development'], work)
+	// The tool repository's default branch is development, so a tool clone
+	// with no ref visibly lands on the remote's HEAD rather than on main.
+	if (name === 'tool') {
+		git(['symbolic-ref', 'HEAD', 'refs/heads/development'], bare)
+	}
+
 	return bare
 }
 
@@ -377,6 +383,33 @@ function fixedCase(index, world) {
 				env: { EXTRA: 'both' },
 			},
 			ambient: { http_proxy: 'http://127.0.0.1:9' },
+		},
+		{
+			args: {
+				...http,
+				forgeUser: '',
+				forgeToken: undefined,
+				command: ['./probe.sh'],
+			},
+			ambient: {},
+		},
+		{
+			args: {
+				...http,
+				forgeUser: '',
+				command: ['./probe.sh'],
+				toolRepo: world.url('tool'),
+			},
+			ambient: {},
+		},
+		{
+			args: {
+				repo: world.target,
+				ref: 'main',
+				command: ['scripts/probe.sh'],
+				toolRepo: world.tool,
+			},
+			ambient: {},
 		},
 	][index]
 }
