@@ -44,6 +44,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolInvocationRows;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -790,21 +791,13 @@ class ToolOversightController extends Controller {
 			$available = $this->richAuditAvailable();
 			$ownerUids = $this->correlatedOwnerUids(agentId: $agentId, agent: $agent);
 
-			$fromFilter = null;
-			if ($from !== '') {
-				$fromFilter = $from;
-			}
-
-			$toFilter = null;
-			if ($to !== '') {
-				$toFilter = $to;
-			}
+			$window = (new ToolInvocationRows())->window(from: $from, to: $to);
 
 			$source = 'run-audit-log';
-			$rows = $this->degradedRows(agentId: $agentId, from: $fromFilter, to: $toFilter);
+			$rows = $this->degradedRows(agentId: $agentId, window: $window);
 			if ($available === true) {
 				$source = 'or-mcp-invocation-audit';
-				$rows = $this->richRows(ownerUids: $ownerUids, from: $fromFilter, to: $toFilter);
+				$rows = $this->richRows(ownerUids: $ownerUids, window: $window);
 			}
 
 			$payload = [
@@ -1023,59 +1016,31 @@ class ToolOversightController extends Controller {
 	}//end correlatedOwnerUids()
 
 	/**
-	 * Read the richer per-invocation MCP audit rows, correlated by acting user
-	 * to this agent's owner set.
+	 * Rich source: OR's per-invocation MCP audit entries by this agent's correlated owners.
 	 *
-	 * @param array<int, string> $ownerUids Correlated owner UIDs.
-	 * @param string|null $from Optional ISO 8601 lower bound (inclusive).
-	 * @param string|null $to Optional ISO 8601 upper bound (inclusive).
+	 * @param array<int, string> $ownerUids The agent's owner and its schedules' owners.
+	 * @param array{from: ?string, to: ?string} $window Optional ISO 8601 bounds (inclusive).
 	 *
 	 * @return array<int, array<string, mixed>> Newest-first rows.
 	 *
-	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-an-operator-reviews-an-agent-s-tool-activity
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
-	private function richRows(array $ownerUids, ?string $from, ?string $to): array {
+	private function richRows(array $ownerUids, array $window): array {
 		if ($ownerUids === []) {
 			return [];
 		}
 
 		$ownerSet = array_flip($ownerUids);
-		$logs = $this->auditTrailMapper->findAll(filters: ['action' => self::MCP_ACTIONS]);
-
+		$shape = new ToolInvocationRows();
 		$rows = [];
-		foreach ($logs as $log) {
-			$user = (string)($log->getUser() ?? '');
-			if (isset($ownerSet[$user]) === false) {
-				continue;
+		foreach ($this->auditTrailMapper->findAll(filters: ['action' => self::MCP_ACTIONS]) as $log) {
+			$occurredAt = $shape->occurredAt(log: $log);
+			if (isset($ownerSet[(string)($log->getUser() ?? '')]) === true && $shape->inWindow(occurredAt: $occurredAt, window: $window) === true) {
+				$rows[] = $shape->richRow(log: $log, occurredAt: $occurredAt);
 			}
+		}
 
-			$created = $log->getCreated();
-			$occurredAt = null;
-			if ($created !== null) {
-				$occurredAt = $created->format('c');
-			}
-
-			if ($this->withinRange(occurredAt: $occurredAt, from: $from, to: $to) === false) {
-				continue;
-			}
-
-			$rows[] = [
-				'at' => $occurredAt,
-				'toolId' => $log->getToolId(),
-				'actingUser' => $user,
-				// The audit entry never carries raw argument values
-				// (REQ-DERIVED-006: "never raw object payloads") — only a
-				// SHA-256 digest survives. Surfacing the digest is honest;
-				// inventing decoded field values is not.
-				'paramsDigest' => $log->getParamsDigest(),
-				'resultSummary' => $log->getResultSummary(),
-				'dataTouched' => array_values(array_filter([$log->getObjectUuid()])),
-			];
-		}//end foreach
-
-		usort($rows, static fn (array $a, array $b): int => strcmp((string)$b['at'], (string)$a['at']));
-
-		return $rows;
+		return $shape->newestFirst(rows: $rows);
 	}//end richRows()
 
 	/**
@@ -1084,8 +1049,7 @@ class ToolOversightController extends Controller {
 	 * read), used when the richer per-invocation shape is not yet available.
 	 *
 	 * @param string $agentId Agent UUID.
-	 * @param string|null $from Optional ISO 8601 lower bound (inclusive).
-	 * @param string|null $to Optional ISO 8601 upper bound (inclusive).
+	 * @param array{from: ?string, to: ?string} $window Optional ISO 8601 bounds (inclusive).
 	 *
 	 * @return array<int, array<string, mixed>> Newest-first rows.
 	 *
@@ -1095,88 +1059,53 @@ class ToolOversightController extends Controller {
 	 *
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
-	private function degradedRows(string $agentId, ?string $from, ?string $to): array {
-		$scheduleUuids = [];
+	private function degradedRows(string $agentId, array $window): array {
+		$scheduleUuids = $this->agentScheduleUuids(agentId: $agentId);
+		if ($scheduleUuids === []) {
+			return [];
+		}
 
+		$shape = new ToolInvocationRows();
+		$rows = [];
+		foreach ($this->auditTrailMapper->findAll(filters: ['action' => 'run']) as $log) {
+			$occurredAt = $shape->occurredAt(log: $log);
+			if (isset($scheduleUuids[(string)$log->getObjectUuid()]) === true && $shape->inWindow(occurredAt: $occurredAt, window: $window) === true) {
+				$rows[] = [
+					'at' => $occurredAt,
+					'toolId' => null,
+					'actingUser' => $log->getUser(),
+					'paramsDigest' => null,
+					'resultSummary' => ['status' => (($log->getChanged() ?? [])['status'] ?? 'unknown')],
+					'dataTouched' => [],
+				];
+			}
+		}
+
+		return $shape->newestFirst(rows: $rows);
+	}//end degradedRows()
+
+	/**
+	 * The UUIDs of this agent's schedules, as a set.
+	 *
+	 * @param string $agentId Agent UUID.
+	 *
+	 * @return array<string, true> Schedule UUID => true.
+	 */
+	private function agentScheduleUuids(string $agentId): array {
 		$schedules = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::SCHEDULE_SCHEMA)
 			->findAll(config: ['limit' => 1000]);
 
+		$uuids = [];
 		foreach ($schedules as $schedule) {
-			if (($schedule instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($schedule->getObject()['agentId'] ?? '') === $agentId) {
-				$scheduleUuids[(string)$schedule->getUuid()] = true;
+			if (($schedule instanceof ObjectEntity) === true && (string)($schedule->getObject()['agentId'] ?? '') === $agentId) {
+				$uuids[(string)$schedule->getUuid()] = true;
 			}
 		}
 
-		if ($scheduleUuids === []) {
-			return [];
-		}
-
-		$logs = $this->auditTrailMapper->findAll(filters: ['action' => 'run']);
-
-		$rows = [];
-		foreach ($logs as $log) {
-			if (isset($scheduleUuids[(string)$log->getObjectUuid()]) === false) {
-				continue;
-			}
-
-			$created = $log->getCreated();
-			$occurredAt = null;
-			if ($created !== null) {
-				$occurredAt = $created->format('c');
-			}
-
-			if ($this->withinRange(occurredAt: $occurredAt, from: $from, to: $to) === false) {
-				continue;
-			}
-
-			$context = ($log->getChanged() ?? []);
-
-			$rows[] = [
-				'at' => $occurredAt,
-				'toolId' => null,
-				'actingUser' => $log->getUser(),
-				'paramsDigest' => null,
-				'resultSummary' => ['status' => ($context['status'] ?? 'unknown')],
-				'dataTouched' => [],
-			];
-		}//end foreach
-
-		usort($rows, static fn (array $a, array $b): int => strcmp((string)$b['at'], (string)$a['at']));
-
-		return $rows;
-	}//end degradedRows()
-
-	/**
-	 * Whether a row's timestamp falls within an optional `[from, to]` window
-	 * (string comparison — both are ISO 8601, sortable lexically).
-	 *
-	 * @param string|null $occurredAt The row's timestamp, or null.
-	 * @param string|null $from Optional lower bound (inclusive).
-	 * @param string|null $to Optional upper bound (inclusive).
-	 *
-	 * @return bool
-	 */
-	private function withinRange(?string $occurredAt, ?string $from, ?string $to): bool {
-		if ($occurredAt === null) {
-			return ($from === null && $to === null);
-		}
-
-		if ($from !== null && $occurredAt < $from) {
-			return false;
-		}
-
-		if ($to !== null && $occurredAt > $to) {
-			return false;
-		}
-
-		return true;
-	}//end withinRange()
+		return $uuids;
+	}//end agentScheduleUuids()
 
 	/**
 	 * Render rows as CSV text (header + one line per row; `resultSummary`/
