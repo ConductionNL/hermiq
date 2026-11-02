@@ -53,6 +53,7 @@ const PROBE = [
 	'echo "HTTP_PROXY=${HTTP_PROXY:-unset} http_proxy=${http_proxy:-unset}"',
 	'echo "OAT=${CLAUDE_CODE_OAUTH_TOKEN:-unset} KEY=${ANTHROPIC_API_KEY:-unset}"',
 	'echo "EXTRA=${EXTRA:-unset} EVIL=${EVIL:-unset}"',
+	'echo "ORIGIN=$(git remote get-url origin)"',
 	'mkdir -p out && echo "{\\"tree\\": \\"$(cat whoami.txt)\\", \\"n\\": 3}" > out/result.json',
 	'exit 3',
 	'',

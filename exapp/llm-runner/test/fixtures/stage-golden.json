@@ -250,7 +250,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-archive\nCWD=target-main\nARGS=a b\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=one EVIL=unset\n",
+   "output": "TREE=tool-archive\nCWD=target-main\nARGS=a b\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=one EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {}
   }
@@ -281,7 +281,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-archive\nCWD=target-main\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=tool-archive\nCWD=target-main\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {}
   }
@@ -312,7 +312,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {
     "out/result.json": {
@@ -459,7 +459,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=target-main\nCWD=target-main\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=oat-1 KEY=key-1\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=target-main\nCWD=target-main\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=oat-1 KEY=key-1\nEXTRA=two EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {
     "res": {
@@ -644,7 +644,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -755,7 +755,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=two EVIL=unset\nORIGIN=http://<SERVER>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -787,7 +787,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=one EVIL=unset\n",
+   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=one EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {
     "out/result.json": {
@@ -822,7 +822,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=target-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=wrong-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=oat-1 KEY=key-1\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=target-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=wrong-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=oat-1 KEY=key-1\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -1154,7 +1154,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=target-main\nCWD=target-main\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=oat-1 KEY=key-1\nEXTRA=two EVIL=unset\n",
+   "output": "TREE=target-main\nCWD=target-main\nARGS=\nHOME=/override\nPATH=set\nPROMPT=1\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=oat-1 KEY=key-1\nEXTRA=two EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {}
   }
@@ -1441,7 +1441,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=target-development\nCWD=target-development\nARGS=a b\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=target-development\nCWD=target-development\nARGS=a b\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -1610,7 +1610,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=target-main\nCWD=target-main\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://run:run%20token%2F1@127.0.0.1:9 https_proxy=http://run:run%20token%2F1@127.0.0.1:9\nHTTP_PROXY=http://run:run%20token%2F1@127.0.0.1:9 http_proxy=http://run:run%20token%2F1@127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=target-main\nCWD=target-main\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://run:run%20token%2F1@127.0.0.1:9 https_proxy=http://run:run%20token%2F1@127.0.0.1:9\nHTTP_PROXY=http://run:run%20token%2F1@127.0.0.1:9 http_proxy=http://run:run%20token%2F1@127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {
     "out/result.json": {
@@ -1714,7 +1714,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=wrong-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=wrong-token\nASKPASS=askpass.sh\nHTTPS_PROXY=http://127.0.0.1:9 https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {
     "res": {
@@ -1818,7 +1818,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=http://<SERVER>/target.git\n",
    "ref": "development",
    "files": {
     "out/result.json": {
@@ -1853,7 +1853,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=key-2\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=key-2\nEXTRA=unset EVIL=unset\nORIGIN=http://x-access-token@<SERVER>/target.git\n",
    "ref": "development",
    "files": {
     "out/result.json": {
@@ -1896,7 +1896,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=target-development\nCWD=target-development\nARGS=-p\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=oat-1 KEY=key-1\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=target-development\nCWD=target-development\nARGS=-p\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=oat-1 KEY=key-1\nEXTRA=unset EVIL=unset\nORIGIN=http://x-access-token@<SERVER>/target.git\n",
    "ref": "development",
    "files": {
     "out/result.json": {
@@ -1939,7 +1939,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=tool EVIL=unset\n",
+   "output": "TREE=tool-main\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=tool EVIL=unset\nORIGIN=http://x-access-token@<SERVER>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -1969,7 +1969,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-archive\nCWD=target-main\nARGS=x\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://run:run%20token%2F1@127.0.0.1:9 https_proxy=http://run:run%20token%2F1@127.0.0.1:9\nHTTP_PROXY=http://run:run%20token%2F1@127.0.0.1:9 http_proxy=http://run:run%20token%2F1@127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-archive\nCWD=target-main\nARGS=x\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=http://run:run%20token%2F1@127.0.0.1:9 https_proxy=http://run:run%20token%2F1@127.0.0.1:9\nHTTP_PROXY=http://run:run%20token%2F1@127.0.0.1:9 http_proxy=http://run:run%20token%2F1@127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {
     "res": {
@@ -2083,7 +2083,7 @@
   },
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=tok\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=both EVIL=unset\n",
+   "output": "TREE=tool-archive\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=tok\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=http://127.0.0.1:9\nOAT=unset KEY=unset\nEXTRA=both EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -2121,7 +2121,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=golden-forge-token\nASKPASS=askpass.sh\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=http://<SERVER>/target.git\n",
    "ref": "development",
    "files": {}
   }
@@ -2139,7 +2139,7 @@
   "ambient": {},
   "result": {
    "exitCode": 3,
-   "output": "TREE=tool-development\nCWD=target-main\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\n",
+   "output": "TREE=tool-development\nCWD=target-main\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=<ROOT>/target.git\n",
    "ref": "main",
    "files": {}
   }
