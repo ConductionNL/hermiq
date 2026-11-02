@@ -212,19 +212,47 @@ async function handleStage(req, res, rawBody) {
 		return
 	}
 
-	// ⚠️ This destructuring is a FILTER, and it silently dropped `toolRepo` for
-	// an entire release: the field was added to the caller and to `runStage()`,
-	// both were tested, and neither test crossed this line — the unit tests call
-	// `runStage()` directly and the PHP tests mock the transport. A parameter
-	// that exists on both sides of a boundary and not IN it fails with the
-	// symptom of a missing FILE (`spawn scripts/... ENOENT`), which points at
-	// the clone rather than at the route.
+	const args = stageArgs(payload)
+	const { async: wantsAsync, jobKey } = payload
+	log('info', stageLogLine(args))
+
+	// ASYNC: hand back a handle and let the caller go.
 	//
-	// Kept explicit rather than spreading `payload` into `runStage()`: the
-	// request body is untrusted, and an allowlist of fields is the reason a
-	// caller cannot reach arguments this endpoint never meant to expose. The
-	// cost is exactly this failure mode, so the route test below crosses the
-	// boundary for every field.
+	// A stage is minutes long and OpenRegister's FlowRunWorker advances queued
+	// runs SERIALLY in one process, so a synchronous stage blocks every other
+	// flow in that pass — including the lock reaper that exists to clean up
+	// after stuck work. It also makes hydra's slot pool decorative: four slots
+	// cannot produce four agents while the thing holding a slot occupies the
+	// only worker.
+	if (wantsAsync === true) {
+		startAsyncStage(res, { args, jobKey })
+		return
+	}
+
+	await runSyncStage(res, args)
+}
+
+/**
+ * The fields a `/stage` body may hand to the workload, and nothing else.
+ *
+ * ⚠️ This destructuring is a FILTER, and it silently dropped `toolRepo` for
+ * an entire release: the field was added to the caller and to `runStage()`,
+ * both were tested, and neither test crossed this line — the unit tests call
+ * `runStage()` directly and the PHP tests mock the transport. A parameter
+ * that exists on both sides of a boundary and not IN it fails with the
+ * symptom of a missing FILE (`spawn scripts/... ENOENT`), which points at
+ * the clone rather than at the route.
+ *
+ * Kept explicit rather than spreading the payload into `runStage()`: the
+ * request body is untrusted, and an allowlist of fields is the reason a
+ * caller cannot reach arguments this endpoint never meant to expose. The
+ * cost is exactly this failure mode, so the route test crosses the boundary
+ * for every field.
+ *
+ * @param {object} payload The parsed request body.
+ * @returns {object} The workload arguments.
+ */
+function stageArgs(payload) {
 	const {
 		repo,
 		ref,
@@ -240,116 +268,145 @@ async function handleStage(req, res, rawBody) {
 		runToken,
 		push,
 		credentialEnv,
-		async: wantsAsync,
-		jobKey,
 	} = payload
+	return {
+		repo,
+		ref,
+		command,
+		toolRepo,
+		toolRef,
+		toolTarball,
+		collect,
+		forgeToken,
+		forgeUser,
+		timeoutMs,
+		env,
+		runToken,
+		push,
+		credentialEnv,
+	}
+}
 
-	// The repo and ref are safe to log — they are how an operator finds this run
-	// again. The token is not, and is never touched here.
-	// The tool repo is logged too, because its absence is what a dropped field
-	// looks like from the outside and the log is the first place anyone looks.
-	//
-	// The push INTENT is logged (branch and issue are not secrets) because
-	// "this stage was allowed to write" is the single most important fact about
-	// a run when reconstructing one afterwards, and its absence from the log is
-	// indistinguishable from a stage that could not write at all.
+/**
+ * The log line that records what a stage was asked to do.
+ *
+ * The repo and ref are safe to log — they are how an operator finds this run
+ * again. The token is not, and is never touched here. The tool repo is logged
+ * too, because its absence is what a dropped field looks like from the outside
+ * and the log is the first place anyone looks.
+ *
+ * The push INTENT is logged (branch and issue are not secrets) because "this
+ * stage was allowed to write" is the single most important fact about a run
+ * when reconstructing one afterwards, and its absence from the log is
+ * indistinguishable from a stage that could not write at all.
+ *
+ * @param {object} args The workload arguments.
+ * @returns {string} The log line.
+ */
+function stageLogLine(args) {
+	const command = Array.isArray(args.command) ? args.command[0] : '(none)'
+	return (
+		`/stage repo=${args.repo} ref=${args.ref} `
+		+ `tool=${toolLabel(args)} `
+		+ `command=${command} `
+		+ `push=${pushLabel(args.push)}`
+	)
+}
+
+/**
+ * Where a stage's command comes from, for the log.
+ *
+ * @param {object} args `{toolRepo, toolTarball}`.
+ * @returns {string} The tool repo, the archive's size, or '(none)'.
+ */
+function toolLabel({ toolRepo, toolTarball }) {
+	if (toolRepo) {
+		return toolRepo
+	}
+	return toolTarball ? `archive(${toolTarball.length}b)` : '(none)'
+}
+
+/**
+ * A stage's push intent, for the log.
+ *
+ * @param {object} [push] The push declaration.
+ * @returns {string} Branch and issue, or '(none)'.
+ */
+function pushLabel(push) {
+	return push && typeof push === 'object'
+		? `${push.branch} (issue ${push.issue})`
+		: '(none)'
+}
+
+/**
+ * Start the stage and answer 202 with the handle to poll.
+ *
+ * ⚠️ THE WORK IS STARTED HERE, NOT BY THE POLLER. `runStage()` is invoked
+ * exactly as in the synchronous path and its promise is handed to the
+ * registry unawaited. A design where the first poll starts the work would
+ * make "dispatched" mean nothing until someone asked again, which is the
+ * kind of gap that reads as a slow stage rather than as a stage that never
+ * began.
+ *
+ * 202, not 200: the request was accepted, the stage has NOT finished, and a
+ * caller that reads only the status must not be able to mistake the two.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {object} dispatch `{args, jobKey}`: the workload arguments and the caller's dedup key.
+ * @returns {void}
+ */
+function startAsyncStage(res, { args, jobKey }) {
+	const jobId = jobs.start(runStage(args), jobKey)
 	log(
 		'info',
-		`/stage repo=${repo} ref=${ref} `
-			+ `tool=${toolRepo || (toolTarball ? `archive(${toolTarball.length}b)` : '(none)')} `
-			+ `command=${Array.isArray(command) ? command[0] : '(none)'} `
-			+ `push=${push && typeof push === 'object' ? `${push.branch} (issue ${push.issue})` : '(none)'}`,
+		`/stage accepted async job=${jobId} repo=${args.repo} ref=${args.ref}`,
 	)
+	sendJson(res, 202, { jobId, status: jobs.RUNNING })
+}
 
-	// ASYNC: hand back a handle and let the caller go.
-	//
-	// A stage is minutes long and OpenRegister's FlowRunWorker advances queued
-	// runs SERIALLY in one process, so a synchronous stage blocks every other
-	// flow in that pass — including the lock reaper that exists to clean up
-	// after stuck work. It also makes hydra's slot pool decorative: four slots
-	// cannot produce four agents while the thing holding a slot occupies the
-	// only worker.
-	//
-	// ⚠️ THE WORK IS STARTED HERE, NOT BY THE POLLER. `runStage()` is invoked
-	// exactly as in the synchronous path and its promise is handed to the
-	// registry unawaited. A design where the first poll starts the work would
-	// make "dispatched" mean nothing until someone asked again, which is the
-	// kind of gap that reads as a slow stage rather than as a stage that never
-	// began.
-	//
-	// 202, not 200: the request was accepted, the stage has NOT finished, and a
-	// caller that reads only the status must not be able to mistake the two.
-	if (wantsAsync === true) {
-		const jobId = jobs.start(
-			runStage({
-				repo,
-				ref,
-				command,
-				toolRepo,
-				toolRef,
-				toolTarball,
-				collect,
-				forgeToken,
-				forgeUser,
-				timeoutMs,
-				env,
-				runToken,
-				push,
-				credentialEnv,
-			}),
-			jobKey,
-		)
-		log('info', `/stage accepted async job=${jobId} repo=${repo} ref=${ref}`)
-		sendJson(res, 202, { jobId, status: jobs.RUNNING })
-		return
-	}
-
+/**
+ * Run the stage and answer with its result, or 502 when it could not be carried out.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {object} args The workload arguments.
+ * @returns {Promise<void>} Resolves once the answer is sent.
+ */
+async function runSyncStage(res, args) {
 	try {
-		const result = await runStage({
-			repo,
-			ref,
-			command,
-			toolRepo,
-			toolRef,
-			toolTarball,
-			collect,
-			forgeToken,
-			forgeUser,
-			timeoutMs,
-			env,
-			runToken,
-			push,
-			credentialEnv,
-		})
-		log(
-			'info',
-			`/stage finished exit=${result.exitCode}`
-				+ (result.push
-					? ` pushed=${result.push.pushed} branch=${result.push.branch}`
-					: ''),
-		)
+		const result = await runStage(args)
+		const pushed = result.push
+			? ` pushed=${result.push.pushed} branch=${result.push.branch}`
+			: ''
+		log('info', `/stage finished exit=${result.exitCode}${pushed}`)
 		sendJson(res, 200, result)
 	} catch (err) {
-		// 502: the stage was dispatched and could not be carried out. It is NOT
-		// a 400 — the request was well formed — and not a 200 with a failure
-		// field, because a caller reading only the status must not mistake
-		// "could not run" for "ran and failed".
-		//
-		// A REFUSED PUSH lands here too, and deliberately so: a fence that
-		// returned 200 with `pushed: false` would be recorded by every caller
-		// that reads only the status as a stage that completed. `code` is
-		// carried out so a consumer can route on the refusal without matching
-		// prose — the assertion that stops testing anything the day somebody
-		// rewords a message.
-		log(
-			'warn',
-			`/stage failed${err.code ? ` (${err.code})` : ''}: ${err.message}`,
-		)
-		sendJson(res, 502, {
-			error: err.message,
-			...(err.code ? { code: err.code } : {}),
-		})
+		sendStageFailure(res, err)
 	}
+}
+
+/**
+ * Answer 502 for a stage that was dispatched and could not be carried out.
+ *
+ * It is NOT a 400 — the request was well formed — and not a 200 with a
+ * failure field, because a caller reading only the status must not mistake
+ * "could not run" for "ran and failed".
+ *
+ * A REFUSED PUSH lands here too, and deliberately so: a fence that returned
+ * 200 with `pushed: false` would be recorded by every caller that reads only
+ * the status as a stage that completed. `code` is carried out so a consumer
+ * can route on the refusal without matching prose — the assertion that stops
+ * testing anything the day somebody rewords a message.
+ *
+ * @param {http.ServerResponse} res The response.
+ * @param {Error} err The failure, with an optional refusal `code`.
+ * @returns {void}
+ */
+function sendStageFailure(res, err) {
+	log('warn', `/stage failed${err.code ? ` (${err.code})` : ''}: ${err.message}`)
+	sendJson(res, 502, {
+		error: err.message,
+		...(err.code ? { code: err.code } : {}),
+	})
 }
 
 /**
