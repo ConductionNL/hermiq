@@ -343,6 +343,7 @@ class Engine {
 			$turn['organisation'] = (string)($turn['conversation']->getOrganisation() ?? '');
 			$guardrail = new TurnGuardrail(policies: $this->guardrailPolicyService, trace: $trace);
 			$guardrail->resolve(organisation: $turn['organisation']);
+			$guardrail->screenToolDetails(channel: $channel);
 			$turn['userMessage'] = $guardrail->screenInput(text: $userMessage);
 
 			$turn['userTurn'] = $this->storeUserTurn(turn: $turn);
@@ -350,14 +351,10 @@ class Engine {
 			$timings = [];
 			$ragContext = $this->turnContext(turn: $turn, timings: $timings);
 			$turnHistory = $this->turnHistory(turn: $turn, timings: $timings);
-			$aiResponse = $this->turnResponse(
-				turn: $turn + ['ragContext' => $ragContext, 'turnHistory' => $turnHistory],
+			$aiResponse = $this->reviewedResponse(
+				turn: $turn + ['ragContext' => $ragContext, 'turnHistory' => $turnHistory, 'guardrail' => $guardrail],
 				timings: $timings
 			);
-
-			// Agent-guardrails: the output filter runs BEFORE the assistant Message is
-			// stored or returned; a block replaces the answer with the placeholder.
-			$aiResponse = $guardrail->screenOutput(text: $aiResponse);
 
 			// Chat-attachments-and-images D8: an image the agent created in this turn
 			// is stored on the answer, so the thread shows it where it was asked for.
@@ -541,6 +538,34 @@ class Engine {
 
 		return $turnHistory;
 	}//end turnHistory()
+
+	/**
+	 * The model's answer as the output guardrail lets it be stored and sent.
+	 *
+	 * Agent-guardrails: the output filter runs BEFORE the assistant Message is
+	 * stored or returned; a block replaces the answer with the placeholder. A
+	 * streamed answer that the filter may still change is held on the channel
+	 * and released in its reviewed form.
+	 *
+	 * @param array<string, mixed> $turn    The turn, with its RAG context, history and guardrail.
+	 * @param array<string, float> $timings The turn's timings, filled in place.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function reviewedResponse(array $turn, array &$timings): string {
+		$guardrail = $turn['guardrail'];
+		$channel = $turn['channel'];
+		if ($channel !== null && $guardrail->screensOutput() === true) {
+			$channel->holdTokens();
+		}
+
+		$aiResponse = $guardrail->screenOutput(text: $this->turnResponse(turn: $turn, timings: $timings));
+		$channel?->releaseTokens(reviewed: $aiResponse);
+
+		return $aiResponse;
+	}//end reviewedResponse()
 
 	/**
 	 * Generate the model's answer, timed as an `llm` step that wraps every nested

@@ -137,12 +137,13 @@ class RunStepBus {
 	/**
 	 * Record one completed tool call against its conversation.
 	 *
-	 * @param string $conversationId The conversation the run belongs to.
-	 * @param string $toolName       The tool that ran.
-	 * @param array  $arguments      The arguments it ran with.
-	 * @param string $result         The raw result payload.
-	 * @param int    $durationMs     How long it took.
-	 * @param string $outcome        `ok` or `error`, stored verbatim.
+	 * @param string       $conversationId The conversation the run belongs to.
+	 * @param string       $toolName       The tool that ran.
+	 * @param array|string $arguments      The arguments as the chat may show them; a
+	 *                                     string when the output filter withheld them.
+	 * @param string       $result         The result payload as the chat may show it.
+	 * @param int          $durationMs     How long it took.
+	 * @param string       $outcome        `ok` or `error`, stored verbatim.
 	 *
 	 * ⚠️ `$outcome` is the STORED VALUE, not a boolean the method converts. It
 	 * was a `bool $ok` that was mapped to exactly these two strings one line
@@ -157,7 +158,7 @@ class RunStepBus {
 	public function record(
 		string $conversationId,
 		string $toolName,
-		array $arguments,
+		array|string $arguments,
 		string $result,
 		int $durationMs,
 		string $outcome = self::OUTCOME_OK,
@@ -174,7 +175,9 @@ class RunStepBus {
 
 			// `agentId` is stamped in by the transport, not asked for by the
 			// model, so showing it back would be noise in the UI.
-			unset($arguments['agentId']);
+			if (is_array($arguments) === true) {
+				unset($arguments['agentId']);
+			}
 
 			$steps[] = [
 				'toolId' => $toolName . '-' . count($steps),

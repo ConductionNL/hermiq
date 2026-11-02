@@ -86,6 +86,29 @@ class TurnGuardrail {
 	}//end resolve()
 
 	/**
+	 * Have the channel's tool-call and tool-result frames pass the output filters
+	 * of the policy that filters the answer. No channel or no policy service
+	 * leaves the frames as they are.
+	 *
+	 * @param StreamYieldChannel|null $channel The turn's streaming channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function screenToolDetails(?StreamYieldChannel $channel): void {
+		$policies = $this->policies;
+		if ($channel === null || $policies === null) {
+			return;
+		}
+
+		$policy = $this->policy;
+		$channel->screenToolDetails(
+			screen: static fn (mixed $value): mixed => $policies->filterOutputValue(policy: $policy, value: $value)
+		);
+	}//end screenToolDetails()
+
+	/**
 	 * The user's text as it may be stored and sent: a `block` match (PII, a
 	 * secret or prompt injection) throws, a `redact` match returns the masked text.
 	 *
@@ -126,6 +149,20 @@ class TurnGuardrail {
 
 		return (string)$filter['text'];
 	}//end screenOutput()
+
+	/**
+	 * Whether `screenOutput()` can change or withhold the answer under this policy:
+	 * true when the output PII action is anything but `off`.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	public function screensOutput(): bool {
+		$outputFilters = (array)($this->policy['outputFilters'] ?? []);
+
+		return (string)($outputFilters['piiAction'] ?? 'off') !== 'off';
+	}//end screensOutput()
 
 	/**
 	 * Record a guardrail action as a trace step; a no-op pass-through records
