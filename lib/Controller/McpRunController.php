@@ -774,17 +774,20 @@ class McpRunController extends Controller {
 
 	/**
 	 * The agent's organisation (for the guardrail policy), or '' when unset.
+	 * OpenRegister keeps it on the object entity, not in the object data.
 	 *
 	 * @param ObjectEntity|null $agent The agent object.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function organisationOf(?ObjectEntity $agent): string {
 		if ($agent === null) {
 			return '';
 		}
 
-		return (string)($agent->getObject()['organisation'] ?? '');
+		return (string)($agent->getOrganisation() ?? '');
 	}//end organisationOf()
 
 	/**

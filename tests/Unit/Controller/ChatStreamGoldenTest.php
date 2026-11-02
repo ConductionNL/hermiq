@@ -52,6 +52,8 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
@@ -213,6 +215,14 @@ class ChatStreamGoldenTest extends TestCase {
 	];
 
 	/**
+	 * The seeded generator every draw of the current case comes from, so mock
+	 * creation (which calls mt_rand) cannot shift the generated values.
+	 *
+	 * @var Randomizer
+	 */
+	private Randomizer $random;
+
+	/**
 	 * The ordered events of the current case.
 	 *
 	 * @var array<int, mixed>
@@ -234,7 +244,7 @@ class ChatStreamGoldenTest extends TestCase {
 	public function testStreamMatchesTheRecordedFixture(): void {
 		$actual = [];
 		for ($case = 0; $case < self::CASES; $case++) {
-			mt_srand($case + 1);
+			$this->random = new Randomizer(new Mt19937($case + 1));
 			$actual[] = $this->runCase();
 		}
 
@@ -288,7 +298,7 @@ class ChatStreamGoldenTest extends TestCase {
 	 * @return void
 	 */
 	public function testStreamedTokensArriveInOrderBeforeFinal(): void {
-		mt_srand(7);
+		$this->random = new Randomizer(new Mt19937(7));
 		$this->events = [];
 		$this->forcedStreams = 1;
 		$controller = $this->controller(
@@ -330,8 +340,8 @@ class ChatStreamGoldenTest extends TestCase {
 		$user = $this->pick(self::USERS);
 		$body = $this->body();
 		$outcome = $this->pick(self::OUTCOMES);
-		$withAssistants = (mt_rand(0, 3) > 0);
-		$withLiteracy = (mt_rand(0, 2) > 0);
+		$withAssistants = ($this->random->getInt(0, 3) > 0);
+		$withLiteracy = ($this->random->getInt(0, 2) > 0);
 
 		$controller = $this->controller(
 			scenario: ['user' => $user, 'outcome' => $outcome, 'assistants' => $withAssistants, 'literacy' => $withLiteracy],
@@ -363,7 +373,7 @@ class ChatStreamGoldenTest extends TestCase {
 	 * @return string
 	 */
 	private function body(): string {
-		$kind = mt_rand(0, 23);
+		$kind = $this->random->getInt(0, 23);
 		if ($kind === 0) {
 			return '';
 		}
@@ -395,7 +405,7 @@ class ChatStreamGoldenTest extends TestCase {
 			$body['attachments'] = $attachments;
 		}
 
-		if (mt_rand(0, 1) === 1) {
+		if ($this->random->getInt(0, 1) === 1) {
 			$body['userId'] = 'mallory';
 		}
 
@@ -604,7 +614,7 @@ class ChatStreamGoldenTest extends TestCase {
 	 */
 	private function runStepBus(): RunStepBus {
 		$steps = [];
-		for ($i = mt_rand(0, 2); $i > 0; $i--) {
+		for ($i = $this->random->getInt(0, 2); $i > 0; $i--) {
 			$steps[] = $this->pick([
 				['toolId' => 't' . $i, 'name' => 'search', 'arguments' => ['q' => 'x'], 'result' => 'r', 'outcome' => 'ok', 'durationMs' => '12'],
 				['name' => 'bare'],
@@ -653,7 +663,7 @@ class ChatStreamGoldenTest extends TestCase {
 	 * @return Engine
 	 */
 	private function engine(string $outcome): Engine {
-		$streams = mt_rand(0, 1);
+		$streams = $this->random->getInt(0, 1);
 		if ($this->forcedStreams !== null) {
 			$streams = $this->forcedStreams;
 		}
@@ -789,6 +799,6 @@ class ChatStreamGoldenTest extends TestCase {
 	 * @return mixed
 	 */
 	private function pick(array $values): mixed {
-		return $values[mt_rand(0, count($values) - 1)];
+		return $values[$this->random->getInt(0, count($values) - 1)];
 	}//end pick()
 }//end class

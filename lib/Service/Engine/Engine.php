@@ -65,7 +65,6 @@ use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
-use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -272,9 +271,6 @@ class Engine {
 	 *     usage: array<string, int|float>, steps: array<int, array<string, mixed>>,
 	 *     skillsUsed: array<int, string>}
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)   Chat processing involves multiple handler coordination steps
-	 * @SuppressWarnings(PHPMD.NPathComplexity)        Many optional paths for agent, title generation, and timing
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  Full chat orchestration requires comprehensive step handling
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Each parameter is a distinct, independently
 	 *   optional input (run-trace-observability adds one more to an already-wide, long-established
 	 *   list) — grouping them would obscure, not simplify, the call site.
@@ -317,309 +313,63 @@ class Engine {
 		);
 
 		try {
-			// Get conversation and verify access.
-			$conversation = $this->objectService->find(
-				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+			$turn = $this->admitTurn(
+				request: [
+					'conversationId' => $conversationId,
+					'userId' => $userId,
+					'authorId' => $authorId,
+					'authorDisplayName' => $authorDisplayName,
+					'attachments' => $attachments,
+				]
 			);
-			if ($conversation === null) {
-				throw new Exception('Conversation not found: ' . $conversationId);
-			}
+			$turn += [
+				'selectedViews' => $selectedViews,
+				'selectedTools' => $selectedTools,
+				'ragSettings' => $ragSettings,
+				// The CnAiContext snapshot, kept apart from the RAG context of the turn.
+				'cnAiContext' => $context,
+				'channel' => $channel,
+				'trace' => $trace,
+				'dryRun' => $dryRun,
+			];
 
-			$conversationData = $conversation->getObject();
-			// Owner-or-listed-participant (talk-shared-sessions). This guard is
-			// NOT redundant with ChatController's: the Talk bridge reaches the
-			// engine from a background job without passing through the
-			// controller, so this is the only check on that path.
-			if ($this->participation->mayTakeTurn(conversationData: $conversationData, userId: $userId) === false) {
-				throw new Exception('Access denied to conversation');
-			}
+			// The agent's attached Context objects (agent-context-system) and the
+			// effective skill set's content (skill-evals), ahead of the RAG block.
+			$turn += $this->turnPreamble(turn: $turn, skillSetOverride: $skillSetOverride);
 
-			// Chat-work-together-in-one-session: in a session with participants every
-			// human turn names its speaker, whichever entry point sent it (the web chat
-			// and the stream pass none). A single-speaker session stays unchanged.
-			if ($authorId === null && $this->participation->roster(conversationData: $conversationData) !== []) {
-				$authorId = $userId;
-				$authorDisplayName = ($this->userManager?->get($userId)?->getDisplayName() ?? $userId);
-			}
+			// Agent-guardrails: the policy is resolved once for the turn, and the input
+			// filter runs BEFORE the user Message is stored and BEFORE any model call.
+			// A block throws; a redaction replaces the text that is stored and sent.
+			$turn['organisation'] = (string)($turn['conversation']->getOrganisation() ?? '');
+			$guardrail = new TurnGuardrail(policies: $this->guardrailPolicyService, trace: $trace);
+			$guardrail->resolve(organisation: $turn['organisation']);
+			$guardrail->screenToolDetails(channel: $channel);
+			$turn['userMessage'] = $guardrail->screenInput(text: $userMessage);
 
-			// Chat-attachments-and-images: read every attached file as the person who
-			// sent the turn (the author in a shared session or on Talk, else the
-			// caller), never as the owner or the agent's acting user, and refuse
-			// before anything is stored or any model is called.
-			$resolvedAttachments = $this->resolveAttachments(attachments: $attachments, speaker: ($authorId ?? $userId));
+			$turn['userTurn'] = $this->storeUserTurn(turn: $turn);
 
-			// Get agent if configured.
-			$agent = null;
-			$agentId = $conversationData['agentId'] ?? null;
-			if (is_string($agentId) === true && $agentId !== '') {
-				// _rbac false: the Agent read rule (hermiq#976) admits the owner, invited
-				// users and group members, but a participant the session owner added may
-				// take a turn with the session's agent without being any of those. The
-				// owner-or-participant check above is the gate for this turn; tenancy
-				// still applies.
-				$agent = $this->objectService->find(
-					id: $agentId,
-					register: self::REGISTER_SLUG,
-					schema: self::AGENT_SCHEMA,
-					_rbac: false
-				);
-			}
-
-			// Agents-switch-off-and-stop: a switched-off agent starts no turn, on any
-			// path that reaches the engine (chat, stream, Talk, ContextAgent, schedules).
-			(new AgentAvailability())->assertRunnable(agent: $agent);
-
-			// Capture the CnAiContext snapshot under its own name before
-			// the retrieveContext() call below reuses `$context` for the
-			// RAG context object. Without this rename the snapshot would
-			// be silently overwritten and the LLM would never see it.
-			$cnAiContext = $context;
-
-			// Resolve the agent's attached Context objects (agent-context-system) into a
-			// budgeted preamble BEFORE the RAG context call, so it lands ahead of the RAG
-			// block in the system prompt (ResponseGenerationHandler prepends it right
-			// after Agent.prompt). '' when the agent has none — no-op for most agents.
-			$contextPreamble = $this->contextAssembler->assembleForAgent(agent: $agent, actingUserId: $userId);
-
-			// Run-loop skill-exposure seam (skill-evals): inject the effective skill
-			// set's content — a per-run override (a paired eval half), else the
-			// agent's stored skillInstalls — into the same system-prompt preamble,
-			// active skills only. '' + [] for the common no-skills agent (no-op).
-			// Defensive shape reads mirror the usage/steps handling: a test double
-			// (or future assembler swap) returning a partial bundle degrades to the
-			// no-skills case instead of warning.
-			$skillBundle = $this->contextAssembler->assembleSkillsForRun(agent: $agent, skillSetOverride: $skillSetOverride);
-			$skillText = (string)($skillBundle['text'] ?? '');
-			$skillsUsed = ($skillBundle['skillsUsed'] ?? []);
-
-			if ($skillText !== '') {
-				$contextPreamble = ltrim($contextPreamble . "\n\n" . $skillText, "\n");
-			}
-
-			// Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this
-			// turn (organisation comes from the conversation, exactly like
-			// ConversationTitleWriter's tenant-model-policy read) and apply the input
-			// filter BEFORE the user Message is persisted and BEFORE the LLM is ever
-			// called. A `block` match (PII/secret or prompt-injection) throws here —
-			// no user/assistant Message is stored for this attempt (spec: "no LLM
-			// call is made... no assistant Message is created"). A `redact` match
-			// replaces $userMessage so both the persisted copy and the text sent to
-			// the LLM are the masked text, never the original.
-			$organisation = (string)($conversation->getOrganisation() ?? '');
-			$guardrailPolicy = $this->resolveGuardrailPolicy(organisation: $organisation);
-			$this->screenToolDetails(channel: $channel, policy: $guardrailPolicy);
-
-			$inputFilter = $this->guardrailPolicyService?->filterInput(
-				policy: $guardrailPolicy,
-				text: $userMessage
-			) ?? ['text' => $userMessage, 'blocked' => false, 'reason' => null];
-
-			// Run-trace-observability + agent-guardrails: only a guardrail ACTION
-			// (a block, or a redaction that actually changed the text) is recorded
-			// as a step — a fully-open policy's no-op pass-through never inserts a
-			// step, so an organisation with no GuardrailPolicy sees an IDENTICAL
-			// step timeline to before this change (spec: "record every input
-			// block, output block/redaction... as a trace step" — not every turn).
-			if ($this->guardrailActed(filter: $inputFilter, originalText: $userMessage) === true) {
-				$inputOutcome = 'redacted';
-				if ($inputFilter['blocked'] === true) {
-					$inputOutcome = 'blocked';
-				}
-
-				$inputToken = $trace?->startStep(type: 'guardrail', name: 'Input filter');
-				if ($inputToken !== null) {
-					$trace?->endStep(token: $inputToken, outcome: $inputOutcome);
-				}
-			}
-
-			if ($inputFilter['blocked'] === true) {
-				throw new GuardrailBlockedException(reason: (string)$inputFilter['reason']);
-			}
-
-			$userMessage = (string)$inputFilter['text'];
-
-			// Store user message with the CnAiContext snapshot. Authorship is
-			// threaded through to this single writer rather than persisted by
-			// the caller, so a shared session records who spoke without any
-			// path double-storing the turn (talk-shared-sessions).
-			$userTurn = $this->historyHandler->storeMessage(
-				conversationId: $conversationId,
-				role: 'user',
-				content: $userMessage,
-				sources: null,
-				context: $cnAiContext,
-				authorId: $authorId,
-				authorDisplayName: $authorDisplayName,
-				attachments: $resolvedAttachments
+			$timings = [];
+			$ragContext = $this->turnContext(turn: $turn, timings: $timings);
+			$turnHistory = $this->turnHistory(turn: $turn, timings: $timings);
+			$aiResponse = $this->turnResponse(
+				turn: $turn + ['ragContext' => $ragContext, 'turnHistory' => $turnHistory],
+				timings: $timings
 			);
 
-			// Check if conversation needs summarization.
-			$this->conversationHandler->checkAndSummarize(conversation: $conversation);
+			// Agent-guardrails: the output filter runs BEFORE the assistant Message is
+			// stored or returned; a block replaces the answer with the placeholder.
+			$aiResponse = $guardrail->screenOutput(text: $aiResponse);
 
-			// Retrieve RAG context. Note: `$context` is now the RAG
-			// context shape `{text, sources}`, distinct from `$cnAiContext`.
-			// run-trace-observability: timed as a `context` step when a collector
-			// is attached (never fatal — a null $trace is a no-op via `?->`).
-			$contextToken = $trace?->startStep(type: 'context', name: 'Context retrieval');
-			$contextStartTime = microtime(true);
-			$context = $this->contextHandler->retrieveContext(
-				query: $userMessage,
-				agent: $agent,
-				selectedViews: $selectedViews,
-				ragSettings: $ragSettings
-			);
-			$contextTime = microtime(true) - $contextStartTime;
-			if ($contextToken !== null) {
-				$trace?->endStep(token: $contextToken, outcome: 'ok');
-			}
-
-			// Build message history (timed as a `history` step — see above).
-			$historyToken = $trace?->startStep(type: 'history', name: 'History build');
-			$historyStartTime = microtime(true);
-			// The earlier turns only: the response handler appends this turn itself, so
-			// the stored copy is left out and the model reads it once. `turnText` is
-			// the turn as the history would have shown it, speaker-labelled in a
-			// shared session (user-turn-sent-once).
-			$turnHistory = $this->historyHandler->buildTurnHistory(
-				conversationId: $conversationId,
-				currentTurn: $userTurn,
-				turnText: $userMessage
-			);
-			$messageHistory = $turnHistory['history'];
-			$historyTime = microtime(true) - $historyStartTime;
-			if ($historyToken !== null) {
-				$trace?->endStep(token: $historyToken, outcome: 'ok');
-			}
-
-			// Generate LLM response. Forward the CnAiContext snapshot so
-			// the system prompt can include "the user is currently in
-			// {app}" — without it the model would default to generic
-			// platform-wide phrasing and pick the wrong tool family.
-			//
-			// run-trace-observability: the `llm` step wraps the WHOLE call,
-			// including any nested tool-calling round trips the response handler
-			// makes via ToolLoop/FacadeToolInvoker against the SAME $trace — those
-			// `tool` steps complete (and are sequenced) BEFORE this `llm` step
-			// completes, matching design.md's documented step ordering.
-			$llmToken = $trace?->startStep(type: 'llm', name: 'LLM generation');
-			$llmStartTime = microtime(true);
-			try {
-				$aiResponse = $this->responseHandler->generateResponse(
-					userMessage: $turnHistory['turnText'],
-					context: $context,
-					messageHistory: $messageHistory,
-					agent: $agent,
-					selectedTools: $selectedTools,
-					channel: $channel,
-					cnAiContext: $cnAiContext,
-					contextPreamble: $contextPreamble,
-					trace: $trace,
-					dryRun: $dryRun,
-					conversationId: $conversationId,
-					promptVariables: $this->promptVariablesFor(
-						userId: $userId,
-						agent: $agent,
-						organisation: $organisation,
-						appContext: $cnAiContext,
-						conversationData: $conversationData
-					),
-					attachments: $resolvedAttachments,
-					speaker: ($authorId ?? $userId)
-				);
-			} catch (Exception $e) {
-				// A file the feature's checks refused is told by its name.
-				throw $this->attachmentRefusalFor(exception: $e, attachments: $resolvedAttachments);
-			}
-
-			$llmTime = microtime(true) - $llmStartTime;
-			if ($llmToken !== null) {
-				$trace?->endStep(token: $llmToken, outcome: 'ok');
-			}
-
-			// Agent-guardrails: apply the output filter BEFORE the assistant Message
-			// is persisted (and before it is handed back to the caller). A `block`
-			// match never aborts the turn — $aiResponse is replaced with a withheld-
-			// response placeholder so both the persisted copy and the returned
-			// envelope's `message` field carry the placeholder, never the raw output.
-			$outputFilter = $this->guardrailPolicyService?->filterOutput(
-				policy: $guardrailPolicy,
-				text: $aiResponse
-			) ?? ['text' => $aiResponse, 'blocked' => false, 'reason' => null];
-
-			if ($this->guardrailActed(filter: $outputFilter, originalText: $aiResponse) === true) {
-				$outputOutcome = 'redacted';
-				if ($outputFilter['blocked'] === true) {
-					$outputOutcome = 'blocked';
-				}
-
-				$outputToken = $trace?->startStep(type: 'guardrail', name: 'Output filter');
-				if ($outputToken !== null) {
-					$trace?->endStep(token: $outputToken, outcome: $outputOutcome);
-				}
-			}
-
-			$aiResponse = (string)$outputFilter['text'];
-
-			// Store AI response with sources. Capture the return so we can surface
-			// the persisted assistant message's id to the caller (the SSE stream
-			// controller needs it to populate the `final` event's messageId field;
-			// the widget uses it as the Vue render key for the assistant bubble).
 			// Chat-attachments-and-images D8: an image the agent created in this turn
 			// is stored on the answer, so the thread shows it where it was asked for.
-			$answerAttachments = ($this->images?->takeCreated() ?? []);
-			$assistantStored = $this->historyHandler->storeMessage(
-				conversationId: $conversationId,
-				role: 'assistant',
-				content: $aiResponse,
-				sources: $context['sources'],
-				attachments: $answerAttachments
-			);
-
-			// Name the conversation OFF this path. Naming is a second LLM round trip —
-			// on the `cli` transport a second `claude` process, ~20s of a ~65s wall — and
-			// nothing below depends on the title, so the user should not wait for it.
-			// ConversationTitleWriter re-reads the conversation and re-checks whether it
-			// still wants a title, so the decision stays correct even though it is made
-			// later.
-			$this->queueTitleGeneration(
-				conversationId: $conversationId,
-				userMessage: $userMessage,
-				userId: $userId
-			);
-
-			$totalTime = ($contextTime + $historyTime + $llmTime);
-
-			return [
-				'message' => $aiResponse,
-				// Surface the persisted assistant message id for SSE consumers.
-				'messageId' => (string)($assistantStored->getUuid() ?? ''),
-				'sources' => $context['sources'],
-				'timings' => [
-					'context' => round($contextTime, 2) . 's',
-					'history' => round($historyTime, 3) . 's',
-					'llm' => round($llmTime, 2) . 's',
-					'total' => round($totalTime, 2) . 's',
-				],
-				// Per-run LLM token/latency usage for run-cost recording
-				// (run-analytics / ScheduleService::lastRunUsage) — load-bearing,
-				// see class docblock.
-				'usage' => $this->responseHandler->lastUsage,
-				// Chat-attachments-and-images D6: what happened to each attachment
-				// the model could not read natively, for the answer's notice.
-				'attachmentNotices' => $this->responseHandler->attachmentNotices,
-				// The answer's attachments (D8), for the `final` frame.
-				'attachments' => $answerAttachments,
-				// Run-trace-observability: the collector's full ordered step
-				// timeline, empty when no collector was supplied.
-				'steps' => $trace?->toArray() ?? [],
-				// Skill-evals: the skill uuids actually exposed to this run's
-				// context (active skills of the effective set) — captured by
-				// ScheduleService as lastRunSkillsUsed and recorded on the run's
-				// audit entry for ALL runs (skill-learnings consumes it later).
-				'skillsUsed' => $skillsUsed,
+			$turn += [
+				'aiResponse' => $aiResponse,
+				'answerAttachments' => ($this->images?->takeCreated() ?? []),
+				'sources' => $ragContext['sources'],
 			];
+			$turn['assistantStored'] = $this->storeAnswer(turn: $turn);
+
+			return $this->turnEnvelope(turn: $turn, timings: $timings);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[Engine] Message processing failed',
@@ -632,6 +382,320 @@ class Engine {
 			throw $e;
 		}//end try
 	}//end processMessage()
+
+	/**
+	 * Admit a turn: the conversation exists, the caller may take a turn in it,
+	 * the speaker is named, the attachments are read as the speaker, and the
+	 * session's agent is loaded and switched on. Each refusal throws before
+	 * anything is stored or any model is called.
+	 *
+	 * The owner-or-listed-participant check is NOT redundant with
+	 * ChatController's: the Talk bridge reaches the engine from a background
+	 * job without passing through the controller, so this is the only check on
+	 * that path.
+	 *
+	 * @param array<string, mixed> $request The conversation id, caller, author and attachments.
+	 *
+	 * @return array<string, mixed> The request plus the conversation, its data, the agent and the resolved attachments.
+	 *
+	 * @throws Exception When the conversation is missing or the caller may not take a turn.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 */
+	private function admitTurn(array $request): array {
+		$turn = $request;
+		$turn['conversation'] = $this->objectService->find(
+			id: $request['conversationId'],
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA
+		);
+		if ($turn['conversation'] === null) {
+			throw new Exception('Conversation not found: ' . $request['conversationId']);
+		}
+
+		$turn['conversationData'] = $turn['conversation']->getObject();
+		if ($this->participation->mayTakeTurn(conversationData: $turn['conversationData'], userId: $request['userId']) === false) {
+			throw new Exception('Access denied to conversation');
+		}
+
+		// Chat-work-together-in-one-session: in a session with participants every
+		// human turn names its speaker, whichever entry point sent it. A
+		// single-speaker session stays unchanged.
+		if ($request['authorId'] === null && $this->participation->roster(conversationData: $turn['conversationData']) !== []) {
+			$turn['authorId'] = $request['userId'];
+			$turn['authorDisplayName'] = ($this->userManager?->get($request['userId'])?->getDisplayName() ?? $request['userId']);
+		}
+
+		// Chat-attachments-and-images: read every attached file as the person who
+		// sent the turn, never as the owner or the agent's acting user.
+		$turn['resolvedAttachments'] = $this->resolveAttachments(
+			attachments: $request['attachments'],
+			speaker: ($turn['authorId'] ?? $request['userId'])
+		);
+
+		$turn['agent'] = null;
+		$agentId = $turn['conversationData']['agentId'] ?? null;
+		if (is_string($agentId) === true && $agentId !== '') {
+			// _rbac false: the Agent read rule (hermiq#976) admits the owner, invited
+			// users and group members, but a participant the session owner added may
+			// take a turn with the session's agent without being any of those. The
+			// owner-or-participant check above is the gate for this turn; tenancy
+			// still applies.
+			$turn['agent'] = $this->objectService->find(
+				id: $agentId,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				_rbac: false
+			);
+		}
+
+		// Agents-switch-off-and-stop: a switched-off agent starts no turn, on any
+		// path that reaches the engine (chat, stream, Talk, ContextAgent, schedules).
+		(new AgentAvailability())->assertRunnable(agent: $turn['agent']);
+
+		return $turn;
+	}//end admitTurn()
+
+	/**
+	 * The system-prompt preamble of the turn: the agent's attached Context
+	 * objects, then the effective skill set's content (a per-run override, else
+	 * the agent's stored skillInstalls), and the skill uuids exposed.
+	 *
+	 * A partial skill bundle (a test double or a future assembler swap) degrades
+	 * to the no-skills case instead of warning.
+	 *
+	 * @param array<string, mixed> $turn             The admitted turn (its agent and caller).
+	 * @param array|null           $skillSetOverride The per-run skill set, or null.
+	 *
+	 * @return array{contextPreamble: string, skillsUsed: mixed}
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 */
+	private function turnPreamble(array $turn, ?array $skillSetOverride): array {
+		$contextPreamble = $this->contextAssembler->assembleForAgent(agent: $turn['agent'], actingUserId: $turn['userId']);
+		$skillBundle = $this->contextAssembler->assembleSkillsForRun(agent: $turn['agent'], skillSetOverride: $skillSetOverride);
+		$skillText = (string)($skillBundle['text'] ?? '');
+
+		if ($skillText !== '') {
+			$contextPreamble = ltrim($contextPreamble . "\n\n" . $skillText, "\n");
+		}
+
+		return [
+			'contextPreamble' => $contextPreamble,
+			'skillsUsed' => ($skillBundle['skillsUsed'] ?? []),
+		];
+	}//end turnPreamble()
+
+	/**
+	 * Retrieve the turn's RAG context, timed as a `context` step when a trace is attached.
+	 *
+	 * @param array<string, mixed> $turn    The turn.
+	 * @param array<string, float> $timings The turn's timings, filled in place.
+	 *
+	 * @return array The RAG context `{text, sources}`.
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
+	 */
+	private function turnContext(array $turn, array &$timings): array {
+		$token = $turn['trace']?->startStep(type: 'context', name: 'Context retrieval');
+		$startTime = microtime(true);
+		$context = $this->contextHandler->retrieveContext(
+			query: $turn['userMessage'],
+			agent: $turn['agent'],
+			selectedViews: $turn['selectedViews'],
+			ragSettings: $turn['ragSettings']
+		);
+		$timings['context'] = microtime(true) - $startTime;
+		if ($token !== null) {
+			$turn['trace']?->endStep(token: $token, outcome: 'ok');
+		}
+
+		return $context;
+	}//end turnContext()
+
+	/**
+	 * Build the turn's history of earlier turns, timed as a `history` step.
+	 *
+	 * The response handler appends this turn itself, so the stored copy is left
+	 * out and the model reads it once. `turnText` is the turn as the history
+	 * would have shown it, speaker-labelled in a shared session.
+	 *
+	 * @param array<string, mixed> $turn    The turn, with its stored user Message.
+	 * @param array<string, float> $timings The turn's timings, filled in place.
+	 *
+	 * @return array{history: array, turnText: string}
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 */
+	private function turnHistory(array $turn, array &$timings): array {
+		$token = $turn['trace']?->startStep(type: 'history', name: 'History build');
+		$startTime = microtime(true);
+		$turnHistory = $this->historyHandler->buildTurnHistory(
+			conversationId: $turn['conversationId'],
+			currentTurn: $turn['userTurn'],
+			turnText: $turn['userMessage']
+		);
+		$timings['history'] = microtime(true) - $startTime;
+		if ($token !== null) {
+			$turn['trace']?->endStep(token: $token, outcome: 'ok');
+		}
+
+		return $turnHistory;
+	}//end turnHistory()
+
+	/**
+	 * Generate the model's answer, timed as an `llm` step that wraps every nested
+	 * tool round trip. A file the feature's checks refused is told by its name.
+	 *
+	 * @param array<string, mixed> $turn    The turn, with its RAG context and history.
+	 * @param array<string, float> $timings The turn's timings, filled in place.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 */
+	private function turnResponse(array $turn, array &$timings): string {
+		$token = $turn['trace']?->startStep(type: 'llm', name: 'LLM generation');
+		$startTime = microtime(true);
+		try {
+			$aiResponse = $this->responseHandler->generateResponse(
+				userMessage: $turn['turnHistory']['turnText'],
+				context: $turn['ragContext'],
+				messageHistory: $turn['turnHistory']['history'],
+				agent: $turn['agent'],
+				selectedTools: $turn['selectedTools'],
+				channel: $turn['channel'],
+				cnAiContext: $turn['cnAiContext'],
+				contextPreamble: $turn['contextPreamble'],
+				trace: $turn['trace'],
+				dryRun: $turn['dryRun'],
+				conversationId: $turn['conversationId'],
+				promptVariables: $this->promptVariablesFor(
+					userId: $turn['userId'],
+					agent: $turn['agent'],
+					organisation: $turn['organisation'],
+					appContext: $turn['cnAiContext'],
+					conversationData: $turn['conversationData']
+				),
+				attachments: $turn['resolvedAttachments'],
+				speaker: ($turn['authorId'] ?? $turn['userId'])
+			);
+		} catch (Exception $e) {
+			throw $this->attachmentRefusalFor(exception: $e, attachments: $turn['resolvedAttachments']);
+		}
+
+		$timings['llm'] = microtime(true) - $startTime;
+		if ($token !== null) {
+			$turn['trace']?->endStep(token: $token, outcome: 'ok');
+		}
+
+		return $aiResponse;
+	}//end turnResponse()
+
+	/**
+	 * The turn's result envelope (see the class docblock for the contract).
+	 *
+	 * @param array<string, mixed> $turn    The finished turn.
+	 * @param array<string, float> $timings The context, history and llm timings.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 */
+	private function turnEnvelope(array $turn, array $timings): array {
+		$totalTime = ($timings['context'] + $timings['history'] + $timings['llm']);
+
+		return [
+			'message' => $turn['aiResponse'],
+			// The persisted assistant message id, for SSE consumers.
+			'messageId' => (string)($turn['assistantStored']->getUuid() ?? ''),
+			'sources' => $turn['sources'],
+			'timings' => [
+				'context' => round($timings['context'], 2) . 's',
+				'history' => round($timings['history'], 3) . 's',
+				'llm' => round($timings['llm'], 2) . 's',
+				'total' => round($totalTime, 2) . 's',
+			],
+			// Per-run LLM token/latency usage for run-cost recording
+			// (run-analytics / ScheduleService::lastRunUsage): load-bearing,
+			// see class docblock.
+			'usage' => $this->responseHandler->lastUsage,
+			// Chat-attachments-and-images D6: what happened to each attachment
+			// the model could not read natively, for the answer's notice.
+			'attachmentNotices' => $this->responseHandler->attachmentNotices,
+			// The answer's attachments (D8), for the `final` frame.
+			'attachments' => $turn['answerAttachments'],
+			// Run-trace-observability: the collector's full ordered step
+			// timeline, empty when no collector was supplied.
+			'steps' => $turn['trace']?->toArray() ?? [],
+			// Skill-evals: the skill uuids actually exposed to this run's context,
+			// recorded on the run's audit entry for ALL runs.
+			'skillsUsed' => $turn['skillsUsed'],
+		];
+	}//end turnEnvelope()
+
+	/**
+	 * Store the user's turn, then check whether the conversation needs a summary.
+	 *
+	 * Authorship is threaded through to this single writer, so a shared session
+	 * records who spoke without any path double-storing the turn
+	 * (talk-shared-sessions). The CnAiContext snapshot is stored with it.
+	 *
+	 * @param array<string, mixed> $turn The screened turn.
+	 *
+	 * @return ObjectEntity The stored user Message.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 */
+	private function storeUserTurn(array $turn): ObjectEntity {
+		$userTurn = $this->historyHandler->storeMessage(
+			conversationId: $turn['conversationId'],
+			role: 'user',
+			content: $turn['userMessage'],
+			sources: null,
+			context: $turn['cnAiContext'],
+			authorId: $turn['authorId'],
+			authorDisplayName: $turn['authorDisplayName'],
+			attachments: $turn['resolvedAttachments']
+		);
+
+		$this->conversationHandler->checkAndSummarize(conversation: $turn['conversation']);
+
+		return $userTurn;
+	}//end storeUserTurn()
+
+	/**
+	 * Store the screened answer with its sources and attachments, then queue
+	 * the conversation's title off the reply's path.
+	 *
+	 * Naming is a second LLM round trip and nothing after the answer depends on
+	 * the title. ConversationTitleWriter re-reads the conversation and re-checks
+	 * whether it still wants a title.
+	 *
+	 * @param array<string, mixed> $turn The turn with its screened answer.
+	 *
+	 * @return ObjectEntity The stored assistant Message.
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md
+	 */
+	private function storeAnswer(array $turn): ObjectEntity {
+		$assistantStored = $this->historyHandler->storeMessage(
+			conversationId: $turn['conversationId'],
+			role: 'assistant',
+			content: $turn['aiResponse'],
+			sources: $turn['sources'],
+			attachments: $turn['answerAttachments']
+		);
+
+		$this->queueTitleGeneration(
+			conversationId: $turn['conversationId'],
+			userMessage: $turn['userMessage'],
+			userId: $turn['userId']
+		);
+
+		return $assistantStored;
+	}//end storeAnswer()
 
 	/**
 	 * Resolve the turn's attachments as its speaker; none resolve to none.
@@ -762,76 +826,6 @@ class Engine {
 
 	}//end queueTitleGeneration()
 
-	/**
-	 * Have the channel's tool-call and tool-result frames pass the output filters
-	 * of the policy that filters the answer. No channel or no guardrail service
-	 * leaves the frames as they are.
-	 *
-	 * @param StreamYieldChannel|null $channel The turn's streaming channel.
-	 * @param array<string,mixed>     $policy  The conversation's effective policy.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
-	 */
-	private function screenToolDetails(?StreamYieldChannel $channel, array $policy): void {
-		$service = $this->guardrailPolicyService;
-		if ($channel === null || $service === null) {
-			return;
-		}
-
-		$channel->screenToolDetails(
-			screen: static fn (mixed $value): mixed => $service->filterOutputValue(policy: $policy, value: $value)
-		);
-	}//end screenToolDetails()
-
-	/**
-	 * Resolve the effective GuardrailPolicy for an organisation, or the
-	 * fully-open shape when no `GuardrailPolicyService` was injected (existing
-	 * test callers / a hypothetical install predating agent-guardrails) — zero
-	 * behavior change either way (design.md Decision 1, fail-open).
-	 *
-	 * @param string $organisation The conversation's organisation (may be '').
-	 *
-	 * @return array<string,mixed> The effective policy.
-	 *
-	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
-	 */
-	private function resolveGuardrailPolicy(string $organisation): array {
-		if ($this->guardrailPolicyService === null) {
-			return [
-				'inputFilters' => ['piiAction' => 'off', 'promptInjectionAction' => 'off'],
-				'outputFilters' => ['piiAction' => 'off'],
-				'toolPolicy' => [],
-			];
-		}
-
-		return $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
-	}//end resolveGuardrailPolicy()
-
-	/**
-	 * Whether a `filterInput()`/`filterOutput()` result represents an actual
-	 * guardrail ACTION (a block, or a redaction that changed the text) versus a
-	 * no-op pass-through. Only an action is worth a `run-history`-visible trace
-	 * step (spec: "record every input block, output block/redaction... as a
-	 * trace step") — a fully-open policy (the default, no `GuardrailPolicy`
-	 * configured) must leave the step timeline byte-for-byte identical to
-	 * before this change.
-	 *
-	 * @param array{text:string,blocked:bool,reason:?string} $filter The filter result.
-	 * @param string $originalText The pre-filter text.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
-	 */
-	private function guardrailActed(array $filter, string $originalText): bool {
-		if ($filter['blocked'] === true) {
-			return true;
-		}
-
-		return ((string)$filter['text']) !== $originalText;
-	}//end guardrailActed()
 	/**
 	 * The placeholder values for this turn (agents-instruction-variables): the
 	 * acting person, the session's start field answers and the companion's app.
