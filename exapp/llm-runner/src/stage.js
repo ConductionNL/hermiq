@@ -568,6 +568,7 @@ async function changedFiles({ workdir, env, deadline }) {
  * @returns {Promise<{pushed: boolean, branch: string, commit: string, files: Array<string>}>} Outcome.
  */
 async function performPush({ workdir, push, repo, env, deadline }) {
+	const run = { workdir, env, deadline }
 	const branch = String(push.branch || '')
 	const files = await changedFiles({ workdir, env, deadline })
 
@@ -591,77 +592,103 @@ async function performPush({ workdir, push, repo, env, deadline }) {
 		return { pushed: false, branch, commit: '', files: [] }
 	}
 
+	await commitChanges(push, run)
+
+	// The refspec is BUILT from the validated branch, never taken as a string.
+	// `origin` is the clone URL the credential was minted for; naming it here
+	// rather than re-splicing a URL keeps the destination the one that was
+	// checked.
+	await gitOrRefuse(
+		{
+			args: ['push', '--no-verify', 'origin', `HEAD:refs/heads/${branch}`],
+			step: 'push',
+			code: 'push_rejected',
+		},
+		run,
+	)
+
+	return { pushed: true, branch, commit: await headCommit(run), files }
+}
+
+/**
+ * Stage every change in the clone and commit it as the stage committer.
+ *
+ * @param {object} push The push declaration; its `message` and `issue` name the commit.
+ * @param {object} run `{workdir, env, deadline}`.
+ * @return {Promise<void>} Resolves once the commit exists.
+ * @throws {PushRefused} `commit_failed` when git add or git commit fails.
+ */
+async function commitChanges(push, run) {
 	const message = String(
 		push.message || `chore: stage changes for issue ${push.issue}`,
 	)
 
 	// `--all -- .` from the repository root: the command's own cwd is the clone,
 	// but a pathspec-less `add` run from a subdirectory would miss siblings.
-	const add = await spawnCollect('git', ['add', '--all', '--', '.'], {
-		cwd: workdir,
-		env,
-		timeoutMs: deadline,
-	})
-	if (add.code !== 0) {
-		throw new PushRefused(
-			'commit_failed',
-			`git add failed (exit ${add.code}): ${lastLines(add.output)}`,
-		)
-	}
+	await gitOrRefuse(
+		{ args: ['add', '--all', '--', '.'], step: 'add', code: 'commit_failed' },
+		run,
+	)
 
 	// Identity via `-c`, not `git config`: it configures nothing that outlives
 	// the scratch tree. `--no-verify` because hooks in the clone are repository
 	// content — i.e. hostile input — and running them would execute code the
 	// change set just brought in.
-	const commit = await spawnCollect(
-		'git',
-		[
-			'-c',
-			`user.name=${STAGE_COMMITTER.name}`,
-			'-c',
-			`user.email=${STAGE_COMMITTER.email}`,
-			'commit',
-			'--no-verify',
-			'-m',
-			message,
-		],
-		{ cwd: workdir, env, timeoutMs: deadline },
+	await gitOrRefuse(
+		{
+			args: [
+				'-c',
+				`user.name=${STAGE_COMMITTER.name}`,
+				'-c',
+				`user.email=${STAGE_COMMITTER.email}`,
+				'commit',
+				'--no-verify',
+				'-m',
+				message,
+			],
+			step: 'commit',
+			code: 'commit_failed',
+		},
+		run,
 	)
-	if (commit.code !== 0) {
-		throw new PushRefused(
-			'commit_failed',
-			`git commit failed (exit ${commit.code}): ${lastLines(commit.output)}`,
-		)
-	}
+}
 
-	// The refspec is BUILT from the validated branch, never taken as a string.
-	// `origin` is the clone URL the credential was minted for; naming it here
-	// rather than re-splicing a URL keeps the destination the one that was
-	// checked.
-	const pushed = await spawnCollect(
-		'git',
-		['push', '--no-verify', 'origin', `HEAD:refs/heads/${branch}`],
-		{ cwd: workdir, env, timeoutMs: deadline },
-	)
-	if (pushed.code !== 0) {
-		throw new PushRefused(
-			'push_rejected',
-			`git push failed (exit ${pushed.code}): ${lastLines(pushed.output)}`,
-		)
-	}
-
-	const rev = await spawnCollect('git', ['rev-parse', 'HEAD'], {
-		cwd: workdir,
-		env,
-		timeoutMs: deadline,
+/**
+ * Run one git step in the clone, refusing the push when it fails.
+ *
+ * @param {object} gitStep `{args, step, code}`: the git arguments, the step name
+ *   for the message, and the refusal code.
+ * @param {object} run `{workdir, env, deadline}`.
+ * @return {Promise<void>} Resolves when git exits 0.
+ * @throws {PushRefused} With `code` when git exits non-zero.
+ */
+async function gitOrRefuse({ args, step, code }, run) {
+	const result = await spawnCollect('git', args, {
+		cwd: run.workdir,
+		env: run.env,
+		timeoutMs: run.deadline,
 	})
-
-	return {
-		pushed: true,
-		branch,
-		commit: rev.code === 0 ? rev.output.trim().split('\n').pop() : '',
-		files,
+	if (result.code !== 0) {
+		throw new PushRefused(
+			code,
+			`git ${step} failed (exit ${result.code}): ${lastLines(result.output)}`,
+		)
 	}
+}
+
+/**
+ * The commit HEAD points at, or '' when git cannot say.
+ *
+ * @param {object} run `{workdir, env, deadline}`.
+ * @return {Promise<string>} The commit sha.
+ */
+async function headCommit(run) {
+	const rev = await spawnCollect('git', ['rev-parse', 'HEAD'], {
+		cwd: run.workdir,
+		env: run.env,
+		timeoutMs: run.deadline,
+	})
+	return rev.code === 0 ? rev.output.trim().split('\n').pop() : ''
 }
 
 /**
