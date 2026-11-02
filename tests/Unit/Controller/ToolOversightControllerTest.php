@@ -667,6 +667,27 @@ class ToolOversightControllerTest extends TestCase {
 	}//end testToolInvocationsRichSourceTenantScopedNewestFirst()
 
 	/**
+	 * toolInvocations refuses a user who may not see the agent (a private agent,
+	 * not the owner, not invited, not an admin) with 403, before any audit read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-an-operator-reviews-an-agents-tool-activity
+	 */
+	public function testToolInvocationsRefusesAUserWhoMayNotSeeTheAgentBeforeReadingTheAudit(): void {
+		$this->objectService->method('find')->willReturn($this->agent(payload: ['tools' => [], 'isPrivate' => true], owner: 'bob'));
+		$this->objectService->expects($this->never())->method('findAll');
+		$this->auditTrailMapper->expects($this->never())->method('findAll');
+
+		foreach ([true, false] as $richAvailable) {
+			$response = $this->controller(richAvailable: $richAvailable)->toolInvocations(agentId: 'agent-1', format: 'csv');
+			$this->assertSame(expected: Http::STATUS_FORBIDDEN, actual: $response->getStatus());
+			$this->assertSame(expected: ['error' => 'Access denied to this agent'], actual: $response->getData());
+		}
+
+	}//end testToolInvocationsRefusesAUserWhoMayNotSeeTheAgentBeforeReadingTheAudit()
+
+	/**
 	 * toolInvocations degrades gracefully when the richer shape is absent —
 	 * never errors, never fabricates, and indicates the reduced detail.
 	 *

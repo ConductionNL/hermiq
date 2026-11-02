@@ -1885,7 +1885,7 @@
   "error": "CLI output exceeded the maximum size",
   "log": [
    "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\",\"--disallowedTools\",\"--strict-mcp-config\"]",
-   "[hermiq-llm-runner] DEBUG exit=null stderr=(empty)"
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
   ],
   "scratchLeft": 0
  },
@@ -2321,7 +2321,7 @@
   "error": "CLI output exceeded the maximum size",
   "log": [
    "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\"]",
-   "[hermiq-llm-runner] DEBUG exit=null stderr=(empty)"
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
   ],
   "scratchLeft": 0
  },
@@ -2754,7 +2754,7 @@
   "log": [
    "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\",\"--disallowedTools\",\"Bash,Edit\",\"--strict-mcp-config\",\"--mcp-config\",\"<SCRATCH>/mcp.json\"]",
    "[hermiq-llm-runner] DEBUG mcp.json: {\"mcpServers\":{}}",
-   "[hermiq-llm-runner] DEBUG exit=null stderr=(empty)"
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
   ],
   "scratchLeft": 0
  },
@@ -4433,7 +4433,7 @@
   "error": "CLI output exceeded the maximum size",
   "log": [
    "[hermiq-llm-runner] DEBUG argv: <STUB> [\"big\"]",
-   "[hermiq-llm-runner] DEBUG exit=null stderr=(empty)"
+   "[hermiq-llm-runner] DEBUG exit=<0 or killed> stderr=(empty)"
   ],
   "scratchLeft": 0
  },

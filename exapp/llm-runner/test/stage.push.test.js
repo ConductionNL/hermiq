@@ -641,3 +641,42 @@ test('the credential never appears on argv during a push stage', async () => {
 		await f.cleanup()
 	}
 })
+
+test('hooks the command plants in the clone run neither on commit nor on push', async () => {
+	// Hooks are repository content the command controls, i.e. hostile input.
+	// `--no-verify` on BOTH the commit and the push is what keeps them from
+	// running with the runner's credential in their environment. Each hook
+	// leaves a marker outside the clone, so a hook that ran cannot hide it.
+	const markers = fs.mkdtempSync(path.join(os.tmpdir(), 'stage-hooks-'))
+	const hook = (name) =>
+		`printf '#!/bin/sh\\ntouch ${markers}/${name}\\n' > .git/hooks/${name} && chmod 755 .git/hooks/${name}`
+	const f = await fixture(
+		`mkdir -p lib && echo hooked > lib/Hook.php && ${hook('pre-commit')} && ${hook('commit-msg')} && ${hook('pre-push')}`,
+	)
+	try {
+		const { runStage } = loadStage()
+
+		const result = await runStage({
+			repo: f.targetUrl,
+			ref: 'main',
+			command: [BUILDER],
+			forgeToken: PASSWORD,
+			forgeUser: 'x-access-token',
+			timeoutMs: 60000,
+			push: {
+				branch: 'feature/494/hooks',
+				issue: 494,
+				scope: ['lib'],
+				allowedRepo: f.targetUrl,
+				message: 'feat: hooks',
+			},
+		})
+
+		assert.strictEqual(result.push.pushed, true, 'the change was pushed')
+		assert.ok(refExists(f.target, 'refs/heads/feature/494/hooks'))
+		assert.deepStrictEqual(fs.readdirSync(markers), [], 'no planted hook ran')
+	} finally {
+		fs.rmSync(markers, { recursive: true, force: true })
+		await f.cleanup()
+	}
+})
