@@ -45,6 +45,8 @@ final class ToolInvocationRows {
 	 * @param string|null $occurredAt Its timestamp.
 	 *
 	 * @return array<string, mixed> The row.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	public function richRow(AuditTrail $log, ?string $occurredAt): array {
 		return [
@@ -63,6 +65,8 @@ final class ToolInvocationRows {
 	 * @param AuditTrail $log The audit entry.
 	 *
 	 * @return string|null The timestamp.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	public function occurredAt(AuditTrail $log): ?string {
 		return $log->getCreated()?->format('c');
@@ -74,6 +78,8 @@ final class ToolInvocationRows {
 	 * @param array<int, array<string, mixed>> $rows The rows.
 	 *
 	 * @return array<int, array<string, mixed>> The rows, newest first.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	public function newestFirst(array $rows): array {
 		usort($rows, static fn (array $a, array $b): int => strcmp((string)$b['at'], (string)$a['at']));
@@ -87,6 +93,8 @@ final class ToolInvocationRows {
 	 * @param string $to The upper bound parameter.
 	 *
 	 * @return array{from: ?string, to: ?string} The window.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	public function window(string $from, string $to): array {
 		return ['from' => $this->bound(value: $from), 'to' => $this->bound(value: $to)];
@@ -101,6 +109,8 @@ final class ToolInvocationRows {
 	 * @param array{from: ?string, to: ?string} $window Optional bounds (inclusive).
 	 *
 	 * @return bool
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	public function inWindow(?string $occurredAt, array $window): bool {
 		if ($occurredAt === null) {
@@ -116,6 +126,8 @@ final class ToolInvocationRows {
 	 * @param string $value The parameter.
 	 *
 	 * @return string|null The bound.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	private function bound(string $value): ?string {
 		if ($value === '') {

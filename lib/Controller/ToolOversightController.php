@@ -1090,6 +1090,8 @@ class ToolOversightController extends Controller {
 	 * @param string $agentId Agent UUID.
 	 *
 	 * @return array<string, true> Schedule UUID => true.
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	private function agentScheduleUuids(string $agentId): array {
 		$schedules = $this->objectService
