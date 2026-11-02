@@ -86,6 +86,7 @@ const RAG = [
 	},
 	{ includeFiles: true, extra: 1 },
 	{ includeObjects: undefined, numSourcesObjects: 9 },
+	{ includeObjects: null, numSourcesFiles: null, includeFiles: 0 },
 ]
 const FRAMES = [
 	'event: token\ndata: {"delta":"Hel"}',
