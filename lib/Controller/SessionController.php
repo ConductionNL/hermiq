@@ -419,53 +419,16 @@ class SessionController extends Controller {
 				);
 			}
 
-			$agentId = (string)$agent->getUuid();
-
-			// Generate unique title if not provided.
-			$title = ($data['title'] ?? null);
-			if ($title === null) {
-				$title = $this->engine->ensureUniqueTitle(
-					baseTitle: 'New Conversation',
-					userId: $userId,
-					agentId: $agentId
-				);
-			}
-
-			// Create the new conversation object (uuid/timestamps/organisation
-			// are assigned by ObjectService). `_rbac: false`: see the docblock.
-			$conversation = $this->objectService->saveObject(
-				object: $this->sanitizeForSave(
-					data: [
-						'userId' => $userId,
-						'agentId' => $agentId,
-						'title' => $title,
-						'metadata' => ($data['metadata'] ?? []),
-					]
-				),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				_rbac: false
-			);
-
-			$conversation = $this->sessionRoom->attachToSession(
-				conversation: $conversation,
-				title: (string)$title,
-				ownerUid: $userId,
-				agentId: $agentId
-			);
-
-			$this->logger->info(
-				message: '[SessionController] Conversation created',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uuid' => $conversation->getUuid(),
-					'userId' => $userId,
-					'organisation' => $conversation->getOrganisation(),
+			$conversation = $this->startSession(
+				userId: $userId,
+				start: [
+					'agentId' => (string)$agent->getUuid(),
+					'title' => ($data['title'] ?? null),
+					'metadata' => ($data['metadata'] ?? []),
 				]
 			);
 
-			return new JSONResponse(data: $this->serializeConversation(conversation: $conversation), statusCode: 201);
+			return $this->createdResponse(conversation: $conversation, userId: $userId);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to create conversation',
@@ -486,6 +449,82 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end create()
+
+	/**
+	 * Save a new session for the caller and attach its Talk room.
+	 *
+	 * The caller has already been resolved and allowed to use the agent; `userId`
+	 * is always the caller. The save runs with `_rbac: false` (see create()), and
+	 * uuid, timestamps and organisation are assigned by ObjectService.
+	 *
+	 * @param string $userId The caller.
+	 * @param array{agentId: string, title: mixed, metadata: mixed} $start The agent, the requested title (null for a generated one) and the metadata.
+	 *
+	 * @return ObjectEntity The saved session with its room.
+	 *
+	 * @throws Exception If the save fails; create() turns it into its error envelope.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function startSession(string $userId, array $start): ObjectEntity {
+		$agentId = $start['agentId'];
+
+		// Generate unique title if not provided.
+		$title = $start['title'];
+		if ($title === null) {
+			$title = $this->engine->ensureUniqueTitle(
+				baseTitle: 'New Conversation',
+				userId: $userId,
+				agentId: $agentId
+			);
+		}
+
+		$conversation = $this->objectService->saveObject(
+			object: $this->sanitizeForSave(
+				data: [
+					'userId' => $userId,
+					'agentId' => $agentId,
+					'title' => $title,
+					'metadata' => $start['metadata'],
+				]
+			),
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
+		);
+
+		return $this->sessionRoom->attachToSession(
+			conversation: $conversation,
+			title: (string)$title,
+			ownerUid: $userId,
+			agentId: $agentId
+		);
+	}//end startSession()
+
+	/**
+	 * Log a started session and answer 201 with it.
+	 *
+	 * @param ObjectEntity $conversation The saved session.
+	 * @param string $userId The caller.
+	 *
+	 * @return JSONResponse The created session.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function createdResponse(ObjectEntity $conversation, string $userId): JSONResponse {
+		$this->logger->info(
+			message: '[SessionController] Conversation created',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'uuid' => $conversation->getUuid(),
+				'userId' => $userId,
+				'organisation' => $conversation->getOrganisation(),
+			]
+		);
+
+		return new JSONResponse(data: $this->serializeConversation(conversation: $conversation), statusCode: 201);
+	}//end createdResponse()
 
 	/**
 	 * The HTTP status a failed write answers with.
