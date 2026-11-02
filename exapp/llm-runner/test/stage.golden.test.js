@@ -36,7 +36,7 @@ const { runStage } = require('../src/stage')
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'stage-golden.json')
 const CASES = 60
-const FIXED = 10
+const FIXED = 13
 const PASSWORD = 'golden-forge-token'
 
 const PROBE = [
@@ -107,9 +107,24 @@ function seedRepo(root, name) {
 	git(['commit', '-m', 'main'], work)
 	git(['checkout', '-b', 'development'], work)
 	fs.writeFileSync(path.join(work, 'whoami.txt'), `${name}-development\n`)
+	if (name === 'same') {
+		// Exactly what the probe writes, so a stage over this repo changes nothing.
+		fs.mkdirSync(path.join(work, 'out'))
+		fs.writeFileSync(
+			path.join(work, 'out', 'result.json'),
+			'{"tree": "same-development", "n": 3}\n',
+		)
+		git(['add', '-A'], work)
+	}
 	git(['commit', '-am', 'development'], work)
 	git(['remote', 'add', 'origin', bare], work)
 	git(['push', 'origin', 'main', 'development'], work)
+	if (name === 'target') {
+		// A feature branch with its own history, so a push to it is not a fast-forward.
+		git(['checkout', '--orphan', 'feature/13/golden'], work)
+		git(['commit', '-m', 'unrelated'], work)
+		git(['push', 'origin', 'feature/13/golden'], work)
+	}
 	// The tool repository's default branch is development, so a tool clone
 	// with no ref visibly lands on the remote's HEAD rather than on main.
 	if (name === 'tool') {
@@ -412,7 +427,61 @@ function fixedCase(index, world) {
 			},
 			ambient: {},
 		},
+		{
+			args: {
+				...http,
+				repo: world.url('same'),
+				command: ['./probe.sh'],
+				push: {
+					...push('feature/11/golden'),
+					issue: 11,
+					allowedRepo: world.url('same'),
+				},
+			},
+			ambient: {},
+			inspect: { bare: world.same, branch: 'feature/11/golden' },
+		},
+		{
+			args: {
+				...http,
+				command: ['./probe.sh'],
+				push: {
+					branch: 'feature/12/golden',
+					issue: 12,
+					scope: ['out'],
+					allowedRepo: url,
+				},
+			},
+			ambient: {},
+			inspect: { bare: world.target, branch: 'feature/12/golden' },
+		},
+		{
+			args: {
+				...http,
+				command: ['./probe.sh'],
+				push: { ...push('feature/13/golden'), issue: 13 },
+			},
+			ambient: {},
+			inspect: { bare: world.target, branch: 'feature/13/golden' },
+		},
 	][index]
+}
+
+/**
+ * The subject and author of a branch's head in a bare repository, or null when it has none.
+ *
+ * @param {object} inspect `{bare, branch}`.
+ * @return {string|null} `subject|name|email`.
+ */
+function remoteHead({ bare, branch }) {
+	try {
+		return git(
+			['log', '-1', '--format=%s|%an|%ae', `refs/heads/${branch}`],
+			bare,
+		).trim()
+	} catch {
+		return null
+	}
 }
 
 /**
@@ -441,7 +510,7 @@ function normalise(text, world) {
  * @returns {Promise<object>} The recorded shape of the case.
  */
 async function runCase(index, world) {
-	const { args, ambient } = makeCase(index, world)
+	const { args, ambient, inspect } = makeCase(index, world)
 	const saved = {}
 	for (const name of ['HTTPS_PROXY', 'HTTP_PROXY', 'https_proxy', 'http_proxy']) {
 		saved[name] = process.env[name]
@@ -470,6 +539,10 @@ async function runCase(index, world) {
 		}
 	}
 
+	if (inspect !== undefined) {
+		outcome.remote = remoteHead(inspect)
+	}
+
 	const recorded = { ...args }
 	if (recorded.toolTarball === world.tarball) {
 		recorded.toolTarball = '<TARBALL>'
@@ -487,11 +560,13 @@ test('every generated stage gives the recorded result', async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stage-golden-'))
 	const target = seedRepo(root, 'target')
 	const tool = seedRepo(root, 'tool')
+	const same = seedRepo(root, 'same')
 	const server = await startGitServer({ root, password: PASSWORD })
 	const world = {
 		root,
 		target,
 		tool,
+		same,
 		port: server.port,
 		url: (name) => server.url(name),
 		tarball: toolTarball(root, tool),

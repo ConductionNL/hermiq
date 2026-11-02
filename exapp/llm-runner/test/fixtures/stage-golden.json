@@ -2143,5 +2143,107 @@
    "ref": "main",
    "files": {}
   }
+ },
+ {
+  "case": 70,
+  "args": {
+   "repo": "http://<SERVER>/same.git",
+   "ref": "development",
+   "forgeToken": "golden-forge-token",
+   "forgeUser": "x-access-token",
+   "timeoutMs": 60000,
+   "command": [
+    "./probe.sh"
+   ],
+   "push": {
+    "branch": "feature/11/golden",
+    "issue": 11,
+    "scope": [
+     "out"
+    ],
+    "allowedRepo": "http://<SERVER>/same.git",
+    "message": "feat: golden"
+   }
+  },
+  "ambient": {},
+  "result": {
+   "exitCode": 3,
+   "output": "TREE=same-development\nCWD=same-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=http://x-access-token@<SERVER>/same.git\n",
+   "ref": "development",
+   "files": {},
+   "push": {
+    "pushed": false,
+    "branch": "feature/11/golden",
+    "commit": "",
+    "files": []
+   }
+  },
+  "remote": null
+ },
+ {
+  "case": 71,
+  "args": {
+   "repo": "http://<SERVER>/target.git",
+   "ref": "development",
+   "forgeToken": "golden-forge-token",
+   "forgeUser": "x-access-token",
+   "timeoutMs": 60000,
+   "command": [
+    "./probe.sh"
+   ],
+   "push": {
+    "branch": "feature/12/golden",
+    "issue": 12,
+    "scope": [
+     "out"
+    ],
+    "allowedRepo": "http://<SERVER>/target.git"
+   }
+  },
+  "ambient": {},
+  "result": {
+   "exitCode": 3,
+   "output": "TREE=target-development\nCWD=target-development\nARGS=\nHOME=scratch\nPATH=set\nPROMPT=0\nTOKEN=unset\nASKPASS=unset\nHTTPS_PROXY=unset https_proxy=unset\nHTTP_PROXY=unset http_proxy=unset\nOAT=unset KEY=unset\nEXTRA=unset EVIL=unset\nORIGIN=http://x-access-token@<SERVER>/target.git\n",
+   "ref": "development",
+   "files": {},
+   "push": {
+    "pushed": true,
+    "branch": "feature/12/golden",
+    "commit": "<SHA>",
+    "files": [
+     "out/result.json"
+    ]
+   }
+  },
+  "remote": "chore: stage changes for issue 12|hermiq stage|noreply@conduction.nl"
+ },
+ {
+  "case": 72,
+  "args": {
+   "repo": "http://<SERVER>/target.git",
+   "ref": "development",
+   "forgeToken": "golden-forge-token",
+   "forgeUser": "x-access-token",
+   "timeoutMs": 60000,
+   "command": [
+    "./probe.sh"
+   ],
+   "push": {
+    "branch": "feature/13/golden",
+    "issue": 13,
+    "scope": [
+     "out"
+    ],
+    "allowedRepo": "http://<SERVER>/target.git",
+    "message": "feat: golden"
+   }
+  },
+  "ambient": {},
+  "error": {
+   "name": "PushRefused",
+   "code": "push_rejected",
+   "message": "git push failed (exit 1): hint: counterpart. If you want to integrate the remote changes, use 'git pull' | hint: before pushing again. | hint: See the 'Note about fast-forwards' in 'git push --help' for details."
+  },
+  "remote": "unrelated|golden|golden@example.invalid"
  }
 ]
