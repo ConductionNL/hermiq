@@ -1,0 +1,6798 @@
+[
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (3)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u0",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u0",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (3)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u1",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u1",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u2",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u2",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u3",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u3",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u4",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u4",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u5",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u5",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u6",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u6",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (4)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u7",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u7",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u8",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u8",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u9",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u9",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u10",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u10",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (11)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u11",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u11",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (2)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u12",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u12",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u13",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u13",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u14",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u14",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u15",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u15",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u16",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u16",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u17",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u17",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u18",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u18",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u19",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u19",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u20",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u20",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (11)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u21",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u21",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u22",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u22",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (4)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (3)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u23",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u23",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (3)",
+                    "foundTitles": 8
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u24",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u24",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (4)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u25",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u25",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u26",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u26",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u27",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u27",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u28",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u28",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u29",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u29",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u30",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u30",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u31",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u31",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u32",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u32",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u33",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u33",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u34",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u34",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (4)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u35",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u35",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u36",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u36",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u37",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u37",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u38",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u38",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u39",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u39",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (8)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u40",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u40",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (8)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u41",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u41",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u42",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u42",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u43",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u43",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (2)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u44",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u44",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u45",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u45",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u46",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u46",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (4)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u47",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u47",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u48",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u48",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u49",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u49",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u50",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u50",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u51",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u51",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u52",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u52",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u53",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u53",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u54",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u54",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u55",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u55",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u56",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u56",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u57",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u57",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (11)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u58",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u58",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u59",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u59",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u60",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u60",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (2)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u61",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u61",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (2)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u62",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u62",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u63",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u63",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (4)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u64",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u64",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u65",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u65",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u66",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u66",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u67",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u67",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u68",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u68",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u69",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u69",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u70",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u70",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u71",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u71",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (3)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u72",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u72",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (3)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u73",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u73",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u74",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u74",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u75",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u75",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (2)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u76",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u76",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u77",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u77",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u78",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u78",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (11)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u79",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u79",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u80",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u80",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u81",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u81",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (2)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u82",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u82",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (11)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u83",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u83",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u84",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u84",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u85",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u85",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u86",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u86",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u87",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u87",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u88",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u88",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u89",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u89",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u90",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u90",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (2)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u91",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u91",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u92",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u92",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u93",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u93",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u94",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u94",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u95",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u95",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u96",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u96",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u97",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u97",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (2)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u98",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u98",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u99",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u99",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (4)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (8)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u100",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u100",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (8)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u101",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u101",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (2)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u102",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u102",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u103",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u103",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u104",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u104",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u105",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u105",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u106",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u106",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u107",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u107",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u108",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u108",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u109",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u109",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u110",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u110",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u111",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u111",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u112",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u112",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u113",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u113",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u114",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u114",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u115",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u115",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u116",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u116",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u117",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u117",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u118",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u118",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u119",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u119",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u120",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u120",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u121",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u121",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u122",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u122",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u123",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u123",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u124",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u124",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u125",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u125",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u126",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u126",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u127",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u127",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u128",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u128",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u129",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u129",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u130",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u130",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u131",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u131",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u132",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u132",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u133",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u133",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u134",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u134",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u135",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u135",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u136",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u136",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u137",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u137",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u138",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u138",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u139",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u139",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u140",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u140",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u141",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u141",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u142",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u142",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u143",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u143",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u144",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u144",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u145",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u145",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (11)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u146",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u146",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u147",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u147",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u148",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u148",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u149",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u149",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (11)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u150",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u150",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u151",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u151",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u152",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u152",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u153",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u153",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u154",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u154",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u155",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u155",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (8)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u156",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u156",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (8)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u157",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u157",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u158",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u158",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u159",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u159",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (3)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u160",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u160",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (3)",
+                    "foundTitles": 4
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u161",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u161",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u162",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u162",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u163",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u163",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "uniqueTitle": "a.b (2)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u164",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u164",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u165",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u165",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u166",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u166",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u167",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u167",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u168",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u168",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1) (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u169",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u169",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "uniqueTitle": "Q? (1) (2)",
+                    "foundTitles": 1
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u170",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u170",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (2)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u171",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u171",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u172",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u172",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u173",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u173",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u174",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u174",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u175",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u175",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u176",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u176",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u177",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u177",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u178",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u178",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u179",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u179",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u180",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u180",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u181",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u181",
+                    "agentId": "a1"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (11)",
+                    "foundTitles": 3
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u182",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u182",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u183",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u183",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u184",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u184",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (11)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u185",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u185",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (11)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy (2)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u186",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u186",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "uniqueTitle": "Leave policy (2)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u187",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u187",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u188",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u188",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u189",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u189",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u190",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u190",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/ (4)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u191",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u191",
+                    "agentId": "a2"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "uniqueTitle": "\/x\/ (4)",
+                    "foundTitles": 5
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u192",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u192",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u193",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u193",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "\/x\/",
+        "title": "\/x\/",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u194",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "\/x\/",
+                    "userId": "u194",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave",
+        "title": "Leave (8)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u195",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "userId": "u195",
+                    "agentId": "a0"
+                }
+            },
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Generated unique title",
+                "context": {
+                    "baseTitle": "Leave",
+                    "uniqueTitle": "Leave (8)",
+                    "foundTitles": 2
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u196",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u196",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    },
+    {
+        "base": "a.b",
+        "title": "a.b",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u197",
+                        "agentId": "a2"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "a.b",
+                    "userId": "u197",
+                    "agentId": "a2"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Leave policy",
+        "title": "Leave policy",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u198",
+                        "agentId": "a0"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Leave policy",
+                    "userId": "u198",
+                    "agentId": "a0"
+                }
+            }
+        ]
+    },
+    {
+        "base": "Q? (1)",
+        "title": "Q? (1)",
+        "lookups": [
+            {
+                "register": "hermiq"
+            },
+            {
+                "schema": "agentsession"
+            },
+            {
+                "config": {
+                    "filters": {
+                        "userId": "u199",
+                        "agentId": "a1"
+                    },
+                    "limit": 500
+                }
+            }
+        ],
+        "log": [
+            {
+                "level": "info",
+                "message": "[ConversationManagementHandler] Ensuring unique title",
+                "context": {
+                    "baseTitle": "Q? (1)",
+                    "userId": "u199",
+                    "agentId": "a1"
+                }
+            }
+        ]
+    }
+]

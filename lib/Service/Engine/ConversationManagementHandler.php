@@ -183,9 +183,6 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Unique title, with a numeric suffix if needed.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Ported suffix-probing loop kept
-	 * structurally intact from the OR original for parity reviewability.
-	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
 	public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string {
@@ -213,39 +210,12 @@ class ConversationManagementHandler {
 				]
 			);
 
-		$existingTitles = [];
-		foreach ($conversations as $conversation) {
-			if (($conversation instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$title = $conversation->getObject()['title'] ?? null;
-			if (is_string($title) === true && str_starts_with($title, $baseTitle) === true) {
-				$existingTitles[] = $title;
-			}
-		}
-
-		if (empty($existingTitles) === true) {
-			return $baseTitle;
-		}
-
+		$existingTitles = $this->titlesStartingWith(baseTitle: $baseTitle, conversations: $conversations);
 		if (in_array($baseTitle, $existingTitles, true) === false) {
 			return $baseTitle;
 		}
 
-		$maxNumber = 1;
-		$baseTitleEscaped = preg_quote($baseTitle, '/');
-
-		foreach ($existingTitles as $title) {
-			if (preg_match('/^' . $baseTitleEscaped . ' \((\d+)\)$/', $title, $matches) === 1) {
-				$number = (int)$matches[1];
-				if ($number > $maxNumber) {
-					$maxNumber = $number;
-				}
-			}
-		}
-
-		$uniqueTitle = $baseTitle . ' (' . ($maxNumber + 1) . ')';
+		$uniqueTitle = $baseTitle . ' (' . ($this->highestTitleSuffix(baseTitle: $baseTitle, titles: $existingTitles) + 1) . ')';
 
 		$this->logger->info(
 			message: '[ConversationManagementHandler] Generated unique title',
@@ -260,6 +230,54 @@ class ConversationManagementHandler {
 
 		return $uniqueTitle;
 	}//end ensureUniqueTitle()
+
+	/**
+	 * The titles of the found conversations that start with the base title.
+	 *
+	 * @param string            $baseTitle     The base title.
+	 * @param array<int, mixed> $conversations The conversations found for the user and agent.
+	 *
+	 * @return array<int, string>
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	private function titlesStartingWith(string $baseTitle, array $conversations): array {
+		$titles = [];
+		foreach ($conversations as $conversation) {
+			if (($conversation instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$title = $conversation->getObject()['title'] ?? null;
+			if (is_string($title) === true && str_starts_with($title, $baseTitle) === true) {
+				$titles[] = $title;
+			}
+		}
+
+		return $titles;
+	}//end titlesStartingWith()
+
+	/**
+	 * The highest numeric suffix among `<base> (<n>)` titles, at least 1.
+	 *
+	 * @param string             $baseTitle The base title.
+	 * @param array<int, string> $titles    The titles that start with the base title.
+	 *
+	 * @return int
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	private function highestTitleSuffix(string $baseTitle, array $titles): int {
+		$maxNumber = 1;
+		$pattern = '/^' . preg_quote($baseTitle, '/') . ' \((\d+)\)$/';
+		foreach ($titles as $title) {
+			if (preg_match($pattern, $title, $matches) === 1 && (int)$matches[1] > $maxNumber) {
+				$maxNumber = (int)$matches[1];
+			}
+		}
+
+		return $maxNumber;
+	}//end highestTitleSuffix()
 
 	/**
 	 * Check whether a conversation needs summarisation and, if so, create one.
