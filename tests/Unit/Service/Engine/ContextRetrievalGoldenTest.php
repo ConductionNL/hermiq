@@ -32,6 +32,8 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use ReflectionMethod;
 use RuntimeException;
 use Stringable;
@@ -63,6 +65,14 @@ class ContextRetrievalGoldenTest extends TestCase {
 	private const NAMES = ['Alpha', '', null, 'Beta report'];
 
 	/**
+	 * The seeded generator every draw of the current case comes from, so mock
+	 * creation (which calls mt_rand) cannot shift the generated values.
+	 *
+	 * @var Randomizer
+	 */
+	private Randomizer $random;
+
+	/**
 	 * Every generated case retrieves exactly as recorded.
 	 *
 	 * @return void
@@ -70,7 +80,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 	public function testRetrievalMatchesTheRecordedFixture(): void {
 		$actual = [];
 		for ($case = 0; $case < self::CASES; $case++) {
-			mt_srand($case + 1);
+			$this->random = new Randomizer(new Mt19937($case + 1));
 			$actual[] = $this->runCase();
 		}
 
@@ -112,7 +122,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 		$record = ['result' => null, 'error' => null];
 		try {
 			$record['result'] = $handler->retrieveContext(
-				query: 'query ' . mt_rand(0, 99),
+				query: 'query ' . $this->random->getInt(0, 99),
 				agent: $agent,
 				selectedViews: $this->subset(self::VIEWS),
 				ragSettings: $this->ragSettings()
@@ -152,7 +162,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 * @return ObjectService
 	 */
 	private function objectService(array &$calls): ObjectService {
-		$failing = (mt_rand(0, 9) === 0);
+		$failing = ($this->random->getInt(0, 9) === 0);
 		$service = $this->createMock(ObjectService::class);
 		$service->method('searchObjectsPaginated')->willReturnCallback(
 			function (...$args) use (&$calls, $failing): array {
@@ -200,24 +210,24 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 */
 	private function searchRows(): array {
 		$rows = [];
-		for ($i = mt_rand(0, 6); $i > 0; $i--) {
-			$kind = mt_rand(0, 5);
+		for ($i = $this->random->getInt(0, 6); $i > 0; $i--) {
+			$kind = $this->random->getInt(0, 5);
 			if ($kind === 0) {
 				$entity = new ObjectEntity();
-				$entity->setUuid('ent-' . mt_rand(0, 9));
-				$entity->setObject(['name' => $this->pick(self::NAMES), 'n' => mt_rand(0, 9)]);
+				$entity->setUuid('ent-' . $this->random->getInt(0, 9));
+				$entity->setObject(['name' => $this->pick(self::NAMES), 'n' => $this->random->getInt(0, 9)]);
 				$rows[] = $entity;
 				continue;
 			}
 
 			if ($kind === 1) {
-				$rows[] = 'scalar-' . mt_rand(0, 9);
+				$rows[] = 'scalar-' . $this->random->getInt(0, 9);
 				continue;
 			}
 
-			$row = ['id' => $this->pick(['r' . mt_rand(0, 9), null]), 'uuid' => 'u' . mt_rand(0, 9)];
+			$row = ['id' => $this->pick(['r' . $this->random->getInt(0, 9), null]), 'uuid' => 'u' . $this->random->getInt(0, 9)];
 			$row = array_merge($row, $this->maybe(['name' => $this->pick(self::NAMES), 'title' => $this->pick(self::NAMES)]));
-			$row = array_merge($row, $this->maybe(['_score' => $this->pick([0.5, 2, '1.5', 0.9]), '_source' => ['data' => 'raw ' . mt_rand(0, 9)]]));
+			$row = array_merge($row, $this->maybe(['_score' => $this->pick([0.5, 2, '1.5', 0.9]), '_source' => ['data' => 'raw ' . $this->random->getInt(0, 9)]]));
 			$rows[] = $row;
 		}
 
@@ -230,9 +240,9 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 * @return GraphContextRetriever
 	 */
 	private function graphRetriever(): GraphContextRetriever {
-		$answer = mt_rand(0, 6);
-		$graph = ['results' => $this->graphRows(), 'relations' => $this->pick(['', "A -> B\n", 'rel ' . mt_rand(0, 9) . "\n"])];
-		if (mt_rand(0, 4) === 0) {
+		$answer = $this->random->getInt(0, 6);
+		$graph = ['results' => $this->graphRows(), 'relations' => $this->pick(['', "A -> B\n", 'rel ' . $this->random->getInt(0, 9) . "\n"])];
+		if ($this->random->getInt(0, 4) === 0) {
 			unset($graph['relations']);
 		}
 
@@ -266,28 +276,28 @@ class ContextRetrievalGoldenTest extends TestCase {
 	private function graphRows(): array {
 		// One object row named only by its metadata, whose register is named twice.
 		$rows = [[
-			'entity_id' => 'directed-' . mt_rand(0, 9),
+			'entity_id' => 'directed-' . $this->random->getInt(0, 9),
 			'entity_type' => 'object',
 			'register_name' => $this->pick(['Zaken', null]),
 			'metadata' => ['register_id' => 'reg-meta', 'object_title' => 'Meta title', 'file_name' => 'meta.txt'],
 		]];
-		for ($i = mt_rand(0, 9); $i > 0; $i--) {
-			$row = ['entity_id' => $this->pick(['e' . mt_rand(100, 999) . 'abcdefghij', null, '', 7])];
+		for ($i = $this->random->getInt(0, 9); $i > 0; $i--) {
+			$row = ['entity_id' => $this->pick(['e' . $this->random->getInt(100, 999) . 'abcdefghij', null, '', 7])];
 			$type = $this->pick(self::TYPES);
 			if ($type !== null) {
 				$row['entity_type'] = $type;
 			}
 
-			if (mt_rand(0, 2) === 0) {
+			if ($this->random->getInt(0, 2) === 0) {
 				$row = array_merge($row, $this->maybe(['title' => $this->pick(self::NAMES), 'name' => $this->pick(self::NAMES)]));
 			}
 			$row = array_merge($row, $this->maybe(['filename' => $this->pick(['f.pdf', ''])]));
 			$row = array_merge($row, $this->maybe(['similarity' => $this->pick([0.8, null, 1])]));
 			$row = array_merge($row, $this->maybe(['score' => $this->pick([0.3, 4])]));
 			$row = array_merge($row, $this->maybe(['chunk_text' => $this->pick(['chunk', null])]));
-			$row = array_merge($row, $this->maybe(['text' => 'body ' . mt_rand(0, 9)]));
+			$row = array_merge($row, $this->maybe(['text' => 'body ' . $this->random->getInt(0, 9)]));
 			$row = array_merge($row, $this->maybe(['register_name' => $this->pick(['Zaken', '', null])]));
-			if (mt_rand(0, 3) > 0) {
+			if ($this->random->getInt(0, 3) > 0) {
 				$row['metadata'] = $this->metadata();
 			}
 			$rows[] = $row;
@@ -303,14 +313,14 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 */
 	private function metadata(): mixed {
 		$fields = $this->maybe([
-			'uuid' => 'mu' . mt_rand(0, 9),
-			'register_id' => 'reg-' . mt_rand(0, 3),
+			'uuid' => 'mu' . $this->random->getInt(0, 9),
+			'register_id' => 'reg-' . $this->random->getInt(0, 3),
 			'register' => 'regname',
-			'schema_id' => 'sch-' . mt_rand(0, 3),
+			'schema_id' => 'sch-' . $this->random->getInt(0, 3),
 			'schema' => 'schname',
-			'uri' => '/obj/' . mt_rand(0, 9),
-			'file_id' => mt_rand(1, 99),
-			'file_path' => '/f/' . mt_rand(0, 9),
+			'uri' => '/obj/' . $this->random->getInt(0, 9),
+			'file_id' => $this->random->getInt(1, 99),
+			'file_path' => '/f/' . $this->random->getInt(0, 9),
 			'mime_type' => 'text/plain',
 			'object_title' => $this->pick(['Obj title', '']),
 			'file_name' => $this->pick(['doc.txt', '']),
@@ -328,7 +338,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 */
 	private function appScope(): AppRegisterScope {
 		$registers = [];
-		for ($i = mt_rand(0, 3); $i > 0; $i--) {
+		for ($i = $this->random->getInt(0, 3); $i > 0; $i--) {
 			$registers[] = ['id' => 'reg-' . $i, 'name' => 'Register ' . $i];
 		}
 
@@ -345,7 +355,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 */
 	private function agent(): ObjectEntity {
 		$data = ['name' => 'agent'];
-		if (mt_rand(0, 4) > 0) {
+		if ($this->random->getInt(0, 4) > 0) {
 			$data['ragSearchMode'] = $this->pick(self::MODES);
 		}
 
@@ -354,12 +364,12 @@ class ContextRetrievalGoldenTest extends TestCase {
 		$data = array_merge($data, $this->maybe(['searchObjects' => $this->pick(self::FLAGS)]));
 		$data = array_merge($data, $this->maybe(['views' => $this->subset(self::VIEWS)]));
 		$data = array_merge($data, $this->maybe(['applicationSlug' => $this->pick(['dossiq', 'dossiq', '  ', '', null])]));
-		if (mt_rand(0, 4) > 0) {
+		if ($this->random->getInt(0, 4) > 0) {
 			$data['graphEnabled'] = $this->pick([true, true, false, 'yes']);
 		}
 
 		$entity = new ObjectEntity();
-		$entity->setUuid('agent-' . mt_rand(0, 9));
+		$entity->setUuid('agent-' . $this->random->getInt(0, 9));
 		$entity->setObject($data);
 
 		return $entity;
@@ -385,7 +395,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 * @return array<string, mixed>
 	 */
 	private function maybe(array $fields): array {
-		return array_filter($fields, static fn (): bool => mt_rand(0, 1) === 1);
+		return array_filter($fields, fn (): bool => $this->random->getInt(0, 1) === 1);
 	}//end maybe()
 
 	/**
@@ -396,7 +406,7 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 * @return array<int, mixed>
 	 */
 	private function subset(array $values): array {
-		return array_values(array_filter($values, static fn (): bool => mt_rand(0, 2) === 0));
+		return array_values(array_filter($values, fn (): bool => $this->random->getInt(0, 2) === 0));
 	}//end subset()
 
 	/**
@@ -407,6 +417,6 @@ class ContextRetrievalGoldenTest extends TestCase {
 	 * @return mixed
 	 */
 	private function pick(array $values): mixed {
-		return $values[mt_rand(0, count($values) - 1)];
+		return $values[$this->random->getInt(0, count($values) - 1)];
 	}//end pick()
 }//end class
