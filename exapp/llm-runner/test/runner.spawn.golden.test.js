@@ -232,7 +232,16 @@ test('every generated turn gives the recorded result', async () => {
 							turn: { ...c.turn, provider: undefined },
 							ambient: c.ambient,
 							...outcome,
-							log: lines,
+							// An overflowing CLI may finish writing before the kill lands,
+							// so its exit code is 0 or null depending on timing.
+							log: lines.map((line) =>
+								c.label.mode === 'big'
+									? line.replace(
+											/exit=(0|null) /,
+											'exit=<0 or killed> ',
+										)
+									: line,
+							),
 							scratchLeft: left.length,
 						}),
 						stub,
