@@ -31,7 +31,7 @@ const { pathToFileURL } = require('url')
 
 const ROOT = path.resolve(__dirname, '..')
 const FIXTURE = path.join(__dirname, 'Fixtures', 'Golden', 'chat-transport.json')
-const CASES = 400
+const CASES = 700
 
 // The Nextcloud modules chat.js imports, replaced by stubs that report to the test.
 const STUBS = {
@@ -101,12 +101,15 @@ const FRAMES = [
 	'event: token\ndata: {broken',
 	'event: token\ndata: {"delta":\ndata: "multi"}',
 	': comment line\nevent: heartbeat\ndata: {}',
+	'event: token\ndata: null',
 ]
 const TERMINALS = [
 	'event: final\ndata: {"messageId":"m1","fullText":"Hello"}',
 	'event: error\ndata: {"message":"refused","code":"forbidden"}',
 	'event: error\ndata: {}',
 	'event: final\ndata: {"messageId":"m2"}',
+	'event: error\ndata: 0',
+	'event: final\ndata: null',
 	'',
 ]
 
