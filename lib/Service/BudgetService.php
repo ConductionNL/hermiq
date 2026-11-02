@@ -309,12 +309,6 @@ class BudgetService {
 	 * @return array<string, mixed> The status payload (scope/agentId/period/periodKey/
 	 *                              tokens/eur/softThresholdReached/hardCapReached).
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single-pass threshold evaluation
-	 *   across the token AND (optional) EUR dimensions; splitting would duplicate the
-	 *   period-window/usage computation.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the optional tokenLimit/eurLimit/
-	 *   rate guards are independent, multiplying paths without adding real branching depth.
-	 *
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
 	 */
 	public function status(ObjectEntity $budget): array {
@@ -330,6 +324,36 @@ class BudgetService {
 		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
 		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
 
+		$limits = $this->budgetLimits(data: $data);
+		$tokens = $this->tokenUsage(used: $tokensUsed, limits: $limits);
+		$eur = $this->eurUsage(tokensUsed: $tokensUsed, limits: $limits);
+
+		$agentIdOrNull = null;
+		if ($agentId !== '') {
+			$agentIdOrNull = $agentId;
+		}
+
+		return [
+			'scope' => $scope,
+			'agentId' => $agentIdOrNull,
+			'period' => $period,
+			'periodKey' => $window['key'],
+			'tokens' => $tokens['usage'],
+			'eur' => $eur['usage'],
+			'softThresholdReached' => ($tokens['soft'] || $eur['soft']),
+			'hardCapReached' => ($tokens['hard'] || $eur['hard']),
+		];
+
+	}//end status()
+
+	/**
+	 * A budget's token limit, EUR limit and soft threshold, read from its payload.
+	 *
+	 * @param array<string, mixed> $data The budget payload.
+	 *
+	 * @return array{tokens: int|null, eur: float|null, soft: int} The limits (null when unset).
+	 */
+	private function budgetLimits(array $data): array {
 		// `isset()` is already false for null, so the `!== null` conjunct these
 		// two conditions used to carry was unreachable.
 		$tokenLimit = null;
@@ -342,60 +366,74 @@ class BudgetService {
 			$eurLimit = (float)$data['eurLimit'];
 		}
 
-		$softThresholdPercent = (int)($data['softThresholdPercent'] ?? self::DEFAULT_SOFT_THRESHOLD);
+		return [
+			'tokens' => $tokenLimit,
+			'eur' => $eurLimit,
+			'soft' => (int)($data['softThresholdPercent'] ?? self::DEFAULT_SOFT_THRESHOLD),
+		];
+	}//end budgetLimits()
 
+	/**
+	 * The token dimension of a budget status: usage block plus its threshold flags.
+	 *
+	 * @param int $used Tokens used in the period.
+	 * @param array{tokens: int|null, eur: float|null, soft: int} $limits The budget's limits.
+	 *
+	 * @return array{usage: array<string, mixed>, hard: bool, soft: bool}
+	 */
+	private function tokenUsage(int $used, array $limits): array {
+		$tokenLimit = $limits['tokens'];
 		$tokenPercent = null;
 		if ($tokenLimit !== null && $tokenLimit > 0) {
-			$tokenPercent = round((($tokensUsed / $tokenLimit) * 100), 1);
-		}
-
-		$hardCapReached = ($tokenLimit !== null && $tokenLimit > 0 && $tokensUsed >= $tokenLimit);
-		$softReached = ($tokenPercent !== null && $tokenPercent >= $softThresholdPercent);
-
-		$rate = $this->eurRate();
-		$eurAvailable = ($rate !== null);
-		$eurUsed = null;
-		$eurPercent = null;
-		if ($eurAvailable === true) {
-			$eurUsed = round((($tokensUsed * $rate) / 1000), 4);
-			if ($eurLimit !== null && $eurLimit > 0) {
-				$eurPercent = round((($eurUsed / $eurLimit) * 100), 1);
-				if ($eurUsed >= $eurLimit) {
-					$hardCapReached = true;
-				}
-
-				if ($eurPercent >= $softThresholdPercent) {
-					$softReached = true;
-				}
-			}
-		}
-
-		$agentIdOrNull = null;
-		if ($agentId !== '') {
-			$agentIdOrNull = $agentId;
+			$tokenPercent = round((($used / $tokenLimit) * 100), 1);
 		}
 
 		return [
-			'scope' => $scope,
-			'agentId' => $agentIdOrNull,
-			'period' => $period,
-			'periodKey' => $window['key'],
-			'tokens' => [
-				'used' => $tokensUsed,
+			'usage' => [
+				'used' => $used,
 				'limit' => $tokenLimit,
 				'percent' => $tokenPercent,
 			],
-			'eur' => [
-				'available' => $eurAvailable,
+			'hard' => ($tokenLimit !== null && $tokenLimit > 0 && $used >= $tokenLimit),
+			'soft' => ($tokenPercent !== null && $tokenPercent >= $limits['soft']),
+		];
+	}//end tokenUsage()
+
+	/**
+	 * The EUR dimension of a budget status, available only when a conversion rate is set.
+	 *
+	 * @param int $tokensUsed Tokens used in the period.
+	 * @param array{tokens: int|null, eur: float|null, soft: int} $limits The budget's limits.
+	 *
+	 * @return array{usage: array<string, mixed>, hard: bool, soft: bool}
+	 */
+	private function eurUsage(int $tokensUsed, array $limits): array {
+		$rate = $this->eurRate();
+		$eurLimit = $limits['eur'];
+		$eurUsed = null;
+		$eurPercent = null;
+		$hard = false;
+		$soft = false;
+		if ($rate !== null) {
+			$eurUsed = round((($tokensUsed * $rate) / 1000), 4);
+			if ($eurLimit !== null && $eurLimit > 0) {
+				$eurPercent = round((($eurUsed / $eurLimit) * 100), 1);
+				$hard = ($eurUsed >= $eurLimit);
+				$soft = ($eurPercent >= $limits['soft']);
+			}
+		}
+
+		return [
+			'usage' => [
+				'available' => ($rate !== null),
 				'used' => $eurUsed,
 				'limit' => $eurLimit,
 				'percent' => $eurPercent,
 			],
-			'softThresholdReached' => $softReached,
-			'hardCapReached' => $hardCapReached,
+			'hard' => $hard,
+			'soft' => $soft,
 		];
-
-	}//end status()
+	}//end eurUsage()
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,
