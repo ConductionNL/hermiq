@@ -672,6 +672,7 @@ class BudgetService {
 				_multitenancy: false
 			);
 
+		$scopes = new BudgetScopes();
 		$matches = [];
 		foreach ($objects as $object) {
 			if (($object instanceof ObjectEntity) === false) {
@@ -685,7 +686,7 @@ class BudgetService {
 				continue;
 			}
 
-			if ($this->matchesScope(budget: $object, organisation: $organisation, agentId: $agentId) === true) {
+			if ($scopes->matches(budget: $object, organisation: $organisation, agentId: $agentId) === true) {
 				$matches[] = $object;
 			}
 		}
@@ -696,70 +697,42 @@ class BudgetService {
 	/**
 	 * Find the caller's own budget for a scope, tenant-scoped (RBAC/multitenancy ON).
 	 * Prefers an agent-scoped budget over the organisation-scoped one when both exist
-	 * and an agentId was supplied.
+	 * and an agentId was supplied; within each kind the last one read wins.
 	 *
-	 * @param string $organisation The organisation identifier.
+	 * @param string $organisation The organisation identifier ('' = any the caller sees).
 	 * @param string|null $agentId Optional agent UUID.
 	 *
 	 * @return ObjectEntity|null The matching budget, or null when none is configured.
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One linear filter loop whose guards
-	 *   (entity type, organisation, agent-vs-organisation scope preference) are each a
-	 *   single condition; extracting them would obscure the preference order.
 	 */
 	private function findBudgetTenantScoped(string $organisation, ?string $agentId): ?ObjectEntity {
+		$budgets = $this->tenantBudgets(organisation: $organisation);
+
+		$scopes = new BudgetScopes();
+
+		return ($scopes->lastAgentBudget(budgets: $budgets, agentId: $agentId) ?? $scopes->lastOrganisationBudget(budgets: $budgets));
+	}//end findBudgetTenantScoped()
+
+	/**
+	 * The budgets the caller sees (RBAC/multitenancy ON), of one organisation when given.
+	 *
+	 * @param string $organisation The organisation identifier ('' = every organisation the caller sees).
+	 *
+	 * @return array<int, ObjectEntity> The budgets, in read order.
+	 */
+	private function tenantBudgets(string $organisation): array {
 		$objects = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::BUDGET_SCHEMA)
 			->findAll(config: ['limit' => 1000]);
 
-		$agentMatch = null;
-		$orgMatch = null;
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			$scope = (string)($data['scope'] ?? '');
-
-			if ($organisation !== '' && (string)($object->getOrganisation() ?? '') !== $organisation) {
-				continue;
-			}
-
-			if ($agentId !== null && $agentId !== '' && $scope === 'agent' && (string)($data['agentId'] ?? '') === $agentId) {
-				$agentMatch = $object;
-			} elseif ($scope === 'organisation') {
-				$orgMatch = $object;
-			}
-		}
-
-		return ($agentMatch ?? $orgMatch);
-	}//end findBudgetTenantScoped()
-
-	/**
-	 * Whether a budget object matches the given organisation/agent scope.
-	 *
-	 * @param ObjectEntity $budget The budget object.
-	 * @param string $organisation The organisation identifier.
-	 * @param string|null $agentId The bound agent UUID, when known.
-	 *
-	 * @return bool
-	 */
-	private function matchesScope(ObjectEntity $budget, string $organisation, ?string $agentId): bool {
-		$data = $budget->getObject();
-		$scope = (string)($data['scope'] ?? '');
-
-		if ($scope === 'organisation') {
-			return ($organisation !== '' && (string)($budget->getOrganisation() ?? '') === $organisation);
-		}
-
-		if ($scope === 'agent') {
-			return ($agentId !== null && $agentId !== '' && (string)($data['agentId'] ?? '') === $agentId);
-		}
-
-		return false;
-	}//end matchesScope()
+		return array_values(
+			array_filter(
+				$objects,
+				static fn (mixed $object): bool => ($object instanceof ObjectEntity) === true
+					&& ($organisation === '' || (string)($object->getOrganisation() ?? '') === $organisation)
+			)
+		);
+	}//end tenantBudgets()
 
 	/**
 	 * Best-effort persist of `lastHardBlockAt` for admin visibility. Never fatal to the
