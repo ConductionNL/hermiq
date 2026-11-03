@@ -534,6 +534,187 @@ import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
 
 /**
+ * A copy of the stored agent to spread into a save, without OpenRegister's `@self`.
+ *
+ * @param {object|null} agent The stored agent, or nothing on a create.
+ * @return {object} The copy.
+ */
+function editableCopy(agent) {
+	const base = agent ? { ...agent } : {}
+	delete base['@self']
+	return base
+}
+
+/**
+ * The payload's knowledge search and voice fields.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields.
+ */
+function searchAndVoicePayload(form) {
+	return {
+		enableRag: form.enableRag,
+		searchObjects: form.searchObjects,
+		searchFiles: form.searchFiles,
+
+		// The pickers hold `{value, label}` objects; the schema holds
+		// the value. Sending the object would store `[object Object]`
+		// and the agent would read as an unrecognised engine — which
+		// normalises to `auto`, i.e. an agent pinned to the private
+		// engine would quietly become one that may use the browser's.
+		// The form now holds the value itself, and the pickers convert
+		// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
+		voiceInputEngine: form.voiceInputEngine || 'auto',
+		voiceOutputEngine: form.voiceOutputEngine || 'auto',
+
+		voiceConversationEnabled: form.voiceConversationEnabled,
+	}
+}
+
+/**
+ * The values of a picker's `{label, value}` options.
+ *
+ * @param {Array<{value: string}>|null} options The options, or nothing.
+ * @return {Array<string>} The values.
+ */
+function optionValues(options) {
+	return (options || []).map((option) => option.value)
+}
+
+/**
+ * A number typed into a form field, when it is filled in and valid.
+ *
+ * @param {string|number|null} raw The field's value.
+ * @param {Function} isValid Tells a usable number from the rest.
+ * @return {number|undefined} The number, or undefined to leave the key out.
+ */
+function typedNumber(raw, isValid) {
+	const value = Number(raw)
+	return raw !== '' && isValid(value) ? value : undefined
+}
+
+/**
+ * Copy the fields that have a value onto the target.
+ *
+ * @param {object} target The object to write on.
+ * @param {object} fields The fields; an undefined one is skipped.
+ * @return {void}
+ */
+function assignDefined(target, fields) {
+	for (const [key, value] of Object.entries(fields)) {
+		if (value !== undefined) {
+			target[key] = value
+		}
+	}
+}
+
+/**
+ * The payload's voice timeout and model tuning numbers.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields; a blank or invalid one is undefined.
+ */
+function tuningFields(form) {
+	return {
+		voiceSilenceTimeout: typedNumber(
+			form.voiceSilenceTimeout,
+			(value) => Number.isInteger(value) && value >= 0,
+		),
+		temperature: typedNumber(form.temperature, (value) => !Number.isNaN(value)),
+		maxTokens: typedNumber(form.maxTokens, Number.isInteger),
+	}
+}
+
+/**
+ * The payload's tool call limit, kept within 1 to 100, and its source count.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields; a blank or invalid one is undefined.
+ */
+function limitFields(form) {
+	const maxToolCalls = typedNumber(form.maxToolCalls, Number.isInteger)
+	return {
+		maxToolCalls:
+			maxToolCalls === undefined
+				? undefined
+				: Math.min(100, Math.max(1, maxToolCalls)),
+		ragNumSources: typedNumber(form.ragNumSources, Number.isInteger),
+	}
+}
+
+/**
+ * The form fields that describe the agent and its model.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function describingFields(source) {
+	return {
+		name: source.name || '',
+		description: source.description || '',
+		icon: source.icon || '',
+		provider: source.provider || '',
+		model: source.model || '',
+		prompt: source.prompt || '',
+		startFields: startFieldsOf(source),
+		temperature: source.temperature ?? '',
+		maxTokens: source.maxTokens ?? '',
+		maxToolCalls: source.maxToolCalls ?? 10,
+	}
+}
+
+/**
+ * Stored ids as picker options.
+ *
+ * @param {Array<string>|*} ids The stored list.
+ * @return {Array<{label: string, value: string}>} The options.
+ */
+function idOptions(ids) {
+	return (Array.isArray(ids) ? ids : []).map((id) => ({ label: id, value: id }))
+}
+
+/**
+ * The form fields that say which app the agent belongs to and who can use it.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function accessFields(source) {
+	const slug = appSlugOf(source.applicationSlug)
+	return {
+		applicationSlug: slug ? { label: slug, value: slug } : null,
+		appAssistant: answersInItsApp(source),
+		sharing: sharingOf(source),
+		invitedUsers: idOptions(source.invitedUsers),
+		groups: idOptions(source.groups),
+	}
+}
+
+/**
+ * The form fields for knowledge search and voice.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function searchAndVoiceFields(source) {
+	return {
+		enableRag: source.enableRag === true,
+		searchObjects: source.searchObjects !== false,
+		searchFiles: source.searchFiles !== false,
+		ragNumSources: source.ragNumSources ?? '',
+		voiceInputEngine: source.voiceInputEngine || 'auto',
+		voiceOutputEngine: source.voiceOutputEngine || 'auto',
+
+		// '' rather than 2500: an empty field means "unset, use the
+		// default", and pre-filling the default would silently write it
+		// onto every agent that is edited for an unrelated reason.
+		voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
+		voiceConversationEnabled: source.voiceConversationEnabled === true,
+		credentialIds: { ...(source.credentialIds || {}) },
+	}
+}
+
+/**
  * The stored `tools` value to carry forward on an edit, as the list the schema declares.
  *
  * A list is kept verbatim. The grant structure an earlier build stored is carried
@@ -1291,51 +1472,13 @@ export default {
 				? source.delegationAllowlist
 				: []
 			this.form = {
-				name: source.name || '',
-				description: source.description || '',
-				icon: source.icon || '',
-				provider: source.provider || '',
-				model: source.model || '',
-				prompt: source.prompt || '',
-				startFields: startFieldsOf(source),
-				temperature: source.temperature ?? '',
-				maxTokens: source.maxTokens ?? '',
-				maxToolCalls: source.maxToolCalls ?? 10,
-				applicationSlug: appSlugOf(source.applicationSlug)
-					? {
-							label: appSlugOf(source.applicationSlug),
-							value: appSlugOf(source.applicationSlug),
-						}
-					: null,
-
-				appAssistant: answersInItsApp(source),
-				sharing: sharingOf(source),
-				invitedUsers: (Array.isArray(source.invitedUsers)
-					? source.invitedUsers
-					: []
-				).map((uid) => ({ label: uid, value: uid })),
-
-				groups: (Array.isArray(source.groups) ? source.groups : []).map(
-					(gid) => ({ label: gid, value: gid }),
-				),
-
+				...describingFields(source),
+				...accessFields(source),
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 
-				enableRag: source.enableRag === true,
-				searchObjects: source.searchObjects !== false,
-				searchFiles: source.searchFiles !== false,
-				ragNumSources: source.ragNumSources ?? '',
-				voiceInputEngine: source.voiceInputEngine || 'auto',
-				voiceOutputEngine: source.voiceOutputEngine || 'auto',
-
-				// '' rather than 2500: an empty field means "unset, use the
-				// default", and pre-filling the default would silently write it
-				// onto every agent that is edited for an unrelated reason.
-				voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
-				voiceConversationEnabled: source.voiceConversationEnabled === true,
-				credentialIds: { ...(source.credentialIds || {}) },
+				...searchAndVoiceFields(source),
 			}
 		},
 
@@ -1555,8 +1698,7 @@ export default {
 		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 		 */
 		buildPayload() {
-			const base = this.effectiveAgent ? { ...this.effectiveAgent } : {}
-			delete base['@self']
+			const base = editableCopy(this.effectiveAgent)
 
 			const payload = {
 				...base,
@@ -1572,63 +1714,24 @@ export default {
 					? storedTools(base.tools)
 					: this.selectedGrants(),
 
-				delegationAllowlist: (this.form.delegationAllowlist || []).map(
-					(option) => option.value,
-				),
+				delegationAllowlist: optionValues(this.form.delegationAllowlist),
 
 				applicationSlug: appSlugOf(this.form.applicationSlug),
 
-				enableRag: this.form.enableRag,
-				searchObjects: this.form.searchObjects,
-				searchFiles: this.form.searchFiles,
-
-				// The pickers hold `{value, label}` objects; the schema holds
-				// the value. Sending the object would store `[object Object]`
-				// and the agent would read as an unrecognised engine — which
-				// normalises to `auto`, i.e. an agent pinned to the private
-				// engine would quietly become one that may use the browser's.
-				// The form now holds the value itself, and the pickers convert
-				// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
-				voiceInputEngine: this.form.voiceInputEngine || 'auto',
-				voiceOutputEngine: this.form.voiceOutputEngine || 'auto',
-
-				voiceConversationEnabled: this.form.voiceConversationEnabled,
+				...searchAndVoicePayload(this.form),
 				credentialIds: this.form.credentialIds,
 			}
 
-			const voiceSilenceTimeout = Number(this.form.voiceSilenceTimeout)
-			if (
-				this.form.voiceSilenceTimeout !== ''
-				&& Number.isInteger(voiceSilenceTimeout)
-				&& voiceSilenceTimeout >= 0
-			) {
-				payload.voiceSilenceTimeout = voiceSilenceTimeout
-			}
-
-			const temperature = Number(this.form.temperature)
-			if (this.form.temperature !== '' && !Number.isNaN(temperature)) {
-				payload.temperature = temperature
-			}
-			const maxTokens = Number(this.form.maxTokens)
-			if (this.form.maxTokens !== '' && Number.isInteger(maxTokens)) {
-				payload.maxTokens = maxTokens
-			}
+			assignDefined(payload, tuningFields(this.form))
 			Object.assign(
 				payload,
 				sharingFields(
 					this.form.sharing,
-					(this.form.invitedUsers || []).map((option) => option.value),
-					(this.form.groups || []).map((option) => option.value),
+					optionValues(this.form.invitedUsers),
+					optionValues(this.form.groups),
 				),
 			)
-			const maxToolCalls = Number(this.form.maxToolCalls)
-			if (this.form.maxToolCalls !== '' && Number.isInteger(maxToolCalls)) {
-				payload.maxToolCalls = Math.min(100, Math.max(1, maxToolCalls))
-			}
-			const ragNumSources = Number(this.form.ragNumSources)
-			if (this.form.ragNumSources !== '' && Number.isInteger(ragNumSources)) {
-				payload.ragNumSources = ragNumSources
-			}
+			assignDefined(payload, limitFields(this.form))
 
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.effectiveAgent && this.effectiveAgent.id) {
