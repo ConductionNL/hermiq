@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Listener\AgentWaiverAuditListener;
+use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
+use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -35,6 +38,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -108,6 +112,13 @@ class ToolOversightControllerTest extends TestCase {
 	private IGroupManager $groupManager;
 
 	/**
+	 * The waiver audit the controller writes through.
+	 *
+	 * @var GrantWaiverAudit
+	 */
+	private GrantWaiverAudit $waiverAudit;
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -132,6 +143,8 @@ class ToolOversightControllerTest extends TestCase {
 		$this->groupManager = $this->createMock(IGroupManager::class);
 		$this->groupManager->method('isAdmin')->willReturn(false);
 
+		$this->waiverAudit = new GrantWaiverAudit($this->auditTrailMapper, $this->userSession, $this->createMock(LoggerInterface::class));
+
 	}//end setUp()
 
 	/**
@@ -147,7 +160,7 @@ class ToolOversightControllerTest extends TestCase {
 		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
 		// goes here and not on the end — appending would put the logger in its
 		// slot and the anonymous class's own `$richAvailable` in the logger's.
-		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $richAvailable) extends ToolOversightController {
+		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $this->waiverAudit, $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
 			 */
@@ -163,6 +176,7 @@ class ToolOversightControllerTest extends TestCase {
 				ToolAccessRequestService $accessRequests,
 				LoggerInterface $logger,
 				AgentAccessService $agentAccess,
+				GrantWaiverAudit $waiverAudit,
 				private readonly bool $richAvailable,
 			) {
 				parent::__construct(
@@ -176,7 +190,8 @@ class ToolOversightControllerTest extends TestCase {
 					$groupManager,
 					$accessRequests,
 					$logger,
-					$agentAccess
+					$agentAccess,
+					$waiverAudit
 				);
 			}//end __construct()
 
@@ -486,6 +501,70 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame('alice', $captured['context']['actor']);
 
 	}//end testAddingAWaiverWritesADistinctAuditEvent()
+
+	/**
+	 * The endpoint's own write raises OpenRegister's object event, which the
+	 * waiver listener hears in the same request: the waiver is recorded once,
+	 * and a later write through the generic API is recorded again.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+	 */
+	public function testTheEndpointsOwnObjectEventIsNotAuditedTwice(): void {
+		$stored = $this->agent(['tools' => ['hermiq.sendMail']], 'alice');
+		$this->objectService->method('find')->willReturn($stored);
+		$this->request->method('getParam')->with('grants')
+			->willReturn(['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]);
+
+		$matcher = $this->createMock(AgentObjectMatcher::class);
+		$matcher->method('isAgent')->willReturn(true);
+		$listener = new AgentWaiverAuditListener($this->waiverAudit, $matcher, $this->createMock(LoggerInterface::class));
+
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use ($listener, $stored): ObjectEntity {
+				$saved = ($this->savingEntity())($object);
+				$listener->handle(new ObjectUpdatedEvent($saved, $stored));
+				return $saved;
+			}
+		);
+
+		$entries = 0;
+		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
+			function () use (&$entries): AuditTrail {
+				$entries++;
+				return new AuditTrail();
+			}
+		);
+
+		$this->controller()->updateToolGrants('agent-1');
+		$this->assertSame(1, $entries);
+		$this->assertFalse($this->waiverAudit->isClaimed('agent-1'));
+
+		$later = ($this->savingEntity())(['tools' => ['hermiq.sendMail']]);
+		$listener->handle(new ObjectUpdatedEvent($later, ($this->savingEntity())(['tools' => ['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]])));
+		$this->assertSame(2, $entries);
+
+	}//end testTheEndpointsOwnObjectEventIsNotAuditedTwice()
+
+	/**
+	 * A failed endpoint write releases its claim, so later writes are audited.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+	 */
+	public function testAFailedEndpointWriteReleasesItsClaim(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['hermiq.sendMail']], 'alice'));
+		$this->request->method('getParam')->with('grants')->willReturn(['hermiq.sendMail']);
+		$this->objectService->method('saveObject')->willThrowException(new RuntimeException('down'));
+
+		$response = $this->controller()->updateToolGrants('agent-1');
+
+		$this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $response->getStatus());
+		$this->assertFalse($this->waiverAudit->isClaimed('agent-1'));
+
+	}//end testAFailedEndpointWriteReleasesItsClaim()
 
 	/**
 	 * 🔴 Removing a waiver is audited too.

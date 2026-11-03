@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -247,7 +248,8 @@ class ToolCatalogGoldenTest extends TestCase {
 			groupManager: $groups,
 			accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class),
 			logger: $logger,
-			agentAccess: new AgentAccessService($objectService, $logger, $groups)
+			agentAccess: new AgentAccessService($objectService, $logger, $groups),
+			waiverAudit: $this->createMock(originalClassName: GrantWaiverAudit::class)
 		);
 
 	}//end controller()

@@ -44,10 +44,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
+use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Talk\TalkBotInstaller;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Db\RegisterMapper;
-use OCA\OpenRegister\Db\SchemaMapper;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
@@ -67,32 +66,17 @@ use Throwable;
  */
 class AgentBotLifecycleListener implements IEventListener {
 
-	/**
-	 * Schema slug for agents.
-	 *
-	 * @var string
-	 */
-	private const AGENT_SCHEMA = 'agent';
-
-	/**
-	 * Register slug that owns Hermiq's agents.
-	 *
-	 * @var string
-	 */
-	private const REGISTER_SLUG = 'hermiq';
 
 	/**
 	 * Constructor.
 	 *
 	 * @param TalkBotInstaller $installer Installs/renames/removes the per-agent bot.
-	 * @param SchemaMapper $schemaMapper Resolves the object's schema slug.
-	 * @param RegisterMapper $registerMapper Resolves the object's register slug.
+	 * @param AgentObjectMatcher $agents Tells a Hermiq agent from other objects.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		private readonly TalkBotInstaller $installer,
-		private readonly SchemaMapper $schemaMapper,
-		private readonly RegisterMapper $registerMapper,
+		private readonly AgentObjectMatcher $agents,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -137,7 +121,7 @@ class AgentBotLifecycleListener implements IEventListener {
 			return;
 		}
 
-		if ($this->isHermiqAgent(object: $object) === false) {
+		if ($this->agents->isAgent(object: $object) === false) {
 			return;
 		}
 
@@ -178,52 +162,6 @@ class AgentBotLifecycleListener implements IEventListener {
 
 	}//end apply()
 
-	/**
-	 * Whether an object is one of Hermiq's agents.
-	 *
-	 * 🔴 `ObjectEntity::getSchema()` returns the schema's NUMERIC ID, not its
-	 * slug — an agent arrives as `'4365'`, never `'agent'`. Comparing it to the
-	 * slug is a check that can only ever be false, and it fails in the worst
-	 * possible way: silently, on every event, with the listener firing exactly
-	 * as designed and simply declining to act. Verified live; the id is
-	 * instance-specific, so it cannot be hard-coded either.
-	 *
-	 * Resolved per call rather than cached: this listener is constructed per
-	 * request, schemas can be re-imported mid-life, and the mappers cache.
-	 *
-	 * @param ObjectEntity $object The object the event carries.
-	 *
-	 * @return bool True when this is a Hermiq agent object.
-	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
-	 */
-	private function isHermiqAgent(ObjectEntity $object): bool {
-		$schema = (string)$object->getSchema();
-		if ($schema === '') {
-			return false;
-		}
-
-		// Slug, when a caller hands one over instead of an id.
-		if ($schema === self::AGENT_SCHEMA) {
-			return true;
-		}
-
-		try {
-			if ((string)$this->schemaMapper->find((int)$schema)->getSlug() !== self::AGENT_SCHEMA) {
-				return false;
-			}
-
-			// 🔴 The register check is NOT redundant. Schema slugs are not
-			// unique across the instance: this fleet has TWO schemas slugged
-			// `agent` (hermiq's and another app's), exactly as it has two
-			// slugged `conversation`. Matching on the slug alone would install
-			// a Hermiq Talk bot for another app's objects.
-			return ((string)$this->registerMapper->find((int)$object->getRegister())->getSlug() === self::REGISTER_SLUG);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-	}//end isHermiqAgent()
 
 	/**
 	 * Unwrap the object and whether this is a deletion.

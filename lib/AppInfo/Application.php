@@ -29,6 +29,7 @@ namespace OCA\Hermiq\AppInfo;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
+use OCA\Hermiq\Listener\AgentWaiverAuditListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
 use OCA\Hermiq\Listener\AiOversightRecordedListener;
@@ -149,6 +150,11 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
 		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
 		$context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
+
+		// An approval waiver is audited on every write to an agent, also one made
+		// through OpenRegister's generic objects API rather than the tool-grants endpoint.
+		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentWaiverAuditListener::class);
+		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverAuditListener::class);
 
 		// Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
 		// contributes the agent step as a flow NODE, and nothing else. Flows now

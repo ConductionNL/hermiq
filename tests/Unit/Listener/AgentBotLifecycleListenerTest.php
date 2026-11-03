@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
+use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Talk\TalkBotInstaller;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
@@ -41,6 +42,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * @covers \OCA\Hermiq\Listener\AgentBotLifecycleListener
+ * @uses   \OCA\Hermiq\Service\Agent\AgentObjectMatcher
  */
 class AgentBotLifecycleListenerTest extends TestCase {
 
@@ -80,8 +82,7 @@ class AgentBotLifecycleListenerTest extends TestCase {
 
 		$this->listener = new AgentBotLifecycleListener(
 			$this->installer,
-			$schemaMapper,
-			$registerMapper,
+			new AgentObjectMatcher($schemaMapper, $registerMapper),
 			$this->createMock(LoggerInterface::class)
 		);
 
