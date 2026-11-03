@@ -115,11 +115,12 @@ class ToolAccessRequestServiceTest extends TestCase {
 			 * @param mixed                $register The register.
 			 * @param mixed                $schema   The schema.
 			 * @param bool                 $_rbac    Whether the save runs under the caller's RBAC.
+			 * @param bool                 $_unowned Whether the system, not the caller, owns the object.
 			 *
 			 * @return array<string, mixed>
 			 */
-			public function saveObject(array $object, mixed $register = null, mixed $schema = null, bool $_rbac = true): array {
-				$this->writes[] = [(string)$schema, $object, $_rbac];
+			public function saveObject(array $object, mixed $register = null, mixed $schema = null, bool $_rbac = true, bool $_unowned = false): array {
+				$this->writes[] = [(string)$schema, $object, $_rbac, $_unowned];
 
 				return ($object + ['id' => 'req-new']);
 			}
@@ -236,6 +237,10 @@ class ToolAccessRequestServiceTest extends TestCase {
 		$this->assertFalse(
 			$this->writes[0][2],
 			'the request is raised on the system path: its status, toolId, agentId and requestedBy are admin-only through the object API'
+		);
+		$this->assertTrue(
+			$this->writes[0][3],
+			'the system owns the request: OpenRegister admits an owner before every rule, so a requester who owned it could delete a refused request and raise a fresh one'
 		);
 
 	}//end testRequestWritesARequestAndNeverTheAgentsGrants()
@@ -566,6 +571,30 @@ class ToolAccessRequestServiceTest extends TestCase {
 			'the decision must name the tool the owner was shown'
 		);
 	}//end testPendingApprovalsDescribeHowToResolveThemselves()
+
+	/**
+	 * The tool in the resolve URL is URL-encoded, so a tool id carrying query
+	 * characters cannot add parameters to the decision.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testThePinnedToolIsUrlEncoded(): void {
+		$service = $this->service(
+			catalog: [],
+			existing: [
+				'id' => 'req-1',
+				'agentId' => 'agent-1',
+				'toolId' => 'app.tool&decision=granted',
+				'status' => 'pending',
+			]
+		);
+
+		$approvals = $service->pendingApprovals('agent-1');
+
+		$this->assertStringEndsWith('?toolId=app.tool%26decision%3Dgranted', $approvals[0]['resolveUrl']);
+	}//end testThePinnedToolIsUrlEncoded()
 
 	/**
 	 * With no agent there is nothing to approve, and nothing is looked up.

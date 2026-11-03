@@ -1031,7 +1031,7 @@ class ToolOversightControllerTest extends TestCase {
 	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function testResolveRefusesASwappedTool(): void {
-		foreach (['hermiq.listFiles', ''] as $shown) {
+		foreach (['hermiq.listFiles', '', 'HERMIQ.SENDMAIL', 'hermiq.SendMail', 'hermiq%2EsendMail', 'hermiq.sendMail '] as $shown) {
 			$this->setUp();
 			$this->serveAgentAndRequest(
 				$this->agent(['tools' => []], 'alice'),

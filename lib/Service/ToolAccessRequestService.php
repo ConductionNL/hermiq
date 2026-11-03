@@ -713,13 +713,15 @@ class ToolAccessRequestService {
 	private function save(array $data): array {
 		try {
 			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
-			// System path: status, toolId, agentId and requestedBy are admin-only
-			// through the object API, and this service sets them itself.
+			// System path, system-owned: status, toolId, agentId and requestedBy are
+			// admin-only through the object API, and OpenRegister admits an owner
+			// before every rule, so the requester must not own the request.
 			$saved = $objectService->saveObject(
 				object: $data,
 				register: self::REGISTER_SLUG,
 				schema: self::REQUEST_SCHEMA,
-				_rbac: false
+				_rbac: false,
+				_unowned: true
 			);
 
 			return $this->asRecord(value: $saved);
