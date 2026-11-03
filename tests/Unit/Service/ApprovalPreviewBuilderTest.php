@@ -49,6 +49,9 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			['mcpId' => 'files.listFiles', 'name' => 'files.listFiles', 'readOnlyHint' => true, 'destructiveHint' => false, 'scope' => 'read', 'reach' => 'user'],
 			['mcpId' => 'mail.sendMail', 'name' => 'mail.sendMail', 'readOnlyHint' => false, 'destructiveHint' => true, 'scope' => 'create', 'reach' => 'external'],
 			['mcpId' => 'calendar.upsertEvent', 'name' => 'calendar.upsertEvent', 'readOnlyHint' => false, 'destructiveHint' => false, 'scope' => 'update', 'reach' => 'user'],
+			['mcpId' => 'dossiq.createTask', 'name' => 'createTask', 'title' => 'Create a task', 'scope' => 'create', 'reach' => 'organisation'],
+			['mcpId' => 'dossiq.closeCase', 'name' => 'closeCase', 'annotations' => ['title' => 'Close a case'], 'scope' => 'update', 'reach' => 'organisation'],
+			['mcpId' => 'dossiq.openCase', 'name' => 'openCase', 'title' => '  ', 'annotations' => ['title' => 7], 'scope' => 'create', 'reach' => 'organisation'],
 		];
 	}//end catalog()
 
@@ -148,4 +151,35 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			$this->builder()->toolLine('files.deleteFile')
 		);
 	}//end testTheTalkLineNamesTheToolAndItsReach()
+	/**
+	 * A tool whose descriptor carries a human title (top level, or MCP's
+	 * annotations.title) is described with it; one without keeps its name only.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 */
+	public function testAToolsHumanTitleIsCarriedWhenTheCatalogueHasOne(): void {
+		$titles = [];
+		foreach (['dossiq.createTask', 'dossiq.closeCase', 'dossiq.openCase', 'files.deleteFile'] as $toolId) {
+			$preview = $this->builder()->build(['sourceType' => 'toolcall', 'agentId' => 'agent-1', 'toolId' => $toolId]);
+			$titles[$toolId] = ($preview['tools'][0]['title'] ?? null);
+		}
+
+		$this->assertSame(
+			['dossiq.createTask' => 'Create a task', 'dossiq.closeCase' => 'Close a case', 'dossiq.openCase' => null, 'files.deleteFile' => null],
+			$titles
+		);
+	}//end testAToolsHumanTitleIsCarriedWhenTheCatalogueHasOne()
+
+	/**
+	 * The Talk line names a titled tool by its title.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testTheTalkLineNamesATitledToolByItsTitle(): void {
+		$this->assertStringStartsWith('The tool Create a task changes,', $this->builder()->toolLine('dossiq.createTask'));
+	}//end testTheTalkLineNamesATitledToolByItsTitle()
 }//end class
