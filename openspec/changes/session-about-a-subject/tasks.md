@@ -3,4 +3,4 @@
 - [x] T03 `serializeConversation` returns `subject`
 - [x] T04 `SessionController::messages` returns `pendingApprovals` for the session's agent
 - [x] T05 PHPUnit, red first: subject recorded on the first turn and kept after; filter returns only the caller's sessions about the record; another user's session about the record is not listed; messages carry the pending approvals; no agent gives an empty list
-- [ ] T06 Example-set fragment: a session about a demo case with a question, an answer and one pending approval
+- [x] T06 Example-set fragment: a session about a demo case with a question, an answer and one pending approval
