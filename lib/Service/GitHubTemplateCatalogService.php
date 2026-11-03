@@ -265,6 +265,13 @@ class GitHubTemplateCatalogService {
 	private readonly ?ICache $cache;
 
 	/**
+	 * Reader over the GitHub response bodies (no outbound calls).
+	 *
+	 * @var GitHubCatalogPayload
+	 */
+	private readonly GitHubCatalogPayload $payload;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IClientService $clientService NC HTTP client factory (anonymous calls).
@@ -292,6 +299,7 @@ class GitHubTemplateCatalogService {
 		}
 
 		$this->cache = $cache;
+		$this->payload = new GitHubCatalogPayload();
 	}//end __construct()
 
 	/**
@@ -349,10 +357,6 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Cache hit, rate-limit/unreachable
-	 *   degradation and card filtering are the spec's own outcome branches, kept in
-	 *   one linear search path.
-	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
@@ -381,27 +385,11 @@ class GitHubTemplateCatalogService {
 		if ($result['ok'] === false) {
 			// Rate-limited/unreachable with no fresh result — surface a generic outcome,
 			// never a 5xx (the caller — githubSearch() — always returns HTTP 200).
-			$failure = self::OUTCOME_UNREACHABLE;
-			if ($result['rateLimited'] === true) {
-				$failure = self::OUTCOME_RATE_LIMITED;
-			}
-
-			return [
-				'outcome' => $failure,
-				'cards' => [],
-				'brokerUsed' => $result['brokerUsed'],
-				'rateLimited' => $result['rateLimited'],
-			];
-		}
-
-		$decoded = json_decode($result['body'], true);
-		$items = [];
-		if (is_array($decoded) === true && is_array($decoded['items'] ?? null) === true) {
-			$items = $decoded['items'];
+			return $this->payload->searchFailure(result: $result);
 		}
 
 		$cards = [];
-		foreach (array_slice($items, 0, self::MAX_HITS) as $item) {
+		foreach ($this->payload->searchItems(body: $result['body'], max: self::MAX_HITS) as $item) {
 			if (is_array($item) === false) {
 				continue;
 			}
@@ -616,12 +604,7 @@ class GitHubTemplateCatalogService {
 		$bytes = 0;
 		$truncated = false;
 
-		foreach ($tree as $entry) {
-			$path = $this->blobPathOf(entry: $entry);
-			if ($path === null || $accept($path) === false) {
-				continue;
-			}
-
+		foreach ($this->payload->wantedBlobPaths(tree: $tree, accept: $accept) as $path) {
 			if (count($files) >= $maxFiles || $bytes >= $maxBytes) {
 				$truncated = true;
 				continue;
@@ -756,26 +739,6 @@ class GitHubTemplateCatalogService {
 
 		return $decoded['tree'];
 	}//end fetchTree()
-
-	/**
-	 * The path of a tree entry when it is a usable blob, else null.
-	 *
-	 * @param mixed $entry A raw git-tree entry.
-	 *
-	 * @return string|null The blob path, or null when the entry is not a blob.
-	 */
-	private function blobPathOf(mixed $entry): ?string {
-		if (is_array($entry) === false || (string)($entry['type'] ?? '') !== 'blob') {
-			return null;
-		}
-
-		$path = (string)($entry['path'] ?? '');
-		if ($path === '') {
-			return null;
-		}
-
-		return $path;
-	}//end blobPathOf()
 
 	/**
 	 * Fetch a BUNDLE repository as a `path => contents` map (skill-bundle-publish).
@@ -926,95 +889,26 @@ class GitHubTemplateCatalogService {
 	 * @return array<string,mixed>|null The card, or null when the item lacks an owner/name.
 	 */
 	private function buildCard(array $item, string $kind, ?string $actingUserId, ?string $credentialId): ?array {
-		$fullName = (string)($item['full_name'] ?? '');
-		$nameParts = explode('/', $fullName);
-		$owner = (string)($item['owner']['login'] ?? '');
-		if ($owner === '') {
-			$owner = (string)($nameParts[0] ?? '');
-		}
-
-		$repo = (string)($item['name'] ?? '');
-		if ($repo === '') {
-			$repo = (string)($nameParts[1] ?? '');
-		}
-
-		if ($owner === '' || $repo === '') {
+		$coordinates = $this->payload->hitCoordinates(item: $item);
+		if ($coordinates === null) {
 			return null;
 		}
 
-		$stars = (int)($item['stargazers_count'] ?? 0);
 		$contents = $this->fetchPackageFile(
 			kind: $kind,
-			owner: $owner,
-			repo: $repo,
+			owner: $coordinates['owner'],
+			repo: $coordinates['repo'],
 			ref: null,
 			actingUserId: $actingUserId,
 			credentialId: $credentialId
 		);
 
-		if ($contents === null) {
-			return [
-				'owner' => $owner,
-				'repo' => $repo,
-				'stars' => $stars,
-				'kind' => $kind,
-				'installable' => false,
-				'unparseable' => true,
-			];
-		}
-
-		if ($kind === self::KIND_SKILL) {
-			// Agentskills.io packages (SkillSerializer::fromPackage()) never fail to
-			// parse — a missing fence just yields an empty frontmatter/name, so the
-			// only "unparseable" case for a skill is the fetch failure handled above.
-			// SkillSerializer is stateless (no constructor deps) — instantiated
-			// locally rather than injected, so this service's constructor stays
-			// unchanged (regression-safe for every existing test that constructs it
-			// positionally).
-			$parsed = (new SkillSerializer())->fromPackage(package: $contents);
-			$name = $parsed['name'];
-			if ($name === '') {
-				$name = $repo;
-			}
-
-			return [
-				'owner' => $owner,
-				'repo' => $repo,
-				'stars' => $stars,
-				'kind' => $kind,
-				'installable' => true,
-				'unparseable' => false,
-				'name' => $name,
-				'description' => $parsed['description'],
-				'category' => '',
-				'version' => '',
-			];
-		}//end if
-
-		$decoded = json_decode($contents, true);
-		if (is_array($decoded) === false) {
-			return [
-				'owner' => $owner,
-				'repo' => $repo,
-				'stars' => $stars,
-				'kind' => $kind,
-				'installable' => false,
-				'unparseable' => true,
-			];
-		}
-
-		return [
-			'owner' => $owner,
-			'repo' => $repo,
-			'stars' => $stars,
+		$base = $coordinates + [
+			'stars' => (int)($item['stargazers_count'] ?? 0),
 			'kind' => $kind,
-			'installable' => true,
-			'unparseable' => false,
-			'name' => (string)($decoded['name'] ?? $repo),
-			'description' => (string)($decoded['description'] ?? ''),
-			'category' => (string)($decoded['category'] ?? ''),
-			'version' => (string)($decoded['version'] ?? ''),
 		];
+
+		return $this->payload->card(base: $base, contents: $contents);
 	}//end buildCard()
 
 	/**
@@ -1065,27 +959,7 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
-		$decoded = json_decode($result['body'], true);
-		if (is_array($decoded) === false) {
-			return null;
-		}
-
-		$content = (string)($decoded['content'] ?? '');
-		$encoding = (string)($decoded['encoding'] ?? '');
-		if ($encoding === 'base64') {
-			$raw = base64_decode(str_replace("\n", '', $content), true);
-			if ($raw === false) {
-				return null;
-			}
-
-			return $raw;
-		}
-
-		if ($content === '') {
-			return null;
-		}
-
-		return $content;
+		return $this->payload->fileContents(body: $result['body']);
 	}//end fetchFileContents()
 
 	/**
