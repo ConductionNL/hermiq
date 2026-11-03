@@ -187,6 +187,26 @@ check(
 	[],
 )
 
+console.log('\nA very large grant list flattens without overflowing the call stack')
+{
+	const many = []
+	for (let i = 0; i < 200000; i++) {
+		many.push('hermiq.tool' + i)
+	}
+	let got = null
+	try {
+		got = flattenGrants({ hermiq: { tool: { use: many } } })
+	} catch (error) {
+		got = error
+	}
+	if (Array.isArray(got) === false || got.length !== 200000) {
+		failures++
+		console.log(`  FAIL 200000 entries should flatten to 200000 ids, got ${got instanceof Error ? got.message : got?.length}`)
+	} else {
+		console.log('  ok   200000 entries under one action')
+	}
+}
+
 if (failures > 0) {
 	console.error(`\n${failures} case(s) wrong\n`)
 	process.exit(1)
