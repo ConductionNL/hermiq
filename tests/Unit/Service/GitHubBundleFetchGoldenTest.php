@@ -114,7 +114,14 @@ class GitHubBundleFetchGoldenTest extends TestCase {
 			} else {
 				$args['owner'] = $this->pick(pool: self::OWNERS);
 				$args['ref'] = $this->pick(pool: self::REFS);
-				$coordinates = ['kind' => $kind, 'owner' => $args['owner'], 'repo' => 'demo', 'ref' => $args['ref'], 'actingUserId' => $actingUserId, 'credentialId' => $credentialId];
+				$coordinates = [
+					'kind' => $kind,
+					'owner' => $args['owner'],
+					'repo' => 'demo',
+					'ref' => $args['ref'],
+					'actingUserId' => $actingUserId,
+					'credentialId' => $credentialId,
+				];
 				$result = $service->fetchPackageFile(...$coordinates);
 				if ($operation === 'aux') {
 					$result = $service->fetchAuxFiles(...$coordinates);
@@ -213,6 +220,8 @@ class GitHubBundleFetchGoldenTest extends TestCase {
 			['status' => 200, 'body' => (string)json_encode(['content' => 'not json', 'encoding' => 'utf-8'])],
 			['status' => 200, 'body' => '{"content":"","encoding":"base64"}'],
 			['status' => 200, 'body' => '"just a string"'],
+			['status' => 200, 'body' => (string)json_encode(['content' => '3', 'encoding' => 'utf-8'])],
+			['status' => 200, 'body' => (string)json_encode(['content' => chunk_split(base64_encode((string)json_encode($full)), 12, "\n"), 'encoding' => 'base64'])],
 			['status' => 404, 'body' => ''],
 			['status' => 429, 'body' => ''],
 			'throws',
