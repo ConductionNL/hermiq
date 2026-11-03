@@ -48,6 +48,8 @@ use Stringable;
  * Golden comparison of the bundle fetch.
  *
  * @covers \OCA\Hermiq\Service\GitHubTemplateCatalogService
+ * @uses   \OCA\Hermiq\Service\GitHubCatalogPayload
+ * @uses   \OCA\Hermiq\Service\SkillSerializer
  *
  * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
