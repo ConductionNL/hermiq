@@ -32,7 +32,7 @@ const POLICIES = [
 		id: 'gp-1',
 		organisation: 'org-a',
 		inputFilters: { piiAction: 'redact', promptInjectionAction: 'block' },
-		outputFilters: { piiAction: 'off' },
+		outputFilters: { piiAction: 'quarantine' },
 		toolPolicy: [{ toolId: 'mail.send', classification: 'confirm' }],
 	},
 ]
