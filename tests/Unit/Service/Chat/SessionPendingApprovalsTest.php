@@ -153,6 +153,26 @@ class SessionPendingApprovalsTest extends TestCase {
 	}//end testAnUndescribedToolIsTitledFromItsId()
 
 	/**
+	 * A tool whose preview carries a human title shows that title on the card;
+	 * a blank title falls back to the formatted name.
+	 *
+	 * @return void
+	 */
+	public function testACardPrefersTheToolsHumanTitle(): void {
+		$titled = $this->record(id: 'appr-1', agentId: 'agent-1');
+		$titled['toolId'] = 'dossiq.createTask';
+		$titled['preview']['tools'][0] = ['id' => 'dossiq.createTask', 'name' => 'dossiq.createTask', 'title' => 'Create a task', 'reach' => 'organisation'];
+		$blank = $titled;
+		$blank['id'] = 'appr-2';
+		$blank['preview']['tools'][0]['title'] = ' ';
+
+		$cards = $this->service(accessRequests: [], bobsInbox: [$titled, $blank])
+			->forSession(session: ['agentId' => 'agent-1'], uid: 'bob');
+
+		$this->assertSame(['Create a task', 'Dossiq createTask'], array_column($cards, 'title'));
+	}//end testACardPrefersTheToolsHumanTitle()
+
+	/**
 	 * A session without an agent has no approvals and asks no one.
 	 *
 	 * @return void

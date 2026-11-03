@@ -135,7 +135,7 @@ class ApprovalPreviewBuilder {
 
 		return sprintf(
 			'The tool %s %s, and reaches %s.',
-			$tool['name'],
+			($tool['title'] ?? $tool['name']),
 			$tool['effect'],
 			(self::REACH_TEXT[$tool['reach']] ?? 'an unknown reach')
 		);
@@ -147,7 +147,7 @@ class ApprovalPreviewBuilder {
 	 * @param string                    $id        The tool id.
 	 * @param array<string, mixed>|null $arguments The stored (redacted) arguments, or null.
 	 *
-	 * @return array{id: string, name: string, effect: string, reach: string, arguments?: array<string, mixed>}
+	 * @return array{id: string, name: string, effect: string, reach: string, title?: string, arguments?: array<string, mixed>}
 	 */
 	private function describeTool(string $id, ?array $arguments): array {
 		$descriptor = ($this->catalog()[$id] ?? null);
@@ -159,12 +159,37 @@ class ApprovalPreviewBuilder {
 			'reach' => $this->reach(id: $id, descriptor: $descriptor),
 		];
 
+		$title = $this->titleOf(descriptor: $descriptor);
+		if ($title !== null) {
+			$tool['title'] = $title;
+		}
+
 		if ($arguments !== null) {
 			$tool['arguments'] = $arguments;
 		}
 
 		return $tool;
 	}//end describeTool()
+
+	/**
+	 * The human title a catalogue descriptor gives its tool: MCP's top-level
+	 * `title`, else `annotations.title`; null when neither is a non-blank string.
+	 *
+	 * @param array<string, mixed>|null $descriptor The catalog descriptor.
+	 *
+	 * @return string|null The title.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
+	 */
+	private function titleOf(?array $descriptor): ?string {
+		foreach ([($descriptor['title'] ?? null), ($descriptor['annotations']['title'] ?? null)] as $candidate) {
+			if (is_string($candidate) === true && trim($candidate) !== '') {
+				return trim($candidate);
+			}
+		}
+
+		return null;
+	}//end titleOf()
 
 	/**
 	 * What a tool does: reads, deletes, sends or changes.

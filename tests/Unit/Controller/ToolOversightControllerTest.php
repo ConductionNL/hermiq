@@ -816,7 +816,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'bob'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 		$this->objectService->expects($this->never())->method('saveObject');
 
 		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
@@ -842,7 +842,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'alice'),
 			['agentId' => 'someone-elses-agent', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 		$this->objectService->expects($this->never())->method('saveObject');
 
 		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
@@ -864,7 +864,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('maybe');
+		$this->decide(decision: 'maybe');
 		$this->objectService->expects($this->never())->method('saveObject');
 
 		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
@@ -886,7 +886,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => ['hermiq.listFiles']], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
@@ -927,7 +927,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => []], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('granted');
+		$this->decide(decision: 'granted');
 
 		$this->objectService->method('saveObject')
 			->willThrowException(new RuntimeException('storage is down'));
@@ -957,7 +957,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => ['hermiq.listFiles']], 'alice'),
 			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
 		);
-		$this->request->method('getParam')->willReturn('refused');
+		$this->decide(decision: 'refused');
 
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
@@ -981,4 +981,137 @@ class ToolOversightControllerTest extends TestCase {
 		}
 	}//end testResolveToolAccessRequestRefusalGrantsNothing()
 
+	/**
+	 * Answer the request's parameters for a decision on the tool the owner was
+	 * shown, with a forged decider beside it.
+	 *
+	 * @param string $decision The decision posted.
+	 * @param string $toolId   The tool the card showed.
+	 *
+	 * @return void
+	 */
+	private function decide(string $decision, string $toolId = 'hermiq.sendMail'): void {
+		$params = ['decision' => $decision, 'toolId' => $toolId, 'userId' => 'mallory', 'decidedBy' => 'mallory'];
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+		);
+
+	}//end decide()
+
+	/**
+	 * A request that is no longer pending is not decided again, and nothing is written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveRefusesARequestThatIsNoLongerPending(): void {
+		foreach (['refused', 'granted', ''] as $status) {
+			$this->setUp();
+			$this->serveAgentAndRequest(
+				$this->agent(['tools' => []], 'alice'),
+				['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => $status]
+			);
+			$this->decide(decision: 'granted');
+			$this->objectService->expects($this->never())->method('saveObject');
+
+			$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+			$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus(), 'status ' . $status);
+		}
+
+	}//end testResolveRefusesARequestThatIsNoLongerPending()
+
+	/**
+	 * A decision about another tool than the one stored is refused: the requester
+	 * may not swap the tool behind the card the owner was shown.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveRefusesASwappedTool(): void {
+		foreach (['hermiq.listFiles', '', 'HERMIQ.SENDMAIL', 'hermiq.SendMail', 'hermiq%2EsendMail', 'hermiq.sendMail '] as $shown) {
+			$this->setUp();
+			$this->serveAgentAndRequest(
+				$this->agent(['tools' => []], 'alice'),
+				['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+			);
+			$this->decide(decision: 'granted', toolId: $shown);
+			$this->objectService->expects($this->never())->method('saveObject');
+
+			$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+			$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus(), 'shown ' . $shown);
+		}
+
+	}//end testResolveRefusesASwappedTool()
+
+	/**
+	 * The decider is the session user, whatever userId or decidedBy the request sends.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheDeciderIsNeverTakenFromTheRequest(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->decide(decision: 'refused');
+		$written = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$written): ObjectEntity {
+				$written[] = $args[0];
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		$this->assertSame('alice', $written[0]['decidedBy'] ?? null);
+
+	}//end testTheDeciderIsNeverTakenFromTheRequest()
+
+	/**
+	 * The decision on a request is written on the system path: the owner-only
+	 * update rule of the ToolAccessRequest schema would refuse an agent owner
+	 * who did not raise the request, and the controller has already checked
+	 * that the caller owns the agent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheDecisionIsWrittenOnTheSystemPath(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->decide(decision: 'refused');
+
+		$names = array_map(
+			static fn ($parameter): string => $parameter->getName(),
+			(new \ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
+		);
+		$writes = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$writes, $names): ObjectEntity {
+				$named = [];
+				foreach ($args as $position => $value) {
+					$named[is_int($position) === true ? $names[$position] : $position] = $value;
+				}
+
+				$writes[] = $named;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		$this->assertCount(1, $writes);
+		$this->assertSame('toolAccessRequest', $writes[0]['schema']);
+		$this->assertSame('refused', $writes[0]['object']['status']);
+		$this->assertFalse($writes[0]['_rbac'] ?? true, 'the decision must be written with _rbac false');
+
+	}//end testTheDecisionIsWrittenOnTheSystemPath()
 }//end class

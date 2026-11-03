@@ -106,11 +106,15 @@ class SessionPendingApprovals {
 		$toolId = (string)($record['toolId'] ?? '');
 		$tool = ($record['preview']['tools'][0] ?? []);
 		$app = substr($toolId, 0, max(0, (int)strpos($toolId, '.')));
+		$title = trim((string)($tool['title'] ?? ''));
+		if ($title === '') {
+			$title = ucfirst(strtr((string)($tool['name'] ?? $toolId), '_.', '  '));
+		}
 
 		return [
 			'id' => (string)$record['id'],
 			'kind' => 'toolcall',
-			'title' => ucfirst(strtr((string)($tool['name'] ?? $toolId), '_.', '  ')),
+			'title' => $title,
 			'app' => $app,
 			'reach' => (string)($tool['reach'] ?? ''),
 			'reason' => (string)($record['prompt'] ?? ''),

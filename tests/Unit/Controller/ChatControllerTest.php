@@ -311,7 +311,10 @@ class ChatControllerTest extends TestCase {
 					throw new \OCP\AppFramework\Db\DoesNotExistException('not readable');
 				}
 
-				return $this->entity((string)$id, ['name' => 'Zaakassistent']);
+				$entity = $this->entity((string)$id, ['name' => 'Zaakassistent']);
+				$entity->setRegister('5');
+				$entity->setSchema('9');
+				return $entity;
 			}
 		);
 		$this->engine->method('ensureUniqueTitle')->willReturn('New Conversation');
@@ -334,7 +337,7 @@ class ChatControllerTest extends TestCase {
 		$this->assertSame(200, $this->controller()->sendMessage()->getStatus());
 
 		$this->assertSame(
-			['subject' => ['objectUuid' => 'case-1', 'register' => 'zaken', 'schema' => 'zaak', 'appId' => 'dossiq']],
+			['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']],
 			$saved[0]['metadata']
 		);
 		$this->assertArrayNotHasKey('metadata', $saved[1]);

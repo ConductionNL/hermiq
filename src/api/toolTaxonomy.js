@@ -114,7 +114,9 @@ export function flattenGrants(tools) {
 	for (const subjects of Object.values(tools)) {
 		for (const actions of nestedValues(subjects)) {
 			for (const entries of nestedValues(actions)) {
-				ids.push(...actionGrantIds(entries))
+				for (const id of actionGrantIds(entries)) {
+					ids.push(id)
+				}
 			}
 		}
 	}

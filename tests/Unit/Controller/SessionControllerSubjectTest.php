@@ -37,6 +37,8 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use ReflectionMethod;
 
 /**
  * Tests for the subject filter, the subject field and the pending approvals.
@@ -56,6 +58,20 @@ class SessionControllerSubjectTest extends TestCase {
 	 * @var array<string, ObjectEntity>
 	 */
 	private array $sessions = [];
+
+	/**
+	 * The payload of each saveObject() call.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 */
+	private array $saved = [];
+
+	/**
+	 * The agent access double, when a test needs one that admits the agent.
+	 *
+	 * @var AgentAccessService|null
+	 */
+	private ?AgentAccessService $agentAccess = null;
 
 	/**
 	 * The pending-approvals double.
@@ -119,6 +135,15 @@ class SessionControllerSubjectTest extends TestCase {
 			fn (array $config): array => (isset($config['filters']['sessionId']) === true ? [] : array_values($this->sessions))
 		);
 		$objectService->method('searchObjectsPaginated')->willReturn(['total' => 0]);
+		$objectService->method('saveObject')->willReturnCallback(
+			function (array $object): ObjectEntity {
+				$this->saved[] = $object;
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved');
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
 
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn($uid);
@@ -136,7 +161,7 @@ class SessionControllerSubjectTest extends TestCase {
 			logger: new NullLogger(),
 			collaborators: new SessionCollaborators(
 				sessionRoom: $this->createMock(TalkSessionRoom::class),
-				agentAccess: $this->createMock(AgentAccessService::class),
+				agentAccess: ($this->agentAccess ?? $this->createMock(AgentAccessService::class)),
 				subject: new SessionSubject(objectService: $objectService),
 				pendingApprovals: $this->pendingApprovals
 			)
@@ -284,4 +309,83 @@ class SessionControllerSubjectTest extends TestCase {
 		$this->assertSame(403, $response->getStatus());
 		$this->assertArrayNotHasKey('pendingApprovals', $response->getData());
 	}//end testAStrangerGetsNoPendingApprovals()
+	/**
+	 * PATCH with a new subject the caller cannot read stores the metadata without it.
+	 *
+	 * @return void
+	 */
+	public function testPatchingInAnUnreadableSubjectDropsIt(): void {
+		$response = $this->controllerAs(
+			uid: 'alice',
+			params: ['metadata' => ['pinned' => true, 'subject' => ['objectUuid' => 'case-secret', 'register' => 'zaken', 'schema' => 'zaak']]]
+		)->update('s-old');
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['pinned' => true], $this->saved[0]['metadata']);
+	}//end testPatchingInAnUnreadableSubjectDropsIt()
+
+	/**
+	 * PATCH that keeps the stored subject saves it as it was.
+	 *
+	 * @return void
+	 */
+	public function testPatchingTheSameSubjectKeepsIt(): void {
+		$about = ['objectUuid' => 'case-1', 'register' => 'zaken', 'schema' => 'zaak', 'appId' => 'dossiq'];
+		$this->controllerAs(uid: 'alice', params: ['metadata' => ['subject' => $about, 'pinned' => true]])->update('s-old');
+
+		$this->assertSame(['subject' => $about, 'pinned' => true], $this->saved[0]['metadata']);
+	}//end testPatchingTheSameSubjectKeepsIt()
+
+	/**
+	 * PATCH to a readable record stores it with the record's register and schema.
+	 *
+	 * @return void
+	 */
+	public function testPatchingInAReadableSubjectStoresTheRecordsLabels(): void {
+		$record = new ObjectEntity();
+		$record->setUuid('case-9');
+		$record->setRegister('5');
+		$record->setSchema('9');
+		$this->sessions['case-9'] = $record;
+
+		$this->controllerAs(
+			uid: 'alice',
+			params: ['metadata' => ['subject' => ['objectUuid' => 'case-9', 'register' => 'forged', 'schema' => 'forged']]]
+		)->update('s-old');
+
+		$this->assertSame(['subject' => ['objectUuid' => 'case-9', 'register' => '5', 'schema' => '9', 'appId' => '']], $this->saved[0]['metadata']);
+	}//end testPatchingInAReadableSubjectStoresTheRecordsLabels()
+	/**
+	 * POST with a subject the caller cannot read starts the session without it.
+	 *
+	 * @return void
+	 */
+	public function testCreatingWithAnUnreadableSubjectDropsIt(): void {
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$this->agentAccess = $this->createMock(AgentAccessService::class);
+		$this->agentAccess->method('loadAccessibleAgent')->willReturn($agent);
+
+		$response = $this->controllerAs(
+			uid: 'alice',
+			params: ['agentId' => 'agent-1', 'title' => 'Case', 'metadata' => ['pinned' => true, 'subject' => ['objectUuid' => 'case-secret']]]
+		)->create();
+
+		$this->assertSame(201, $response->getStatus());
+		$this->assertSame(['pinned' => true], $this->saved[0]['metadata']);
+	}//end testCreatingWithAnUnreadableSubjectDropsIt()
+	/**
+	 * Creating, changing, archiving, restoring and deleting a session change state,
+	 * so they keep Nextcloud's CSRF check.
+	 *
+	 * @return void
+	 */
+	public function testUpdateRequiresTheCsrfToken(): void {
+		foreach (['create', 'update', 'destroy', 'restore', 'destroyPermanent'] as $name) {
+			$method = new ReflectionMethod(SessionController::class, $name);
+
+			$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class), $name);
+			$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment(), $name);
+		}
+	}//end testUpdateRequiresTheCsrfToken()
 }//end class
