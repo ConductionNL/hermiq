@@ -1294,10 +1294,11 @@ class ToolOversightControllerTest extends TestCase {
 			fn (...$args): ?ObjectEntity => match ((string)$args[0]) {
 				'agent-1' => $this->agent(['tools' => []], 'carol'),
 				'agent-own' => $this->agent(['tools' => []], 'alice'),
+				'req-1' => $this->agent(['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending'], 'carol'),
 				default => null,
 			}
 		);
-		$params = ['decision' => 'granted', 'agentId' => 'agent-own'];
+		$params = ['decision' => 'granted', 'toolId' => 'hermiq.sendMail', 'agentId' => 'agent-own'];
 		$this->request->method('getParam')->willReturnCallback(
 			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
 		);
