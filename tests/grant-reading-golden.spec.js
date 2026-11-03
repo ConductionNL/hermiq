@@ -145,7 +145,7 @@ function schema() {
 	return pick([null, 'schema', undefined])
 }
 
-const data = { title: 'Hello world', body: 'Body text', empty: '', nul: null, count: 0, zero: 'zz', emoji: '😀😀x' }
+const data = { '': 'blank', title: 'Hello world', body: 'Body text', empty: '', nul: null, count: 0, zero: 'zz', emoji: '😀😀x' }
 const cases = []
 for (let i = 0; i < 400; i++) {
 	const stored = tools()
