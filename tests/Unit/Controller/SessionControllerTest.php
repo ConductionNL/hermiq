@@ -27,6 +27,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use Exception;
 use OCA\Hermiq\Controller\SessionController;
+use OCA\Hermiq\Service\Chat\SessionCollaborators;
+use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
@@ -139,9 +142,13 @@ class SessionControllerTest extends TestCase {
 			engine: $this->engine,
 			objectService: $this->objectService,
 			userSession: $this->userSession,
-			sessionRoom: $sessionRoom,
 			logger: $this->createMock(originalClassName: LoggerInterface::class),
-			agentAccess: $this->agentAccess
+			collaborators: new SessionCollaborators(
+				sessionRoom: $sessionRoom,
+				agentAccess: $this->agentAccess,
+				subject: new SessionSubject(objectService: $this->objectService),
+				pendingApprovals: $this->createMock(SessionPendingApprovals::class)
+			)
 		);
 
 	}//end controller()

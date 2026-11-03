@@ -115,9 +115,55 @@ class ApprovalController extends Controller {
 			return $guard;
 		}
 
+		return $this->approved(approval: $guard, approvalId: $approvalId);
+	}//end approve()
+
+	/**
+	 * Decide a pending approval from one route: `decision` is `granted`
+	 * (approve) or `refused` (deny), so a chat posts to the approval's
+	 * `resolveUrl` as it does for a tool-access request.
+	 *
+	 * The reviewer guard runs first, so a non-reviewer gets the same 404 for
+	 * any decision and cannot learn whether the approval exists.
+	 *
+	 * @param string $approvalId The Approval object UUID.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function resolve(string $approvalId): JSONResponse {
+		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
+		if (($guard instanceof ObjectEntity) === false) {
+			return $guard;
+		}
+
+		$decision = $this->request->getParam('decision');
+		if ($decision === 'granted') {
+			return $this->approved(approval: $guard, approvalId: $approvalId);
+		}
+
+		if ($decision === 'refused') {
+			return $this->denied(approval: $guard, approvalId: $approvalId);
+		}
+
+		return new JSONResponse(['error' => "decision must be 'granted' or 'refused'"], Http::STATUS_BAD_REQUEST);
+	}//end resolve()
+
+	/**
+	 * Approve a guarded approval and answer with the outcome.
+	 *
+	 * @param ObjectEntity $approval   The approval the caller may decide.
+	 * @param string       $approvalId The Approval object UUID as requested.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 */
+	private function approved(ObjectEntity $approval, string $approvalId): JSONResponse {
 		try {
 			$result = $this->approvalService->approve(
-				approval: $guard,
+				approval: $approval,
 				deciderUid: (string)$this->userSession->getUser()?->getUID()
 			);
 			return new JSONResponse(
@@ -131,8 +177,7 @@ class ApprovalController extends Controller {
 			$this->logger->error('Hermiq approval approve failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Approve failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
-
-	}//end approve()
+	}//end approved()
 
 	/**
 	 * Deny a pending approval — the gated run never executes.
@@ -152,6 +197,18 @@ class ApprovalController extends Controller {
 			return $guard;
 		}
 
+		return $this->denied(approval: $guard, approvalId: $approvalId);
+	}//end deny()
+
+	/**
+	 * Deny a guarded approval, with the request's optional `reason`.
+	 *
+	 * @param ObjectEntity $approval   The approval the caller may decide.
+	 * @param string       $approvalId The Approval object UUID as requested.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 */
+	private function denied(ObjectEntity $approval, string $approvalId): JSONResponse {
 		$reason = $this->request->getParam('reason');
 		$reasonStr = null;
 		if ($reason !== null) {
@@ -160,7 +217,7 @@ class ApprovalController extends Controller {
 
 		try {
 			$this->approvalService->deny(
-				approval: $guard,
+				approval: $approval,
 				deciderUid: (string)$this->userSession->getUser()?->getUID(),
 				reason: $reasonStr
 			);
@@ -169,8 +226,7 @@ class ApprovalController extends Controller {
 			$this->logger->error('Hermiq approval deny failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Deny failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
-
-	}//end deny()
+	}//end denied()
 
 	/**
 	 * Load a pending approval the caller is authorised to decide (shared IDOR guard).
