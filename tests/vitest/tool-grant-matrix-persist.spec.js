@@ -71,6 +71,15 @@ describe('ToolGrantMatrix persist()', () => {
 		expect(api.updateToolGrants).not.toHaveBeenCalled()
 	})
 
+	it('refuses to save when a reload fails after a good load', async () => {
+		const wrapper = await matrix()
+		api.getAgentGrants.mockRejectedValueOnce(new Error('Gateway Timeout'))
+		await wrapper.vm.load()
+
+		await expect(wrapper.vm.persist()).rejects.toThrow('could not be read')
+		expect(api.updateToolGrants).not.toHaveBeenCalled()
+	})
+
 	it('saves again once a later load succeeds', async () => {
 		api.getAgentGrants.mockRejectedValueOnce(new Error('Gateway Timeout'))
 		const wrapper = await matrix()
