@@ -1239,6 +1239,8 @@
         "The agent this budget guards": "De agent die dit budget bewaakt",
         "The agent to answer in that conversation": "De agent die in dat gesprek antwoordt",
         "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.": "De agent is opgeslagen, maar de toolrechten zijn niet bijgewerkt. Alleen de eigenaar van de agent mag deze wijzigen.",
+        "Could not read the agent's current tool grants, so nothing was saved. Try again.": "De huidige toolrechten van de agent konden niet worden gelezen, dus er is niets opgeslagen. Probeer het opnieuw.",
+        "The tool grants of this agent were changed elsewhere after you opened this form, so nothing was saved. Close the form and open it again to see the current grants.": "De toolrechten van deze agent zijn elders gewijzigd nadat je dit formulier opende, dus er is niets opgeslagen. Sluit het formulier en open het opnieuw om de huidige rechten te zien.",
         "The answer is parsed, so a later node can read one field with {field} — not just the whole reply.": "Het antwoord wordt geparsed, zodat een latere node één veld kan lezen met {field} — niet alleen het hele antwoord.",
         "The authoritative agent inventory and create-time quota reject live in OpenRegister.": "De gezaghebbende agent-inventaris en de weigering bij het bereiken van het quotum bij aanmaak leven in OpenRegister.",
         "The bot is not enabled in this conversation, so nothing will answer here.": "De bot is niet ingeschakeld in dit gesprek, dus hier antwoordt niets.",

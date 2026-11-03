@@ -1113,6 +1113,8 @@ OC.L10N.register(
         "The agent this budget guards": "The agent this budget guards",
         "The agent to answer in that conversation": "The agent to answer in that conversation",
         "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.": "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.",
+        "Could not read the agent's current tool grants, so nothing was saved. Try again.": "Could not read the agent's current tool grants, so nothing was saved. Try again.",
+        "The tool grants of this agent were changed elsewhere after you opened this form, so nothing was saved. Close the form and open it again to see the current grants.": "The tool grants of this agent were changed elsewhere after you opened this form, so nothing was saved. Close the form and open it again to see the current grants.",
         "The answer is parsed, so a later node can read one field with {field} — not just the whole reply.": "The answer is parsed, so a later node can read one field with {field} — not just the whole reply.",
         "The authoritative agent inventory and create-time quota reject live in OpenRegister.": "The authoritative agent inventory and create-time quota reject live in OpenRegister.",
         "The bot is not enabled in this conversation, so nothing will answer here.": "The bot is not enabled in this conversation, so nothing will answer here.",
