@@ -166,6 +166,15 @@
 			"register": "hermiq",
 			"schema": "agentsession",
 			"owner": "{{cast:pieter.uid}}",
+			"lookups": {
+				"case": {
+					"register": "dossiq",
+					"schema": "case",
+					"where": {
+						"externalReference": "MZ-ZDR-2026-0412"
+					}
+				}
+			},
 			"data": {
 				"agentId": "{{object:agent-woo-triage.id}}",
 				"userId": "{{cast:pieter.uid}}",
@@ -175,7 +184,7 @@
 				"triggerOrigin": "human",
 				"metadata": {
 					"subject": {
-						"objectUuid": "{{object:woo-fietspad.id}}",
+						"objectUuid": "{{lookup:case}}",
 						"register": "dossiq",
 						"schema": "case",
 						"appId": "dossiq"
@@ -216,13 +225,22 @@
 			"register": "hermiq",
 			"schema": "approval",
 			"owner": "{{cast:pieter.uid}}",
+			"lookups": {
+				"case": {
+					"register": "dossiq",
+					"schema": "case",
+					"where": {
+						"externalReference": "MZ-ZDR-2026-0412"
+					}
+				}
+			},
 			"data": {
 				"status": "pending",
 				"sourceType": "toolcall",
 				"agentId": "{{object:agent-woo-triage.id}}",
 				"toolId": "dossiq.createTask",
 				"toolArguments": {
-					"case": "{{object:woo-fietspad.id}}",
+					"case": "{{lookup:case}}",
 					"title": "Offerte beoordelen",
 					"assignee": "{{cast:pieter.uid}}",
 					"dueDate": "{{date:-7}}"

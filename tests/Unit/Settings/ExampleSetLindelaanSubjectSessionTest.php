@@ -23,9 +23,14 @@ use PHPUnit\Framework\TestCase;
 class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 
 	/**
-	 * The Lindelaan case, as the other example sets name it.
+	 * The Lindelaan case: portaliq's fragment writes it, so this fragment finds it by its business key.
 	 */
-	private const CASE_REF = '{{object:woo-fietspad.id}}';
+	private const CASE_REF = '{{lookup:case}}';
+
+	/**
+	 * The lookup that finds the Lindelaan case.
+	 */
+	private const CASE_LOOKUP = ['register' => 'dossiq', 'schema' => 'case', 'where' => ['externalReference' => 'MZ-ZDR-2026-0412']];
 
 	/**
 	 * The Woo-triage agent of this set.
@@ -57,6 +62,7 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 		$this->assertNotNull(actual: $session);
 		$this->assertSame(expected: ['hermiq', 'agentsession'], actual: [$session['register'], $session['schema']]);
 		$this->assertSame(expected: '{{cast:pieter.uid}}', actual: $session['owner']);
+		$this->assertSame(expected: self::CASE_LOOKUP, actual: $session['lookups']['case']);
 		$this->assertSame(expected: '{{cast:pieter.uid}}', actual: $session['data']['userId']);
 		$this->assertSame(expected: self::AGENT_REF, actual: $session['data']['agentId']);
 		$this->assertSame(
@@ -101,6 +107,7 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 		$this->assertSame(expected: ['pending', 'toolcall'], actual: [$data['status'], $data['sourceType']]);
 		$this->assertSame(expected: [self::AGENT_REF, 'dossiq.createTask'], actual: [$data['agentId'], $data['toolId']]);
 		$this->assertSame(expected: ['{{cast:pieter.uid}}', 'user'], actual: [$data['reviewer'], $data['reviewerType']]);
+		$this->assertSame(expected: self::CASE_LOOKUP, actual: $approval['lookups']['case']);
 		$this->assertSame(expected: self::CASE_REF, actual: $data['toolArguments']['case']);
 		$this->assertSame(expected: 'Taak Offerte beoordelen voor Pieter Jansen, klaar op 10 okt.', actual: $data['prompt']);
 	}//end testTheAssistantWaitsOnPieterToCreateTheTask()
