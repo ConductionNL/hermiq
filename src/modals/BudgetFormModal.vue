@@ -7,7 +7,7 @@
   Own file per ADR-004 modal-isolation, using NcDialog (design.md). Persists via
   src/api/budgets.js's thin, admin/owner-gated BudgetController endpoints — NOT the
   generic createObjectStore object path (write access needs the org-owner/instance-
-  admin check TenantControlController already established, which the generic OR
+  admin check OrganisationControlController already established, which the generic OR
   objects path does not express). Every NcSelect carries an `inputLabel`
   (nc-input-labels accessibility gate; WCAG 2.1 AA). Numeric fields use NcTextField
   type="number", mirroring the existing AgentFormModal/ScheduleFormModal convention

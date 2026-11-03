@@ -3,7 +3,7 @@
 //
 // Plain (non-Pinia) API helper for the tenant model-policy surface
 // (tenant-model-policy). Policies are thin Hermiq-controller endpoints
-// (TenantModelPolicyController), NOT the generic createObjectStore object path:
+// (OrganisationModelPolicyController), NOT the generic createObjectStore object path:
 // write access is instance-admin/org-owner-gated server-side (mirrors
 // src/api/budgets.js), which the generic OR objects path does not express.
 //

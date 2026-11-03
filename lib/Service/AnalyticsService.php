@@ -106,6 +106,20 @@ class AnalyticsService
     private const RUN_ACTIONS = 'run,agent-run';
 
     /**
+     * The trigger a run row shows per audit action; any other action is a flow run.
+     *
+     * @var array<string, string>
+     */
+    private const RUN_TRIGGERS = ['run' => 'schedule'];
+
+    /**
+     * The provider-disclosure labels a run row carries; anything else on the record is dropped.
+     *
+     * @var array<int, string>
+     */
+    private const DISCLOSURE_LABELS = ['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'];
+
+    /**
      * Page size for the visible-agent scan (paged to exhaustion, never a cap).
      *
      * @var integer
@@ -322,16 +336,29 @@ class AnalyticsService
      */
     private function agentRow(string $agentId, string $name): array
     {
-        // Fall back to the UUID only when the agent carries no name — a bar
-        // chart labelled with UUIDs is unreadable, but a blank label is worse.
-        $label = $name;
-        if ($label === '') {
-            $label = $agentId;
-        }
-
-        return ['agentId' => $agentId, 'name' => $label, 'runs' => 0, 'success' => 0];
+        return ['agentId' => $agentId, 'name' => $this->displayName(agentId: $agentId, name: $name), 'runs' => 0, 'success' => 0];
 
     }//end agentRow()
+
+    /**
+     * The label an agent is shown under: its name, or its UUID when it carries none.
+     *
+     * A chart or row labelled with a UUID is hard to read; a blank label is worse.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $name    The agent's display name (may be '').
+     *
+     * @return string The label.
+     */
+    private function displayName(string $agentId, string $name): string
+    {
+        if ($name === '') {
+            return $agentId;
+        }
+
+        return $name;
+
+    }//end displayName()
 
     /**
      * List the caller's runs across every agent, newest first.
@@ -383,29 +410,7 @@ class AnalyticsService
             ];
         }
 
-        $rows = [];
-        foreach ($this->visibleRuns(visibleAgents: $visibleAgents) as $run) {
-            $context   = $run['context'];
-            $rowStatus = (string) ($context['status'] ?? 'unknown');
-            if ($status !== null && $status !== '' && $rowStatus !== $status) {
-                continue;
-            }
-
-            $rows[] = $this->toRunRow(
-                log: $run['log'],
-                context: $context,
-                agentId: $run['agentId'],
-                agentName: $visibleAgents[$run['agentId']],
-                status: $rowStatus
-            );
-        }
-
-        usort(
-            $rows,
-            static function (array $a, array $b): int {
-                return ($b['createdSort'] <=> $a['createdSort']);
-            }
-        );
+        $rows = $this->newestFirst(rows: $this->runRows(visibleAgents: $visibleAgents, status: $status));
 
         // `total` is the count BEFORE paging, so a pager can say "51 to 100 of 340".
         // Counting the page instead is how a list quietly claims it is complete.
@@ -427,6 +432,49 @@ class AnalyticsService
         ];
 
     }//end listRuns()
+
+    /**
+     * The run rows of every visible run, optionally only those with one status.
+     *
+     * @param array<string, string> $visibleAgents The caller's visible agents (uuid => name).
+     * @param string|null           $status        Status to keep (exact match); null or '' keeps all.
+     *
+     * @return array<int, array<string, mixed>> The rows, unsorted, with the internal sort key.
+     */
+    private function runRows(array $visibleAgents, ?string $status): array
+    {
+        $status = (string) $status;
+        $rows   = [];
+        foreach ($this->visibleRuns(visibleAgents: $visibleAgents) as $run) {
+            $row = $this->toRunRow(run: $run, agentName: $visibleAgents[$run['agentId']]);
+            if ($status === '' || $row['status'] === $status) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+
+    }//end runRows()
+
+    /**
+     * Run rows ordered newest first, on the epoch sort key.
+     *
+     * @param array<int, array<string, mixed>> $rows The rows, each with `createdSort`.
+     *
+     * @return array<int, array<string, mixed>> The rows, newest first.
+     */
+    private function newestFirst(array $rows): array
+    {
+        usort(
+            $rows,
+            static function (array $a, array $b): int {
+                return ($b['createdSort'] <=> $a['createdSort']);
+            }
+        );
+
+        return $rows;
+
+    }//end newestFirst()
 
     /**
      * Compare two runs the caller may see, on the run list's own boundary.
@@ -453,82 +501,86 @@ class AnalyticsService
     }//end compareRuns()
 
     /**
-     * Shape one audit entry into a run row for the list.
+     * Shape one visible run into a run row for the list.
      *
-     * Split out of `listRuns()` so that method stays the tenant filter and the paging,
-     * which is the part worth reading closely. Every value here comes from the entry
-     * that has already passed that filter.
-     *
-     * RunCompareService shapes a compared run through this same method (handed over as a callable).
+     * Every value here comes from an entry that has already passed `visibleRuns()`'s
+     * tenant filter. RunCompareService shapes a compared run through this same method
+     * (handed over as a callable).
      *
      * `createdSort` rides along as an epoch-seconds sort key and is dropped before the
      * page is returned. Sorting on the ISO string would order `2026-09-06T09:00:00+02:00`
      * against `2026-09-06T08:30:00Z` by text, which is the wrong answer whenever an
      * instance has ever changed offset.
      *
-     * @param AuditTrail           $log       The audit entry.
-     * @param array<string, mixed> $context   The entry's recorded `changed` payload.
-     * @param string               $agentId   The run's agent UUID.
-     * @param string               $agentName The agent's display name (may be '').
-     * @param string               $status    The run's recorded status.
+     * The trigger is the channel this run arrived on, so a reader can tell a scheduled
+     * run from a flow-triggered one. `run` hangs on the schedule; `agent-run` hangs on
+     * whatever object triggered the flow.
+     *
+     * @param array{log: AuditTrail, context: array<string, mixed>, agentId: string} $run       The run.
+     * @param string                                                                $agentName The agent's display name (may be '').
      *
      * @return array<string, mixed> The run row, including the internal sort key.
      */
-    private function toRunRow(
-        AuditTrail $log,
-        array $context,
-        string $agentId,
-        string $agentName,
-        string $status
-    ): array {
-        $created     = $log->getCreated();
-        $createdIso  = null;
-        $createdSort = 0;
-        if ($created !== null) {
-            $createdIso  = $created->format('c');
-            $createdSort = (int) $created->format('U');
-        }
-
-        // Fall back to the UUID only when the agent carries no name. A row labelled
-        // with a UUID is hard to read; a blank label is worse.
-        $label = $agentName;
-        if ($label === '') {
-            $label = $agentId;
-        }
-
-        // The channel this run arrived on, so a reader can tell a scheduled run from a
-        // flow-triggered one. `run` hangs on the schedule; `agent-run` hangs on whatever
-        // object triggered the flow.
-        $trigger = 'flow';
-        if ($log->getAction() === 'run') {
-            $trigger = 'schedule';
-        }
+    private function toRunRow(array $run, string $agentName): array
+    {
+        $log = $run['log'];
 
         return [
-            'id'          => $log->getUuid(),
-            'agentId'     => $agentId,
-            'agentName'   => $label,
-            'status'      => $status,
-            'trigger'     => $trigger,
-            'objectId'    => $log->getObjectUuid(),
-            'startedAt'   => ($context['startedAt'] ?? null),
-            'endedAt'     => ($context['endedAt'] ?? null),
-            'durationMs'  => ($context['durationMs'] ?? null),
-            'summary'     => ($context['summary'] ?? null),
-            'attempt'     => ($context['attempt'] ?? null),
-            // Models-no-training-guarantee: which provider saw this run and the
-            // data-use term in force then, as written onto the run record.
-            // Labels only, and an empty list for a run recorded before it was written.
-            'providerDisclosure' => array_intersect_key(
-                (array) ($context['providerDisclosure'] ?? []),
-                array_flip(['provider', 'model', 'residency', 'location', 'dataUse', 'termsReference'])
-            ),
-            'user'        => $log->getUser(),
-            'created'     => $createdIso,
-            'createdSort' => $createdSort,
-        ];
+            'id'        => $log->getUuid(),
+            'agentId'   => $run['agentId'],
+            'agentName' => $this->displayName(agentId: $run['agentId'], name: $agentName),
+            'status'    => (string) ($run['context']['status'] ?? 'unknown'),
+            'trigger'   => self::RUN_TRIGGERS[$log->getAction()] ?? 'flow',
+            'objectId'  => $log->getObjectUuid(),
+        ] + $this->runFacts(context: $run['context']) + $this->entryStamps(log: $log);
 
     }//end toRunRow()
+
+    /**
+     * The facts a run recorded about itself, as the run row shows them.
+     *
+     * Models-no-training-guarantee: `providerDisclosure` is which provider saw this run
+     * and the data-use term in force then, as written onto the run record. Labels
+     * only, and an empty list for a run recorded before it was written.
+     *
+     * @param array<string, mixed> $context The entry's recorded `changed` payload.
+     *
+     * @return array<string, mixed> The recorded facts, null where not recorded.
+     */
+    private function runFacts(array $context): array
+    {
+        return [
+            'startedAt'          => ($context['startedAt'] ?? null),
+            'endedAt'            => ($context['endedAt'] ?? null),
+            'durationMs'         => ($context['durationMs'] ?? null),
+            'summary'            => ($context['summary'] ?? null),
+            'attempt'            => ($context['attempt'] ?? null),
+            'providerDisclosure' => array_intersect_key(
+                (array) ($context['providerDisclosure'] ?? []),
+                array_flip(self::DISCLOSURE_LABELS)
+            ),
+        ];
+
+    }//end runFacts()
+
+    /**
+     * Who wrote a run entry and when, with the epoch sort key the list orders on.
+     *
+     * @param AuditTrail $log The audit entry.
+     *
+     * @return array{user: mixed, created: ?string, createdSort: int} The stamps; created is null when not recorded.
+     */
+    private function entryStamps(AuditTrail $log): array
+    {
+        $created = $log->getCreated();
+
+        return [
+            'user'        => $log->getUser(),
+            'created'     => $created?->format('c'),
+            'createdSort' => (int) $created?->format('U'),
+        ];
+
+    }//end entryStamps()
 
 
     /**

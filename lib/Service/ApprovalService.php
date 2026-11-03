@@ -1336,7 +1336,7 @@ class ApprovalService {
 
 	/**
 	 * List every Approval visible in the caller's own tenant (RBAC + tenancy
-	 * scoped, mirrors `TenantOpsService::loadObjects()`'s tenant-scoped read) —
+	 * scoped, mirrors `OrganisationOpsService::loadObjects()`'s tenant-scoped read) —
 	 * the org-scoped decision-history seam `ComplianceService` reads for the
 	 * `approval-gate-oversight` control (compliance-control-packs). Purely
 	 * additive: does not change any existing call site's behaviour.

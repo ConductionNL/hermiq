@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit tests for TenantControlController (human-approval-gate-enforcement).
+ * Unit tests for OrganisationControlController (human-approval-gate-enforcement).
  *
  * Focuses on the kill-switch authorization: only a Nextcloud instance admin or the
  * owner of the target OpenRegister organisation may read/toggle the kill-switch; a plain
@@ -25,8 +25,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
-use OCA\Hermiq\Controller\TenantControlController;
-use OCA\Hermiq\Service\TenantControlService;
+use OCA\Hermiq\Controller\OrganisationControlController;
+use OCA\Hermiq\Service\OrganisationControlService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -40,11 +40,11 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
- * Tests for the human-approval-gate-enforcement TenantControlController.
+ * Tests for the human-approval-gate-enforcement OrganisationControlController.
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
-class TenantControlControllerTest extends TestCase {
+class OrganisationControlControllerTest extends TestCase {
 
 	/**
 	 * A session with the given (or no) user.
@@ -109,21 +109,21 @@ class TenantControlControllerTest extends TestCase {
 	 * Build the controller with the given collaborators.
 	 *
 	 * @param IRequest $request The request.
-	 * @param TenantControlService $service The kill-switch service.
+	 * @param OrganisationControlService $service The kill-switch service.
 	 * @param IUserSession $session The user session.
 	 * @param IGroupManager $groupManager The group manager.
 	 * @param OrganisationMapper $orgMapper The organisation mapper (owner check).
 	 *
-	 * @return TenantControlController
+	 * @return OrganisationControlController
 	 */
 	private function controller(
 		IRequest $request,
-		TenantControlService $service,
+		OrganisationControlService $service,
 		IUserSession $session,
 		IGroupManager $groupManager,
 		OrganisationMapper $orgMapper,
-	): TenantControlController {
-		return new TenantControlController(
+	): OrganisationControlController {
+		return new OrganisationControlController(
 			$request,
 			$service,
 			$session,
@@ -145,7 +145,7 @@ class TenantControlControllerTest extends TestCase {
 		$control = new ObjectEntity();
 		$control->setObject(['engaged' => true, 'reason' => 'incident']);
 
-		$service = $this->createMock(TenantControlService::class);
+		$service = $this->createMock(OrganisationControlService::class);
 		$service->method('getForOrganisation')->willReturn($control);
 
 		$groupManager = $this->createMock(IGroupManager::class);
@@ -176,7 +176,7 @@ class TenantControlControllerTest extends TestCase {
 		$saved = new ObjectEntity();
 		$saved->setObject(['engaged' => true]);
 
-		$service = $this->createMock(TenantControlService::class);
+		$service = $this->createMock(OrganisationControlService::class);
 		$service->expects($this->once())->method('toggle')->willReturn($saved);
 
 		$groupManager = $this->createMock(IGroupManager::class);
@@ -204,7 +204,7 @@ class TenantControlControllerTest extends TestCase {
 	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function testNonOwnerCannotToggle(): void {
-		$service = $this->createMock(TenantControlService::class);
+		$service = $this->createMock(OrganisationControlService::class);
 		$service->expects($this->never())->method('toggle');
 
 		$groupManager = $this->createMock(IGroupManager::class);
@@ -231,7 +231,7 @@ class TenantControlControllerTest extends TestCase {
 	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function testNonOwnerShowIsNotFound(): void {
-		$service = $this->createMock(TenantControlService::class);
+		$service = $this->createMock(OrganisationControlService::class);
 		$service->expects($this->never())->method('getForOrganisation');
 
 		$groupManager = $this->createMock(IGroupManager::class);
@@ -260,7 +260,7 @@ class TenantControlControllerTest extends TestCase {
 	public function testUnauthenticatedIsRejected(): void {
 		$controller = $this->controller(
 			$this->request(),
-			$this->createMock(TenantControlService::class),
+			$this->createMock(OrganisationControlService::class),
 			$this->session(null),
 			$this->createMock(IGroupManager::class),
 			$this->createMock(OrganisationMapper::class)

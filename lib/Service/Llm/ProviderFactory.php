@@ -66,7 +66,7 @@ use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\DataUseGate;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
 use OCP\IAppConfig;
@@ -255,7 +255,7 @@ class ProviderFactory {
 	 * @param LoggerInterface $logger Logger.
 	 * @param string $appName App id used when scheduling
 	 *                        TaskProcessing tasks.
-	 * @param TenantModelPolicyService|null $modelPolicyService Resolves the calling
+	 * @param OrganisationModelPolicyService|null $modelPolicyService Resolves the calling
 	 *                                                          organisation's effective ModelPolicy
 	 *                                                          (tenant-model-policy). Nullable —
 	 *                                                          defaulted so every existing call site
@@ -359,7 +359,7 @@ class ProviderFactory {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly string $appName = 'hermiq',
-		private readonly ?TenantModelPolicyService $modelPolicyService = null,
+		private readonly ?OrganisationModelPolicyService $modelPolicyService = null,
 		private readonly ?IAppManager $appManager = null,
 		private readonly ?CredentialScopeResolver $credentialResolver = null,
 		private readonly ?RunTokenService $runTokenService = null,

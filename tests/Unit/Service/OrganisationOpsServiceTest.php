@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit tests for TenantOpsService (multi-tenant-ops + agent-lifecycle-governance).
+ * Unit tests for OrganisationOpsService (multi-tenant-ops + agent-lifecycle-governance).
  *
  * Covers the quota math (schedule count, distinct agents-in-use, configured limits +
  * atLimit), the AI Act audit export scoping (records come only from the caller's own
@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use InvalidArgumentException;
-use OCA\Hermiq\Service\TenantOpsService;
+use OCA\Hermiq\Service\OrganisationOpsService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -40,11 +40,11 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 /**
- * Tests for the multi-tenant-ops / agent-lifecycle-governance TenantOpsService.
+ * Tests for the multi-tenant-ops / agent-lifecycle-governance OrganisationOpsService.
  *
  * @spec openspec/changes/multi-tenant-ops/tasks.md#task-4-1
  */
-class TenantOpsServiceTest extends TestCase {
+class OrganisationOpsServiceTest extends TestCase {
 
 	/**
 	 * A schedule ObjectEntity bound to an agent.
@@ -224,7 +224,7 @@ class TenantOpsServiceTest extends TestCase {
 			]
 		);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(scheduleQuota: 3, agentQuota: 50),
@@ -288,7 +288,7 @@ class TenantOpsServiceTest extends TestCase {
 		$mapper = $this->createMock(AuditTrailMapper::class);
 		$mapper->method('findAll')->willReturn([$entry]);
 
-		$service = new TenantOpsService($objectService, $mapper, $this->appConfig(100, 50), $this->userManager());
+		$service = new OrganisationOpsService($objectService, $mapper, $this->appConfig(100, 50), $this->userManager());
 
 		$export = $service->exportAuditTrail();
 
@@ -335,7 +335,7 @@ class TenantOpsServiceTest extends TestCase {
 		$mapper = $this->createMock(AuditTrailMapper::class);
 		$mapper->method('findAll')->willReturn([]);
 
-		$service = new TenantOpsService($objectService, $mapper, $this->appConfig(100, 50), $this->userManager());
+		$service = new OrganisationOpsService($objectService, $mapper, $this->appConfig(100, 50), $this->userManager());
 
 		$export = $service->exportAuditTrail();
 
@@ -390,7 +390,7 @@ class TenantOpsServiceTest extends TestCase {
 		$mapper = $this->createMock(AuditTrailMapper::class);
 		$mapper->method('findAll')->willReturn([$older, $newer]);
 
-		$service = new TenantOpsService($objectService, $mapper, $this->appConfig(100, 50), $this->userManager());
+		$service = new OrganisationOpsService($objectService, $mapper, $this->appConfig(100, 50), $this->userManager());
 
 		$result = $service->accessReviewList();
 
@@ -420,7 +420,7 @@ class TenantOpsServiceTest extends TestCase {
 
 		$objectService = $this->objectService(['agent' => [$agent]]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -444,7 +444,7 @@ class TenantOpsServiceTest extends TestCase {
 	public function testAttestAgentReviewedThrowsWhenAgentMissing(): void {
 		$objectService = $this->objectService(['agent' => []]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -471,7 +471,7 @@ class TenantOpsServiceTest extends TestCase {
 
 		$objectService = $this->objectService(['agent' => [$agent]]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -500,7 +500,7 @@ class TenantOpsServiceTest extends TestCase {
 
 		$objectService = $this->objectService(['agent' => [$agent]]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -526,7 +526,7 @@ class TenantOpsServiceTest extends TestCase {
 
 		$objectService = $this->objectService(['agent' => [$agent]]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -556,7 +556,7 @@ class TenantOpsServiceTest extends TestCase {
 
 		$objectService = $this->objectService(['incident' => [$older, $newer]]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -580,7 +580,7 @@ class TenantOpsServiceTest extends TestCase {
 	public function testCreateIncidentPersistsFields(): void {
 		$objectService = $this->objectService(['incident' => []]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -614,7 +614,7 @@ class TenantOpsServiceTest extends TestCase {
 	public function testGetRetentionMonthsDefaultsToSix(): void {
 		$objectService = $this->objectService(['tenantcontrol' => []]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -635,7 +635,7 @@ class TenantOpsServiceTest extends TestCase {
 	public function testSetRetentionMonthsRejectsBelowSix(): void {
 		$objectService = $this->objectService(['tenantcontrol' => []]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),
@@ -661,7 +661,7 @@ class TenantOpsServiceTest extends TestCase {
 
 		$objectService = $this->objectService(['tenantcontrol' => [$existing]]);
 
-		$service = new TenantOpsService(
+		$service = new OrganisationOpsService(
 			$objectService,
 			$this->createMock(AuditTrailMapper::class),
 			$this->appConfig(100, 50),

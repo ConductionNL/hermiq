@@ -1,13 +1,13 @@
 <?php
 
 /**
- * Hermiq TenantOpsController.
+ * Hermiq OrganisationOpsController.
  *
  * The org-operations surface (multi-tenant-ops + agent-lifecycle-governance): report the
  * caller's per-organisation quota usage, produce a per-tenant EU AI Act audit export, and
  * (agent-lifecycle-governance) the periodic access-review list + reviewed attestation +
  * flagged-agent reassignment, incident records, and the retention-period setting. Reads
- * are tenant-scoped inside TenantOpsService (they only ever read the caller's own Hermiq
+ * are tenant-scoped inside OrganisationOpsService (they only ever read the caller's own Hermiq
  * objects), so no cross-tenant data leaks; `@NoAdminRequired` opens the read routes to any
  * authenticated user with tenancy as the guard (the UI additionally gates visibility to org
  * owners/admins). The four MUTATING endpoints (attest/reassign/createIncident/retention PUT)
@@ -38,7 +38,7 @@ namespace OCA\Hermiq\Controller;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\TenantOpsService;
+use OCA\Hermiq\Service\OrganisationOpsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -54,12 +54,12 @@ use Throwable;
  *
  * @spec openspec/changes/multi-tenant-ops/tasks.md#2-controller-routes
  */
-class TenantOpsController extends Controller {
+class OrganisationOpsController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param TenantOpsService $tenantOpsService The tenant-ops read/write service.
+	 * @param OrganisationOpsService $tenantOpsService The tenant-ops read/write service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param ActionAuthService $actionAuth ADR-023 action-authorization gate for the
 	 *                                      four mutating endpoints (agent-lifecycle-governance).
@@ -71,7 +71,7 @@ class TenantOpsController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly TenantOpsService $tenantOpsService,
+		private readonly OrganisationOpsService $tenantOpsService,
 		private readonly IUserSession $userSession,
 		private readonly ActionAuthService $actionAuth,
 		private readonly LoggerInterface $logger,

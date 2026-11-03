@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Hermiq TenantModelPolicyController.
+ * Hermiq OrganisationModelPolicyController.
  *
  * The org-admin/instance-admin surface for the per-organisation ModelPolicy
  * (tenant-model-policy): read the caller's effective policy (any authenticated
@@ -15,7 +15,7 @@
  * user with access to the organisation MAY read"). Writes (`create()`/`update()`)
  * are admitted ONLY for a Nextcloud instance admin (`IGroupManager::isAdmin`) or
  * the owner of the target OpenRegister organisation (`Organisation::getOwner`),
- * mirroring `TenantControlController::mayAdminister()` — with one addition: an
+ * mirroring `OrganisationControlController::mayAdminister()` — with one addition: an
  * organisation-less write (the instance-wide default policy) is admitted ONLY for
  * an instance admin, never an org owner (there is no "owner" of no organisation).
  *
@@ -42,7 +42,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -67,12 +67,12 @@ use Throwable;
  *
  * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
  */
-class TenantModelPolicyController extends Controller {
+class OrganisationModelPolicyController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param TenantModelPolicyService $modelPolicyService The model-policy read/write path.
+	 * @param OrganisationModelPolicyService $modelPolicyService The model-policy read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup
@@ -84,7 +84,7 @@ class TenantModelPolicyController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly TenantModelPolicyService $modelPolicyService,
+		private readonly OrganisationModelPolicyService $modelPolicyService,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
@@ -271,7 +271,7 @@ class TenantModelPolicyController extends Controller {
 	 * ONLY for an instance admin — there is no "owner" of no organisation. A
 	 * non-empty organisation is admitted for an instance admin OR the owner of
 	 * that OpenRegister organisation, mirroring
-	 * `TenantControlController::mayAdminister()`.
+	 * `OrganisationControlController::mayAdminister()`.
 	 *
 	 * @param string $organisation The organisation identifier, or '' for the instance default.
 	 * @param IUser $user The requesting user.

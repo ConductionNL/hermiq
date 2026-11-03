@@ -31,7 +31,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -73,10 +73,10 @@ class RedactionGateTest extends TestCase {
 	/**
 	 * A model policy permitting the one pair these tests use.
 	 *
-	 * @return TenantModelPolicyService The double.
+	 * @return OrganisationModelPolicyService The double.
 	 */
-	private function policy(): TenantModelPolicyService {
-		$service = $this->createMock(TenantModelPolicyService::class);
+	private function policy(): OrganisationModelPolicyService {
+		$service = $this->createMock(OrganisationModelPolicyService::class);
 		$service->method('isAllowed')->willReturn(true);
 		$service->method('effectivePolicyFor')->willReturn(
 			['source' => 'organisation', 'allowed' => [], 'defaultModel' => null]

@@ -56,7 +56,7 @@ use Throwable;
  *
  * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-the-tenant-kill-switch-reaches-every-hermiq-flow-hop
  */
-class TenantKillSwitchCheck implements IFlowOversightCheck {
+class OrganisationKillSwitchCheck implements IFlowOversightCheck {
 
 	/**
 	 * OpenRegister register slug that holds hermiq objects.
