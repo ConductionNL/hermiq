@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({
 	updateToolGrants: vi.fn(),
 	saveObject: vi.fn(),
-	getAgentTools: vi.fn(),
+	fetchObject: vi.fn(),
 }))
 
 vi.mock('@conduction/nextcloud-vue', () => ({
@@ -28,17 +28,13 @@ vi.mock('../../src/store/store.js', () => ({
 	useAgentStore: () => ({
 		registerObjectType: () => {},
 		saveObject: api.saveObject,
+		fetchObject: api.fetchObject,
 		errors: {},
 	}),
 }))
 
 vi.mock('../../src/api/toolOversight.js', () => ({
 	updateToolGrants: api.updateToolGrants,
-}))
-
-vi.mock('../../src/api/toolTaxonomy.js', async (importOriginal) => ({
-	...(await importOriginal()),
-	getAgentTools: api.getAgentTools,
 }))
 
 vi.mock('../../src/api/agents.js', () => ({
@@ -66,13 +62,25 @@ const structured = {
 }
 
 /**
+ * What the save's read of the stored agent answers.
+ *
+ * @param {*} tools The stored `tools`; undefined leaves the key out.
+ * @return {void}
+ */
+function stores(tools) {
+	api.fetchObject.mockResolvedValue(
+		tools === undefined ? { id: 'agent-1' } : { id: 'agent-1', tools },
+	)
+}
+
+/**
  * Mount the modal editing one agent, and let it settle.
  *
  * @param {Array|object} tools The agent's stored `tools`.
  * @return {Promise<object>} The wrapper.
  */
 async function editing(tools) {
-	api.getAgentTools.mockResolvedValue(tools)
+	stores(tools)
 	// The template is not under test: rendering it needs the whole page.
 	const wrapper = mount(
 		{ ...AgentFormModal, render: () => null },
@@ -205,12 +213,12 @@ describe('AgentFormModal grants on edit', () => {
 	it('carries grants changed in another tab when this form left them alone', async () => {
 		const wrapper = await editing(['hermiq.listFiles'])
 		const changed = ['hermiq.listFiles', 'mail.sendMail#noapproval']
-		api.getAgentTools.mockResolvedValue(changed)
+		stores(changed)
 		wrapper.vm.form.name = 'Renamed'
 
 		await wrapper.vm.save()
 
-		expect(api.getAgentTools).toHaveBeenCalledWith('agent-1')
+		expect(api.fetchObject).toHaveBeenCalledWith('agent', 'agent-1')
 		expect(api.saveObject.mock.calls[0][1].tools).toEqual(changed)
 		expect(api.saveObject.mock.calls[0][1].name).toBe('Renamed')
 		expect(api.updateToolGrants).not.toHaveBeenCalled()
@@ -218,7 +226,7 @@ describe('AgentFormModal grants on edit', () => {
 
 	it('carries a structure changed in another tab as its grant strings', async () => {
 		const wrapper = await editing(['hermiq.listFiles'])
-		api.getAgentTools.mockResolvedValue(structured)
+		stores(structured)
 
 		await wrapper.vm.save()
 
@@ -230,7 +238,7 @@ describe('AgentFormModal grants on edit', () => {
 
 	it('saves nothing when this form and another tab both changed the grants', async () => {
 		const wrapper = await editing(['hermiq.listFiles'])
-		api.getAgentTools.mockResolvedValue(['hermiq.listFiles', 'mail.sendMail'])
+		stores(['hermiq.listFiles', 'mail.sendMail'])
 		wrapper.vm.form.tools = []
 
 		await wrapper.vm.save()
@@ -243,7 +251,7 @@ describe('AgentFormModal grants on edit', () => {
 
 	it('saves when the stored grants match, in another order', async () => {
 		const wrapper = await editing(['hermiq.listFiles', 'mail.sendMail'])
-		api.getAgentTools.mockResolvedValue(['mail.sendMail', 'hermiq.listFiles'])
+		stores(['mail.sendMail', 'hermiq.listFiles'])
 		wrapper.vm.form.tools = wrapper.vm.form.tools.slice(1)
 
 		await wrapper.vm.save()
@@ -255,13 +263,71 @@ describe('AgentFormModal grants on edit', () => {
 
 	it('saves nothing when the stored grants cannot be read', async () => {
 		const wrapper = await editing(['hermiq.listFiles'])
-		api.getAgentTools.mockRejectedValue(new Error('offline'))
+		api.fetchObject.mockResolvedValue(null)
 		wrapper.vm.form.name = 'Renamed'
 
 		await wrapper.vm.save()
 
 		expect(api.saveObject).not.toHaveBeenCalled()
 		expect(api.updateToolGrants).not.toHaveBeenCalled()
+		expect(wrapper.vm.error).toContain('Could not read')
+	})
+
+	it.each([
+		['no tools key', undefined],
+		['a stored null', null],
+		['a stored string', 'hermiq.listFiles'],
+	])(
+		'saves nothing when the form read grants and the read holds %s',
+		async (name, read) => {
+			const wrapper = await editing(['hermiq.listFiles'])
+			stores(read)
+			wrapper.vm.form.name = 'Renamed'
+
+			await wrapper.vm.save()
+
+			expect(api.saveObject).not.toHaveBeenCalled()
+			expect(api.updateToolGrants).not.toHaveBeenCalled()
+			expect(wrapper.vm.error).toContain('Could not read')
+		},
+	)
+
+	it.each([
+		['no tools key', undefined],
+		['a stored null', null],
+		['a stored string', 'wrong'],
+	])(
+		'writes an empty list for an agent without grants whose read holds %s',
+		async (name, read) => {
+			const wrapper = await editing(undefined)
+			stores(read)
+
+			await wrapper.vm.save()
+
+			expect(api.saveObject.mock.calls[0][1].tools).toEqual([])
+		},
+	)
+
+	it('lets an admin rename an agent read through OpenRegister, keeping its grants', async () => {
+		const wrapper = await editing(['hermiq.listFiles', 'mail.sendMail'])
+		wrapper.vm.form.name = 'Renamed'
+
+		await wrapper.vm.save()
+
+		expect(api.saveObject.mock.calls[0][1].name).toBe('Renamed')
+		expect(api.saveObject.mock.calls[0][1].tools).toEqual([
+			'hermiq.listFiles',
+			'mail.sendMail',
+		])
+	})
+
+	it('saves nothing for an agent without grants when the read fails', async () => {
+		const wrapper = await editing(undefined)
+		api.fetchObject.mockResolvedValue(null)
+
+		await wrapper.vm.save()
+
+		expect(api.saveObject).not.toHaveBeenCalled()
 		expect(wrapper.vm.error).toContain('Could not read')
 	})
 
@@ -284,7 +350,7 @@ describe('AgentFormModal grants on edit', () => {
 
 		await wrapper.vm.save()
 
-		expect(api.getAgentTools).not.toHaveBeenCalled()
+		expect(api.fetchObject).not.toHaveBeenCalled()
 		expect(api.saveObject.mock.calls[0][1].tools).toEqual(['hermiq.listFiles'])
 	})
 })

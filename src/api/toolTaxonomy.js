@@ -38,21 +38,11 @@ export async function getToolTaxonomy() {
  * @return {Promise<Array<string>>} The stored grant ids.
  */
 export async function getAgentGrants(agentId) {
-	return flattenGrants(await getAgentTools(agentId))
-}
-
-/**
- * The agent's `tools` value as stored now, in whichever shape it was stored.
- *
- * @param {string} agentId The agent UUID.
- * @return {Promise<Array|object|undefined>} The stored value.
- */
-export async function getAgentTools(agentId) {
 	const response = await axios.get(
 		generateUrl(`/apps/hermiq/api/agents/${agentId}`),
 	)
 
-	return response.data?.tools
+	return flattenGrants(response.data?.tools)
 }
 
 /**

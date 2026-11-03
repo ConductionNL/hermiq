@@ -54,6 +54,7 @@ use DateTime;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
+use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
@@ -591,7 +592,7 @@ class DeliveryService {
 			if ($talkOk === true) {
 				$this->tryPostToNoteToSelf(
 					owner: $uid,
-					output: sprintf('Approval needed for “%s”. Review it in Hermiq.', $displayName)
+					output: sprintf('Approval needed for %s. Review it in Hermiq.', (new TalkSafeText())->quoted(name: $displayName, fallback: 'an action'))
 				);
 			}
 		}//end foreach
@@ -980,12 +981,12 @@ class DeliveryService {
 			$this->logger->debug('[DeliveryService] no tool line for the approval message: ' . $e->getMessage());
 		}
 
-		$name = 'a tool';
-		if (preg_match(ApprovalPreviewBuilder::TALK_SAFE_ID, $toolId) === 1) {
-			$name = '“' . $toolId . '”';
+		$name = (new TalkSafeText())->identifier(identifier: $toolId);
+		if ($name === null) {
+			return sprintf('Approval needed to run a tool.%s Review it in Hermiq.', $line);
 		}
 
-		return sprintf('Approval needed to run %s.%s Review it in Hermiq.', $name, $line);
+		return sprintf('Approval needed to run “%s”.%s Review it in Hermiq.', $name, $line);
 	}//end toolApprovalTalkText()
 
 	/**

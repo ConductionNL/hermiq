@@ -386,4 +386,21 @@ class AgentWaiverChangeListenerTest extends TestCase {
 
 		$this->assertSame([[self::WAIVED], ['z.z#noapproval']], array_column(array_column($this->entries, 'context'), 'added'));
 	}//end testAnUpdateAfterLeavingDraftIsRecorded()
+
+	/**
+	 * The mark belongs to the agent that left draft: another agent's created event is still recorded.
+	 *
+	 * @return void
+	 */
+	public function testTheLeaveDraftMarkIsKeyedOnTheAgent(): void {
+		$left = $this->object([self::WAIVED]);
+		$this->listener->handle(new DraftUpdatedEvent($left, $this->draft([])));
+
+		$other = $this->object(['z.z#noapproval']);
+		$other->setUuid('agent-2');
+		$this->listener->handle(new ObjectCreatedEvent($other));
+		$this->listener->handle(new ObjectCreatedEvent($left));
+
+		$this->assertSame(['agent-1', 'agent-2'], array_column($this->entries, 'uuid'));
+	}//end testTheLeaveDraftMarkIsKeyedOnTheAgent()
 }//end class

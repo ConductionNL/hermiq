@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
@@ -50,24 +51,6 @@ class ApprovalPreviewBuilder {
 	 * @var array<int, string>
 	 */
 	private const TOOL_SOURCES = ['tool', 'toolcall', 'workspace-run'];
-
-	/**
-	 * A tool label Talk shows as plain text: letters, digits, spaces and
-	 * `, ' ( ) -`, at most 80 characters. No `@`, no markdown, no dots, so no
-	 * mention, link, autolinked domain or formatting can form.
-	 *
-	 * @var string
-	 */
-	private const TALK_SAFE_LABEL = '/^[\\p{L}\\p{M}\\p{N} ,\'’()\\-]{1,80}$/u';
-
-	/**
-	 * A tool id Talk shows as plain text: ASCII letters and digits, then also
-	 * `.`, `_` and `-`, at most 160 characters. No `@`, `:`, `/` or markdown, so
-	 * no mention, link or formatting can form; Talk links only with a scheme.
-	 *
-	 * @var string
-	 */
-	public const TALK_SAFE_ID = '/^[A-Za-z0-9][A-Za-z0-9._\\-]{0,159}$/';
 
 	/**
 	 * English reach labels for text that leaves the UI (the Talk line).
@@ -174,18 +157,9 @@ class ApprovalPreviewBuilder {
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
 	private function talkLabel(array $tool): ?string {
-		foreach ([($tool['title'] ?? ''), $tool['name']] as $label) {
-			$label = trim((string)preg_replace('/[\s\p{C}]+/u', ' ', $label));
-			if ($label !== '' && preg_match(self::TALK_SAFE_LABEL, $label) === 1) {
-				return $label;
-			}
-		}
+		$safe = new TalkSafeText();
 
-		if (preg_match(self::TALK_SAFE_ID, $tool['id']) === 1) {
-			return $tool['id'];
-		}
-
-		return null;
+		return ($safe->label(text: (string)($tool['title'] ?? '')) ?? $safe->label(text: $tool['name']) ?? $safe->identifier(identifier: $tool['id']));
 	}//end talkLabel()
 
 	/**

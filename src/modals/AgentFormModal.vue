@@ -520,7 +520,7 @@ import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
-import { flattenGrants, getAgentTools } from '../api/toolTaxonomy.js'
+import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
@@ -730,6 +730,16 @@ function storedTools(tools) {
 	}
 
 	return flattenGrants(tools)
+}
+
+/**
+ * Whether a stored `tools` value is one of the two shapes grants are stored in.
+ *
+ * @param {*} tools The stored value.
+ * @return {boolean} True for a list or the grant structure.
+ */
+function holdsGrantList(tools) {
+	return Array.isArray(tools) || (typeof tools === 'object' && tools !== null)
 }
 
 /**
@@ -1800,10 +1810,18 @@ export default {
 		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		async currentStoredTools() {
-			let stored
-			try {
-				stored = await getAgentTools(this.effectiveAgent.id)
-			} catch {
+			// The read that seeded a routed form, so an admin who may read the
+			// object through OpenRegister reads the same list here. Hermiq's own
+			// agent endpoint gives such an admin a row without `tools`.
+			const current = await this.store.fetchObject(
+				'agent',
+				this.effectiveAgent.id,
+			)
+			const stored = current?.tools
+			if (
+				!current
+				|| (!holdsGrantList(stored) && this.readGrants.length > 0)
+			) {
 				this.error = this.t(
 					'hermiq',
 					"Could not read the agent's current tool grants, so nothing was saved. Try again.",

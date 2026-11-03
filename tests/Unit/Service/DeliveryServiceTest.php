@@ -534,6 +534,49 @@ class DeliveryServiceTest extends TestCase {
 	}//end testAToolApprovalInTalkLeavesOutAnUnsafeToolId()
 
 	/**
+	 * A schedule, flow or skill name goes in the Talk line only when it is plain text.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testAnApprovalNameInTalkIsPlainText(): void {
+		$this->talkBroker->method('hasBackend')->willReturn(true);
+		$this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+
+		$noteToSelf = $this->createMock(NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(Room::class));
+		$participantService = $this->createMock(ParticipantService::class);
+		$participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
+
+		$posted = [];
+		$chatManager = $this->createMock(ChatManager::class);
+		$chatManager->method('sendMessage')->willReturnCallback(
+			function (...$args) use (&$posted) {
+				$posted[] = (string)$args[4];
+				return null;
+			}
+		);
+
+		$this->services = [
+			NoteToSelfService::class => $noteToSelf,
+			ParticipantService::class => $participantService,
+			ChatManager::class => $chatManager,
+		];
+
+		$approval = new ObjectEntity();
+		$approval->setUuid('appr-1');
+		foreach (['Permit drafts', 'Ping @all [now](https://evil.example)'] as $name) {
+			$this->service->deliverApprovalRequest(schedule: $this->schedule(['name' => $name]), approval: $approval, reviewerUids: ['bob']);
+		}
+
+		$this->assertSame(
+			['Approval needed for “Permit drafts”. Review it in Hermiq.', 'Approval needed for an action. Review it in Hermiq.'],
+			$posted
+		);
+	}//end testAnApprovalNameInTalkIsPlainText()
+
+	/**
 	 * No schedule target but a stored default-room preference posts to that room
 	 * (no creation, no Note-to-self).
 	 *

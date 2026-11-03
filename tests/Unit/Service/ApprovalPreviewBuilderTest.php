@@ -276,23 +276,4 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			]
 		);
 	}//end testTheTalkLineNeverCarriesAnUnsafeToolId()
-
-	/**
-	 * The plain-id pattern takes registry ids and refuses mention, link and markdown characters.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
-	 */
-	public function testThePlainIdPattern(): void {
-		$plain = [];
-		foreach (['files.deleteFile', 'a', 'x_y-z.9', str_repeat('a', 160), str_repeat('a', 161), '', '.files', '-x', '@all', 'a@b', 'a:b', 'a/b', 'a*b', 'a`b', 'a b', "a\nb", 'é'] as $id) {
-			$plain[$id] = preg_match(ApprovalPreviewBuilder::TALK_SAFE_ID, $id);
-		}
-
-		$this->assertSame(
-			['files.deleteFile' => 1, 'a' => 1, 'x_y-z.9' => 1, str_repeat('a', 160) => 1, str_repeat('a', 161) => 0, '' => 0, '.files' => 0, '-x' => 0, '@all' => 0, 'a@b' => 0, 'a:b' => 0, 'a/b' => 0, 'a*b' => 0, 'a`b' => 0, 'a b' => 0, "a\nb" => 0, 'é' => 0],
-			$plain
-		);
-	}//end testThePlainIdPattern()
 }//end class
