@@ -960,7 +960,8 @@ class DeliveryService {
 	 * The Talk text for a held tool call: what needs approval, and one line
 	 * naming the tool and how far it reaches, so the reviewer knows before
 	 * opening Hermiq. Falls back to the text without that line when the preview
-	 * builder cannot be had; the approval itself is never affected.
+	 * builder cannot be had; the approval itself is never affected. A tool id
+	 * Talk could read as a mention, link or markdown is not put in the text.
 	 *
 	 * @param string $toolId The held tool id.
 	 *
@@ -979,7 +980,12 @@ class DeliveryService {
 			$this->logger->debug('[DeliveryService] no tool line for the approval message: ' . $e->getMessage());
 		}
 
-		return sprintf('Approval needed to run “%s”.%s Review it in Hermiq.', $toolId, $line);
+		$name = 'a tool';
+		if (preg_match(ApprovalPreviewBuilder::TALK_SAFE_ID, $toolId) === 1) {
+			$name = '“' . $toolId . '”';
+		}
+
+		return sprintf('Approval needed to run %s.%s Review it in Hermiq.', $name, $line);
 	}//end toolApprovalTalkText()
 
 	/**

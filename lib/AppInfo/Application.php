@@ -51,6 +51,8 @@ use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCA\Hermiq\Tenant\OpenRegisterManageableOrganisations;
 use OCA\OpenRegister\Contract\RegisterSlugResolverInterface;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Event\DraftCreatedEvent;
+use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
@@ -378,7 +380,8 @@ class Application extends App implements IBootstrap {
 	 *
 	 * - Each Talk-enabled agent carries its own Talk bot, because the bot record
 	 *   is the ONLY carrier of the name Talk displays (talk-agent-sessions).
-	 * - Adding or removing an approval waiver is audited on every write.
+	 * - Adding or removing an approval waiver is audited on every write, drafts
+ *   included: OpenRegister raises only the draft events for a draft.
 	 *
 	 * @param IRegistrationContext $context The registration context.
 	 *
@@ -393,6 +396,8 @@ class Application extends App implements IBootstrap {
 
 		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentWaiverChangeListener::class);
 		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
+		$context->registerEventListener(event: DraftCreatedEvent::class, listener: AgentWaiverChangeListener::class);
+		$context->registerEventListener(event: DraftUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
 	}//end registerAgentObjectListeners()
 
 	/**

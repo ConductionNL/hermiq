@@ -61,6 +61,15 @@ class ApprovalPreviewBuilder {
 	private const TALK_SAFE_LABEL = '/^[\\p{L}\\p{M}\\p{N} ,\'’()\\-]{1,80}$/u';
 
 	/**
+	 * A tool id Talk shows as plain text: ASCII letters and digits, then also
+	 * `.`, `_` and `-`, at most 160 characters. No `@`, `:`, `/` or markdown, so
+	 * no mention, link or formatting can form; Talk links only with a scheme.
+	 *
+	 * @var string
+	 */
+	public const TALK_SAFE_ID = '/^[A-Za-z0-9][A-Za-z0-9._\\-]{0,159}$/';
+
+	/**
 	 * English reach labels for text that leaves the UI (the Talk line).
 	 *
 	 * @var array<string, string>
@@ -141,13 +150,13 @@ class ApprovalPreviewBuilder {
 	 */
 	public function toolLine(string $toolId): string {
 		$tool = $this->describeTool(id: $toolId, arguments: null);
+		$reach = (self::REACH_TEXT[$tool['reach']] ?? 'an unknown reach');
+		$label = $this->talkLabel(tool: $tool);
+		if ($label === null) {
+			return sprintf('A tool %s, and reaches %s.', $tool['effect'], $reach);
+		}
 
-		return sprintf(
-			'The tool %s %s, and reaches %s.',
-			$this->talkLabel(tool: $tool),
-			$tool['effect'],
-			(self::REACH_TEXT[$tool['reach']] ?? 'an unknown reach')
-		);
+		return sprintf('The tool %s %s, and reaches %s.', $label, $tool['effect'], $reach);
 	}//end toolLine()
 
 	/**
@@ -156,15 +165,15 @@ class ApprovalPreviewBuilder {
 	 * Talk reads mentions, links and markdown in message text, and a tool's title
 	 * and name are free text from whoever registered the tool. A label is used only
 	 * when it holds letters, digits, spaces and plain punctuation; otherwise the
-	 * message names the tool by its id.
+	 * message names the tool by its id, when that is plain too.
 	 *
 	 * @param array{id: string, name: string, title?: string} $tool The described tool.
 	 *
-	 * @return string The title, the name, or the id.
+	 * @return string|null The title, the name or the id; null when none is plain.
 	 *
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
 	 */
-	private function talkLabel(array $tool): string {
+	private function talkLabel(array $tool): ?string {
 		foreach ([($tool['title'] ?? ''), $tool['name']] as $label) {
 			$label = trim((string)preg_replace('/[\s\p{C}]+/u', ' ', $label));
 			if ($label !== '' && preg_match(self::TALK_SAFE_LABEL, $label) === 1) {
@@ -172,7 +181,11 @@ class ApprovalPreviewBuilder {
 			}
 		}
 
-		return $tool['id'];
+		if (preg_match(self::TALK_SAFE_ID, $tool['id']) === 1) {
+			return $tool['id'];
+		}
+
+		return null;
 	}//end talkLabel()
 
 	/**

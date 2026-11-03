@@ -62,6 +62,10 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			['mcpId' => 'remote.lines', 'name' => 'lines', 'title' => "Close\nthe case\u{200B}", 'scope' => 'update', 'reach' => 'external'],
 			['mcpId' => 'remote.named', 'name' => '@all', 'scope' => 'create', 'reach' => 'external'],
 			['mcpId' => 'remote.fallsToName', 'name' => 'safeName', 'title' => '@here', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => '@all', 'name' => '@all', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => '[x](https://evil.example)', 'name' => '**x**', 'title' => '`x`', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => 'remote:mention', 'name' => 'remote:mention', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => 'remote.under_score-dash', 'name' => 'remote.under_score-dash', 'scope' => 'create', 'reach' => 'external'],
 		];
 	}//end catalog()
 
@@ -245,4 +249,50 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			$builder->toolLine('remote.mention')
 		);
 	}//end testTheTalkLineNeverCarriesMentionsOrMarkdownFromATitle()
+
+	/**
+	 * When the title, the name and the id are all text Talk would read as a
+	 * mention, link or markdown, the line names no tool at all.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testTheTalkLineNeverCarriesAnUnsafeToolId(): void {
+		$builder = $this->builder();
+
+		$this->assertSame(
+			[
+				'A tool sends, and reaches outside this Nextcloud.',
+				'A tool sends, and reaches outside this Nextcloud.',
+				'A tool sends, and reaches outside this Nextcloud.',
+				'The tool remote.under_score-dash sends, and reaches outside this Nextcloud.',
+			],
+			[
+				$builder->toolLine('@all'),
+				$builder->toolLine('[x](https://evil.example)'),
+				$builder->toolLine('remote:mention'),
+				$builder->toolLine('remote.under_score-dash'),
+			]
+		);
+	}//end testTheTalkLineNeverCarriesAnUnsafeToolId()
+
+	/**
+	 * The plain-id pattern takes registry ids and refuses mention, link and markdown characters.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testThePlainIdPattern(): void {
+		$plain = [];
+		foreach (['files.deleteFile', 'a', 'x_y-z.9', str_repeat('a', 160), str_repeat('a', 161), '', '.files', '-x', '@all', 'a@b', 'a:b', 'a/b', 'a*b', 'a`b', 'a b', "a\nb", 'é'] as $id) {
+			$plain[$id] = preg_match(ApprovalPreviewBuilder::TALK_SAFE_ID, $id);
+		}
+
+		$this->assertSame(
+			['files.deleteFile' => 1, 'a' => 1, 'x_y-z.9' => 1, str_repeat('a', 160) => 1, str_repeat('a', 161) => 0, '' => 0, '.files' => 0, '-x' => 0, '@all' => 0, 'a@b' => 0, 'a:b' => 0, 'a/b' => 0, 'a*b' => 0, 'a`b' => 0, 'a b' => 0, "a\nb" => 0, 'é' => 0],
+			$plain
+		);
+	}//end testThePlainIdPattern()
 }//end class
