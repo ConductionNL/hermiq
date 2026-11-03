@@ -193,7 +193,7 @@ console.log('\nA very large grant list flattens without overflowing the call sta
 	for (let i = 0; i < 200000; i++) {
 		many.push('hermiq.tool' + i)
 	}
-	let got = null
+	let got
 	try {
 		got = flattenGrants({ hermiq: { tool: { use: many } } })
 	} catch (error) {
