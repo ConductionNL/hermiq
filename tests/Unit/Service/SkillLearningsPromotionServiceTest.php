@@ -45,6 +45,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
 /**
  * SkillLearningsPromotionService behaviour tests (skill-learnings).
@@ -481,4 +483,68 @@ class SkillLearningsPromotionServiceTest extends TestCase {
 		$this->assertSame('skill-1', $this->savedObjects[0][1]);
 
 	}//end testPromoteAllIsolatesPerSkillFailures()
+	/**
+	 * Generated candidate files give the recorded saves (golden; GOLDEN_RECORD=1 rewrites it).
+	 *
+	 * @return void
+	 */
+	public function testPromotionMatchesTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/skill-learnings-promotion.json';
+		$dates = ['2026-07-27', '2026-07-01', '2026-06-27', '2026-06-26', '2026-05-01', '2026-02-30'];
+		$sections = ['patterns', 'mistakes', 'domain', 'questions'];
+		$runs = ['r1', 'r2', 'r3', 'r4'];
+		$actual = [];
+		for ($case = 0; $case < 300; $case++) {
+			$random = new Randomizer(new Mt19937($case + 501));
+			$lines = [];
+			$count = $random->getInt(0, 6);
+			for ($i = 0; $i < $count; $i++) {
+				$date = $dates[$random->getInt(0, count($dates) - 1)];
+				$kind = $random->getInt(0, 9);
+				if ($kind === 0) {
+					$lines[] = '- [' . $date . '] hand-edited note';
+					continue;
+				}
+
+				if ($kind === 1) {
+					$lines[] = '- loose line without a date';
+					continue;
+				}
+
+				$ids = [];
+				$width = $random->getInt(1, 4);
+				for ($j = 0; $j < $width; $j++) {
+					$ids[] = $runs[$random->getInt(0, count($runs) - 1)];
+				}
+
+				$marker = 'runs: ' . implode(',', $ids);
+				if ($random->getInt(0, 6) === 0) {
+					$marker .= ' | eval-fail: case-' . $i;
+				}
+
+				$lines[] = '- [' . $date . '] {' . $sections[$random->getInt(0, 3)] . '} Note ' . $case . '.' . $i . ' <!-- ' . $marker . ' -->';
+			}//end for
+
+			$learnings = [null, "# Learnings\n\n## Patterns That Work\n\n- Kept. <!-- promoted 2026-07-01 | runs: r9 -->\n"][$random->getInt(0, 1)];
+			$service = $this->service();
+			$service->promoteSkill(skill: $this->skillWithCandidates(candidates: implode("\n", $lines), learnings: $learnings));
+			$actual[] = ['lines' => $lines, 'saved' => $this->savedObjects];
+		}//end for
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped(message: 'Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertCount(expectedCount: count($expected), haystack: $actual);
+		foreach ($expected as $index => $one) {
+			$this->assertSame(
+				expected: json_encode($one, JSON_THROW_ON_ERROR),
+				actual: json_encode($actual[$index], JSON_THROW_ON_ERROR),
+				message: 'case ' . $index
+			);
+		}
+
+	}//end testPromotionMatchesTheRecordedFixture()
 }//end class

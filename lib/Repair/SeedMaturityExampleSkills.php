@@ -587,12 +587,6 @@ class SeedMaturityExampleSkills implements IRepairStep {
 	 * @return void
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Each only-when-absent idempotency
-	 *   guard (two files, l6 evidence, no-op detection, refresh fold-in) adds a branch
-	 *   on one linear upgrade path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   presence guards multiply paths without nested logic.
 	 */
 	private function ensureLearningsSeed(
 		ObjectService $objectService,
@@ -606,33 +600,10 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			$files = [];
 		}
 
-		$filesAdded = false;
-
-		if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
-			$files[] = [
-				'name' => 'learnings.md',
-				'content' => self::seedLearningsContent(),
-			];
-			$filesAdded = true;
-		}
-
-		if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
-			$files[] = [
-				'name' => 'learning-candidates.md',
-				'content' => self::seedCandidatesContent(),
-			];
-			$filesAdded = true;
-		}
-
-		$evidence = ($data['levelEvidence'] ?? []);
-		if (is_array($evidence) === false) {
-			$evidence = [];
-		}
-
-		$l6Evidence = ($evidence['l6'] ?? []);
-		if ($filesAdded === true && (is_array($l6Evidence) === false || $l6Evidence === [])) {
-			$evidence['l6'] = self::seedL6Evidence();
-			$data['levelEvidence'] = $evidence;
+		$seeded = $this->withSeedFiles(files: $files);
+		$filesAdded = (count($seeded) !== count($files));
+		if ($filesAdded === true) {
+			$data = $this->withSeedEvidence(data: $data);
 		}
 
 		if ($filesAdded === false && $refreshed === null) {
@@ -640,7 +611,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			return;
 		}
 
-		$data['files'] = array_values($files);
+		$data['files'] = array_values($seeded);
 
 		$objectService->saveObject(
 			object: $data,
@@ -659,6 +630,59 @@ class SeedMaturityExampleSkills implements IRepairStep {
 		$output->info('tender-summary seed already present — freshness refreshed.');
 
 	}//end ensureLearningsSeed()
+
+	/**
+	 * The skill's files with each demo learnings file appended when it is absent.
+	 *
+	 * @param array<int|string, mixed> $files The skill's `files` array.
+	 *
+	 * @return array<int|string, mixed> The files, with the missing demo files added.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	private function withSeedFiles(array $files): array {
+		if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
+			$files[] = [
+				'name' => 'learnings.md',
+				'content' => self::seedLearningsContent(),
+			];
+		}
+
+		if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
+			$files[] = [
+				'name' => 'learning-candidates.md',
+				'content' => self::seedCandidatesContent(),
+			];
+		}
+
+		return $files;
+
+	}//end withSeedFiles()
+
+	/**
+	 * The payload with the demo l6 activity stamped, unless l6 evidence already exists.
+	 *
+	 * @param array<string, mixed> $data The skill payload.
+	 *
+	 * @return array<string, mixed> The payload, with `levelEvidence.l6` set when it was empty.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	private function withSeedEvidence(array $data): array {
+		$evidence = ($data['levelEvidence'] ?? []);
+		if (is_array($evidence) === false) {
+			$evidence = [];
+		}
+
+		$l6Evidence = ($evidence['l6'] ?? []);
+		if (is_array($l6Evidence) === false || $l6Evidence === []) {
+			$evidence['l6'] = self::seedL6Evidence();
+			$data['levelEvidence'] = $evidence;
+		}
+
+		return $data;
+
+	}//end withSeedEvidence()
 
 	/**
 	 * Whether the `files` array already carries an entry with the given name.

@@ -67,7 +67,7 @@
     "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
     "dexie": "^4.4.6",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "gridstack": "^14.0.0",
     "marked": "^18.0.14",
     "node-polyfill-webpack-plugin": "4.0.0",
@@ -85,7 +85,7 @@
       "@vueuse/core": "11.3.0"
     },
     "@toast-ui/editor": {
-      "dompurify": "^3.4.13"
+      "dompurify": "$dompurify"
     }
   },
   "devDependencies": {

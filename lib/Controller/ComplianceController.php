@@ -71,7 +71,7 @@ class ComplianceController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param ActionAuthService $actionAuth ADR-023 action-authorization gate.
 	 * @param OrganisationMapper $organisationMapper Resolves the caller's active organisation
-	 *                                               (mirrors TenantModelPolicyController).
+	 *                                               (mirrors OrganisationModelPolicyController).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
@@ -229,7 +229,7 @@ class ComplianceController extends Controller {
 	/**
 	 * Resolve the calling user's active organisation (identity from session — no
 	 * request parameter). Falls back to '' when the user has no active/default
-	 * organisation, mirroring `TenantModelPolicyController::resolveActiveOrganisation()`.
+	 * organisation, mirroring `OrganisationModelPolicyController::resolveActiveOrganisation()`.
 	 *
 	 * @param string $uid The requesting user's id.
 	 *

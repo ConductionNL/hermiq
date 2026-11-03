@@ -14,7 +14,7 @@
  * This is a NEW entry point into EXISTING governance rails, not a second
  * enforcement path: the kill-switch read (`ScheduleService::isOrganisationEngaged()`),
  * the budget hard-cap/soft-threshold check (`BudgetService`), and the tenant
- * model-policy check (`TenantModelPolicyService`) are the SAME services every
+ * model-policy check (`OrganisationModelPolicyService`) are the SAME services every
  * other governed run already calls.
  *
  * Never throws: every refusal returns a structured `{error:{code,message}}`
@@ -67,7 +67,7 @@ use Throwable;
  *   parameter is a distinct injected collaborator, not a logic-bearing
  *   argument list.
  * @SuppressWarnings(PHPMD.LongVariable)           `$tenantModelPolicyService` is a promoted
- *   constructor collaborator named after its class (TenantModelPolicyService) —
+ *   constructor collaborator named after its class (OrganisationModelPolicyService) —
  *   shortening it would obscure which service is injected.
  *
  * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
@@ -136,7 +136,7 @@ class DelegationService {
 	 * @param IAppConfig $appConfig Reads `delegation.maxDepth`/`delegation.maxFanOut`.
 	 * @param DelegationContext $delegationContext Trusted, request-scoped call-stack — the
 	 *                                             ONLY source of depth/ancestry/fan-out/anchor.
-	 * @param TenantModelPolicyService $tenantModelPolicyService GATE 4: the target agent's provider/model
+	 * @param OrganisationModelPolicyService $tenantModelPolicyService GATE 4: the target agent's provider/model
 	 *                                                           against the organisation's effective
 	 *                                                           ModelPolicy.
 	 * @param ScheduleService $scheduleService GATE 5 (kill-switch, reused) and the actual
@@ -164,7 +164,7 @@ class DelegationService {
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
 		private readonly DelegationContext $delegationContext,
-		private readonly TenantModelPolicyService $tenantModelPolicyService,
+		private readonly OrganisationModelPolicyService $tenantModelPolicyService,
 		private readonly ScheduleService $scheduleService,
 		private readonly BudgetService $budgetService,
 		private readonly AuditTrailMapper $auditTrailMapper,

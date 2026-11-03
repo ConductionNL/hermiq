@@ -1047,7 +1047,7 @@
 						"type": "stat",
 						"title": "Schedules quota",
 						"content": {
-							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (TenantOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
+							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (OrganisationOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
 							"label": "Schedules",
 							"icon": "Calendar",
 							"format": {
@@ -1066,7 +1066,7 @@
 						"type": "stat",
 						"title": "Agents quota",
 						"content": {
-							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (TenantOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
+							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (OrganisationOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
 							"label": "Agents in use",
 							"icon": "AccountGroup",
 							"format": {

@@ -176,14 +176,6 @@ class SkillLearningsPromotionService {
 	 *
 	 * @return void
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)  One linear promote/expire/keep
-	 *   fold over the candidate list — the spec's three mechanical rules in order;
-	 *   splitting it would scatter the normative sequence.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)       Same reasoning: sequential guard
-	 *   branches per candidate, not combinatorial paths.
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Same reasoning: parse → fold →
-	 *   write is one auditable sequence.
-	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidence-l6-activity-is-written-by-the-learnings-subsystem-only
 	 */
@@ -205,37 +197,11 @@ class SkillLearningsPromotionService {
 
 		$candidates = $this->captureService->parseCandidates(content: $candidatesContent);
 
-		$kept = [];
-		$promoted = [];
-		$dropped = 0;
-
-		foreach ($candidates as $candidate) {
-			if ($candidate['raw'] !== null) {
-				// Unparseable/legacy line: never destroyed by promotion, but it ages
-				// out via the same expiry rule when a loose date is extractable.
-				if ($this->rawLineExpired(line: (string)$candidate['raw']) === true) {
-					$dropped++;
-					continue;
-				}
-
-				$kept[] = $candidate;
-				continue;
-			}
-
-			$distinctRuns = count(array_unique($candidate['runs']));
-
-			if ($distinctRuns >= self::CONFIRMATION_THRESHOLD || $candidate['evalFail'] !== '') {
-				$promoted[] = $candidate;
-				continue;
-			}
-
-			if ($this->isExpired(date: $candidate['date']) === true) {
-				$dropped++;
-				continue;
-			}
-
-			$kept[] = $candidate;
-		}//end foreach
+		[
+			'kept' => $kept,
+			'promoted' => $promoted,
+			'dropped' => $dropped,
+		] = $this->sortCandidates(candidates: $candidates);
 
 		if ($promoted === [] && $dropped === 0) {
 			// Byte-identical outcome — skip the write entirely.
@@ -294,6 +260,53 @@ class SkillLearningsPromotionService {
 		);
 
 	}//end promoteSkill()
+
+	/**
+	 * Sort parsed candidates into promoted, kept and expired: a candidate with enough
+	 * distinct runs or an eval-fail marker promotes, a stale one drops, the rest stay.
+	 * An unparseable line is never promoted; it only ages out by its loose date.
+	 *
+	 * @param array<int, array<string, mixed>> $candidates The parsed candidates.
+	 *
+	 * @return array{kept: array<int, array<string, mixed>>, promoted: array<int, array<string, mixed>>, dropped: int}
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
+	 */
+	private function sortCandidates(array $candidates): array {
+		$kept = [];
+		$promoted = [];
+		$dropped = 0;
+
+		foreach ($candidates as $candidate) {
+			if ($candidate['raw'] !== null) {
+				// Unparseable/legacy line: never destroyed by promotion, but it ages
+				// out via the same expiry rule when a loose date is extractable.
+				if ($this->rawLineExpired(line: (string)$candidate['raw']) === true) {
+					$dropped++;
+					continue;
+				}
+
+				$kept[] = $candidate;
+				continue;
+			}
+
+			$distinctRuns = count(array_unique($candidate['runs']));
+
+			if ($distinctRuns >= self::CONFIRMATION_THRESHOLD || $candidate['evalFail'] !== '') {
+				$promoted[] = $candidate;
+				continue;
+			}
+
+			if ($this->isExpired(date: $candidate['date']) === true) {
+				$dropped++;
+				continue;
+			}
+
+			$kept[] = $candidate;
+		}//end foreach
+
+		return ['kept' => $kept, 'promoted' => $promoted, 'dropped' => $dropped];
+	}//end sortCandidates()
 
 	/**
 	 * Append promoted candidates to `learnings.md` under their tagged sections,
