@@ -33,6 +33,11 @@ use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolOversight\ToolCatalogView;
+use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
+use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -59,6 +64,19 @@ use RuntimeException;
  * Tests for the tool-catalog / tool-grants / tool-invocations endpoints.
  *
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+ *
+ * @covers \OCA\Hermiq\Controller\ToolOversightController
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightAgents
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolCatalogView
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolInvocationLog
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolGrantWrites
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightServices
+ * @uses   \OCA\Hermiq\Listener\AgentWaiverChangeListener
+ * @uses   \OCA\Hermiq\Service\AgentAccessService
+ * @uses   \OCA\Hermiq\Service\Agent\GrantWaiverAudit
+ * @uses   \OCA\Hermiq\Service\ToolAccessDecision
+ * @uses   \OCA\Hermiq\Service\ToolInvocationRows
+ * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
  */
 class ToolOversightControllerTest extends TestCase {
 
@@ -157,40 +175,25 @@ class ToolOversightControllerTest extends TestCase {
 	 * @return ToolOversightController
 	 */
 	private function controller(bool $richAvailable = false): ToolOversightController {
-		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
-		// goes here and not on the end — appending would put the logger in its
-		// slot and the anonymous class's own `$richAvailable` in the logger's.
-		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $richAvailable) extends ToolOversightController {
+		$services = new ToolOversightServices(
+			agents: new ToolOversightAgents($this->objectService, new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->groupManager), $this->groupManager, $this->createMock(LoggerInterface::class)),
+			catalog: new ToolCatalogView($this->toolRegistry, new ToolGrantResolver(), $this->appConfig),
+			invocations: new ToolInvocationLog($this->objectService, $this->auditTrailMapper),
+			grants: new ToolGrantWrites($this->objectService, $this->createMock(ToolAccessRequestService::class)),
+		);
+
+		return new class($this->request, $this->userSession, $this->createMock(LoggerInterface::class), $services, $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
 			 */
 			public function __construct(
 				IRequest $request,
-				ObjectService $objectService,
-				ToolRegistryFacade $toolRegistry,
-				ToolGrantResolver $grantResolver,
-				AuditTrailMapper $auditTrailMapper,
-				IAppConfig $appConfig,
 				IUserSession $userSession,
-				IGroupManager $groupManager,
-				ToolAccessRequestService $accessRequests,
 				LoggerInterface $logger,
-				AgentAccessService $agentAccess,
+				ToolOversightServices $services,
 				private readonly bool $richAvailable,
 			) {
-				parent::__construct(
-					$request,
-					$objectService,
-					$toolRegistry,
-					$grantResolver,
-					$auditTrailMapper,
-					$appConfig,
-					$userSession,
-					$groupManager,
-					$accessRequests,
-					$logger,
-					$agentAccess
-				);
+				parent::__construct($request, $userSession, $logger, $services);
 			}//end __construct()
 
 			protected function richAuditAvailable(): bool {
@@ -858,6 +861,30 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
 	}//end testResolveToolAccessRequestRefusesNonOwnerWithoutWriting()
+
+	/**
+	 * An empty session uid never owns an agent, not even one whose stored owner is empty too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestRefusesAnEmptyUidOnAnUnownedAgent(): void {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('');
+		$this->userSession = $this->createMock(IUserSession::class);
+		$this->userSession->method('getUser')->willReturn($user);
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], ''),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->decide(decision: 'granted');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	}//end testResolveToolAccessRequestRefusesAnEmptyUidOnAnUnownedAgent()
 
 	/**
 	 * A request belonging to a DIFFERENT agent cannot be resolved through this
