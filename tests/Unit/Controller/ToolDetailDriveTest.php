@@ -70,6 +70,7 @@ use Psr\Log\NullLogger;
  *
  * @covers \OCA\Hermiq\Controller\ChatController
  * @covers \OCA\Hermiq\Controller\ChatStreamController
+ * @uses   \OCA\Hermiq\Service\Chat\SessionSubject
  * @covers \OCA\Hermiq\Controller\McpRunController
  * @covers \OCA\Hermiq\Service\Engine\Engine
  * @covers \OCA\Hermiq\Service\Engine\ToolLoop
