@@ -90,9 +90,8 @@
 			<!--
 				An audit trail grows without bound, so its height cannot be a
 				function of any gridHeight: a busy agent's rows pushed this widget
-				past its cell and over the widgets below it. Same treatment as the
-				grant catalogue in ToolGrantEditor — bounded scroll region, sticky
-				header, all rows still present.
+				past its cell and over the widgets below it. Bounded scroll region,
+				sticky header, all rows still present.
 			-->
 			<div v-else class="tool-oversight__table-wrap">
 				<table class="tool-oversight__table">
@@ -380,7 +379,6 @@ export default {
 
 /* The audit trail is unbounded — it scrolls inside the widget (ADR-062). */
 .tool-oversight__table-wrap {
-	/* Paired with ToolGrantEditor's 300px cap — see the note there. */
 	max-height: 260px;
 	overflow-y: auto;
 	border: 1px solid var(--color-border);

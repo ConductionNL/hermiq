@@ -3305,7 +3305,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/ToolGrantMatrix.vue (cluster/subject/verb grant matrix) and src/components/ToolGrantEditor.vue, wired into src/modals/AgentFormModal.vue:343 (imports ../api/toolOversight.js); appinfo/routes.php:226-236 toolOversight#toolCatalog (GET) / updateToolGrants (PUT).",
+				"evidence": "src/components/ToolGrantMatrix.vue (cluster/subject/verb grant matrix), wired into src/modals/AgentFormModal.vue:343 (imports ../api/toolOversight.js); appinfo/routes.php:226-236 toolOversight#toolCatalog (GET) / updateToolGrants (PUT).",
 				"spec": "openspec/specs/agent-tool-governance"
 			},
 			"reachedOn": "Agent editor (AgentFormModal) -> tool grant matrix -> PUT /api/agents/{agentId}/tool-grants",
@@ -9854,11 +9854,11 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/ToolGrantEditor.vue:53,65 grants an agent an OpenRegister schema's tools with {app}.{schema}.* (read) or {app}.{schema}.*:write, mounted from src/widgets/AgentToolGovernanceWidget.vue; lib/Service/Engine/ToolLoop.php:195 resolves them through OpenRegister's ToolRegistryFacade, and lib/Service/Engine/FacadeToolInvoker.php:1238 runs search, get, create and update on the register objects",
+				"evidence": "src/components/ToolGrantMatrix.vue keeps and shows an agent's {app}.{schema}.* (read) and {app}.{schema}.*:write grants, mounted from src/widgets/AgentToolGovernanceWidget.vue; lib/Service/Engine/ToolLoop.php:195 resolves them through OpenRegister's ToolRegistryFacade, and lib/Service/Engine/FacadeToolInvoker.php:1238 runs search, get, create and update on the register objects",
 				"spec": "openspec/specs/agent-tool-governance"
 			},
 			"feature": "knowledge-bases",
-			"reachedOn": "/agents/:id -> Tool governance (ToolGrantEditor)",
+			"reachedOn": "/agents/:id -> Tool governance (ToolGrantMatrix)",
 			"screen": {
 				"canvas": "design-system",
 				"board": "HmAgentBewerken"

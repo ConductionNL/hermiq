@@ -10,7 +10,7 @@
   catalogue: grants + the audit trail of their use) — merged into one widget so
   the grid gets one coherent "tool governance" cell instead of two thin strips
   (design.md Decision 3). Self-fetches the agent id from `$route.params.id`
-  and the agent object (for the owner-only `canEdit` gate on ToolGrantEditor —
+  and the agent object (for the owner-only `canEdit` gate on ToolGrantMatrix —
   the server enforces owner-only regardless of this client-side hint).
 
   agent-detail-redesign (2026-08-04): the two surfaces are now TABBED rather than
