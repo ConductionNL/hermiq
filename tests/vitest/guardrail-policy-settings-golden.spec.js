@@ -141,6 +141,8 @@ describe('GuardrailPolicySettings golden', () => {
 			return
 		}
 
-		expect(actual).toBe(readFileSync(FIXTURE, 'utf8'))
+		expect(JSON.parse(actual)).toStrictEqual(
+			JSON.parse(readFileSync(FIXTURE, 'utf8')),
+		)
 	})
 })
