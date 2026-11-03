@@ -251,6 +251,25 @@ class SessionControllerSubjectTest extends TestCase {
 	}//end testMessagesCarryThePendingApprovalsForTheCaller()
 
 	/**
+	 * A participant reading another owner's session gets the approvals they
+	 * review, never the owner's.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function testAParticipantGetsTheApprovalsTheyReview(): void {
+		$this->pendingApprovals->expects($this->once())->method('forSession')
+			->with($this->sessions['s-shared']->getObject(), 'alice')
+			->willReturn([]);
+
+		$response = $this->controllerAs(uid: 'alice')->messages(uuid: 's-shared');
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame([], $response->getData()['pendingApprovals']);
+	}//end testAParticipantGetsTheApprovalsTheyReview()
+
+	/**
 	 * A caller who may not read the session gets 403 and its approvals are never read.
 	 *
 	 * @return void
