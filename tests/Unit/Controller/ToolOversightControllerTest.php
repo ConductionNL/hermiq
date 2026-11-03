@@ -981,4 +981,45 @@ class ToolOversightControllerTest extends TestCase {
 		}
 	}//end testResolveToolAccessRequestRefusalGrantsNothing()
 
+	/**
+	 * The decision on a request is written on the system path: the owner-only
+	 * update rule of the ToolAccessRequest schema would refuse an agent owner
+	 * who did not raise the request, and the controller has already checked
+	 * that the caller owns the agent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheDecisionIsWrittenOnTheSystemPath(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('refused');
+
+		$names = array_map(
+			static fn ($parameter): string => $parameter->getName(),
+			(new \ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
+		);
+		$writes = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$writes, $names): ObjectEntity {
+				$named = [];
+				foreach ($args as $position => $value) {
+					$named[is_int($position) === true ? $names[$position] : $position] = $value;
+				}
+
+				$writes[] = $named;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		$this->assertCount(1, $writes);
+		$this->assertSame('toolAccessRequest', $writes[0]['schema']);
+		$this->assertSame('refused', $writes[0]['object']['status']);
+		$this->assertFalse($writes[0]['_rbac'] ?? true, 'the decision must be written with _rbac false');
+
+	}//end testTheDecisionIsWrittenOnTheSystemPath()
 }//end class

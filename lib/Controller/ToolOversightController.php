@@ -367,11 +367,14 @@ class ToolOversightController extends Controller {
 			$data['decidedBy'] = $user->getUID();
 			$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
 
+			// System path: the schema admits only the request's owner, and the
+			// caller was checked above to own the agent the request is for.
 			$this->objectService->saveObject(
 				object: $data,
 				register: self::REGISTER_SLUG,
 				schema: 'toolAccessRequest',
-				uuid: $requestId
+				uuid: $requestId,
+				_rbac: false
 			);
 
 			if ($decision === 'granted') {
