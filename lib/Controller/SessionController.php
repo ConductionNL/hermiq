@@ -487,7 +487,7 @@ class SessionController extends Controller {
 				start: [
 					'agentId' => (string)$agent->getUuid(),
 					'title' => ($data['title'] ?? null),
-					'metadata' => ($data['metadata'] ?? []),
+					'metadata' => $this->subject->checkedMetadata(metadata: ($data['metadata'] ?? []), stored: null),
 				]
 			);
 
@@ -653,7 +653,10 @@ class SessionController extends Controller {
 			}
 
 			if (($data['metadata'] ?? null) !== null) {
-				$payload['metadata'] = $data['metadata'];
+				$payload['metadata'] = $this->subject->checkedMetadata(
+					metadata: $data['metadata'],
+					stored: $this->subject->subjectOf(sessionData: $conversation->getObject())
+				);
 			}
 
 			$updated = $this->objectService->saveObject(

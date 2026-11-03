@@ -91,8 +91,8 @@ class SessionSubjectTest extends TestCase {
 
 	/**
 	 * A record the caller can read becomes the session's subject, read as the
-	 * caller (default RBAC and multitenancy), with the context's register,
-	 * schema and app.
+	 * caller (default RBAC and multitenancy), with the record's own register and
+	 * schema and the context's app.
 	 *
 	 * @return void
 	 */
@@ -103,7 +103,7 @@ class SessionSubjectTest extends TestCase {
 		);
 
 		$this->assertSame(
-			['userId' => 'alice', 'metadata' => ['subject' => ['objectUuid' => 'case-1', 'register' => 'zaken', 'schema' => 'zaak', 'appId' => 'dossiq']]],
+			['userId' => 'alice', 'metadata' => ['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']]],
 			$session
 		);
 		$this->assertCount(1, $this->finds);
@@ -229,4 +229,67 @@ class SessionSubjectTest extends TestCase {
 		$this->assertSame($sessions, $subject->about(sessions: $sessions, objectUuid: ''));
 		$this->assertSame($sessions, $subject->about(sessions: $sessions, objectUuid: ['case-1']));
 	}//end testAboutWithoutAUuidKeepsTheList()
+	/**
+	 * A register or schema label in the context never reaches the stored subject:
+	 * a forged label beside a real uuid is replaced by the record's own.
+	 *
+	 * @return void
+	 */
+	public function testAContextLabelNeverReplacesTheRecordsRegisterAndSchema(): void {
+		$session = $this->subject(answer: $this->entity(uuid: 'case-1'))->stamp(
+			session: [],
+			context: ['objectUuid' => 'case-1', 'register' => 'forged-register', 'schema' => 'forged-schema']
+		);
+
+		$this->assertSame(['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => ''], $session['metadata']['subject']);
+	}//end testAContextLabelNeverReplacesTheRecordsRegisterAndSchema()
+
+	/**
+	 * Metadata without a subject, or not a map, passes through unread.
+	 *
+	 * @return void
+	 */
+	public function testMetadataWithoutASubjectPassesThrough(): void {
+		$subject = $this->subject(answer: $this->entity(uuid: 'case-1'));
+
+		$this->assertSame(['pinned' => true], $subject->checkedMetadata(metadata: ['pinned' => true], stored: null));
+		$this->assertSame('text', $subject->checkedMetadata(metadata: 'text', stored: null));
+		$this->assertSame([], $this->finds);
+	}//end testMetadataWithoutASubjectPassesThrough()
+
+	/**
+	 * A new subject in written metadata is read as the caller: an unreadable one
+	 * is dropped, a readable one is stored with the record's register and schema.
+	 *
+	 * @return void
+	 */
+	public function testANewSubjectInWrittenMetadataIsReadAsTheCaller(): void {
+		$unreadable = $this->subject(answer: null)->checkedMetadata(
+			metadata: ['pinned' => true, 'subject' => ['objectUuid' => 'case-secret', 'register' => 'zaken', 'schema' => 'zaak']],
+			stored: null
+		);
+		$this->assertSame(['pinned' => true], $unreadable);
+
+		$readable = $this->subject(answer: $this->entity(uuid: 'case-1'))->checkedMetadata(
+			metadata: ['subject' => ['objectUuid' => 'case-1', 'schema' => 'forged', 'appId' => 'dossiq']],
+			stored: ['objectUuid' => 'case-0', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']
+		);
+		$this->assertSame(['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']], $readable);
+
+		$notAMap = $this->subject(answer: $this->entity(uuid: 'case-1'))->checkedMetadata(metadata: ['subject' => 'case-1'], stored: null);
+		$this->assertSame([], $notAMap);
+	}//end testANewSubjectInWrittenMetadataIsReadAsTheCaller()
+
+	/**
+	 * Written metadata that repeats the stored subject keeps it without a new read.
+	 *
+	 * @return void
+	 */
+	public function testAnUnchangedSubjectIsKeptWithoutARead(): void {
+		$stored = ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq'];
+		$kept = $this->subject(answer: null)->checkedMetadata(metadata: ['subject' => $stored, 'pinned' => true], stored: $stored);
+
+		$this->assertSame(['subject' => $stored, 'pinned' => true], $kept);
+		$this->assertSame([], $this->finds);
+	}//end testAnUnchangedSubjectIsKeptWithoutARead()
 }//end class
