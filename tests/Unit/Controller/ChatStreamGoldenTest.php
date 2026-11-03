@@ -182,6 +182,7 @@ class GoldenChatStreamController extends ChatStreamController {
  * Golden comparison of the SSE stream endpoint.
  *
  * @covers \OCA\Hermiq\Controller\ChatStreamController
+ * @uses   \OCA\Hermiq\Service\Chat\SessionSubject
  * @covers \OCA\Hermiq\Service\Chat\ChatRefusalFrame
  *
  * @uses \OCA\Hermiq\Service\Engine\StreamYieldChannel
