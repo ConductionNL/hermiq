@@ -125,7 +125,7 @@ export function flattenGrants(tools) {
 /**
  * The values of one level of the grant structure; none when the level is not an object.
  *
- * @param {*} level One level of the stored structure.
+ * @param {unknown} level One level of the stored structure.
  * @return {Array} Its values.
  */
 function nestedValues(level) {
@@ -139,7 +139,7 @@ function nestedValues(level) {
 /**
  * The grant ids stored under one action: one entry or a list of them.
  *
- * @param {*} entries The stored entry or entries.
+ * @param {unknown} entries The stored entry or entries.
  * @return {Array<string>} The grant ids, unreadable entries left out.
  */
 function actionGrantIds(entries) {

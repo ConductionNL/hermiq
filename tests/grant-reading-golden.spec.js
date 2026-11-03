@@ -40,8 +40,12 @@ function load(rel, names) {
 }
 
 const { flattenGrants } = load('src/api/toolTaxonomy.js', ['flattenGrants'])
-const { parseVerbAndSubject } = load('src/utils/toolTaxonomy.js', ['parseVerbAndSubject'])
-const { buildAgentContext } = load('src/utils/agentContext.js', ['buildAgentContext'])
+const { parseVerbAndSubject } = load('src/utils/toolTaxonomy.js', [
+	'parseVerbAndSubject',
+])
+const { buildAgentContext } = load('src/utils/agentContext.js', [
+	'buildAgentContext',
+])
 
 let seed = 1
 /**
@@ -65,9 +69,17 @@ function pick(pool) {
 }
 
 const entries = [
-	'hermiq.listFiles', '', 7, null, { id: 'openregister.object.read' }, { id: '' }, { id: 3 },
-	{ id: 'flow.run', args: { flow: 'f1' } }, { id: 'flow.run', args: { flow: ['a', 'b'], n: 2 } },
-	{ id: 'mail.send', args: {} }, { id: 'mail.send', args: null },
+	'hermiq.listFiles',
+	'',
+	7,
+	null,
+	{ id: 'openregister.object.read' },
+	{ id: '' },
+	{ id: 3 },
+	{ id: 'flow.run', args: { flow: 'f1' } },
+	{ id: 'flow.run', args: { flow: ['a', 'b'], n: 2 } },
+	{ id: 'mail.send', args: {} },
+	{ id: 'mail.send', args: null },
 ]
 /**
  * A stored `tools` value in one of its shapes.
@@ -90,7 +102,11 @@ function tools() {
 				const actions = pick([null, 5, {}, {}, {}])
 				if (actions !== null && typeof actions === 'object') {
 					for (let c = 0; c < 1 + rand(3); c++) {
-						actions['a' + c] = pick([pick(entries), [pick(entries), pick(entries)], []])
+						actions['a' + c] = pick([
+							pick(entries),
+							[pick(entries), pick(entries)],
+							[],
+						])
 					}
 				}
 				subjects['s' + s] = actions
@@ -102,10 +118,28 @@ function tools() {
 }
 
 const ids = [
-	'hermiq.listFiles', 'hermiq.readFile', 'hermiq_webFetch', 'openregister.object.read', 'openregister_objects_create',
-	'calendar.events.list', 'deck.boards', 'hermiq.searchContacts', 'pipelineForecast', 'x', '', 'a.b.c.d',
-	'hermiq.createCalendarEvent', 'notes_list_all', 'mail_send', 'hermiq.recallMemory', 'courses.list', 'boxes_create',
-	'hermiq.listCategories', 'tool', 'hermiq.UPPER', 'app_deleteThings',
+	'hermiq.listFiles',
+	'hermiq.readFile',
+	'hermiq_webFetch',
+	'openregister.object.read',
+	'openregister_objects_create',
+	'calendar.events.list',
+	'deck.boards',
+	'hermiq.searchContacts',
+	'pipelineForecast',
+	'x',
+	'',
+	'a.b.c.d',
+	'hermiq.createCalendarEvent',
+	'notes_list_all',
+	'mail_send',
+	'hermiq.recallMemory',
+	'courses.list',
+	'boxes_create',
+	'hermiq.listCategories',
+	'tool',
+	'hermiq.UPPER',
+	'app_deleteThings',
 ]
 /**
  * A taxonomy row in one of its shapes.
@@ -114,8 +148,14 @@ const ids = [
  */
 function taxonomy() {
 	return pick([
-		undefined, {}, { right: 'read' }, { subject: 'file', action: 'list' }, { subject: '', action: 'list' },
-		{ subject: 'file', action: '' }, { subject: 3, action: 'read' }, { subject: 'event', action: 4, right: 'write' },
+		undefined,
+		{},
+		{ right: 'read' },
+		{ subject: 'file', action: 'list' },
+		{ subject: '', action: 'list' },
+		{ subject: 'file', action: '' },
+		{ subject: 3, action: 'read' },
+		{ subject: 'event', action: 4, right: 'write' },
 		{ subject: 'note', action: 'archive' },
 	])
 }
@@ -127,10 +167,26 @@ function taxonomy() {
  */
 function schema() {
 	const spec = pick([
-		undefined, null, 'title', 5, [], ['title', '', 'missing', 7, null],
-		[{ property: 'title', maxLength: 3 }, { property: '' }, { name: 'x' }, 'body'],
+		undefined,
+		null,
+		'title',
+		5,
+		[],
+		['title', '', 'missing', 7, null],
+		[
+			{ property: 'title', maxLength: 3 },
+			{ property: '' },
+			{ name: 'x' },
+			'body',
+		],
 		{ title: { maxLength: 2 }, body: null, '': {}, count: 'caps' },
-		{ title: {}, empty: {}, nul: {}, zero: { maxLength: 0 }, emoji: { maxLength: 1 } },
+		{
+			title: {},
+			empty: {},
+			nul: {},
+			zero: { maxLength: 0 },
+			emoji: { maxLength: 1 },
+		},
 	])
 	const kind = rand(4)
 	if (kind === 0) {
@@ -140,12 +196,24 @@ function schema() {
 		return { configuration: { 'x-openregister-agent-context': spec } }
 	}
 	if (kind === 2) {
-		return { 'x-openregister-agent-context': spec, configuration: { 'x-openregister-agent-context': ['body'] } }
+		return {
+			'x-openregister-agent-context': spec,
+			configuration: { 'x-openregister-agent-context': ['body'] },
+		}
 	}
 	return pick([null, 'schema', undefined])
 }
 
-const data = { '': 'blank', title: 'Hello world', body: 'Body text', empty: '', nul: null, count: 0, zero: 'zz', emoji: '😀😀x' }
+const data = {
+	'': 'blank',
+	title: 'Hello world',
+	body: 'Body text',
+	empty: '',
+	nul: null,
+	count: 0,
+	zero: 'zz',
+	emoji: '😀😀x',
+}
 const cases = []
 for (let i = 0; i < 400; i++) {
 	const stored = tools()
@@ -154,8 +222,21 @@ for (let i = 0; i < 400; i++) {
 	const sch = schema()
 	cases.push({
 		flatten: JSON.parse(JSON.stringify(flattenGrants(stored))),
-		parse: [id, JSON.parse(JSON.stringify(row === undefined ? parseVerbAndSubject(id) : parseVerbAndSubject(id, row)))],
-		context: JSON.parse(JSON.stringify(buildAgentContext(pick([data, data, data, null, 'x']), sch))),
+		parse: [
+			id,
+			JSON.parse(
+				JSON.stringify(
+					row === undefined
+						? parseVerbAndSubject(id)
+						: parseVerbAndSubject(id, row),
+				),
+			),
+		],
+		context: JSON.parse(
+			JSON.stringify(
+				buildAgentContext(pick([data, data, data, null, 'x']), sch),
+			),
+		),
 	})
 }
 
@@ -173,7 +254,9 @@ expected.forEach((one, index) => {
 	if (JSON.stringify(one) !== JSON.stringify(cases[index])) {
 		failures++
 		if (failures <= 5) {
-			console.error(`case ${index} differs:\n  want ${JSON.stringify(one)}\n  got  ${JSON.stringify(cases[index])}`)
+			console.error(
+				`case ${index} differs:\n  want ${JSON.stringify(one)}\n  got  ${JSON.stringify(cases[index])}`,
+			)
 		}
 	}
 })

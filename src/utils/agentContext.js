@@ -57,7 +57,7 @@ function normaliseAllowlist(spec) {
  * its `property` with its caps. Anything else is left out.
  *
  * @param {{[key: string]: object}} allowlist The allowlist being built.
- * @param {*} entry The list entry.
+ * @param {unknown} entry The list entry.
  * @return {void}
  */
 function addListEntry(allowlist, entry) {
