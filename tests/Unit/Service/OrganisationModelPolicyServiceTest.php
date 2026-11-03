@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Hermiq TenantModelPolicyService unit tests.
+ * Hermiq OrganisationModelPolicyService unit tests.
  *
  * Covers the effective-policy resolution order (organisation → instance default →
  * fail-closed fallback) and the isAllowed() semantics an out-of-policy run is refused
@@ -27,17 +27,17 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 
 /**
- * TenantModelPolicyService unit tests (tenant-model-policy).
+ * OrganisationModelPolicyService unit tests (tenant-model-policy).
  *
  * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md
  */
-class TenantModelPolicyServiceTest extends TestCase {
+class OrganisationModelPolicyServiceTest extends TestCase {
 
 	/**
 	 * A ModelPolicy ObjectEntity pinned to an organisation ('' = instance default).
@@ -100,15 +100,15 @@ class TenantModelPolicyServiceTest extends TestCase {
 	 * @param array<int, ObjectEntity> $policies The stored policies.
 	 * @param string|null $chatProvider The instance-wide hermiq.llm chatProvider.
 	 *
-	 * @return TenantModelPolicyService
+	 * @return OrganisationModelPolicyService
 	 */
-	private function service(array $policies, ?string $chatProvider = null): TenantModelPolicyService {
+	private function service(array $policies, ?string $chatProvider = null): OrganisationModelPolicyService {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$settings->method('getLLMSettingsOnly')->willReturn(
 			$chatProvider === null ? [] : ['chatProvider' => $chatProvider]
 		);
 
-		return new TenantModelPolicyService(
+		return new OrganisationModelPolicyService(
 			objectService: $this->objectService($policies),
 			settingsHandler: $settings,
 		);

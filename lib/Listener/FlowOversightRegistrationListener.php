@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Flow\TenantKillSwitchCheck;
+use OCA\Hermiq\Flow\OrganisationKillSwitchCheck;
 use OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -43,10 +43,10 @@ class FlowOversightRegistrationListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param TenantKillSwitchCheck $killSwitchCheck The per-organisation stop control.
+	 * @param OrganisationKillSwitchCheck $killSwitchCheck The per-organisation stop control.
 	 */
 	public function __construct(
-		private readonly TenantKillSwitchCheck $killSwitchCheck,
+		private readonly OrganisationKillSwitchCheck $killSwitchCheck,
 	) {
 
 	}//end __construct()

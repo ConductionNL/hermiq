@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit tests for TenantOpsController (multi-tenant-ops).
+ * Unit tests for OrganisationOpsController (multi-tenant-ops).
  *
  * Covers the two tenant-scoped operations endpoints — quota() and auditExport() — for the
  * happy path (200 with the service payload), the unauthenticated path (401 before any service
@@ -28,9 +28,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\Controller\TenantOpsController;
+use OCA\Hermiq\Controller\OrganisationOpsController;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\TenantOpsService;
+use OCA\Hermiq\Service\OrganisationOpsService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
@@ -45,7 +45,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/playwright-regression-coverage/tasks.md#task-2-1
  */
-class TenantOpsControllerTest extends TestCase {
+class OrganisationOpsControllerTest extends TestCase {
 	/**
 	 * A session with the given (or no) user.
 	 *
@@ -71,20 +71,20 @@ class TenantOpsControllerTest extends TestCase {
 	 * ActionAuthService/request params for the agent-lifecycle-governance
 	 * mutating endpoints; a permissive no-op ActionAuthService by default).
 	 *
-	 * @param TenantOpsService $service The tenant-ops service.
+	 * @param OrganisationOpsService $service The tenant-ops service.
 	 * @param IUserSession $session The user session.
 	 * @param ActionAuthService|null $actionAuth The action-auth gate, or null for a permissive default.
 	 * @param array<string,mixed> $requestParams Request params getParam() should resolve.
 	 *
-	 * @return TenantOpsController
+	 * @return OrganisationOpsController
 	 */
 	private function controller(
-		TenantOpsService $service,
+		OrganisationOpsService $service,
 		IUserSession $session,
 		?ActionAuthService $actionAuth = null,
 		array $requestParams = [],
-	): TenantOpsController {
-		return new TenantOpsController(
+	): OrganisationOpsController {
+		return new OrganisationOpsController(
 			$this->request(params: $requestParams),
 			$service,
 			$session,
@@ -117,7 +117,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testQuotaReturnsStatus(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('quotaStatus')->willReturn(['requests' => ['used' => 3, 'limit' => 100]]);
 
 		$response = $this->controller($service, $this->session('alice'))->quota();
@@ -133,7 +133,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testQuotaUnauthenticated(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('quotaStatus');
 
 		$response = $this->controller($service, $this->session(null))->quota();
@@ -148,7 +148,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testQuotaServiceFailureIsServerError(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('quotaStatus')->willThrowException(new RuntimeException('boom'));
 
 		$response = $this->controller($service, $this->session('alice'))->quota();
@@ -167,7 +167,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAuditExportReturnsExport(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('exportAuditTrail')->willReturn(['generatedAt' => 'now', 'entries' => []]);
 
 		$response = $this->controller($service, $this->session('alice'))->auditExport();
@@ -183,7 +183,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAuditExportUnauthenticated(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('exportAuditTrail');
 
 		$response = $this->controller($service, $this->session(null))->auditExport();
@@ -198,7 +198,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAuditExportServiceFailureIsServerError(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('exportAuditTrail')->willThrowException(new RuntimeException('boom'));
 
 		$response = $this->controller($service, $this->session('alice'))->auditExport();
@@ -213,7 +213,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testReviewListReturnsPayload(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('accessReviewList')->willReturn(['agents' => [['uuid' => 'a1']]]);
 
 		$response = $this->controller($service, $this->session('alice'))->reviewList();
@@ -229,7 +229,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testReviewListUnauthenticated(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('accessReviewList');
 
 		$response = $this->controller($service, $this->session(null))->reviewList();
@@ -244,7 +244,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAttestReviewGatesThenAttests(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('attestAgentReviewed')->willReturn(['uuid' => 'a1', 'reviewedBy' => 'org.admin']);
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -265,7 +265,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAttestReviewForbidden(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('attestAgentReviewed');
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -283,7 +283,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testAttestReviewNotFound(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('attestAgentReviewed')->willThrowException(new RuntimeException('Agent not found'));
 
 		$response = $this->controller($service, $this->session('org.admin'))->attestReview('missing');
@@ -298,7 +298,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testReassignAgentGatesThenReassigns(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('reassignAgent')->willReturn(['uuid' => 'a1', 'actingUser' => 'new.user']);
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -324,7 +324,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testReassignAgentForbidden(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('reassignAgent');
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -347,7 +347,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testReassignAgentRejectsInvalidTarget(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('reassignAgent')->willThrowException(new InvalidArgumentException('Target user does not exist or is not active'));
 
 		$response = $this->controller(
@@ -367,7 +367,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testIncidentsReturnsList(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('listIncidents')->willReturn(['incidents' => [['uuid' => 'i1']]]);
 
 		$response = $this->controller($service, $this->session('alice'))->incidents();
@@ -383,7 +383,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testCreateIncidentGatesThenCreates(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('createIncident')->willReturn(['uuid' => 'i1', 'description' => 'boom']);
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -409,7 +409,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testCreateIncidentRejectsMissingFields(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('createIncident');
 
 		$response = $this->controller(
@@ -429,7 +429,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testCreateIncidentForbidden(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('createIncident');
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -452,7 +452,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testRetentionReturnsMonths(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('getRetentionMonths')->willReturn(6);
 
 		$response = $this->controller($service, $this->session('alice'))->retention();
@@ -468,7 +468,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testUpdateRetentionGatesThenUpdates(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('setRetentionMonths')->willReturn(12);
 
 		$actionAuth = $this->createMock(ActionAuthService::class);
@@ -494,7 +494,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testUpdateRetentionRejectsBelowMinimum(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->method('setRetentionMonths')->willThrowException(new InvalidArgumentException('retentionMonths must be at least 6'));
 
 		$response = $this->controller(
@@ -514,7 +514,7 @@ class TenantOpsControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testUpdateRetentionForbidden(): void {
-		$service = $this->createMock(TenantOpsService::class);
+		$service = $this->createMock(OrganisationOpsService::class);
 		$service->expects($this->never())->method('setRetentionMonths');
 
 		$actionAuth = $this->createMock(ActionAuthService::class);

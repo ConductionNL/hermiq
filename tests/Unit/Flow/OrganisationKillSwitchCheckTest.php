@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Flow;
 
-use OCA\Hermiq\Flow\TenantKillSwitchCheck;
+use OCA\Hermiq\Flow\OrganisationKillSwitchCheck;
 use OCA\Hermiq\Listener\FlowOversightRegistrationListener;
 use OCA\OpenRegister\Db\FlowRun;
 use OCA\OpenRegister\Db\FlowRunMapper;
@@ -41,7 +41,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-the-tenant-kill-switch-reaches-every-hermiq-flow-hop
  */
-class TenantKillSwitchCheckTest extends TestCase {
+class OrganisationKillSwitchCheckTest extends TestCase {
 
 	/**
 	 * Mock ObjectService.
@@ -73,13 +73,13 @@ class TenantKillSwitchCheckTest extends TestCase {
 	/**
 	 * Build the check with the current mocks.
 	 *
-	 * @return TenantKillSwitchCheck
+	 * @return OrganisationKillSwitchCheck
 	 */
-	private function check(): TenantKillSwitchCheck {
+	private function check(): OrganisationKillSwitchCheck {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturn($this->runMapper);
 
-		return new TenantKillSwitchCheck(
+		return new OrganisationKillSwitchCheck(
 			objectService: $this->objectService,
 			container: $container,
 			logger: $this->createMock(LoggerInterface::class),

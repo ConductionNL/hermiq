@@ -1,14 +1,14 @@
 <?php
 
 /**
- * Hermiq TenantControlService.
+ * Hermiq OrganisationControlService.
  *
  * The write-path for the per-organisation kill-switch (EU AI Act Art. 14 stop
  * mechanism). It reads and toggles the durable `TenantControl` OpenRegister object
  * that halts every agent run for an organisation. All persistence flows through
  * OpenRegister's ObjectService single write-path (ADR-001, ADR-004), so the toggle is
  * tenant-scoped and auditable. The org-subadmin / instance-admin authorization lives
- * in TenantControlController; this service is the storage seam.
+ * in OrganisationControlController; this service is the storage seam.
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance
  * service, not a derived value or declarative lifecycle.
@@ -42,7 +42,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
-class TenantControlService {
+class OrganisationControlService {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

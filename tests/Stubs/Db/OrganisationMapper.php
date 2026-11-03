@@ -5,7 +5,7 @@
  *
  * Stands in for OCA\OpenRegister\Db\OrganisationMapper when OpenRegister is not installed
  * (standalone CI). Exposes the lookups the kill-switch surface uses: findByUuid (owner
- * check in TenantControlController) and findAll / findByUserId (manageable-org list in
+ * check in OrganisationControlController) and findAll / findByUserId (manageable-org list in
  * DashboardController), plus getActiveOrganisationWithFallback (tenant-model-policy's
  * effective-policy read — resolves "the caller's own organisation" from a session with
  * no request parameter). The real mapper ships with OpenRegister.

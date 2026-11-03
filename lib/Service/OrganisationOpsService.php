@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Hermiq TenantOpsService.
+ * Hermiq OrganisationOpsService.
  *
  * MSP/organisation operational controls (multi-tenant-ops): per-org quota reporting and a
  * per-tenant EU AI Act audit export, built on OpenRegister's native
@@ -53,7 +53,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/multi-tenant-ops/tasks.md#1-tenantopsservice
  */
-class TenantOpsService {
+class OrganisationOpsService {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
