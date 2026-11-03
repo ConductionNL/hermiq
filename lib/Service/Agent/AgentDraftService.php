@@ -31,7 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Agent;
 
 use Cron\CronExpression;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
@@ -56,14 +56,14 @@ class AgentDraftService {
 	 * Constructor.
 	 *
 	 * @param ToolRegistryFacade       $tools         The tool catalogue the agent form offers.
-	 * @param TenantModelPolicyService $policies      The organisation's model policy.
+	 * @param OrganisationModelPolicyService $policies      The organisation's model policy.
 	 * @param IGroupManager            $groups        Group existence and membership.
 	 * @param OrganisationMapper       $organisations The person's active organisation.
 	 * @param IL10N                    $l10n          The findings' language.
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $tools,
-		private readonly TenantModelPolicyService $policies,
+		private readonly OrganisationModelPolicyService $policies,
 		private readonly IGroupManager $groups,
 		private readonly OrganisationMapper $organisations,
 		private readonly IL10N $l10n,

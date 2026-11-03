@@ -9,7 +9,7 @@
  * `BudgetService` (RBAC/multitenancy ON) — a caller-supplied `organisation`/`agentId`
  * never itself grants visibility. Write endpoints (`create`/`update`/`destroy`) require
  * the Nextcloud instance admin OR the owner of the target OpenRegister organisation,
- * mirroring `TenantControlController::mayAdminister()` exactly.
+ * mirroring `OrganisationControlController::mayAdminister()` exactly.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -305,7 +305,7 @@ class BudgetController extends Controller {
 	/**
 	 * Whether the user may administer budgets for the organisation. Instance admin OR
 	 * the owner of the target OpenRegister organisation — mirrors
-	 * TenantControlController::mayAdminister() exactly.
+	 * OrganisationControlController::mayAdminister() exactly.
 	 *
 	 * @param string $organisation The organisation identifier (OpenRegister org UUID).
 	 * @param IUser $user The requesting user.

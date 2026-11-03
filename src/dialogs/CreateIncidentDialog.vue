@@ -5,7 +5,7 @@
   CreateIncidentDialog — open a new incident record (agent-lifecycle-governance).
 
   Own file per ADR-004 modal-isolation, using NcDialog (design.md), mirroring
-  BudgetFormModal.vue's structure. Persists via TenantOpsController::createIncident()
+  BudgetFormModal.vue's structure. Persists via OrganisationOpsController::createIncident()
   (action-auth-gated), NOT the generic createObjectStore object path — incident
   creation is a governance action (ADR-023), not ordinary CRUD.
 

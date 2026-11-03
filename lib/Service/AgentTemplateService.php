@@ -44,10 +44,10 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   The gallery lifecycle spans template CRUD,
  * package (de)serialisation, content scanning (OR ContentScanService), model-policy coercion
- * (TenantModelPolicyService), and best-effort skill-ref resolution (SkillService); each
+ * (OrganisationModelPolicyService), and best-effort skill-ref resolution (SkillService); each
  * dependency is one lifecycle stage, exactly as SkillMarketplaceService's coupling mirrors.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small, single-purpose CRUD/
- * export/import/quarantine/instantiate methods (mirrors ScheduleService/TenantOpsService's
+ * export/import/quarantine/instantiate methods (mirrors ScheduleService/OrganisationOpsService's
  * documented coordinator-service pattern) — no individual method is itself complex.
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
@@ -112,7 +112,7 @@ class AgentTemplateService {
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param AgentTemplateSerializer $serializer The JSON package (de)serialiser.
 	 * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
-	 * @param TenantModelPolicyService $modelPolicyService Per-org provider/model allowlist.
+	 * @param OrganisationModelPolicyService $modelPolicyService Per-org provider/model allowlist.
 	 * @param SkillService $skillService Best-effort skill-ref resolution.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Distinct collaborators (mirrors
@@ -122,7 +122,7 @@ class AgentTemplateService {
 		private readonly ObjectService $objectService,
 		private readonly AgentTemplateSerializer $serializer,
 		private readonly ContentScanService $contentScanService,
-		private readonly TenantModelPolicyService $modelPolicyService,
+		private readonly OrganisationModelPolicyService $modelPolicyService,
 		private readonly SkillService $skillService,
 	) {
 	}//end __construct()
@@ -437,7 +437,7 @@ class AgentTemplateService {
 	/**
 	 * "Use this template": instantiate a template into a real Agent in the caller's
 	 * organisation. The suggested provider/model is always resolved against
-	 * `TenantModelPolicyService::effectivePolicyFor()` — an out-of-policy suggestion is
+	 * `OrganisationModelPolicyService::effectivePolicyFor()` — an out-of-policy suggestion is
 	 * replaced by the policy's default (or first allowed provider) and the substitution is
 	 * reported, never silently applied and never silently dropped. Skill refs are resolved
 	 * best-effort (a miss never fails the call); the suggested schedule is returned verbatim

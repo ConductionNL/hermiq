@@ -166,7 +166,9 @@ function scopeToCompanion(css) {
  * @return {string} The file body.
  */
 // The companion's built bundles: the purge keeps the library rules these use.
-const BUNDLES = ['hermiq-companion.js', 'hermiq-companion-panel.js'].map((file) => path.join(__dirname, '..', 'js', file))
+const BUNDLES = ['hermiq-companion.js', 'hermiq-companion-panel.js'].map((file) =>
+	path.join(__dirname, '..', 'js', file),
+)
 
 // Classes no bundle spells out: states the libraries set at runtime, Vue's
 // transition classes, and the popover/button internals of @nextcloud/vue.
@@ -191,7 +193,9 @@ function usedNames(texts) {
 			names.add(match[0])
 		}
 	}
-	const prefixes = [...names].filter((name) => name.endsWith('-') && name.length > 3)
+	const prefixes = [...names].filter(
+		(name) => name.endsWith('-') && name.length > 3,
+	)
 	return { names, prefixes }
 }
 
@@ -229,8 +233,14 @@ function selectorsOf(list) {
  * @return {string} The purged stylesheet.
  */
 function purge(css, used) {
-	const known = (name) => used.names.has(name) || used.prefixes.some((prefix) => name.startsWith(prefix)) || SAFELIST.some((pattern) => pattern.test(name))
-	const matches = (selector) => [...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].every((match) => known(match[1]))
+	const known = (name) =>
+		used.names.has(name)
+		|| used.prefixes.some((prefix) => name.startsWith(prefix))
+		|| SAFELIST.some((pattern) => pattern.test(name))
+	const matches = (selector) =>
+		[...selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].every((match) =>
+			known(match[1]),
+		)
 	const kept = []
 	for (const chunk of topLevel(css)) {
 		const brace = chunk.indexOf('{')
@@ -239,7 +249,10 @@ function purge(css, used) {
 			continue
 		}
 		// The comments before a rule are part of its chunk; a comma in one would read as a selector.
-		const head = chunk.slice(0, brace).replace(/\/\*[\s\S]*?\*\//g, '').trim()
+		const head = chunk
+			.slice(0, brace)
+			.replace(/\/\*[\s\S]*?\*\//g, '')
+			.trim()
 		if (/^@(media|supports|container|layer)\b/i.test(head)) {
 			const inner = purge(chunk.slice(brace + 1, chunk.lastIndexOf('}')), used)
 			if (inner.trim() !== '') {
@@ -263,9 +276,14 @@ function build() {
 
 	let css = fs.readFileSync(SOURCE, 'utf8')
 	if (BUNDLES.every((file) => fs.existsSync(file))) {
-		css = purge(css, usedNames(BUNDLES.map((file) => fs.readFileSync(file, 'utf8'))))
+		css = purge(
+			css,
+			usedNames(BUNDLES.map((file) => fs.readFileSync(file, 'utf8'))),
+		)
 	} else {
-		console.warn('Companion bundles not built yet: the stylesheet is not purged. Run it after webpack.')
+		console.warn(
+			'Companion bundles not built yet: the stylesheet is not purged. Run it after webpack.',
+		)
 	}
 
 	return HEADER + scopeToCompanion(css)
