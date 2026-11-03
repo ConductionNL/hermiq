@@ -74,31 +74,15 @@ class AgentWaiverChangeListener implements IEventListener {
 	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
 	 */
 	public function handle(Event $event): void {
+		[$agent, $before] = $this->written(event: $event);
 		try {
-			$this->apply(event: $event);
+			if ($agent !== null && $this->agents->isAgent(object: $agent) === true) {
+				$this->waiverAudit->record(agent: $agent, before: $this->waiverAudit->waivers(tools: $before));
+			}
 		} catch (Throwable $e) {
 			$this->logger->warning('[AgentWaiverChangeListener] agent write not audited: ' . $e->getMessage());
 		}
 	}//end handle()
-
-	/**
-	 * Record the waivers the write moved, when the object is a Hermiq agent.
-	 *
-	 * @param Event $event The dispatched event.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
-	 */
-	private function apply(Event $event): void {
-		[$agent, $before] = $this->written(event: $event);
-		if ($agent === null || $this->agents->isAgent(object: $agent) === false) {
-			return;
-		}
-
-		$this->waiverAudit->record(agent: $agent, before: $this->waiverAudit->waivers(tools: $before));
-
-	}//end apply()
 
 	/**
 	 * The object a create or update stored, and its `tools` before the write.
