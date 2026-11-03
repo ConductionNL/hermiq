@@ -80,6 +80,164 @@ class GitHubBundleFetchGoldenTest extends TestCase {
 	private array $calls = [];
 
 	/**
+	 * Routes answered before the generated ones (search hits and package files).
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $extraRoutes = [];
+
+	/**
+	 * Search, package-file and auxiliary-file reads give the recorded result, calls and log.
+	 *
+	 * @return void
+	 */
+	public function testSearchAndFileReadsMatchTheRecordedFixture(): void {
+		$actual = [];
+		for ($case = 0; $case < 3 * self::CASES; $case++) {
+			$this->random = new Randomizer(new Mt19937($case + 7001));
+			$this->calls = [];
+			$this->extraRoutes = [
+				'/search/repositories' => $this->searchAnswer(),
+				'/contents/hermiq-agent-template.json' => $this->pick(pool: $this->templateAnswers()),
+				'/contents/hermiq-skill.md' => $this->pick(pool: $this->skillAnswers()),
+			];
+			$logger = $this->logger();
+			$service = $this->service(logger: $logger, huge: false, bigManifest: false);
+			$kind = $this->pick(pool: [GitHubTemplateCatalogService::KIND_AGENT_TEMPLATE, GitHubTemplateCatalogService::KIND_SKILL, 'other']);
+			$actingUserId = $this->pick(pool: ['alice', null]);
+			$credentialId = $this->pick(pool: [null, '', 'cred-1']);
+			$operation = $this->pick(pool: ['search', 'search', 'search', 'package', 'aux']);
+			$args = ['operation' => $operation, 'kind' => $kind, 'actingUserId' => $actingUserId, 'credentialId' => $credentialId];
+			if ($operation === 'search') {
+				$args['query'] = $this->pick(pool: [null, '', '  Brief  ', 'x y']);
+				$result = $service->search(query: $args['query'], actingUserId: $actingUserId, credentialId: $credentialId, kind: $kind);
+			} else {
+				$args['owner'] = $this->pick(pool: self::OWNERS);
+				$args['ref'] = $this->pick(pool: self::REFS);
+				$coordinates = ['kind' => $kind, 'owner' => $args['owner'], 'repo' => 'demo', 'ref' => $args['ref'], 'actingUserId' => $actingUserId, 'credentialId' => $credentialId];
+				$result = $service->fetchPackageFile(...$coordinates);
+				if ($operation === 'aux') {
+					$result = $service->fetchAuxFiles(...$coordinates);
+				}
+			}
+
+			$actual[] = ['args' => $args, 'result' => $result, 'calls' => $this->calls, 'log' => $logger->lines];
+		}//end for
+
+		$this->extraRoutes = [];
+		$this->assertMatchesFixture(fixture: __DIR__ . '/../../Fixtures/Golden/github-search-reads.json', actual: $actual);
+
+	}//end testSearchAndFileReadsMatchTheRecordedFixture()
+
+	/**
+	 * Compare the cases with a recorded fixture, or record it when GOLDEN_RECORD=1.
+	 *
+	 * @param string $fixture The fixture path.
+	 * @param array<int, mixed> $actual The cases.
+	 *
+	 * @return void
+	 */
+	private function assertMatchesFixture(string $fixture, array $actual): void {
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped(message: 'Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertCount(expectedCount: count($expected), haystack: $actual);
+		foreach ($expected as $index => $one) {
+			$this->assertSame(
+				expected: json_encode($one, JSON_THROW_ON_ERROR),
+				actual: json_encode($actual[$index], JSON_THROW_ON_ERROR),
+				message: 'case ' . $index
+			);
+		}
+
+	}//end assertMatchesFixture()
+
+	/**
+	 * One search answer: hits of every shape, an unusable body, or a failure.
+	 *
+	 * @return mixed
+	 */
+	private function searchAnswer(): mixed {
+		$shapes = [
+			['full_name' => 'acme/demo', 'name' => 'demo', 'owner' => ['login' => 'acme'], 'stargazers_count' => 5],
+			['full_name' => 'beta/tool', 'stargazers_count' => '7'],
+			['full_name' => 'gamma/', 'owner' => ['login' => 'gamma']],
+			['full_name' => '/lone', 'name' => 'lone'],
+			['name' => 'nameless'],
+			[],
+			'loose',
+			['full_name' => 'acme/demo', 'name' => 'demo', 'owner' => ['login' => '']],
+		];
+		$items = [];
+		$count = $this->random->getInt(0, 5);
+		for ($i = 0; $i < $count; $i++) {
+			$items[] = $this->pick(pool: $shapes);
+		}
+
+		if ($this->random->getInt(0, 9) === 0) {
+			$items = [];
+			for ($i = 0; $i < 33; $i++) {
+				$items[] = ['full_name' => 'acme/repo' . $i, 'stargazers_count' => $i];
+			}
+		}
+
+		return $this->pick(
+			pool: [
+				['status' => 200, 'body' => (string)json_encode(['items' => $items])],
+				['status' => 200, 'body' => (string)json_encode(['items' => $items])],
+				['status' => 200, 'body' => (string)json_encode(['items' => $items])],
+				['status' => 200, 'body' => '{"items":"none"}'],
+				['status' => 200, 'body' => 'not json'],
+				['status' => 403, 'body' => ''],
+				['status' => 429, 'body' => ''],
+				['status' => 500, 'body' => ''],
+				'throws',
+			]
+		);
+
+	}//end searchAnswer()
+
+	/**
+	 * Template package answers: valid, partial, unparseable, absent.
+	 *
+	 * @return array<int, mixed>
+	 */
+	private function templateAnswers(): array {
+		$full = ['name' => 'Morning briefing', 'description' => 'Overnight tickets.', 'category' => 'productivity', 'version' => '0.1.0'];
+		return [
+			['status' => 200, 'body' => (string)json_encode(['content' => base64_encode((string)json_encode($full)), 'encoding' => 'base64'])],
+			['status' => 200, 'body' => (string)json_encode(['content' => (string)json_encode(['version' => 3]), 'encoding' => 'utf-8'])],
+			['status' => 200, 'body' => (string)json_encode(['content' => 'not json', 'encoding' => 'utf-8'])],
+			['status' => 200, 'body' => '{"content":"","encoding":"base64"}'],
+			['status' => 200, 'body' => '"just a string"'],
+			['status' => 404, 'body' => ''],
+			['status' => 429, 'body' => ''],
+			'throws',
+		];
+
+	}//end templateAnswers()
+
+	/**
+	 * Skill package answers: named, unnamed, absent.
+	 *
+	 * @return array<int, mixed>
+	 */
+	private function skillAnswers(): array {
+		$named = "---\nname: triage\ndescription: Sort the inbox.\n---\n# Triage\n";
+		return [
+			['status' => 200, 'body' => (string)json_encode(['content' => base64_encode($named), 'encoding' => 'base64'])],
+			['status' => 200, 'body' => (string)json_encode(['content' => "# No fence\n", 'encoding' => 'utf-8'])],
+			['status' => 200, 'body' => '{"content":"","encoding":"utf-8"}'],
+			['status' => 404, 'body' => ''],
+			['status' => 403, 'body' => ''],
+		];
+
+	}//end skillAnswers()
+
+	/**
 	 * Every generated case gives the recorded result, calls and log.
 	 *
 	 * @return void
@@ -144,7 +302,7 @@ class GitHubBundleFetchGoldenTest extends TestCase {
 	 * @return GitHubTemplateCatalogService
 	 */
 	private function service(AbstractLogger $logger, bool $huge, bool $bigManifest): GitHubTemplateCatalogService {
-		$routes = $this->routes(huge: $huge);
+		$routes = $this->extraRoutes + $this->routes(huge: $huge);
 		if ($bigManifest === true) {
 			$routes['/contents/hermiq-skills.json'] = ['status' => 200, 'body' => (string)json_encode(['content' => str_repeat('m', 16777216 - 10), 'encoding' => 'utf-8'])];
 		}
