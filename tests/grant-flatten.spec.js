@@ -201,7 +201,9 @@ console.log('\nA very large grant list flattens without overflowing the call sta
 	}
 	if (Array.isArray(got) === false || got.length !== 200000) {
 		failures++
-		console.log(`  FAIL 200000 entries should flatten to 200000 ids, got ${got instanceof Error ? got.message : got?.length}`)
+		console.log(
+			`  FAIL 200000 entries should flatten to 200000 ids, got ${got instanceof Error ? got.message : got?.length}`,
+		)
 	} else {
 		console.log('  ok   200000 entries under one action')
 	}
