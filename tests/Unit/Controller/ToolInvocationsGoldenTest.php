@@ -30,7 +30,6 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
-use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -202,7 +201,6 @@ class ToolInvocationsGoldenTest extends TestCase {
 			accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class),
 			logger: $logger,
 			agentAccess: new AgentAccessService(objectService: $objectService, logger: $logger, groupManager: $groups),
-			waiverAudit: $this->createMock(originalClassName: GrantWaiverAudit::class),
 			rich: $rich
 		) extends ToolOversightController {
 			/**
@@ -219,7 +217,6 @@ class ToolInvocationsGoldenTest extends TestCase {
 			 * @param ToolAccessRequestService $accessRequests The access requests.
 			 * @param NullLogger $logger The logger.
 			 * @param AgentAccessService $agentAccess The agent access check.
-			 * @param GrantWaiverAudit $waiverAudit The waiver audit.
 			 * @param bool $rich Forced return value of richAuditAvailable().
 			 */
 			public function __construct(
@@ -234,7 +231,6 @@ class ToolInvocationsGoldenTest extends TestCase {
 				ToolAccessRequestService $accessRequests,
 				NullLogger $logger,
 				AgentAccessService $agentAccess,
-				GrantWaiverAudit $waiverAudit,
 				private readonly bool $rich,
 			) {
 				parent::__construct(
@@ -248,8 +244,7 @@ class ToolInvocationsGoldenTest extends TestCase {
 					groupManager: $groupManager,
 					accessRequests: $accessRequests,
 					logger: $logger,
-					agentAccess: $agentAccess,
-					waiverAudit: $waiverAudit
+					agentAccess: $agentAccess
 				);
 			}//end __construct()
 

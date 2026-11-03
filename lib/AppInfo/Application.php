@@ -29,7 +29,7 @@ namespace OCA\Hermiq\AppInfo;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
-use OCA\Hermiq\Listener\AgentWaiverAuditListener;
+use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
 use OCA\Hermiq\Listener\AiOversightRecordedListener;
@@ -142,19 +142,7 @@ class Application extends App implements IBootstrap {
 			listener: AiOversightRecordedListener::class
 		);
 
-		// Each Talk-enabled agent carries its own Talk bot, because the bot
-		// record is the ONLY carrier of the name Talk displays (talk-agent-sessions).
-		// Hooked on the object lifecycle rather than a controller: agents are
-		// written straight through OpenRegister's API (ADR-022), so this is the
-		// only place that sees every write, including ones made from OR's own UI.
-		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
-		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
-		$context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
-
-		// An approval waiver is audited on every write to an agent, also one made
-		// through OpenRegister's generic objects API rather than the tool-grants endpoint.
-		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentWaiverAuditListener::class);
-		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverAuditListener::class);
+		$this->registerAgentObjectListeners(context: $context);
 
 		// Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
 		// contributes the agent step as a flow NODE, and nothing else. Flows now
@@ -380,6 +368,32 @@ class Application extends App implements IBootstrap {
 		$context->registerTaskProcessingProvider(ContextAgentProvider::class);
 
 	}//end register()
+
+	/**
+	 * Listeners on the object lifecycle of Hermiq's agents.
+	 *
+	 * Agents are written straight through OpenRegister's API (ADR-022), so the
+	 * object events are the only place that sees every write, including ones
+	 * made from OR's own UI or its generic objects API.
+	 *
+	 * - Each Talk-enabled agent carries its own Talk bot, because the bot record
+	 *   is the ONLY carrier of the name Talk displays (talk-agent-sessions).
+	 * - Adding or removing an approval waiver is audited on every write.
+	 *
+	 * @param IRegistrationContext $context The registration context.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+	 */
+	private function registerAgentObjectListeners(IRegistrationContext $context): void {
+		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
+		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
+		$context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
+
+		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentWaiverChangeListener::class);
+		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
+	}//end registerAgentObjectListeners()
 
 	/**
 	 * Boot the application.

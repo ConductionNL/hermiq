@@ -1,13 +1,12 @@
 <?php
 
 /**
- * Hermiq AgentWaiverAuditListener.
+ * Hermiq AgentWaiverChangeListener.
  *
- * Records an approval waiver added or removed by any write to an agent, also one
- * made through OpenRegister's generic objects API (ADR-022: agents are
- * OpenRegister objects, so the object events are the only hook that sees every
- * write). Hermiq's own tool-grants endpoint records its write itself and claims
- * the agent while it saves; that write is skipped here.
+ * Records an approval waiver added or removed by any write to an agent: through
+ * Hermiq's tool-grants endpoint, and through OpenRegister's generic objects API
+ * (ADR-022: agents are OpenRegister objects, so the object events are the only
+ * hook that sees every write).
  *
  * Never throws: an agent write must not fail because its audit could not be written.
  *
@@ -41,7 +40,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Writes the waiver audit event for agent writes made outside the tool-grants endpoint.
+ * Writes the waiver audit event for every agent write.
  *
  * @template-implements IEventListener<Event>
  *
@@ -49,7 +48,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
  */
-class AgentWaiverAuditListener implements IEventListener {
+class AgentWaiverChangeListener implements IEventListener {
 
 	/**
 	 * Constructor.
@@ -66,7 +65,7 @@ class AgentWaiverAuditListener implements IEventListener {
 	}//end __construct()
 
 	/**
-	 * Handle an object created or updated event.
+	 * Record the waivers a created or updated agent gained or lost; other events are ignored.
 	 *
 	 * @param Event $event The dispatched OpenRegister object event.
 	 *
@@ -78,16 +77,12 @@ class AgentWaiverAuditListener implements IEventListener {
 		try {
 			$this->apply(event: $event);
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[AgentWaiverAuditListener] Could not audit the agent write (the write is unaffected)',
-				context: ['error' => $e->getMessage()]
-			);
+			$this->logger->warning('[AgentWaiverChangeListener] agent write not audited: ' . $e->getMessage());
 		}
-
 	}//end handle()
 
 	/**
-	 * Record the waivers the write moved, unless it is not an agent or is claimed.
+	 * Record the waivers the write moved, when the object is a Hermiq agent.
 	 *
 	 * @param Event $event The dispatched event.
 	 *
@@ -97,10 +92,7 @@ class AgentWaiverAuditListener implements IEventListener {
 	 */
 	private function apply(Event $event): void {
 		[$agent, $before] = $this->written(event: $event);
-		if ($agent === null
-			|| $this->agents->isAgent(object: $agent) === false
-			|| $this->waiverAudit->isClaimed(agentId: (string)$agent->getUuid()) === true
-		) {
+		if ($agent === null || $this->agents->isAgent(object: $agent) === false) {
 			return;
 		}
 

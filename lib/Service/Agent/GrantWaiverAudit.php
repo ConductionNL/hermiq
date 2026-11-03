@@ -11,10 +11,9 @@
  * recorded, so a trail can show that a waiver was temporary.
  *
  * Two paths write an agent's `tools`: Hermiq's tool-grants endpoint, and
- * OpenRegister's generic objects API (the owner or an admin). The endpoint
- * records its own write and claims the agent for the duration, so the object
- * event of that same write is not recorded twice; every other write is recorded
- * from the object event.
+ * OpenRegister's generic objects API (the owner or an admin). Both raise
+ * OpenRegister's object events, and AgentWaiverChangeListener records from
+ * those, so every write is recorded once.
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Agent
@@ -46,7 +45,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Writes the waiver audit event, once per write.
+ * Writes the waiver audit event for one agent write.
  *
  * @psalm-api
  *
@@ -68,12 +67,6 @@ class GrantWaiverAudit {
 	 */
 	public const SYSTEM_ACTOR = 'system';
 
-	/**
-	 * Agent uuids whose write the caller records itself.
-	 *
-	 * @var array<string, true>
-	 */
-	private array $claimed = [];
 
 	/**
 	 * Constructor.
@@ -159,44 +152,6 @@ class GrantWaiverAudit {
 
 	}//end record()
 
-	/**
-	 * Mark an agent's write as recorded by the caller, until released.
-	 *
-	 * @param string $agentId The agent uuid.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
-	 */
-	public function claim(string $agentId): void {
-		$this->claimed[$agentId] = true;
-	}//end claim()
-
-	/**
-	 * Release a claim made with claim().
-	 *
-	 * @param string $agentId The agent uuid.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
-	 */
-	public function release(string $agentId): void {
-		unset($this->claimed[$agentId]);
-	}//end release()
-
-	/**
-	 * Whether the caller records this agent's current write itself.
-	 *
-	 * @param string $agentId The agent uuid.
-	 *
-	 * @return bool True while claimed.
-	 *
-	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
-	 */
-	public function isClaimed(string $agentId): bool {
-		return isset($this->claimed[$agentId]);
-	}//end isClaimed()
 
 	/**
 	 * The acting user's id, or the system actor when nobody is signed in.

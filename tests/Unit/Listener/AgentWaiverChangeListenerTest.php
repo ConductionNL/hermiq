@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit tests for AgentWaiverAuditListener and GrantWaiverAudit.
+ * Unit tests for AgentWaiverChangeListener and GrantWaiverAudit.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Listener
@@ -19,7 +19,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
-use OCA\Hermiq\Listener\AgentWaiverAuditListener;
+use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -31,6 +31,7 @@ use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\IUser;
 use OCP\IUserSession;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -38,12 +39,12 @@ use RuntimeException;
 /**
  * A waiver written through OpenRegister's generic objects API is audited.
  *
- * @covers \OCA\Hermiq\Listener\AgentWaiverAuditListener
+ * @covers \OCA\Hermiq\Listener\AgentWaiverChangeListener
  * @covers \OCA\Hermiq\Service\Agent\GrantWaiverAudit
  *
  * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
  */
-class AgentWaiverAuditListenerTest extends TestCase {
+class AgentWaiverChangeListenerTest extends TestCase {
 
 	private const WAIVED = 'hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT;
 
@@ -56,11 +57,13 @@ class AgentWaiverAuditListenerTest extends TestCase {
 
 	private GrantWaiverAudit $audit;
 
-	private AgentWaiverAuditListener $listener;
+	private AgentWaiverChangeListener $listener;
 
 	private bool $auditFails = false;
 
 	private ?string $uid = 'bob';
+
+	private LoggerInterface&MockObject $listenerLogger;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -96,7 +99,8 @@ class AgentWaiverAuditListenerTest extends TestCase {
 		);
 
 		$this->audit = new GrantWaiverAudit($mapper, $session, $this->createMock(LoggerInterface::class));
-		$this->listener = new AgentWaiverAuditListener($this->audit, $matcher, $this->createMock(LoggerInterface::class));
+		$this->listenerLogger = $this->createMock(LoggerInterface::class);
+		$this->listener = new AgentWaiverChangeListener($this->audit, $matcher, $this->listenerLogger);
 
 	}//end setUp()
 
@@ -182,26 +186,24 @@ class AgentWaiverAuditListenerTest extends TestCase {
 
 	/**
 	 * THE CONTROLS: nothing is written when no waiver moved, for another
-	 * schema's object, for a claimed agent, or for another event.
+	 * schema's object, or for another event.
 	 *
 	 * @return void
 	 */
-	public function testNothingIsWrittenWhenNoWaiverMovedOrTheWriteIsNotTheListenersToRecord(): void {
+	public function testNothingIsWrittenWhenNoWaiverMovedOrTheObjectIsNotAnAgent(): void {
+		$this->listenerLogger->expects($this->never())->method('warning');
+
 		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED, 'a.b']), $this->object([self::WAIVED])));
 		$this->listener->handle(new ObjectUpdatedEvent($this->object(['hermiq.sendMail', 'x.y']), $this->object(['hermiq.sendMail'])));
 		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED], 'conversation'), $this->object([], 'conversation')));
 		$this->listener->handle(new ObjectDeletedEvent($this->object([self::WAIVED])));
 		$this->listener->handle(new ObjectCreatedEvent($this->object('not a list')));
 
-		$this->audit->claim('agent-1');
-		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED]), $this->object([])));
-		$this->audit->release('agent-1');
-
 		$this->assertSame([], $this->entries);
 
 		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED]), $this->object([])));
 		$this->assertCount(1, $this->entries);
-	}//end testNothingIsWrittenWhenNoWaiverMovedOrTheWriteIsNotTheListenersToRecord()
+	}//end testNothingIsWrittenWhenNoWaiverMovedOrTheObjectIsNotAnAgent()
 
 	/**
 	 * Without a signed-in user (cron, occ) the actor is the system.

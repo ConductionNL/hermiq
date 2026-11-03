@@ -146,7 +146,6 @@ class ToolOversightController extends Controller {
 	 *                                                 for tools it has not been granted.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
-	 * @param GrantWaiverAudit $waiverAudit Writes the approval-waiver audit event.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -165,7 +164,6 @@ class ToolOversightController extends Controller {
 		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly AgentAccessService $agentAccess,
-		private readonly GrantWaiverAudit $waiverAudit,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -547,14 +545,8 @@ class ToolOversightController extends Controller {
 
 		$grants = $this->storableGrants(rawGrants: $rawGrants);
 
-		// Read the PREVIOUS waiver set before the write, so the audit can say
-		// which waivers were added and which removed rather than only what the
-		// list now holds. Diffing after the save would compare the new list with
-		// itself and report every change as a no-op.
-		$waiversBefore = $this->waiverAudit->waivers(tools: ($agent->getObject()['tools'] ?? []));
-
-		// This write is recorded below; the object event it raises is not recorded again.
-		$this->waiverAudit->claim(agentId: (string)$agent->getUuid());
+		// An added or removed approval waiver is audited by AgentWaiverChangeListener
+		// from the object event this save raises, as for every other write to an agent.
 		try {
 			$payload = $this->grantWritePayload(agent: $agent, grants: $grants);
 
@@ -564,16 +556,6 @@ class ToolOversightController extends Controller {
 				schema: self::AGENT_SCHEMA,
 				uuid: $agentId
 			);
-
-			// The audit must never be able to fail the write it describes, and
-			// `auditWaiverChange()` swallows its own write errors. The two
-			// `instanceof ObjectEntity` guards that used to stand here were
-			// written because `saveObject()`'s return type was thought to vary
-			// across OpenRegister versions — it does not: both `main` and
-			// `development` declare `saveObject(): ObjectEntity` as a hard
-			// return type, which PHP itself enforces, so neither guard could be
-			// false and passing `$updated` on can never raise a TypeError here.
-			$this->waiverAudit->record(agent: $updated, before: $waiversBefore);
 
 			$savedTools = ($updated->getObject()['tools'] ?? $grants);
 
@@ -586,8 +568,6 @@ class ToolOversightController extends Controller {
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq tool-grants update failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Could not update tool grants'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		} finally {
-			$this->waiverAudit->release(agentId: (string)$agent->getUuid());
 		}//end try
 
 	}//end updateToolGrants()
