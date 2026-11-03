@@ -173,6 +173,24 @@ import {
 	toolInvocationsExportUrl,
 } from '../api/toolOversight.js'
 
+/**
+ * The result labels in order of precedence: the first rule whose test holds names the result.
+ *
+ * @type {Array<[function(object): boolean, function(object, function(string, string, object=): string): string]>}
+ */
+const RESULT_LABELS = [
+	[(summary) => Boolean(summary.isError), (summary, t) => t('hermiq', 'Error')],
+	[(summary) => Boolean(summary.status), (summary) => String(summary.status)],
+	[
+		(summary) => typeof summary.count === 'number',
+		(summary, t) => t('hermiq', '{count} result(s)', { count: summary.count }),
+	],
+	[
+		(summary) => Boolean(summary.id),
+		(summary, t) => t('hermiq', 'Object {id}', { id: summary.id }),
+	],
+]
+
 export default {
 	name: 'ToolInvocationTable',
 
@@ -309,21 +327,8 @@ export default {
 			if (!summary) {
 				return '—'
 			}
-			if (summary.isError) {
-				return this.t('hermiq', 'Error')
-			}
-			if (summary.status) {
-				return String(summary.status)
-			}
-			if (typeof summary.count === 'number') {
-				return this.t('hermiq', '{count} result(s)', {
-					count: summary.count,
-				})
-			}
-			if (summary.id) {
-				return this.t('hermiq', 'Object {id}', { id: summary.id })
-			}
-			return this.t('hermiq', 'OK')
+			const rule = RESULT_LABELS.find(([applies]) => applies(summary))
+			return rule ? rule[1](summary, this.t) : this.t('hermiq', 'OK')
 		},
 
 		/**
