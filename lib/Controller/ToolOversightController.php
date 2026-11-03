@@ -43,6 +43,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\ToolAccessDecision;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\ToolInvocationRows;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
@@ -353,13 +354,17 @@ class ToolOversightController extends Controller {
 		}
 
 		$toolId = (string)($data['toolId'] ?? '');
+		$conflict = (new ToolAccessDecision())->conflict(stored: $data, shownToolId: (string)$this->request->getParam('toolId', ''));
+		if ($conflict !== null) {
+			return new JSONResponse(['error' => $conflict], Http::STATUS_CONFLICT);
+		}
 
 		// From here the method WRITES. Every call below reaches storage or the
 		// notification bus, and an escaping Throwable would leave the caller an
 		// HTML error page in place of the JSON its client parses — so the write
 		// half is translated, while the guards above deliberately are not.
 		try {
-			if ($decision === 'granted' && $toolId !== '') {
+			if ($decision === 'granted') {
 				$this->grantToolTo(agent: $agent, agentId: $agentId, toolId: $toolId);
 			}
 

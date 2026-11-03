@@ -4459,12 +4459,26 @@
 						"format": "uuid",
 						"title": "Agent",
 						"description": "The agent asking.",
-						"$ref": "agent"
+						"$ref": "agent",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
 					},
 					"toolId": {
 						"type": "string",
 						"title": "Tool",
-						"description": "Tool id exactly as the catalogue reports it."
+						"description": "Tool id exactly as the catalogue reports it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
 					},
 					"reason": {
 						"type": "string",
@@ -4480,12 +4494,26 @@
 							"granted",
 							"refused"
 						],
-						"description": "pending until the owner decides. A refusal stands until the owner reopens it."
+						"description": "pending until the owner decides. A refusal stands until the owner reopens it.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
 					},
 					"requestedBy": {
 						"type": "string",
 						"title": "Requested by",
-						"description": "Acting user at the time of the request."
+						"description": "Acting user at the time of the request.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
 					},
 					"requestedAt": {
 						"type": "string",
@@ -4496,13 +4524,27 @@
 					"decidedBy": {
 						"type": "string",
 						"title": "Decided by",
-						"description": "The agent OWNER who resolved it. Only they may."
+						"description": "The agent OWNER who resolved it. Only they may.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
 					},
 					"decidedAt": {
 						"type": "string",
 						"format": "date-time",
 						"title": "Decided at",
-						"description": "When the owner resolved it. Empty while the request is pending; together with decidedBy it is the audit record of who widened the agent's tool grants and when."
+						"description": "When the owner resolved it. Empty while the request is pending; together with decidedBy it is the audit record of who widened the agent's tool grants and when.",
+						"authorization": {
+							"update": [
+								{
+									"group": "admin"
+								}
+							]
+						}
 					}
 				}
 			},

@@ -114,11 +114,12 @@ class ToolAccessRequestServiceTest extends TestCase {
 			 * @param array<string, mixed> $object   The payload.
 			 * @param mixed                $register The register.
 			 * @param mixed                $schema   The schema.
+			 * @param bool                 $_rbac    Whether the save runs under the caller's RBAC.
 			 *
 			 * @return array<string, mixed>
 			 */
-			public function saveObject(array $object, mixed $register = null, mixed $schema = null): array {
-				$this->writes[] = [(string)$schema, $object];
+			public function saveObject(array $object, mixed $register = null, mixed $schema = null, bool $_rbac = true): array {
+				$this->writes[] = [(string)$schema, $object, $_rbac];
 
 				return ($object + ['id' => 'req-new']);
 			}
@@ -232,6 +233,10 @@ class ToolAccessRequestServiceTest extends TestCase {
 		$this->assertSame('pending', $this->writes[0][1]['status']);
 		$this->assertSame('hermiq.sendMail', $this->writes[0][1]['toolId']);
 		$this->assertSame('alice', $this->writes[0][1]['requestedBy']);
+		$this->assertFalse(
+			$this->writes[0][2],
+			'the request is raised on the system path: its status, toolId, agentId and requestedBy are admin-only through the object API'
+		);
 
 	}//end testRequestWritesARequestAndNeverTheAgentsGrants()
 
@@ -553,6 +558,12 @@ class ToolAccessRequestServiceTest extends TestCase {
 			'tool-access-requests/req-1',
 			$approvals[0]['resolveUrl'],
 			'the chat must be told where to post the decision'
+		);
+		$this->assertSame('hermiq.sendMail', $approvals[0]['toolId']);
+		$this->assertStringEndsWith(
+			'tool-access-requests/req-1?toolId=hermiq.sendMail',
+			$approvals[0]['resolveUrl'],
+			'the decision must name the tool the owner was shown'
 		);
 	}//end testPendingApprovalsDescribeHowToResolveThemselves()
 
