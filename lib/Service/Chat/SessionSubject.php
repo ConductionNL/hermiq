@@ -95,6 +95,30 @@ class SessionSubject {
 	}//end subjectOf()
 
 	/**
+	 * A stored session with the caller's writable fields applied: `title` as
+	 * sent, `metadata` with its subject read as the caller.
+	 *
+	 * @param array<string, mixed> $stored The stored session payload.
+	 * @param array<string, mixed> $data   The request parameters.
+	 *
+	 * @return array<string, mixed> The payload to save.
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 */
+	public function writablePayload(array $stored, array $data): array {
+		$payload = $stored;
+		if (($data['title'] ?? null) !== null) {
+			$payload['title'] = $data['title'];
+		}
+
+		if (($data['metadata'] ?? null) !== null) {
+			$payload['metadata'] = $this->checkedMetadata(metadata: $data['metadata'], stored: $this->subjectOf(sessionData: $stored));
+		}
+
+		return $payload;
+	}//end writablePayload()
+
+	/**
 	 * Session metadata as it may be written: a subject the session already has is
 	 * kept, a new one is read as the caller and stored with the record's own
 	 * register and schema, and one the caller cannot read is left out.

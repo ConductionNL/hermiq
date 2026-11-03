@@ -646,17 +646,7 @@ class SessionController extends Controller {
 			// Get request data.
 			$data = $this->request->getParams();
 
-			$payload = $conversation->getObject();
-			if (($data['title'] ?? null) !== null) {
-				$payload['title'] = $data['title'];
-			}
-
-			if (($data['metadata'] ?? null) !== null) {
-				$payload['metadata'] = $this->subject->checkedMetadata(
-					metadata: $data['metadata'],
-					stored: $this->subject->subjectOf(sessionData: $conversation->getObject())
-				);
-			}
+			$payload = $this->subject->writablePayload(stored: $conversation->getObject(), data: $data);
 
 			$updated = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
