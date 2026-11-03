@@ -8,11 +8,11 @@
  * record mode compares nothing.
  */
 
+import { state } from '@nextcloud/initial-state'
+import { t } from '@nextcloud/l10n'
 import { flushPromises, mount } from '@vue/test-utils'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { t } from '@nextcloud/l10n'
-import { state } from '@nextcloud/initial-state'
 
 const FIXTURE = 'tests/vitest/__fixtures__/guardrail-policy-settings.json'
 
