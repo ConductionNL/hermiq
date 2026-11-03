@@ -623,7 +623,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response with the updated conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */

@@ -105,7 +105,6 @@ class ApprovalController extends Controller {
 	 * @return JSONResponse The decision outcome, or an error status.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
 	 */
@@ -187,7 +186,6 @@ class ApprovalController extends Controller {
 	 * @return JSONResponse The decision outcome, or an error status.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
 	 */

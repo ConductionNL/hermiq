@@ -37,6 +37,8 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use ReflectionMethod;
 
 /**
  * Tests for the subject filter, the subject field and the pending approvals.
@@ -372,4 +374,15 @@ class SessionControllerSubjectTest extends TestCase {
 		$this->assertSame(201, $response->getStatus());
 		$this->assertSame(['pinned' => true], $this->saved[0]['metadata']);
 	}//end testCreatingWithAnUnreadableSubjectDropsIt()
+	/**
+	 * PATCH /api/sessions changes a session, so it keeps Nextcloud's CSRF check.
+	 *
+	 * @return void
+	 */
+	public function testUpdateRequiresTheCsrfToken(): void {
+		$method = new ReflectionMethod(SessionController::class, 'update');
+
+		$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class));
+		$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment());
+	}//end testUpdateRequiresTheCsrfToken()
 }//end class

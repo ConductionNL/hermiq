@@ -34,6 +34,8 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use ReflectionMethod;
 
 /**
  * Tests for the human-approval-gate-enforcement ApprovalController.
@@ -421,4 +423,17 @@ class ApprovalControllerTest extends TestCase {
 		}
 
 	}//end testTheDeciderIsTheSessionUserNotARequestParameter()
+	/**
+	 * Approve, deny and resolve change state, so they keep Nextcloud's CSRF check.
+	 *
+	 * @return void
+	 */
+	public function testDecisionsRequireTheCsrfToken(): void {
+		foreach (['approve', 'deny', 'resolve'] as $name) {
+			$method = new ReflectionMethod(ApprovalController::class, $name);
+			$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class), $name);
+			$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment(), $name);
+		}
+
+	}//end testDecisionsRequireTheCsrfToken()
 }//end class
