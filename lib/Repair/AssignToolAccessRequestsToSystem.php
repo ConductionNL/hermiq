@@ -93,15 +93,14 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 			$objects = $this->container->get(ObjectService::class);
 			$system = $this->container->get(OrganisationService::class)->getSystemUserId();
 			$mapper = $this->container->get(self::MAGIC_MAPPER);
+			$requests = $objects->setRegister(self::REGISTER_SLUG)
+				->setSchema(self::REQUEST_SCHEMA)
+				->findAll(config: ['limit' => 100000], _rbac: false, _multitenancy: false);
 		} catch (Throwable $e) {
-			$output->warning('OpenRegister not available, tool-access request owners not checked.');
+			$output->warning('Tool-access requests could not be read, their owners were not checked.');
 			$this->logger->warning('[hermiq] tool-access request owner repair skipped: ' . $e->getMessage());
 			return;
 		}
-
-		$requests = $objects->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::REQUEST_SCHEMA)
-			->findAll(config: ['limit' => 100000], _rbac: false, _multitenancy: false);
 
 		$moved = 0;
 		foreach ($requests as $request) {

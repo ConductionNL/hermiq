@@ -63,6 +63,20 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 	private array $reads = [];
 
 	/**
+	 * The register and schema the step set before reading, in order.
+	 *
+	 * @var array<int, array{string, mixed}>
+	 */
+	private array $context = [];
+
+	/**
+	 * Whether OpenRegister fails to resolve the register or schema.
+	 *
+	 * @var bool
+	 */
+	private bool $failRead = false;
+
+	/**
 	 * Store three requests: two owned by their requester, one by the system.
 	 *
 	 * @return void
@@ -72,6 +86,8 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 		$this->requests = [];
 		$this->updated = [];
 		$this->reads = [];
+		$this->context = [];
+		$this->failRead = false;
 		foreach (['req-alice' => 'alice', 'req-bob' => 'bob', 'req-system' => '__system__'] as $uuid => $owner) {
 			$request = new ObjectEntity();
 			$request->setUuid($uuid);
@@ -91,10 +107,24 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 	 */
 	private function step(?string $missing = null): AssignToolAccessRequestsToSystem {
 		$objects = $this->createMock(originalClassName: ObjectService::class);
-		$objects->method('setRegister')->willReturnSelf();
-		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('setRegister')->willReturnCallback(
+			function (mixed $register) use (&$objects): ObjectService {
+				$this->context[] = ['register', $register];
+				return $objects;
+			}
+		);
+		$objects->method('setSchema')->willReturnCallback(
+			function (mixed $schema) use (&$objects): ObjectService {
+				$this->context[] = ['schema', $schema];
+				return $objects;
+			}
+		);
 		$objects->method('findAll')->willReturnCallback(
 			function (array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
+				if ($this->failRead === true) {
+					throw new RuntimeException('Schema toolAccessRequest not found in register hermiq');
+				}
+
 				$this->reads[] = [$config, $_rbac, $_multitenancy];
 				return array_values($this->requests);
 			}
@@ -149,12 +179,21 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 	 * @return void
 	 */
 	public function testRequesterOwnedRequestsBecomeSystemOwned(): void {
+		$before = array_map(static fn (ObjectEntity $request): array => $request->getObject(), $this->requests);
 		$this->step()->run($this->createMock(originalClassName: IOutput::class));
 
 		$this->assertSame(expected: [['req-alice', '__system__'], ['req-bob', '__system__']], actual: $this->updated);
 		$this->assertSame(expected: '__system__', actual: $this->requests['req-alice']->getOwner());
 		$this->assertFalse(condition: $this->reads[0][1], message: 'the step reads every request, not those the run identity may see');
 		$this->assertFalse(condition: $this->reads[0][2], message: 'the step reads every organisation');
+		$this->assertSame(expected: [['register', 'hermiq'], ['schema', 'toolAccessRequest']], actual: $this->context);
+		foreach ($this->requests as $uuid => $request) {
+			$this->assertSame(
+				expected: $before[$uuid],
+				actual: $request->getObject(),
+				message: 'only the owner of ' . $uuid . ' may change'
+			);
+		}
 
 	}//end testRequesterOwnedRequestsBecomeSystemOwned()
 
@@ -171,6 +210,23 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 		$this->assertSame(expected: [], actual: $this->updated);
 
 	}//end testASecondRunChangesNothing()
+
+	/**
+	 * A register or schema OpenRegister cannot resolve warns and skips, so an
+	 * upgrade is never aborted by this step.
+	 *
+	 * @return void
+	 */
+	public function testAnUnresolvableRegisterWarnsAndSkips(): void {
+		$output = $this->createMock(originalClassName: IOutput::class);
+		$output->expects($this->once())->method('warning');
+		$this->failRead = true;
+
+		$this->step()->run($output);
+
+		$this->assertSame(expected: [], actual: $this->updated);
+
+	}//end testAnUnresolvableRegisterWarnsAndSkips()
 
 	/**
 	 * Without OpenRegister the step skips with a warning and never throws.
