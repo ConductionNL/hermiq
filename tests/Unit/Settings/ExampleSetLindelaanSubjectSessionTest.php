@@ -203,7 +203,10 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 			logger: $this->createMock(originalClassName: LoggerInterface::class),
 			taskBridge: $this->createMock(originalClassName: ApprovalTaskBridge::class),
 		);
-		$service = new SessionPendingApprovals(accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class), approvals: $approvals);
+		$service = new SessionPendingApprovals(
+			accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class),
+			approvals: $approvals
+		);
 		$session = $this->installed(key: 'session-lindelaan-pieter');
 
 		$cards = $service->forSession(session: $session, uid: 'pieter');
