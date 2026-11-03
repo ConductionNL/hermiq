@@ -42,6 +42,7 @@ class RegisterImportVocabularyTest extends TestCase {
 		'OCA\\OpenRegister\\Service\\Search\\',
 		'OCA\\OpenRegister\\Service\\Vocabulary\\',
 		'OCA\\OpenRegister\\Exception\\',
+		'OCA\\OpenRegister\\Service\\Object\\ReferenceKey',
 	];
 
 	/**
