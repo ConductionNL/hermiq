@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Hermiq TenantControlController.
+ * Hermiq OrganisationControlController.
  *
  * The org-admin surface for the per-organisation kill-switch (EU AI Act Art. 14 stop
  * mechanism): read the current state and engage/disengage it. Engaging halts every
@@ -35,7 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\TenantControlService;
+use OCA\Hermiq\Service\OrganisationControlService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -53,12 +53,12 @@ use Throwable;
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
-class TenantControlController extends Controller {
+class OrganisationControlController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param TenantControlService $tenantControlService The kill-switch read/write path.
+	 * @param OrganisationControlService $tenantControlService The kill-switch read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (owner check).
@@ -70,7 +70,7 @@ class TenantControlController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly TenantControlService $tenantControlService,
+		private readonly OrganisationControlService $tenantControlService,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,

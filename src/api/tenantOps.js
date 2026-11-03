@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Conduction B.V.
 //
 // Plain (non-Pinia) API helper for the multi-tenant-ops + agent-lifecycle-governance
-// surface — thin Hermiq TenantOpsController endpoints (per-org quota, EU AI Act audit
+// surface — thin Hermiq OrganisationOpsController endpoints (per-org quota, EU AI Act audit
 // export, periodic access review + attestation + reassignment, incident records, and
 // the retention-period setting). axios from @nextcloud/axios adds the CSRF requesttoken.
 // Mirrors src/api/analytics.js.

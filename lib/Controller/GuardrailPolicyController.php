@@ -7,7 +7,7 @@
  * (agent-guardrails): read the caller's effective policy (any authenticated user,
  * to inform the chat UI of which controls are active), list the caller-visible
  * policies, and create/update them. Mirrors
- * `TenantModelPolicyController` exactly — same authorization shape, same
+ * `OrganisationModelPolicyController` exactly — same authorization shape, same
  * effective/index/create/update method split — because this is the same kind of
  * per-organisation governance object (`ObjectEntity.organisation`, `_rbac: false,
  * _multitenancy: false`) with the same admin/owner-gated write surface.

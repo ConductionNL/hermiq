@@ -193,13 +193,13 @@ return [
 
         // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
         [
-            'name'         => 'tenantControl#show',
+            'name'         => 'organisationControl#show',
             'url'          => '/api/tenant-control/{organisation}',
             'verb'         => 'GET',
             'requirements' => ['organisation' => '[^/]+'],
         ],
         [
-            'name'         => 'tenantControl#toggle',
+            'name'         => 'organisationControl#toggle',
             'url'          => '/api/tenant-control/{organisation}/toggle',
             'verb'         => 'POST',
             'requirements' => ['organisation' => '[^/]+'],
@@ -264,29 +264,29 @@ return [
         ],
 
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
-        ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
-        ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
+        ['name' => 'organisationOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
+        ['name' => 'organisationOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
 
         // Agent-lifecycle-governance: periodic access review + attestation + reassignment,
         // incident records, and the retention-period setting (tenant-scoped; the four
         // mutating endpoints additionally gate through ActionAuthService).
-        ['name' => 'tenantOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
+        ['name' => 'organisationOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
         [
-            'name'         => 'tenantOps#attestReview',
+            'name'         => 'organisationOps#attestReview',
             'url'          => '/api/tenant-ops/access-review/{uuid}/attest',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
         [
-            'name'         => 'tenantOps#reassignAgent',
+            'name'         => 'organisationOps#reassignAgent',
             'url'          => '/api/tenant-ops/access-review/{uuid}/reassign',
             'verb'         => 'POST',
             'requirements' => ['uuid' => '[^/]+'],
         ],
-        ['name' => 'tenantOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
-        ['name' => 'tenantOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
-        ['name' => 'tenantOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
-        ['name' => 'tenantOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
+        ['name' => 'organisationOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
+        ['name' => 'organisationOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
+        ['name' => 'organisationOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
+        ['name' => 'organisationOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
 
         // Budget guardrails (cost-guardrails): per-org/per-agent spend caps, status, pre-run
         // estimate. 'status' is registered before the GET list route needs no {budgetId} at
@@ -301,10 +301,10 @@ return [
         // Tenant model policy (tenant-model-policy): per-organisation provider/model
         // allowlists. 'effective' is registered before the {policyId} routes so the
         // literal path never falls into the id matcher.
-        ['name' => 'tenantModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
-        ['name' => 'tenantModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
-        ['name' => 'tenantModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
-        ['name' => 'tenantModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+        ['name' => 'organisationModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
+        ['name' => 'organisationModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
+        ['name' => 'organisationModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
+        ['name' => 'organisationModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
 
         // Guardrail policy (agent-guardrails): per-organisation input/output content
         // filters + per-tool risk classification. 'effective' is registered before

@@ -6,7 +6,7 @@
  * Reads and writes the per-organisation `GuardrailPolicy` OpenRegister object and
  * exposes the three pure enforcement helpers every agent-turn call site threads
  * through: `filterInput()`, `filterOutput()`, `classifyTool()`. Mirrors
- * `TenantModelPolicyService`'s exact per-organisation-object pattern (`_rbac:
+ * `OrganisationModelPolicyService`'s exact per-organisation-object pattern (`_rbac:
  * false, _multitenancy: false`, matched by `ObjectEntity.organisation`) because a
  * policy read must work for a system-wide schedule tick or flow-triggered run —
  * which run before any per-user RBAC context exists — exactly as the kill-switch
@@ -18,7 +18,7 @@
  * enabled; (3) else — no policy anywhere, or every policy in scope disabled — a
  * FULLY-OPEN fallback (every filter `off`, every tool `auto`) — the exact
  * behaviour of this app before this change. This is deliberately the OPPOSITE of
- * `TenantModelPolicyService::fallbackPolicy()`'s fail-CLOSED shape: guardrails are
+ * `OrganisationModelPolicyService::fallbackPolicy()`'s fail-CLOSED shape: guardrails are
  * an opt-in governance control in this app, like `Budget`/`Schedule.requiresApproval`,
  * not a fail-safe cost/vendor boundary.
  *
@@ -32,7 +32,7 @@
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance
  * service, not a derived value or declarative lifecycle (same role as
- * `TenantControlService`/`TenantModelPolicyService`/`BudgetService`).
+ * `OrganisationControlService`/`OrganisationModelPolicyService`/`BudgetService`).
  *
  * @category Service
  * @package  OCA\Hermiq\Service
@@ -152,7 +152,7 @@ class GuardrailPolicyService {
 	 *
 	 * Matched by `ObjectEntity.organisation`. An empty string matches the
 	 * organisation-less INSTANCE-DEFAULT policy (a deliberate, valid lookup —
-	 * mirrors `TenantModelPolicyService::getForOrganisation()`).
+	 * mirrors `OrganisationModelPolicyService::getForOrganisation()`).
 	 *
 	 * @param string $organisation The organisation identifier, or '' for the instance default.
 	 *
@@ -182,7 +182,7 @@ class GuardrailPolicyService {
 	/**
 	 * Find a single GuardrailPolicy by UUID, system-wide (controller write-path
 	 * authorization needs the policy's organisation before deciding whether the
-	 * caller may administer it — mirrors `TenantModelPolicyService::findById()`).
+	 * caller may administer it — mirrors `OrganisationModelPolicyService::findById()`).
 	 *
 	 * @param string $uuid The GuardrailPolicy object UUID.
 	 *
@@ -476,7 +476,7 @@ class GuardrailPolicyService {
 
 	/**
 	 * Create-or-update the GuardrailPolicy for an organisation (at most one per
-	 * organisation, mirroring `TenantModelPolicyService::upsertForOrganisation()`).
+	 * organisation, mirroring `OrganisationModelPolicyService::upsertForOrganisation()`).
 	 * `$organisation === ''` upserts the organisation-less instance default.
 	 *
 	 * @param string $organisation The target organisation ('' for the instance default).
@@ -509,7 +509,7 @@ class GuardrailPolicyService {
 		$data['enabled'] = $enabled;
 
 		// Pin the policy to the TARGET organisation, not the actor's active
-		// organisation (mirrors TenantModelPolicyService::upsertForOrganisation()'s
+		// organisation (mirrors OrganisationModelPolicyService::upsertForOrganisation()'s
 		// @self.organisation trick).
 		$self = (array)($data['@self'] ?? []);
 		$self['organisation'] = $organisation;

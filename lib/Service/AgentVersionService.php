@@ -8,7 +8,7 @@
  * (`SaveObject::createAuditTrail()` diffs old/new state on every save) — this
  * service adds NO new storage. It reads that same AuditTrail directly via an
  * injected `AuditTrailMapper` (the identical in-process pattern
- * `RunHistoryService`/`BudgetService`/`TenantOpsService` already use), because
+ * `RunHistoryService`/`BudgetService`/`OrganisationOpsService` already use), because
  * OpenRegister's own `GET .../audit-trails` HTTP endpoint hard-gates on NC
  * admin (`AuditTrailController::requireAdmin()`), which would lock out the
  * non-admin agent owners who are this feature's actual audience.
@@ -119,7 +119,7 @@ class AgentVersionService {
 	 * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (by object_uuid — see
 	 *                                           fetchVersionEntries()), the SAME in-process
 	 *                                           pattern RunHistoryService/BudgetService/
-	 *                                           TenantOpsService already use.
+	 *                                           OrganisationOpsService already use.
 	 * @param ObjectService $objectService OpenRegister object read/write: resolves the
 	 *                                     live Agent (diff's reconstruction baseline,
 	 *                                     rollback's read) and persists a rollback via

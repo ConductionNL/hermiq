@@ -1,12 +1,12 @@
 <?php
 
 /**
- * Hermiq TenantModelPolicyService.
+ * Hermiq OrganisationModelPolicyService.
  *
  * Reads and writes the per-organisation `ModelPolicy` OpenRegister object: an
  * allowlist of {provider, models[]} pairs (drawn from the four supported chat
  * drivers) plus an optional suggested default model. Mirrors
- * `TenantControlService`'s exact per-organisation-object pattern (`_rbac: false,
+ * `OrganisationControlService`'s exact per-organisation-object pattern (`_rbac: false,
  * _multitenancy: false`, matched by `ObjectEntity.organisation`) because a policy
  * read must work for a system-wide schedule tick or flow-triggered run — which run
  * before any per-user RBAC context exists — exactly as the kill-switch read does.
@@ -19,7 +19,7 @@
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance
  * service, not a derived value or declarative lifecycle (same role as
- * TenantControlService).
+ * OrganisationControlService).
  *
  * @category Service
  * @package  OCA\Hermiq\Service
@@ -53,7 +53,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
  */
-class TenantModelPolicyService {
+class OrganisationModelPolicyService {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -87,7 +87,7 @@ class TenantModelPolicyService {
 	 *
 	 * Matched by `ObjectEntity.organisation`. An empty string matches the
 	 * organisation-less INSTANCE-DEFAULT policy (a deliberate, valid lookup — not
-	 * an error case, unlike `TenantControlService::getForOrganisation()` which
+	 * an error case, unlike `OrganisationControlService::getForOrganisation()` which
 	 * treats `''` as "no organisation given").
 	 *
 	 * @param string $organisation The organisation identifier, or '' for the instance default.
@@ -248,7 +248,7 @@ class TenantModelPolicyService {
 
 	/**
 	 * Create-or-update the ModelPolicy for an organisation (at most one per
-	 * organisation, mirroring `TenantControlService::toggle()`'s upsert
+	 * organisation, mirroring `OrganisationControlService::toggle()`'s upsert
 	 * semantics). `$organisation === ''` upserts the organisation-less instance
 	 * default.
 	 *
@@ -279,7 +279,7 @@ class TenantModelPolicyService {
 		$data['requireNoTraining'] = (($payload['requireNoTraining'] ?? ($data['requireNoTraining'] ?? false)) === true);
 
 		// Pin the policy to the TARGET organisation, not the actor's active
-		// organisation (mirrors TenantControlService::toggle()'s @self.organisation
+		// organisation (mirrors OrganisationControlService::toggle()'s @self.organisation
 		// trick) — without this an instance admin upserting a different tenant's
 		// policy, or the org-less instance default, would be stamped into their
 		// own active org instead.

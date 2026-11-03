@@ -36,7 +36,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -198,7 +198,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(false);
 
 		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
@@ -231,7 +231,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->expects($this->once())->method('isAllowed')->willReturn(true);
 
 		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
@@ -265,7 +265,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(true);
 		$policy->method('requiresNoTraining')->willReturn(true);
 		$config = $this->createMock(IAppConfig::class);
@@ -577,7 +577,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(false);
 
 		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);

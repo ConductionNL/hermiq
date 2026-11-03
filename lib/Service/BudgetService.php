@@ -19,7 +19,7 @@
  *   - The user-facing reads (`listForCaller()`, `statusForScope()`) are tenant-scoped
  *     (RBAC/multitenancy ON, the default) — a caller-supplied `organisation`/`agentId`
  *     never itself grants visibility; OpenRegister's own tenant filtering is the boundary
- *     (mirrors `AnalyticsController`/`TenantOpsController`).
+ *     (mirrors `AnalyticsController`/`OrganisationOpsController`).
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance service,
  * not a derived value or declarative lifecycle. All persistence flows through
@@ -64,7 +64,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/Hermiq services.
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)     One cohesive guardrail surface (status
  *   computation, gate check, warning delivery, CRUD, estimate) intentionally kept in one
- *   service rather than split, mirroring TenantOpsService's single-surface shape.
+ *   service rather than split, mirroring OrganisationOpsService's single-surface shape.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Same single-surface trade-off: the
  *   token/EUR dual-dimension checks and period windowing each add branches to one class.
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)     The guardrail surface exposes status,
@@ -528,7 +528,7 @@ class BudgetService {
 		];
 
 		// Pin the budget to the TARGET organisation, not the actor's active organisation
-		// (mirrors TenantControlService::toggle()'s @self.organisation trick).
+		// (mirrors OrganisationControlService::toggle()'s @self.organisation trick).
 		$data['@self'] = ['organisation' => $organisation];
 
 		$budget = $this->objectService->saveObject(
