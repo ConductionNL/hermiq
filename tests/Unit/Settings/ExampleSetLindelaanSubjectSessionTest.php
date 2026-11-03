@@ -157,7 +157,7 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheSessionSubjectReadsAsTheApiServesIt(): void {
-		$subjects = new SessionSubject(objectService: $this->createMock(ObjectService::class));
+		$subjects = new SessionSubject(objectService: $this->createMock(originalClassName: ObjectService::class));
 
 		$this->assertSame(
 			expected: ['objectUuid' => 'case-lindelaan', 'register' => 'dossiq', 'schema' => 'case', 'appId' => 'dossiq'],
@@ -177,33 +177,33 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 		$approval->setUuid('approval-lindelaan-taak');
 		$approval->setObject($this->installed(key: 'ai-lindelaan-voorstel-taak'));
 
-		$objects = $this->createMock(ObjectService::class);
+		$objects = $this->createMock(originalClassName: ObjectService::class);
 		$objects->method('setRegister')->willReturnSelf();
 		$objects->method('setSchema')->willReturnSelf();
 		$objects->method('findAll')->willReturn([$approval]);
 
 		$previews = new ApprovalPreviewBuilder(
-			toolRegistry: $this->createMock(ToolRegistryFacade::class),
-			grantResolver: $this->createMock(ToolGrantResolver::class),
+			toolRegistry: $this->createMock(originalClassName: ToolRegistryFacade::class),
+			grantResolver: $this->createMock(originalClassName: ToolGrantResolver::class),
 			objectService: $objects,
-			logger: $this->createMock(LoggerInterface::class)
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
 		);
-		$container = $this->createMock(ContainerInterface::class);
+		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->willReturn($previews);
 
 		$approvals = new ApprovalService(
-			$objects,
-			$this->createMock(IUserSession::class),
-			$this->createMock(IUserManager::class),
-			$this->createMock(IGroupManager::class),
-			$this->createMock(DeliveryService::class),
-			$this->createMock(AuditTrailMapper::class),
-			new RedactionService($this->createMock(IConfig::class)),
-			$container,
-			$this->createMock(LoggerInterface::class),
-			$this->createMock(ApprovalTaskBridge::class),
+			objectService: $objects,
+			userSession: $this->createMock(originalClassName: IUserSession::class),
+			userManager: $this->createMock(originalClassName: IUserManager::class),
+			groupManager: $this->createMock(originalClassName: IGroupManager::class),
+			deliveryService: $this->createMock(originalClassName: DeliveryService::class),
+			auditTrailMapper: $this->createMock(originalClassName: AuditTrailMapper::class),
+			redactionService: new RedactionService(config: $this->createMock(originalClassName: IConfig::class)),
+			container: $container,
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+			taskBridge: $this->createMock(originalClassName: ApprovalTaskBridge::class),
 		);
-		$service = new SessionPendingApprovals(accessRequests: $this->createMock(ToolAccessRequestService::class), approvals: $approvals);
+		$service = new SessionPendingApprovals(accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class), approvals: $approvals);
 		$session = $this->installed(key: 'session-lindelaan-pieter');
 
 		$cards = $service->forSession(session: $session, uid: 'pieter');
