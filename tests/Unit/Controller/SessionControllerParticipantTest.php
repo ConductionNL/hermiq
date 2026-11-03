@@ -25,6 +25,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SessionController;
+use OCA\Hermiq\Service\Chat\SessionCollaborators;
+use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
@@ -106,9 +109,13 @@ class SessionControllerParticipantTest extends TestCase {
 			engine: $this->createMock(Engine::class),
 			objectService: $objectService,
 			userSession: $userSession,
-			sessionRoom: $sessionRoom,
 			logger: new NullLogger(),
-			agentAccess: $this->createMock(AgentAccessService::class)
+			collaborators: new SessionCollaborators(
+				sessionRoom: $sessionRoom,
+				agentAccess: $this->createMock(AgentAccessService::class),
+				subject: new SessionSubject(objectService: $objectService),
+				pendingApprovals: $this->createMock(SessionPendingApprovals::class)
+			)
 		);
 
 		return [$controller, $objectService];

@@ -29,6 +29,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use Exception;
 use OCA\Hermiq\Controller\SessionController;
+use OCA\Hermiq\Service\Chat\SessionCollaborators;
+use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
@@ -49,6 +52,8 @@ use Stringable;
  * Golden comparison of the session start.
  *
  * @covers \OCA\Hermiq\Controller\SessionController
+ * @uses   \OCA\Hermiq\Service\Chat\SessionCollaborators
+ * @uses   \OCA\Hermiq\Service\Chat\SessionSubject
  * @uses   \OCA\Hermiq\Service\Talk\ConversationParticipation
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
@@ -226,9 +231,13 @@ class SessionCreateGoldenTest extends TestCase {
 			engine: $engine,
 			objectService: $objectService,
 			userSession: $session,
-			sessionRoom: $room,
 			logger: $logger,
-			agentAccess: $access
+			collaborators: new SessionCollaborators(
+				sessionRoom: $room,
+				agentAccess: $access,
+				subject: new SessionSubject(objectService: $objectService),
+				pendingApprovals: $this->createMock(SessionPendingApprovals::class)
+			)
 		);
 
 	}//end controller()
