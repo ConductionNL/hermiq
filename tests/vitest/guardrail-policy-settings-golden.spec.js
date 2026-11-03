@@ -83,6 +83,18 @@ function button(wrapper, label) {
 	return found
 }
 
+/**
+ * The page's HTML without scoped-style ids. The page's scoped CSS styles only
+ * its own wrappers, never the inputs, so which component renders an input
+ * does not change how it looks.
+ *
+ * @param {object} wrapper The page.
+ * @return {string} The HTML.
+ */
+function html(wrapper) {
+	return wrapper.html().replace(/ data-v-[0-9a-f]+=""/g, '')
+}
+
 const results = {}
 
 describe('GuardrailPolicySettings golden', () => {
@@ -102,9 +114,9 @@ describe('GuardrailPolicySettings golden', () => {
 		const wrapper = await page()
 		await button(wrapper, 'New guardrail policy').vm.$emit('click')
 		await flushPromises()
-		const opened = wrapper.html()
+		const opened = html(wrapper)
 		await changeEveryField(wrapper)
-		const changed = wrapper.html()
+		const changed = html(wrapper)
 		await button(wrapper, 'Create policy').vm.$emit('click')
 		await flushPromises()
 
@@ -117,12 +129,12 @@ describe('GuardrailPolicySettings golden', () => {
 
 	it('edits a policy', async () => {
 		const wrapper = await page()
-		const listed = wrapper.html()
+		const listed = html(wrapper)
 		await button(wrapper, 'Edit').vm.$emit('click')
 		await flushPromises()
-		const opened = wrapper.html()
+		const opened = html(wrapper)
 		await changeEveryField(wrapper)
-		const changed = wrapper.html()
+		const changed = html(wrapper)
 		await button(wrapper, 'Save policy').vm.$emit('click')
 		await flushPromises()
 
