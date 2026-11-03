@@ -29,6 +29,11 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\ToolOversightController;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolOversight\ToolCatalogView;
+use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
+use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -52,6 +57,11 @@ use Stringable;
  * Golden comparison of the tool catalog endpoint.
  *
  * @covers \OCA\Hermiq\Controller\ToolOversightController
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightAgents
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolCatalogView
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolInvocationLog
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolGrantWrites
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightServices
  * @uses   \OCA\Hermiq\Service\AgentAccessService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
  *
@@ -238,16 +248,14 @@ class ToolCatalogGoldenTest extends TestCase {
 
 		return new ToolOversightController(
 			request: $this->createMock(originalClassName: IRequest::class),
-			objectService: $objectService,
-			toolRegistry: $registry,
-			grantResolver: new ToolGrantResolver(),
-			auditTrailMapper: $this->createMock(originalClassName: AuditTrailMapper::class),
-			appConfig: $appConfig,
 			userSession: $session,
-			groupManager: $groups,
-			accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class),
 			logger: $logger,
-			agentAccess: new AgentAccessService($objectService, $logger, $groups)
+			services: new ToolOversightServices(
+				agents: new ToolOversightAgents(objectService: $objectService, agentAccess: new AgentAccessService($objectService, $logger, $groups), groupManager: $groups, logger: $logger),
+				catalog: new ToolCatalogView(toolRegistry: $registry, grantResolver: new ToolGrantResolver(), appConfig: $appConfig),
+				invocations: new ToolInvocationLog(objectService: $objectService, auditTrailMapper: $this->createMock(originalClassName: AuditTrailMapper::class)),
+				grants: new ToolGrantWrites(objectService: $objectService, accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class))
+			)
 		);
 
 	}//end controller()
