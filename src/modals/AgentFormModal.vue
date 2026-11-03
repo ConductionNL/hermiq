@@ -520,6 +520,7 @@ import { listTools, setAppAssistant } from '../api/agents.js'
 import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
+import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
@@ -531,6 +532,24 @@ import {
 } from '../utils/agentCredentials.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
+
+/**
+ * The stored `tools` value to carry forward on an edit, as the list the schema declares.
+ *
+ * A list is kept verbatim. The grant structure an earlier build stored is carried
+ * as its grant strings, the same ones the grant matrix saves: the schema refuses
+ * an object, and an empty list would revoke every grant.
+ *
+ * @param {Array|object|null|undefined} tools The stored value: a list, the grant structure, or nothing.
+ * @return {Array} The grants to write back.
+ */
+function storedTools(tools) {
+	if (Array.isArray(tools)) {
+		return tools
+	}
+
+	return flattenGrants(tools)
+}
 
 export default {
 	name: 'AgentFormModal',
@@ -623,6 +642,8 @@ export default {
 			pinnableProviders: PINNABLE_PROVIDERS,
 			toolOptions: [],
 			toolsLoading: false,
+			// The grant ids the form was seeded with, to tell an edit from none.
+			readGrants: [],
 			// Agents-sharing-and-catalog-columns: search results for the pickers.
 			peopleOptions: [],
 			groupOptions: [],
@@ -1260,9 +1281,12 @@ export default {
 			const source = this.effectiveAgent || this.draft
 			if (!source) {
 				this.form = this.blankForm()
+				this.readGrants = []
 				return
 			}
-			const tools = Array.isArray(source.tools) ? source.tools : []
+			// Both stored shapes: a list, or the app → subject → action structure.
+			const tools = flattenGrants(source.tools)
+			this.readGrants = [...tools]
 			const delegationAllowlist = Array.isArray(source.delegationAllowlist)
 				? source.delegationAllowlist
 				: []
@@ -1519,7 +1543,7 @@ export default {
 		 * tool-grants endpoint in `save()` instead, which is what makes that
 		 * endpoint the single write path its docblock claims to be.
 		 *
-		 * The STORED list is still carried forward verbatim rather than omitted:
+		 * The STORED value is still carried forward verbatim, in either shape, rather than omitted:
 		 * `saveObject` is PUT-semantic and nulls anything absent, so dropping
 		 * the key would clear every grant the agent has for as long as it takes
 		 * the follow-up call to land — and permanently if that call failed.
@@ -1545,9 +1569,7 @@ export default {
 				// Only well-formed questions are saved (the register refuses the rest).
 				startFields: startFieldsOf({ startFields: this.form.startFields }),
 				tools: this.isEdit()
-					? Array.isArray(base.tools)
-						? base.tools
-						: []
+					? storedTools(base.tools)
 					: this.selectedGrants(),
 
 				delegationAllowlist: (this.form.delegationAllowlist || []).map(
@@ -1637,6 +1659,21 @@ export default {
 		},
 
 		/**
+		 * Whether the selection differs from the grants the form was seeded with.
+		 *
+		 * @return {boolean} True when a grant was added or removed.
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 */
+		grantsChanged() {
+			const selected = [...new Set(this.selectedGrants())].sort()
+			const read = [...new Set(this.readGrants)].sort()
+			return (
+				selected.length !== read.length
+				|| selected.some((grant, index) => grant !== read[index])
+			)
+		},
+
+		/**
 		 * Persist the agent via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
@@ -1672,7 +1709,9 @@ export default {
 					const agentId =
 						saved?.['@self']?.id || saved?.id || this.effectiveAgent?.id
 					try {
-						await updateToolGrants(agentId, this.selectedGrants())
+						if (this.grantsChanged()) {
+							await updateToolGrants(agentId, this.selectedGrants())
+						}
 					} catch (grantError) {
 						// The agent itself saved. Say so, rather than letting a
 						// refused grant write read as "nothing was saved" — the

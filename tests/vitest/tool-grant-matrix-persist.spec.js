@@ -90,3 +90,110 @@ describe('ToolGrantMatrix persist()', () => {
 		expect(api.updateToolGrants).toHaveBeenCalledTimes(1)
 	})
 })
+
+/**
+ * A promise with its resolve and reject exposed.
+ *
+ * @return {{promise: Promise, resolve: Function, reject: Function}} The deferred.
+ */
+function deferred() {
+	let resolve
+	let reject
+	const promise = new Promise((res, rej) => {
+		resolve = res
+		reject = rej
+	})
+	return { promise, resolve, reject }
+}
+
+describe('ToolGrantMatrix load() after an agent switch', () => {
+	beforeEach(() => {
+		vi.resetAllMocks()
+		api.getToolCatalog.mockResolvedValue([])
+		api.getToolTaxonomy.mockResolvedValue([])
+		api.updateToolGrants.mockResolvedValue({})
+	})
+
+	/**
+	 * Mount on agent-1 with its grants still in flight, then switch to agent-2.
+	 *
+	 * @param {object} first The deferred answer for agent-1.
+	 * @param {Array<string>} second The grants agent-2 answers with.
+	 * @return {Promise<object>} The wrapper, with agent-2 loaded.
+	 */
+	async function switched(first, second) {
+		api.getAgentGrants.mockImplementation((agentId) =>
+			agentId === 'agent-1' ? first.promise : Promise.resolve(second),
+		)
+		const wrapper = mount(ToolGrantMatrix, {
+			props: { agentId: 'agent-1', canEdit: true },
+		})
+		await wrapper.setProps({ agentId: 'agent-2' })
+		await flushPromises()
+		return wrapper
+	}
+
+	it("drops the previous agent's late grants", async () => {
+		const first = deferred()
+		const wrapper = await switched(first, ['agent2.tool'])
+
+		first.resolve(['agent1.tool'])
+		await flushPromises()
+
+		expect(wrapper.vm.draftGrants).toEqual(['agent2.tool'])
+		await wrapper.vm.persist()
+		expect(api.updateToolGrants).toHaveBeenCalledWith('agent-2', ['agent2.tool'])
+	})
+
+	it("drops the previous agent's late failure", async () => {
+		const first = deferred()
+		const wrapper = await switched(first, ['agent2.tool'])
+
+		first.reject(new Error('Gateway Timeout'))
+		await flushPromises()
+
+		expect(wrapper.vm.error).toBe('')
+		expect(wrapper.vm.loaded).toBe(true)
+		expect(wrapper.vm.loading).toBe(false)
+	})
+
+	it('stays loading while the current agent is still in flight', async () => {
+		const first = deferred()
+		const second = deferred()
+		api.getAgentGrants.mockImplementation((agentId) =>
+			agentId === 'agent-1' ? first.promise : second.promise,
+		)
+		const wrapper = mount(ToolGrantMatrix, {
+			props: { agentId: 'agent-1', canEdit: true },
+		})
+		await wrapper.setProps({ agentId: 'agent-2' })
+
+		first.resolve(['agent1.tool'])
+		await flushPromises()
+		expect(wrapper.vm.loading).toBe(true)
+
+		second.resolve(['agent2.tool'])
+		await flushPromises()
+		expect(wrapper.vm.loading).toBe(false)
+		expect(wrapper.vm.draftGrants).toEqual(['agent2.tool'])
+	})
+
+	it('keeps the newer answer when two loads for one agent cross', async () => {
+		const older = deferred()
+		api.getAgentGrants.mockResolvedValueOnce(['first.tool'])
+		const wrapper = mount(ToolGrantMatrix, {
+			props: { agentId: 'agent-1', canEdit: true },
+		})
+		await flushPromises()
+		api.getAgentGrants
+			.mockImplementationOnce(() => older.promise)
+			.mockResolvedValueOnce(['newer.tool'])
+		const slow = wrapper.vm.load()
+		await wrapper.vm.load()
+
+		older.resolve(['older.tool'])
+		await slow
+
+		expect(wrapper.vm.draftGrants).toEqual(['newer.tool'])
+	})
+})

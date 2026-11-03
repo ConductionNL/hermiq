@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Listener\AgentWaiverChangeListener;
+use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
+use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -35,6 +38,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -108,6 +112,13 @@ class ToolOversightControllerTest extends TestCase {
 	private IGroupManager $groupManager;
 
 	/**
+	 * The waiver audit the controller writes through.
+	 *
+	 * @var GrantWaiverAudit
+	 */
+	private GrantWaiverAudit $waiverAudit;
+
+	/**
 	 * Wire fresh mocks before each test.
 	 *
 	 * @return void
@@ -131,6 +142,8 @@ class ToolOversightControllerTest extends TestCase {
 		// Non-admin by default; the owner/invited checks carry the existing tests.
 		$this->groupManager = $this->createMock(IGroupManager::class);
 		$this->groupManager->method('isAdmin')->willReturn(false);
+
+		$this->waiverAudit = new GrantWaiverAudit($this->auditTrailMapper, $this->userSession, $this->createMock(LoggerInterface::class));
 
 	}//end setUp()
 
@@ -467,7 +480,7 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['hermiq.sendMail']], 'alice'));
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]);
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
 		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
@@ -487,6 +500,7 @@ class ToolOversightControllerTest extends TestCase {
 
 	}//end testAddingAWaiverWritesADistinctAuditEvent()
 
+
 	/**
 	 * 🔴 Removing a waiver is audited too.
 	 *
@@ -504,7 +518,7 @@ class ToolOversightControllerTest extends TestCase {
 			$this->agent(['tools' => ['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]], 'alice')
 		);
 		$this->request->method('getParam')->with('grants')->willReturn(['hermiq.sendMail']);
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
 		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
@@ -539,7 +553,7 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['pipelinq.lead.search']], 'alice'));
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['pipelinq.lead.search', 'pipelinq.lead.get']);
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
 
@@ -560,7 +574,7 @@ class ToolOversightControllerTest extends TestCase {
 
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => $grants], 'alice'));
 		$this->request->method('getParam')->with('grants')->willReturn(array_reverse($grants));
-		$this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
 
@@ -636,6 +650,26 @@ class ToolOversightControllerTest extends TestCase {
 		};
 
 	}//end savingEntity()
+
+	/**
+	 * A saveObject() stand-in that, like OpenRegister, raises the object update
+	 * event inside the save, heard by the waiver listener; the old object is the
+	 * one find() returns.
+	 *
+	 * @return callable
+	 */
+	private function savingWithObjectEvent(): callable {
+		$matcher = $this->createMock(AgentObjectMatcher::class);
+		$matcher->method('isAgent')->willReturn(true);
+		$listener = new AgentWaiverChangeListener($this->waiverAudit, $matcher, $this->createMock(LoggerInterface::class));
+
+		return function (array $object) use ($listener): ObjectEntity {
+			$saved = ($this->savingEntity())($object);
+			$listener->handle(new ObjectUpdatedEvent($saved, $this->objectService->find('agent-1')));
+			return $saved;
+		};
+
+	}//end savingWithObjectEvent()
 
 	/**
 	 * toolInvocations (rich source) lists this agent's correlated-owner MCP

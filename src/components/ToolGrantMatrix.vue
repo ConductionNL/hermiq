@@ -354,6 +354,8 @@ export default {
 			savedGrants: [],
 			loading: true,
 			loaded: false,
+			// Counts loads, so a response that lost the race to a newer one is dropped.
+			loadSequence: 0,
 			error: '',
 			filter: '',
 			grantedOnly: false,
@@ -826,15 +828,24 @@ export default {
 		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-saving-without-changing-anything-preserves-the-grants
 		 */
 		async load() {
+			const agentId = this.agentId
+			const sequence = ++this.loadSequence
+			const current = () =>
+				sequence === this.loadSequence && agentId === this.agentId
 			this.loading = true
 			this.loaded = false
 			this.error = ''
 			try {
 				const [catalog, taxonomy, grants] = await Promise.all([
-					getToolCatalog(this.agentId),
+					getToolCatalog(agentId),
 					getToolTaxonomy(),
-					getAgentGrants(this.agentId),
+					getAgentGrants(agentId),
 				])
+
+				// A late answer for an earlier agent must not become this agent's grants.
+				if (current() === false) {
+					return
+				}
 
 				this.catalog = catalog
 				this.taxonomy = taxonomy
@@ -867,9 +878,13 @@ export default {
 				}
 				this.openClusters = open
 			} catch (error) {
-				this.error = error.response?.data?.error ?? error.message
+				if (current() === true) {
+					this.error = error.response?.data?.error ?? error.message
+				}
 			} finally {
-				this.loading = false
+				if (current() === true) {
+					this.loading = false
+				}
 			}
 		},
 
