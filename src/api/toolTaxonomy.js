@@ -112,23 +112,37 @@ export function flattenGrants(tools) {
 
 	const ids = []
 	for (const subjects of Object.values(tools)) {
-		if (subjects === null || typeof subjects !== 'object') {
-			continue
-		}
-		for (const actions of Object.values(subjects)) {
-			if (actions === null || typeof actions !== 'object') {
-				continue
-			}
-			for (const entries of Object.values(actions)) {
-				for (const entry of Array.isArray(entries) ? entries : [entries]) {
-					const id = grantStringFor(entry)
-					if (id !== '') {
-						ids.push(id)
-					}
-				}
+		for (const actions of nestedValues(subjects)) {
+			for (const entries of nestedValues(actions)) {
+				ids.push(...actionGrantIds(entries))
 			}
 		}
 	}
 
 	return [...new Set(ids)]
+}
+
+/**
+ * The values of one level of the grant structure; none when the level is not an object.
+ *
+ * @param {*} level One level of the stored structure.
+ * @return {Array} Its values.
+ */
+function nestedValues(level) {
+	if (level === null || typeof level !== 'object') {
+		return []
+	}
+
+	return Object.values(level)
+}
+
+/**
+ * The grant ids stored under one action: one entry or a list of them.
+ *
+ * @param {*} entries The stored entry or entries.
+ * @return {Array<string>} The grant ids, unreadable entries left out.
+ */
+function actionGrantIds(entries) {
+	const list = Array.isArray(entries) ? entries : [entries]
+	return list.map((entry) => grantStringFor(entry)).filter((id) => id !== '')
 }
