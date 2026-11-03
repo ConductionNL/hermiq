@@ -241,12 +241,7 @@ export function parseVerbAndSubject(id, taxonomy = {}) {
 	// Everything below this point is a FALLBACK for tools that declare nothing,
 	// and it is guesswork. The fix for those is to declare their subject and
 	// action at the source, not to improve the guessing.
-	if (
-		typeof taxonomy.subject === 'string'
-		&& taxonomy.subject !== ''
-		&& typeof taxonomy.action === 'string'
-		&& taxonomy.action !== ''
-	) {
+	if (declaresSubjectAndAction(taxonomy) === true) {
 		return classify(taxonomy.action, taxonomy.subject)
 	}
 
@@ -282,4 +277,19 @@ export function parseVerbAndSubject(id, taxonomy = {}) {
 	// No verb to find — fall back to the taxonomy's coarse right, and let the
 	// tool name stand as its own subject rather than inventing one.
 	return classify(taxonomy.right ?? 'special', name)
+}
+
+/**
+ * Whether a taxonomy row declares both its subject and its action as non-empty strings.
+ *
+ * @param {object} taxonomy The taxonomy row.
+ * @return {boolean} True when both are declared.
+ */
+function declaresSubjectAndAction(taxonomy) {
+	return (
+		typeof taxonomy.subject === 'string'
+		&& taxonomy.subject !== ''
+		&& typeof taxonomy.action === 'string'
+		&& taxonomy.action !== ''
+	)
 }
