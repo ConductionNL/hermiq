@@ -690,6 +690,8 @@ class ChatStreamControllerTest extends TestCase {
 				}
 
 				if ($args[0] === 'case-1') {
+					$entity->setRegister('5');
+					$entity->setSchema('9');
 					return $entity;
 				}
 
@@ -728,7 +730,7 @@ class ChatStreamControllerTest extends TestCase {
 
 		$this->assertCount(1, $this->frames($controller, 'final'), json_encode($controller->capturedEvents));
 		$this->assertSame(
-			['subject' => ['objectUuid' => 'case-1', 'register' => 'zaken', 'schema' => 'zaak', 'appId' => 'dossiq']],
+			['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']],
 			$saved['metadata']
 		);
 		$this->assertSame('alice', $saved['userId']);

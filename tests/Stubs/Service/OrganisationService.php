@@ -64,4 +64,15 @@ class OrganisationService {
 	public function ensureDefaultOrganisation(): Organisation {
 		return new Organisation();
 	}//end ensureDefaultOrganisation()
+
+	/**
+	 * The identifier OpenRegister stamps as owner of a system-owned object.
+	 *
+	 * Mirrors the real signature: the configured systemUserId, else `__system__`.
+	 *
+	 * @return string The system identifier.
+	 */
+	public function getSystemUserId(): string {
+		return '__system__';
+	}//end getSystemUserId()
 }//end class
