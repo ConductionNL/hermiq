@@ -15,7 +15,26 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Settings;
 
+use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Service\ApprovalPreviewBuilder;
+use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\DeliveryService;
+use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\ObjectService;
+use OCP\IConfig;
+use OCP\IGroupManager;
+use OCP\IUserManager;
+use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * The session about the Lindelaan case.
@@ -111,4 +130,97 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 		$this->assertSame(expected: self::CASE_REF, actual: $data['toolArguments']['case']);
 		$this->assertSame(expected: 'Taak Offerte beoordelen voor Pieter Jansen, klaar op 10 okt.', actual: $data['prompt']);
 	}//end testTheAssistantWaitsOnPieterToCreateTheTask()
+
+	/**
+	 * One fragment object's data with its placeholders filled as an install would.
+	 *
+	 * @param string $key The fragment object key.
+	 *
+	 * @return array<string, mixed> The installed data.
+	 */
+	private function installed(string $key): array {
+		$json = strtr(
+			(string)json_encode($this->objects()[$key]['data']),
+			[
+				self::CASE_REF => 'case-lindelaan',
+				self::AGENT_REF => 'agent-woo-triage',
+				'{{cast:pieter.uid}}' => 'pieter',
+			]
+		);
+
+		return json_decode($json, true);
+	}//end installed()
+
+	/**
+	 * The session's subject reads back as the subject the session API serves.
+	 *
+	 * @return void
+	 */
+	public function testTheSessionSubjectReadsAsTheApiServesIt(): void {
+		$subjects = new SessionSubject(objectService: $this->createMock(ObjectService::class));
+
+		$this->assertSame(
+			expected: ['objectUuid' => 'case-lindelaan', 'register' => 'dossiq', 'schema' => 'case', 'appId' => 'dossiq'],
+			actual: $subjects->subjectOf(sessionData: $this->installed(key: 'session-lindelaan-pieter'))
+		);
+	}//end testTheSessionSubjectReadsAsTheApiServesIt()
+
+	/**
+	 * Pieter's session carries exactly one pending tool-call approval, in the
+	 * card shape the session messages serve; Anouk, not the reviewer, sees none.
+	 * With no catalogue entry for dossiq.createTask the card is titled from the tool id.
+	 *
+	 * @return void
+	 */
+	public function testPieterSeesOneToolCallApprovalOnTheSession(): void {
+		$approval = new ObjectEntity();
+		$approval->setUuid('approval-lindelaan-taak');
+		$approval->setObject($this->installed(key: 'ai-lindelaan-voorstel-taak'));
+
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willReturn([$approval]);
+
+		$previews = new ApprovalPreviewBuilder(
+			toolRegistry: $this->createMock(ToolRegistryFacade::class),
+			grantResolver: $this->createMock(ToolGrantResolver::class),
+			objectService: $objects,
+			logger: $this->createMock(LoggerInterface::class)
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturn($previews);
+
+		$approvals = new ApprovalService(
+			$objects,
+			$this->createMock(IUserSession::class),
+			$this->createMock(IUserManager::class),
+			$this->createMock(IGroupManager::class),
+			$this->createMock(DeliveryService::class),
+			$this->createMock(AuditTrailMapper::class),
+			new RedactionService($this->createMock(IConfig::class)),
+			$container,
+			$this->createMock(LoggerInterface::class),
+			$this->createMock(ApprovalTaskBridge::class),
+		);
+		$service = new SessionPendingApprovals(accessRequests: $this->createMock(ToolAccessRequestService::class), approvals: $approvals);
+		$session = $this->installed(key: 'session-lindelaan-pieter');
+
+		$cards = $service->forSession(session: $session, uid: 'pieter');
+		$this->assertCount(expectedCount: 1, haystack: $cards);
+		$this->assertSame(
+			expected: [
+				'id' => 'approval-lindelaan-taak',
+				'kind' => 'toolcall',
+				'title' => 'Dossiq createTask',
+				'app' => 'dossiq',
+				'reason' => 'Taak Offerte beoordelen voor Pieter Jansen, klaar op 10 okt.',
+				'agentId' => 'agent-woo-triage',
+				'resolveUrl' => '/index.php/apps/hermiq/api/approvals/approval-lindelaan-taak/resolve',
+			],
+			actual: array_diff_key($cards[0], ['reach' => true])
+		);
+
+		$this->assertSame(expected: [], actual: $service->forSession(session: $session, uid: 'anouk'));
+	}//end testPieterSeesOneToolCallApprovalOnTheSession()
 }//end class
