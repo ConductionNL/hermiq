@@ -34,6 +34,8 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use ReflectionMethod;
 
 /**
  * Tests for the human-approval-gate-enforcement ApprovalController.
@@ -379,4 +381,59 @@ class ApprovalControllerTest extends TestCase {
 		}
 
 	}//end testResolveRejectsAnUnknownDecision()
+	/**
+	 * A forged userId, uid or deciderUid in the request never becomes the decider:
+	 * approve, deny and resolve all decide as the session user.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 */
+	public function testTheDeciderIsTheSessionUserNotARequestParameter(): void {
+		$forged = ['userId' => 'mallory', 'uid' => 'mallory', 'deciderUid' => 'mallory', 'reviewer' => 'mallory'];
+		$routes = [
+			'approve' => ['approve', []],
+			'deny' => ['deny', []],
+			'resolve-granted' => ['approve', ['decision' => 'granted']],
+			'resolve-refused' => ['deny', ['decision' => 'refused']],
+		];
+		foreach ($routes as $route => [$decides, $extra]) {
+			$service = $this->createMock(ApprovalService::class);
+			$service->method('loadApproval')->willReturn($this->approval('pending'));
+			$service->method('isReviewer')->willReturn(true);
+			$deciders = [];
+			$service->method('approve')->willReturnCallback(
+				function (ObjectEntity $approval, string $deciderUid) use (&$deciders): array {
+					$deciders[] = ['approve', $deciderUid];
+					return ['status' => 'approved', 'ran' => true];
+				}
+			);
+			$service->method('deny')->willReturnCallback(
+				function (ObjectEntity $approval, string $deciderUid) use (&$deciders): void {
+					$deciders[] = ['deny', $deciderUid];
+				}
+			);
+
+			$controller = $this->resolvingController($service, $this->session('anna'), $forged + $extra);
+			$method = explode('-', $route)[0];
+			$response = $controller->$method('appr-1');
+
+			$this->assertSame(Http::STATUS_OK, $response->getStatus(), $route);
+			$this->assertSame([[$decides, 'anna']], $deciders, $route);
+		}
+
+	}//end testTheDeciderIsTheSessionUserNotARequestParameter()
+	/**
+	 * Approve, deny and resolve change state, so they keep Nextcloud's CSRF check.
+	 *
+	 * @return void
+	 */
+	public function testDecisionsRequireTheCsrfToken(): void {
+		foreach (['approve', 'deny', 'resolve'] as $name) {
+			$method = new ReflectionMethod(ApprovalController::class, $name);
+			$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class), $name);
+			$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment(), $name);
+		}
+
+	}//end testDecisionsRequireTheCsrfToken()
 }//end class

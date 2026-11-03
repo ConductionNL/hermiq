@@ -447,7 +447,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse Created conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -487,7 +486,7 @@ class SessionController extends Controller {
 				start: [
 					'agentId' => (string)$agent->getUuid(),
 					'title' => ($data['title'] ?? null),
-					'metadata' => ($data['metadata'] ?? []),
+					'metadata' => $this->subject->checkedMetadata(metadata: ($data['metadata'] ?? []), stored: null),
 				]
 			);
 
@@ -623,7 +622,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response with the updated conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -647,14 +645,7 @@ class SessionController extends Controller {
 			// Get request data.
 			$data = $this->request->getParams();
 
-			$payload = $conversation->getObject();
-			if (($data['title'] ?? null) !== null) {
-				$payload['title'] = $data['title'];
-			}
-
-			if (($data['metadata'] ?? null) !== null) {
-				$payload['metadata'] = $data['metadata'];
-			}
+			$payload = $this->subject->writablePayload(stored: $conversation->getObject(), data: $data);
 
 			$updated = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
@@ -709,7 +700,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response confirming the deletion.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -780,7 +770,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response with the restored conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -864,7 +853,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response confirming permanent deletion.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */

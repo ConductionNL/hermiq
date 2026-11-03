@@ -353,6 +353,7 @@ export default {
 			draftGrants: [],
 			savedGrants: [],
 			loading: true,
+			loaded: false,
 			error: '',
 			filter: '',
 			grantedOnly: false,
@@ -826,6 +827,7 @@ export default {
 		 */
 		async load() {
 			this.loading = true
+			this.loaded = false
 			this.error = ''
 			try {
 				const [catalog, taxonomy, grants] = await Promise.all([
@@ -852,6 +854,7 @@ export default {
 				// never showed it.
 				this.savedGrants = [...grants]
 				this.draftGrants = [...this.savedGrants]
+				this.loaded = true
 
 				// Open the clusters that already hold something, so the widget
 				// opens showing what this agent HAS rather than a wall of
@@ -878,6 +881,17 @@ export default {
 		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		async persist() {
+			// After a failed load the draft is empty, and saving it would revoke
+			// every grant the agent holds.
+			if (this.loaded !== true) {
+				throw new Error(
+					t(
+						'hermiq',
+						'The tool grants could not be read, so nothing was saved. Reload the page and try again.',
+					),
+				)
+			}
+
 			await updateToolGrants(this.agentId, this.draftGrants)
 			const saved = [...this.draftGrants]
 			await this.load()

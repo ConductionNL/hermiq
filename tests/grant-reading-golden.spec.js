@@ -176,6 +176,7 @@ function schema() {
 		[
 			{ property: 'title', maxLength: 3 },
 			{ property: '' },
+			{ property: 5 },
 			{ name: 'x' },
 			'body',
 		],
@@ -206,6 +207,7 @@ function schema() {
 
 const data = {
 	'': 'blank',
+	5: 'five',
 	title: 'Hello world',
 	body: 'Body text',
 	empty: '',
