@@ -52,6 +52,15 @@ class ApprovalPreviewBuilder {
 	private const TOOL_SOURCES = ['tool', 'toolcall', 'workspace-run'];
 
 	/**
+	 * A tool label Talk shows as plain text: letters, digits, spaces and
+	 * `, ' ( ) -`, at most 80 characters. No `@`, no markdown, no dots, so no
+	 * mention, link, autolinked domain or formatting can form.
+	 *
+	 * @var string
+	 */
+	private const TALK_SAFE_LABEL = '/^[\\p{L}\\p{M}\\p{N} ,\'’()\\-]{1,80}$/u';
+
+	/**
 	 * English reach labels for text that leaves the UI (the Talk line).
 	 *
 	 * @var array<string, string>
@@ -135,11 +144,36 @@ class ApprovalPreviewBuilder {
 
 		return sprintf(
 			'The tool %s %s, and reaches %s.',
-			($tool['title'] ?? $tool['name']),
+			$this->talkLabel(tool: $tool),
 			$tool['effect'],
 			(self::REACH_TEXT[$tool['reach']] ?? 'an unknown reach')
 		);
 	}//end toolLine()
+
+	/**
+	 * The tool's name as it may appear in a Talk message.
+	 *
+	 * Talk reads mentions, links and markdown in message text, and a tool's title
+	 * and name are free text from whoever registered the tool. A label is used only
+	 * when it holds letters, digits, spaces and plain punctuation; otherwise the
+	 * message names the tool by its id.
+	 *
+	 * @param array{id: string, name: string, title?: string} $tool The described tool.
+	 *
+	 * @return string The title, the name, or the id.
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	private function talkLabel(array $tool): string {
+		foreach ([($tool['title'] ?? ''), $tool['name']] as $label) {
+			$label = trim((string)preg_replace('/[\s\p{C}]+/u', ' ', $label));
+			if ($label !== '' && preg_match(self::TALK_SAFE_LABEL, $label) === 1) {
+				return $label;
+			}
+		}
+
+		return $tool['id'];
+	}//end talkLabel()
 
 	/**
 	 * Describe one tool from its catalog descriptor.
