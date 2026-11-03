@@ -375,14 +375,17 @@ class SessionControllerSubjectTest extends TestCase {
 		$this->assertSame(['pinned' => true], $this->saved[0]['metadata']);
 	}//end testCreatingWithAnUnreadableSubjectDropsIt()
 	/**
-	 * PATCH /api/sessions changes a session, so it keeps Nextcloud's CSRF check.
+	 * Creating, changing, archiving, restoring and deleting a session change state,
+	 * so they keep Nextcloud's CSRF check.
 	 *
 	 * @return void
 	 */
 	public function testUpdateRequiresTheCsrfToken(): void {
-		$method = new ReflectionMethod(SessionController::class, 'update');
+		foreach (['create', 'update', 'destroy', 'restore', 'destroyPermanent'] as $name) {
+			$method = new ReflectionMethod(SessionController::class, $name);
 
-		$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class));
-		$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment());
+			$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class), $name);
+			$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment(), $name);
+		}
 	}//end testUpdateRequiresTheCsrfToken()
 }//end class

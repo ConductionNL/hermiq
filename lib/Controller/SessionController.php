@@ -447,7 +447,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse Created conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -701,7 +700,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response confirming the deletion.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -772,7 +770,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response with the restored conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -856,7 +853,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response confirming permanent deletion.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
