@@ -656,12 +656,15 @@ class ToolAccessRequestService {
 					// model's: the tool's identity and reach are facts, the
 					// reason beside them is agent-authored.
 					'title' => $toolId,
+					'toolId' => $toolId,
 					'app' => $this->appOf(toolId: $toolId),
 					'reach' => (string)($record['reach'] ?? 'read'),
 					'reason' => (string)($record['reason'] ?? ''),
 					'agentId' => $agentId,
+					// The tool rides along, so the decision is about the tool shown.
 					'resolveUrl' => '/index.php/apps/hermiq/api/agents/'
-						. rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($id),
+						. rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($id)
+						. '?toolId=' . rawurlencode($toolId),
 				];
 			}
 		} catch (Throwable $e) {
@@ -710,10 +713,15 @@ class ToolAccessRequestService {
 	private function save(array $data): array {
 		try {
 			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
+			// System path, system-owned: status, toolId, agentId and requestedBy are
+			// admin-only through the object API, and OpenRegister admits an owner
+			// before every rule, so the requester must not own the request.
 			$saved = $objectService->saveObject(
 				object: $data,
 				register: self::REGISTER_SLUG,
-				schema: self::REQUEST_SCHEMA
+				schema: self::REQUEST_SCHEMA,
+				_rbac: false,
+				_unowned: true
 			);
 
 			return $this->asRecord(value: $saved);

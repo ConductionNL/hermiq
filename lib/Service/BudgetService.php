@@ -19,7 +19,7 @@
  *   - The user-facing reads (`listForCaller()`, `statusForScope()`) are tenant-scoped
  *     (RBAC/multitenancy ON, the default) — a caller-supplied `organisation`/`agentId`
  *     never itself grants visibility; OpenRegister's own tenant filtering is the boundary
- *     (mirrors `AnalyticsController`/`TenantOpsController`).
+ *     (mirrors `AnalyticsController`/`OrganisationOpsController`).
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance service,
  * not a derived value or declarative lifecycle. All persistence flows through
@@ -64,7 +64,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/Hermiq services.
  * @SuppressWarnings(PHPMD.ExcessiveClassLength)     One cohesive guardrail surface (status
  *   computation, gate check, warning delivery, CRUD, estimate) intentionally kept in one
- *   service rather than split, mirroring TenantOpsService's single-surface shape.
+ *   service rather than split, mirroring OrganisationOpsService's single-surface shape.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Same single-surface trade-off: the
  *   token/EUR dual-dimension checks and period windowing each add branches to one class.
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)     The guardrail surface exposes status,
@@ -146,7 +146,7 @@ class BudgetService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_SOFT_THRESHOLD = 80;
+	private const DEFAULT_SOFT_THRESHOLD = BudgetLimits::DEFAULT_SOFT_THRESHOLD;
 
 	/**
 	 * Constructor.
@@ -309,12 +309,6 @@ class BudgetService {
 	 * @return array<string, mixed> The status payload (scope/agentId/period/periodKey/
 	 *                              tokens/eur/softThresholdReached/hardCapReached).
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single-pass threshold evaluation
-	 *   across the token AND (optional) EUR dimensions; splitting would duplicate the
-	 *   period-window/usage computation.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the optional tokenLimit/eurLimit/
-	 *   rate guards are independent, multiplying paths without adding real branching depth.
-	 *
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
 	 */
 	public function status(ObjectEntity $budget): array {
@@ -330,45 +324,9 @@ class BudgetService {
 		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
 		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
 
-		// `isset()` is already false for null, so the `!== null` conjunct these
-		// two conditions used to carry was unreachable.
-		$tokenLimit = null;
-		if (isset($data['tokenLimit']) === true && $data['tokenLimit'] !== '') {
-			$tokenLimit = (int)$data['tokenLimit'];
-		}
-
-		$eurLimit = null;
-		if (isset($data['eurLimit']) === true && $data['eurLimit'] !== '') {
-			$eurLimit = (float)$data['eurLimit'];
-		}
-
-		$softThresholdPercent = (int)($data['softThresholdPercent'] ?? self::DEFAULT_SOFT_THRESHOLD);
-
-		$tokenPercent = null;
-		if ($tokenLimit !== null && $tokenLimit > 0) {
-			$tokenPercent = round((($tokensUsed / $tokenLimit) * 100), 1);
-		}
-
-		$hardCapReached = ($tokenLimit !== null && $tokenLimit > 0 && $tokensUsed >= $tokenLimit);
-		$softReached = ($tokenPercent !== null && $tokenPercent >= $softThresholdPercent);
-
-		$rate = $this->eurRate();
-		$eurAvailable = ($rate !== null);
-		$eurUsed = null;
-		$eurPercent = null;
-		if ($eurAvailable === true) {
-			$eurUsed = round((($tokensUsed * $rate) / 1000), 4);
-			if ($eurLimit !== null && $eurLimit > 0) {
-				$eurPercent = round((($eurUsed / $eurLimit) * 100), 1);
-				if ($eurUsed >= $eurLimit) {
-					$hardCapReached = true;
-				}
-
-				if ($eurPercent >= $softThresholdPercent) {
-					$softReached = true;
-				}
-			}
-		}
+		$limits = new BudgetLimits(data: $data);
+		$tokens = $limits->tokenUsage(used: $tokensUsed);
+		$eur = $limits->eurUsage(tokensUsed: $tokensUsed, rate: $this->eurRate());
 
 		$agentIdOrNull = null;
 		if ($agentId !== '') {
@@ -380,22 +338,14 @@ class BudgetService {
 			'agentId' => $agentIdOrNull,
 			'period' => $period,
 			'periodKey' => $window['key'],
-			'tokens' => [
-				'used' => $tokensUsed,
-				'limit' => $tokenLimit,
-				'percent' => $tokenPercent,
-			],
-			'eur' => [
-				'available' => $eurAvailable,
-				'used' => $eurUsed,
-				'limit' => $eurLimit,
-				'percent' => $eurPercent,
-			],
-			'softThresholdReached' => $softReached,
-			'hardCapReached' => $hardCapReached,
+			'tokens' => $tokens['usage'],
+			'eur' => $eur['usage'],
+			'softThresholdReached' => ($tokens['soft'] || $eur['soft']),
+			'hardCapReached' => ($tokens['hard'] || $eur['hard']),
 		];
 
 	}//end status()
+
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,
@@ -578,7 +528,7 @@ class BudgetService {
 		];
 
 		// Pin the budget to the TARGET organisation, not the actor's active organisation
-		// (mirrors TenantControlService::toggle()'s @self.organisation trick).
+		// (mirrors OrganisationControlService::toggle()'s @self.organisation trick).
 		$data['@self'] = ['organisation' => $organisation];
 
 		$budget = $this->objectService->saveObject(
@@ -722,6 +672,7 @@ class BudgetService {
 				_multitenancy: false
 			);
 
+		$scopes = new BudgetScopes();
 		$matches = [];
 		foreach ($objects as $object) {
 			if (($object instanceof ObjectEntity) === false) {
@@ -735,7 +686,7 @@ class BudgetService {
 				continue;
 			}
 
-			if ($this->matchesScope(budget: $object, organisation: $organisation, agentId: $agentId) === true) {
+			if ($scopes->matches(budget: $object, organisation: $organisation, agentId: $agentId) === true) {
 				$matches[] = $object;
 			}
 		}
@@ -746,70 +697,42 @@ class BudgetService {
 	/**
 	 * Find the caller's own budget for a scope, tenant-scoped (RBAC/multitenancy ON).
 	 * Prefers an agent-scoped budget over the organisation-scoped one when both exist
-	 * and an agentId was supplied.
+	 * and an agentId was supplied; within each kind the last one read wins.
 	 *
-	 * @param string $organisation The organisation identifier.
+	 * @param string $organisation The organisation identifier ('' = any the caller sees).
 	 * @param string|null $agentId Optional agent UUID.
 	 *
 	 * @return ObjectEntity|null The matching budget, or null when none is configured.
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One linear filter loop whose guards
-	 *   (entity type, organisation, agent-vs-organisation scope preference) are each a
-	 *   single condition; extracting them would obscure the preference order.
 	 */
 	private function findBudgetTenantScoped(string $organisation, ?string $agentId): ?ObjectEntity {
+		$budgets = $this->tenantBudgets(organisation: $organisation);
+
+		$scopes = new BudgetScopes();
+
+		return ($scopes->lastAgentBudget(budgets: $budgets, agentId: $agentId) ?? $scopes->lastOrganisationBudget(budgets: $budgets));
+	}//end findBudgetTenantScoped()
+
+	/**
+	 * The budgets the caller sees (RBAC/multitenancy ON), of one organisation when given.
+	 *
+	 * @param string $organisation The organisation identifier ('' = every organisation the caller sees).
+	 *
+	 * @return array<int, ObjectEntity> The budgets, in read order.
+	 */
+	private function tenantBudgets(string $organisation): array {
 		$objects = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::BUDGET_SCHEMA)
 			->findAll(config: ['limit' => 1000]);
 
-		$agentMatch = null;
-		$orgMatch = null;
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			$scope = (string)($data['scope'] ?? '');
-
-			if ($organisation !== '' && (string)($object->getOrganisation() ?? '') !== $organisation) {
-				continue;
-			}
-
-			if ($agentId !== null && $agentId !== '' && $scope === 'agent' && (string)($data['agentId'] ?? '') === $agentId) {
-				$agentMatch = $object;
-			} elseif ($scope === 'organisation') {
-				$orgMatch = $object;
-			}
-		}
-
-		return ($agentMatch ?? $orgMatch);
-	}//end findBudgetTenantScoped()
-
-	/**
-	 * Whether a budget object matches the given organisation/agent scope.
-	 *
-	 * @param ObjectEntity $budget The budget object.
-	 * @param string $organisation The organisation identifier.
-	 * @param string|null $agentId The bound agent UUID, when known.
-	 *
-	 * @return bool
-	 */
-	private function matchesScope(ObjectEntity $budget, string $organisation, ?string $agentId): bool {
-		$data = $budget->getObject();
-		$scope = (string)($data['scope'] ?? '');
-
-		if ($scope === 'organisation') {
-			return ($organisation !== '' && (string)($budget->getOrganisation() ?? '') === $organisation);
-		}
-
-		if ($scope === 'agent') {
-			return ($agentId !== null && $agentId !== '' && (string)($data['agentId'] ?? '') === $agentId);
-		}
-
-		return false;
-	}//end matchesScope()
+		return array_values(
+			array_filter(
+				$objects,
+				static fn (mixed $object): bool => ($object instanceof ObjectEntity) === true
+					&& ($organisation === '' || (string)($object->getOrganisation() ?? '') === $organisation)
+			)
+		);
+	}//end tenantBudgets()
 
 	/**
 	 * Best-effort persist of `lastHardBlockAt` for admin visibility. Never fatal to the

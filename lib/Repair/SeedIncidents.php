@@ -5,7 +5,7 @@
  *
  * Idempotently seeds the 3 design.md incident records (agent-lifecycle-governance) on
  * install/upgrade, via `ObjectService::saveObject()` — the same single write-path
- * (ADR-001/ADR-004) `TenantOpsService::createIncident()` uses. Re-running is safe: an
+ * (ADR-001/ADR-004) `OrganisationOpsService::createIncident()` uses. Re-running is safe: an
  * incident matching an existing description is skipped.
  *
  * Incident objects are tenant-scoped (`ObjectEntity.organisation`), so each row's

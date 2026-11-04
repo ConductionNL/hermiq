@@ -40,6 +40,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
+use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
@@ -357,11 +358,7 @@ class ChatStreamController extends Controller {
 	 */
 	private function turnConversation(array $turn): ObjectEntity {
 		try {
-			return $this->resolveConversation(
-				conversationUuid: $turn['conversationUuid'],
-				agentUuid: $turn['agentUuid'],
-				userId: $turn['userId']
-			);
+			return $this->resolveConversation(turn: $turn);
 		} catch (RuntimeException $e) {
 			if ($e->getMessage() === self::ERROR_FORBIDDEN) {
 				$this->emitAndExit(
@@ -786,10 +783,13 @@ class ChatStreamController extends Controller {
 	 * When a conversationUuid is supplied, ownership is verified against the
 	 * calling user — preventing the IDOR where any authed user could
 	 * read/append to another user's thread by guessing the uuid (gate-7).
+	 * A new session records the record its page context names as its
+	 * subject, when the caller can read that record.
 	 *
-	 * @param string $conversationUuid Conversation UUID or '' to create new.
-	 * @param string $agentUuid Agent UUID (required when creating new).
-	 * @param string $userId Current user id.
+	 * @param array<string, mixed> $turn The turn (see readTurn()): its
+	 *                                   conversationUuid ('' to create new),
+	 *                                   agentUuid (required when creating new),
+	 *                                   userId and contextArr.
 	 *
 	 * @return ObjectEntity Resolved conversation.
 	 *
@@ -801,8 +801,12 @@ class ChatStreamController extends Controller {
 	 *                          catch, matching OR's DoesNotExist behavior).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
-	private function resolveConversation(string $conversationUuid, string $agentUuid, string $userId): ObjectEntity {
+	private function resolveConversation(array $turn): ObjectEntity {
+		$conversationUuid = $turn['conversationUuid'];
+		$agentUuid = $turn['agentUuid'];
+		$userId = $turn['userId'];
 		if ($conversationUuid !== '') {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
@@ -840,13 +844,18 @@ class ChatStreamController extends Controller {
 		// (hermiq#319), so the default save refuses every non-admin (hermiq#1086).
 		// The agent access check above is the guard, and the session is always
 		// the caller's. OpenRegister still stamps `_owner` from the user session.
+		$subject = new SessionSubject(objectService: $this->objectService);
+
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
-				data: [
-					'userId' => $userId,
-					'agentId' => (string)$agent->getUuid(),
-					'title' => 'New session',
-				]
+				data: $subject->stamp(
+					session: [
+						'userId' => $userId,
+						'agentId' => (string)$agent->getUuid(),
+						'title' => 'New session',
+					],
+					context: $turn['contextArr']
+				)
 			),
 			register: self::REGISTER_SLUG,
 			schema: self::CONVERSATION_SCHEMA,

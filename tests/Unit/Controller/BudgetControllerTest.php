@@ -7,7 +7,7 @@
  * path, 500 on service failure) and the admin/owner-gated write endpoints
  * (create/update/destroy: 401 unauthenticated, 403 for a plain user, 200 for an
  * instance admin or the organisation owner, 404 on update/destroy of a nonexistent
- * budget) — mirrors TenantControlControllerTest's authorization matrix.
+ * budget) — mirrors OrganisationControlControllerTest's authorization matrix.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller

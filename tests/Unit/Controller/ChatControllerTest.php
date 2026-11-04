@@ -296,6 +296,55 @@ class ChatControllerTest extends TestCase {
 	}//end testSendMessageOpensANonAdminsSessionPastTheObjectApiCreateCheck()
 
 	/**
+	 * A new session started from a record page records the record as its
+	 * subject when the caller can read it, and not when the read is refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#scenario-a-chat-started-on-a-case-page
+	 */
+	public function testSendMessageRecordsOnlyAReadableSubject(): void {
+		$saved = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (int|string $id): ?ObjectEntity {
+				if ($id === 'case-secret') {
+					throw new \OCP\AppFramework\Db\DoesNotExistException('not readable');
+				}
+
+				$entity = $this->entity((string)$id, ['name' => 'Zaakassistent']);
+				$entity->setRegister('5');
+				$entity->setSchema('9');
+				return $entity;
+			}
+		);
+		$this->engine->method('ensureUniqueTitle')->willReturn('New Conversation');
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello', 'messageId' => 'msg-1']);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$saved[] = $passed[0];
+				return $this->entity('conv-new', $passed[0]);
+			}
+		);
+		$params = ['agentUuid' => 'agent-1', 'message' => 'hi', 'context' => ['objectUuid' => 'case-1', 'register' => 'zaken', 'schema' => 'zaak', 'appId' => 'dossiq']];
+		$this->request->method('getParam')->willReturnCallback(
+			static function (string $key, mixed $default = null) use (&$params): mixed {
+				return ($params[$key] ?? $default);
+			}
+		);
+
+		$this->assertSame(200, $this->controller()->sendMessage()->getStatus());
+		$params['context'] = ['objectUuid' => 'case-secret', 'register' => 'zaken', 'schema' => 'zaak'];
+		$this->assertSame(200, $this->controller()->sendMessage()->getStatus());
+
+		$this->assertSame(
+			['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']],
+			$saved[0]['metadata']
+		);
+		$this->assertArrayNotHasKey('metadata', $saved[1]);
+
+	}//end testSendMessageRecordsOnlyAReadableSubject()
+
+	/**
 	 * A missing conversation AND agentUuid is a 400 (resolveConversation's
 	 * input-validation guard) and must log at WARNING — not ERROR with a full
 	 * stack trace — because it is expected client input error, not a server fault.

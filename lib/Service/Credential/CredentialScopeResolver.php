@@ -13,7 +13,7 @@
  * Reads OpenRegister's own `credential-broker`/`brokeredcredential` register —
  * the SAME register/schema {@see \OCA\OpenRegister\Service\Credential\CredentialBrokerService}
  * itself reads from — directly via {@see ObjectService}, mirroring
- * `TenantModelPolicyService`/`ScheduleWebhookSecretService`'s existing
+ * `OrganisationModelPolicyService`/`ScheduleWebhookSecretService`'s existing
  * precedent in this codebase for reading a small, admin/user-curated
  * OpenRegister collection. `owner` is read via `ObjectEntity::getOwner()`
  * (the system field the broker's own `assertPersonalOwner()` guard checks
@@ -284,7 +284,7 @@ class CredentialScopeResolver {
 
 	/**
 	 * Load every brokered-credential object, system-wide — the same small,
-	 * admin/user-curated collection `TenantModelPolicyService::getForOrganisation()`
+	 * admin/user-curated collection `OrganisationModelPolicyService::getForOrganisation()`
 	 * and `ScheduleWebhookSecretService` read in the same `_rbac: false,
 	 * _multitenancy: false` shape (this class filters ownership/membership
 	 * itself; RBAC/multitenancy scoping would be the wrong lens for a

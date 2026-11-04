@@ -101,66 +101,11 @@
 								createOrganisation = option ? option.value : ''
 							}
 						" />
-					<NcSelect
-						:modelValue="
-							/**
-							 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
-							 */
-							guardrailActionOption(
-								guardrailPolicyDraft.inputPiiAction,
-								piiActionOptions,
-							)
-						"
-						:options="piiActionOptions"
-						:inputLabel="t('hermiq', 'Input: PII/secret action')"
-						:clearable="false"
-						@update:modelValue="
-							(option) => {
-								guardrailPolicyDraft.inputPiiAction = option
-									? option.value
-									: 'off'
-							}
-						" />
-					<NcSelect
-						:modelValue="
-							guardrailActionOption(
-								guardrailPolicyDraft.inputPromptInjectionAction,
-								injectionActionOptions,
-							)
-						"
-						:options="injectionActionOptions"
-						:inputLabel="t('hermiq', 'Input: prompt-injection action')"
-						:clearable="false"
-						@update:modelValue="
-							(option) => {
-								guardrailPolicyDraft.inputPromptInjectionAction =
-									option ? option.value : 'off'
-							}
-						" />
-					<NcSelect
-						:modelValue="
-							guardrailActionOption(
-								guardrailPolicyDraft.outputPiiAction,
-								piiActionOptions,
-							)
-						"
-						:options="piiActionOptions"
-						:inputLabel="t('hermiq', 'Output: PII/secret action')"
-						:clearable="false"
-						@update:modelValue="
-							(option) => {
-								guardrailPolicyDraft.outputPiiAction = option
-									? option.value
-									: 'off'
-							}
-						" />
-					<NcTextArea
-						v-model="guardrailPolicyDraft.toolPolicyText"
-						:label="t('hermiq', 'Per-tool classification')"
-						:placeholder="
-							t('hermiq', 'One per line: toolId: auto|confirm|deny')
-						"
-						resize="vertical" />
+					<GuardrailPolicyFields
+						:draft="guardrailPolicyDraft"
+						:piiOptions="piiActionOptions"
+						:injectionOptions="injectionActionOptions"
+						@change="setDraftField" />
 					<div class="guardrail-policy-settings__actions">
 						<NcButton
 							type="primary"
@@ -198,63 +143,11 @@
 					{{ guardrailPolicySummary(policy) }}
 				</p>
 				<div v-else class="guardrail-policy-settings__policy-edit">
-					<NcSelect
-						:modelValue="
-							guardrailActionOption(
-								guardrailPolicyDraft.inputPiiAction,
-								piiActionOptions,
-							)
-						"
-						:options="piiActionOptions"
-						:inputLabel="t('hermiq', 'Input: PII/secret action')"
-						:clearable="false"
-						@update:modelValue="
-							(option) => {
-								guardrailPolicyDraft.inputPiiAction = option
-									? option.value
-									: 'off'
-							}
-						" />
-					<NcSelect
-						:modelValue="
-							guardrailActionOption(
-								guardrailPolicyDraft.inputPromptInjectionAction,
-								injectionActionOptions,
-							)
-						"
-						:options="injectionActionOptions"
-						:inputLabel="t('hermiq', 'Input: prompt-injection action')"
-						:clearable="false"
-						@update:modelValue="
-							(option) => {
-								guardrailPolicyDraft.inputPromptInjectionAction =
-									option ? option.value : 'off'
-							}
-						" />
-					<NcSelect
-						:modelValue="
-							guardrailActionOption(
-								guardrailPolicyDraft.outputPiiAction,
-								piiActionOptions,
-							)
-						"
-						:options="piiActionOptions"
-						:inputLabel="t('hermiq', 'Output: PII/secret action')"
-						:clearable="false"
-						@update:modelValue="
-							(option) => {
-								guardrailPolicyDraft.outputPiiAction = option
-									? option.value
-									: 'off'
-							}
-						" />
-					<NcTextArea
-						v-model="guardrailPolicyDraft.toolPolicyText"
-						:label="t('hermiq', 'Per-tool classification')"
-						:placeholder="
-							t('hermiq', 'One per line: toolId: auto|confirm|deny')
-						"
-						resize="vertical" />
+					<GuardrailPolicyFields
+						:draft="guardrailPolicyDraft"
+						:piiOptions="piiActionOptions"
+						:injectionOptions="injectionActionOptions"
+						@change="setDraftField" />
 					<div class="guardrail-policy-settings__actions">
 						<NcButton
 							type="primary"
@@ -272,15 +165,10 @@
 <script>
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { loadState } from '@nextcloud/initial-state'
-import {
-	NcButton,
-	NcEmptyContent,
-	NcNoteCard,
-	NcSelect,
-	NcTextArea,
-} from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import PlusIcon from 'vue-material-design-icons/Plus.vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
+import GuardrailPolicyFields from '../components/GuardrailPolicyFields.vue'
 import {
 	createGuardrailPolicy,
 	listGuardrailPolicies,
@@ -292,11 +180,11 @@ export default {
 	name: 'GuardrailPolicySettings',
 
 	components: {
+		GuardrailPolicyFields,
 		NcButton,
 		NcEmptyContent,
 		NcNoteCard,
 		NcSelect,
-		NcTextArea,
 		ShieldIcon,
 		PlusIcon,
 	},
@@ -437,15 +325,14 @@ export default {
 		},
 
 		/**
-		 * Resolve the NcSelect option object matching a stored action value.
+		 * Apply one field change from the policy fields to the draft.
 		 *
-		 * @param {string} value The stored action value.
-		 * @param {Array<object>} options The option list to search.
-		 * @return {object} The matching option, or the first option as a fallback.
+		 * @param {{field: string, value: string}} change The changed field and its value.
+		 * @return {void}
 		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
-		guardrailActionOption(value, options) {
-			return options.find((option) => option.value === value) || options[0]
+		setDraftField(change) {
+			this.guardrailPolicyDraft[change.field] = change.value
 		},
 
 		/**

@@ -212,28 +212,18 @@ class SkillDraftController extends Controller {
 
 		[$draft, $user] = $guarded;
 
-		$frontmatter = $this->request->getParam('frontmatter');
-		$body = $this->request->getParam('body');
-		$files = $this->request->getParam('files');
-
-		if (is_string($frontmatter) === false) {
-			$frontmatter = null;
-		}
-
-		if (is_string($body) === false) {
-			$body = null;
-		}
-
-		if (is_array($files) === false) {
-			$files = null;
-		}
+		// The service applies only a string frontmatter/body and a files list; any
+		// other value (or none) keeps the draft's current content.
+		$replacement = [
+			'frontmatter' => $this->request->getParam('frontmatter'),
+			'body' => $this->request->getParam('body'),
+			'files' => $this->request->getParam('files'),
+		];
 
 		try {
 			$updated = $this->consolidation->editDraftContent(
 				draft: $draft,
-				frontmatter: $frontmatter,
-				body: $body,
-				files: $files,
+				replacement: $replacement,
 				editorUid: $user->getUID()
 			);
 		} catch (InvalidArgumentException $e) {

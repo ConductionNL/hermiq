@@ -82,7 +82,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The sum of many small, single-purpose
  *   private helpers (gate checks, five independent signal reads, the pure scorer, the
  *   two-stage explanation pipeline, persistence) — mirrors the accepted precedent in
- *   `ScheduleService`/`TenantOpsService`/`DeliveryService` for governed-pipeline classes.
+ *   `ScheduleService`/`OrganisationOpsService`/`DeliveryService` for governed-pipeline classes.
  *
  * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
  */

@@ -42,6 +42,22 @@ import { generateOcsUrl, generateUrl } from '@nextcloud/router'
 
 /** Hermiq chat API base path (agent-engine-port routes). */
 const CHAT_BASE = '/apps/hermiq/api/chat'
+
+// The RAG settings a synchronous turn may carry, in payload order.
+const RAG_FIELDS = [
+	'includeObjects',
+	'includeFiles',
+	'numSourcesFiles',
+	'numSourcesObjects',
+]
+
+// What each non-terminal stream event hands to its handler.
+const FRAME_HANDLERS = new Map([
+	['token', (handlers, data) => handlers.onToken?.(data.delta || '')],
+	['tool_call', (handlers, data) => handlers.onToolCall?.(data)],
+	['tool_result', (handlers, data) => handlers.onToolResult?.(data)],
+	['heartbeat', (handlers) => handlers.onHeartbeat?.()],
+])
 /**
  * Hermiq sessions API base path.
  *
@@ -304,39 +320,74 @@ export async function sendChatMessage({
 	ragSettings,
 	attachments,
 }) {
-	const payload = { message }
-	if (Array.isArray(attachments) && attachments.length > 0) {
-		payload.attachments = attachments
-	}
-	if (sessionUuid) {
-		payload.conversation = sessionUuid // wire key: ChatController reads getParam('conversation')
-	} else if (agentUuid) {
-		payload.agentUuid = agentUuid
-	}
-	if (Array.isArray(views) && views.length > 0) {
-		payload.views = views
-	}
-	if (Array.isArray(tools) && tools.length > 0) {
-		payload.tools = tools
-	}
-	if (ragSettings && typeof ragSettings === 'object') {
-		const { includeObjects, includeFiles, numSourcesFiles, numSourcesObjects } =
-			ragSettings
-		if (includeObjects !== undefined) {
-			payload.includeObjects = includeObjects
-		}
-		if (includeFiles !== undefined) {
-			payload.includeFiles = includeFiles
-		}
-		if (numSourcesFiles !== undefined) {
-			payload.numSourcesFiles = numSourcesFiles
-		}
-		if (numSourcesObjects !== undefined) {
-			payload.numSourcesObjects = numSourcesObjects
-		}
+	// wire key: ChatController reads getParam('conversation')
+	const payload = {
+		...turnBody(
+			{ message, sessionUuid, agentUuid, attachments },
+			'conversation',
+		),
+		...nonEmptyLists({ views, tools }),
+		...ragFields(ragSettings),
 	}
 	const response = await axios.post(generateUrl(`${CHAT_BASE}/send`), payload)
 	return response.data
+}
+
+/**
+ * The part of a turn both send paths carry: the message, the files on it, and
+ * the session it continues or, without one, the agent that starts a new one.
+ *
+ * @param {object} turn The turn.
+ * @param {string} turn.message The user message text.
+ * @param {string} [turn.sessionUuid] Existing session UUID.
+ * @param {string} [turn.agentUuid] Agent UUID (only when no session exists yet).
+ * @param {Array<{fileId: number, origin: string}>} [turn.attachments] Files on this turn.
+ * @param {string} sessionKey The wire key the endpoint reads the session from.
+ * @return {object} The request body.
+ */
+function turnBody({ message, sessionUuid, agentUuid, attachments }, sessionKey) {
+	const body = { message }
+	// Files on this turn, by file id (chat-attachments-and-images); omitted when none.
+	if (Array.isArray(attachments) && attachments.length > 0) {
+		body.attachments = attachments
+	}
+	if (sessionUuid) {
+		body[sessionKey] = sessionUuid
+	} else if (agentUuid) {
+		body.agentUuid = agentUuid
+	}
+	return body
+}
+
+/**
+ * The given lists that hold at least one entry.
+ *
+ * @param {object} lists Named lists, e.g. `{views, tools}`.
+ * @return {object} Only the non-empty lists, in the given order.
+ */
+function nonEmptyLists(lists) {
+	return Object.fromEntries(
+		Object.entries(lists).filter(
+			([, list]) => Array.isArray(list) && list.length > 0,
+		),
+	)
+}
+
+/**
+ * The RAG settings a turn sets, as top-level payload fields.
+ *
+ * @param {object} [ragSettings] `{includeObjects, includeFiles, numSourcesFiles, numSourcesObjects}`.
+ * @return {object} The settings that are not undefined.
+ */
+function ragFields(ragSettings) {
+	if (!ragSettings || typeof ragSettings !== 'object') {
+		return {}
+	}
+	return Object.fromEntries(
+		RAG_FIELDS.map((key) => [key, ragSettings[key]]).filter(
+			([, value]) => value !== undefined,
+		),
+	)
 }
 
 /**
@@ -466,17 +517,31 @@ export async function streamChatMessage(
 	{ message, sessionUuid, agentUuid, attachments },
 	handlers = {},
 ) {
-	const body = { message }
-	// Files on this turn, by file id (chat-attachments-and-images); omitted when none.
-	if (Array.isArray(attachments) && attachments.length > 0) {
-		body.attachments = attachments
-	}
-	if (sessionUuid) {
-		body.conversationUuid = sessionUuid // wire key: the stream endpoint reads conversationUuid
-	} else if (agentUuid) {
-		body.agentUuid = agentUuid
-	}
+	// wire key: the stream endpoint reads conversationUuid
+	const body = turnBody(
+		{ message, sessionUuid, agentUuid, attachments },
+		'conversationUuid',
+	)
+	const response = await openStream(body)
+	const outcome = { final: null, error: null }
+	const handleFrame = (rawFrame) => dispatchFrame(rawFrame, { handlers, outcome })
+	const rest = await readFrames(response.body.getReader(), handleFrame)
 
+	// Flush a trailing frame that arrived without the final blank line.
+	if (rest.trim() !== '') {
+		handleFrame(rest)
+	}
+	return settledPayload(outcome)
+}
+
+/**
+ * POST the turn to the stream endpoint and return the open response.
+ *
+ * @param {object} body The request body.
+ * @return {Promise<Response>} The response, OK and with a body.
+ * @throws {ChatStreamError} transport=true when the connection or the handshake fails.
+ */
+async function openStream(body) {
 	let response
 	try {
 		response = await fetch(generateUrl(`${CHAT_BASE}/stream`), {
@@ -494,88 +559,117 @@ export async function streamChatMessage(
 		})
 	}
 
+	assertStreamOpen(response)
+	return response
+}
+
+/**
+ * Refuse a handshake that did not open a readable stream.
+ *
+ * @param {Response} response The stream endpoint's response.
+ * @return {void}
+ * @throws {ChatStreamError} transport=true on a non-OK status or a missing body.
+ */
+function assertStreamOpen(response) {
 	if (!response.ok || !response.body) {
 		throw new ChatStreamError(
 			`Stream endpoint returned HTTP ${response.status}`,
 			{ transport: true },
 		)
 	}
+}
 
-	const reader = response.body.getReader()
+/**
+ * Hand one raw frame to its handler, or record it as the terminal outcome.
+ *
+ * @param {string} rawFrame The frame text.
+ * @param {object} stream The stream's state.
+ * @param {object} stream.handlers The caller's event handlers.
+ * @param {{final: object|null, error: object|null}} stream.outcome Takes a terminal payload.
+ * @return {void}
+ */
+function dispatchFrame(rawFrame, { handlers, outcome }) {
+	const frame = parseSseFrame(rawFrame)
+	if (!frame) {
+		return
+	}
+	if (frame.event === 'final' || frame.event === 'error') {
+		outcome[frame.event] = frame.data
+		return
+	}
+	FRAME_HANDLERS.get(frame.event)?.(handlers, frame.data)
+}
+
+/**
+ * Read the stream to its end, handing every complete frame over as it arrives.
+ *
+ * @param {ReadableStreamDefaultReader} reader The body reader.
+ * @param {function(string): void} handleFrame Called with each complete raw frame.
+ * @return {Promise<string>} What is left after the last blank line.
+ * @throws {ChatStreamError} transport=true when the connection drops.
+ */
+async function readFrames(reader, handleFrame) {
 	const decoder = new TextDecoder()
 	let buffer = ''
-	let finalPayload = null
-	let errorPayload = null
-
-	const handleFrame = (rawFrame) => {
-		const frame = parseSseFrame(rawFrame)
-		if (!frame) {
-			return
-		}
-		switch (frame.event) {
-			case 'token':
-				handlers.onToken?.(frame.data.delta || '')
-				break
-			case 'tool_call':
-				handlers.onToolCall?.(frame.data)
-				break
-			case 'tool_result':
-				handlers.onToolResult?.(frame.data)
-				break
-			case 'heartbeat':
-				handlers.onHeartbeat?.()
-				break
-			case 'final':
-				finalPayload = frame.data
-				break
-			case 'error':
-				errorPayload = frame.data
-				break
-		}
-	}
-
 	try {
 		for (;;) {
 			const { done, value } = await reader.read()
 			if (done) {
-				break
+				return buffer
 			}
 			buffer += decoder.decode(value, { stream: true })
-			let boundary = buffer.search(/\r?\n\r?\n/)
-			while (boundary !== -1) {
-				const rawFrame = buffer.slice(0, boundary)
-				buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, '')
-				handleFrame(rawFrame)
-				boundary = buffer.search(/\r?\n\r?\n/)
-			}
+			buffer = handleCompleteFrames(buffer, handleFrame)
 		}
 	} catch (e) {
 		throw new ChatStreamError(e?.message || 'Stream connection dropped', {
 			transport: true,
 		})
 	}
+}
 
-	// Flush a trailing frame that arrived without the final blank line.
-	if (buffer.trim() !== '') {
-		handleFrame(buffer)
+/**
+ * Hand every frame the buffer completes to the handler.
+ *
+ * @param {string} buffer The text read so far.
+ * @param {function(string): void} handleFrame Called with each complete raw frame.
+ * @return {string} The incomplete rest.
+ */
+function handleCompleteFrames(buffer, handleFrame) {
+	let rest = buffer
+	let boundary = rest.search(/\r?\n\r?\n/)
+	while (boundary !== -1) {
+		const rawFrame = rest.slice(0, boundary)
+		rest = rest.slice(boundary).replace(/^\r?\n\r?\n/, '')
+		handleFrame(rawFrame)
+		boundary = rest.search(/\r?\n\r?\n/)
 	}
+	return rest
+}
 
-	if (errorPayload !== null) {
-		throw new ChatStreamError(errorPayload.message || 'The chat turn failed', {
+/**
+ * The `final` payload, or the error the stream ended with.
+ *
+ * @param {{final: object|null, error: object|null}} outcome The terminal events seen.
+ * @return {object} The `final` payload.
+ * @throws {ChatStreamError} transport=false on an `error` event; transport=true
+ *   when the stream ended without a terminal event, so the caller retries over
+ *   POST /send (ADR-034 ladder).
+ */
+function settledPayload({ final, error }) {
+	if (error !== null) {
+		throw new ChatStreamError(error.message || 'The chat turn failed', {
 			transport: false,
-			code: errorPayload.code || '',
+			code: error.code || '',
 		})
 	}
 
-	if (finalPayload === null) {
-		// The stream ended without a terminal event — treat as a transport
-		// failure so the caller retries over POST /send (ADR-034 ladder).
+	if (final === null) {
 		throw new ChatStreamError('Stream ended without a terminal event', {
 			transport: true,
 		})
 	}
 
-	return finalPayload
+	return final
 }
 
 /**

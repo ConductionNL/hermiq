@@ -10,7 +10,7 @@
   catalogue: grants + the audit trail of their use) — merged into one widget so
   the grid gets one coherent "tool governance" cell instead of two thin strips
   (design.md Decision 3). Self-fetches the agent id from `$route.params.id`
-  and the agent object (for the owner-only `canEdit` gate on ToolGrantEditor —
+  and the agent object (for the owner-only `canEdit` gate on ToolGrantMatrix —
   the server enforces owner-only regardless of this client-side hint).
 
   agent-detail-redesign (2026-08-04): the two surfaces are now TABBED rather than
@@ -104,6 +104,18 @@ import { useAgentStore } from '../store/store.js'
 
 let widgetUid = 0
 
+/**
+ * The tab a key moves to, from the current index and the last index.
+ *
+ * @type {{[key: string]: function(number, number): number}}
+ */
+const TAB_MOVES = {
+	ArrowRight: (index, last) => (index === last ? 0 : index + 1),
+	ArrowLeft: (index, last) => (index === 0 ? last : index - 1),
+	Home: () => 0,
+	End: (index, last) => last,
+}
+
 export default {
 	name: 'AgentToolGovernanceWidget',
 
@@ -195,23 +207,12 @@ export default {
 		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		onTabKeydown(event, index) {
-			const last = this.tabs.length - 1
-			let next = null
-
-			if (event.key === 'ArrowRight') {
-				next = index === last ? 0 : index + 1
-			} else if (event.key === 'ArrowLeft') {
-				next = index === 0 ? last : index - 1
-			} else if (event.key === 'Home') {
-				next = 0
-			} else if (event.key === 'End') {
-				next = last
-			}
-
-			if (next === null) {
+			const move = TAB_MOVES[event.key]
+			if (move === undefined) {
 				return
 			}
 
+			const next = move(index, this.tabs.length - 1)
 			event.preventDefault()
 			this.activeTab = this.tabs[next].id
 			this.$nextTick(() => {

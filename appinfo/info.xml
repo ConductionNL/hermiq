@@ -6,13 +6,13 @@
     <name lang="nl">Hermiq</name>
     <summary lang="en">Schedule autonomous AI agents in Nextcloud</summary>
     <summary lang="nl">Plan autonome AI-agents in Nextcloud</summary>
-    <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
+    <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule: daily reports, inbox triage, monitoring, morning briefings. All of it inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
 
-**Requires:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 or higher (install/upgrade from the [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent engine (chat, scheduled runs, flow-triggered agent actions) calls OpenRegister's `ToolRegistryFacade` and dispatches on its `AgentRunRequestedEvent`, both of which only exist from that OpenRegister version onward; the "Agent credentials" Settings section and the personal/organisation credential-resolution precedence additionally need OpenRegister's organisation-scope credential broker, shipped from that same version.]]></description>
-    <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
+**Requires:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 or higher (install/upgrade from the [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)). Hermiq's agent engine (chat, scheduled runs, flow-triggered agent actions) calls OpenRegister's `ToolRegistryFacade` and dispatches on its `AgentRunRequestedEvent`, both of which only exist from that OpenRegister version onward; the "Agent credentials" Settings section and the personal/organisation credential-resolution precedence additionally need OpenRegister's organisation-scope credential broker, shipped from that same version.]]></description>
+    <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien: dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings. Alles binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
-**Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
-    <version>0.2.17-unstable.20261020130000</version>
+**Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)). Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
+    <version>0.2.17-unstable.20261103120000</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
@@ -94,6 +94,7 @@
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
             <step>OCA\Hermiq\Repair\ProvisionAiOversightGroup</step>
+            <step>OCA\Hermiq\Repair\AssignToolAccessRequestsToSystem</step>
             <step>OCA\Hermiq\Repair\InitializeActions</step>
             <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
             <step>OCA\Hermiq\Repair\SeedBudgets</step>

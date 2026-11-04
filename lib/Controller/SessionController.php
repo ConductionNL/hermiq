@@ -42,6 +42,9 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\Chat\SessionCollaborators;
+use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
+use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -118,15 +121,42 @@ class SessionController extends Controller {
 	private const MAX_CONVERSATION_SCAN = 1000;
 
 	/**
+	 * Creates and renames the Talk room a session owns.
+	 *
+	 * @var TalkSessionRoom
+	 */
+	private readonly TalkSessionRoom $sessionRoom;
+
+	/**
+	 * Decides whether the caller may use an agent.
+	 *
+	 * @var AgentAccessService
+	 */
+	private readonly AgentAccessService $agentAccess;
+
+	/**
+	 * Reads and filters on the record a session is about.
+	 *
+	 * @var SessionSubject
+	 */
+	private readonly SessionSubject $subject;
+
+	/**
+	 * The approvals a session's agent waits on.
+	 *
+	 * @var SessionPendingApprovals
+	 */
+	private readonly SessionPendingApprovals $pendingApprovals;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
 	 * @param Engine $engine In-app agent engine facade (unique-title generation).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
-	 * @param TalkSessionRoom $sessionRoom Creates and renames the Talk room a session owns.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess Decides whether the caller may use an agent.
+	 * @param SessionCollaborators $collaborators The Talk room, agent access, subject and pending approvals.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
@@ -137,12 +167,15 @@ class SessionController extends Controller {
 		private readonly Engine $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly TalkSessionRoom $sessionRoom,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
+		SessionCollaborators $collaborators,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
+		$this->sessionRoom = $collaborators->sessionRoom;
+		$this->agentAccess = $collaborators->agentAccess;
+		$this->subject = $collaborators->subject;
+		$this->pendingApprovals = $collaborators->pendingApprovals;
 	}//end __construct()
 
 	/**
@@ -150,6 +183,7 @@ class SessionController extends Controller {
 	 *
 	 * Supports filtering with query parameters:
 	 * - _deleted: boolean (true = archived conversations, false/default = active)
+	 * - subject: string (only sessions about this record, latest activity first)
 	 * - limit / _limit: int (default: 50)
 	 * - offset / _offset: int (default: 0)
 	 *
@@ -159,6 +193,7 @@ class SessionController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -173,7 +208,10 @@ class SessionController extends Controller {
 			// Fetch the caller's conversations (org-scoped by ObjectService
 			// multitenancy, user-scoped by the payload filter) and partition
 			// on the archive marker.
-			$all = $this->listReadableSessions(userId: $userId);
+			$all = $this->subject->about(
+				sessions: $this->listReadableSessions(userId: $userId),
+				objectUuid: ($params['subject'] ?? null)
+			);
 
 			$matching = [];
 			foreach ($all as $conversation) {
@@ -287,6 +325,7 @@ class SessionController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
 	 */
 	public function messages(string $uuid): JSONResponse {
 		try {
@@ -305,40 +344,9 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'access');
 			}
 
-			// Get query parameters for pagination.
-			$params = $this->request->getParams();
-			$limit = (int)($params['limit'] ?? $params['_limit'] ?? 50);
-			$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
-
-			// Get messages with pagination (oldest-first, mirroring OR).
-			// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
-			// in a shared session the other participants' turns are owned by them. The
-			// ownership guard above already decided this caller may read the thread.
-			$messages = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::MESSAGE_SCHEMA)
-				->findAll(
-					config: [
-						'filters' => ['sessionId' => $uuid],
-						'sort' => ['created' => 'ASC'],
-						'limit' => $limit,
-						'offset' => $offset,
-					],
-					_rbac: false
-				);
-			$messages = array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
-
-			return new JSONResponse(
-				data: [
-					'results' => array_map(
-						fn (ObjectEntity $msg): array => $this->serializeMessage(message: $msg),
-						$messages
-					),
-					'total' => $this->countMessages(conversationId: $uuid),
-					'limit' => $limit,
-					'offset' => $offset,
-				],
-				statusCode: 200
+			return $this->messagePage(
+				uuid: $uuid,
+				pendingApprovals: $this->pendingApprovals->forSession(session: $conversation->getObject(), uid: $userId)
 			);
 		} catch (Exception $e) {
 			$this->logger->error(
@@ -363,6 +371,61 @@ class SessionController extends Controller {
 	}//end messages()
 
 	/**
+	 * One page of a session's turns, oldest first, with the unpaged total and
+	 * the approvals the session's agent waits on.
+	 *
+	 * The caller has already checked that the user may read the thread.
+	 *
+	 * @param string $uuid Conversation UUID.
+	 * @param array<int, array<string, mixed>> $pendingApprovals The session's pending approvals.
+	 *
+	 * @return JSONResponse The page of turns.
+	 *
+	 * @throws Exception If the turn read fails; messages() turns it into its error envelope.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	private function messagePage(string $uuid, array $pendingApprovals): JSONResponse {
+		// Get query parameters for pagination.
+		$params = $this->request->getParams();
+		$limit = (int)($params['limit'] ?? $params['_limit'] ?? 50);
+		$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
+
+		// Get messages with pagination (oldest-first, mirroring OR).
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
+		// in a shared session the other participants' turns are owned by them. The
+		// ownership guard in messages() already decided this caller may read the thread.
+		$messages = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::MESSAGE_SCHEMA)
+			->findAll(
+				config: [
+					'filters' => ['sessionId' => $uuid],
+					'sort' => ['created' => 'ASC'],
+					'limit' => $limit,
+					'offset' => $offset,
+				],
+				_rbac: false
+			);
+		$messages = array_values(array_filter($messages, static fn ($msg): bool => $msg instanceof ObjectEntity));
+
+		return new JSONResponse(
+			data: [
+				'results' => array_map(
+					fn (ObjectEntity $msg): array => $this->serializeMessage(message: $msg),
+					$messages
+				),
+				'total' => $this->countMessages(conversationId: $uuid),
+				'limit' => $limit,
+				'offset' => $offset,
+				'pendingApprovals' => $pendingApprovals,
+			],
+			statusCode: 200
+		);
+	}//end messagePage()
+
+	/**
 	 * Create a new conversation.
 	 *
 	 * Mirrors OR ConversationController::create(); accepts `agentId` or
@@ -384,7 +447,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse Created conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -419,53 +481,16 @@ class SessionController extends Controller {
 				);
 			}
 
-			$agentId = (string)$agent->getUuid();
-
-			// Generate unique title if not provided.
-			$title = ($data['title'] ?? null);
-			if ($title === null) {
-				$title = $this->engine->ensureUniqueTitle(
-					baseTitle: 'New Conversation',
-					userId: $userId,
-					agentId: $agentId
-				);
-			}
-
-			// Create the new conversation object (uuid/timestamps/organisation
-			// are assigned by ObjectService). `_rbac: false`: see the docblock.
-			$conversation = $this->objectService->saveObject(
-				object: $this->sanitizeForSave(
-					data: [
-						'userId' => $userId,
-						'agentId' => $agentId,
-						'title' => $title,
-						'metadata' => ($data['metadata'] ?? []),
-					]
-				),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				_rbac: false
-			);
-
-			$conversation = $this->sessionRoom->attachToSession(
-				conversation: $conversation,
-				title: (string)$title,
-				ownerUid: $userId,
-				agentId: $agentId
-			);
-
-			$this->logger->info(
-				message: '[SessionController] Conversation created',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uuid' => $conversation->getUuid(),
-					'userId' => $userId,
-					'organisation' => $conversation->getOrganisation(),
+			$conversation = $this->startSession(
+				userId: $userId,
+				start: [
+					'agentId' => (string)$agent->getUuid(),
+					'title' => ($data['title'] ?? null),
+					'metadata' => $this->subject->checkedMetadata(metadata: ($data['metadata'] ?? []), stored: null),
 				]
 			);
 
-			return new JSONResponse(data: $this->serializeConversation(conversation: $conversation), statusCode: 201);
+			return $this->createdResponse(conversation: $conversation, userId: $userId);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to create conversation',
@@ -486,6 +511,82 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end create()
+
+	/**
+	 * Save a new session for the caller and attach its Talk room.
+	 *
+	 * The caller has already been resolved and allowed to use the agent; `userId`
+	 * is always the caller. The save runs with `_rbac: false` (see create()), and
+	 * uuid, timestamps and organisation are assigned by ObjectService.
+	 *
+	 * @param string $userId The caller.
+	 * @param array{agentId: string, title: mixed, metadata: mixed} $start The agent, the requested title (null for a generated one) and the metadata.
+	 *
+	 * @return ObjectEntity The saved session with its room.
+	 *
+	 * @throws Exception If the save fails; create() turns it into its error envelope.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function startSession(string $userId, array $start): ObjectEntity {
+		$agentId = $start['agentId'];
+
+		// Generate unique title if not provided.
+		$title = $start['title'];
+		if ($title === null) {
+			$title = $this->engine->ensureUniqueTitle(
+				baseTitle: 'New Conversation',
+				userId: $userId,
+				agentId: $agentId
+			);
+		}
+
+		$conversation = $this->objectService->saveObject(
+			object: $this->sanitizeForSave(
+				data: [
+					'userId' => $userId,
+					'agentId' => $agentId,
+					'title' => $title,
+					'metadata' => $start['metadata'],
+				]
+			),
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
+		);
+
+		return $this->sessionRoom->attachToSession(
+			conversation: $conversation,
+			title: (string)$title,
+			ownerUid: $userId,
+			agentId: $agentId
+		);
+	}//end startSession()
+
+	/**
+	 * Log a started session and answer 201 with it.
+	 *
+	 * @param ObjectEntity $conversation The saved session.
+	 * @param string $userId The caller.
+	 *
+	 * @return JSONResponse The created session.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function createdResponse(ObjectEntity $conversation, string $userId): JSONResponse {
+		$this->logger->info(
+			message: '[SessionController] Conversation created',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'uuid' => $conversation->getUuid(),
+				'userId' => $userId,
+				'organisation' => $conversation->getOrganisation(),
+			]
+		);
+
+		return new JSONResponse(data: $this->serializeConversation(conversation: $conversation), statusCode: 201);
+	}//end createdResponse()
 
 	/**
 	 * The HTTP status a failed write answers with.
@@ -521,7 +622,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response with the updated conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -545,14 +645,7 @@ class SessionController extends Controller {
 			// Get request data.
 			$data = $this->request->getParams();
 
-			$payload = $conversation->getObject();
-			if (($data['title'] ?? null) !== null) {
-				$payload['title'] = $data['title'];
-			}
-
-			if (($data['metadata'] ?? null) !== null) {
-				$payload['metadata'] = $data['metadata'];
-			}
+			$payload = $this->subject->writablePayload(stored: $conversation->getObject(), data: $data);
 
 			$updated = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
@@ -607,9 +700,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response confirming the deletion.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -630,9 +720,8 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'delete');
 			}
 
-			// Check if already archived.
+			// Already archived: a second delete is permanent.
 			if ($this->isArchived(conversation: $conversation) === true) {
-				// Already archived - perform permanent delete.
 				$this->logger->info(
 					message: '[SessionController] Permanently deleting archived conversation',
 					context: [
@@ -645,51 +734,12 @@ class SessionController extends Controller {
 				// Delete feedback first, then messages, then the conversation
 				// (OR's ordering).
 				$this->deleteRelatedObjects(schema: self::FEEDBACK_SCHEMA, conversationId: $uuid);
-				$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
-				$this->objectService->deleteObject(
-					uuid: $uuid,
-					register: self::REGISTER_SLUG,
-					schema: self::CONVERSATION_SCHEMA
-				);
-
-				$this->logger->info(
-					message: '[SessionController] Conversation permanently deleted',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'uuid' => $uuid,
-					]
-				);
-
-				return new JSONResponse(
-					data: [
-						'message' => 'Conversation permanently deleted',
-						'uuid' => $uuid,
-					],
-					statusCode: 200
-				);
-			}//end if
+				return $this->purgeConversation(uuid: $uuid);
+			}
 
 			// First delete - perform soft delete (archive marker on the payload).
 			$this->setArchiveMarker(conversation: $conversation, deletedBy: $userId);
-
-			$this->logger->info(
-				message: '[SessionController] Conversation archived (soft deleted)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uuid' => $uuid,
-				]
-			);
-
-			return new JSONResponse(
-				data: [
-					'message' => 'Conversation archived successfully',
-					'uuid' => $uuid,
-					'archived' => true,
-				],
-				statusCode: 200
-			);
+			return $this->archivedResponse(uuid: $uuid);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to delete conversation',
@@ -720,7 +770,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response with the restored conversation.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -804,7 +853,6 @@ class SessionController extends Controller {
 	 * @return JSONResponse JSON response confirming permanent deletion.
 	 *
 	 * @NoAdminRequired
-	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
@@ -825,30 +873,7 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'delete');
 			}
 
-			// Delete messages first, then the conversation (OR's ordering).
-			$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
-			$this->objectService->deleteObject(
-				uuid: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
-			);
-
-			$this->logger->info(
-				message: '[SessionController] Conversation permanently deleted',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uuid' => $uuid,
-				]
-			);
-
-			return new JSONResponse(
-				data: [
-					'message' => 'Conversation permanently deleted',
-					'uuid' => $uuid,
-				],
-				statusCode: 200
-			);
+			return $this->purgeConversation(uuid: $uuid);
 		} catch (Exception $e) {
 			$this->logger->error(
 				message: '[SessionController] Failed to permanently delete conversation',
@@ -870,6 +895,75 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end destroyPermanent()
+
+	/**
+	 * Delete a conversation's messages, then the conversation itself (OR's ordering).
+	 *
+	 * The caller has already checked that the user owns the conversation.
+	 *
+	 * @param string $uuid Conversation UUID.
+	 *
+	 * @return JSONResponse JSON response confirming permanent deletion.
+	 *
+	 * @throws Exception If a message or the conversation could not be deleted; the
+	 *                   callers translate it into their error envelope.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function purgeConversation(string $uuid): JSONResponse {
+		$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
+		$this->objectService->deleteObject(
+			uuid: $uuid,
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA
+		);
+
+		$this->logger->info(
+			message: '[SessionController] Conversation permanently deleted',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'uuid' => $uuid,
+			]
+		);
+
+		return new JSONResponse(
+			data: [
+				'message' => 'Conversation permanently deleted',
+				'uuid' => $uuid,
+			],
+			statusCode: 200
+		);
+	}//end purgeConversation()
+
+	/**
+	 * Log an archived conversation and confirm it to the caller.
+	 *
+	 * @param string $uuid Conversation UUID.
+	 *
+	 * @return JSONResponse JSON response confirming the archive.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function archivedResponse(string $uuid): JSONResponse {
+		$this->logger->info(
+			message: '[SessionController] Conversation archived (soft deleted)',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'uuid' => $uuid,
+			]
+		);
+
+		return new JSONResponse(
+			data: [
+				'message' => 'Conversation archived successfully',
+				'uuid' => $uuid,
+				'archived' => true,
+			],
+			statusCode: 200
+		);
+	}//end archivedResponse()
 
 	/**
 	 * Whether a conversation carries the payload-level archive marker.
@@ -1022,6 +1116,7 @@ class SessionController extends Controller {
 	 * @return array<string, mixed> Serialized conversation.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
@@ -1050,6 +1145,7 @@ class SessionController extends Controller {
 			'role' => $this->roleOf(data: $data, userId: $userId),
 			'talkRoomToken' => ($data['talkRoomToken'] ?? null),
 			'metadata' => $metadata,
+			'subject' => $this->subject->subjectOf(sessionData: $data),
 			// Agents-instruction-variables: the answers to the agent's start fields,
 			// shown in the session header.
 			'startValues' => (array)($data['startValues'] ?? []),

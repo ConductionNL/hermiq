@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Conduction B.V.
 //
 // Plain (non-Pinia) API helper for the human-approval-gate-ui surfaces. These
-// endpoints are thin Hermiq controllers (ApprovalController / TenantControlController)
+// endpoints are thin Hermiq controllers (ApprovalController / OrganisationControlController)
 // that do NOT map onto the generic createObjectStore object path — the reviewer
 // inbox is reviewer-scoped (not owner-scoped) and the decision/kill-switch actions
 // are guarded server-side — so we hit the resources directly.

@@ -44,6 +44,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
@@ -302,11 +303,7 @@ class ChatController extends Controller {
 			);
 
 			// Resolve conversation (load existing or create new).
-			$conversation = $this->resolveConversation(
-				conversationUuid: $params['conversationUuid'],
-				agentUuid: $this->agentForRequest(params: $params, userId: $userId),
-				userId: $userId
-			);
+			$conversation = $this->resolveConversation(turn: $this->turnOf(params: $params, userId: $userId));
 
 			// Verify user has access to conversation (gate-7 ownership guard).
 			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
@@ -977,11 +974,30 @@ class ChatController extends Controller {
 	}//end agentForRequest()
 
 	/**
-	 * Resolve conversation from UUID or create a new one with the agent.
+	 * The turn a conversation is resolved for: the requested conversation, the
+	 * agent it starts with, the user and the page context.
 	 *
-	 * @param string $conversationUuid Conversation UUID (empty if creating new).
-	 * @param string $agentUuid Agent UUID (empty if using existing conversation).
-	 * @param string $userId Current user id.
+	 * @param array<string, mixed> $params The extracted request parameters.
+	 * @param string               $userId The user.
+	 *
+	 * @return array{conversationUuid: string, agentUuid: string, userId: string, context: array}
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 */
+	private function turnOf(array $params, string $userId): array {
+		return [
+			'conversationUuid' => (string)$params['conversationUuid'],
+			'agentUuid' => $this->agentForRequest(params: $params, userId: $userId),
+			'userId' => $userId,
+			'context' => (array)$params['context'],
+		];
+	}//end turnOf()
+
+	/**
+	 * Resolve conversation from UUID or create a new one with the agent. An
+	 * empty conversation UUID creates one; an empty agent UUID needs one.
+	 *
+	 * @param array{conversationUuid: string, agentUuid: string, userId: string, context: array} $turn The conversation, agent, user and page context.
 	 *
 	 * @return ObjectEntity The resolved or created conversation.
 	 *
@@ -989,15 +1005,15 @@ class ChatController extends Controller {
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
-	private function resolveConversation(string $conversationUuid, string $agentUuid, string $userId): ObjectEntity {
+	private function resolveConversation(array $turn): ObjectEntity {
 		// Load existing conversation by UUID.
-		if (empty($conversationUuid) === false) {
-			return $this->findConversation(uuid: $conversationUuid);
+		if (empty($turn['conversationUuid']) === false) {
+			return $this->findConversation(uuid: $turn['conversationUuid']);
 		}
 
 		// Create new conversation with specified agent.
-		if (empty($agentUuid) === false) {
-			return $this->createNewConversation(agentUuid: $agentUuid, userId: $userId);
+		if (empty($turn['agentUuid']) === false) {
+			return $this->createNewConversation(turn: $turn);
 		}
 
 		// Neither parameter provided.
@@ -1033,17 +1049,21 @@ class ChatController extends Controller {
 	 *
 	 * Mirrors OR ChatController::createNewConversation(); the organisation is
 	 * assigned by ObjectService multitenancy on save (OR set it explicitly).
+	 * The session records the record its page context names as its subject,
+	 * when the caller can read that record.
 	 *
-	 * @param string $agentUuid Agent UUID.
-	 * @param string $userId Current user id.
+	 * @param array{agentUuid: string, userId: string, context: array} $turn The agent, the user and the page context.
 	 *
 	 * @return ObjectEntity The newly created conversation.
 	 *
 	 * @throws Exception If the agent is not found (code 404).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
-	private function createNewConversation(string $agentUuid, string $userId): ObjectEntity {
+	private function createNewConversation(array $turn): ObjectEntity {
+		$agentUuid = $turn['agentUuid'];
+		$userId = $turn['userId'];
 		// Look up agent by UUID.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
@@ -1067,13 +1087,17 @@ class ChatController extends Controller {
 		// (hermiq#1086). The guard is here instead: the agent was read above under
 		// the caller's own read rule, and the session is always the caller's.
 		// OpenRegister still stamps `_owner` from the user session.
+		$subject = new SessionSubject(objectService: $this->objectService);
 		$conversation = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
-				data: [
-					'userId' => $userId,
-					'agentId' => (string)$agent->getUuid(),
-					'title' => $defaultTitle,
-				]
+				data: $subject->stamp(
+					session: [
+						'userId' => $userId,
+						'agentId' => (string)$agent->getUuid(),
+						'title' => $defaultTitle,
+					],
+					context: $turn['context']
+				)
 			),
 			register: self::REGISTER_SLUG,
 			schema: self::CONVERSATION_SCHEMA,
