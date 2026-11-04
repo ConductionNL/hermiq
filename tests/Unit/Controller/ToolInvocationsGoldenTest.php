@@ -32,6 +32,11 @@ use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\ToolOversight\ToolCatalogView;
+use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
+use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
+use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -53,6 +58,11 @@ use Random\Randomizer;
  * Golden comparison of the tool-invocation listing.
  *
  * @covers \OCA\Hermiq\Controller\ToolOversightController
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightAgents
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolCatalogView
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolInvocationLog
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolGrantWrites
+ * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightServices
  * @uses   \OCA\Hermiq\Service\AgentAccessService
  * @uses   \OCA\Hermiq\Service\ToolInvocationRows
  *
@@ -189,63 +199,37 @@ class ToolInvocationsGoldenTest extends TestCase {
 		$groups->method('isAdmin')->willReturn(false);
 		$logger = new NullLogger();
 
+		$services = new ToolOversightServices(
+			agents: new ToolOversightAgents(objectService: $objectService, agentAccess: new AgentAccessService(objectService: $objectService, logger: $logger, groupManager: $groups), groupManager: $groups, logger: $logger),
+			catalog: new ToolCatalogView(toolRegistry: $this->createMock(originalClassName: ToolRegistryFacade::class), grantResolver: new ToolGrantResolver(), appConfig: $this->createMock(originalClassName: IAppConfig::class)),
+			invocations: new ToolInvocationLog(objectService: $objectService, auditTrailMapper: $mapper),
+			grants: new ToolGrantWrites(objectService: $objectService, accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class)),
+		);
+
 		return new class(
 			request: $this->createMock(originalClassName: IRequest::class),
-			objectService: $objectService,
-			toolRegistry: $this->createMock(originalClassName: ToolRegistryFacade::class),
-			grantResolver: new ToolGrantResolver(),
-			auditTrailMapper: $mapper,
-			appConfig: $this->createMock(originalClassName: IAppConfig::class),
 			userSession: $session,
-			groupManager: $groups,
-			accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class),
 			logger: $logger,
-			agentAccess: new AgentAccessService(objectService: $objectService, logger: $logger, groupManager: $groups),
+			services: $services,
 			rich: $rich
 		) extends ToolOversightController {
 			/**
 			 * The controller with richAuditAvailable() forced.
 			 *
 			 * @param IRequest $request The request.
-			 * @param ObjectService $objectService The object service.
-			 * @param ToolRegistryFacade $toolRegistry The tool registry.
-			 * @param ToolGrantResolver $grantResolver The grant resolver.
-			 * @param AuditTrailMapper $auditTrailMapper The audit mapper.
-			 * @param IAppConfig $appConfig The app config.
 			 * @param IUserSession $userSession The session.
-			 * @param IGroupManager $groupManager The group manager.
-			 * @param ToolAccessRequestService $accessRequests The access requests.
 			 * @param NullLogger $logger The logger.
-			 * @param AgentAccessService $agentAccess The agent access check.
+			 * @param ToolOversightServices $services The collaborators.
 			 * @param bool $rich Forced return value of richAuditAvailable().
 			 */
 			public function __construct(
 				IRequest $request,
-				ObjectService $objectService,
-				ToolRegistryFacade $toolRegistry,
-				ToolGrantResolver $grantResolver,
-				AuditTrailMapper $auditTrailMapper,
-				IAppConfig $appConfig,
 				IUserSession $userSession,
-				IGroupManager $groupManager,
-				ToolAccessRequestService $accessRequests,
 				NullLogger $logger,
-				AgentAccessService $agentAccess,
+				ToolOversightServices $services,
 				private readonly bool $rich,
 			) {
-				parent::__construct(
-					request: $request,
-					objectService: $objectService,
-					toolRegistry: $toolRegistry,
-					grantResolver: $grantResolver,
-					auditTrailMapper: $auditTrailMapper,
-					appConfig: $appConfig,
-					userSession: $userSession,
-					groupManager: $groupManager,
-					accessRequests: $accessRequests,
-					logger: $logger,
-					agentAccess: $agentAccess
-				);
+				parent::__construct(request: $request, userSession: $userSession, logger: $logger, services: $services);
 			}//end __construct()
 
 			/**
