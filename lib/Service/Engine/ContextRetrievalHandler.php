@@ -9,7 +9,7 @@
  * call itself is re-pointed at OpenRegister's public search surface.
  *
  * GROUND-TRUTH ADAPTATION (agent-engine-port pause protocol — document, continue):
- * the ported original constructed `OCA\OpenRegister\Service\Vectorization\VectorEmbeddings`
+ * the ported original constructed `OCA\OpenRegister\Search\Service\Vectorization\VectorEmbeddings`
  * directly for its `semantic`/`hybrid` modes — an OR-INTERNAL class, not a published
  * cross-app facade (unlike `ToolRegistryFacade`). Reproducing that construction here
  * would recreate exactly the wide, undocumented internal dependency gate-27 exists to
