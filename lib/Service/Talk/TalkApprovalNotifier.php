@@ -139,6 +139,6 @@ class TalkApprovalNotifier {
 		$body = "React 👍 to approve or 👎 to deny. Only the reviewer's reaction counts, "
 			. 'and a decision cannot be undone.';
 
-		return sprintf("⏸️ **Approval needed** for “%s”.\n\n%s", $displayName, $body);
+		return sprintf("⏸️ **Approval needed** for %s.\n\n%s", (new TalkSafeText())->quoted(name: $displayName, fallback: 'an action'), $body);
 	}//end requestText()
 }//end class

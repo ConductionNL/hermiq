@@ -62,6 +62,10 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			['mcpId' => 'remote.lines', 'name' => 'lines', 'title' => "Close\nthe case\u{200B}", 'scope' => 'update', 'reach' => 'external'],
 			['mcpId' => 'remote.named', 'name' => '@all', 'scope' => 'create', 'reach' => 'external'],
 			['mcpId' => 'remote.fallsToName', 'name' => 'safeName', 'title' => '@here', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => '@all', 'name' => '@all', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => '[x](https://evil.example)', 'name' => '**x**', 'title' => '`x`', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => 'remote:mention', 'name' => 'remote:mention', 'scope' => 'create', 'reach' => 'external'],
+			['mcpId' => 'remote.under_score-dash', 'name' => 'remote.under_score-dash', 'scope' => 'create', 'reach' => 'external'],
 		];
 	}//end catalog()
 
@@ -245,4 +249,31 @@ class ApprovalPreviewBuilderTest extends TestCase {
 			$builder->toolLine('remote.mention')
 		);
 	}//end testTheTalkLineNeverCarriesMentionsOrMarkdownFromATitle()
+
+	/**
+	 * When the title, the name and the id are all text Talk would read as a
+	 * mention, link or markdown, the line names no tool at all.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-the-talk-request-names-the-tool-and-its-reach-req-apprev-002
+	 */
+	public function testTheTalkLineNeverCarriesAnUnsafeToolId(): void {
+		$builder = $this->builder();
+
+		$this->assertSame(
+			[
+				'A tool sends, and reaches outside this Nextcloud.',
+				'A tool sends, and reaches outside this Nextcloud.',
+				'A tool sends, and reaches outside this Nextcloud.',
+				'The tool remote.under_score-dash sends, and reaches outside this Nextcloud.',
+			],
+			[
+				$builder->toolLine('@all'),
+				$builder->toolLine('[x](https://evil.example)'),
+				$builder->toolLine('remote:mention'),
+				$builder->toolLine('remote.under_score-dash'),
+			]
+		);
+	}//end testTheTalkLineNeverCarriesAnUnsafeToolId()
 }//end class

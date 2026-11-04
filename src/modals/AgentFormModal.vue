@@ -732,6 +732,32 @@ function storedTools(tools) {
 	return flattenGrants(tools)
 }
 
+/**
+ * Whether a stored `tools` value is one of the two shapes grants are stored in.
+ *
+ * @param {*} tools The stored value.
+ * @return {boolean} True for a list or the grant structure.
+ */
+function holdsGrantList(tools) {
+	return Array.isArray(tools) || (typeof tools === 'object' && tools !== null)
+}
+
+/**
+ * Whether two grant lists hold the same grants, in any order.
+ *
+ * @param {Array<string>} one A grant list.
+ * @param {Array<string>} other Another grant list.
+ * @return {boolean} True when both hold the same grants.
+ */
+function sameGrants(one, other) {
+	const left = [...new Set(one)].sort()
+	const right = [...new Set(other)].sort()
+	return (
+		left.length === right.length
+		&& left.every((grant, index) => grant === right[index])
+	)
+}
+
 export default {
 	name: 'AgentFormModal',
 
@@ -1768,12 +1794,54 @@ export default {
 		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		grantsChanged() {
-			const selected = [...new Set(this.selectedGrants())].sort()
-			const read = [...new Set(this.readGrants)].sort()
-			return (
-				selected.length !== read.length
-				|| selected.some((grant, index) => grant !== read[index])
+			return !sameGrants(this.selectedGrants(), this.readGrants)
+		},
+
+		/**
+		 * The agent's `tools` as stored now, to write back on an edit save.
+		 *
+		 * The form opened with a copy of the grants, and the grant matrix in
+		 * another tab can change them meanwhile. Writing the copy back would
+		 * undo that change, so the stored value is read again here. When it
+		 * moved and this form changed the grants too, the save stops instead
+		 * of choosing between the two.
+		 *
+		 * @return {Promise<Array|null>} The grants to write back, or null (with `error` set) to stop the save.
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 */
+		async currentStoredTools() {
+			// The read that seeded a routed form, so an admin who may read the
+			// object through OpenRegister reads the same list here. Hermiq's own
+			// agent endpoint gives such an admin a row without `tools`.
+			const current = await this.store.fetchObject(
+				'agent',
+				this.effectiveAgent.id,
 			)
+			const stored = current?.tools
+			if (
+				!current
+				|| (!holdsGrantList(stored) && this.readGrants.length > 0)
+			) {
+				this.error = this.t(
+					'hermiq',
+					"Could not read the agent's current tool grants, so nothing was saved. Try again.",
+				)
+				return null
+			}
+
+			const movedElsewhere = !sameGrants(
+				flattenGrants(stored),
+				this.readGrants,
+			)
+			if (movedElsewhere && this.grantsChanged()) {
+				this.error = this.t(
+					'hermiq',
+					'The tool grants of this agent were changed elsewhere after you opened this form, so nothing was saved. Close the form and open it again to see the current grants.',
+				)
+				return null
+			}
+
+			return storedTools(stored)
 		},
 
 		/**
@@ -1794,10 +1862,15 @@ export default {
 			this.error = ''
 			try {
 				const wasEdit = this.isEdit()
-				const saved = await this.store.saveObject(
-					'agent',
-					this.buildPayload(),
-				)
+				const payload = this.buildPayload()
+				if (wasEdit) {
+					const tools = await this.currentStoredTools()
+					if (tools === null) {
+						return
+					}
+					payload.tools = tools
+				}
+				const saved = await this.store.saveObject('agent', payload)
 				if (saved === null) {
 					this.error =
 						this.store.errors?.agent?.message

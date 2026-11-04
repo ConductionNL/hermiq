@@ -25,6 +25,8 @@ use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Event\DraftCreatedEvent;
+use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
@@ -37,7 +39,8 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 /**
- * A waiver written through OpenRegister's generic objects API is audited.
+ * A waiver written through OpenRegister's generic objects API is audited,
+ * on a draft agent too.
  *
  * @covers \OCA\Hermiq\Listener\AgentWaiverChangeListener
  * @covers \OCA\Hermiq\Service\Agent\GrantWaiverAudit
@@ -119,6 +122,19 @@ class AgentWaiverChangeListenerTest extends TestCase {
 		$entity->setObject(['name' => 'Digest', 'tools' => $tools]);
 		return $entity;
 	}//end object()
+
+	/**
+	 * A draft agent with the given tools.
+	 *
+	 * @param mixed $tools The stored tools.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function draft(mixed $tools): ObjectEntity {
+		$entity = $this->object($tools);
+		$entity->setStatus(ObjectEntity::STATUS_DRAFT);
+		return $entity;
+	}//end draft()
 
 	/**
 	 * An update through the generic API that adds a waiver writes the waiver event.
@@ -244,4 +260,147 @@ class AgentWaiverChangeListenerTest extends TestCase {
 
 		$this->assertSame([], $this->entries);
 	}//end testTheServiceSwallowsAFailingAuditWrite()
+
+	/**
+	 * The audit row carries the literal action token readers of the trail filter on.
+	 *
+	 * @return void
+	 */
+	public function testTheActionTokenIsTheDocumentedLiteral(): void {
+		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED]), $this->object([])));
+
+		$this->assertSame('tool-grant-approval-waiver', $this->entries[0]['action']);
+	}//end testTheActionTokenIsTheDocumentedLiteral()
+
+	/**
+	 * A matcher that throws does not fail the object write: the listener logs and returns.
+	 *
+	 * @return void
+	 */
+	public function testAThrowingMatcherIsLoggedAndDoesNotThrow(): void {
+		$matcher = $this->createMock(AgentObjectMatcher::class);
+		$matcher->method('isAgent')->willThrowException(new RuntimeException('schema lookup down'));
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with($this->stringContains('schema lookup down'));
+		$listener = new AgentWaiverChangeListener($this->audit, $matcher, $logger);
+
+		$listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED]), $this->object([])));
+
+		$this->assertSame([], $this->entries);
+	}//end testAThrowingMatcherIsLoggedAndDoesNotThrow()
+
+	/**
+	 * A draft agent's waivers are audited: created with one, and one added while still a draft.
+	 *
+	 * @return void
+	 */
+	public function testWaiversOnADraftAgentAreAudited(): void {
+		$this->listener->handle(new DraftCreatedEvent($this->draft([self::WAIVED])));
+		$this->listener->handle(new DraftUpdatedEvent($this->draft([self::WAIVED, 'x.y#noapproval']), $this->draft([self::WAIVED])));
+		$this->listener->handle(new DraftUpdatedEvent($this->draft(['x.y#noapproval']), $this->draft([self::WAIVED, 'x.y#noapproval'])));
+
+		$this->assertSame(
+			[[[self::WAIVED], []], [['x.y#noapproval'], []], [[], [self::WAIVED]]],
+			array_map(static fn (array $entry): array => [$entry['context']['added'], $entry['context']['removed']], $this->entries)
+		);
+	}//end testWaiversOnADraftAgentAreAudited()
+
+	/**
+	 * Leaving draft records the save once: the created event that follows it is not a second record.
+	 *
+	 * @return void
+	 */
+	public function testLeavingDraftIsRecordedOnce(): void {
+		$this->listener->handle(new DraftCreatedEvent($this->draft([self::WAIVED])));
+		$active = $this->object([self::WAIVED, 'x.y#noapproval']);
+		$this->listener->handle(new DraftUpdatedEvent($active, $this->draft([self::WAIVED])));
+		$this->listener->handle(new ObjectCreatedEvent($active));
+
+		$this->assertSame([[self::WAIVED], ['x.y#noapproval']], array_column(array_column($this->entries, 'context'), 'added'));
+
+		$this->listener->handle(new ObjectCreatedEvent($this->object(['z.z#noapproval'])));
+		$this->assertCount(3, $this->entries, 'Only the created event right after leaving draft is skipped.');
+	}//end testLeavingDraftIsRecordedOnce()
+
+	/**
+	 * A save that stays a draft, or a created draft, does not hide the next created event.
+	 *
+	 * @return void
+	 */
+	public function testADraftThatStaysADraftDoesNotHideTheNextCreate(): void {
+		$this->listener->handle(new DraftCreatedEvent($this->draft([])));
+		$this->listener->handle(new DraftUpdatedEvent($this->draft(['a.b']), $this->draft([])));
+		$this->listener->handle(new ObjectCreatedEvent($this->object([self::WAIVED])));
+
+		$this->assertSame([[self::WAIVED]], array_column(array_column($this->entries, 'context'), 'added'));
+	}//end testADraftThatStaysADraftDoesNotHideTheNextCreate()
+
+	/**
+	 * A draft-created event never consumes the leave-draft mark of the same agent.
+	 *
+	 * @return void
+	 */
+	public function testADraftCreatedEventDoesNotConsumeTheLeaveDraftMark(): void {
+		$active = $this->object([self::WAIVED]);
+		$this->listener->handle(new DraftUpdatedEvent($active, $this->draft([])));
+		$this->listener->handle(new DraftCreatedEvent($this->draft(['q.q#noapproval'])));
+		$this->listener->handle(new ObjectCreatedEvent($active));
+
+		$this->assertSame([[self::WAIVED], ['q.q#noapproval']], array_column(array_column($this->entries, 'context'), 'added'));
+	}//end testADraftCreatedEventDoesNotConsumeTheLeaveDraftMark()
+
+	/**
+	 * Another schema's object leaving draft leaves no mark behind.
+	 *
+	 * @return void
+	 */
+	public function testAnotherSchemasDraftLeavesNoMark(): void {
+		$other = $this->object([], 'conversation');
+		$this->listener->handle(new DraftUpdatedEvent($other, $this->draft([])));
+		$this->listener->handle(new ObjectCreatedEvent($this->object([self::WAIVED])));
+
+		$this->assertCount(1, $this->entries);
+	}//end testAnotherSchemasDraftLeavesNoMark()
+
+	/**
+	 * An ordinary update leaves no mark: a created event for the agent after it is still recorded.
+	 *
+	 * @return void
+	 */
+	public function testAnOrdinaryUpdateLeavesNoMark(): void {
+		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED]), $this->object([])));
+		$this->listener->handle(new ObjectCreatedEvent($this->object(['z.z#noapproval'])));
+
+		$this->assertSame([[self::WAIVED], ['z.z#noapproval']], array_column(array_column($this->entries, 'context'), 'added'));
+	}//end testAnOrdinaryUpdateLeavesNoMark()
+
+	/**
+	 * Only a created event uses the mark: an update right after leaving draft is recorded.
+	 *
+	 * @return void
+	 */
+	public function testAnUpdateAfterLeavingDraftIsRecorded(): void {
+		$active = $this->object([self::WAIVED]);
+		$this->listener->handle(new DraftUpdatedEvent($active, $this->draft([])));
+		$this->listener->handle(new ObjectUpdatedEvent($this->object([self::WAIVED, 'z.z#noapproval']), $active));
+
+		$this->assertSame([[self::WAIVED], ['z.z#noapproval']], array_column(array_column($this->entries, 'context'), 'added'));
+	}//end testAnUpdateAfterLeavingDraftIsRecorded()
+
+	/**
+	 * The mark belongs to the agent that left draft: another agent's created event is still recorded.
+	 *
+	 * @return void
+	 */
+	public function testTheLeaveDraftMarkIsKeyedOnTheAgent(): void {
+		$left = $this->object([self::WAIVED]);
+		$this->listener->handle(new DraftUpdatedEvent($left, $this->draft([])));
+
+		$other = $this->object(['z.z#noapproval']);
+		$other->setUuid('agent-2');
+		$this->listener->handle(new ObjectCreatedEvent($other));
+		$this->listener->handle(new ObjectCreatedEvent($left));
+
+		$this->assertSame(['agent-1', 'agent-2'], array_column($this->entries, 'uuid'));
+	}//end testTheLeaveDraftMarkIsKeyedOnTheAgent()
 }//end class

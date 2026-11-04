@@ -6,7 +6,8 @@
  * Records an approval waiver added or removed by any write to an agent: through
  * Hermiq's tool-grants endpoint, and through OpenRegister's generic objects API
  * (ADR-022: agents are OpenRegister objects, so the object events are the only
- * hook that sees every write).
+ * hook that sees every write). A draft agent raises the draft events instead,
+ * and its owner can already run it, so those are audited too.
  *
  * Never throws: an agent write must not fail because its audit could not be written.
  *
@@ -32,6 +33,8 @@ namespace OCA\Hermiq\Listener;
 use OCA\Hermiq\Service\Agent\AgentObjectMatcher;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Event\DraftCreatedEvent;
+use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCP\EventDispatcher\Event;
@@ -51,6 +54,18 @@ use Throwable;
 class AgentWaiverChangeListener implements IEventListener {
 
 	/**
+	 * Uuids of agents whose save just left draft.
+	 *
+	 * Leaving draft raises DraftUpdatedEvent for the save and then
+	 * ObjectCreatedEvent for the same object. The waivers were recorded on the
+	 * draft path, so that created event is not recorded again. One listener
+	 * instance serves every registration in a request.
+	 *
+	 * @var array<string, true>
+	 */
+	private array $leftDraft = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param GrantWaiverAudit $waiverAudit Writes the waiver audit event.
@@ -65,7 +80,7 @@ class AgentWaiverChangeListener implements IEventListener {
 	}//end __construct()
 
 	/**
-	 * Record the waivers a created or updated agent gained or lost; other events are ignored.
+	 * Record the waivers a created or updated agent, draft or not, gained or lost; other events are ignored.
 	 *
 	 * @param Event $event The dispatched OpenRegister object event.
 	 *
@@ -74,10 +89,15 @@ class AgentWaiverChangeListener implements IEventListener {
 	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
 	 */
 	public function handle(Event $event): void {
-		[$agent, $before] = $this->written(event: $event);
 		try {
-			if ($agent !== null && $this->agents->isAgent(object: $agent) === true) {
-				$this->waiverAudit->record(agent: $agent, before: $this->waiverAudit->waivers(tools: $before));
+			[$agent, $before] = $this->written(event: $event);
+			if ($agent === null || $this->agents->isAgent(object: $agent) === false || $this->announcesLeftDraft(event: $event, agent: $agent) === true) {
+				return;
+			}
+
+			$this->waiverAudit->record(agent: $agent, before: $this->waiverAudit->waivers(tools: $before));
+			if ($event instanceof DraftUpdatedEvent && $agent->isDraft() === false) {
+				$this->leftDraft[(string)$agent->getUuid()] = true;
 			}
 		} catch (Throwable $e) {
 			$this->logger->warning('[AgentWaiverChangeListener] agent write not audited: ' . $e->getMessage());
@@ -85,7 +105,29 @@ class AgentWaiverChangeListener implements IEventListener {
 	}//end handle()
 
 	/**
+	 * Whether this is the created event that follows an agent's save out of draft, already recorded.
+	 *
+	 * @param Event $event The dispatched event.
+	 * @param ObjectEntity $agent The agent it carries.
+	 *
+	 * @return bool True for that created event; it is forgotten once seen.
+	 *
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+	 */
+	private function announcesLeftDraft(Event $event, ObjectEntity $agent): bool {
+		$uuid = (string)$agent->getUuid();
+		if ($event instanceof DraftCreatedEvent || isset($this->leftDraft[$uuid]) === false || ($event instanceof ObjectCreatedEvent) === false) {
+			return false;
+		}
+
+		unset($this->leftDraft[$uuid]);
+		return true;
+	}//end announcesLeftDraft()
+
+	/**
 	 * The object a create or update stored, and its `tools` before the write.
+	 *
+	 * The draft events extend these two, so they are read the same way.
 	 *
 	 * @param Event $event The dispatched event.
 	 *

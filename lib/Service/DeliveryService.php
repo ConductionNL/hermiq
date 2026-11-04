@@ -54,6 +54,7 @@ use DateTime;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
+use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
@@ -591,7 +592,7 @@ class DeliveryService {
 			if ($talkOk === true) {
 				$this->tryPostToNoteToSelf(
 					owner: $uid,
-					output: sprintf('Approval needed for “%s”. Review it in Hermiq.', $displayName)
+					output: sprintf('Approval needed for %s. Review it in Hermiq.', (new TalkSafeText())->quoted(name: $displayName, fallback: 'an action'))
 				);
 			}
 		}//end foreach
@@ -960,7 +961,8 @@ class DeliveryService {
 	 * The Talk text for a held tool call: what needs approval, and one line
 	 * naming the tool and how far it reaches, so the reviewer knows before
 	 * opening Hermiq. Falls back to the text without that line when the preview
-	 * builder cannot be had; the approval itself is never affected.
+	 * builder cannot be had; the approval itself is never affected. A tool id
+	 * Talk could read as a mention, link or markdown is not put in the text.
 	 *
 	 * @param string $toolId The held tool id.
 	 *
@@ -979,7 +981,12 @@ class DeliveryService {
 			$this->logger->debug('[DeliveryService] no tool line for the approval message: ' . $e->getMessage());
 		}
 
-		return sprintf('Approval needed to run “%s”.%s Review it in Hermiq.', $toolId, $line);
+		$name = (new TalkSafeText())->identifier(identifier: $toolId);
+		if ($name === null) {
+			return sprintf('Approval needed to run a tool.%s Review it in Hermiq.', $line);
+		}
+
+		return sprintf('Approval needed to run “%s”.%s Review it in Hermiq.', $name, $line);
 	}//end toolApprovalTalkText()
 
 	/**
