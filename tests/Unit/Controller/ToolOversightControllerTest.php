@@ -1175,4 +1175,173 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertFalse($writes[0]['_rbac'] ?? true, 'the decision must be written with _rbac false');
 
 	}//end testTheDecisionIsWrittenOnTheSystemPath()
+
+	/**
+	 * The arguments of an ObjectService call, by parameter name.
+	 *
+	 * @param string $method The ObjectService method.
+	 * @param array<int, mixed> $args The arguments the double received.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function namedArguments(string $method, array $args): array {
+		$named = [];
+		foreach ((new \ReflectionMethod(ObjectService::class, $method))->getParameters() as $index => $parameter) {
+			$named[$parameter->getName()] = ($args[$index] ?? ($parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : null));
+		}
+
+		return $named;
+	}//end namedArguments()
+
+	/**
+	 * The admin bypass asks about the acting user, not about a fixed account.
+	 *
+	 * @return void
+	 */
+	public function testTheAdminBypassAsksAboutTheActingUser(): void {
+		$this->groupManager = $this->createMock(IGroupManager::class);
+		$this->groupManager->method('isAdmin')->willReturnCallback(
+			static fn (string $uid): bool => ($uid === 'admin')
+		);
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => [], 'isPrivate' => true], 'carol'));
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->toolCatalog('agent-1')->getStatus());
+	}//end testTheAdminBypassAsksAboutTheActingUser()
+
+	/**
+	 * The agent lookup keeps OpenRegister's RBAC and tenant scope on.
+	 *
+	 * @return void
+	 */
+	public function testTheAgentLookupKeepsTheScopeOn(): void {
+		$seen = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (...$args) use (&$seen): ObjectEntity {
+				$seen[] = $this->namedArguments('find', $args);
+				return $this->agent(['tools' => []], 'alice');
+			}
+		);
+		$this->toolRegistry->method('listTools')->willReturn([]);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->toolCatalog('agent-1')->getStatus());
+
+		$this->assertSame('agent-1', $seen[0]['id']);
+		$this->assertTrue($seen[0]['_rbac']);
+		$this->assertTrue($seen[0]['_multitenancy']);
+	}//end testTheAgentLookupKeepsTheScopeOn()
+
+	/**
+	 * A grant write keeps OpenRegister's RBAC and tenant scope on.
+	 *
+	 * @return void
+	 */
+	public function testTheGrantWriteKeepsTheScopeOn(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('grants')->willReturn(['a.b']);
+		$seen = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$seen): ObjectEntity {
+				$seen[] = $this->namedArguments('saveObject', $args);
+				return new ObjectEntity();
+			}
+		);
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->updateToolGrants('agent-1')->getStatus());
+
+		$this->assertTrue($seen[0]['_rbac']);
+		$this->assertTrue($seen[0]['_multitenancy']);
+	}//end testTheGrantWriteKeepsTheScopeOn()
+
+	/**
+	 * A non-owner gets the same 404 for an invalid decision, and no request is looked up.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheOwnerCheckComesBeforeTheDecisionAndTheRequestLookup(): void {
+		$looked = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (...$args) use (&$looked): ObjectEntity {
+				$looked[] = (string)$args[0];
+				return $this->agent(['tools' => [], 'agentId' => 'agent-1'], 'carol');
+			}
+		);
+
+		foreach (['nonsense', 'granted'] as $decision) {
+			$params = ['decision' => $decision];
+			$request = $this->createMock(IRequest::class);
+			$request->method('getParam')->willReturnCallback(
+				static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+			);
+			$this->request = $request;
+
+			$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+		}
+
+		$this->assertSame(['agent-1', 'agent-1'], $looked);
+	}//end testTheOwnerCheckComesBeforeTheDecisionAndTheRequestLookup()
+
+	/**
+	 * The agent is the one in the path: an `agentId` in the request body changes nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testTheAgentIsTheOneInThePath(): void {
+		$this->objectService->method('find')->willReturnCallback(
+			fn (...$args): ?ObjectEntity => match ((string)$args[0]) {
+				'agent-1' => $this->agent(['tools' => []], 'carol'),
+				'agent-own' => $this->agent(['tools' => []], 'alice'),
+				'req-1' => $this->agent(['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending'], 'carol'),
+				default => null,
+			}
+		);
+		$params = ['decision' => 'granted', 'toolId' => 'hermiq.sendMail', 'agentId' => 'agent-own'];
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+		);
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->resolveToolAccessRequest('agent-1', 'req-1')->getStatus());
+	}//end testTheAgentIsTheOneInThePath()
+
+	/**
+	 * An empty session uid cannot change the grants of an agent whose stored owner is empty too.
+	 *
+	 * @return void
+	 */
+	public function testUpdateToolGrantsRefusesAnEmptyUidOnAnUnownedAgent(): void {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('');
+		$this->userSession = $this->createMock(IUserSession::class);
+		$this->userSession->method('getUser')->willReturn($user);
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], ''));
+		$this->request->method('getParam')->willReturn(['a.b']);
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $this->controller()->updateToolGrants('agent-1')->getStatus());
+	}//end testUpdateToolGrantsRefusesAnEmptyUidOnAnUnownedAgent()
+
+	/**
+	 * What reaches the save is the grant list the schema declares, whatever the body held.
+	 *
+	 * @return void
+	 */
+	public function testAStructuredBodyReachesTheSaveAsGrantStrings(): void {
+		$this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+		$this->request->method('getParam')->with('grants')->willReturn(['hermiq' => ['file' => ['list' => 'hermiq.listFiles']], 'x' => 7]);
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$saved): ObjectEntity {
+				$saved[] = $args[0];
+				return new ObjectEntity();
+			}
+		);
+
+		$this->controller()->updateToolGrants('agent-1');
+
+		$this->assertSame(['hermiq.listFiles'], $saved[0]['tools']);
+	}//end testAStructuredBodyReachesTheSaveAsGrantStrings()
 }//end class
