@@ -1425,10 +1425,11 @@
 			"route": "/flows",
 			"type": "index",
 			"title": "Flows",
-			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift.",
+			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift. rowRoute names the FlowDetail page (a route name, not a path): a named-source page has no register and schema, so without it a row click opens nothing and Edit falls back to the source's own /flows path.",
 			"config": {
 				"entitySource": "flows",
-				"app": "hermiq"
+				"app": "hermiq",
+				"rowRoute": "FlowDetail"
 			}
 		},
 		{
@@ -1504,7 +1505,8 @@
 			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies. The manifest has no redirect field, so the old path is declared as a second page onto the same page type rather than left to 404. Remove once the old links have aged out.",
 			"config": {
 				"entitySource": "flows",
-				"app": "hermiq"
+				"app": "hermiq",
+				"rowRoute": "FlowDetail"
 			}
 		},
 		{
