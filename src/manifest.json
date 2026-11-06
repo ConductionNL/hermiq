@@ -28,7 +28,7 @@
 		},
 		{
 			"id": "Store",
-			"label": "Store",
+			"label": "Marketplace",
 			"icon": "StoreOutline",
 			"route": "Store",
 			"order": 92,
@@ -861,7 +861,7 @@
 			"id": "Store",
 			"route": "/store",
 			"type": "index",
-			"title": "Store",
+			"title": "Marketplace",
 			"config": {
 				"register": "hermiq",
 				"schema": "agenttemplate",

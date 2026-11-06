@@ -4,7 +4,7 @@
 
 ### Requirement: The store MUST keep its GitHub wire behaviour until the shared engine carries it
 
-The store's search, install and publish MAY move onto OpenRegister's
+The marketplace's search, install and publish MAY move onto OpenRegister's
 `FederatedConfigService` one operation at a time. An operation SHALL move only
 when the engine keeps every behaviour below for that operation. Until then the
 operation SHALL stay on hermiq's own GitHub services.
@@ -13,7 +13,7 @@ operation SHALL stay on hermiq's own GitHub services.
 @e2e exclude pinned by GitHubTemplatePushServiceWireTest::testEveryBrokerCallNamesHermiqAndTheActingUser and GitHubTemplateCatalogServiceWireTest::testABrokeredReadNamesHermiqAndFallsBackToAnonymousWhenRefused; a browser run cannot see which app id reached the broker.
 
 - GIVEN a user picks a GitHub credential whose `allowedApps` contain `hermiq`
-- WHEN the store makes a brokered GitHub call with it
+- WHEN the marketplace makes a brokered GitHub call with it
 - THEN the call names `hermiq` as the app and carries the user as the acting user
 - AND a read the broker refuses is retried anonymously
 
@@ -44,9 +44,9 @@ operation SHALL stay on hermiq's own GitHub services.
 @e2e exclude pinned by GitHubTemplatePushServiceWireTest::testPushCreatesTheRepositoryWithTheChosenVisibility and testBundlePublishCreatesAnAbsentRepositoryWithTheChosenVisibility; an end-to-end run would create a real GitHub repository.
 
 - GIVEN a user publishes with visibility `private`
-- WHEN the store creates the repository
+- WHEN the marketplace creates the repository
 - THEN the repository is created private
-- AND a store publish never creates a public repository the user did not ask for
+- AND a marketplace publish never creates a public repository the user did not ask for
 
 #### Scenario: Install reads the whole package, not one file
 @e2e exclude pinned by GitHubTemplateCatalogServiceWireTest::testAuxiliaryFilesAreEveryBlobExceptThePackage and testABundleArchiveKeepsItsAgentDefinitions; the fake GitHub controls the tree, which a live repository cannot.
@@ -60,6 +60,6 @@ operation SHALL stay on hermiq's own GitHub services.
 #### Scenario: Search sends the free-text term to GitHub
 @e2e exclude pinned by GitHubTemplateCatalogServiceWireTest::testSearchSendsTheFreeTextTermToGitHub; a browser run cannot see the query string hermiq sends to GitHub.
 
-- GIVEN a user searches the store for `meeting notes`
-- WHEN the store queries GitHub
+- GIVEN a user searches the marketplace for `meeting notes`
+- WHEN the marketplace queries GitHub
 - THEN the query holds the kind's topic and the term together
