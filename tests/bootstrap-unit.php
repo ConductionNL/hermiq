@@ -176,3 +176,9 @@ if (class_exists(\Doctrine\DBAL\ParameterType::class) === false) {
 	require_once __DIR__ . '/Stubs/Doctrine/ArrayParameterType.php';
 	require_once __DIR__ . '/Stubs/Doctrine/Types.php';
 }
+
+// OCP\DB\QueryBuilder\IExpressionBuilder reads its comparison constants from
+// Doctrine's ExpressionBuilder at class-load, so mocking it needs this too.
+if (class_exists(\Doctrine\DBAL\Query\Expression\ExpressionBuilder::class) === false) {
+	require_once __DIR__ . '/Stubs/Doctrine/ExpressionBuilder.php';
+}

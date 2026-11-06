@@ -283,6 +283,37 @@ class MailReadService {
 	}//end readMessage()
 
 	/**
+	 * Whether the user can open one message, without reading it.
+	 *
+	 * The knowledge graph asks this before it shows a node that points at a mail
+	 * message: Mail's own user-scoped lookup decides, and anything but a found
+	 * message (feature off, Mail absent, no such id, not the user's message) is false.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param int $messageId The Mail message id.
+	 *
+	 * @return bool True when the message is the user's.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 */
+	public function canRead(string $uid, int $messageId): bool {
+		$manager = $this->mail(key: 'manager');
+		if ($manager === null || $this->gate() !== null) {
+			return false;
+		}
+
+		try {
+			// IDOR: scoped to $uid by Mail's own API.
+			$manager->getMessage($uid, $messageId);
+		} catch (Throwable) {
+			return false;
+		}
+
+		return true;
+
+	}//end canRead()
+
+	/**
 	 * Reduce a message to its envelope — never its body.
 	 *
 	 * @param object $message The Mail message entity.

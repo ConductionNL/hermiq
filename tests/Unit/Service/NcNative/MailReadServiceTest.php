@@ -772,4 +772,44 @@ class MailReadServiceTest extends TestCase {
 
 	}//end testServiceExposesNoWriteVerb()
 
+
+	/**
+	 * canRead answers whether the user can open a message without reading it:
+	 * true only when Mail's own user-scoped lookup finds it, false when the
+	 * lookup throws, Mail is absent or the feature is off (fail closed).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-an-edge-is-visible-only-when-both-endpoints-are
+	 */
+	public function testCanReadIsTheUserScopedLookupAndFailsClosed(): void {
+		$manager = new class {
+			/**
+			 * Mail's user-scoped message lookup: only alice owns message 7.
+			 *
+			 * @param string $uid The user id.
+			 * @param int $id The message id.
+			 *
+			 * @return object
+			 */
+			public function getMessage(string $uid, int $id): object {
+				if ($uid !== 'alice' || $id !== 7) {
+					throw new RuntimeException('not found');
+				}
+
+				return new class {
+				};
+			}
+		};
+
+		$service = $this->serviceWithMail(['manager' => $manager]);
+		$this->assertTrue($service->canRead('alice', 7));
+		$this->assertFalse($service->canRead('bob', 7));
+		$this->assertFalse($service->canRead('alice', 8));
+		$this->assertFalse($service->canRead('alice', 0));
+		$this->assertFalse($this->service(true)->canRead('alice', 7));
+		$this->assertFalse($this->service(false)->canRead('alice', 7));
+
+	}//end testCanReadIsTheUserScopedLookupAndFailsClosed()
+
 }//end class

@@ -10,7 +10,7 @@
   createObjectStore agent store (src/store/store.js), not a bespoke resource
   helper (agent-engine-port task 5.2). On edit the existing agent payload is
   merged under the form fields so schema fields this form does not surface
-  (views, groups, invitedUsers, quotas, …) survive the PUT.
+  (views, quotas, …) survive the PUT.
 
   Fields cover what the ported engine actually reads (OR EditAgent parity where
   it matters): identity (name, description, icon), LLM config (provider, model,
@@ -71,6 +71,14 @@
 			</div>
 
 			<template v-else>
+				<!-- agents-plain-language-builder: the draft check's findings for the schedule. -->
+				<NcNoteCard
+					v-for="(finding, index) in draftFindingsFor('schedule')"
+					:key="`schedule-${index}`"
+					type="warning"
+					data-testid="agent-form-finding-schedule">
+					{{ findingText(finding) }}
+				</NcNoteCard>
 				<!-- Vue 3 / @nextcloud/vue 9: v-model (modelValue) — the old Vue-2
 			     `:value.sync` modifier is silently IGNORED by the Vue 3 compiler,
 			     leaving a one-way binding: typing never reached form.name and the
@@ -85,6 +93,62 @@
 					v-model="form.description"
 					:label="t('hermiq', 'Description')"
 					:placeholder="t('hermiq', 'What does this agent do?')" />
+
+				<!-- Who can use this agent (agents-sharing-and-catalog-columns): three
+			     choices over isPrivate, invitedUsers and groups. -->
+				<fieldset class="agent-form__field" data-testid="agent-form-sharing">
+					<legend>{{ t('hermiq', 'Who can use this agent') }}</legend>
+					<NcCheckboxRadioSwitch
+						v-model="form.sharing"
+						type="radio"
+						name="agent-sharing"
+						value="only-me">
+						{{ t('hermiq', 'Only me') }}
+					</NcCheckboxRadioSwitch>
+					<NcCheckboxRadioSwitch
+						v-model="form.sharing"
+						type="radio"
+						name="agent-sharing"
+						value="people-and-groups">
+						{{ t('hermiq', 'People and groups I choose') }}
+					</NcCheckboxRadioSwitch>
+					<NcCheckboxRadioSwitch
+						v-model="form.sharing"
+						type="radio"
+						name="agent-sharing"
+						value="organisation">
+						{{ t('hermiq', 'Everyone in my organisation') }}
+					</NcCheckboxRadioSwitch>
+					<template v-if="form.sharing === 'people-and-groups'">
+						<NcSelect
+							v-model="form.invitedUsers"
+							data-testid="agent-form-sharing-people"
+							:inputLabel="t('hermiq', 'People')"
+							:options="peopleOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchPeople" />
+						<NcSelect
+							v-model="form.groups"
+							data-testid="agent-form-sharing-groups"
+							:inputLabel="t('hermiq', 'Groups')"
+							:options="groupOptions"
+							:multiple="true"
+							:filterable="false"
+							label="label"
+							trackBy="value"
+							@search="onSearchGroups" />
+						<p
+							v-for="(finding, index) in draftFindingsFor('groups')"
+							:key="`groups-${index}`"
+							class="agent-form__finding"
+							data-testid="agent-form-finding-groups">
+							{{ findingText(finding) }}
+						</p>
+					</template>
+				</fieldset>
 
 				<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
 			     agent in lists and on its detail page. Searchable over the full MDI
@@ -149,13 +213,61 @@
 					<p class="agent-form__hint">
 						{{ modelHint }}
 					</p>
+					<p
+						v-for="(finding, index) in draftFindingsFor('model')"
+						:key="`model-${index}`"
+						class="agent-form__finding"
+						data-testid="agent-form-finding-model">
+						{{ findingText(finding) }}
+					</p>
 				</div>
 
+				<!-- The agent's own key per provider (operations-a-credential-per-agent).
+			     Only a reference is stored; the broker keeps the secret. When the
+			     pinned key cannot be used, the turn stops rather than use another. -->
+				<fieldset class="agent-form__credentials">
+					<legend>{{ t('hermiq', 'Credentials') }}</legend>
+					<div
+						v-for="provider in pinnableProviders"
+						:key="provider"
+						class="agent-form__field">
+						<NcSelect
+							:modelValue="pinOption(provider)"
+							:options="pinOptions(provider)"
+							:inputLabel="
+								t('hermiq', 'Credential for {provider}', {
+									provider,
+								})
+							"
+							:placeholder="t('hermiq', 'The organisation default')"
+							label="label"
+							trackBy="value"
+							@update:modelValue="pin(provider, $event)" />
+					</div>
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'A credential chosen here is used for this agent only. If it cannot be used for a run, the run stops and says why; it never falls back to another key.',
+							)
+						}}
+					</p>
+				</fieldset>
+
 				<NcTextArea
+					ref="promptInput"
 					v-model="form.prompt"
 					:label="t('hermiq', 'System prompt')"
 					:placeholder="t('hermiq', 'You are a helpful assistant…')"
 					resize="vertical" />
+
+				<!-- agents-instruction-variables: placeholders, a preview and the questions before a conversation. -->
+				<PromptPlaceholderTools
+					:agentId="effectiveAgent?.id || effectiveAgent?.uuid || ''"
+					:prompt="form.prompt"
+					:startFields="form.startFields"
+					@insert="insertPlaceholderAtCursor" />
+				<StartFieldsEditor v-model="form.startFields" />
 
 				<div class="agent-form__row">
 					<NcTextField
@@ -169,6 +281,61 @@
 						:label="t('hermiq', 'Max tokens per response')"
 						placeholder="2048" />
 				</div>
+
+				<!-- agents-bound-to-their-app: the app this agent serves, and whether it
+			     answers in that app's assistant (an organisation admin decides). -->
+				<div class="agent-form__field">
+					<NcSelect
+						v-model="form.applicationSlug"
+						data-testid="agent-form-app"
+						:inputLabel="t('hermiq', 'App this agent serves')"
+						:options="appChoices"
+						:taggable="true"
+						label="label"
+						trackBy="value"
+						:placeholder="t('hermiq', 'Only in Hermiq')" />
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								"In that app, the assistant can answer with this agent and search the app's own data.",
+							)
+						}}
+					</p>
+				</div>
+				<div
+					v-if="isEdit() && appSlugOf(form.applicationSlug) !== ''"
+					class="agent-form__field">
+					<NcCheckboxRadioSwitch
+						v-model="form.appAssistant"
+						data-testid="agent-form-app-assistant"
+						type="switch">
+						{{ t('hermiq', "Answer in this app's assistant") }}
+					</NcCheckboxRadioSwitch>
+					<p class="agent-form__hint">
+						{{
+							t(
+								'hermiq',
+								'An admin of the organisation chooses this. One agent answers per app.',
+							)
+						}}
+					</p>
+				</div>
+
+				<NcTextField
+					v-model="form.maxToolCalls"
+					data-testid="agent-form-max-tool-calls"
+					type="number"
+					min="1"
+					max="100"
+					:label="t('hermiq', 'Maximum tool calls per answer')"
+					:helperText="
+						t(
+							'hermiq',
+							'The agent stops after this many tool calls in one answer.',
+						)
+					"
+					placeholder="10" />
 
 				<div class="agent-form__field">
 					<NcSelect
@@ -187,6 +354,13 @@
 						{{
 							t('hermiq', 'Leave empty to allow every available tool.')
 						}}
+					</p>
+					<p
+						v-for="(finding, index) in draftFindingsFor('tools')"
+						:key="`tools-${index}`"
+						class="agent-form__finding"
+						data-testid="agent-form-finding-tools">
+						{{ findingText(finding) }}
 					</p>
 				</div>
 
@@ -295,7 +469,7 @@
 
 				<div class="agent-form__field">
 					<NcCheckboxRadioSwitch v-model="form.voiceConversationEnabled">
-						{{ t('hermiq', 'Allow spoken conversation') }}
+						{{ t('hermiq', 'Allow speaking with this agent') }}
 					</NcCheckboxRadioSwitch>
 					<p class="agent-form__hint">
 						{{
@@ -328,6 +502,8 @@
 
 <script>
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -338,18 +514,257 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { listTools } from '../api/agents.js'
+import PromptPlaceholderTools from '../components/PromptPlaceholderTools.vue'
+import StartFieldsEditor from '../components/StartFieldsEditor.vue'
+import { listTools, setAppAssistant } from '../api/agents.js'
+import { searchGroups, searchUsers } from '../api/chat.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
+import { flattenGrants } from '../api/toolTaxonomy.js'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
+import { answersInItsApp, appOptions, appSlugOf } from '../utils/agentApp.js'
+import {
+	credentialOptions,
+	PINNABLE_PROVIDERS,
+	setPin,
+} from '../utils/agentCredentials.js'
+import { sharingFields, sharingOf } from '../utils/agentSharing.js'
+import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
+
+/**
+ * A copy of the stored agent to spread into a save, without OpenRegister's `@self`.
+ *
+ * @param {object|null} agent The stored agent, or nothing on a create.
+ * @return {object} The copy.
+ */
+function editableCopy(agent) {
+	const base = agent ? { ...agent } : {}
+	delete base['@self']
+	return base
+}
+
+/**
+ * The payload's knowledge search and voice fields.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields.
+ */
+function searchAndVoicePayload(form) {
+	return {
+		enableRag: form.enableRag,
+		searchObjects: form.searchObjects,
+		searchFiles: form.searchFiles,
+
+		// The pickers hold `{value, label}` objects; the schema holds
+		// the value. Sending the object would store `[object Object]`
+		// and the agent would read as an unrecognised engine — which
+		// normalises to `auto`, i.e. an agent pinned to the private
+		// engine would quietly become one that may use the browser's.
+		// The form now holds the value itself, and the pickers convert
+		// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
+		voiceInputEngine: form.voiceInputEngine || 'auto',
+		voiceOutputEngine: form.voiceOutputEngine || 'auto',
+
+		voiceConversationEnabled: form.voiceConversationEnabled,
+	}
+}
+
+/**
+ * The values of a picker's `{label, value}` options.
+ *
+ * @param {Array<{value: string}>|null} options The options, or nothing.
+ * @return {Array<string>} The values.
+ */
+function optionValues(options) {
+	return (options || []).map((option) => option.value)
+}
+
+/**
+ * A number typed into a form field, when it is filled in and valid.
+ *
+ * @param {string|number|null} raw The field's value.
+ * @param {Function} isValid Tells a usable number from the rest.
+ * @return {number|undefined} The number, or undefined to leave the key out.
+ */
+function typedNumber(raw, isValid) {
+	const value = Number(raw)
+	return raw !== '' && isValid(value) ? value : undefined
+}
+
+/**
+ * Copy the fields that have a value onto the target.
+ *
+ * @param {object} target The object to write on.
+ * @param {object} fields The fields; an undefined one is skipped.
+ * @return {void}
+ */
+function assignDefined(target, fields) {
+	for (const [key, value] of Object.entries(fields)) {
+		if (value !== undefined) {
+			target[key] = value
+		}
+	}
+}
+
+/**
+ * The payload's voice timeout and model tuning numbers.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields; a blank or invalid one is undefined.
+ */
+function tuningFields(form) {
+	return {
+		voiceSilenceTimeout: typedNumber(
+			form.voiceSilenceTimeout,
+			(value) => Number.isInteger(value) && value >= 0,
+		),
+		temperature: typedNumber(form.temperature, (value) => !Number.isNaN(value)),
+		maxTokens: typedNumber(form.maxTokens, Number.isInteger),
+	}
+}
+
+/**
+ * The payload's tool call limit, kept within 1 to 100, and its source count.
+ *
+ * @param {object} form The form.
+ * @return {object} The fields; a blank or invalid one is undefined.
+ */
+function limitFields(form) {
+	const maxToolCalls = typedNumber(form.maxToolCalls, Number.isInteger)
+	return {
+		maxToolCalls:
+			maxToolCalls === undefined
+				? undefined
+				: Math.min(100, Math.max(1, maxToolCalls)),
+		ragNumSources: typedNumber(form.ragNumSources, Number.isInteger),
+	}
+}
+
+/**
+ * The form fields that describe the agent and its model.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function describingFields(source) {
+	return {
+		name: source.name || '',
+		description: source.description || '',
+		icon: source.icon || '',
+		provider: source.provider || '',
+		model: source.model || '',
+		prompt: source.prompt || '',
+		startFields: startFieldsOf(source),
+		temperature: source.temperature ?? '',
+		maxTokens: source.maxTokens ?? '',
+		maxToolCalls: source.maxToolCalls ?? 10,
+	}
+}
+
+/**
+ * Stored ids as picker options.
+ *
+ * @param {Array<string>|*} ids The stored list.
+ * @return {Array<{label: string, value: string}>} The options.
+ */
+function idOptions(ids) {
+	return (Array.isArray(ids) ? ids : []).map((id) => ({ label: id, value: id }))
+}
+
+/**
+ * The form fields that say which app the agent belongs to and who can use it.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function accessFields(source) {
+	const slug = appSlugOf(source.applicationSlug)
+	return {
+		applicationSlug: slug ? { label: slug, value: slug } : null,
+		appAssistant: answersInItsApp(source),
+		sharing: sharingOf(source),
+		invitedUsers: idOptions(source.invitedUsers),
+		groups: idOptions(source.groups),
+	}
+}
+
+/**
+ * The form fields for knowledge search and voice.
+ *
+ * @param {object} source The stored agent or draft.
+ * @return {object} The fields.
+ */
+function searchAndVoiceFields(source) {
+	return {
+		enableRag: source.enableRag === true,
+		searchObjects: source.searchObjects !== false,
+		searchFiles: source.searchFiles !== false,
+		ragNumSources: source.ragNumSources ?? '',
+		voiceInputEngine: source.voiceInputEngine || 'auto',
+		voiceOutputEngine: source.voiceOutputEngine || 'auto',
+
+		// '' rather than 2500: an empty field means "unset, use the
+		// default", and pre-filling the default would silently write it
+		// onto every agent that is edited for an unrelated reason.
+		voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
+		voiceConversationEnabled: source.voiceConversationEnabled === true,
+		credentialIds: { ...(source.credentialIds || {}) },
+	}
+}
+
+/**
+ * The stored `tools` value to carry forward on an edit, as the list the schema declares.
+ *
+ * A list is kept verbatim. The grant structure an earlier build stored is carried
+ * as its grant strings, the same ones the grant matrix saves: the schema refuses
+ * an object, and an empty list would revoke every grant.
+ *
+ * @param {Array|object|null|undefined} tools The stored value: a list, the grant structure, or nothing.
+ * @return {Array} The grants to write back.
+ */
+function storedTools(tools) {
+	if (Array.isArray(tools)) {
+		return tools
+	}
+
+	return flattenGrants(tools)
+}
+
+/**
+ * Whether a stored `tools` value is one of the two shapes grants are stored in.
+ *
+ * @param {*} tools The stored value.
+ * @return {boolean} True for a list or the grant structure.
+ */
+function holdsGrantList(tools) {
+	return Array.isArray(tools) || (typeof tools === 'object' && tools !== null)
+}
+
+/**
+ * Whether two grant lists hold the same grants, in any order.
+ *
+ * @param {Array<string>} one A grant list.
+ * @param {Array<string>} other Another grant list.
+ * @return {boolean} True when both hold the same grants.
+ */
+function sameGrants(one, other) {
+	const left = [...new Set(one)].sort()
+	const right = [...new Set(other)].sort()
+	return (
+		left.length === right.length
+		&& left.every((grant, index) => grant === right[index])
+	)
+}
 
 export default {
 	name: 'AgentFormModal',
 
 	components: {
 		CnIconPicker,
+		PromptPlaceholderTools,
+		StartFieldsEditor,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -407,6 +822,21 @@ export default {
 			type: Object,
 			default: null,
 		},
+
+		/**
+		 * A checked agent draft from chat (agents-plain-language-builder): the
+		 * form opens filled with it in create mode, so saving creates a new agent.
+		 */
+		draft: {
+			type: Object,
+			default: null,
+		},
+
+		/** The draft check's findings by field: `{model: [{message, suggestion}], ...}`. */
+		draftFindings: {
+			type: Object,
+			default: () => ({}),
+		},
 	},
 
 	emits: ['close', 'saved'],
@@ -414,8 +844,16 @@ export default {
 	data() {
 		return {
 			form: this.blankForm(),
+			// The broker credentials the owner may pin (operations-a-credential-per-agent).
+			credentials: [],
+			pinnableProviders: PINNABLE_PROVIDERS,
 			toolOptions: [],
 			toolsLoading: false,
+			// The grant ids the form was seeded with, to tell an edit from none.
+			readGrants: [],
+			// Agents-sharing-and-catalog-columns: search results for the pickers.
+			peopleOptions: [],
+			groupOptions: [],
 			saving: false,
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
@@ -742,6 +1180,19 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 		 */
+		/**
+		 * The apps the agent can serve (agents-bound-to-their-app).
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-owner-ties-an-agent-to-the-app-it-serves-req-appag-001
+		 */
+		appChoices() {
+			return appOptions(
+				window.OC?.appswebroots,
+				appSlugOf(this.form.applicationSlug),
+			)
+		},
+
 		delegationAllowlistOptions() {
 			const editingId =
 				this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
@@ -786,6 +1237,7 @@ export default {
 				}
 				this.loadTools()
 				this.loadPolicy()
+				this.loadCredentials()
 				this.loadAgentCatalog()
 			},
 		},
@@ -800,6 +1252,71 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Load the broker credentials the owner may pin. A failed read leaves the
+		 * pickers empty; the agent still saves and resolves as before.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		async loadCredentials() {
+			try {
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
+				this.credentials = data?.results || []
+			} catch {
+				this.credentials = []
+			}
+		},
+
+		/**
+		 * The credentials the owner may pin for one provider.
+		 *
+		 * @param {string} provider The provider.
+		 * @return {Array<object>} The options.
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		pinOptions(provider) {
+			return credentialOptions(this.credentials, provider)
+		},
+
+		/**
+		 * The pinned credential for one provider, as its option.
+		 *
+		 * @param {string} provider The provider.
+		 * @return {object|null} The option, or null when nothing is pinned.
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		pinOption(provider) {
+			const id = this.form.credentialIds?.[provider]
+			if (!id) {
+				return null
+			}
+			return (
+				this.pinOptions(provider).find((option) => option.value === id) || {
+					label: id,
+					value: id,
+				}
+			)
+		},
+
+		/**
+		 * Pin or clear one provider's credential.
+		 *
+		 * @param {string} provider The provider.
+		 * @param {object|null} option The chosen option, or null to clear.
+		 * @return {void}
+		 * @spec openspec/specs/agent-credentials/spec.md#requirement-an-agent-can-carry-its-own-credential-per-provider-req-agcred-001
+		 */
+		pin(provider, option) {
+			this.form.credentialIds = setPin(
+				this.form.credentialIds,
+				provider,
+				option?.value || null,
+			)
+		},
+
 		/**
 		 * Close the modal (agent-form-slot). Always emits `close` (the
 		 * existing registry `agent-form` open-modal path — AgentDetail's
@@ -860,8 +1377,15 @@ export default {
 				provider: '',
 				model: '',
 				prompt: '',
+				startFields: [],
 				temperature: '',
 				maxTokens: '',
+				maxToolCalls: 10,
+				applicationSlug: null,
+				appAssistant: false,
+				sharing: 'only-me',
+				invitedUsers: [],
+				groups: [],
 				tools: [],
 				delegationAllowlist: [],
 				enableRag: false,
@@ -872,6 +1396,7 @@ export default {
 				voiceOutputEngine: 'auto',
 				voiceSilenceTimeout: '',
 				voiceConversationEnabled: false,
+				credentialIds: {},
 			}
 		},
 
@@ -910,6 +1435,48 @@ export default {
 		},
 
 		/**
+		 * Offer the users matching the typed text (agents-sharing-and-catalog-columns).
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-agent-owner-decides-who-can-use-the-agent-req-agshare-001
+		 */
+		async onSearchPeople(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.peopleOptions = (await searchUsers(search)).map((user) => ({
+					label: user.displayName,
+					value: user.uid,
+				}))
+			} catch {
+				this.peopleOptions = []
+			}
+		},
+
+		/**
+		 * Offer the groups matching the typed text (agents-sharing-and-catalog-columns).
+		 *
+		 * @param {string} search The typed text.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-agent-owner-decides-who-can-use-the-agent-req-agshare-001
+		 */
+		async onSearchGroups(search) {
+			if (!search) {
+				return
+			}
+			try {
+				this.groupOptions = (await searchGroups(search)).map((group) => ({
+					label: group.displayName,
+					value: group.gid,
+				}))
+			} catch {
+				this.groupOptions = []
+			}
+		},
+
+		/**
 		 * Seed the form from `effectiveAgent` (edit) or blank (create).
 		 *
 		 * @return {void}
@@ -917,40 +1484,27 @@ export default {
 		 */
 		resetForm() {
 			this.error = ''
-			if (!this.effectiveAgent) {
+			// agents-plain-language-builder: a draft fills the form in create mode.
+			const source = this.effectiveAgent || this.draft
+			if (!source) {
 				this.form = this.blankForm()
+				this.readGrants = []
 				return
 			}
-			const source = this.effectiveAgent
-			const tools = Array.isArray(source.tools) ? source.tools : []
+			// Both stored shapes: a list, or the app → subject → action structure.
+			const tools = flattenGrants(source.tools)
+			this.readGrants = [...tools]
 			const delegationAllowlist = Array.isArray(source.delegationAllowlist)
 				? source.delegationAllowlist
 				: []
 			this.form = {
-				name: source.name || '',
-				description: source.description || '',
-				icon: source.icon || '',
-				provider: source.provider || '',
-				model: source.model || '',
-				prompt: source.prompt || '',
-				temperature: source.temperature ?? '',
-				maxTokens: source.maxTokens ?? '',
+				...describingFields(source),
+				...accessFields(source),
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 
-				enableRag: source.enableRag === true,
-				searchObjects: source.searchObjects !== false,
-				searchFiles: source.searchFiles !== false,
-				ragNumSources: source.ragNumSources ?? '',
-				voiceInputEngine: source.voiceInputEngine || 'auto',
-				voiceOutputEngine: source.voiceOutputEngine || 'auto',
-
-				// '' rather than 2500: an empty field means "unset, use the
-				// default", and pre-filling the default would silently write it
-				// onto every agent that is edited for an unrelated reason.
-				voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
-				voiceConversationEnabled: source.voiceConversationEnabled === true,
+				...searchAndVoiceFields(source),
 			}
 		},
 
@@ -1092,6 +1646,59 @@ export default {
 		},
 
 		/**
+		 * The draft check's findings for one field.
+		 *
+		 * @param {string} field The field.
+		 * @return {Array<{message: string, suggestion: string}>}
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		draftFindingsFor(field) {
+			return this.draftFindings?.[field] || []
+		},
+
+		/**
+		 * A finding as one line, with its suggestion when there is one.
+		 *
+		 * @param {{message: string, suggestion: string}} finding The finding.
+		 * @return {string}
+		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 */
+		findingText(finding) {
+			if (!finding.suggestion) {
+				return finding.message
+			}
+			return this.t('hermiq', '{message} Try {suggestion}.', {
+				message: finding.message,
+				suggestion: finding.suggestion,
+			})
+		},
+
+		/**
+		 * Put a placeholder in the instructions at the cursor
+		 * (agents-instruction-variables).
+		 *
+		 * @param {string} token The placeholder.
+		 * @return {void}
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
+		 */
+		insertPlaceholderAtCursor(token) {
+			const area = this.$refs.promptInput?.$el?.querySelector('textarea')
+			const { text, cursor } = insertPlaceholder(
+				this.form.prompt,
+				token,
+				area?.selectionStart,
+				area?.selectionEnd,
+			)
+			this.form.prompt = text
+			this.$nextTick(() => {
+				if (area) {
+					area.focus()
+					area.setSelectionRange(cursor, cursor)
+				}
+			})
+		},
+
+		/**
 		 * Build the save payload. On edit, spread the existing agent payload
 		 * first so schema fields this form does not surface survive the PUT
 		 * (the generic objects path replaces the payload wholesale); `@self`
@@ -1105,7 +1712,7 @@ export default {
 		 * tool-grants endpoint in `save()` instead, which is what makes that
 		 * endpoint the single write path its docblock claims to be.
 		 *
-		 * The STORED list is still carried forward verbatim rather than omitted:
+		 * The STORED value is still carried forward verbatim, in either shape, rather than omitted:
 		 * `saveObject` is PUT-semantic and nulls anything absent, so dropping
 		 * the key would clear every grant the agent has for as long as it takes
 		 * the follow-up call to land — and permanently if that call failed.
@@ -1117,8 +1724,7 @@ export default {
 		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 		 */
 		buildPayload() {
-			const base = this.effectiveAgent ? { ...this.effectiveAgent } : {}
-			delete base['@self']
+			const base = editableCopy(this.effectiveAgent)
 
 			const payload = {
 				...base,
@@ -1128,54 +1734,30 @@ export default {
 				provider: this.form.provider,
 				model: this.form.model,
 				prompt: this.form.prompt,
+				// Only well-formed questions are saved (the register refuses the rest).
+				startFields: startFieldsOf({ startFields: this.form.startFields }),
 				tools: this.isEdit()
-					? Array.isArray(base.tools)
-						? base.tools
-						: []
+					? storedTools(base.tools)
 					: this.selectedGrants(),
 
-				delegationAllowlist: (this.form.delegationAllowlist || []).map(
-					(option) => option.value,
+				delegationAllowlist: optionValues(this.form.delegationAllowlist),
+
+				applicationSlug: appSlugOf(this.form.applicationSlug),
+
+				...searchAndVoicePayload(this.form),
+				credentialIds: this.form.credentialIds,
+			}
+
+			assignDefined(payload, tuningFields(this.form))
+			Object.assign(
+				payload,
+				sharingFields(
+					this.form.sharing,
+					optionValues(this.form.invitedUsers),
+					optionValues(this.form.groups),
 				),
-
-				enableRag: this.form.enableRag,
-				searchObjects: this.form.searchObjects,
-				searchFiles: this.form.searchFiles,
-
-				// The pickers hold `{value, label}` objects; the schema holds
-				// the value. Sending the object would store `[object Object]`
-				// and the agent would read as an unrecognised engine — which
-				// normalises to `auto`, i.e. an agent pinned to the private
-				// engine would quietly become one that may use the browser's.
-				// The form now holds the value itself, and the pickers convert
-				// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
-				voiceInputEngine: this.form.voiceInputEngine || 'auto',
-				voiceOutputEngine: this.form.voiceOutputEngine || 'auto',
-
-				voiceConversationEnabled: this.form.voiceConversationEnabled,
-			}
-
-			const voiceSilenceTimeout = Number(this.form.voiceSilenceTimeout)
-			if (
-				this.form.voiceSilenceTimeout !== ''
-				&& Number.isInteger(voiceSilenceTimeout)
-				&& voiceSilenceTimeout >= 0
-			) {
-				payload.voiceSilenceTimeout = voiceSilenceTimeout
-			}
-
-			const temperature = Number(this.form.temperature)
-			if (this.form.temperature !== '' && !Number.isNaN(temperature)) {
-				payload.temperature = temperature
-			}
-			const maxTokens = Number(this.form.maxTokens)
-			if (this.form.maxTokens !== '' && Number.isInteger(maxTokens)) {
-				payload.maxTokens = maxTokens
-			}
-			const ragNumSources = Number(this.form.ragNumSources)
-			if (this.form.ragNumSources !== '' && Number.isInteger(ragNumSources)) {
-				payload.ragNumSources = ragNumSources
-			}
+			)
+			assignDefined(payload, limitFields(this.form))
 
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.effectiveAgent && this.effectiveAgent.id) {
@@ -1183,6 +1765,8 @@ export default {
 			}
 			return payload
 		},
+
+		appSlugOf,
 
 		/**
 		 * Whether this modal is editing an existing agent (as opposed to creating one).
@@ -1204,6 +1788,63 @@ export default {
 		},
 
 		/**
+		 * Whether the selection differs from the grants the form was seeded with.
+		 *
+		 * @return {boolean} True when a grant was added or removed.
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 */
+		grantsChanged() {
+			return !sameGrants(this.selectedGrants(), this.readGrants)
+		},
+
+		/**
+		 * The agent's `tools` as stored now, to write back on an edit save.
+		 *
+		 * The form opened with a copy of the grants, and the grant matrix in
+		 * another tab can change them meanwhile. Writing the copy back would
+		 * undo that change, so the stored value is read again here. When it
+		 * moved and this form changed the grants too, the save stops instead
+		 * of choosing between the two.
+		 *
+		 * @return {Promise<Array|null>} The grants to write back, or null (with `error` set) to stop the save.
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+		 */
+		async currentStoredTools() {
+			// The read that seeded a routed form, so an admin who may read the
+			// object through OpenRegister reads the same list here. Hermiq's own
+			// agent endpoint gives such an admin a row without `tools`.
+			const current = await this.store.fetchObject(
+				'agent',
+				this.effectiveAgent.id,
+			)
+			const stored = current?.tools
+			if (
+				!current
+				|| (!holdsGrantList(stored) && this.readGrants.length > 0)
+			) {
+				this.error = this.t(
+					'hermiq',
+					"Could not read the agent's current tool grants, so nothing was saved. Try again.",
+				)
+				return null
+			}
+
+			const movedElsewhere = !sameGrants(
+				flattenGrants(stored),
+				this.readGrants,
+			)
+			if (movedElsewhere && this.grantsChanged()) {
+				this.error = this.t(
+					'hermiq',
+					'The tool grants of this agent were changed elsewhere after you opened this form, so nothing was saved. Close the form and open it again to see the current grants.',
+				)
+				return null
+			}
+
+			return storedTools(stored)
+		},
+
+		/**
 		 * Persist the agent via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
@@ -1221,10 +1862,15 @@ export default {
 			this.error = ''
 			try {
 				const wasEdit = this.isEdit()
-				const saved = await this.store.saveObject(
-					'agent',
-					this.buildPayload(),
-				)
+				const payload = this.buildPayload()
+				if (wasEdit) {
+					const tools = await this.currentStoredTools()
+					if (tools === null) {
+						return
+					}
+					payload.tools = tools
+				}
+				const saved = await this.store.saveObject('agent', payload)
 				if (saved === null) {
 					this.error =
 						this.store.errors?.agent?.message
@@ -1239,7 +1885,9 @@ export default {
 					const agentId =
 						saved?.['@self']?.id || saved?.id || this.effectiveAgent?.id
 					try {
-						await updateToolGrants(agentId, this.selectedGrants())
+						if (this.grantsChanged()) {
+							await updateToolGrants(agentId, this.selectedGrants())
+						}
 					} catch (grantError) {
 						// The agent itself saved. Say so, rather than letting a
 						// refused grant write read as "nothing was saved" — the
@@ -1249,6 +1897,25 @@ export default {
 							"The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.",
 						)
 						return
+					}
+
+					// The assistant flag has its own endpoint: an organisation
+					// admin decides it, one agent per app (agents-bound-to-their-app).
+					if (
+						this.form.appAssistant
+						!== answersInItsApp(this.effectiveAgent || {})
+					) {
+						try {
+							await setAppAssistant(agentId, this.form.appAssistant)
+						} catch (assistantError) {
+							this.error =
+								assistantError?.response?.data?.error
+								|| this.t(
+									'hermiq',
+									"The agent was saved, but it was not made this app's assistant.",
+								)
+							return
+						}
 					}
 				}
 
@@ -1265,6 +1932,17 @@ export default {
 </script>
 
 <style scoped>
+.agent-form__finding {
+	margin: 4px 0 0;
+	color: var(--color-warning-text);
+}
+
+.agent-form__credentials {
+	border: none;
+	margin: 0;
+	padding: 0;
+}
+
 .agent-form {
 	display: flex;
 	flex-direction: column;

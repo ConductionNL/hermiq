@@ -41,6 +41,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
@@ -59,6 +60,7 @@ use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -93,6 +95,7 @@ class HermiqToolProviderTest extends TestCase {
 		?DelegationService $delegationService = null,
 		?NcNativeWriteService $writeService = null,
 		?MailReadService $mailReadService = null,
+		?ContainerInterface $container = null,
 	): HermiqToolProvider {
 		$session = $this->createMock(IUserSession::class);
 		if ($uid === null) {
@@ -110,7 +113,7 @@ class HermiqToolProviderTest extends TestCase {
 			$this->createMock(ICalendarManager::class),
 			$this->createMock(IMailer::class),
 			$this->createMock(IAppManager::class),
-			$this->createMock(ContainerInterface::class),
+			$container ?? $this->tasksContainer(canComplete: true),
 			$engine ?? $this->createMock(CourseRecommendationEngine::class),
 			$memoryService ?? $this->createMock(MemoryService::class),
 			$webSearchClient ?? $this->createMock(WebSearchClient::class),
@@ -123,6 +126,150 @@ class HermiqToolProviderTest extends TestCase {
 		);
 
 	}//end provider()
+
+	/**
+	 * A container whose TaskWriteService says whether completing can write back.
+	 *
+	 * @param bool $canComplete Whether the DAV backend path exists.
+	 * @param TaskWriteService|null $tasks A specific TaskWriteService double.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function tasksContainer(bool $canComplete, ?TaskWriteService $tasks = null): ContainerInterface {
+		if ($tasks === null) {
+			$tasks = $this->createMock(TaskWriteService::class);
+			$tasks->method('canComplete')->willReturn($canComplete);
+		}
+
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): ?object => ($id === TaskWriteService::class ? $tasks : null)
+		);
+
+		return $container;
+
+	}//end tasksContainer()
+
+	/**
+	 * A container that also answers ImageGenerationService.
+	 *
+	 * @param ImageGenerationService $images The image service double.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function imagesContainer(ImageGenerationService $images): ContainerInterface {
+		$tasks = $this->createMock(TaskWriteService::class);
+		$tasks->method('canComplete')->willReturn(true);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id): ?object => match ($id) {
+				TaskWriteService::class => $tasks,
+				ImageGenerationService::class => $images,
+				default => null,
+			}
+		);
+
+		return $container;
+
+	}//end imagesContainer()
+
+	/**
+	 * Without a text-to-image provider the image tool is not in the catalogue.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 */
+	public function testTheImageToolIsAbsentWithoutAProvider(): void {
+		$images = $this->createMock(ImageGenerationService::class);
+		$images->method('isAvailable')->willReturn(false);
+
+		$ids = array_column($this->provider(uid: 'alice', container: $this->imagesContainer($images))->getTools(), 'id');
+
+		$this->assertNotContains('hermiq.generateImage', $ids);
+
+	}//end testTheImageToolIsAbsentWithoutAProvider()
+
+	/**
+	 * With a provider the tool is listed with scope create, and a call reaches the
+	 * service as the session user with the run-injected agent id.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 */
+	public function testTheImageToolIsListedAndRoutedAsTheSessionUser(): void {
+		$calls = [];
+		$images = $this->createMock(ImageGenerationService::class);
+		$images->method('isAvailable')->willReturnCallback(static fn (?string $uid = null): bool => $uid === 'alice');
+		$images->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = [$uid, $toolId, ($arguments['agentId'] ?? null)];
+				return ['fileId' => 902];
+			}
+		);
+		$provider = $this->provider(uid: 'alice', container: $this->imagesContainer($images));
+
+		$tool = array_values(array_filter($provider->getTools(), static fn (array $t): bool => $t['id'] === 'hermiq.generateImage'));
+		$this->assertCount(1, $tool);
+		$this->assertSame('create', $tool[0]['scope']);
+
+		$this->assertSame(['fileId' => 902], $provider->invokeTool('hermiq.generateImage', ['prompt' => 'Een kaart', 'agentId' => 'agent-3', 'user' => 'bob']));
+		$this->assertSame([['alice', 'hermiq.generateImage', 'agent-3']], $calls);
+
+	}//end testTheImageToolIsListedAndRoutedAsTheSessionUser()
+
+	/**
+	 * With no way to write a task back, completeTask is left out of the catalogue;
+	 * listing and creating stay.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 */
+	public function testCompleteTaskIsAbsentWithoutAReplacePath(): void {
+		$ids = array_column($this->provider(uid: 'alice', container: $this->tasksContainer(canComplete: false))->getTools(), 'id');
+
+		$this->assertNotContains('hermiq.completeTask', $ids);
+		$this->assertContains('hermiq.listTasks', $ids);
+		$this->assertContains('hermiq.createTask', $ids);
+		$this->assertCount(41, $ids);
+
+	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
+
+	/**
+	 * The three task tools reach TaskWriteService with the session uid and the
+	 * run-injected agent id; a caller-supplied uid never replaces the session's.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
+	 */
+	public function testTaskToolsRouteToTaskWriteService(): void {
+		$calls = [];
+		$tasks = $this->createMock(TaskWriteService::class);
+		$tasks->method('invoke')->willReturnCallback(
+			function (string $uid, string $toolId, array $arguments) use (&$calls): array {
+				$calls[] = [$uid, $toolId, ($arguments['agentId'] ?? null)];
+				return ['ok' => true];
+			}
+		);
+		$provider = $this->provider(uid: 'alice', container: $this->tasksContainer(canComplete: true, tasks: $tasks));
+
+		foreach (['hermiq.listTasks', 'hermiq.createTask', 'hermiq.completeTask'] as $toolId) {
+			$this->assertSame(['ok' => true], $provider->invokeTool($toolId, ['agentId' => 'agent-7', 'user' => 'bob']));
+		}
+
+		$this->assertSame(
+			[
+				['alice', 'hermiq.listTasks', 'agent-7'],
+				['alice', 'hermiq.createTask', 'agent-7'],
+				['alice', 'hermiq.completeTask', 'agent-7'],
+			],
+			$calls
+		);
+
+	}//end testTaskToolsRouteToTaskWriteService()
 
 	/**
 	 * Each nc-native-write tool id dispatches to its own write-service method,
@@ -261,8 +408,13 @@ class HermiqToolProviderTest extends TestCase {
 		//   (nc-mail-read-tools),
 		// + hermiq.listAvailableTools/requestToolAccess
 		//   (tool-discovery-and-access-requests),
+		// + hermiq.workspaceOpen/Status/Diff/Log/ListFiles/ReadFile, and the write tools
+		//   WriteFile/DeleteFile/ApplyPatch/CreateBranch/CheckoutBranch/Commit/Push
+		//   (hermiq-runner-git-capability),
+		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
+		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
 		// all registered through this same provider.
-		$this->assertCount(24, $tools);
+		$this->assertCount(42, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -340,10 +492,29 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listMailAccounts' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.listMailMessages' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.readMailMessage' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceOpen' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'create'],
+			'hermiq.workspaceStatus' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceDiff' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceLog' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceListFiles' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceReadFile' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.workspaceWriteFile' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
+			'hermiq.workspaceDeleteFile' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'scope' => 'delete'],
+			'hermiq.workspaceApplyPatch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.workspaceCreateBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.workspaceCheckoutBranch' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'update'],
+			'hermiq.workspaceCommit' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// tools-nextcloud-tasks: completing is not destructive (one click reopens it).
+			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.completeTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(24, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(42, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -412,6 +583,26 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listMailAccounts' => ToolReachResolver::REACH_USER,
 			'hermiq.listMailMessages' => ToolReachResolver::REACH_USER,
 			'hermiq.readMailMessage' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceOpen' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.workspaceStatus' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceDiff' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceLog' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceListFiles' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceReadFile' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceWriteFile' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceDeleteFile' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceApplyPatch' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceCreateBranch' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceCheckoutBranch' => ToolReachResolver::REACH_USER,
+			'hermiq.workspaceCommit' => ToolReachResolver::REACH_USER,
+			'hermiq.workspacePush' => ToolReachResolver::REACH_EXTERNAL,
+			// `user`: reads the graph as the acting user and returns pointers only.
+			'hermiq.graphNeighbors' => ToolReachResolver::REACH_USER,
+			'hermiq.graphPath' => ToolReachResolver::REACH_USER,
+			// `instance`: a list the user owns can be shared with colleagues, who see the change.
+			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
+			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
+			'hermiq.completeTask' => ToolReachResolver::REACH_INSTANCE,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -495,6 +686,24 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listMailAccounts' => ['mailAccount', 'list'],
 			'hermiq.listMailMessages' => ['mailMessage', 'list'],
 			'hermiq.readMailMessage' => ['mailMessage', 'get'],
+			'hermiq.workspaceOpen' => ['workspace', 'open'],
+			'hermiq.workspaceStatus' => ['workspace', 'status'],
+			'hermiq.workspaceDiff' => ['workspace', 'diff'],
+			'hermiq.workspaceLog' => ['workspace', 'log'],
+			'hermiq.workspaceListFiles' => ['workspace', 'list'],
+			'hermiq.workspaceReadFile' => ['workspace', 'get'],
+			'hermiq.workspaceWriteFile' => ['workspace', 'write'],
+			'hermiq.workspaceDeleteFile' => ['workspace', 'delete'],
+			'hermiq.workspaceApplyPatch' => ['workspace', 'patch'],
+			'hermiq.workspaceCreateBranch' => ['workspace', 'branch'],
+			'hermiq.workspaceCheckoutBranch' => ['workspace', 'checkout'],
+			'hermiq.workspaceCommit' => ['workspace', 'commit'],
+			'hermiq.workspacePush' => ['workspace', 'push'],
+			'hermiq.graphNeighbors' => ['graphEntity', 'list'],
+			'hermiq.graphPath' => ['graphEntity', 'get'],
+			'hermiq.listTasks' => ['task', 'list'],
+			'hermiq.createTask' => ['task', 'create'],
+			'hermiq.completeTask' => ['task', 'complete'],
 		];
 
 		$tools = $this->provider('alice')->getTools();

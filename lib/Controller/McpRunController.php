@@ -56,14 +56,20 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Engine\RunToolCallCounter;
+use OCA\Hermiq\Service\Engine\TurnGuard;
+use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -122,11 +128,33 @@ class McpRunController extends Controller {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
+	 * Schema slug for the conversation (session) objects.
+	 *
+	 * @var string
+	 */
+	private const CONVERSATION_SCHEMA = 'agentsession';
+
+	/**
+	 * The chat policy for a run whose conversation cannot be read: the chat shows
+	 * the withheld placeholder for every tool step's arguments and result.
+	 *
+	 * @var array<string,string>
+	 */
+	private const WITHHOLD_ALL = ['source' => 'unreadable-conversation'];
+
+	/**
 	 * The MCP protocol version this server defaults to when the client names none.
 	 *
 	 * @var string
 	 */
 	private const DEFAULT_PROTOCOL_VERSION = '2025-06-18';
+
+	/**
+	 * The run id of this request, from the verified run token.
+	 *
+	 * @var string
+	 */
+	private string $runId = '';
 
 	/**
 	 * Constructor.
@@ -144,6 +172,12 @@ class McpRunController extends Controller {
 	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
+	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
+	 *                                              workspace tools for the length of one dispatch.
+	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
+	 *                                                 for the agent's tool call cap.
+	 * @param GuardrailPolicyService|null $guardrailService Applies the output filters to
+	 *                                                      the steps shown in the chat.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -161,6 +195,9 @@ class McpRunController extends Controller {
 		private readonly IThrottler $throttler,
 		private readonly RunStepBus $runStepBus,
 		private readonly LoggerInterface $logger,
+		private readonly ?WorkspaceRunScope $workspaceScope = null,
+		private readonly ?RunToolCallCounter $toolCallCounter = null,
+		private readonly ?GuardrailPolicyService $guardrailService = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -188,21 +225,10 @@ class McpRunController extends Controller {
 	public function handle(): Response {
 		// AUTH FIRST — the per-run token is the authorization. Reject before any
 		// body is parsed or any tool is resolved.
-		$binding = $this->runTokenService->verify(token: $this->bearerToken());
+		$token = $this->bearerToken();
+		$binding = $this->runTokenService->verify(token: $token);
 		if ($binding === null) {
-			// Same run-token action as EgressAuthorizeController on purpose: an
-			// attacker guessing run tokens can probe either endpoint, so both
-			// must feed one counter (ADR-082).
-			try {
-				$this->throttler->registerAttempt(
-					action: self::THROTTLE_ACTION,
-					ip: $this->request->getRemoteAddress()
-				);
-			} catch (\Throwable $throttlerFailure) {
-				unset($throttlerFailure);
-			}
-
-			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+			return $this->refuseToken(token: $token);
 		}
 
 		$body = json_decode($this->readRawBody(), true);
@@ -243,17 +269,66 @@ class McpRunController extends Controller {
 		return $this->withImpersonatedUser(
 			userId: $binding['userId'],
 			work: function () use ($id, $method, $params, $binding): Response {
-				return $this->dispatch(
-					id: $id,
-					method: $method,
-					params: $params,
+				// The workspace tools address the run's checkout by THIS run id,
+				// taken from the verified token, never from the body.
+				$this->runId = (string)$binding['runId'];
+				$this->workspaceScope?->enter(
+					runId: $binding['runId'],
 					agentId: $binding['agentId'],
-					conversationId: $binding['conversationId']
+					userId: $binding['userId']
 				);
+				try {
+					return $this->dispatch(
+						id: $id,
+						method: $method,
+						params: $params,
+						agentId: $binding['agentId'],
+						conversationId: $binding['conversationId']
+					);
+				} finally {
+					$this->workspaceScope?->leave();
+				}
 			}
 		);
 
 	}//end handle()
+
+	/**
+	 * Refuse a token that failed verification, and count it with the brute-force
+	 * throttler only when this instance never issued it.
+	 *
+	 * @param string $token The presented bearer token. Never logged.
+	 *
+	 * @return JSONResponse The fail-closed 401.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	private function refuseToken(string $token): JSONResponse {
+		// Same run-token action as EgressAuthorizeController on purpose: an
+		// attacker guessing run tokens can probe either endpoint, so both
+		// must feed one counter (ADR-082).
+		//
+		// Only a token this instance never issued is counted. A spent or
+		// expired token that WAS issued is a legitimate component arriving
+		// late (a CLI flushing after its turn ended), and it is refused all
+		// the same. Counting it let one stale caller throttle this endpoint
+		// for every run behind the same proxy IP. A guesser cannot reach the
+		// uncounted branch: it needs the preimage of a stored digest.
+		if ($this->runTokenService->isKnown(token: $token) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->throttler->registerAttempt(
+				action: self::THROTTLE_ACTION,
+				ip: $this->request->getRemoteAddress()
+			);
+		} catch (\Throwable $throttlerFailure) {
+			unset($throttlerFailure);
+		}
+
+		return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+	}//end refuseToken()
 
 	/**
 	 * The MCP `initialize` handshake: return the negotiated protocol version,
@@ -345,6 +420,38 @@ class McpRunController extends Controller {
 	}//end resolveMcpTools()
 
 	/**
+	 * The call's arguments, with the calling agent stamped in.
+	 *
+	 * WHO IS CALLING, decided here rather than trusted from the model. Several
+	 * tools need the calling agent's identity: memory, and the tool-access
+	 * request path, which cannot raise a request "from an agent" without knowing
+	 * which. They read it from `arguments['agentId']`, which on this transport
+	 * the MODEL would have to supply: it has no way to know its own uuid, so it
+	 * sent nothing and the request was refused with "an access request must come
+	 * from an agent". The token already binds this run to an agent, so the
+	 * identity is authoritative here and is stamped in. Overwriting rather than
+	 * defaulting is deliberate: a model-supplied agentId would otherwise let one
+	 * agent act as another.
+	 *
+	 * @param array<string, mixed> $params  The JSON-RPC params.
+	 * @param string               $agentId The agent from the verified token.
+	 *
+	 * @return array<string, mixed> The arguments.
+	 */
+	private function callArguments(array $params, string $agentId): array {
+		$arguments = $params['arguments'] ?? [];
+		if (is_array($arguments) === false) {
+			$arguments = [];
+		}
+
+		if ($agentId !== '') {
+			$arguments['agentId'] = $agentId;
+		}
+
+		return $arguments;
+	}//end callArguments()
+
+	/**
 	 * `tools/call`: dispatch through the SAME governed `FacadeToolInvoker` the
 	 * `http` tool loop uses. A tool outside the agent's grants, a guardrail deny
 	 * or a pending approval returns `result.isError: true` and executes nothing.
@@ -365,29 +472,19 @@ class McpRunController extends Controller {
 			return $this->jsonRpcError(id: $id, code: -32602, message: 'Invalid params', status: Http::STATUS_BAD_REQUEST);
 		}
 
-		$arguments = $params['arguments'] ?? [];
-		if (is_array($arguments) === false) {
-			$arguments = [];
-		}
-
-		// WHO IS CALLING, decided here rather than trusted from the model.
-		//
-		// Several tools need the calling agent's identity — memory, and the
-		// tool-access request path, which cannot raise a request "from an agent"
-		// without knowing which. They read it from `arguments['agentId']`, which
-		// on this transport the MODEL would have to supply: it has no way to know
-		// its own uuid, so it sent nothing and the request was refused with "an
-		// access request must come from an agent".
-		//
-		// The token already binds this run to an agent (see the binding above),
-		// so the identity is authoritative here and is stamped in. Overwriting
-		// rather than defaulting is deliberate: a model-supplied agentId would
-		// otherwise let one agent act as another.
-		if ($agentId !== '') {
-			$arguments['agentId'] = $agentId;
-		}
-
+		$arguments = $this->callArguments(params: $params, agentId: $agentId);
 		$agent = $this->loadAgent(agentId: $agentId);
+
+		// Agents-switch-off-and-stop: every call is its own request on this
+		// transport, so the turn's tool call cap is counted per run id.
+		$cap = (new AgentAvailability())->maxToolCalls(agent: $agent);
+		if ($this->toolCallCounter?->admit(runId: $this->runId, cap: $cap) === false) {
+			return $this->jsonRpcSuccess(
+				id: $id,
+				result: $this->toolError(text: TurnGuard::LIMIT_REACHED . '. Do not call another tool; answer with what you have.')
+			);
+		}
+
 		$descriptors = $this->resolvedDescriptorsFor(agent: $agent);
 
 		// An ungranted tool is a TOOL-level error (isError: true), never executed —
@@ -420,6 +517,8 @@ class McpRunController extends Controller {
 			// the UI is listening to — is never touched. The run token binds this
 			// request to its conversation, which is what lets the two be joined.
 			$startedAt = microtime(true);
+			$policy = $this->chatPolicy(conversationId: $conversationId);
+			$shownArguments = $this->shownInChat(policy: $policy, value: $arguments);
 
 			try {
 				$resultJson = (string)$functionInfo->callWithArguments($arguments);
@@ -432,7 +531,7 @@ class McpRunController extends Controller {
 				$this->runStepBus->record(
 					conversationId: $conversationId,
 					toolName: $name,
-					arguments: $arguments,
+					arguments: $shownArguments,
 					result: 'The tool call could not be completed.',
 					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
 					outcome: RunStepBus::OUTCOME_ERROR
@@ -444,8 +543,8 @@ class McpRunController extends Controller {
 			$this->runStepBus->record(
 				conversationId: $conversationId,
 				toolName: $name,
-				arguments: $arguments,
-				result: $resultJson,
+				arguments: $shownArguments,
+				result: $this->shownResult(policy: $policy, resultJson: $resultJson),
 				durationMs: (int)round((microtime(true) - $startedAt) * 1000)
 			);
 
@@ -476,6 +575,8 @@ class McpRunController extends Controller {
 	 * @param ObjectEntity|null $agent The agent object, or null when unresolved.
 	 *
 	 * @return array<int, array<string, mixed>> The resolved descriptors.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	private function resolvedDescriptorsFor(?ObjectEntity $agent): array {
 		if ($agent === null) {
@@ -488,7 +589,12 @@ class McpRunController extends Controller {
 		}
 
 		$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
-		$resolvedIds = $this->grantResolver->resolve(grants: $grants, catalog: $catalog);
+		// Hermiq-runner-git-capability: a repo-effecting tool resolves only from a
+		// grant that pins the repository and constrains the branch.
+		$resolvedIds = RepoEffectingGrants::filterIds(
+			resolvedIds: $this->grantResolver->resolve(grants: $grants, catalog: $catalog),
+			constraints: $this->grantResolver->argumentConstraints(grants: $grants)
+		);
 		$allowed = array_flip($resolvedIds);
 
 		$out = [];
@@ -555,18 +661,133 @@ class McpRunController extends Controller {
 	}//end loadAgent()
 
 	/**
+	 * A tool step's arguments or result as the chat may show it: through the
+	 * policy's output filters, or as given when no policy is resolved.
+	 *
+	 * @param array<string,mixed>|null $policy The conversation's effective policy.
+	 * @param mixed                    $value  The arguments or the result text.
+	 *
+	 * @return mixed
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownInChat(?array $policy, mixed $value): mixed {
+		if ($policy === null || $this->guardrailService === null) {
+			return $value;
+		}
+
+		if ($policy === self::WITHHOLD_ALL) {
+			return $this->guardrailService->withheldPlaceholder();
+		}
+
+		return $this->guardrailService->filterOutputValue(policy: $policy, value: $value);
+	}//end shownInChat()
+
+	/**
+	 * The tool's result JSON as the chat may show it. The JSON is filtered as its
+	 * decoded value, so escaped characters such as `\/` do not hide a match.
+	 *
+	 * @param array<string,mixed>|null $policy     The conversation's effective policy.
+	 * @param string                   $resultJson The result JSON the tool returned.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownResult(?array $policy, string $resultJson): string {
+		$decoded = json_decode($resultJson, true);
+		if (is_array($decoded) === false) {
+			return (string)$this->shownInChat(policy: $policy, value: $resultJson);
+		}
+
+		$shown = $this->shownInChat(policy: $policy, value: $decoded);
+		if ($shown === $decoded) {
+			return $resultJson;
+		}
+
+		if (is_string($shown) === true) {
+			return $shown;
+		}
+
+		return (string)json_encode($shown, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+	}//end shownResult()
+
+	/**
+	 * The policy that decides what the chat shows of a tool step: the
+	 * conversation's, the same one that filters the answer. Null when there is no
+	 * guardrail service; WITHHOLD_ALL when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return array<string,mixed>|null
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function chatPolicy(string $conversationId): ?array {
+		if ($this->guardrailService === null) {
+			return null;
+		}
+
+		$organisation = $this->conversationOrganisation(conversationId: $conversationId);
+		if ($organisation === null) {
+			return self::WITHHOLD_ALL;
+		}
+
+		return $this->guardrailService->effectivePolicyFor(organisation: $organisation);
+	}//end chatPolicy()
+
+	/**
+	 * The conversation's organisation, whose policy also filters the answer: ''
+	 * when the run has no conversation, null when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function conversationOrganisation(string $conversationId): ?string {
+		if ($conversationId === '') {
+			return '';
+		}
+
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[McpRunController] Conversation lookup failed',
+				context: ['conversationId' => $conversationId, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+		if ($conversation instanceof ObjectEntity) {
+			return (string)($conversation->getOrganisation() ?? '');
+		}
+
+		return null;
+	}//end conversationOrganisation()
+
+	/**
 	 * The agent's organisation (for the guardrail policy), or '' when unset.
+	 * OpenRegister keeps it on the object entity, not in the object data.
 	 *
 	 * @param ObjectEntity|null $agent The agent object.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function organisationOf(?ObjectEntity $agent): string {
 		if ($agent === null) {
 			return '';
 		}
 
-		return (string)($agent->getObject()['organisation'] ?? '');
+		return (string)($agent->getOrganisation() ?? '');
 	}//end organisationOf()
 
 	/**

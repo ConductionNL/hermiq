@@ -308,6 +308,48 @@ class AgentTemplateController extends Controller {
 	}//end export()
 
 	/**
+	 * "Save as template" on the agent page: the owner turns the agent into an
+	 * active template in the Store. 404 when the caller cannot read the agent, 403
+	 * when they can but do not own it.
+	 *
+	 * @param string $agentId The Agent UUID.
+	 *
+	 * @return JSONResponse The new template (201), or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agent-can-be-saved-as-a-reusable-template-req-agexp-003
+	 */
+	public function saveFromAgent(string $agentId): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$agent = $this->agentAccess->loadAccessibleAgent(agentId: $agentId, userId: $user->getUID());
+		if ($agent === null) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		if ($this->agentAccess->canUserModifyAgent(agent: $agent, userId: $user->getUID()) === false) {
+			return new JSONResponse(['error' => 'Only the owner of this agent can save it as a template'], Http::STATUS_FORBIDDEN);
+		}
+
+		try {
+			$template = $this->templateService->saveAgentAsTemplate(agentId: $agentId, createdBy: $user->getUID());
+			if ($template === null) {
+				return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+			}
+
+			return new JSONResponse($this->shape(object: $template), Http::STATUS_CREATED);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq save-as-template failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not save the agent as a template'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end saveFromAgent()
+
+	/**
 	 * Export a template's own portable fields to a shareable JSON package.
 	 *
 	 * @param string $id The AgentTemplate UUID.

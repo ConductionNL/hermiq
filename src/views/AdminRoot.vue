@@ -39,11 +39,12 @@
 <template>
 	<div class="hermiq-admin-settings">
 		<NcSettingsSection
+			id="section-ai-provider"
 			:name="t('hermiq', 'AI provider')"
 			:description="
 				t(
 					'hermiq',
-					'Choose which language-model provider Hermiq uses for background work (conversation titles, summaries). Streaming chat and embeddings always use the directly-configured provider — they cannot run through Nextcloud’s TaskProcessing.',
+					'Choose which language-model provider Hermiq uses for background work (session titles, summaries). Streaming chat and embeddings always use the directly-configured provider. They cannot run through Nextcloud’s TaskProcessing.',
 				)
 			">
 			<div class="hermiq-admin-settings__provider">
@@ -52,7 +53,7 @@
 				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
-			<NcButton type="primary" @click="showModal = true">
+			<NcButton variant="primary" @click="showModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
@@ -66,6 +67,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-web-research"
 			:name="t('hermiq', 'Web research')"
 			:description="
 				t(
@@ -79,7 +81,7 @@
 				>
 				<strong>{{ currentSearchProviderLabel }}</strong>
 			</div>
-			<NcButton type="primary" @click="showWebResearchModal = true">
+			<NcButton variant="primary" @click="showWebResearchModal = true">
 				<template #icon>
 					<Cog :size="20" />
 				</template>
@@ -104,6 +106,50 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Conversational intake')"
+			:description="
+				t(
+					'hermiq',
+					'How certain the intake has to be before it files a request on somebody’s behalf. Under this, the conversation goes to a person instead, carrying everything that was said.',
+				)
+			">
+			<IntakeSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Report grouping')"
+			:description="
+				t(
+					'hermiq',
+					'Where the line falls between one event and two. Two hundred meldingen about one street-wide power cut should read as one item with a count, and a report that only looks alike should not disappear into it.',
+				)
+			">
+			<ReportGroupingSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Assistant prompts')"
+			:description="
+				t(
+					'hermiq',
+					'The prompts the assistant offers on a record, with the exact text that is sent to the model. Read them here when you need to explain an answer, and switch them off in one act when you need to stop giving any.',
+				)
+			">
+			<AssistantPromptLibrary />
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'AI run retention')"
+			:description="
+				t(
+					'hermiq',
+					'How long the record of an AI run is kept. Each run is written with the retention that applied at the time, so changing this does not move a promise already made. A daily job removes what a run recorded once it expires, and leaves the audit entry itself in place.',
+				)
+			">
+			<RunRetentionSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -115,6 +161,7 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-organisation-credentials"
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="
 				t(
@@ -135,6 +182,10 @@
 import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
+import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrary.vue'
+import IntakeSettings from '../components/settings/IntakeSettings.vue'
+import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
+import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
@@ -159,11 +210,15 @@ export default {
 	name: 'AdminRoot',
 	components: {
 		AiFeatureRegister,
+		AssistantPromptLibrary,
 		CnCredentials,
 		Cog,
 		LlmProviderModal,
 		NcButton,
+		IntakeSettings,
 		NcSettingsSection,
+		ReportGroupingSettings,
+		RunRetentionSettings,
 		TalkBridgeSettings,
 		WebResearchSettingsModal,
 	},

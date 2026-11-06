@@ -33,7 +33,7 @@ use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -107,6 +107,9 @@ class EvalRunServiceTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$entity = new ObjectEntity();
 				$entity->setUuid('eval-run-uuid');

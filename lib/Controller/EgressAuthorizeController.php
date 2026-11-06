@@ -47,9 +47,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
+use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -86,6 +88,14 @@ class EgressAuthorizeController extends Controller {
 	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
 	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens.
+	 * @param GovernedMcpEndpoint $mcpEndpoint Recognises Hermiq's OWN governed MCP
+	 *                                         origin — the one destination the
+	 *                                         web-research SSRF policy cannot judge,
+	 *                                         because it is the control plane rather
+	 *                                         than an internet host.
+	 * @param ForgeEgressPolicy   $forgePolicy The per-run rule for the forge host: reachable
+	 *                                         only for a run whose agent holds a resolving
+	 *                                         grant for a workspace tool that needs it.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -93,6 +103,8 @@ class EgressAuthorizeController extends Controller {
 		private readonly WebResearchEgressGuard $guard,
 		private readonly WebResearchSettingsHandler $settingsHandler,
 		private readonly IThrottler $throttler,
+		private readonly GovernedMcpEndpoint $mcpEndpoint,
+		private readonly ForgeEgressPolicy $forgePolicy,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -118,22 +130,10 @@ class EgressAuthorizeController extends Controller {
 	public function authorize(): JSONResponse {
 		// AUTH FIRST — the per-run token is the authorization. A missing/invalid/
 		// expired/consumed token is rejected before any policy is evaluated.
-		$binding = $this->runTokenService->verify(token: $this->bearerToken());
+		$token = $this->bearerToken();
+		$binding = $this->runTokenService->verify(token: $token);
 		if ($binding === null) {
-			// The per-run token IS the authorization, so a failed verify is a
-			// presented-secret failure. Counted here; the enforcing half is the
-			// #[BruteForceProtection] attribute above (ADR-082).
-			try {
-				$this->throttler->registerAttempt(
-					action: self::THROTTLE_ACTION,
-					ip: $this->request->getRemoteAddress()
-				);
-			} catch (\Throwable $throttlerFailure) {
-				// Bookkeeping must not turn a fail-closed 401 into a 500.
-				unset($throttlerFailure);
-			}
-
-			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+			return $this->refuseToken(token: $token);
 		}
 
 		$body = json_decode($this->readRawBody(), true);
@@ -147,10 +147,37 @@ class EgressAuthorizeController extends Controller {
 			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
 		}
 
+		// Hermiq-runner-git-capability: the forge is reachable only for a run whose
+		// agent holds a resolving grant for a tool that needs it, decided from the
+		// run's own token binding. A denial is a policy code, never a timeout.
+		if ($this->forgePolicy->isForgeHost(host: $host) === true
+			&& $this->forgePolicy->permits(agentId: (string)$binding['agentId']) === false
+		) {
+			return new JSONResponse(
+				[
+					'allowed' => false,
+					'code' => 'egress_denied',
+					'message' => 'This run holds no grant for a workspace tool that needs the forge.',
+				]
+			);
+		}
+
+		// The ONE destination this policy cannot judge: Hermiq's own governed MCP
+		// endpoint. The runner reaches its governance through this same proxy, and
+		// on a container deployment that endpoint is deliberately a private address
+		// (`mcp_run_base_url`, e.g. `http://nextcloud`) — which the SSRF guard
+		// blocks, correctly, for every destination the MODEL names. This one is not
+		// named by the model: it is set by the admin and it is the very authority
+		// that hands out the tool grants. It is admitted at the same trust tier the
+		// guard already has for the admin-configured search endpoint, on an EXACT
+		// host:port match, and `webFetch` is untouched — it calls the guard with its
+		// own arguments and never with this flag.
+		$isGovernanceOrigin = $this->mcpEndpoint->matches(host: $host, port: $port);
+
 		$config = $this->settingsHandler->getWebResearchSettingsOnly();
 		$verdict = $this->guard->assertSafe(
 			url: 'https://' . $host . ':' . $port . '/',
-			isAdminConfiguredEndpoint: false,
+			isAdminConfiguredEndpoint: $isGovernanceOrigin,
 			allowlist: (array)($config['fetchAllowlist'] ?? []),
 			denylist: (array)($config['fetchDenylist'] ?? []),
 			allowInsecureHttp: (bool)($config['allowInsecureHttp'] ?? false)
@@ -165,6 +192,44 @@ class EgressAuthorizeController extends Controller {
 		);
 
 	}//end authorize()
+
+	/**
+	 * Refuse a token that failed verification, and count it with the brute-force
+	 * throttler only when this instance never issued it.
+	 *
+	 * @param string $token The presented bearer token. Never logged.
+	 *
+	 * @return JSONResponse The fail-closed 401.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	private function refuseToken(string $token): JSONResponse {
+		// The per-run token IS the authorization, so a failed verify is a
+		// presented-secret failure. Counted here; the enforcing half is the
+		// #[BruteForceProtection] attribute above (ADR-082).
+		//
+		// Only a token this instance never issued is counted. A spent or
+		// expired token that WAS issued is a legitimate component arriving
+		// late (a CLI flushing after its turn ended), and it is refused all
+		// the same. Counting it let one stale caller throttle this endpoint
+		// for every run behind the same proxy IP. A guesser cannot reach the
+		// uncounted branch: it needs the preimage of a stored digest.
+		if ($this->runTokenService->isKnown(token: $token) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->throttler->registerAttempt(
+				action: self::THROTTLE_ACTION,
+				ip: $this->request->getRemoteAddress()
+			);
+		} catch (\Throwable $throttlerFailure) {
+			// Bookkeeping must not turn a fail-closed 401 into a 500.
+			unset($throttlerFailure);
+		}
+
+		return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+	}//end refuseToken()
 
 	/**
 	 * Extract the bearer token from the `Authorization` header. Never logged.

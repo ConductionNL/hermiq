@@ -40,7 +40,7 @@ use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -65,6 +65,13 @@ class RecordingObjectService extends ObjectService {
 	 * @var array<int, array{schema: ?string, uuid: ?string, object: array<string,mixed>}>
 	 */
 	public array $saves = [];
+
+	/**
+	 * Called with the schema of every save, so a test can see it in write order.
+	 *
+	 * @var \Closure|null
+	 */
+	public ?\Closure $onSave = null;
 
 	/**
 	 * Constructor.
@@ -180,8 +187,20 @@ class RecordingObjectService extends ObjectService {
 		// OCP stubs, so the fatal appears locally (inside a booted Nextcloud)
 		// while CI stays green.
 		bool $_unowned = false,
+		// Added by openregister (duplicate detection), seen 2026-09-16. Appended,
+		// so no re-ordering was needed. Note which way round this one broke: the
+		// LOCAL suite stayed green, because tests/bootstrap.php resolves
+		// ObjectService from hermiq's own stub, while CI installs the real
+		// openregister and PHP refused to declare this class, killing all six
+		// cells with a fatal before a single test ran.
+		bool $_dedupOverride = false,
+		?string $_owner = null,
 	): ObjectEntity {
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
+		if ($this->onSave !== null) {
+			($this->onSave)((is_string($schema) === true) ? $schema : null);
+		}
+
 		$this->saves[] = [
 			'schema' => (is_string($schema) === true) ? $schema : null,
 			'uuid' => $uuid,
@@ -219,6 +238,34 @@ class EvalRunServicePairedTest extends TestCase {
 	 * @var array<int, array<string,mixed>>
 	 */
 	private array $auditContexts = [];
+
+	/**
+	 * Recorded IJobList::add() calls: {job, argument}.
+	 *
+	 * @var array<int, array{job: mixed, argument: mixed}>
+	 */
+	private array $jobs = [];
+
+	/**
+	 * Every write in order: `save:<schema>`, `audit`, `job`.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $events = [];
+
+	/**
+	 * The owner each runAgentAsOwner() call ran as.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $owners = [];
+
+	/**
+	 * The app setting eval.regressionThresholdPercent answers, or null for the caller's default.
+	 *
+	 * @var string|null
+	 */
+	private ?string $configuredThreshold = null;
 
 	/**
 	 * A target Agent (OR entity) owned by alice in org-a.
@@ -309,6 +356,7 @@ class EvalRunServicePairedTest extends TestCase {
 				?array $skillSetOverride = null,
 			) use (&$overrides, $markerSkill): string {
 				$overrides[] = $skillSetOverride;
+				$this->owners[] = $owner;
 				if (in_array($markerSkill, ($skillSetOverride ?? []), true) === true) {
 					return 'output MARKER';
 				}
@@ -380,8 +428,15 @@ class EvalRunServicePairedTest extends TestCase {
 	): EvalRunService {
 		$appConfig = $this->createMock(IAppConfig::class);
 		$appConfig->method('getValueString')->willReturnCallback(
-			static fn (string $app, string $key, string $default = '') => $default
+			fn (string $app, string $key, string $default = ''): string => (
+				$this->configuredThreshold !== null && $app === 'hermiq' && $key === 'eval.regressionThresholdPercent'
+			) ? $this->configuredThreshold : $default
 		);
+
+		$this->events = [];
+		$objectService->onSave = function (?string $schema): void {
+			$this->events[] = 'save:' . (string)$schema;
+		};
 
 		$redaction = $this->createMock(RedactionService::class);
 		$redaction->method('redact')->willReturnArgument(0);
@@ -391,6 +446,7 @@ class EvalRunServicePairedTest extends TestCase {
 		$audit->method('createAuditTrailEntry')->willReturnCallback(
 			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
 				$this->auditContexts[] = $context;
+				$this->events[] = 'audit';
 				$entry = new AuditTrail();
 				$entry->setUuid('audit-uuid');
 				return $entry;
@@ -408,10 +464,172 @@ class EvalRunServicePairedTest extends TestCase {
 			logger: $this->createMock(LoggerInterface::class),
 			contextAssembler: $this->createMock(ContextAssembler::class),
 			skillVersionService: $this->createMock(SkillVersionService::class),
-			jobList: $this->createMock(IJobList::class),
+			jobList: $this->jobList(),
 		);
 
 	}//end service()
+
+	/**
+	 * An IJobList mock whose add() calls are captured into $this->jobs.
+	 *
+	 * @return IJobList
+	 */
+	private function jobList(): IJobList {
+		$this->jobs = [];
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->method('add')->willReturnCallback(
+			function (mixed $job, mixed $argument = null): void {
+				$this->jobs[] = ['job' => $job, 'argument' => $argument];
+				$this->events[] = 'job';
+			}
+		);
+		return $jobList;
+	}//end jobList()
+
+	/**
+	 * Golden: every paired-run variant (baseline mode, installed and linked skills,
+	 * case count, an infra error, a previous run, a threshold override) writes and
+	 * returns exactly what was recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testPairedRunVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/eval-paired-run.json';
+		$actual = [];
+		$variant = 0;
+		foreach ([null, 'joint', 'per-skill'] as $mode) {
+			foreach ([[], ['skill-other'], ['skill-a', 'skill-other']] as $installed) {
+				foreach ([['skill-a'], ['skill-a', 'skill-b']] as $linked) {
+					// Case count, infra error, previous run and threshold vary together
+					// over four variants per combination instead of every product.
+					for ($round = 0; $round < 4; $round++) {
+						$scenario = [
+							'mode' => $mode,
+							'installed' => $installed,
+							'linked' => $linked,
+							'caseCount' => [1, 3][$round % 2],
+							'infra' => ($round >= 2),
+							'prior' => (($round + $variant) % 2 === 0),
+							'threshold' => [null, 0, 50][($round + $variant) % 3],
+						];
+						$actual[(string)json_encode($scenario)] = $this->pairedRunTrace(scenario: $scenario);
+					}
+
+					$variant++;
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+	}//end testPairedRunVariantsMatchTheRecordedFixture()
+
+	/**
+	 * Runs one paired-run scenario and returns everything it wrote and returned,
+	 * with timestamps and durations masked.
+	 *
+	 * @param array<string, mixed> $scenario The scenario values.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function pairedRunTrace(array $scenario): array {
+		$agentData = ['name' => 'demo-agent', 'skillInstalls' => $scenario['installed']];
+		if ($scenario['mode'] !== null) {
+			$agentData['evalBaselineMode'] = $scenario['mode'];
+		}
+
+		$priorRuns = [];
+		if ($scenario['prior'] === true) {
+			$previous = $this->entity(
+				'previous-run',
+				['datasetId' => 'dataset-uuid', 'agentId' => 'agent-uuid', 'status' => 'completed', 'passRate' => 0.6]
+			);
+			$previous->setCreated(new \DateTime('2026-07-01T00:00:00+00:00'));
+			$priorRuns[] = $previous;
+		}
+
+		$objects = ['agent-uuid' => $this->entity('agent-uuid', $agentData)];
+		foreach (['skill-a', 'skill-b'] as $skill) {
+			$objects[$skill] = $this->entity($skill, ['name' => $skill, 'state' => 'active', 'body' => 'B', 'maturityLevel' => 4]);
+		}
+
+		$objectService = new RecordingObjectService(objects: $objects, priorRuns: $priorRuns);
+		$overrides = [];
+		$schedule = $this->scheduleService($overrides);
+		if ($scenario['infra'] === true) {
+			$schedule = $this->createMock(ScheduleService::class);
+			$schedule->method('isOrganisationEngaged')->willReturn(false);
+			$schedule->method('runAgentAsOwner')->willReturnCallback(
+				function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null) use (&$overrides): string {
+					$overrides[] = $skillSetOverride;
+					if ($prompt === 'a' && in_array('skill-b', ($skillSetOverride ?? []), true) === false) {
+						throw new RuntimeException('no provider');
+					}
+
+					return in_array('skill-a', ($skillSetOverride ?? []), true) === true ? 'output MARKER' : 'plain output';
+				}
+			);
+			$schedule->method('getLastRunUsage')->willReturn(['promptTokens' => 7, 'completionTokens' => 3]);
+			$schedule->method('getLastRunSkillsUsed')->willReturnCallback(
+				static function () use (&$overrides): array {
+					$last = end($overrides);
+					return array_values(array_filter(is_array($last) === true ? $last : []));
+				}
+			);
+		}//end if
+
+		$service = $this->service(objectService: $objectService, schedule: $schedule, scoring: $this->scoring(passWithoutMarker: ['b'], failEvenWithMarker: ['c']));
+		$result = $service->run(
+			$this->dataset($this->cases($scenario['caseCount']), skillRefs: $scenario['linked']),
+			$this->agent(),
+			agentVersionId: 'version-1',
+			regressionThresholdOverride: $scenario['threshold'],
+			baseline: true
+		);
+
+		return $this->masked(
+			value: [
+				'result' => $result,
+				'overrides' => $overrides,
+				'saves' => $objectService->saves,
+				'audit' => $this->auditContexts,
+				'jobs' => $this->jobs,
+			]
+		);
+	}//end pairedRunTrace()
+
+	/**
+	 * Masks wall-clock values (ISO timestamps, durationMs) recursively.
+	 *
+	 * @param mixed $value The value to mask.
+	 *
+	 * @return mixed
+	 */
+	private function masked(mixed $value): mixed {
+		if (is_string($value) === true && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/', $value) === 1) {
+			return '<time>';
+		}
+
+		if (is_array($value) === false) {
+			return $value;
+		}
+
+		foreach ($value as $key => $item) {
+			$value[$key] = $this->masked(value: $item);
+			if ($key === 'durationMs') {
+				$value[$key] = '<duration>';
+			}
+		}
+
+		return $value;
+	}//end masked()
 
 	/**
 	 * Joint mode (agent's evalBaselineMode UNSET): a paired run over 4 cases and one
@@ -839,4 +1057,347 @@ class EvalRunServicePairedTest extends TestCase {
 		$this->assertArrayNotHasKey('skillResults', $run);
 
 	}//end testPlainRunRecordsSkillsUsedAndNoPairedFields()
+
+	/**
+	 * A completed joint run writes in this order: the run, its audit entry, the
+	 * fail captures (the capture job reads the trace from that entry), then the
+	 * l5 evidence. Every turn runs as the agent's owner.
+	 *
+	 * @return void
+	 */
+	public function testCompletedJointRunWritesRunAuditCapturesThenEvidence(): void {
+		$overrides = [];
+		$this->owners = [];
+		$objectService = new RecordingObjectService(
+			objects: [
+				'agent-uuid' => $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => []]),
+				'skill-a' => $this->entity('skill-a', ['name' => 'skill-a', 'state' => 'active']),
+			]
+		);
+		$service = $this->service(
+			objectService: $objectService,
+			schedule: $this->scheduleService($overrides),
+			scoring: $this->scoring(failEvenWithMarker: ['b'])
+		);
+
+		$result = $service->run($this->dataset($this->cases(2), skillRefs: ['skill-a']), $this->agent(), baseline: true);
+
+		$this->assertSame('completed', $result['status']);
+		$this->assertSame(['save:evalrun', 'audit', 'job', 'save:agentskill'], $this->events);
+		$this->assertSame(['alice', 'alice', 'alice', 'alice'], $this->owners);
+
+	}//end testCompletedJointRunWritesRunAuditCapturesThenEvidence()
+
+	/**
+	 * A completed per-skill run with one failing case writes the run, the audit
+	 * entry, the one fail capture, then one l5 write per linked skill.
+	 *
+	 * @return void
+	 */
+	public function testCompletedPerSkillRunWritesRunAuditCaptureThenEvidence(): void {
+		$overrides = [];
+		$this->owners = [];
+		$objectService = new RecordingObjectService(
+			objects: [
+				'agent-uuid' => $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => [], 'evalBaselineMode' => 'per-skill']),
+				'skill-m' => $this->entity('skill-m', ['name' => 'marker-skill', 'state' => 'active']),
+				'skill-i' => $this->entity('skill-i', ['name' => 'inert-skill', 'state' => 'active']),
+			]
+		);
+		$service = $this->service(
+			objectService: $objectService,
+			schedule: $this->scheduleService($overrides, markerSkill: 'skill-m'),
+			scoring: $this->scoring(failEvenWithMarker: ['b'])
+		);
+
+		$result = $service->run($this->dataset($this->cases(2), skillRefs: ['skill-m', 'skill-i']), $this->agent(), baseline: true);
+
+		$this->assertSame('completed', $result['status']);
+		$this->assertSame(['save:evalrun', 'audit', 'job', 'save:agentskill', 'save:agentskill'], $this->events);
+		$this->assertSame(array_fill(0, 6, 'alice'), $this->owners);
+
+	}//end testCompletedPerSkillRunWritesRunAuditCaptureThenEvidence()
+
+	/**
+	 * Without an override, a paired run and a plain run both apply the app's
+	 * eval.regressionThresholdPercent setting.
+	 *
+	 * @return void
+	 */
+	public function testTheAppThresholdSettingAppliesWithoutAnOverride(): void {
+		$this->configuredThreshold = '25';
+		$overrides = [];
+		$objectService = new RecordingObjectService(
+			objects: [
+				'agent-uuid' => $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => []]),
+				'skill-a' => $this->entity('skill-a', ['name' => 'skill-a', 'state' => 'active']),
+			]
+		);
+		$service = $this->service(objectService: $objectService, schedule: $this->scheduleService($overrides));
+		$service->run($this->dataset($this->cases(1), skillRefs: ['skill-a']), $this->agent(), baseline: true);
+		$this->assertSame(25, $objectService->savesFor('evalrun')[0]['object']['regressionThresholdPercent']);
+
+		$plainStore = new RecordingObjectService();
+		$plain = $this->service(objectService: $plainStore, schedule: $this->scheduleService($overrides));
+		$plain->run($this->dataset($this->cases(1)), $this->agent());
+		$this->assertSame(25, $plainStore->savesFor('evalrun')[0]['object']['regressionThresholdPercent']);
+
+	}//end testTheAppThresholdSettingAppliesWithoutAnOverride()
+
+	/**
+	 * A plain run's override of 0 wins over the app setting.
+	 *
+	 * @return void
+	 */
+	public function testAPlainRunKeepsAZeroThresholdOverride(): void {
+		$this->configuredThreshold = '25';
+		$overrides = [];
+		$objectService = new RecordingObjectService();
+		$service = $this->service(objectService: $objectService, schedule: $this->scheduleService($overrides));
+
+		$service->run($this->dataset($this->cases(1)), $this->agent(), regressionThresholdOverride: 0);
+
+		$this->assertSame(0, $objectService->savesFor('evalrun')[0]['object']['regressionThresholdPercent']);
+
+	}//end testAPlainRunKeepsAZeroThresholdOverride()
+
+	/**
+	 * An infrastructure error in the WITH half alone fails the run: no skill is
+	 * written and no l5 evidence lands.
+	 *
+	 * @return void
+	 */
+	public function testAnInfraErrorInTheWithHalfFailsTheRunAndWritesNoEvidence(): void {
+		$this->owners = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturn(false);
+		$schedule->method('getLastRunUsage')->willReturn([]);
+		$schedule->method('getLastRunSkillsUsed')->willReturn(['skill-a']);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null): string {
+				$this->owners[] = $owner;
+				if (in_array('skill-a', ($skillSetOverride ?? []), true) === true) {
+					throw new RuntimeException('provider down for the with half');
+				}
+
+				return 'plain output';
+			}
+		);
+
+		$objectService = new RecordingObjectService(
+			objects: [
+				'agent-uuid' => $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => []]),
+				'skill-a' => $this->entity('skill-a', ['name' => 'skill-a', 'state' => 'active']),
+			]
+		);
+		$service = $this->service(objectService: $objectService, schedule: $schedule);
+
+		$result = $service->run($this->dataset($this->cases(2), skillRefs: ['skill-a']), $this->agent(), baseline: true);
+
+		$this->assertSame('failed', $result['status']);
+		$this->assertSame('failed', $objectService->savesFor('evalrun')[0]['object']['status']);
+		$this->assertCount(0, $objectService->savesFor('agentskill'));
+		$this->assertNotContains('save:agentskill', $this->events);
+		$this->assertSame(['alice', 'alice', 'alice', 'alice'], $this->owners);
+
+	}//end testAnInfraErrorInTheWithHalfFailsTheRunAndWritesNoEvidence()
+
+	/**
+	 * Golden: every draft-comparison variant (organisation, kill-switch, budget,
+	 * installed skills, case shape, an infra error or a scoring failure in either
+	 * half) writes, calls and returns exactly what was recorded. Each scenario is
+	 * compared on its own. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testDraftComparisonVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/eval-draft-comparison.json';
+		$actual = [];
+		foreach (['org-a', ''] as $organisation) {
+			foreach (['killswitch', 'budget'] as $gate) {
+				$scenario = ['organisation' => $organisation, 'gate' => $gate, 'installed' => [], 'cases' => 1, 'fault' => 'none'];
+				$actual[(string)json_encode($scenario)] = $this->draftComparisonTrace(scenario: $scenario);
+			}
+
+			foreach ([null, [], ['skill-other'], ['skill-1', 'skill-other']] as $installed) {
+				foreach ([0, 1, 3, 'scalar', 'mixed'] as $cases) {
+					foreach (['none', 'active-infra', 'draft-infra', 'draft-throws'] as $fault) {
+						$scenario = ['organisation' => $organisation, 'gate' => 'open', 'installed' => $installed, 'cases' => $cases, 'fault' => $fault];
+						$actual[(string)json_encode($scenario)] = $this->draftComparisonTrace(scenario: $scenario);
+					}
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame(array_keys($expected), array_keys($actual));
+		foreach ($expected as $key => $trace) {
+			$this->assertSame($trace, $actual[$key], $key);
+		}
+	}//end testDraftComparisonVariantsMatchTheRecordedFixture()
+
+	/**
+	 * Runs one draft-comparison scenario and returns everything it wrote, called
+	 * and returned, in call order, with timestamps and durations masked.
+	 *
+	 * @param array<string, mixed> $scenario The scenario values.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function draftComparisonTrace(array $scenario): array {
+		$calls = [];
+		$draftActive = false;
+
+		$objects = [];
+		if ($scenario['installed'] !== null) {
+			$objects['agent-uuid'] = $this->entity('agent-uuid', ['name' => 'demo-agent', 'skillInstalls' => $scenario['installed']]);
+		}
+
+		$objectService = new RecordingObjectService(objects: $objects);
+		$objectService->onSave = function (?string $schema) use (&$calls): void {
+			$calls[] = ['save' => $schema];
+		};
+
+		$fault = $scenario['fault'];
+		$lastSkills = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturnCallback(
+			function (string $organisation) use (&$calls, $scenario): bool {
+				$calls[] = ['isOrganisationEngaged' => $organisation];
+				return $scenario['gate'] === 'killswitch';
+			}
+		);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null) use (&$calls, &$draftActive, &$lastSkills, $fault): string {
+				$calls[] = ['runAgentAsOwner' => [$owner, $agentId, $prompt, $organisation, $skillSetOverride, $draftActive]];
+				$lastSkills = ($skillSetOverride ?? []);
+				if ($prompt === 'a' && (($fault === 'active-infra' && $draftActive === false) || ($fault === 'draft-infra' && $draftActive === true))) {
+					throw new RuntimeException('no provider');
+				}
+
+				$output = in_array('skill-other', $lastSkills, true) === true ? 'MARKER' : 'plain';
+				return ($draftActive === true) ? 'DRAFT ' . $output : $output;
+			}
+		);
+		$schedule->method('getLastRunUsage')->willReturnCallback(
+			static function () use (&$lastSkills): array {
+				return ['promptTokens' => (10 + count($lastSkills)), 'completionTokens' => 3];
+			}
+		);
+		$schedule->method('getLastRunSkillsUsed')->willReturnCallback(
+			static function () use (&$lastSkills): array {
+				return array_values($lastSkills);
+			}
+		);
+
+		$budget = $this->createMock(BudgetService::class);
+		$budget->method('isBlocked')->willReturnCallback(
+			function (string $organisation, string $agentId) use (&$calls, $scenario): bool {
+				$calls[] = ['isBlocked' => [$organisation, $agentId]];
+				return $scenario['gate'] === 'budget';
+			}
+		);
+		$budget->method('checkAndDeliverWarnings')->willReturnCallback(
+			function (string $organisation, string $agentId) use (&$calls): void {
+				$calls[] = ['checkAndDeliverWarnings' => [$organisation, $agentId]];
+			}
+		);
+
+		$scoring = $this->createMock(EvalScoringService::class);
+		$scoring->method('score')->willReturnCallback(
+			static function (array $case, string $actualOutput, string $organisation) use ($fault): array {
+				$prompt = (string)($case['prompt'] ?? '');
+				if ($fault === 'draft-throws' && $prompt === 'a' && str_contains($actualOutput, 'DRAFT') === true) {
+					throw new RuntimeException('scoring failed');
+				}
+
+				return [
+					'passed' => (str_contains($actualOutput, 'MARKER') === true || (str_contains($actualOutput, 'DRAFT') === true && $prompt === 'b')),
+					'errorMessage' => null,
+					'score' => null,
+					'judgeRationale' => $organisation,
+				];
+			}
+		);
+
+		$contextAssembler = $this->createMock(ContextAssembler::class);
+		$contextAssembler->method('setTransientSkillContentOverride')->willReturnCallback(
+			function (?array $override) use (&$calls, &$draftActive): void {
+				$calls[] = ['setTransientSkillContentOverride' => $override];
+				$draftActive = ($override !== null);
+			}
+		);
+
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->method('createAuditTrailEntry')->willReturnCallback(
+			function (ObjectEntity $object, string $action, array $context = []) use (&$calls): AuditTrail {
+				$calls[] = ['audit' => [$object->getUuid(), $action, $context]];
+				$entry = new AuditTrail();
+				$entry->setUuid('audit-uuid');
+				return $entry;
+			}
+		);
+
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->method('add')->willReturnCallback(
+			function (mixed $job, mixed $argument = null) use (&$calls): void {
+				$calls[] = ['job' => [$job, $argument]];
+			}
+		);
+
+		$service = new EvalRunService(
+			objectService: $objectService,
+			scheduleService: $schedule,
+			budgetService: $budget,
+			scoringService: $scoring,
+			auditTrailMapper: $audit,
+			redactionService: $redaction,
+			appConfig: $this->createMock(IAppConfig::class),
+			logger: $this->createMock(LoggerInterface::class),
+			contextAssembler: $contextAssembler,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			jobList: $jobList,
+		);
+
+		$cases = match ($scenario['cases']) {
+			'scalar' => 'not-a-list',
+			'mixed' => [$this->cases(1)[0], 'not-a-case', ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'MARKER']],
+			default => $this->cases($scenario['cases']),
+		};
+		$dataset = $this->entity('dataset-uuid', ['name' => 'demo', 'cases' => $cases]);
+
+		$agent = new Agent();
+		$agent->setUuid('agent-uuid');
+		$agent->setOwner('alice');
+		$agent->setOrganisation($scenario['organisation']);
+
+		try {
+			$result = $service->runDraftComparison(
+				dataset: $dataset,
+				agent: $agent,
+				skillId: 'skill-1',
+				draftContent: ['name' => 's', 'description' => 'd', 'body' => 'DRAFT']
+			);
+		} catch (RuntimeException $e) {
+			$result = ['exception' => $e->getMessage()];
+		}
+
+		return $this->masked(
+			value: [
+				'result' => $result,
+				'calls' => $calls,
+				'saves' => $objectService->saves,
+			]
+		);
+	}//end draftComparisonTrace()
 }//end class

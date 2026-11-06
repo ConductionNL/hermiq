@@ -10,7 +10,7 @@
  * BEHAVIOUR — the grant grammar, the argument-constraint parser, the waiver
  * matcher. A stub that RETURNED plausible values would make all fifteen validate
  * a fake while reporting green, which is the failure this repo has already paid
- * for once on a three-method facade (`tests/Stubs/Service/Mcp/ToolRegistryFacade.php`
+ * for once on a three-method facade (`tests/Stubs/Mcp/Service/Mcp/ToolRegistryFacade.php`
  * drifted by one method and broke a whole matrix leg). This is ~2,400 lines of
  * security-relevant parsing.
  *

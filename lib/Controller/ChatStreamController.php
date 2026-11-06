@@ -37,6 +37,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Service\AppAssistantResolver;
+use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
+use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -110,7 +115,7 @@ class ChatStreamController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Wall-clock timestamp (microtime float) of the most recently emitted
@@ -141,6 +146,12 @@ class ChatStreamController extends Controller {
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
+	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
+	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
 	 */
@@ -154,6 +165,9 @@ class ChatStreamController extends Controller {
 		private readonly IL10N $l10n,
 		private readonly RunStepBus $runStepBus,
 		private readonly ToolAccessRequestService $accessRequests,
+		private readonly AgentAccessService $agentAccess,
+		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?AppAssistantResolver $assistants = null,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -177,24 +191,12 @@ class ChatStreamController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)  stream() is the single SSE dispatch path: auth
-	 * check, body parse, agent/conversation resolution, heartbeat, channel wiring, and error handling
-	 * are sequential guards that cannot be split into sub-methods without leaking the exit-based flow
-	 * control across multiple layers.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)       Multiple independent early-exit paths (unauthenticated,
-	 * missing message, missing agent, forbidden conversation, stream failure) must all terminate via
-	 * emitAndExit(); collapsing them would hide the distinct SSE error codes.
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) The method coordinates the full SSE lifecycle in
-	 * one readable sequence; extracting sub-stages would split the exit-based control flow across
-	 * multiple methods and make the error-path analysis harder.
-	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
 	 */
 	public function stream(): Response {
-		// Hard requirement: clear every output buffer layer (PHP, NC framework,
-		// any plugin) so the first echo is flushed immediately. Extracted to
-		// its own method so unit tests can override and skip — closing
-		// PHPUnit's output buffer trips its "risky" detector.
+		// Clear every output buffer layer (PHP, NC framework, any plugin) so the
+		// first echo is flushed immediately. Its own method so unit tests can skip
+		// it: closing PHPUnit's output buffer trips its "risky" detector.
 		$this->clearOutputBuffers();
 
 		$this->emitSseHeaders();
@@ -208,233 +210,43 @@ class ChatStreamController extends Controller {
 				);
 			}
 
-			$userId = $user->getUID();
-			$rawBody = $this->readRequestBody();
-			if ($rawBody === '') {
-				$rawBody = '[]';
-			}
-
-			$body = (json_decode($rawBody, associative: true) ?? []);
-
-			$userMessage = trim((string)($body['message'] ?? ''));
-			if ($userMessage === '') {
-				$this->emitAndExit(
-					eventType: 'error',
-					payload: ['code' => 'missing_message', 'message' => 'message content is required']
-				);
-			}
-
-			// Resolve agent + conversation.
-			$agentUuid = (string)($body['agentUuid'] ?? '');
-			$conversationUuid = (string)($body['conversationUuid'] ?? '');
-			$context = ($body['context'] ?? null);
-
-			// Widget UX: when the widget opens a fresh chat it doesn't know which
-			// agent to use (no agent picker in v1). Fall back to an agent the
-			// CURRENT USER can access (owner / non-private / invited), never the
-			// first agent in the register — that would cross tenant/user boundaries
-			// in a multi-user deployment.
-			if ($conversationUuid === '' && $agentUuid === '') {
-				$agentUuid = $this->pickFallbackAgentForUser(userId: $userId);
-			}
-
-			if ($conversationUuid === '' && $agentUuid === '') {
-				$this->emitAndExit(
-					eventType: 'error',
-					payload: [
-						'code' => 'missing_agent',
-						'message' => 'No agent available; configure one in Hermiq settings.',
-					]
-				);
-			}
-
-			try {
-				$conversation = $this->resolveConversation(
-					conversationUuid: $conversationUuid,
-					agentUuid: $agentUuid,
-					userId: $userId
-				);
-			} catch (RuntimeException $e) {
-				if ($e->getMessage() === self::ERROR_FORBIDDEN) {
-					$this->emitAndExit(
-						eventType: 'error',
-						payload: ['code' => 'forbidden', 'message' => 'Forbidden']
-					);
-				}
-
-				throw $e;
-			}
-
-			// The CnAiContext snapshot is persisted on the user-authored Message
-			// object Engine::processMessage will create. Reject anything other
-			// than an associative array so a bad client payload doesn't break
-			// the JSON encoding.
-			$contextArr = [];
-			if (is_array($context) === true) {
-				$contextArr = $context;
-			}
+			// The identity is the session's, never a request value.
+			$turn = $this->readTurn(userId: $user->getUID());
+			$turn['agentUuid'] = $this->turnAgent(turn: $turn);
+			$conversation = $this->turnConversation(turn: $turn);
+			$turn['conversationId'] = (string)$conversation->getUuid();
 
 			// Emit a heartbeat right after headers so the client knows we're alive
 			// (the synchronous LLM call may take >15s on cold-load).
 			$this->emitSseEvent(eventType: 'heartbeat', payload: ['ts' => gmdate('c')]);
 			$this->lastEventAt = $this->now();
 
-			// Build the streaming channel and register three callbacks. Each
-			// callback funnels through `forwardWithHeartbeat()` which checks
-			// wall-clock since the last emit and interleaves a `heartbeat`
-			// frame when more than 15s have elapsed (ADR-034 design D3). When
-			// the active provider supports LLPhant streaming the handler invokes
-			// the channel; otherwise the channel sits idle and the existing
-			// initial heartbeat is the only one — that's the synchronous-
-			// fallback degradation explicitly allowed by the SSE contract.
-			$channel = new StreamYieldChannel();
-			$channel->onToken(
-				callback: fn (string $delta) => $this->forwardWithHeartbeat(
-					eventType: 'token',
-					payload: ['delta' => $delta]
-				)
-			);
-			$channel->onToolCall(
-				callback: fn (array $payload) => $this->forwardWithHeartbeat(
-					eventType: 'tool_call',
-					payload: $payload
-				)
-			);
-			$channel->onToolResult(
-				callback: fn (array $payload) => $this->forwardWithHeartbeat(
-					eventType: 'tool_result',
-					payload: $payload
-				)
-			);
-			// There is deliberately no `onHeartbeat` registration: the channel
-			// has no heartbeat pub/sub, because no producer moment exists that
-			// `forwardWithHeartbeat()` above does not already cover. See the
-			// note at the foot of StreamYieldChannel.
+			$channel = $this->streamChannel();
 			// Start from an empty bucket so a previous turn's tool calls are
 			// never replayed against this one.
-			$this->runStepBus->clear(conversationId: (string)$conversation->getUuid());
+			$this->runStepBus->clear(conversationId: $turn['conversationId']);
+
+			// Compliance-ai-literacy: an organisation may require the course first.
+			$this->literacy?->assertMayUseAgents(uid: $turn['userId']);
 
 			$result = $this->engine->processMessage(
-				conversationId: (string)$conversation->getUuid(),
-				userId: $userId,
-				userMessage: $userMessage,
+				conversationId: $turn['conversationId'],
+				userId: $turn['userId'],
+				userMessage: $turn['message'],
 				selectedViews: [],
 				selectedTools: [],
 				ragSettings: [],
-				context: $contextArr,
-				channel: $channel
+				context: $turn['contextArr'],
+				channel: $channel,
+				attachments: $turn['attachments']
 			);
 
-			// Replay the tool calls this turn made over the governed MCP
-			// transport, as the SAME `tool_call` / `tool_result` events the
-			// in-process path emits above.
-			//
-			// On `executionMode: cli` the model calls Hermiq's MCP endpoint, so
-			// every tool runs in a SEPARATE request and `$channel` never fires —
-			// the UI's whole step display (useAiChatStream -> state.toolCalls ->
-			// CnAiMessageList) sat ready and was never given anything, and a turn
-			// that made five tool calls showed the user one silent minute.
-			//
-			// These arrive after the work rather than during it, because the
-			// bucket can only be read once the turn returns. That is a real
-			// limitation and it is the honest half-step: the steps become
-			// VISIBLE, but not yet live.
-			foreach ($this->runStepBus->drain(conversationId: (string)$conversation->getUuid()) as $step) {
-				$this->forwardWithHeartbeat(
-					eventType: 'tool_call',
-					payload: [
-						'toolId' => (string)($step['toolId'] ?? ''),
-						'name' => (string)($step['name'] ?? ''),
-						'arguments' => ($step['arguments'] ?? []),
-					]
-				);
-				$this->forwardWithHeartbeat(
-					eventType: 'tool_result',
-					payload: [
-						'toolId' => (string)($step['toolId'] ?? ''),
-						'result' => (string)($step['result'] ?? ''),
-						'outcome' => (string)($step['outcome'] ?? 'ok'),
-						'durationMs' => (int)($step['durationMs'] ?? 0),
-					]
-				);
-			}
-
-			// Emit final event with the full assistant text. The `response`/
-			// `message` fallbacks are kept from the OR ground truth so a future
-			// engine return-shape change can never silently break the wire
-			// contract (hence the phpstan ignores on the shape-narrowed reads).
-			$finalPayload = [
-				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
-				'messageId' => (string)($result['messageId'] ?? ''),
-				'conversationUuid' => (string)$conversation->getUuid(),
-				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
-				'fullText' => (string)($result['response'] ?? $result['message'] ?? ''),
-				'context' => $context,
-				// Anything now awaiting the owner's decision, so it can be acted
-				// on in the chat rather than on an oversight screen the user
-				// would have to know about and go and find.
-				'pendingApprovals' => $this->accessRequests->pendingApprovals(
-					agentId: $agentUuid
-				),
-			];
-			$this->emitAndExit(eventType: 'final', payload: $finalPayload);
+			$this->replayRunSteps(conversationId: $turn['conversationId']);
+			$this->emitAndExit(eventType: 'final', payload: $this->finalPayload(result: $result, turn: $turn));
 		} catch (ToolGrantResolutionException $e) {
-			// Deliberately NOT masked, unlike every other failure below. This
-			// message is safe by construction: it carries the agent's own grant
-			// ids — configuration its owner already reads in the tool-grant
-			// editor — and never a secret, path or connection string. Masking it
-			// would leave the owner staring at "an internal error occurred" for a
-			// misconfiguration only they can fix, which is the same silent
-			// degradation this exception exists to end: loud in the log but mute
-			// to the one person who can act on it is not loud enough.
-			$this->logger->error(
-				message: '[ChatStreamController] Agent tool grants resolved to no tools',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'exception' => $e,
-					'grants' => $e->getGrants(),
-				]
-			);
-			$this->emitAndExit(
-				eventType: 'error',
-				payload: [
-					'code' => 'tool_grants_unresolved',
-					// Rendered here rather than reusing $e->getMessage(): the
-					// exception's own message is for the log (English, always), while
-					// this one is read by a person. The grant ids are interpolated,
-					// never translated — they are identifiers.
-					// The concatenation is only to satisfy the line-length limit —
-					// the assembled string MUST stay byte-identical to the key in
-					// l10n/*.json, or the lookup misses and every locale silently
-					// falls back to English.
-					'message' => $this->l10n->t(
-						'This agent\'s tool grants resolve to no tools: %1$s. Check the ids against the tool '
-						. 'catalog — an agent with no tools on purpose should be granted "%2$s" instead.',
-						[
-							implode(', ', $e->getGrants()),
-							ToolGrantResolver::NO_TOOLS_SENTINEL,
-						]
-					),
-				]
-			);
+			$this->emitToolGrantsUnresolved(exception: $e);
 		} catch (Throwable $e) {
-			$this->logger->error(
-				message: '[ChatStreamController] Stream failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'exception' => $e,
-					'error' => $e->getMessage(),
-				]
-			);
-			$this->emitAndExit(
-				eventType: 'error',
-				payload: [
-					'code' => 'stream_failed',
-					'message' => self::PUBLIC_ERROR_MESSAGE,
-				]
-			);
+			$this->emitFailure(exception: $e);
 		}//end try
 
 		// Unreachable — emitAndExit() never returns. Present so the declared
@@ -444,6 +256,318 @@ class ChatStreamController extends Controller {
 		// @phpstan-ignore-next-line deadCode.unreachable — deliberate, see above.
 		return new Response();
 	}//end stream()
+
+	/**
+	 * The turn the request body asks for, for the session user; a turn with no
+	 * message ends the stream with `missing_message`.
+	 *
+	 * The raw `context` snapshot is kept to echo back on the `final` frame
+	 * unchanged; `contextArr` is that snapshot when it is an array, else empty,
+	 * because the user Message stores it and the agent fallback reads the app
+	 * out of it. `attachments` are the files the companion attached or the Chat
+	 * page picked; the engine reads each one as the speaker.
+	 *
+	 * @param string $userId The session user.
+	 *
+	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed, contextArr: array, attachments: array}
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function readTurn(string $userId): array {
+		$rawBody = $this->readRequestBody();
+		if ($rawBody === '') {
+			$rawBody = '[]';
+		}
+
+		$body = (json_decode($rawBody, associative: true) ?? []);
+
+		$userMessage = trim((string)($body['message'] ?? ''));
+		if ($userMessage === '') {
+			$this->emitAndExit(
+				eventType: 'error',
+				payload: ['code' => 'missing_message', 'message' => 'message content is required']
+			);
+		}
+
+		$turn = [
+			'userId' => $userId,
+			'message' => $userMessage,
+			'agentUuid' => (string)($body['agentUuid'] ?? ''),
+			'conversationUuid' => (string)($body['conversationUuid'] ?? ''),
+			'context' => ($body['context'] ?? null),
+			'contextArr' => [],
+			'attachments' => [],
+		];
+		if (is_array($turn['context']) === true) {
+			$turn['contextArr'] = $turn['context'];
+		}
+
+		if (is_array($body['attachments'] ?? null) === true) {
+			$turn['attachments'] = array_values($body['attachments']);
+		}
+
+		return $turn;
+	}//end readTurn()
+
+	/**
+	 * The turn's agent: the one named, or for a fresh chat that names none an
+	 * agent the session user can access, preferring the app the caller sits in
+	 * (`context.appId`). With neither, the stream ends with `missing_agent`.
+	 *
+	 * Never the first agent in the register: that would cross tenant and user
+	 * boundaries, and an agent from another app answers with tools for a
+	 * product the person is not looking at.
+	 *
+	 * @param array<string, mixed> $turn The turn (see readTurn()).
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function turnAgent(array $turn): string {
+		if ($turn['conversationUuid'] !== '' || $turn['agentUuid'] !== '') {
+			return $turn['agentUuid'];
+		}
+
+		$agentUuid = $this->pickFallbackAgentForUser(
+			userId: $turn['userId'],
+			applicationSlug: trim((string)($turn['contextArr']['appId'] ?? ''))
+		);
+		if ($agentUuid === '') {
+			$this->emitAndExit(
+				eventType: 'error',
+				payload: [
+					'code' => 'missing_agent',
+					'message' => 'No agent available; configure one in Hermiq settings.',
+				]
+			);
+		}
+
+		return $agentUuid;
+	}//end turnAgent()
+
+	/**
+	 * The turn's conversation, loaded for its owner or created; a conversation
+	 * the session user does not own ends the stream with `forbidden`.
+	 *
+	 * @param array<string, mixed> $turn The turn (see readTurn()), with its agent.
+	 *
+	 * @return ObjectEntity
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function turnConversation(array $turn): ObjectEntity {
+		try {
+			return $this->resolveConversation(turn: $turn);
+		} catch (RuntimeException $e) {
+			if ($e->getMessage() === self::ERROR_FORBIDDEN) {
+				$this->emitAndExit(
+					eventType: 'error',
+					payload: ['code' => 'forbidden', 'message' => 'Forbidden']
+				);
+			}
+
+			throw $e;
+		}
+	}//end turnConversation()
+
+	/**
+	 * The streaming channel, forwarding tokens, tool calls and tool results.
+	 *
+	 * Each callback goes through `forwardWithHeartbeat()`, which interleaves a
+	 * `heartbeat` frame when more than 15s have passed since the last emit
+	 * (ADR-034 design D3). When the provider does not stream the channel stays
+	 * idle, the synchronous fallback the SSE contract allows. There is no
+	 * `onHeartbeat`: see the note at the foot of StreamYieldChannel.
+	 *
+	 * @return StreamYieldChannel
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function streamChannel(): StreamYieldChannel {
+		$channel = new StreamYieldChannel();
+		$channel->onToken(
+			callback: fn (string $delta) => $this->forwardWithHeartbeat(
+				eventType: 'token',
+				payload: ['delta' => $delta]
+			)
+		);
+		$channel->onToolCall(
+			callback: fn (array $payload) => $this->forwardWithHeartbeat(
+				eventType: 'tool_call',
+				payload: $payload
+			)
+		);
+		$channel->onToolResult(
+			callback: fn (array $payload) => $this->forwardWithHeartbeat(
+				eventType: 'tool_result',
+				payload: $payload
+			)
+		);
+
+		return $channel;
+	}//end streamChannel()
+
+	/**
+	 * Replay the tool calls the turn made over the governed MCP transport, as the
+	 * same `tool_call` / `tool_result` events the in-process path emits.
+	 *
+	 * On `executionMode: cli` every tool runs in a separate request, so the
+	 * channel never fires. The steps arrive after the work rather than during it,
+	 * because the bucket can only be read once the turn returns.
+	 *
+	 * @param string $conversationId The conversation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function replayRunSteps(string $conversationId): void {
+		foreach ($this->runStepBus->drain(conversationId: $conversationId) as $step) {
+			$this->forwardWithHeartbeat(
+				eventType: 'tool_call',
+				payload: [
+					'toolId' => (string)($step['toolId'] ?? ''),
+					'name' => (string)($step['name'] ?? ''),
+					'arguments' => ($step['arguments'] ?? []),
+				]
+			);
+			$this->forwardWithHeartbeat(
+				eventType: 'tool_result',
+				payload: [
+					'toolId' => (string)($step['toolId'] ?? ''),
+					'result' => (string)($step['result'] ?? ''),
+					'outcome' => (string)($step['outcome'] ?? 'ok'),
+					'durationMs' => (int)($step['durationMs'] ?? 0),
+				]
+			);
+		}
+	}//end replayRunSteps()
+
+	/**
+	 * The `final` frame: the assistant text, the context echoed back, the
+	 * approvals awaiting the owner, and the answer's attachment notices and
+	 * attachments.
+	 *
+	 * The `response`/`message` fallbacks are kept from the OR ground truth so a
+	 * future engine return-shape change can never silently break the wire
+	 * contract (hence the phpstan ignores on the shape-narrowed reads).
+	 *
+	 * @param array<string, mixed> $result The engine's envelope.
+	 * @param array<string, mixed> $turn   The turn, with its agent and conversation.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function finalPayload(array $result, array $turn): array {
+		return [
+			// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+			'messageId' => (string)($result['messageId'] ?? ''),
+			'conversationUuid' => $turn['conversationId'],
+			// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+			'fullText' => (string)($result['response'] ?? $result['message'] ?? ''),
+			'context' => $turn['context'],
+			// Anything now awaiting the owner's decision, so it can be acted on in
+			// the chat rather than on an oversight screen.
+			'pendingApprovals' => $this->accessRequests->pendingApprovals(
+				agentId: $turn['agentUuid']
+			),
+			// Chat-attachments-and-images D6: a notice per attachment the model could
+			// not read natively. On `final`, so no new SSE event type is added
+			// (hydra ADR-034 Decision 6).
+			'attachmentNotices' => array_values(array_map('strval', (array)($result['attachmentNotices'] ?? []))),
+			// Chat-attachments-and-images D8: the answer's attachments, such as an
+			// image the agent created, so a client can show them without a reload.
+			'attachments' => array_values((array)($result['attachments'] ?? [])),
+		];
+	}//end finalPayload()
+
+	/**
+	 * End the stream for tool grants that resolve to no tools, unmasked.
+	 *
+	 * This message is safe by construction: it carries the agent's own grant
+	 * ids, configuration its owner already reads in the tool-grant editor, and
+	 * never a secret, path or connection string. Masking it would leave the
+	 * owner with "an internal error occurred" for a misconfiguration only they
+	 * can fix.
+	 *
+	 * @param ToolGrantResolutionException $exception The resolution failure.
+	 *
+	 * @return never
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function emitToolGrantsUnresolved(ToolGrantResolutionException $exception): never {
+		$this->logger->error(
+			message: '[ChatStreamController] Agent tool grants resolved to no tools',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'exception' => $exception,
+				'grants' => $exception->getGrants(),
+			]
+		);
+		$this->emitAndExit(
+			eventType: 'error',
+			payload: [
+				'code' => 'tool_grants_unresolved',
+				// Rendered here rather than reusing $exception->getMessage(): the
+				// exception's own message is for the log (English, always), while
+				// this one is read by a person. The grant ids are interpolated,
+				// never translated: they are identifiers.
+				// The concatenation is only to satisfy the line-length limit:
+				// the assembled string MUST stay byte-identical to the key in
+				// l10n/*.json, or the lookup misses and every locale silently
+				// falls back to English.
+				'message' => $this->l10n->t(
+					'This agent\'s tool grants resolve to no tools: %1$s. Check the ids against the tool '
+					. 'catalog — an agent with no tools on purpose should be granted "%2$s" instead.',
+					[
+						implode(', ', $exception->getGrants()),
+						ToolGrantResolver::NO_TOOLS_SENTINEL,
+					]
+				),
+			]
+		);
+	}//end emitToolGrantsUnresolved()
+
+	/**
+	 * End the stream for a failed turn: a refusal the person can act on is told
+	 * as it is, everything else is logged and masked as `stream_failed`.
+	 *
+	 * @param Throwable $exception The failure.
+	 *
+	 * @return never
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function emitFailure(Throwable $exception): never {
+		$frames = new ChatRefusalFrame(l10n: $this->l10n);
+		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+			$refusal = $frames->forCause(cause: $cause);
+			if ($refusal !== null) {
+				$this->emitAndExit(eventType: 'error', payload: $refusal);
+			}
+		}
+
+		$this->logger->error(
+			message: '[ChatStreamController] Stream failed',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'exception' => $exception,
+				'error' => $exception->getMessage(),
+			]
+		);
+		$this->emitAndExit(
+			eventType: 'error',
+			payload: [
+				'code' => 'stream_failed',
+				'message' => self::PUBLIC_ERROR_MESSAGE,
+			]
+		);
+	}//end emitFailure()
 
 	/**
 	 * Emit a single SSE frame, release any open DB transaction, then exit.
@@ -627,87 +751,29 @@ class ChatStreamController extends Controller {
 	}//end emitSseHeaders()
 
 	/**
-	 * Find an agent the current user is allowed to start a conversation with.
-	 *
-	 * Iterates agents (bounded fetch) and returns the first uuid whose access
-	 * check passes — non-private OR owned-by-user OR invited (the same
-	 * semantics OR's AgentMapper::canUserAccessAgent applied). Falls back to
-	 * '' when no accessible agent exists. NEVER returns "the first agent
-	 * regardless of owner": that caused cross-user data exposure in
-	 * multi-user deployments.
+	 * Find the agent the current user starts a conversation with when the
+	 * request names none: the app's assistant, else an agent of that app, else
+	 * the first agent the user may use (AppAssistantResolver, shared with
+	 * ChatController). Never "the first agent regardless of owner": that caused
+	 * cross-user data exposure in multi-user deployments.
 	 *
 	 * @param string $userId Nextcloud user id.
+	 * @param string $applicationSlug The app the caller is sitting in, or '' when unknown.
 	 *
 	 * @return string The accessible agent uuid, or '' when none is found.
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-picks-the-agent-that-answers-in-an-app-req-appag-002
 	 */
-	private function pickFallbackAgentForUser(string $userId): string {
-		try {
-			// Cheap cap — we only need the first match. Twenty rows is
-			// enough headroom for any realistic instance.
-			$agents = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::AGENT_SCHEMA)
-				->findAll(config: ['limit' => 20]);
-			foreach ($agents as $agent) {
-				if (($agent instanceof ObjectEntity) === false) {
-					continue;
-				}
+	private function pickFallbackAgentForUser(string $userId, string $applicationSlug = ''): string {
+		$resolver = $this->assistants ?? new AppAssistantResolver(
+			objectService: $this->objectService,
+			agentAccess: $this->agentAccess,
+			logger: $this->logger
+		);
 
-				if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === true) {
-					return (string)$agent->getUuid();
-				}
-			}
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[ChatStreamController] Agent fallback lookup failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-		}//end try
-
-		return '';
+		return $resolver->resolve(userId: $userId, appId: $applicationSlug);
 	}//end pickFallbackAgentForUser()
-
-	/**
-	 * Whether the user may use an agent: non-private agents are open to the
-	 * organisation (multitenancy already scoped the read), private agents
-	 * only to their owner or explicitly invited users — mirrors OR's
-	 * AgentMapper::canUserAccessAgent() against the hermiq `agent` payload.
-	 *
-	 * @param ObjectEntity $agent Agent object.
-	 * @param string $userId Nextcloud user id.
-	 *
-	 * @return bool True when the user may access the agent.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-	 */
-	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
-		$data = $agent->getObject();
-		$isPrivate = ($data['isPrivate'] ?? null);
-
-		// Non-private agents are accessible to all users in the organisation.
-		if ($isPrivate === false || $isPrivate === null) {
-			return true;
-		}
-
-		// Owner always has access.
-		if ($agent->getOwner() === $userId) {
-			return true;
-		}
-
-		// Check if user is invited.
-		$invitedUsers = ($data['invitedUsers'] ?? []);
-		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-			return true;
-		}
-
-		return false;
-	}//end canUserAccessAgent()
 
 	/**
 	 * Resolve (load or create) the conversation referenced by the request.
@@ -717,10 +783,13 @@ class ChatStreamController extends Controller {
 	 * When a conversationUuid is supplied, ownership is verified against the
 	 * calling user — preventing the IDOR where any authed user could
 	 * read/append to another user's thread by guessing the uuid (gate-7).
+	 * A new session records the record its page context names as its
+	 * subject, when the caller can read that record.
 	 *
-	 * @param string $conversationUuid Conversation UUID or '' to create new.
-	 * @param string $agentUuid Agent UUID (required when creating new).
-	 * @param string $userId Current user id.
+	 * @param array<string, mixed> $turn The turn (see readTurn()): its
+	 *                                   conversationUuid ('' to create new),
+	 *                                   agentUuid (required when creating new),
+	 *                                   userId and contextArr.
 	 *
 	 * @return ObjectEntity Resolved conversation.
 	 *
@@ -732,8 +801,12 @@ class ChatStreamController extends Controller {
 	 *                          catch, matching OR's DoesNotExist behavior).
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
-	private function resolveConversation(string $conversationUuid, string $agentUuid, string $userId): ObjectEntity {
+	private function resolveConversation(array $turn): ObjectEntity {
+		$conversationUuid = $turn['conversationUuid'];
+		$agentUuid = $turn['agentUuid'];
+		$userId = $turn['userId'];
 		if ($conversationUuid !== '') {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
@@ -761,20 +834,32 @@ class ChatStreamController extends Controller {
 			register: self::REGISTER_SLUG,
 			schema: self::AGENT_SCHEMA
 		);
-		if ($agent === null) {
+		// A private agent the caller may not use answers exactly like a missing
+		// one, so the stream cannot confirm it exists (hermiq#976).
+		if ($agent === null || $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
 			throw new RuntimeException('Agent not found: ' . $agentUuid);
 		}
 
+		// `_rbac: false`: the Session schema lists no `create` grant on purpose
+		// (hermiq#319), so the default save refuses every non-admin (hermiq#1086).
+		// The agent access check above is the guard, and the session is always
+		// the caller's. OpenRegister still stamps `_owner` from the user session.
+		$subject = new SessionSubject(objectService: $this->objectService);
+
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
-				data: [
-					'userId' => $userId,
-					'agentId' => (string)$agent->getUuid(),
-					'title' => 'New conversation',
-				]
+				data: $subject->stamp(
+					session: [
+						'userId' => $userId,
+						'agentId' => (string)$agent->getUuid(),
+						'title' => 'New session',
+					],
+					context: $turn['contextArr']
+				)
 			),
 			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			schema: self::CONVERSATION_SCHEMA,
+			_rbac: false
 		);
 	}//end resolveConversation()
 }//end class

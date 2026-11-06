@@ -67,6 +67,12 @@
 							<th scope="col">
 								{{ t('hermiq', 'Success') }}
 							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Thumbs up') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Thumbs down') }}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -74,6 +80,8 @@
 							<td>{{ agentName(row) }}</td>
 							<td>{{ row.runs }}</td>
 							<td>{{ row.success }}</td>
+							<td>{{ row.positive || 0 }}</td>
+							<td>{{ row.negative || 0 }}</td>
 						</tr>
 					</tbody>
 				</table>

@@ -96,6 +96,9 @@ class SeedAgentTemplatesTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];

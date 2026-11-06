@@ -2,14 +2,14 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  AgentSelector — agent picker cards for starting a chat conversation.
+  AgentSelector — agent picker cards for starting a chat session.
 
   Ported from OpenRegister's src/components/AgentSelector.vue
   (agent-engine-port task 5.1) and adapted to hermiq: real t('hermiq', …)
   translations (OR shipped a placeholder t()), CSS variables only, and the
   empty state links to hermiq's own /agents catalogue page. Each card shows
   the agent's tool whitelist / views and offers a one-click
-  "Start conversation" — the parent (Chat.vue) creates the conversation.
+  "Start session" — the parent (Chat.vue) creates the session.
 -->
 <template>
 	<div class="agent-selector">
@@ -31,14 +31,14 @@
 			:description="
 				t(
 					'hermiq',
-					'You need an agent to start a conversation. Create one in the Agents page.',
+					'You need an agent to start a session. Create one in the Agents page.',
 				)
 			">
 			<template #icon>
 				<Creation :size="20" />
 			</template>
 			<template #action>
-				<NcButton type="primary" @click="$router.push('/agents')">
+				<NcButton variant="primary" @click="$router.push('/agents')">
 					{{ t('hermiq', 'Go to agents') }}
 				</NcButton>
 			</template>
@@ -79,7 +79,7 @@
 				</div>
 
 				<NcButton
-					type="primary"
+					variant="primary"
 					wide
 					:disabled="!!startingId"
 					@click="$emit('start', agent)">
@@ -89,7 +89,7 @@
 							:size="20" />
 						<MessagePlus v-else :size="20" />
 					</template>
-					{{ t('hermiq', 'Start conversation') }}
+					{{ t('hermiq', 'Start session') }}
 				</NcButton>
 			</div>
 		</div>
@@ -134,7 +134,7 @@ export default {
 			default: '',
 		},
 
-		/** The id of the agent a conversation is being started with, if any. */
+		/** The id of the agent a session is being started with, if any. */
 		startingId: {
 			type: String,
 			default: '',

@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Credential;
 
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -253,4 +254,100 @@ class CredentialScopeResolverTest extends TestCase {
 		$this->assertNull($result);
 
 	}//end testNoOrganisationSkipsTheOrganisationBranch()
+	/**
+	 * A credential pinned for the provider goes before the personal and organisation ones.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testAPinnedCredentialGoesFirst(): void {
+		$resolver = $this->resolver(
+			[
+				$this->credential('cred-personal', 'openai', 'alice', 'personal', '', ['hermiq']),
+				$this->credential('cred-digest', 'openai', 'admin-uid', 'organisation', 'org-a', ['hermiq']),
+			]
+		);
+
+		$result = $resolver->resolve(
+			provider: 'openai',
+			actingUserId: 'alice',
+			organisation: 'org-a',
+			pinned: ['openai' => 'cred-digest']
+		);
+
+		$this->assertSame('cred-digest', $result);
+
+	}//end testAPinnedCredentialGoesFirst()
+
+	/**
+	 * A pin the broker would refuse stops resolution; nothing else is tried.
+	 *
+	 * Each case would otherwise fall through to alice's own personal key, which is
+	 * exactly the wider identity the owner did not choose.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testARefusedPinIsNeverReplacedByAnotherCredential(): void {
+		$pins = [
+			'no longer allowed for hermiq' => $this->credential('cred-pin', 'openai', 'admin-uid', 'organisation', 'org-a', ['filinq']),
+			'another provider' => $this->credential('cred-pin', 'fireworks', 'admin-uid', 'organisation', 'org-a', ['hermiq']),
+			'someone else\'s personal key' => $this->credential('cred-pin', 'openai', 'bob', 'personal', '', ['hermiq']),
+			'another organisation' => $this->credential('cred-pin', 'openai', 'admin-uid', 'organisation', 'org-b', ['hermiq']),
+		];
+		$pins['deleted'] = null;
+
+		foreach ($pins as $case => $pin) {
+			$credentials = [$this->credential('cred-personal', 'openai', 'alice', 'personal', '', ['hermiq'])];
+			if ($pin !== null) {
+				$credentials[] = $pin;
+			}
+
+			try {
+				$this->resolver($credentials)->resolve(
+					provider: 'openai',
+					actingUserId: 'alice',
+					organisation: 'org-a',
+					pinned: ['openai' => 'cred-pin']
+				);
+				$this->fail('A refused pin must stop the turn: ' . $case);
+			} catch (PinnedCredentialRefusedException $e) {
+				$this->assertSame('The credential pinned to this agent cannot be used for this run.', $e->getMessage(), $case);
+			}
+		}
+
+	}//end testARefusedPinIsNeverReplacedByAnotherCredential()
+
+	/**
+	 * A pin for another provider, or no pin at all, leaves resolution as it was.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
+	 */
+	public function testAnUnpinnedProviderResolvesAsBefore(): void {
+		$resolver = $this->resolver(
+			[$this->credential('cred-personal', 'openai', 'alice', 'personal', '', ['hermiq'])]
+		);
+
+		$this->assertSame(
+			'cred-personal',
+			$resolver->resolve(provider: 'openai', actingUserId: 'alice', organisation: 'org-a', pinned: ['fireworks' => 'cred-fw'])
+		);
+		$this->assertSame(
+			'cred-personal',
+			$resolver->resolve(provider: 'openai', actingUserId: 'alice', organisation: 'org-a', pinned: [])
+		);
+		$this->assertSame(
+			'cred-personal',
+			$resolver->resolve(provider: 'openai', actingUserId: 'alice', organisation: 'org-a', pinned: ['openai' => '  '])
+		);
+		$this->assertSame(
+			'cred-personal',
+			$resolver->resolve(provider: 'openai', actingUserId: 'alice', organisation: 'org-a', pinned: ['openai' => 7])
+		);
+
+	}//end testAnUnpinnedProviderResolvesAsBefore()
 }//end class

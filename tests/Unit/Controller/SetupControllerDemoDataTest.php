@@ -70,17 +70,31 @@ class SetupControllerDemoDataTest extends TestCase {
 		);
 	}
 
-	public function testStatusReportsBothExampleDataSteps(): void {
+	public function testStatusReportsEveryManifestStepId(): void {
 		$this->demoData->method('listChoices')->willReturn([]);
 
 		$steps = $this->controller()->status()->getData()['steps'];
 
 		// Absence is the defect this guards: a step the wizard is never told
-		// about cannot be offered and cannot be completed.
-		$this->assertArrayHasKey('demo-data', $steps);
-		$this->assertArrayHasKey('load-demo-data', $steps);
+		// about stays open and reopens the wizard. The ids come from the
+		// manifest the wizard renders, not from a list kept here by hand.
+		$manifest = json_decode((string)file_get_contents(__DIR__ . '/../../../src/manifest.json'), true);
+		$declared = array_column($manifest['setup']['steps'], 'id');
+		$reported = array_keys($steps);
+		sort($declared);
+		sort($reported);
+		$this->assertSame($declared, $reported);
 		$this->assertFalse($steps['demo-data']['done']);
-		$this->assertFalse($steps['load-demo-data']['done']);
+	}
+
+	public function testTheDatasetStepLoadsFromItsCards(): void {
+		// One cards step with `loadAction` replaces the choice step plus the
+		// run-action step that loaded the pick (wizard-dataset-card-load).
+		$manifest = json_decode((string)file_get_contents(__DIR__ . '/../../../src/manifest.json'), true);
+		$steps = array_column($manifest['setup']['steps'], null, 'id');
+
+		$this->assertSame('load-demo-data', $steps['demo-data']['loadAction'] ?? null);
+		$this->assertArrayNotHasKey('load-demo-data', $steps);
 	}
 
 	public function testStatusCarriesTheOptionListTheChoiceStepReads(): void {
@@ -98,14 +112,14 @@ class SetupControllerDemoDataTest extends TestCase {
 		$this->assertSame(12, $data['datasets'][1]['objectCount']);
 	}
 
-	public function testChoosingNoneClosesBothStepsWithoutRunningAnything(): void {
+	public function testChoosingNoneClosesTheStepWithoutRunningAnything(): void {
 		$this->demoData->method('listChoices')->willReturn([]);
 		$this->config['demo_dataset'] = 'none';
 
 		$steps = $this->controller()->status()->getData()['steps'];
 
 		$this->assertTrue($steps['demo-data']['done']);
-		$this->assertTrue($steps['load-demo-data']['done']);
+		$this->assertArrayNotHasKey('load-demo-data', $steps);
 	}
 
 	public function testTheChoiceIsPersisted(): void {
@@ -185,5 +199,51 @@ class SetupControllerDemoDataTest extends TestCase {
 
 		$this->assertFalse($response->getData()['success']);
 		$this->assertArrayNotHasKey('demo_data_decided', $this->written);
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function choices(): array {
+		return [
+			['id' => 'none', 'label' => 'None', 'description' => '', 'objectCount' => 0, 'icon' => ''],
+			['id' => 'demo', 'label' => 'Example data', 'description' => '', 'objectCount' => 7, 'icon' => ''],
+		];
+	}
+
+	public function testTheCardPostsItsDatasetAndTheLoadRecordsTheChoice(): void {
+		// The card's Load button posts `{ dataset }` to the step's
+		// `loadAction`. Nothing was stored before: the card IS the choice.
+		$this->demoData->method('listChoices')->willReturn($this->choices());
+		$this->demoData->expects($this->once())->method('install')
+			->willReturn(['objects' => 7, 'registers' => 1, 'schemas' => 2]);
+
+		$data = $this->controller(['dataset' => 'demo'])->runAction('load-demo-data')->getData();
+
+		$this->assertTrue($data['success']);
+		$this->assertStringContainsString('7', $data['message']);
+		$this->assertSame(['demo_dataset' => 'demo', 'demo_data_decided' => 'installed'], $this->written);
+	}
+
+	public function testAnUnknownPostedDatasetIsRefusedAndNothingLoads(): void {
+		$this->config['demo_dataset'] = 'demo';
+		$this->demoData->method('listChoices')->willReturn($this->choices());
+		$this->demoData->expects($this->never())->method('install');
+
+		$response = $this->controller(['dataset' => 'atlantis'])->runAction('load-demo-data');
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertStringContainsString('atlantis', $response->getData()['message']);
+		$this->assertSame([], $this->written);
+	}
+
+	public function testAFailedCardLoadStoresNothing(): void {
+		$this->demoData->method('listChoices')->willReturn($this->choices());
+		$this->demoData->method('install')->willThrowException(new RuntimeException('OpenRegister is not installed.'));
+
+		$response = $this->controller(['dataset' => 'demo'])->runAction('load-demo-data');
+
+		$this->assertSame(500, $response->getStatus());
+		$this->assertSame([], $this->written);
 	}
 }

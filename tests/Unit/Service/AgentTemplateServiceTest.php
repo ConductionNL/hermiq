@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -118,6 +118,9 @@ class AgentTemplateServiceTest extends TestCase {
 				// suite dies before it runs.
 				bool $failIfExists = false,
 				bool $_unowned = false,
+				// Added by openregister (duplicate detection), seen 2026-09-16.
+				bool $_dedupOverride = false,
+				?string $_owner = null,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload, 'uuid' => $uuid];
@@ -173,22 +176,22 @@ class AgentTemplateServiceTest extends TestCase {
 	}//end scanner()
 
 	/**
-	 * A TenantModelPolicyService mock allowing only the given provider (empty models = any
+	 * A OrganisationModelPolicyService mock allowing only the given provider (empty models = any
 	 * model for that provider), with the given default.
 	 *
 	 * @param string $allowedProvider The single allowed provider.
 	 * @param string|null $defaultModel The policy's default model id (or null).
 	 *
-	 * @return TenantModelPolicyService
+	 * @return OrganisationModelPolicyService
 	 */
-	private function modelPolicy(string $allowedProvider, ?string $defaultModel = null): TenantModelPolicyService {
+	private function modelPolicy(string $allowedProvider, ?string $defaultModel = null): OrganisationModelPolicyService {
 		$policy = [
 			'source' => 'organisation',
 			'allowed' => [['provider' => $allowedProvider, 'models' => []]],
 			'defaultModel' => ($defaultModel !== null) ? ['provider' => $allowedProvider, 'model' => $defaultModel] : null,
 		];
 
-		$service = $this->createMock(TenantModelPolicyService::class);
+		$service = $this->createMock(OrganisationModelPolicyService::class);
 		$service->method('effectivePolicyFor')->willReturn($policy);
 		$service->method('isAllowed')->willReturnCallback(
 			static fn (string $organisation, string $provider, string $model): bool => ($provider === $allowedProvider)
@@ -204,7 +207,7 @@ class AgentTemplateServiceTest extends TestCase {
 	 * @param ObjectService $objectService OpenRegister object read/write double.
 	 * @param AgentTemplateSerializer|null $serializer The serializer (real instance by default).
 	 * @param ContentScanService|null $scanner The content scanner (clean by default).
-	 * @param TenantModelPolicyService|null $modelPolicy The model policy (permissive by default).
+	 * @param OrganisationModelPolicyService|null $modelPolicy The model policy (permissive by default).
 	 * @param SkillService|null $skillService The skill service (no skills by default).
 	 *
 	 * @return AgentTemplateService
@@ -213,7 +216,7 @@ class AgentTemplateServiceTest extends TestCase {
 		ObjectService $objectService,
 		?AgentTemplateSerializer $serializer = null,
 		?ContentScanService $scanner = null,
-		?TenantModelPolicyService $modelPolicy = null,
+		?OrganisationModelPolicyService $modelPolicy = null,
 		?SkillService $skillService = null,
 	): AgentTemplateService {
 		return new AgentTemplateService(
@@ -329,7 +332,9 @@ class AgentTemplateServiceTest extends TestCase {
 
 		$saved = $objectService->saved[0]['object'];
 		$this->assertSame('active', $saved['state']);
-		$this->assertNull($saved['scanReport']);
+		// Absent, not null: the AgentTemplate fragment refuses a null scanReport.
+		$this->assertArrayNotHasKey('scanReport', $saved);
+		$this->assertArrayNotHasKey('quarantineReason', $saved);
 
 	}//end testImportPackageActiveForLocalSource()
 

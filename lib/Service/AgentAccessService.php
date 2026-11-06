@@ -19,18 +19,17 @@
  * without it: there was nothing shared to call. Extracting it means the next
  * endpoint has a collaborator to inject rather than a body to re-type.
  *
- * ⚠️ Those four private copies are deliberately NOT migrated onto this service in
- * the same change: each is guarded and correct today, and rewiring four working
- * controllers inside a security fix widens the blast radius of the fix itself.
- * Consolidation is filed as follow-up work.
+ * The four private copies (`AgentsController`, `AgentVersionController`,
+ * `ChatStreamController`, `ToolOversightController`) now call this service, so
+ * the predicate has one body and a change to it (such as the `groups` check,
+ * hermiq#951) reaches every route at once
+ * (agents-sharing-and-catalog-columns, design D2).
  *
- * ⚠️ This guard is the ONLY layer. OpenRegister's register RBAC is
- * default-OPEN for a schema that declares no `authorization` block
- * (`PermissionHandler::hasGroupPermission()` returns true when the block is
- * empty and `enforce_default_closed` is off, which is the shipped default), and
- * `hermiq_register.json` declares a block on `Agent` only — `Memory`,
- * `UserProfile`, `AgentSession`, `AgentSessionTurn` and `AgentTemplate` have
- * none. Multitenancy scopes organisations, not two users inside one.
+ * The same predicate is declared on the `Agent` schema's `read` rule in
+ * `hermiq_register.json` (hermiq#976), so OpenRegister's object API answers an
+ * agent read the way this service does: non-private, owner, invited user, or a
+ * member of one of the agent's groups. This service stays the check on
+ * hermiq's own routes; the register rule is the check on OpenRegister's.
  *
  * @category Service
  * @package  OCA\Hermiq\Service
@@ -54,6 +53,7 @@ namespace OCA\Hermiq\Service;
 
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -84,18 +84,20 @@ class AgentAccessService {
 	 *
 	 * @param ObjectService $objectService OpenRegister object read path.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param IGroupManager $groupManager Group membership, for an agent shared with groups.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
+		private readonly IGroupManager $groupManager,
 	) {
 	}//end __construct()
 
 	/**
 	 * Whether the user may READ an agent: non-private agents are open to the
 	 * organisation (multitenancy already scoped the read), private agents only
-	 * to their owner or an explicitly invited user — mirrors OR's
-	 * `AgentMapper::canUserAccessAgent()`.
+	 * to their owner, an explicitly invited user, or a member of one of the
+	 * groups in the agent's `groups` (hermiq#951).
 	 *
 	 * @param ObjectEntity $agent Agent object.
 	 * @param string $userId Nextcloud user id.
@@ -103,6 +105,7 @@ class AgentAccessService {
 	 * @return bool True when the user may access the agent.
 	 *
 	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-group-sharing-is-enforced-wherever-an-agent-is-read-or-run-req-agshare-002
 	 */
 	public function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
 		if ($userId === '') {
@@ -128,8 +131,36 @@ class AgentAccessService {
 			return true;
 		}
 
-		return false;
+		return $this->isInAnyGroup(userId: $userId, groups: ($data['groups'] ?? []));
 	}//end canUserAccessAgent()
+
+	/**
+	 * Whether the user is a member of any group the agent is shared with.
+	 *
+	 * @param string $userId Nextcloud user id.
+	 * @param mixed $groups The agent's `groups` value, a list of group ids.
+	 *
+	 * @return bool True when the user is in at least one of the groups.
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-group-sharing-is-enforced-wherever-an-agent-is-read-or-run-req-agshare-002
+	 */
+	private function isInAnyGroup(string $userId, mixed $groups): bool {
+		if (is_array($groups) === false) {
+			return false;
+		}
+
+		foreach ($groups as $groupId) {
+			if (is_string($groupId) === false || $groupId === '') {
+				continue;
+			}
+
+			if ($this->groupManager->isInGroup($userId, $groupId) === true) {
+				return true;
+			}
+		}
+
+		return false;
+	}//end isInAnyGroup()
 
 	/**
 	 * Whether the user may MODIFY an agent or the per-agent state hanging off it

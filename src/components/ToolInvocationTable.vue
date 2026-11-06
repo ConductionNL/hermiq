@@ -90,9 +90,8 @@
 			<!--
 				An audit trail grows without bound, so its height cannot be a
 				function of any gridHeight: a busy agent's rows pushed this widget
-				past its cell and over the widgets below it. Same treatment as the
-				grant catalogue in ToolGrantEditor — bounded scroll region, sticky
-				header, all rows still present.
+				past its cell and over the widgets below it. Bounded scroll region,
+				sticky header, all rows still present.
 			-->
 			<div v-else class="tool-oversight__table-wrap">
 				<table class="tool-oversight__table">
@@ -173,6 +172,24 @@ import {
 	getToolInvocations,
 	toolInvocationsExportUrl,
 } from '../api/toolOversight.js'
+
+/**
+ * The result labels in order of precedence: the first rule whose test holds names the result.
+ *
+ * @type {Array<[function(object): boolean, function(object, function(string, string, object=): string): string]>}
+ */
+const RESULT_LABELS = [
+	[(summary) => Boolean(summary.isError), (summary, t) => t('hermiq', 'Error')],
+	[(summary) => Boolean(summary.status), (summary) => String(summary.status)],
+	[
+		(summary) => typeof summary.count === 'number',
+		(summary, t) => t('hermiq', '{count} result(s)', { count: summary.count }),
+	],
+	[
+		(summary) => Boolean(summary.id),
+		(summary, t) => t('hermiq', 'Object {id}', { id: summary.id }),
+	],
+]
 
 export default {
 	name: 'ToolInvocationTable',
@@ -310,21 +327,8 @@ export default {
 			if (!summary) {
 				return '—'
 			}
-			if (summary.isError) {
-				return this.t('hermiq', 'Error')
-			}
-			if (summary.status) {
-				return String(summary.status)
-			}
-			if (typeof summary.count === 'number') {
-				return this.t('hermiq', '{count} result(s)', {
-					count: summary.count,
-				})
-			}
-			if (summary.id) {
-				return this.t('hermiq', 'Object {id}', { id: summary.id })
-			}
-			return this.t('hermiq', 'OK')
+			const rule = RESULT_LABELS.find(([applies]) => applies(summary))
+			return rule ? rule[1](summary, this.t) : this.t('hermiq', 'OK')
 		},
 
 		/**
@@ -380,7 +384,6 @@ export default {
 
 /* The audit trail is unbounded — it scrolls inside the widget (ADR-062). */
 .tool-oversight__table-wrap {
-	/* Paired with ToolGrantEditor's 300px cap — see the note there. */
 	max-height: 260px;
 	overflow-y: auto;
 	border: 1px solid var(--color-border);

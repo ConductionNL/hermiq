@@ -4,7 +4,7 @@
  * Hermiq Chat Conversation Management Handler.
  *
  * Handler for conversation lifecycle management: title generation, summarisation.
- * Ported from `OCA\OpenRegister\Service\Chat\ConversationManagementHandler`,
+ * Ported from `OCA\OpenRegister\Mcp\Service\Chat\ConversationManagementHandler`,
  * re-pointed at the `Conversation`/`Message` OR objects (agent-engine-schemas) via
  * `ObjectService`, and at `ProviderFactory` instead of OR's inline per-provider
  * LLPhant config building.
@@ -71,7 +71,7 @@ class ConversationManagementHandler {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Maximum tokens before triggering summarisation.
@@ -183,9 +183,6 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Unique title, with a numeric suffix if needed.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Ported suffix-probing loop kept
-	 * structurally intact from the OR original for parity reviewability.
-	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
 	 */
 	public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string {
@@ -213,39 +210,12 @@ class ConversationManagementHandler {
 				]
 			);
 
-		$existingTitles = [];
-		foreach ($conversations as $conversation) {
-			if (($conversation instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$title = $conversation->getObject()['title'] ?? null;
-			if (is_string($title) === true && str_starts_with($title, $baseTitle) === true) {
-				$existingTitles[] = $title;
-			}
-		}
-
-		if (empty($existingTitles) === true) {
-			return $baseTitle;
-		}
-
+		$existingTitles = $this->titlesStartingWith(baseTitle: $baseTitle, conversations: $conversations);
 		if (in_array($baseTitle, $existingTitles, true) === false) {
 			return $baseTitle;
 		}
 
-		$maxNumber = 1;
-		$baseTitleEscaped = preg_quote($baseTitle, '/');
-
-		foreach ($existingTitles as $title) {
-			if (preg_match('/^' . $baseTitleEscaped . ' \((\d+)\)$/', $title, $matches) === 1) {
-				$number = (int)$matches[1];
-				if ($number > $maxNumber) {
-					$maxNumber = $number;
-				}
-			}
-		}
-
-		$uniqueTitle = $baseTitle . ' (' . ($maxNumber + 1) . ')';
+		$uniqueTitle = $baseTitle . ' (' . ($this->highestTitleSuffix(baseTitle: $baseTitle, titles: $existingTitles) + 1) . ')';
 
 		$this->logger->info(
 			message: '[ConversationManagementHandler] Generated unique title',
@@ -260,6 +230,54 @@ class ConversationManagementHandler {
 
 		return $uniqueTitle;
 	}//end ensureUniqueTitle()
+
+	/**
+	 * The titles of the found conversations that start with the base title.
+	 *
+	 * @param string            $baseTitle     The base title.
+	 * @param array<int, mixed> $conversations The conversations found for the user and agent.
+	 *
+	 * @return array<int, string>
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	private function titlesStartingWith(string $baseTitle, array $conversations): array {
+		$titles = [];
+		foreach ($conversations as $conversation) {
+			if (($conversation instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$title = $conversation->getObject()['title'] ?? null;
+			if (is_string($title) === true && str_starts_with($title, $baseTitle) === true) {
+				$titles[] = $title;
+			}
+		}
+
+		return $titles;
+	}//end titlesStartingWith()
+
+	/**
+	 * The highest numeric suffix among `<base> (<n>)` titles, at least 1.
+	 *
+	 * @param string             $baseTitle The base title.
+	 * @param array<int, string> $titles    The titles that start with the base title.
+	 *
+	 * @return int
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	private function highestTitleSuffix(string $baseTitle, array $titles): int {
+		$maxNumber = 1;
+		$pattern = '/^' . preg_quote($baseTitle, '/') . ' \((\d+)\)$/';
+		foreach ($titles as $title) {
+			if (preg_match($pattern, $title, $matches) === 1 && (int)$matches[1] > $maxNumber) {
+				$maxNumber = (int)$matches[1];
+			}
+		}
+
+		return $maxNumber;
+	}//end highestTitleSuffix()
 
 	/**
 	 * Check whether a conversation needs summarisation and, if so, create one.
@@ -282,25 +300,11 @@ class ConversationManagementHandler {
 			$metadata = [];
 		}
 
-		$tokenCount = $metadata['token_count'] ?? 0;
-		if ($tokenCount < self::MAX_TOKENS_BEFORE_SUMMARY) {
+		if ($this->summaryIsDue(metadata: $metadata) === false) {
 			return;
 		}
 
-		$lastSummary = $metadata['last_summary_at'] ?? null;
-		if ($lastSummary !== null) {
-			try {
-				$lastSummaryTime = new DateTime($lastSummary);
-				$hoursSinceSummary = (time() - $lastSummaryTime->getTimestamp()) / 3600;
-				if ($hoursSinceSummary < 1) {
-					return;
-				}
-			} catch (Exception) {
-				// Malformed timestamp — fall through and re-summarise.
-				unset($lastSummary);
-			}
-		}
-
+		$tokenCount = $metadata['token_count'] ?? 0;
 		$conversationUuid = (string)$conversation->getUuid();
 
 		$this->logger->info(
@@ -361,6 +365,36 @@ class ConversationManagementHandler {
 	}//end checkAndSummarize()
 
 	/**
+	 * Whether the token count reached the summary bound and no summary ran in
+	 * the last hour. A malformed last-summary time counts as no summary.
+	 *
+	 * @param array<string, mixed> $metadata The conversation's metadata.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 */
+	private function summaryIsDue(array $metadata): bool {
+		$tokenCount = $metadata['token_count'] ?? 0;
+		if ($tokenCount < self::MAX_TOKENS_BEFORE_SUMMARY) {
+			return false;
+		}
+
+		$lastSummary = $metadata['last_summary_at'] ?? null;
+		if ($lastSummary === null) {
+			return true;
+		}
+
+		try {
+			$lastSummaryTime = new DateTime($lastSummary);
+		} catch (Exception) {
+			return true;
+		}
+
+		return ((time() - $lastSummaryTime->getTimestamp()) / 3600) >= 1;
+	}//end summaryIsDue()
+
+	/**
 	 * Fetch every Message for a conversation, oldest-first, up to
 	 * `MAX_MESSAGES_FOR_SUMMARY`.
 	 *
@@ -369,15 +403,19 @@ class ConversationManagementHandler {
 	 * @return array<int, ObjectEntity> The conversation's Message objects, ascending.
 	 */
 	private function fetchAllMessages(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and a
+		// summary of a shared session must cover every participant's turns. This runs
+		// inside the engine turn, after its owner-or-participant check on the session.
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
-			->setSchema('message')
+			->setSchema('agentsessionturn')
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
+					'filters' => ['sessionId' => $conversationId],
 					'sort' => ['created' => 'ASC'],
 					'limit' => self::MAX_MESSAGES_FOR_SUMMARY,
-				]
+				],
+				_rbac: false
 			);
 
 		return array_values(array_filter($messages, static fn ($object): bool => $object instanceof ObjectEntity));
@@ -418,6 +456,23 @@ class ConversationManagementHandler {
 
 		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
 	}//end generateSummary()
+
+	/**
+	 * One completion from the configured model, under the organisation's model policy.
+	 *
+	 * The same path the conversation title uses, for other one-shot callers (the
+	 * knowledge-graph extractor). Throws when no provider is available.
+	 *
+	 * @param string $prompt The prompt.
+	 * @param string|null $organisation The organisation whose model policy applies.
+	 *
+	 * @return string The model's answer.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 */
+	public function generateText(string $prompt, ?string $organisation = null): string {
+		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
+	}//end generateText()
 
 	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently

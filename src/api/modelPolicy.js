@@ -3,7 +3,7 @@
 //
 // Plain (non-Pinia) API helper for the tenant model-policy surface
 // (tenant-model-policy). Policies are thin Hermiq-controller endpoints
-// (TenantModelPolicyController), NOT the generic createObjectStore object path:
+// (OrganisationModelPolicyController), NOT the generic createObjectStore object path:
 // write access is instance-admin/org-owner-gated server-side (mirrors
 // src/api/budgets.js), which the generic OR objects path does not express.
 //
@@ -36,6 +36,23 @@ export async function getEffectiveModelPolicy() {
 export async function listModelPolicies() {
 	const response = await axios.get(generateUrl(BASE))
 	return Array.isArray(response.data?.policies) ? response.data.policies : []
+}
+
+/**
+ * List the caller-visible policies together with what each provider declared
+ * about training (models-no-training-guarantee), so the editor can name the
+ * providers the no-training switch would refuse.
+ *
+ * @return {Promise<{policies: Array<object>, dataUse: object}>} Policies and `{provider: dataUse}`.
+ */
+export async function listModelPoliciesWithDataUse() {
+	const response = await axios.get(generateUrl(BASE))
+	return {
+		policies: Array.isArray(response.data?.policies)
+			? response.data.policies
+			: [],
+		dataUse: response.data?.dataUse || {},
+	}
 }
 
 /**

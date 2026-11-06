@@ -6,7 +6,7 @@
  * Hermiq's agent engine (AgentsController, Engine, ToolLoop, ContextRetrievalHandler,
  * FacadeToolInvoker, AgentRunRequestedListener chain) hard-depends on two OpenRegister
  * classes that only exist from a specific OpenRegister commit onward:
- *  - `OCA\OpenRegister\Service\Mcp\ToolRegistryFacade` (OpenRegister #297)
+ *  - `OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade` (OpenRegister #297)
  *  - `OCA\OpenRegister\Event\AgentRunRequestedEvent` (OpenRegister #306)
  *
  * NC's info.xml `<dependencies>` element has no way to pin the version of another
@@ -46,7 +46,8 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Object\BulkWriteEvents;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Log\LoggerInterface;
@@ -65,11 +66,13 @@ class CheckOpenRegisterCompatibility implements IRepairStep {
 	 * OpenRegister's organisation-scope credential broker
 	 * (`credential-broker-organisation-scope`), which the "Agent credentials"
 	 * Settings section and `CredentialScopeResolver`'s organisation branch
-	 * depend on.
+	 * depend on. Bumped for the approval-waiver audit: the first tag holding
+	 * OpenRegister 959be02f8, which reads `fireEventsOnBulkWrites`. An older
+	 * version drops that setting, so a bulk save of agents leaves no waiver record.
 	 *
 	 * @var string
 	 */
-	public const MIN_OPENREGISTER_VERSION = '0.2.17-unstable.14';
+	public const MIN_OPENREGISTER_VERSION = '2.1.43-unstable.20261102171844';
 
 	/**
 	 * FQCN => human-readable label (with the OpenRegister PR that introduced it),
@@ -80,7 +83,7 @@ class CheckOpenRegisterCompatibility implements IRepairStep {
 	 * @var array<string,string>
 	 */
 	private const REQUIRED_CLASSES = [
-		ToolRegistryFacade::class => 'OCA\OpenRegister\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
+		ToolRegistryFacade::class => 'OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
 		AgentRunRequestedEvent::class => 'OCA\OpenRegister\Event\AgentRunRequestedEvent (OpenRegister #306)',
 		// 🔴 ADDED WITH THE ADR-099 §5 RELOCATION. The capability grammar used to
 		// live in this app, so no version of OpenRegister could be too old to
@@ -91,6 +94,7 @@ class CheckOpenRegisterCompatibility implements IRepairStep {
 		// class arrived in the same commit, and listing five would suggest they
 		// can be present independently.
 		ToolGrantResolver::class => 'OCA\OpenRegister\Service\Capability\ToolGrantResolver (ADR-099 §5 relocation)',
+		BulkWriteEvents::class => 'OCA\OpenRegister\Service\Object\BulkWriteEvents (without it a bulk save of agents leaves no waiver record)',
 	];
 
 	/**
@@ -155,8 +159,8 @@ class CheckOpenRegisterCompatibility implements IRepairStep {
 
 		$message = sprintf(
 			'Hermiq requires OpenRegister >= %s but the following required classes are missing: %s. '
-			. 'The agent engine (chat, scheduled runs, flow-triggered agent actions) will fail to '
-			. 'construct until OpenRegister is upgraded on this instance.',
+			. 'The agent engine (chat, scheduled runs, flow-triggered agent actions) can fail, '
+			. 'and bulk saves can go unaudited, until OpenRegister is upgraded on this instance.',
 			self::MIN_OPENREGISTER_VERSION,
 			implode(', ', $missing)
 		);

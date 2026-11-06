@@ -302,6 +302,8 @@ class SeedHydraTriageAgent implements IRepairStep {
 				. 'one command, when configured, is an approval-gated flow invocation.',
 			'icon' => 'RobotOutline',
 			'applicationSlug' => self::APPLICATION_SLUG,
+			// The agent that answers in the hydra console's assistant (agents-bound-to-their-app).
+			'appAssistantFor' => self::APPLICATION_SLUG,
 			'active' => true,
 			'isPrivate' => false,
 			// Not downgradable by any request body, tool argument or prompt content:

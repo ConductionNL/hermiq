@@ -451,6 +451,43 @@ class ConversationTitleWriterTest extends TestCase {
 	}//end testTheLowercasePlaceholderIsRecognisedAsUntitled()
 
 	/**
+	 * The current placeholder is recognised too.
+	 *
+	 * The create path writes `New session` since the session rename. The older
+	 * `New conversation` rows keep their own test above, and both must pass: a
+	 * check that recognised only one spelling would leave the other set of
+	 * sessions permanently unnamed, and nothing about a row renders differently
+	 * when that happens.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testTheSessionPlaceholderIsRecognisedAsUntitled(): void {
+		$conversation = $this->conversation(
+			payload: [
+				'title' => 'New session',
+				'userId' => 'alice',
+			]
+		);
+
+		$objectService = $this->objectService(conversation: $conversation);
+		$objectService->expects($this->once())->method('saveObject')->willReturn(new ObjectEntity());
+
+		$handler = $this->createMock(originalClassName: ConversationManagementHandler::class);
+		$handler->expects($this->once())->method('generateConversationTitle')->willReturn('Leave policy');
+		$handler->method('ensureUniqueTitle')->willReturn('Leave policy');
+
+		$this->writer(objectService: $objectService, handler: $handler)->write(
+			conversationId: 'conv-1',
+			userMessage: 'What is our leave policy?',
+			userId: 'alice'
+		);
+
+	}//end testTheSessionPlaceholderIsRecognisedAsUntitled()
+
+
+	/**
 	 * A failed generation leaves the placeholder and does not throw.
 	 *
 	 * The reply has already been delivered; a naming hiccup must not surface as a

@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\BackgroundJob;
 
 use OCA\Hermiq\Service\Schedule\ScheduleFlowBridge;
+use OCA\Hermiq\Service\GoalService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -56,15 +57,18 @@ class ScheduleTask extends TimedJob {
 	 * @param ScheduleFlowBridge $flowBridge Arms eligible schedules on the engine's
 	 *                                       schedule trigger before each tick
 	 *                                       (schedules-onto-engine-triggers).
+	 * @param GoalService $goals Takes the due standing goals' turns (agents-standing-goal).
 	 * @param LoggerInterface $logger Isolates a bridge failure from the tick.
 	 *
 	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
 	public function __construct(
 		ITimeFactory $time,
 		private readonly ScheduleService $scheduleService,
 		private readonly ScheduleFlowBridge $flowBridge,
+		private readonly GoalService $goals,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);
@@ -96,6 +100,7 @@ class ScheduleTask extends TimedJob {
 	 *
 	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
 	public function run(mixed $argument): void {
 		// Arm first: a schedule created since the last tick delegates its clock
@@ -112,6 +117,14 @@ class ScheduleTask extends TimedJob {
 		}
 
 		$this->scheduleService->run();
+
+		// Agents-standing-goal: due goals take their next turn on the same tick,
+		// after the schedules. Failure-isolated like the bridge above.
+		try {
+			$this->goals->run();
+		} catch (Throwable $e) {
+			$this->logger->error('[hermiq] Standing goal turns failed this tick: ' . $e->getMessage(), ['exception' => $e]);
+		}
 
 	}//end run()
 }//end class

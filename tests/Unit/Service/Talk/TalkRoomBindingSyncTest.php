@@ -186,4 +186,35 @@ class TalkRoomBindingSyncTest extends TestCase {
 		$this->assertSame($session, $binding->syncParticipants($session, ['alice', 'bob']));
 
 	}//end testAFailedSyncReturnsTheSessionUnchanged()
+	/**
+	 * A room member who is not yet on the roster still finds the room's session.
+	 *
+	 * The Session read rule admits only the owner and listed participants
+	 * (hermiq#976). If the room lookup ran under it, a late joiner would find
+	 * no session, and the listener would bind a second session to the room
+	 * instead of syncing the roster. The room token is the key, so the lookup
+	 * goes around RBAC and keeps tenancy; the participation check follows.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 */
+	public function testTheRoomLookupIsNotLimitedToTheCallersOwnSessions(): void {
+		$flags = null;
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config, bool $_rbac = true, bool $_multitenancy = true) use (&$flags): array {
+				$flags = ['rbac' => $_rbac, 'multitenancy' => $_multitenancy, 'filters' => $config['filters']];
+				return [$this->session([])];
+			}
+		);
+
+		$binding = new TalkRoomBinding($objectService, $this->createMock(LoggerInterface::class));
+
+		$this->assertNotNull($binding->findByRoomToken(roomToken: 'room-1'));
+		$this->assertSame(['rbac' => false, 'multitenancy' => true, 'filters' => ['talkRoomToken' => 'room-1']], $flags);
+
+	}//end testTheRoomLookupIsNotLimitedToTheCallersOwnSessions()
 }//end class

@@ -353,7 +353,7 @@ class ToolGrantResolverTest extends TestCase {
 	/**
 	 * Convert `HermiqToolProvider::getTools()` descriptors into the catalog shape
 	 * `ToolRegistryFacade::listTools()` hands the resolver, mirroring exactly what
-	 * `OCA\OpenRegister\Tool\McpProviderBridge::getFunctions()` does at runtime
+	 * `OCA\OpenRegister\Mcp\Tool\McpProviderBridge::getFunctions()` does at runtime
 	 * (or #373: dotted `id` becomes `mcpId`; `readOnlyHint`/`destructiveHint`/
 	 * `idempotentHint`/`scope` are forwarded additively when the provider set
 	 * them). This is the end-to-end proof that the hermiq-prefer-tool-hints

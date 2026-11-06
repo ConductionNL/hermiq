@@ -346,6 +346,47 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testListRunsIncludesFlowTriggeredRunsAndNamesTheChannel()
 
 	/**
+	 * A run row carries the provider disclosure its record holds, data-use term
+	 * included, as it stood at run time; an older run without one reads empty.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 */
+	public function testARunRowShowsTheDataUseTermInForce(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$recorded = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$recorded->setUuid('run-with-term');
+		$recorded->setCreated(new \DateTime('2026-08-01 09:00:00'));
+		$recorded->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'providerDisclosure' => [
+					'feature' => '',
+					'provider' => 'anthropic',
+					'model' => 'claude-sonnet-5',
+					'residency' => 'eu',
+					'location' => 'Frankfurt',
+					'dataUse' => 'no-training',
+					'termsReference' => 'Anthropic commercial terms, checked 2026-09-01',
+				],
+			]
+		);
+		$older = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$older->setUuid('run-before');
+		$older->setCreated(new \DateTime('2026-07-01 09:00:00'));
+
+		$byId = array_column($this->service($schedules, [$recorded, $older])->listRuns()['results'], null, 'id');
+
+		$this->assertSame('no-training', $byId['run-with-term']['providerDisclosure']['dataUse']);
+		$this->assertSame('Anthropic commercial terms, checked 2026-09-01', $byId['run-with-term']['providerDisclosure']['termsReference']);
+		$this->assertSame([], $byId['run-before']['providerDisclosure']);
+
+	}//end testARunRowShowsTheDataUseTermInForce()
+
+	/**
 	 * The status filter narrows the rows, and `total` counts the filtered set.
 	 *
 	 * @return void

@@ -24,8 +24,24 @@
  *     results in a denial. An egress proxy that fails open is not a control.
  *   - The run token identifies the run; it arrives in `Proxy-Authorization` and
  *     is forwarded to the PDP as a bearer token. It is NEVER logged.
- *   - Only CONNECT is served. Plain HTTP proxying would let the PEP see and
- *     mutate cleartext traffic; there is no reason for it to.
+ *   - EVERY request is authorized the same way, whatever its shape. Two shapes
+ *     arrive: `CONNECT host:port` (a TLS tunnel) and an absolute-form request
+ *     line (`POST http://host/path`) from a client using an `http://` URL. Both
+ *     ask the PDP about the same `{host, port}` with the same run token, and
+ *     both open nothing until it answers `allowed: true`.
+ *
+ *     The absolute-form path was refused with a flat 405 until 2026-09-18, and
+ *     that made the runner's OWN governance channel unreachable: Hermiq's MCP
+ *     endpoint is an HTTP POST, so a governed tool call died on
+ *     `this proxy serves CONNECT only` and the model answered as if it had no
+ *     tools. The old rule read "plain HTTP proxying would let the PEP see and
+ *     mutate cleartext traffic; there is no reason for it to." Seeing is not
+ *     avoidable for a forward proxy carrying cleartext, and there is now a
+ *     reason. Mutating is: this proxy copies the request through verbatim, and
+ *     strips only the hop-by-hop headers RFC 9110 §7.6.1 forbids forwarding —
+ *     above all `Proxy-Authorization`, which carries the run token and must
+ *     never reach the origin. It reads no body, buffers no body, and logs
+ *     nothing beyond `host:port`, exactly as the CONNECT path does.
  *
  * Known limitation, stated plainly: CONNECT gives host:port granularity, not
  * URL. The PDP therefore decides on the host, and any path on an allowed host is
@@ -51,7 +67,14 @@ const PDP_URL = process.env.EGRESS_PDP_URL || ''
 
 // How long to wait for a verdict. A slow PDP denies (see DEFAULT DENY above) —
 // this bounds how long a caller waits to be told "no".
-const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '5000')
+//
+// It was 5000 ms. Measured 2026-09-18 on the live demo instance, that produced a
+// stream of `DENY api.anthropic.com:443 (pdp_timeout)` in the middle of working
+// turns, because the PDP is a Nextcloud request and this instance answered
+// `status.php` in 4878 ms. The control was denying the provider for being slow,
+// which surfaces to the operator as "the provider is down" and to the model as a
+// failed turn. Fail-closed is right; five seconds of patience was not.
+const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '15000')
 
 /**
  * Ask the PDP whether this run may reach this host:port.
@@ -197,10 +220,149 @@ function parseTarget(target) {
 	return { host, port }
 }
 
-const server = http.createServer((req, res) => {
-	// Plain HTTP proxying is not served — only CONNECT. Anything else is a 405.
-	res.writeHead(405, { 'Content-Type': 'text/plain' })
-	res.end('this proxy serves CONNECT only\n')
+/**
+ * Parse an absolute-form request target (`http://host[:port]/path`), which is
+ * what a client sends to a forward proxy for an `http://` URL.
+ *
+ * Only `http:` is accepted. An `https:` URL reaches a proxy as CONNECT, never as
+ * an absolute-form request line, so an `https:` target here is a malformed
+ * client — not a shape to guess at.
+ *
+ * @param {string} target The request URL.
+ * @returns {{host: string, port: number, path: string}|null} Parsed, or null.
+ */
+function parseAbsoluteTarget(target) {
+	let parsed
+	try {
+		parsed = new URL(target)
+	} catch (e) {
+		return null
+	}
+	if (parsed.protocol !== 'http:' || parsed.hostname === '') {
+		return null
+	}
+	// `URL` strips the brackets from an IPv6 literal in `hostname`; `net.connect`
+	// wants it that way too, so nothing is put back.
+	return {
+		host: parsed.hostname,
+		port: Number(parsed.port || 80),
+		path: `${parsed.pathname}${parsed.search}`,
+	}
+}
+
+// Headers a proxy MUST NOT forward (RFC 9110 §7.6.1). `proxy-authorization`
+// leads the list for a reason: it carries the run token, and forwarding it would
+// hand the origin a live credential it has no business holding.
+const HOP_BY_HOP = [
+	'proxy-authorization',
+	'proxy-connection',
+	'connection',
+	'keep-alive',
+	'te',
+	'trailer',
+	'transfer-encoding',
+	'upgrade',
+]
+
+/**
+ * Copy request headers for forwarding, dropping the hop-by-hop set.
+ *
+ * Nothing else is touched: no header is added, rewritten or reordered, so what
+ * the origin sees is what the client sent.
+ *
+ * @param {object} headers The incoming headers.
+ * @returns {object} The headers to forward.
+ */
+function forwardableHeaders(headers) {
+	const out = {}
+	for (const [name, value] of Object.entries(headers || {})) {
+		if (HOP_BY_HOP.includes(name.toLowerCase()) === false) {
+			out[name] = value
+		}
+	}
+	return out
+}
+
+const server = http.createServer(async (req, res) => {
+	const refuse = (status, code, reason, extraHeaders) => {
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] DENY ${req.method} (${code})`)
+		res.writeHead(status, {
+			'Content-Type': 'text/plain',
+			'X-Egress-Deny-Code': code,
+			...(extraHeaders || {}),
+		})
+		res.end(`${reason}\n`)
+		// The body is never read on a refusal — drain it so the socket can close
+		// without the client seeing a reset instead of its 403.
+		req.resume()
+	}
+
+	// Origin-form (`GET /health`) is not a proxy request: this process is a proxy,
+	// not a web server, and it exposes no endpoints of its own.
+	const target = parseAbsoluteTarget(req.url)
+	if (target === null) {
+		refuse(
+			405,
+			'not_a_proxy_request',
+			'this proxy serves CONNECT and http:// forward requests only',
+		)
+		return
+	}
+
+	const token = tokenFromProxyAuth(req.headers)
+	if (token === '') {
+		// Identical to the CONNECT path: challenge rather than refuse, so a client
+		// holding a credential it has not offered yet learns to offer it. No tunnel,
+		// no forward, and the PDP is not consulted — there is no run to ask about.
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] CHALLENGE ${req.method} (no_run_token)`)
+		refuse(407, 'no_run_token', 'no run token presented to the proxy', {
+			'Proxy-Authenticate': 'Basic realm="hermiq-egress"',
+		})
+		return
+	}
+
+	const verdict = await askPdp(target.host, target.port, token)
+	if (verdict.allowed !== true) {
+		refuse(403, verdict.code, verdict.message)
+		return
+	}
+
+	const upstream = http.request(
+		{
+			host: target.host,
+			port: target.port,
+			method: req.method,
+			// ORIGIN-form: the request line is rewritten to the path, which is what
+			// an origin server (and Nextcloud's router) expects. This is the one
+			// rewrite a forward proxy must perform.
+			path: target.path,
+			headers: forwardableHeaders(req.headers),
+		},
+		(upstreamRes) => {
+			// Stream straight through: the response is never buffered, so a
+			// Server-Sent-Events stream (which is how the MCP transport answers)
+			// reaches the client as it arrives.
+			res.writeHead(upstreamRes.statusCode, upstreamRes.headers)
+			upstreamRes.pipe(res)
+		},
+	)
+
+	upstream.on('error', () => {
+		if (res.headersSent === false) {
+			res.writeHead(502, { 'Content-Type': 'text/plain' })
+			res.end('upstream failed\n')
+			return
+		}
+		res.destroy()
+	})
+	req.on('error', () => upstream.destroy())
+	res.on('close', () => upstream.destroy())
+
+	// eslint-disable-next-line no-console
+	console.log(`[hermiq-egress-proxy] ALLOW ${target.host}:${target.port} (http)`)
+	req.pipe(upstream)
 })
 
 server.on('connect', async (req, clientSocket, head) => {
@@ -311,4 +473,11 @@ if (require.main === module) {
 	})
 }
 
-module.exports = { server, askPdp, tokenFromProxyAuth, parseTarget }
+module.exports = {
+	server,
+	askPdp,
+	tokenFromProxyAuth,
+	parseTarget,
+	parseAbsoluteTarget,
+	forwardableHeaders,
+}

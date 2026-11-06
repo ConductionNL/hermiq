@@ -125,6 +125,11 @@
 									</template>
 									{{ t('hermiq', 'Replay') }}
 								</NcButton>
+								<NcButton
+									variant="tertiary"
+									@click="compareWith(run)">
+									{{ t('hermiq', 'Compare with…') }}
+								</NcButton>
 							</td>
 						</tr>
 						<tr v-if="expandedRunId === run.id">
@@ -379,6 +384,20 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Open the Runs page with this run ticked, to choose the second run.
+		 *
+		 * @param {object} run The run.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+		 */
+		compareWith(run) {
+			this.$router
+				.push({ path: '/runs', query: { compareWith: run.id } })
+				.catch(() => {})
+		},
+
 		/**
 		 * Dismiss the replay preview.
 		 *
@@ -668,6 +687,7 @@ export default {
 				|| status === 'awaiting_approval'
 				|| status === 'skipped_killswitch'
 				|| status === 'skipped_budget'
+				|| status === 'skipped_agent_off'
 			) {
 				return 'agent-run-history-widget__badge--warning'
 			}
@@ -688,6 +708,7 @@ export default {
 				running: this.t('hermiq', 'Running'),
 				skipped_killswitch: this.t('hermiq', 'Halted (kill-switch)'),
 				skipped_budget: this.t('hermiq', 'Halted (budget)'),
+				skipped_agent_off: this.t('hermiq', 'Halted (agent switched off)'),
 				awaiting_approval: this.t('hermiq', 'Awaiting approval'),
 				retry_pending: this.t('hermiq', 'Retrying…'),
 				dead_letter: this.t('hermiq', 'Dead-letter'),

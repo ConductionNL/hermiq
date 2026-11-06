@@ -4,7 +4,7 @@
  * Hermiq Seed Model Policies Repair Step.
  *
  * Idempotently seeds the two design.md `ModelPolicy` objects (tenant-model-policy) on
- * install/upgrade via `TenantModelPolicyService::upsertForOrganisation()` — the same
+ * install/upgrade via `OrganisationModelPolicyService::upsertForOrganisation()` — the same
  * single write-path (OR `ObjectService`, ADR-001/ADR-004) the controller uses:
  *   - the organisation-less INSTANCE DEFAULT policy (all four drivers, unrestricted
  *     models), so a fresh install is permissive-but-explicit instead of fail-closed;
@@ -34,7 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -85,7 +85,7 @@ class SeedModelPolicies implements IRepairStep {
 	 */
 	public function run(IOutput $output): void {
 		try {
-			$policyService = $this->container->get(TenantModelPolicyService::class);
+			$policyService = $this->container->get(OrganisationModelPolicyService::class);
 			$organisationMapper = $this->container->get(OrganisationMapper::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available — skipping model-policy seed.');
@@ -140,7 +140,7 @@ class SeedModelPolicies implements IRepairStep {
 	 * Create the policy when the organisation has none yet; never overwrite an
 	 * existing one (admin edits must survive upgrades).
 	 *
-	 * @param TenantModelPolicyService $policyService The policy write-path.
+	 * @param OrganisationModelPolicyService $policyService The policy write-path.
 	 * @param IOutput $output Repair output channel.
 	 * @param string $organisation The organisation ('' = instance default).
 	 * @param array<string,mixed> $payload The policy fields (allowed/defaultModel).
@@ -148,7 +148,7 @@ class SeedModelPolicies implements IRepairStep {
 	 * @return int 1 when a new policy was created, 0 when skipped (exists or failed).
 	 */
 	private function seedIfMissing(
-		TenantModelPolicyService $policyService,
+		OrganisationModelPolicyService $policyService,
 		IOutput $output,
 		string $organisation,
 		array $payload,

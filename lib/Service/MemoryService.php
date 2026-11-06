@@ -251,7 +251,7 @@ class MemoryService {
 		$data = $memory->getObject();
 
 		$budget = (int)($data['charBudget'] ?? self::DEFAULT_MEMORY_BUDGET);
-		$normalised = $this->normaliseEntries(entries: $entries);
+		$normalised = $this->withEntryIds(entries: $this->normaliseEntries(entries: $entries));
 		$data['entries'] = $normalised;
 		// After an explicit consolidation the nudge is cleared unless the new set is
 		// STILL over budget (a no-op consolidation should not falsely clear it).
@@ -494,6 +494,87 @@ class MemoryService {
 	}//end forgetEntry()
 
 	/**
+	 * Correct one Memory entry: the old entry is soft-deleted and the new text is
+	 * appended as a new entry, in one save, so the history keeps both wordings.
+	 *
+	 * The new text goes through the same redaction as every other memory write.
+	 * An entry that does not exist, or that is already forgotten, is not found.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $entryId The id of the entry to correct.
+	 * @param string $text The corrected text (non-empty; the caller checks).
+	 *
+	 * @return ObjectEntity|null The persisted Memory object, or null when no live
+	 *                           entry carries `$entryId`.
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 */
+	public function correctMemoryEntry(string $agentId, string $entryId, string $text): ?ObjectEntity {
+		if (trim($entryId) === '') {
+			return null;
+		}
+
+		$memory = $this->getMemory(agentId: $agentId);
+		$data = $memory->getObject();
+		$entries = $this->withEntryIds(entries: $this->normaliseEntries(entries: ($data['entries'] ?? [])));
+
+		$matchIndex = null;
+		foreach ($entries as $index => $entry) {
+			if (($entry['id'] ?? '') === $entryId && $this->isDeleted(entry: $entry) === false) {
+				$matchIndex = $index;
+				break;
+			}
+		}
+
+		if ($matchIndex === null) {
+			return null;
+		}
+
+		$now = $this->now();
+		$entries[$matchIndex]['deletedAt'] = $now;
+		$entries[] = [
+			'id' => $this->generateEntryId(),
+			'text' => $this->redactionService->redact(text: $text),
+			'createdAt' => $now,
+		];
+
+		$budget = (int)($data['charBudget'] ?? self::DEFAULT_MEMORY_BUDGET);
+		$data['entries'] = $entries;
+		$data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
+
+		return $this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::MEMORY_SCHEMA,
+			uuid: (string)$memory->getUuid()
+		);
+
+	}//end correctMemoryEntry()
+
+	/**
+	 * Give every entry that has no `id` a fresh one.
+	 *
+	 * Entries stored before entry ids existed cannot be corrected or forgotten by
+	 * id. Applied on every WRITE path only (never on a read), so an id handed to
+	 * the UI or to recall is always one that is stored.
+	 *
+	 * @param array<int, array<string, string>> $entries Normalised entries.
+	 *
+	 * @return array<int, array<string, string>> The same entries, each with an id.
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 */
+	private function withEntryIds(array $entries): array {
+		foreach ($entries as $index => $entry) {
+			if (isset($entry['id']) === false || $entry['id'] === '') {
+				$entries[$index]['id'] = $this->generateEntryId();
+			}
+		}
+
+		return $entries;
+	}//end withEntryIds()
+
+	/**
 	 * Append an entry to a Memory/UserProfile object and recompute the consolidation flag.
 	 *
 	 * Redacts the entry text BEFORE persist (`RedactionService::redact()`, ADR-004's
@@ -515,7 +596,7 @@ class MemoryService {
 	 */
 	private function appendEntry(ObjectEntity $object, string $schema, string $text, int $defaultBudget): ObjectEntity {
 		$data = $object->getObject();
-		$entries = $this->normaliseEntries(entries: ($data['entries'] ?? []));
+		$entries = $this->withEntryIds(entries: $this->normaliseEntries(entries: ($data['entries'] ?? [])));
 
 		$entries[] = [
 			'id' => $this->generateEntryId(),
@@ -569,6 +650,7 @@ class MemoryService {
 			return true;
 		}
 
+		$entries = $this->withEntryIds(entries: $entries);
 		$entries[$matchIndex]['deletedAt'] = $this->now();
 
 		$budget = (int)($data['charBudget'] ?? $defaultBudget);

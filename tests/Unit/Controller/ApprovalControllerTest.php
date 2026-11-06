@@ -34,6 +34,8 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use ReflectionMethod;
 
 /**
  * Tests for the human-approval-gate-enforcement ApprovalController.
@@ -241,4 +243,197 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
 	}//end testNonReviewerCannotDeny()
+
+	/**
+	 * The controller with a request whose parameters are $params.
+	 *
+	 * @param ApprovalService      $approvalService The approval service.
+	 * @param IUserSession         $session         The user session.
+	 * @param array<string, mixed> $params          The request parameters.
+	 *
+	 * @return ApprovalController
+	 */
+	private function resolvingController(ApprovalService $approvalService, IUserSession $session, array $params): ApprovalController {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->willReturnCallback(
+			static fn (string $key, mixed $default = null): mixed => ($params[$key] ?? $default)
+		);
+
+		return new ApprovalController($request, $approvalService, $session, $this->createMock(LoggerInterface::class));
+
+	}//end resolvingController()
+
+	/**
+	 * A service whose pending approval only `bob` reviews.
+	 *
+	 * @return ApprovalService&\PHPUnit\Framework\MockObject\MockObject
+	 */
+	private function bobReviews(): ApprovalService {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('pending'));
+		$service->method('isReviewer')->willReturnCallback(
+			static fn (ObjectEntity $approval, string $uid): bool => $uid === 'bob'
+		);
+		return $service;
+
+	}//end bobReviews()
+
+	/**
+	 * `granted` on the resolve route approves as the reviewer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function testResolveGrantedApproves(): void {
+		$service = $this->bobReviews();
+		$service->expects($this->once())->method('approve')
+			->with($this->isInstanceOf(ObjectEntity::class), 'bob')
+			->willReturn(['status' => 'approved', 'ran' => true]);
+		$service->expects($this->never())->method('deny');
+
+		$response = $this->resolvingController($service, $this->session('bob'), ['decision' => 'granted'])->resolve('appr-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['approvalId' => 'appr-1', 'status' => 'approved', 'ran' => true], $response->getData());
+
+	}//end testResolveGrantedApproves()
+
+	/**
+	 * `refused` on the resolve route denies as the reviewer, with the reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function testResolveRefusedDenies(): void {
+		$service = $this->bobReviews();
+		$service->expects($this->once())->method('deny')->with($this->isInstanceOf(ObjectEntity::class), 'bob', 'not now');
+		$service->expects($this->never())->method('approve');
+
+		$response = $this->resolvingController($service, $this->session('bob'), ['decision' => 'refused', 'reason' => 'not now'])->resolve('appr-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['approvalId' => 'appr-1', 'status' => 'denied'], $response->getData());
+
+	}//end testResolveRefusedDenies()
+
+	/**
+	 * A caller who is not the reviewer is refused with the same 404 for either
+	 * decision, and a forged reviewer parameter changes nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function testResolveRefusesANonReviewer(): void {
+		$service = $this->bobReviews();
+		$service->expects($this->never())->method('approve');
+		$service->expects($this->never())->method('deny');
+
+		foreach (['granted', 'refused', 'maybe'] as $decision) {
+			$params = ['decision' => $decision, 'uid' => 'bob', 'reviewer' => 'bob', 'deciderUid' => 'bob'];
+			$response = $this->resolvingController($service, $this->session('mallory'), $params)->resolve('appr-1');
+			$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus(), $decision);
+		}
+
+	}//end testResolveRefusesANonReviewer()
+
+	/**
+	 * An unauthenticated caller gets 401 and a decided approval 409, before any decision is read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function testResolveKeepsTheApprovalGuard(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('loadApproval')->willReturn($this->approval('approved'));
+		$service->method('isReviewer')->willReturn(true);
+		$service->expects($this->never())->method('approve');
+
+		$this->assertSame(
+			Http::STATUS_UNAUTHORIZED,
+			$this->resolvingController($service, $this->session(null), ['decision' => 'granted'])->resolve('appr-1')->getStatus()
+		);
+		$this->assertSame(
+			Http::STATUS_CONFLICT,
+			$this->resolvingController($service, $this->session('bob'), ['decision' => 'granted'])->resolve('appr-1')->getStatus()
+		);
+
+	}//end testResolveKeepsTheApprovalGuard()
+
+	/**
+	 * The reviewer with an unknown decision gets 400 and nothing is decided.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 */
+	public function testResolveRejectsAnUnknownDecision(): void {
+		$service = $this->bobReviews();
+		$service->expects($this->never())->method('approve');
+		$service->expects($this->never())->method('deny');
+
+		foreach ([[], ['decision' => 'approve'], ['decision' => ['granted']]] as $params) {
+			$response = $this->resolvingController($service, $this->session('bob'), $params)->resolve('appr-1');
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		}
+
+	}//end testResolveRejectsAnUnknownDecision()
+	/**
+	 * A forged userId, uid or deciderUid in the request never becomes the decider:
+	 * approve, deny and resolve all decide as the session user.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 */
+	public function testTheDeciderIsTheSessionUserNotARequestParameter(): void {
+		$forged = ['userId' => 'mallory', 'uid' => 'mallory', 'deciderUid' => 'mallory', 'reviewer' => 'mallory'];
+		$routes = [
+			'approve' => ['approve', []],
+			'deny' => ['deny', []],
+			'resolve-granted' => ['approve', ['decision' => 'granted']],
+			'resolve-refused' => ['deny', ['decision' => 'refused']],
+		];
+		foreach ($routes as $route => [$decides, $extra]) {
+			$service = $this->createMock(ApprovalService::class);
+			$service->method('loadApproval')->willReturn($this->approval('pending'));
+			$service->method('isReviewer')->willReturn(true);
+			$deciders = [];
+			$service->method('approve')->willReturnCallback(
+				function (ObjectEntity $approval, string $deciderUid) use (&$deciders): array {
+					$deciders[] = ['approve', $deciderUid];
+					return ['status' => 'approved', 'ran' => true];
+				}
+			);
+			$service->method('deny')->willReturnCallback(
+				function (ObjectEntity $approval, string $deciderUid) use (&$deciders): void {
+					$deciders[] = ['deny', $deciderUid];
+				}
+			);
+
+			$controller = $this->resolvingController($service, $this->session('anna'), $forged + $extra);
+			$method = explode('-', $route)[0];
+			$response = $controller->$method('appr-1');
+
+			$this->assertSame(Http::STATUS_OK, $response->getStatus(), $route);
+			$this->assertSame([[$decides, 'anna']], $deciders, $route);
+		}
+
+	}//end testTheDeciderIsTheSessionUserNotARequestParameter()
+	/**
+	 * Approve, deny and resolve change state, so they keep Nextcloud's CSRF check.
+	 *
+	 * @return void
+	 */
+	public function testDecisionsRequireTheCsrfToken(): void {
+		foreach (['approve', 'deny', 'resolve'] as $name) {
+			$method = new ReflectionMethod(ApprovalController::class, $name);
+			$this->assertCount(0, $method->getAttributes(NoCSRFRequired::class), $name);
+			$this->assertStringNotContainsString('@NoCSRFRequired', (string)$method->getDocComment(), $name);
+		}
+
+	}//end testDecisionsRequireTheCsrfToken()
 }//end class

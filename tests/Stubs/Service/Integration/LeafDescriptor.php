@@ -47,6 +47,19 @@ final class LeafDescriptor {
 		'single-entity',
 	];
 
+	/*
+	 * 🔴 NO LOAD-STRATEGY CONSTANTS HERE. They used to be, "mirroring
+	 * openregister#3956", and openregister never gained them: the real
+	 * `LeafDescriptor` constructor ends at `renderMode` and the class contains
+	 * the string `loadStrategy` zero times. This stub therefore offered an API
+	 * the real class does not have, the listener used it, and the suite passed
+	 * while every live instance logged
+	 * `Undefined constant …LeafDescriptor::LOADS_VIA_OWN_SCRIPT` and
+	 * registered no agent leaf at all.
+	 *
+	 * A stub may mirror the real class or lag it. It may never LEAD it.
+	 */
+
 	public const RENDER_MODE_COMPONENT = 'component';
 
 	public const RENDER_MODE_MOUNT = 'mount';

@@ -26,8 +26,8 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -122,15 +122,12 @@ final class AsyncStageDispatchServiceTest extends TestCase {
 	 * @return void
 	 */
 	protected function setUp(): void {
-		$cacheFactory = $this->createMock(originalClassName: ICacheFactory::class);
-		$cacheFactory->method('createDistributed')->willReturn($this->createMock(originalClassName: ICache::class));
-
 		$this->service = new ExposedAsyncStageDispatchService(
 			$this->createMock(originalClassName: LoggerInterface::class),
 			new RunTokenService(
-				$cacheFactory,
+				new InMemoryRunTokenStore(),
 				$this->createMock(originalClassName: ISecureRandom::class),
-				$this->createMock(originalClassName: LoggerInterface::class)
+				$this->createMock(originalClassName: ITimeFactory::class)
 			)
 		);
 

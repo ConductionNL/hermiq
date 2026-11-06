@@ -10,9 +10,9 @@
  * mirroring `BudgetService`'s "computed on read, never a stored counter" precedent.
  * Each `evidenceSource` dispatches to the ONE existing service method that is
  * authoritative for that class of evidence:
- * `TenantOpsService::exportAuditTrail()`/`accessReviewList()`/`getRetentionMonths()`,
- * `ApprovalService` decision records, `TenantControlService::getForOrganisation()`,
- * `TenantModelPolicyService::effectivePolicyFor()`, and `AiFeatureService` data. This
+ * `OrganisationOpsService::exportAuditTrail()`/`accessReviewList()`/`getRetentionMonths()`,
+ * `ApprovalService` decision records, `OrganisationControlService::getForOrganisation()`,
+ * `OrganisationModelPolicyService::effectivePolicyFor()`, and `AiFeatureService` data. This
  * class introduces zero new governance primitives — it only reads and aggregates ones
  * that already exist (multi-tenant-ops, human-approval-gate-enforcement,
  * agent-lifecycle-governance, tenant-model-policy, ai-feature-governance-register).
@@ -48,6 +48,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\Literacy\LiteracyReport;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
@@ -57,7 +58,7 @@ use Throwable;
  * dashboard, auditor's-pack export, and per-agent AI factsheet.
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates the five existing
- *   evidence-seam services, mirroring TenantOpsService's own multi-seam coordinator
+ *   evidence-seam services, mirroring OrganisationOpsService's own multi-seam coordinator
  *   shape — each evidence branch is independently simple.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Same coordinator shape: each control
  *   framework/evidence seam contributes its own small status branch; the sum crosses the
@@ -107,23 +108,25 @@ class ComplianceService {
 	 *
 	 * @param ObjectService $objectService OpenRegister object read (catalogue +
 	 *                                     agent/incident lookups).
-	 * @param TenantOpsService $tenantOpsService Art. 12 audit export, access review,
+	 * @param OrganisationOpsService $tenantOpsService Art. 12 audit export, access review,
 	 *                                           retention (existing evidence seams).
 	 * @param ApprovalService $approvalService Human-approval-gate decision records.
-	 * @param TenantControlService $tenantControlService Per-org kill-switch (stop mechanism).
-	 * @param TenantModelPolicyService $modelPolicyService Per-org model-provider allowlist.
+	 * @param OrganisationControlService $tenantControlService Per-org kill-switch (stop mechanism).
+	 * @param OrganisationModelPolicyService $modelPolicyService Per-org model-provider allowlist.
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
+	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator (one per evidence seam), not a logic-bearing argument list.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly TenantOpsService $tenantOpsService,
+		private readonly OrganisationOpsService $tenantOpsService,
 		private readonly ApprovalService $approvalService,
-		private readonly TenantControlService $tenantControlService,
-		private readonly TenantModelPolicyService $modelPolicyService,
+		private readonly OrganisationControlService $tenantControlService,
+		private readonly OrganisationModelPolicyService $modelPolicyService,
 		private readonly AiFeatureService $aiFeatureService,
+		private readonly ?LiteracyReport $literacyReport = null,
 	) {
 	}//end __construct()
 
@@ -298,13 +301,15 @@ class ComplianceService {
 			'model-policy-risk-control' => $this->evidenceFromModelPolicy(organisation: $organisation),
 			'capability-review-least-privilege' => $this->evidenceFromAccessReview(),
 			'dpo-ack-design-time-gate' => $this->evidenceFromAiFeatures(),
+			'ai-literacy-completion' => $this->literacyReport?->evidence(organisation: $organisation)
+				?? ['status' => 'unevidenced', 'detail' => 'The AI literacy report is not available.'],
 			default => ['status' => 'unevidenced', 'detail' => 'No evidence source mapped for this control.'],
 		};
 
 	}//end computeControlStatus()
 
 	/**
-	 * Art. 12 record-keeping evidence: `TenantOpsService::exportAuditTrail()`.
+	 * Art. 12 record-keeping evidence: `OrganisationOpsService::exportAuditTrail()`.
 	 *
 	 * @return array{status: string, detail: string}
 	 */
@@ -363,7 +368,7 @@ class ComplianceService {
 	}//end evidenceFromApprovals()
 
 	/**
-	 * Stop-mechanism evidence: `TenantControlService::getForOrganisation()`.
+	 * Stop-mechanism evidence: `OrganisationControlService::getForOrganisation()`.
 	 *
 	 * @param string $organisation The organisation identifier.
 	 *
@@ -386,7 +391,7 @@ class ComplianceService {
 	}//end evidenceFromKillSwitch()
 
 	/**
-	 * Model-risk-control evidence: `TenantModelPolicyService::effectivePolicyFor()`.
+	 * Model-risk-control evidence: `OrganisationModelPolicyService::effectivePolicyFor()`.
 	 *
 	 * @param string $organisation The organisation identifier.
 	 *
@@ -426,7 +431,7 @@ class ComplianceService {
 	}//end evidenceFromModelPolicy()
 
 	/**
-	 * Least-privilege evidence: `TenantOpsService::accessReviewList()` +
+	 * Least-privilege evidence: `OrganisationOpsService::accessReviewList()` +
 	 * `getRetentionMonths()`.
 	 *
 	 * @return array{status: string, detail: string}
