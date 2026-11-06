@@ -4,7 +4,7 @@
  * Hermiq Chat Context Retrieval Handler.
  *
  * Handler for RAG (Retrieval Augmented Generation) context retrieval. Ported from
- * `OCA\OpenRegister\Service\Chat\ContextRetrievalHandler`: query building, source
+ * `OCA\OpenRegister\Mcp\Service\Chat\ContextRetrievalHandler`: query building, source
  * formatting, and ragSearchMode/ragNumSources handling are preserved; the retrieval
  * call itself is re-pointed at OpenRegister's public search surface.
  *

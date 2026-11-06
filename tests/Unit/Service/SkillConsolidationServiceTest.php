@@ -49,7 +49,7 @@ use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -1117,7 +1117,7 @@ class SkillConsolidationServiceTest extends TestCase {
 	 * @return void
 	 */
 	private function resolveAgent(): void {
-		$agent = new \OCA\OpenRegister\Db\Agent();
+		$agent = new \OCA\OpenRegister\Mcp\Db\Agent();
 		$agent->setUuid('agent-1');
 		$agent->setOwner('alice');
 		$agent->setOrganisation('org-1');

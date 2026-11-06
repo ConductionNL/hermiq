@@ -3,7 +3,7 @@
 /**
  * Test stub for OpenRegister ChatService.
  *
- * Stands in for OCA\OpenRegister\Service\ChatService when OpenRegister is not
+ * Stands in for OCA\OpenRegister\Mcp\Service\ChatService when OpenRegister is not
  * installed (standalone CI). Exposes only processMessage, the agent-runtime entry
  * point ScheduleService invokes. The real service ships with OpenRegister.
  *
@@ -19,7 +19,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\OpenRegister\Service;
+namespace OCA\OpenRegister\Mcp\Service;
 
 /**
  * Minimal ChatService stub for standalone unit runs.

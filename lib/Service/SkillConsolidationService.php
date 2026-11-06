@@ -48,7 +48,7 @@ use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -1367,11 +1367,11 @@ class SkillConsolidationService {
 	 *
 	 * @param ObjectEntity $skill The skill.
 	 *
-	 * @return \OCA\OpenRegister\Db\Agent|null The agent, or null.
+	 * @return \OCA\OpenRegister\Mcp\Db\Agent|null The agent, or null.
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
 	 */
-	private function resolveEvalAgent(ObjectEntity $skill): ?\OCA\OpenRegister\Db\Agent {
+	private function resolveEvalAgent(ObjectEntity $skill): ?\OCA\OpenRegister\Mcp\Db\Agent {
 		$installed = ($skill->getObject()['installedOn'] ?? []);
 		if (is_array($installed) === false) {
 			return null;

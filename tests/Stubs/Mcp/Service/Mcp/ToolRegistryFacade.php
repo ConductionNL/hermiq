@@ -3,7 +3,7 @@
 /**
  * Test stub for OpenRegister ToolRegistryFacade.
  *
- * Stands in for OCA\OpenRegister\Service\Mcp\ToolRegistryFacade when OpenRegister
+ * Stands in for OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade when OpenRegister
  * is not installed (standalone CI: php:8.3-cli + OCP stubs). Mirrors the facade's
  * public contract exactly (or-tool-registry-facade, ai-mcp REQ-006):
  * listTools(toolWhitelist), describeTools() and invokeTool(toolId, arguments).
@@ -27,7 +27,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\OpenRegister\Service\Mcp;
+namespace OCA\OpenRegister\Mcp\Service\Mcp;
 
 /**
  * Minimal ToolRegistryFacade stub for standalone unit runs.

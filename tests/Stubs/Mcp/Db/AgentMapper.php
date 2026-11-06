@@ -3,7 +3,7 @@
 /**
  * Test stub for OpenRegister AgentMapper.
  *
- * Stands in for OCA\OpenRegister\Db\AgentMapper when OpenRegister is not
+ * Stands in for OCA\OpenRegister\Mcp\Db\AgentMapper when OpenRegister is not
  * installed (standalone CI). Exposes `findByUuid` (used by ScheduleService to
  * resolve a schedule's agentId) and the two per-agent authorization predicates
  * `AgentRunController` calls. The real mapper ships with OpenRegister.
@@ -27,7 +27,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\OpenRegister\Db;
+namespace OCA\OpenRegister\Mcp\Db;
 
 /**
  * Minimal AgentMapper stub for standalone unit runs.

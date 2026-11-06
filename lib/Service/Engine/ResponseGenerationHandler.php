@@ -4,7 +4,7 @@
  * Hermiq Chat Response Generation Handler.
  *
  * Handler for generating LLM responses using the configured provider. Ported from
- * `OCA\OpenRegister\Service\Chat\ResponseGenerationHandler`; the inline
+ * `OCA\OpenRegister\Mcp\Service\Chat\ResponseGenerationHandler`; the inline
  * provider-selection switch (openregister HEAD lines ~235-460) was extracted into
  * `OCA\Hermiq\Service\Llm\ProviderFactory` — this class keeps the orchestration:
  * system-prompt assembly (agent prompt + CnAiContext + RAG context), tool wiring,

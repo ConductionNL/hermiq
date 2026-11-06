@@ -25,7 +25,7 @@ use OCA\Hermiq\Service\Agent\AgentDraftService;
 use OCA\Hermiq\Service\Agent\AgentDraftUnreadableException;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;

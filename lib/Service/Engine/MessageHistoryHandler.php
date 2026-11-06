@@ -4,7 +4,7 @@
  * Hermiq Chat Message History Handler.
  *
  * Handler for message storage and conversation history building. Ported from
- * `OCA\OpenRegister\Service\Chat\MessageHistoryHandler`, re-pointed at the
+ * `OCA\OpenRegister\Mcp\Service\Chat\MessageHistoryHandler`, re-pointed at the
  * `Message` OR object (agent-engine-schemas) via `ObjectService` instead of
  * OR's `MessageMapper`/`ConversationMapper` QBMapper entities.
  *

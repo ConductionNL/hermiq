@@ -402,7 +402,7 @@ class ToolAccessRequestService {
 	 */
 	private function catalog(): array {
 		try {
-			$facade = $this->container->get('OCA\OpenRegister\Service\Mcp\ToolRegistryFacade');
+			$facade = $this->container->get('OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade');
 
 			return $facade->listTools(toolWhitelist: []);
 		} catch (Throwable $e) {

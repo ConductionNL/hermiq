@@ -33,7 +33,7 @@
  * collector is supplied — existing callers that omit `$trace` see zero behavior
  * change beyond the new, always-empty-or-populated `steps` key.
  *
- * Ported from `OCA\OpenRegister\Service\ChatService`: thin facade that
+ * Ported from `OCA\OpenRegister\Mcp\Service\ChatService`: thin facade that
  * orchestrates specialized handlers, re-pointed at `Agent`/`Conversation`/
  * `Message` OR objects in the `hermiq` register (agent-engine-schemas) via
  * `ObjectService` instead of OR's Conversation/Message/Agent QBMappers.

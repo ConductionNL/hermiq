@@ -6,7 +6,7 @@
  * Hermiq's agent engine (AgentsController, Engine, ToolLoop, ContextRetrievalHandler,
  * FacadeToolInvoker, AgentRunRequestedListener chain) hard-depends on two OpenRegister
  * classes that only exist from a specific OpenRegister commit onward:
- *  - `OCA\OpenRegister\Service\Mcp\ToolRegistryFacade` (OpenRegister #297)
+ *  - `OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade` (OpenRegister #297)
  *  - `OCA\OpenRegister\Event\AgentRunRequestedEvent` (OpenRegister #306)
  *
  * NC's info.xml `<dependencies>` element has no way to pin the version of another
@@ -46,7 +46,7 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\Object\BulkWriteEvents;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -83,7 +83,7 @@ class CheckOpenRegisterCompatibility implements IRepairStep {
 	 * @var array<string,string>
 	 */
 	private const REQUIRED_CLASSES = [
-		ToolRegistryFacade::class => 'OCA\OpenRegister\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
+		ToolRegistryFacade::class => 'OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
 		AgentRunRequestedEvent::class => 'OCA\OpenRegister\Event\AgentRunRequestedEvent (OpenRegister #306)',
 		// 🔴 ADDED WITH THE ADR-099 §5 RELOCATION. The capability grammar used to
 		// live in this app, so no version of OpenRegister could be too old to

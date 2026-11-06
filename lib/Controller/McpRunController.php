@@ -69,7 +69,7 @@ use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;

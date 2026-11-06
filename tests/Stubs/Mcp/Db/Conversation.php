@@ -3,7 +3,7 @@
 /**
  * Test stub for OpenRegister Conversation entity.
  *
- * Stands in for OCA\OpenRegister\Db\Conversation when OpenRegister is not
+ * Stands in for OCA\OpenRegister\Mcp\Db\Conversation when OpenRegister is not
  * installed (standalone CI). Exposes only the setters ScheduleService uses to
  * open an agent-bound conversation, plus getId. The real entity ships with
  * OpenRegister at runtime.
@@ -20,7 +20,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\OpenRegister\Db;
+namespace OCA\OpenRegister\Mcp\Db;
 
 /**
  * Minimal Conversation stub for standalone unit runs.
