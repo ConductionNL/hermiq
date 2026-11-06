@@ -39,7 +39,7 @@ use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;

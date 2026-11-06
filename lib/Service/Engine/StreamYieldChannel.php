@@ -18,7 +18,7 @@
  * registration after a prior emit is allowed; the new callback only sees
  * subsequent events (no replay).
  *
- * Ported verbatim from `OCA\OpenRegister\Service\Chat\StreamYieldChannel` — pure
+ * Ported verbatim from `OCA\OpenRegister\Mcp\Service\Chat\StreamYieldChannel` — pure
  * streaming plumbing with no persistence and no OR-specific dependency, so no
  * adaptation beyond the namespace was needed.
  *

@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service;
 use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;

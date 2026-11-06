@@ -33,7 +33,7 @@ use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;

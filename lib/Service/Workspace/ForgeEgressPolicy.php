@@ -34,7 +34,7 @@ use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
 use Throwable;
 

@@ -3,7 +3,7 @@
 /**
  * Test stub for OpenRegister Agent entity.
  *
- * Stands in for OCA\OpenRegister\Db\Agent when OpenRegister is not installed
+ * Stands in for OCA\OpenRegister\Mcp\Db\Agent when OpenRegister is not installed
  * (standalone CI). Exposes getId (used by ScheduleService to bind a conversation
  * to the resolved agent) plus getUuid/getOwner (used by FlowAgentRunService to
  * resolve the agent reference and its acting-user impersonation target) and
@@ -24,7 +24,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\OpenRegister\Db;
+namespace OCA\OpenRegister\Mcp\Db;
 
 /**
  * Minimal Agent stub for standalone unit runs.

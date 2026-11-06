@@ -39,7 +39,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Intake;
 
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use Psr\Log\LoggerInterface;
 use Throwable;
 

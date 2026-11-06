@@ -57,7 +57,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
-use OCA\OpenRegister\Db\Agent;
+use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;

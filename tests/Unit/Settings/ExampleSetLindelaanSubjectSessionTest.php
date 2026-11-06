@@ -26,7 +26,7 @@ use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
 use OCP\IGroupManager;

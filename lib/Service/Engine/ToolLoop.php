@@ -3,11 +3,11 @@
 /**
  * Hermiq Chat Tool Loop.
  *
- * Ported from `OCA\OpenRegister\Service\Chat\ToolManagementHandler`. The JSON-schema →
+ * Ported from `OCA\OpenRegister\Mcp\Service\Chat\ToolManagementHandler`. The JSON-schema →
  * LLPhant `Parameter`/`FunctionInfo` conversion logic is preserved verbatim; the tool
  * SOURCE is re-pointed: instead of constructing/consulting OR's internal
  * `ToolRegistry` (and, transitively, `McpProviderBridge`), this class consumes ONLY
- * `OCA\OpenRegister\Service\Mcp\ToolRegistryFacade` — the documented public
+ * `OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade` — the documented public
  * cross-app contract (`listTools()` / `invokeTool()`, gate-27 / ADR-022) — injected
  * via DI.
  *
@@ -69,7 +69,7 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
 use OCP\IUserSession;
 // 🔴 THESE TWO USED TO NEED NO IMPORT — see the note in FacadeToolInvoker. They
