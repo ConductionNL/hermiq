@@ -77,6 +77,7 @@ use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
@@ -860,11 +861,6 @@ class ProviderFactory {
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)  API call requires handling many response scenarios
-	 * @SuppressWarnings(PHPMD.NPathComplexity)       API call requires handling many response scenarios
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) API error handling requires verbose code
-	 * (all three mirror the suppressions on the OR original this was ported from)
-	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
 	 */
 	public function callFireworksChat(
@@ -876,26 +872,63 @@ class ProviderFactory {
 	): string {
 		$this->lastCallUsage = [];
 		$url = rtrim($baseUrl, '/') . '/chat/completions';
-
-		if (empty($functions) === false) {
-			$this->logger->warning(
-				message: '[ProviderFactory] Function calling not yet supported for Fireworks AI. Tools will be ignored.',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'functionCount' => count($functions),
-				]
-			);
-		}
+		$this->warnIgnoredFireworksTools(functions: $functions);
 
 		$payload = [
 			'model' => $model,
 			'messages' => $this->mapHistoryToFireworksMessages(messageHistory: $messageHistory),
 		];
+		$psrResponse = $this->sendToFireworks(
+			credentialId: $credentialId,
+			request: new Request('POST', $url, ['Content-Type' => 'application/json'], (string)json_encode($payload))
+		);
 
-		// Through the broker, not straight out. Hermiq has no Fireworks key to send: the
-		// broker holds it, checks the allow-rules, and injects the Authorization header
-		// server-side.
+		$httpCode = $psrResponse->getStatusCode();
+		$response = (string)$psrResponse->getBody();
+		if ($httpCode !== 200) {
+			throw ($this->fireworksStatusError(httpCode: $httpCode, model: $model)
+				?? new Exception("Fireworks API error (HTTP {$httpCode}): " . $this->fireworksErrorMessage(response: $response)));
+		}
+
+		return $this->fireworksAnswer(response: $response);
+	}//end callFireworksChat()
+
+	/**
+	 * Function calling is not supported for Fireworks AI: say so when a turn
+	 * brings tools, which are then ignored.
+	 *
+	 * @param array<int, mixed> $functions The turn's function definitions.
+	 *
+	 * @return void
+	 */
+	private function warnIgnoredFireworksTools(array $functions): void {
+		if (empty($functions) === true) {
+			return;
+		}
+
+		$this->logger->warning(
+			message: '[ProviderFactory] Function calling not yet supported for Fireworks AI. Tools will be ignored.',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'functionCount' => count($functions),
+			]
+		);
+	}//end warnIgnoredFireworksTools()
+
+	/**
+	 * Send one chat completions request. Through the broker, not straight out:
+	 * Hermiq has no Fireworks key to send — the broker holds it, checks the
+	 * allow-rules, and injects the Authorization header server-side.
+	 *
+	 * @param string  $credentialId Broker credential UUID.
+	 * @param Request $request      The request.
+	 *
+	 * @return ResponseInterface
+	 *
+	 * @throws \Exception If the request cannot be sent.
+	 */
+	private function sendToFireworks(string $credentialId, Request $request): ResponseInterface {
 		$client = new BrokerHttpClient(
 			credentialId: $credentialId,
 			logger: $this->logger,
@@ -904,49 +937,65 @@ class ProviderFactory {
 		);
 
 		try {
-			$psrResponse = $client->sendRequest(
-				new Request(
-					'POST',
-					$url,
-					['Content-Type' => 'application/json'],
-					(string)json_encode($payload)
-				)
-			);
+			return $client->sendRequest($request);
 		} catch (Throwable $e) {
 			throw new Exception('Fireworks API request failed: ' . $e->getMessage());
 		}
+	}//end sendToFireworks()
 
-		$httpCode = $psrResponse->getStatusCode();
-		$response = (string)$psrResponse->getBody();
+	/**
+	 * The failure of a refused key, an unknown model or a rate limit, or null for
+	 * any other status.
+	 *
+	 * @param int    $httpCode The response status.
+	 * @param string $model    Model id (for the message only).
+	 *
+	 * @return Exception|null
+	 */
+	private function fireworksStatusError(int $httpCode, string $model): ?Exception {
+		if ($httpCode === 401 || $httpCode === 403) {
+			return new Exception('Authentication failed. Please check your Fireworks API key.');
+		}
 
-		if ($httpCode !== 200) {
-			// `$response` is cast to string above, so the four `is_string()`
-			// guards that used to wrap these assignments were unreachable.
-			$errorData = json_decode($response, true);
-			$errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $response;
+		if ($httpCode === 404) {
+			return new Exception("Model not found: {$model}. Please check the model name.");
+		}
 
-			if ($httpCode === 401 || $httpCode === 403) {
-				throw new Exception('Authentication failed. Please check your Fireworks API key.');
-			}
+		if ($httpCode === 429) {
+			return new Exception('Rate limit exceeded. Please try again later.');
+		}
 
-			if ($httpCode === 404) {
-				throw new Exception("Model not found: {$model}. Please check the model name.");
-			}
+		return null;
+	}//end fireworksStatusError()
 
-			if ($httpCode === 429) {
-				throw new Exception('Rate limit exceeded. Please try again later.');
-			}
+	/**
+	 * The error message a Fireworks error body carries, or the raw body.
+	 *
+	 * @param string $response The raw response body.
+	 *
+	 * @return string
+	 */
+	private function fireworksErrorMessage(string $response): string {
+		$errorData = json_decode($response, true);
+		return (string)($errorData['error']['message'] ?? $errorData['error'] ?? $response);
+	}//end fireworksErrorMessage()
 
-			throw new Exception("Fireworks API error (HTTP {$httpCode}): {$errorMessage}");
-		}//end if
-
+	/**
+	 * The answer text of a chat completions response, keeping its `usage` so a
+	 * token budget counts this run.
+	 *
+	 * @param string $response The raw response body.
+	 *
+	 * @return string
+	 *
+	 * @throws \Exception When the response carries no answer.
+	 */
+	private function fireworksAnswer(string $response): string {
 		$data = json_decode($response, true);
-
 		if (isset($data['choices'][0]['message']['content']) === false) {
 			throw new Exception('Unexpected Fireworks API response format: ' . $response);
 		}
 
-		// The chat completions `usage` object, kept so a token budget counts this run.
 		$usage = ($data['usage'] ?? []);
 		if (is_array($usage) === true) {
 			$this->lastCallUsage = $this->addUsage(
@@ -957,7 +1006,7 @@ class ProviderFactory {
 		}
 
 		return $data['choices'][0]['message']['content'];
-	}//end callFireworksChat()
+	}//end fireworksAnswer()
 
 	/**
 	 * Build the Anthropic auth + version headers for the given `authMode`.
@@ -2604,8 +2653,6 @@ class ProviderFactory {
 	 *                                       (provider, model) pair falls outside its
 	 *                                       effective ModelPolicy.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess)        LLPhant's Message::user() factory is the
-	 * library's public API — there is no injectable seam.
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$allowNextcloud` is a genuine
 	 * two-mode recursion guard (background-work caller allows the TaskProcessing
 	 * driver; a TaskProcessing provider-backed caller forbids it to avoid recursing),
@@ -2632,6 +2679,49 @@ class ProviderFactory {
 			documentReference: $documentReference
 		);
 
+		if ($driver->provider === 'nextcloud') {
+			$this->assertNextcloudMayGenerate(allowNextcloud: $allowNextcloud);
+			return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
+		}
+
+		return $this->generateWithDriver(driver: $driver, prompt: $prompt);
+	}//end generateText()
+
+	/**
+	 * Refuse the `nextcloud` chat provider where it would back a Nextcloud
+	 * TaskProcessing provider (it would recurse).
+	 *
+	 * @param bool $allowNextcloud Whether the caller may use the `nextcloud` provider.
+	 *
+	 * @return void
+	 *
+	 * @throws ProviderUnavailableException When it may not (400).
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The flag is generateText()'s own, passed through.
+	 */
+	private function assertNextcloudMayGenerate(bool $allowNextcloud): void {
+		if ($allowNextcloud === true) {
+			return;
+		}
+
+		$message = "The 'nextcloud' chat provider cannot back a Nextcloud TaskProcessing provider ";
+		$message .= '(it would recurse). Configure openai, ollama, or fireworks.';
+		throw new ProviderUnavailableException($message, 400);
+	}//end assertNextcloudMayGenerate()
+
+	/**
+	 * Generate one completion of a single user prompt on a non-nextcloud driver:
+	 * Fireworks and Anthropic over their direct HTTP calls, OpenAI / Ollama on the
+	 * driver's ready LLPhant chat instance.
+	 *
+	 * @param ChatDriver $driver The resolved driver.
+	 * @param string     $prompt The prompt.
+	 *
+	 * @return string The completion.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories are the library's public API.
+	 */
+	private function generateWithDriver(ChatDriver $driver, string $prompt): string {
 		if ($driver->provider === 'fireworks') {
 			return $this->callFireworksChat(
 				credentialId: (string)$driver->credentialId,
@@ -2652,19 +2742,9 @@ class ProviderFactory {
 			);
 		}
 
-		if ($driver->provider === 'nextcloud') {
-			if ($allowNextcloud === false) {
-				$message = "The 'nextcloud' chat provider cannot back a Nextcloud TaskProcessing provider ";
-				$message .= '(it would recurse). Configure openai, ollama, or fireworks.';
-				throw new ProviderUnavailableException($message, 400);
-			}
-
-			return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
-		}
-
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
-	}//end generateText()
+	}//end generateWithDriver()
 
 	/**
 	 * Build the `ollama` driver: native OllamaConfig + OllamaChat.
