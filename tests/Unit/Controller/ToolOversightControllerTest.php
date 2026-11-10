@@ -38,6 +38,7 @@ use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
@@ -953,6 +954,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				// Positional for the same reason serveAgentAndRequest() is.
 				$written[] = $args[0];
 				return new ObjectEntity();
@@ -1024,6 +1026,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$written[] = $args[0];
 				return new ObjectEntity();
 			}
@@ -1125,6 +1128,7 @@ class ToolOversightControllerTest extends TestCase {
 		$written = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$written): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$written[] = $args[0];
 				return new ObjectEntity();
 			}
@@ -1152,13 +1156,11 @@ class ToolOversightControllerTest extends TestCase {
 		);
 		$this->decide(decision: 'refused');
 
-		$names = array_map(
-			static fn ($parameter): string => $parameter->getName(),
-			(new \ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
-		);
+		$names = SaveCallShape::oldNames();
 		$writes = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$writes, $names): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$named = [];
 				foreach ($args as $position => $value) {
 					$named[is_int($position) === true ? $names[$position] : $position] = $value;
@@ -1242,6 +1244,7 @@ class ToolOversightControllerTest extends TestCase {
 		$seen = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$seen): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$seen[] = $this->namedArguments('saveObject', $args);
 				return new ObjectEntity();
 			}
@@ -1336,6 +1339,7 @@ class ToolOversightControllerTest extends TestCase {
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$saved[] = $args[0];
 				return new ObjectEntity();
 			}

@@ -27,7 +27,9 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillSerializer;
 use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -101,7 +103,14 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved[] = ['schema' => $schema, 'uuid' => $uuid, 'data' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);
@@ -142,7 +151,14 @@ class SkillServiceTest extends TestCase {
 
 		$agentSaveCount = 0;
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$agentSaveCount): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$agentSaveCount): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				if ($schema === 'agent') {
 					$agentSaveCount++;
 				}
@@ -179,7 +195,14 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved[] = ['schema' => $schema, 'data' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);
@@ -243,7 +266,14 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved[] = ['schema' => $schema, 'uuid' => $uuid, 'data' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);
@@ -284,7 +314,14 @@ class SkillServiceTest extends TestCase {
 
 		$agentSaveCount = 0;
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$agentSaveCount): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$agentSaveCount): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				if ($schema === 'agent') {
 					$agentSaveCount++;
 				}
@@ -353,7 +390,14 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved): ObjectEntity {
+				['uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved = $object;
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);

@@ -30,7 +30,9 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -281,6 +283,7 @@ class ChatControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				return $this->entity('conv-new', $passed[0]);
 			}
@@ -321,6 +324,7 @@ class ChatControllerTest extends TestCase {
 		$this->engine->method('processMessage')->willReturn(['message' => 'hello', 'messageId' => 'msg-1']);
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$saved[] = $passed[0];
 				return $this->entity('conv-new', $passed[0]);
 			}
@@ -692,7 +696,14 @@ class ChatControllerTest extends TestCase {
 		$savedUuid = 'unset';
 		$savedRbac = null;
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true) use (&$saved, &$savedUuid, &$savedRbac): ObjectEntity {
+			function (
+				mixed $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved, &$savedUuid, &$savedRbac): ObjectEntity {
+				['uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved = $object;
 				$savedUuid = $uuid;
 				$savedRbac = $_rbac;
@@ -760,7 +771,14 @@ class ChatControllerTest extends TestCase {
 		$saved = null;
 		$savedUuid = null;
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved, &$savedUuid): ObjectEntity {
+			function (
+				mixed $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved, &$savedUuid): ObjectEntity {
+				['uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved = $object;
 				$savedUuid = $uuid;
 				$entity = new ObjectEntity();

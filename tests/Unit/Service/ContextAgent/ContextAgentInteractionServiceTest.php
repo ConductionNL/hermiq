@@ -31,6 +31,7 @@ use OCA\Hermiq\Service\ContextAgentInteractionService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -420,6 +421,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				return $this->conversation('conv-new', 'bob');
 			}
@@ -477,6 +479,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				return $this->conversation('conv-new', 'bob');
 			}

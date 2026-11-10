@@ -26,7 +26,9 @@ namespace OCA\Hermiq\Tests\Unit\Settings;
 
 use OCA\Hermiq\Service\Graph\GraphService;
 use OCA\Hermiq\Service\Graph\GraphVisibility;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Opis\JsonSchema\Validator;
 use OCP\IAppConfig;
@@ -101,7 +103,14 @@ class KnowledgeGraphSchemaTest extends TestCase {
 		$objects->method('setSchema')->willReturnSelf();
 		$objects->method('findAll')->willReturn([]);
 		$objects->method('saveObject')->willReturnCallback(
-			static function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null) use (&$saved): ObjectEntity {
+			static function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved): ObjectEntity {
+				['schema' => $schema] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved[] = ['schema' => $schema, 'object' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid('00000000-0000-4000-8000-00000000000' . count($saved));

@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -443,6 +444,7 @@ class SessionControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-new');

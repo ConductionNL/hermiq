@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IRequest;
@@ -44,7 +45,6 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
-use ReflectionMethod;
 use RuntimeException;
 use Stringable;
 
@@ -192,7 +192,7 @@ class SessionCreateGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
-				$passed = $this->passed(args: $args);
+				$passed = SaveCallShape::passed(args: $args);
 				$calls[] = ['saveObject', $passed];
 				if ($failSave === 'runtime') {
 					throw new RuntimeException('save refused');
@@ -284,29 +284,4 @@ class SessionCreateGoldenTest extends TestCase {
 		return $pool[$this->random->getInt(0, count($pool) - 1)];
 
 	}//end pick()
-
-	/**
-	 * The arguments a saveObject call actually passed, by name, without the ones left at their default.
-	 *
-	 * @param array<int, mixed> $args The positional arguments the mock received.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function passed(array $args): array {
-		$out = [];
-		foreach ((new ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters() as $index => $param) {
-			if (array_key_exists($index, $args) === false) {
-				continue;
-			}
-
-			if ($param->isDefaultValueAvailable() === true && $param->getDefaultValue() === $args[$index]) {
-				continue;
-			}
-
-			$out[$param->getName()] = $args[$index];
-		}
-
-		return $out;
-
-	}//end passed()
 }//end class

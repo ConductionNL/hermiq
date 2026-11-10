@@ -40,11 +40,13 @@ use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -152,10 +154,7 @@ class RecordingObjectService extends ObjectService {
 	 * Record the write and echo back an entity.
 	 *
 	 * @param array|ObjectEntity $object The payload.
-	 * @param array|null $extend Extend config.
-	 * @param mixed $register Register context.
-	 * @param mixed $schema Schema context.
-	 * @param string|null $uuid Target uuid.
+	 * @param ObjectSaveOptions $options The target, uuid, extend, files, policy and actor.
 	 * @param bool $_rbac RBAC toggle.
 	 * @param bool $_multitenancy Multitenancy toggle.
 	 *
@@ -163,40 +162,12 @@ class RecordingObjectService extends ObjectService {
 	 */
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
 		bool $_multitenancy = true,
-		bool $silent = false,
-		// Added by openregister@8729969f7 (decline schema re-validation on save),
-		// 2026-08-13 00:07Z, INSERTED MID-SIGNATURE — appending it would not have
-		// matched. Second such break in 70 minutes; see #2211's note above.
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		// Added by openregister#2211 (insert-only saves). A double that does not
-		// track the real signature is a FATAL, not a failed assertion: PHP
-		// refuses to declare the class, so every test in the suite dies before
-		// it runs — which is what took all six PHPUnit matrix jobs down.
-		bool $failIfExists = false,
-		// Added by openregister (stamp the SYSTEM identity as owner even when a
-		// user session exists). Appended, so unlike $_validation above it needed
-		// no re-ordering — but it is the third such break, and it only surfaces
-		// where the REAL ObjectService is loaded: CI runs this suite against the
-		// OCP stubs, so the fatal appears locally (inside a booted Nextcloud)
-		// while CI stays green.
-		bool $_unowned = false,
-		// Added by openregister (duplicate detection), seen 2026-09-16. Appended,
-		// so no re-ordering was needed. Note which way round this one broke: the
-		// LOCAL suite stayed green, because tests/bootstrap.php resolves
-		// ObjectService from hermiq's own stub, while CI installs the real
-		// openregister and PHP refused to declare this class, killing all six
-		// cells with a fatal before a single test ran.
-		bool $_dedupOverride = false,
-		?string $_owner = null,
 	): ObjectEntity {
+		['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
 		if ($this->onSave !== null) {
 			($this->onSave)((is_string($schema) === true) ? $schema : null);

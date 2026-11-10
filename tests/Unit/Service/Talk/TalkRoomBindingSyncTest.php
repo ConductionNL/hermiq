@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -62,6 +63,7 @@ class TalkRoomBindingSyncTest extends TestCase {
 		// assertions below pass for the wrong reason.
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$this->saved = $args[0];
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-1');

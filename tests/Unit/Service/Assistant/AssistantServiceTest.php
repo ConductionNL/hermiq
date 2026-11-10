@@ -30,6 +30,7 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Assistant\AssistantService;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\GuardrailBlockedException;
@@ -37,6 +38,7 @@ use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use OCP\IAppConfig;
@@ -678,6 +680,7 @@ class AssistantServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				return $this->entity('conv-new', $passed[0]);
 			}
@@ -729,7 +732,12 @@ class AssistantServiceTest extends TestCase {
 	public function testAnUnprovisionedAgentRefusedByTheRegisterGives403AndNoSession(): void {
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->expects($this->once())->method('saveObject')
-			->with($this->anything(), $this->anything(), 'hermiq', 'agent')
+			->with(
+				$this->anything(),
+				$this->callback(
+					callback: static fn (ObjectSaveOptions $options): bool => $options->target->register === 'hermiq' && $options->target->schema === 'agent'
+				)
+			)
 			->willThrowException(new \Exception("User 'bob' does not have permission to 'create' objects in schema 'Agent'", 403));
 
 		$this->expectExceptionCode(403);
@@ -745,6 +753,7 @@ class AssistantServiceTest extends TestCase {
 		$calls = new \ArrayObject();
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use ($calls): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$calls[] = $passed;
 				return $this->entity('saved-' . count($calls), $passed[0]);
 			}

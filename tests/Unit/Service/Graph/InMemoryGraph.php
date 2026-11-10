@@ -23,7 +23,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Graph;
 
 use OCA\Hermiq\Service\Graph\GraphService;
 use OCA\Hermiq\Service\Graph\GraphVisibility;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -132,7 +134,14 @@ trait InMemoryGraph {
 			}
 		);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schemaArg = null, ?string $uuid = null): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
+				['schema' => $schemaArg, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$uuid = ($uuid ?? sprintf('00000000-0000-4000-8000-%012d', count($this->writes) + 1));
 				$this->writes[] = ['schema' => $schemaArg, 'uuid' => $uuid, 'object' => $object];
 				$this->store[(string)$schemaArg][$uuid] = $object;

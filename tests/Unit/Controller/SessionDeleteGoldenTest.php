@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -200,7 +201,7 @@ class SessionDeleteGoldenTest extends TestCase {
 		);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
-				$passed = $this->passed(method: 'saveObject', args: $args);
+				$passed = SaveCallShape::passed(args: $args);
 				$calls[] = ['saveObject', $this->withoutNow(passed: $passed)];
 				if ($failSave === true) {
 					throw new RuntimeException('save refused');
