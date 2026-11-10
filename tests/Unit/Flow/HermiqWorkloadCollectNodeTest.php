@@ -29,6 +29,7 @@ namespace OCA\Hermiq\Tests\Unit\Flow;
 
 use OCA\Hermiq\Flow\HermiqWorkloadCollectNode;
 use OCA\Hermiq\Service\AsyncStageDispatchService;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -100,9 +101,11 @@ final class HermiqWorkloadCollectNodeTest extends TestCase {
 		);
 
 		$json = $this->node->execute(
-			$this->items(['dispatched' => ['job' => ['id' => 'larpingapp-327-code-review']]]),
-			['job' => '{{dispatched.job.id}}'],
-			[]
+			new FlowNodeCall(
+				items: $this->items(['dispatched' => ['job' => ['id' => 'larpingapp-327-code-review']]]),
+				config: ['job' => '{{dispatched.job.id}}'],
+				context: []
+			)
 		)[0]['json'];
 
 		$this->assertSame(expected: 'done', actual: $json['collected']['status']);
@@ -138,9 +141,11 @@ final class HermiqWorkloadCollectNodeTest extends TestCase {
 		);
 
 		$json = $this->node->execute(
-			$this->items(['dispatched' => ['job' => ['id' => 'j1']]]),
-			['job' => '{{dispatched.job.id}}'],
-			[]
+			new FlowNodeCall(
+				items: $this->items(['dispatched' => ['job' => ['id' => 'j1']]]),
+				config: ['job' => '{{dispatched.job.id}}'],
+				context: []
+			)
 		)[0]['json'];
 
 		$this->assertSame(expected: 'failed', actual: $json['collected']['status']);
@@ -170,9 +175,11 @@ final class HermiqWorkloadCollectNodeTest extends TestCase {
 		$this->stages->expects($this->never())->method('collect');
 
 		$json = $this->node->execute(
-			$this->items(['dispatched' => []]),
-			['job' => '{{dispatched.job.id}}'],
-			[]
+			new FlowNodeCall(
+				items: $this->items(['dispatched' => []]),
+				config: ['job' => '{{dispatched.job.id}}'],
+				context: []
+			)
 		)[0]['json'];
 
 		$this->assertSame(
@@ -192,9 +199,11 @@ final class HermiqWorkloadCollectNodeTest extends TestCase {
 		$this->stages->method('collect')->willReturn(['status' => 'done', 'result' => ['exitCode' => 0]]);
 
 		$json = $this->node->execute(
-			$this->items(['dispatched' => ['job' => ['id' => 'j1']]]),
-			['job' => '{{dispatched.job.id}}', 'output' => 'review', 'stageOutput' => 'reviewStage'],
-			[]
+			new FlowNodeCall(
+				items: $this->items(['dispatched' => ['job' => ['id' => 'j1']]]),
+				config: ['job' => '{{dispatched.job.id}}', 'output' => 'review', 'stageOutput' => 'reviewStage'],
+				context: []
+			)
 		)[0]['json'];
 
 		$this->assertSame(expected: 'done', actual: $json['review']['status']);
@@ -211,9 +220,11 @@ final class HermiqWorkloadCollectNodeTest extends TestCase {
 		$this->stages->method('collect')->willReturn(['status' => 'done', 'result' => ['exitCode' => 0]]);
 
 		$json = $this->node->execute(
-			$this->items(['dispatched' => ['job' => ['id' => 'j1']]]),
-			['job' => '{{dispatched.job.id}}', 'output' => '   ', 'stageOutput' => ''],
-			[]
+			new FlowNodeCall(
+				items: $this->items(['dispatched' => ['job' => ['id' => 'j1']]]),
+				config: ['job' => '{{dispatched.job.id}}', 'output' => '   ', 'stageOutput' => ''],
+				context: []
+			)
 		)[0]['json'];
 
 		$this->assertSame(expected: 'done', actual: $json['collected']['status']);
@@ -242,12 +253,14 @@ final class HermiqWorkloadCollectNodeTest extends TestCase {
 		$this->stages->method('collect')->willReturn(['status' => 'done', 'result' => ['exitCode' => 0]]);
 
 		$out = $this->node->execute(
-			[
-				['json' => ['dispatched' => ['job' => ['id' => 'a']]]],
-				['json' => ['dispatched' => ['job' => ['id' => 'b']]]],
-			],
-			['job' => '{{dispatched.job.id}}'],
-			[]
+			new FlowNodeCall(
+				items: [
+					['json' => ['dispatched' => ['job' => ['id' => 'a']]]],
+					['json' => ['dispatched' => ['job' => ['id' => 'b']]]],
+				],
+				config: ['job' => '{{dispatched.job.id}}'],
+				context: []
+			)
 		);
 
 		$this->assertCount(expectedCount: 2, haystack: $out);
