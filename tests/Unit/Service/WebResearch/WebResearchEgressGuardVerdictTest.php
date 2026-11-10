@@ -79,6 +79,46 @@ final class WebResearchEgressGuardVerdictTest extends TestCase {
 		self::assertSame(['allowed' => true, 'code' => null, 'message' => null], $guard->assertSafe(url: 'https://intra.example/', isAdminConfiguredEndpoint: true, denylist: ['intra.example']));
 	}//end testAPrivateAddressIsRejectedForFetchButNotForTheSearchEndpoint()
 
+	public function testTheMetadataBlockOutranksThePrivateBlockWhateverTheOrder(): void {
+		$verdict = $this->guard(['10.0.0.5', '169.254.169.254'])->assertSafe(url: 'https://mixed.example/', isAdminConfiguredEndpoint: false);
+
+		self::assertSame(['allowed' => false, 'code' => 'metadata_address', 'message' => 'The destination resolves to a cloud-metadata address, which is always blocked.'], $verdict);
+		self::assertSame(
+			['allowed' => false, 'code' => 'private_address', 'message' => "Host 'mixed.example' resolves to a private/loopback/link-local address, which is blocked."],
+			$this->guard(['8.8.8.8', '10.0.0.5'])->assertSafe(url: 'https://mixed.example/', isAdminConfiguredEndpoint: false)
+		);
+	}//end testTheMetadataBlockOutranksThePrivateBlockWhateverTheOrder()
+
+	public function testResolutionCollectsAThenAaaaRecordsAndSkipsAFailedType(): void {
+		$lookups = [];
+		$guard = new class($lookups) extends WebResearchEgressGuard {
+			public function __construct(private array &$lookups) {
+			}
+
+			public function resolve(string $host): array {
+				return $this->resolveAddresses(host: $host);
+			}
+
+			protected function dnsGetRecord(string $hostname, int $type): array|false {
+				$this->lookups[] = [$hostname, $type];
+				if ($hostname === 'v6less.example' && $type === DNS_AAAA) {
+					return false;
+				}
+
+				if ($type === DNS_A) {
+					return [['ip' => '8.8.8.8'], ['host' => 'x'], ['ip' => '8.8.4.4', 'ipv6' => 'ignored']];
+				}
+
+				return [['ipv6' => '2001:db8::1']];
+			}
+		};
+
+		self::assertSame(['8.8.8.8', '8.8.4.4', '2001:db8::1'], $guard->resolve('dual.example'));
+		self::assertSame(['8.8.8.8', '8.8.4.4'], $guard->resolve('v6less.example'));
+		self::assertSame(['192.0.2.7'], $guard->resolve('192.0.2.7'));
+		self::assertSame([['dual.example', DNS_A], ['dual.example', DNS_AAAA], ['v6less.example', DNS_A], ['v6less.example', DNS_AAAA]], $lookups);
+	}//end testResolutionCollectsAThenAaaaRecordsAndSkipsAFailedType()
+
 	/**
 	 * A guard whose resolution is stubbed and recorded.
 	 *
