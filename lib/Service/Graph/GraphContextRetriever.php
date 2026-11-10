@@ -78,15 +78,46 @@ class GraphContextRetriever {
 	 */
 	public function retrieve(string $query, int $limit): ?array {
 		$uid = (string)$this->session->getUser()?->getUID();
-		$seeds = [];
-		if ($uid !== '') {
-			$seeds = $this->graph->seeds(query: $query, actingUserId: $uid, limit: self::MAX_SEEDS);
-		}
-
+		$seeds = $this->seedsFor(query: $query, uid: $uid);
 		if ($seeds === []) {
 			return null;
 		}
 
+		$walk = $this->neighbourhood(seeds: $seeds, uid: $uid);
+
+		return [
+			'results' => $this->rows(nodes: array_slice($walk['nodes'], 0, max(0, $limit)), uid: $uid),
+			'relations' => $this->relations(nodes: $walk['nodes'], edges: $walk['edges']),
+		];
+
+	}//end retrieve()
+
+	/**
+	 * The seed entities the query names, as the acting user may see them; none without a user.
+	 *
+	 * @param string $query The user's question.
+	 * @param string $uid   The acting user, or ''.
+	 *
+	 * @return array<int, array<string, mixed>> The seeds.
+	 */
+	private function seedsFor(string $query, string $uid): array {
+		if ($uid === '') {
+			return [];
+		}
+
+		return $this->graph->seeds(query: $query, actingUserId: $uid, limit: self::MAX_SEEDS);
+	}//end seedsFor()
+
+	/**
+	 * The seeds and their visible two-hop neighbourhood: nodes by uuid, seeds first,
+	 * and the edges between them by uuid.
+	 *
+	 * @param array<int, array<string, mixed>> $seeds The seed entities.
+	 * @param string                           $uid   The acting user.
+	 *
+	 * @return array{nodes: array<string, array<string, mixed>>, edges: array<string, array<string, mixed>>}
+	 */
+	private function neighbourhood(array $seeds, string $uid): array {
 		$nodes = [];
 		$edges = [];
 		foreach ($seeds as $seed) {
@@ -98,18 +129,25 @@ class GraphContextRetriever {
 			}
 		}
 
+		return ['nodes' => $nodes, 'edges' => $edges];
+	}//end neighbourhood()
+
+	/**
+	 * One result row per node, in order.
+	 *
+	 * @param array<string, array<string, mixed>> $nodes The nodes to show.
+	 * @param string                              $uid   The acting user.
+	 *
+	 * @return array<int, array<string, mixed>> The rows.
+	 */
+	private function rows(array $nodes, string $uid): array {
 		$results = [];
 		foreach ($nodes as $node) {
-			if (count($results) >= $limit) {
-				break;
-			}
-
 			$results[] = $this->row(node: $node, uid: $uid);
 		}
 
-		return ['results' => $results, 'relations' => $this->relations(nodes: $nodes, edges: $edges)];
-
-	}//end retrieve()
+		return $results;
+	}//end rows()
 
 	/**
 	 * One node as a retrieval row, its text read live from its record.
