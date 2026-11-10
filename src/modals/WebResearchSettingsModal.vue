@@ -151,8 +151,6 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -166,7 +164,7 @@ import {
 	getWebResearchSettings,
 	patchWebResearchSettings,
 } from '../api/webResearch.js'
-
+import { brokerCredentials, reloadOnOpen } from './settingsModalMixins.js'
 export default {
 	name: 'WebResearchSettingsModal',
 
@@ -180,17 +178,7 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/**
-		 * Whether the modal is visible.
-		 *
-		 * @spec exclude Trivial visibility prop; no behavioural spec.
-		 */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-	},
+	mixins: [reloadOnOpen, brokerCredentials],
 
 	emits: ['close', 'saved'],
 
@@ -259,35 +247,6 @@ export default {
 		},
 	},
 
-	watch: {
-		/**
-		 * Reload the config each time the modal is opened.
-		 *
-		 * @param {boolean} visible Whether the modal became visible.
-		 * @return {void}
-		 *
-		 * @spec exclude Trivial watch handler delegating to load(); no behavioural spec.
-		 */
-		show(visible) {
-			if (visible) {
-				this.load()
-			}
-		},
-	},
-
-	/**
-	 * Load the config when the modal mounts already open.
-	 *
-	 * @return {void}
-	 *
-	 * @spec exclude Trivial lifecycle hook delegating to load(); no behavioural spec.
-	 */
-	mounted() {
-		if (this.show) {
-			this.load()
-		}
-	},
-
 	methods: {
 		/**
 		 * Load the current (masked) config into the form.
@@ -350,26 +309,6 @@ export default {
 				)
 			} finally {
 				this.loading = false
-			}
-		},
-
-		/**
-		 * Load the user's broker credentials.
-		 *
-		 * @return {Promise<void>}
-		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
-		 */
-		async fetchCredentials() {
-			this.loadingCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
-			} finally {
-				this.loadingCredentials = false
 			}
 		},
 

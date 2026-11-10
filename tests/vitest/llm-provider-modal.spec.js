@@ -7,9 +7,9 @@
  * sends (or the message that stops it).
  */
 
+import axios from '@nextcloud/axios'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import axios from '@nextcloud/axios'
 
 const api = vi.hoisted(() => ({
 	getLlmSettings: vi.fn(),
