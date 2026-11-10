@@ -240,4 +240,72 @@ class CalendarWriteServiceTest extends TestCase {
 
 	}//end testUnparseableDateIsRefused()
 
+	/**
+	 * A stored event reports its summary, calendar, attendee count and object; the
+	 * builder gets the trimmed summary, both dates, and a description and location
+	 * only when given.
+	 *
+	 * @return void
+	 */
+	public function testCreatedEventReportsWhatWasStored(): void {
+		$builder = $this->createMock(ICalendarEventBuilder::class);
+		$calls = [];
+		foreach (['setSummary', 'setStartDate', 'setEndDate', 'setDescription', 'setLocation'] as $setter) {
+			$builder->method($setter)->willReturnCallback(
+				function (mixed $value) use (&$calls, $setter, $builder): ICalendarEventBuilder {
+					$calls[] = [$setter, ($value instanceof \DateTimeInterface) ? $value->format('c') : $value];
+
+					return $builder;
+				}
+			);
+		}
+
+		$builder->method('toIcs')->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->method('getCalendarsForPrincipal')->willReturn([$this->calendar(true)]);
+		$calendars->method('createEventBuilder')->willReturn($builder);
+
+		$result = $this->service($calendars)->create('alice', ['summary' => ' Kickoff ', 'location' => ' Zaal 2 ', 'description' => ''] + self::VALID);
+
+		$this->assertSame(['created', 'summary', 'calendar', 'attendeeCount', 'artefact'], array_keys($result));
+		$this->assertTrue($result['created']);
+		$this->assertSame('Kickoff', $result['summary']);
+		$this->assertSame('Personal', $result['calendar']);
+		$this->assertSame(0, $result['attendeeCount']);
+		$this->assertSame('calendar-event', $result['artefact']['type']);
+		$this->assertMatchesRegularExpression('/^hermiq-[0-9a-f]{16}\.ics$/', $result['artefact']['id']);
+		$this->assertSame(
+			[
+				['setSummary', 'Kickoff'],
+				['setStartDate', '2026-09-01T09:00:00+00:00'],
+				['setEndDate', '2026-09-01T10:00:00+00:00'],
+				['setLocation', 'Zaal 2'],
+			],
+			$calls
+		);
+
+	}//end testCreatedEventReportsWhatWasStored()
+
+	/**
+	 * A calendar that refuses the write is reported, never thrown.
+	 *
+	 * @return void
+	 */
+	public function testAFailedWriteIsReported(): void {
+		$added = [];
+		$calendar = $this->createMockForIntersectionOfInterfaces([ICreateFromString::class, ICalendarIsWritable::class]);
+		$calendar->method('isWritable')->willReturn(true);
+		$calendar->method('getUri')->willReturn('personal');
+		$calendar->method('createFromString')->willThrowException(new \RuntimeException('409'));
+		$calendars = $this->createMock(ICalendarManager::class);
+		$calendars->method('getCalendarsForPrincipal')->willReturn([$calendar]);
+		$calendars->method('createEventBuilder')->willReturn($this->builder($added));
+
+		$result = $this->service($calendars)->create('alice', self::VALID);
+
+		$this->assertSame('calendar_write_failed', $result['error']['code'] ?? null);
+		$this->assertSame('The event could not be created.', $result['error']['message'] ?? null);
+
+	}//end testAFailedWriteIsReported()
+
 }//end class
