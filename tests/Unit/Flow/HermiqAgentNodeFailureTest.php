@@ -19,6 +19,7 @@ namespace OCA\Hermiq\Tests\Unit\Flow;
 
 use OCA\Hermiq\Flow\HermiqAgentNode;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use PHPUnit\Framework\TestCase;
@@ -89,7 +90,7 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$this->expectException(RuntimeException::class);
 		$this->expectExceptionMessage('the model call timed out');
 
-		$node->execute($this->oneItem(), ['agentId' => self::AGENT_ID], []);
+		$node->execute(new FlowNodeCall(items: $this->oneItem(), config: ['agentId' => self::AGENT_ID], context: []));
 
 	}//end testAFailedTurnFailsTheStep()
 
@@ -109,9 +110,11 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$this->expectException(UnexpectedValueException::class);
 
 		$node->execute(
-			$this->oneItem(),
-			['agentId' => self::AGENT_ID, 'expectJson' => true, 'output' => 'stage'],
-			[]
+			new FlowNodeCall(
+				items: $this->oneItem(),
+				config: ['agentId' => self::AGENT_ID, 'expectJson' => true, 'output' => 'stage'],
+				context: []
+			)
 		);
 
 	}//end testProseWhereJsonWasPromisedFailsTheStep()
@@ -131,9 +134,11 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$this->expectException(UnexpectedValueException::class);
 
 		$node->execute(
-			$this->oneItem(),
-			['agentId' => self::AGENT_ID, 'expectJson' => true],
-			[]
+			new FlowNodeCall(
+				items: $this->oneItem(),
+				config: ['agentId' => self::AGENT_ID, 'expectJson' => true],
+				context: []
+			)
 		);
 
 	}//end testAnEmptyAnswerWhereJsonWasPromisedFailsTheStep()
@@ -153,7 +158,7 @@ class HermiqAgentNodeFailureTest extends TestCase {
 
 		$this->expectException(UnexpectedValueException::class);
 
-		$node->execute($this->oneItem(), ['output' => 'stage'], []);
+		$node->execute(new FlowNodeCall(items: $this->oneItem(), config: ['output' => 'stage'], context: []));
 
 	}//end testAStepWithNoAgentFailsRatherThanPassingItemsThrough()
 
@@ -169,9 +174,11 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$node = $this->nodeAnswering("```json\n{\"verdict\":\"GO\",\"reason\":\"gates green\"}\n```");
 
 		$out = $node->execute(
-			$this->oneItem(),
-			['agentId' => self::AGENT_ID, 'expectJson' => true, 'output' => 'stage'],
-			[]
+			new FlowNodeCall(
+				items: $this->oneItem(),
+				config: ['agentId' => self::AGENT_ID, 'expectJson' => true, 'output' => 'stage'],
+				context: []
+			)
 		);
 
 		$this->assertSame('GO', $out[0]['json']['stage']['verdict']);
@@ -190,7 +197,7 @@ class HermiqAgentNodeFailureTest extends TestCase {
 	public function testProseIsFineWhenNoJsonWasPromised(): void {
 		$node = $this->nodeAnswering('Looks reasonable to me.');
 
-		$out = $node->execute($this->oneItem(), ['agentId' => self::AGENT_ID], []);
+		$out = $node->execute(new FlowNodeCall(items: $this->oneItem(), config: ['agentId' => self::AGENT_ID], context: []));
 
 		$this->assertSame('Looks reasonable to me.', $out[0]['json']['result']);
 
@@ -245,9 +252,11 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$node = $this->nodeRecordingOwner($seen);
 
 		$node->execute(
-			$this->oneItem(),
-			['agentId' => self::AGENT_ID],
-			['triggeredBy' => 'schedule-cause', 'runAs' => 'ruben']
+			new FlowNodeCall(
+				items: $this->oneItem(),
+				config: ['agentId' => self::AGENT_ID],
+				context: ['triggeredBy' => 'schedule-cause', 'runAs' => 'ruben']
+			)
 		);
 
 		$this->assertSame(['ruben'], $seen, 'an agent turn must act as the run\'s authorization subject');
@@ -270,7 +279,7 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$seen = [];
 		$node = $this->nodeRecordingOwner($seen);
 
-		$node->execute($this->oneItem(), ['agentId' => self::AGENT_ID], ['triggeredBy' => 'ruben']);
+		$node->execute(new FlowNodeCall(items: $this->oneItem(), config: ['agentId' => self::AGENT_ID], context: ['triggeredBy' => 'ruben']));
 
 		$this->assertSame(['ruben'], $seen);
 	}//end testAnEngineWithoutRunAsStillNamesTheCaller()

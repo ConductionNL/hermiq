@@ -35,6 +35,7 @@ namespace OCA\Hermiq\Tests\Unit\Flow;
 
 use OCA\Hermiq\Flow\HermiqWorkloadNode;
 use OCA\Hermiq\Service\StageDispatchService;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use PHPUnit\Framework\TestCase;
@@ -144,7 +145,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testNonZeroExitCodeIsDataNotAFailure(): void {
 		$node = $this->nodeReturning(['exitCode' => 18, 'output' => '18 gate(s) failed', 'ref' => 'abc123']);
 
-		$out = $node->execute([['json' => []]], $this->config(), $this->runContext());
+		$out = $node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: $this->runContext()));
 
 		// 18, not an exception and not a boolean: hydra reads this number.
 		$this->assertSame(18, $out[0]['json']['stage']['exitCode']);
@@ -170,7 +171,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 		// dispatcher — green for the opposite of the reason it claims.
 		$this->expectException(RuntimeException::class);
 		$this->expectExceptionMessage('the ExApp is not running');
-		$node->execute([['json' => []]], $this->config(), $this->runContext());
+		$node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: $this->runContext()));
 
 	}//end testADispatchFailurePropagates()
 
@@ -190,7 +191,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$this->expectException(UnexpectedValueException::class);
-		$node->execute([['json' => []]], $config, []);
+		$node->execute(new FlowNodeCall(items: [['json' => []]], config: $config, context: []));
 
 	}//end testAnUnconfiguredStepFailsInExecuteToo()
 
@@ -241,20 +242,22 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$node->execute(
-			[
-				[
-					'json' => [
-						'issue' => ['repo' => 'https://github.com/ConductionNL/hydra', 'branch' => 'feat/x'],
-						'base' => 'origin/development',
+			new FlowNodeCall(
+				items: [
+					[
+						'json' => [
+							'issue' => ['repo' => 'https://github.com/ConductionNL/hydra', 'branch' => 'feat/x'],
+							'base' => 'origin/development',
+						],
 					],
 				],
-			],
-			[
-				'repo' => '{{issue.repo}}',
-				'ref' => '{{issue.branch}}',
-				'command' => ['scripts/run-hydra-gates.sh', '--base', '{{base}}'],
-			],
-			$this->runContext()
+				config: [
+					'repo' => '{{issue.repo}}',
+					'ref' => '{{issue.branch}}',
+					'command' => ['scripts/run-hydra-gates.sh', '--base', '{{base}}'],
+				],
+				context: $this->runContext()
+			)
 		);
 
 		$this->assertSame('https://github.com/ConductionNL/hydra', $this->lastCall[0]);
@@ -271,7 +274,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testTheOutputKeyIsConfigurable(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'ok', 'ref' => 'r']);
 
-		$out = $node->execute([['json' => []]], ($this->config() + ['output' => 'gates']), $this->runContext());
+		$out = $node->execute(new FlowNodeCall(items: [['json' => []]], config: ($this->config() + ['output' => 'gates']), context: $this->runContext()));
 
 		$this->assertArrayHasKey('gates', $out[0]['json']);
 		$this->assertArrayNotHasKey('stage', $out[0]['json']);
@@ -289,7 +292,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testEveryItemIsRunAndPaired(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$out = $node->execute([['json' => ['n' => 1]], ['json' => ['n' => 2]]], $this->config(), $this->runContext());
+		$out = $node->execute(new FlowNodeCall(items: [['json' => ['n' => 1]], ['json' => ['n' => 2]]], config: $this->config(), context: $this->runContext()));
 
 		$this->assertCount(2, $out);
 		$this->assertSame(0, $out[0]['pairedItem']['item']);
@@ -315,7 +318,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 
 		$this->expectException(UnexpectedValueException::class);
 		// No `owner` in the config AND no `triggeredBy` in the run context.
-		$node->execute([['json' => []]], $this->config(), []);
+		$node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: []));
 
 	}//end testAnUnattributableStageIsRefused()
 
@@ -337,9 +340,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 
 		$this->expectException(UnexpectedValueException::class);
 		$node->execute(
-			[['json' => []]],
-			($this->config() + ['async' => true]),
-			['triggeredBy' => 'ruben']
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: ($this->config() + ['async' => true]),
+				context: ['triggeredBy' => 'ruben']
+			)
 		);
 
 	}//end testAnAsyncStepWithoutAnAsyncTransportIsRefused()
@@ -353,7 +358,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$this->expectException(UnexpectedValueException::class);
-		$node->execute([['json' => []]], ($this->config() + ['owner' => '   ']), ['triggeredBy' => '']);
+		$node->execute(new FlowNodeCall(items: [['json' => []]], config: ($this->config() + ['owner' => '   ']), context: ['triggeredBy' => '']));
 
 	}//end testAWhitespaceOwnerIsRefused()
 
@@ -365,7 +370,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testTheRunOwnerAttributesTheStage(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$out = $node->execute([['json' => []]], $this->config(), ['triggeredBy' => 'ruben']);
+		$out = $node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: ['triggeredBy' => 'ruben']));
 
 		$this->assertSame('ruben', $out[0]['json']['stage']['owner']);
 
@@ -383,9 +388,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$out = $node->execute(
-			[['json' => ['n' => 1]], ['json' => ['n' => 2]]],
-			($this->config() + ['credentialId' => 'cred-uuid-1']),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => ['n' => 1]], ['json' => ['n' => 2]]],
+				config: ($this->config() + ['credentialId' => 'cred-uuid-1']),
+				context: $this->runContext()
+			)
 		);
 
 		foreach ($out as $item) {
@@ -407,7 +414,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testNoCredentialMeansNoCredentialAttribution(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$out = $node->execute([['json' => []]], $this->config(), $this->runContext());
+		$out = $node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: $this->runContext()));
 
 		$this->assertSame('ruben', $out[0]['json']['stage']['owner']);
 		$this->assertNull($out[0]['json']['stage']['credential_owner']);
@@ -429,9 +436,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$node->execute(
-			[['json' => ['tool' => 'https://github.com/ConductionNL/hydra']]],
-			($this->config() + ['toolRepo' => '{{tool}}', 'toolRef' => 'development']),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => ['tool' => 'https://github.com/ConductionNL/hydra']]],
+				config: ($this->config() + ['toolRepo' => '{{tool}}', 'toolRef' => 'development']),
+				context: $this->runContext()
+			)
 		);
 
 		// Positional order of dispatch(): repo, ref, command, uid, credentialId,
@@ -452,7 +461,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testNoToolTreeMeansTheCommandComesFromTheTarget(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$node->execute([['json' => []]], $this->config(), $this->runContext());
+		$node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: $this->runContext()));
 
 		$this->assertSame('', $this->lastCall[6]);
 		$this->assertSame('', $this->lastCall[7]);
@@ -473,9 +482,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$node->execute(
-			[['json' => ['forgeCredential' => '35327e7a-cafe-4a21-8ffe-6195d52f9579']]],
-			($this->config() + ['credentialId' => '{{forgeCredential}}']),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => ['forgeCredential' => '35327e7a-cafe-4a21-8ffe-6195d52f9579']]],
+				config: ($this->config() + ['credentialId' => '{{forgeCredential}}']),
+				context: $this->runContext()
+			)
 		);
 
 		// Positional: repo, ref, command, uid, credentialId, ...
@@ -499,7 +510,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testAStageWithoutAPushDeclarationStaysReadOnly(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$node->execute([['json' => []]], $this->config(), $this->runContext());
+		$node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: $this->runContext()));
 
 		// Positional: repo, ref, command, uid, credentialId, timeoutMs, toolRepo, toolRef, push, pushCredentialId.
 		$this->assertSame([], $this->lastCall[8]);
@@ -523,19 +534,21 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$node->execute(
-			[['json' => ['issueNumber' => '493', 'slug' => 'builder-write-access']]],
-			(
-				$this->config() + [
-					'push' => [
-						'branch' => 'feature/{{issueNumber}}/{{slug}}',
-						'issue' => '{{issueNumber}}',
-						'allowedRepo' => 'https://github.com/ConductionNL/hydra',
-						'scope' => ['lib/{{slug}}', 'docs'],
-						'message' => 'fix: issue {{issueNumber}}',
-					],
-				]
-			),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => ['issueNumber' => '493', 'slug' => 'builder-write-access']]],
+				config: (
+					$this->config() + [
+						'push' => [
+							'branch' => 'feature/{{issueNumber}}/{{slug}}',
+							'issue' => '{{issueNumber}}',
+							'allowedRepo' => 'https://github.com/ConductionNL/hydra',
+							'scope' => ['lib/{{slug}}', 'docs'],
+							'message' => 'fix: issue {{issueNumber}}',
+						],
+					]
+				),
+				context: $this->runContext()
+			)
 		);
 
 		$push = $this->lastCall[8];
@@ -565,15 +578,17 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
 		$node->execute(
-			[['json' => ['pushCred' => '55003b23-6262-495e-b0ab-2e221ba5e17c']]],
-			(
-				$this->config() + [
-					'credentialId' => '35327e7a-cafe-4a21-8ffe-6195d52f9579',
-					'pushCredentialId' => '{{pushCred}}',
-					'push' => ['branch' => 'feature/1/x', 'issue' => '1'],
-				]
-			),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => ['pushCred' => '55003b23-6262-495e-b0ab-2e221ba5e17c']]],
+				config: (
+					$this->config() + [
+						'credentialId' => '35327e7a-cafe-4a21-8ffe-6195d52f9579',
+						'pushCredentialId' => '{{pushCred}}',
+						'push' => ['branch' => 'feature/1/x', 'issue' => '1'],
+					]
+				),
+				context: $this->runContext()
+			)
 		);
 
 		$this->assertSame('35327e7a-cafe-4a21-8ffe-6195d52f9579', $this->lastCall[4]);
@@ -630,9 +645,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$this->expectException(UnexpectedValueException::class);
 
 		$node->execute(
-			[['json' => []]],
-			($this->config() + ['push' => ['branch' => 'feature/1/x']]),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: ($this->config() + ['push' => ['branch' => 'feature/1/x']]),
+				context: $this->runContext()
+			)
 		);
 
 	}//end testAnUnfencedPushIsRefusedOnExecuteToo()
@@ -670,9 +687,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'done', 'ref' => 'abc123']);
 
 		$out = $node->execute(
-			[['json' => []]],
-			($this->config() + ['owner' => 'admin']),
-			$this->runContext()
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: ($this->config() + ['owner' => 'admin']),
+				context: $this->runContext()
+			)
 		);
 
 		$result = ($out[0]['json']['stage'] ?? []);
@@ -709,9 +728,11 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'done', 'ref' => 'abc123']);
 
 		$out = $node->execute(
-			[['json' => []]],
-			$this->config(),
-			['triggeredBy' => 'schedule-cause', 'runAs' => 'ruben']
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: $this->config(),
+				context: ['triggeredBy' => 'schedule-cause', 'runAs' => 'ruben']
+			)
 		);
 
 		$result = ($out[0]['json']['stage'] ?? []);
@@ -744,7 +765,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testAnEngineWithoutRunAsStillAttributesTheStage(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'done', 'ref' => 'abc123']);
 
-		$out = $node->execute([['json' => []]], $this->config(), ['triggeredBy' => 'ruben']);
+		$out = $node->execute(new FlowNodeCall(items: [['json' => []]], config: $this->config(), context: ['triggeredBy' => 'ruben']));
 
 		$this->assertSame('ruben', ($out[0]['json']['stage']['owner'] ?? null));
 	}//end testAnEngineWithoutRunAsStillAttributesTheStage()
