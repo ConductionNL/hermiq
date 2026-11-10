@@ -167,8 +167,33 @@ class ReportSimilaritySettings {
 
 		$newUpper = ($upper ?? $this->upper());
 		$newLower = ($lower ?? $this->lower());
+		$this->assertThresholds(upper: $newUpper, lower: $newLower);
 
-		foreach (['upper' => $newUpper, 'lower' => $newLower] as $name => $value) {
+		$stored['upper'] = $newUpper;
+		$stored['lower'] = $newLower;
+
+		if ($windows !== null) {
+			$stored['windows'] = $this->cleanWindows(windows: $windows);
+		}
+
+		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
+
+		return $this->all();
+	}//end store()
+
+	/**
+	 * Refuse a threshold outside 0..1, upper first, and a lower threshold that is
+	 * not below the upper one.
+	 *
+	 * @param float $upper The upper threshold to store.
+	 * @param float $lower The lower threshold to store.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When a threshold is outside 0..1, or the lower is not below the upper.
+	 */
+	private function assertThresholds(float $upper, float $lower): void {
+		foreach (['upper' => $upper, 'lower' => $lower] as $name => $value) {
 			if ($value < 0.0 || $value > 1.0) {
 				throw new InvalidArgumentException(
 					sprintf('The %s threshold is a score between 0 and 1, and %s is outside that.', $name, (string)$value)
@@ -176,35 +201,37 @@ class ReportSimilaritySettings {
 			}
 		}
 
-		if ($newLower >= $newUpper) {
+		if ($lower >= $upper) {
 			throw new InvalidArgumentException(
 				'The lower threshold has to sit below the upper one, or there is no middle band for a '
 				. 'near-duplicate to fall into, which is the band a human is meant to look at.'
 			);
 		}
+	}//end assertThresholds()
 
-		$stored['upper'] = $newUpper;
-		$stored['lower'] = $newLower;
-
-		if ($windows !== null) {
-			$clean = [];
-			foreach ($windows as $type => $minutes) {
-				if ((int)$minutes < 1) {
-					throw new InvalidArgumentException(
-						sprintf("The window for '%s' is a number of minutes, and it has to be at least one.", (string)$type)
-					);
-				}
-
-				$clean[(string)$type] = (int)$minutes;
+	/**
+	 * The per-type windows as whole minutes, refusing one below a minute.
+	 *
+	 * @param array<string, int> $windows The per-type windows.
+	 *
+	 * @return array<string, int>
+	 *
+	 * @throws InvalidArgumentException When a window is below one minute.
+	 */
+	private function cleanWindows(array $windows): array {
+		$clean = [];
+		foreach ($windows as $type => $minutes) {
+			if ((int)$minutes < 1) {
+				throw new InvalidArgumentException(
+					sprintf("The window for '%s' is a number of minutes, and it has to be at least one.", (string)$type)
+				);
 			}
 
-			$stored['windows'] = $clean;
+			$clean[(string)$type] = (int)$minutes;
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
-
-		return $this->all();
-	}//end store()
+		return $clean;
+	}//end cleanWindows()
 
 	/**
 	 * One stored score, or its default.
