@@ -1517,6 +1517,8 @@
 			"_note": "The shared `flow` page type: CnFlowEditorPage over CnFlowDetail, the same canvas every other app uses. This was a custom page over FlowBuilder.vue, a parallel editor with its own store and API client - which flow-storage/spec.md forbids outright (\"No other app SHALL own a flow store, a flow controller, or a flow execution service\"). Controls are the shared CnFlowSidebar so the canvas keeps full width.",
 			"sidebarComponent": "CnFlowSidebar",
 			"config": {
+				"listMode": true,
+				"testPayload": true,
 				"app": "hermiq"
 			}
 		},
@@ -1528,6 +1530,8 @@
 			"_note": "Legacy path - see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
 			"sidebarComponent": "CnFlowSidebar",
 			"config": {
+				"listMode": true,
+				"testPayload": true,
 				"app": "hermiq"
 			}
 		},
