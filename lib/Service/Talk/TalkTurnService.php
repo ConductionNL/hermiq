@@ -108,49 +108,14 @@ class TalkTurnService {
 		$priorUser = $this->userSession->getUser();
 		$this->userSession->setUser($speaker);
 
+		$turn = new TalkTurn(conversationUuid: $conversationUuid, speakerUid: $speakerUid);
+		$turn->message = $message;
+		$turn->roomToken = $roomToken;
+
 		try {
-			// Compliance-ai-literacy: a speaker who must finish the course first is
-			// told so in the room, and no model is called.
-			$this->literacy?->assertMayUseAgents(uid: $speakerUid);
-
-			$result = $this->engine->processMessage(
-				conversationId: $conversationUuid,
-				userId: $speakerUid,
-				userMessage: $message,
-				authorId: $speakerUid,
-				authorDisplayName: $this->displayNameOf(uid: $speakerUid)
-			);
-
-			$answer = (string)$result['message'];
-			if (trim($answer) === '') {
-				return $this->reportFailure(
-					roomToken: $roomToken,
-					reason: 'the agent returned an empty answer'
-				);
-			}
-
-			// Post under the AGENT's own bot identity, not the shared one.
-			// Without this the answer renders as the bare actor id
-			// (`bot-<hash>-bot`) or as "Hermiq (Bot)" for every agent alike —
-			// which is the whole problem per-agent bots exist to solve.
-			return $this->bridge->postToRoom(
-				roomToken: $roomToken,
-				message: $answer,
-				agentId: $this->agentForRoom(roomToken: $roomToken)
-			);
+			return $this->answerTurn(turn: $turn);
 		} catch (Throwable $e) {
-			$this->logger->error(
-				message: '[TalkTurnService] Talk-originated agent turn failed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'conversation' => $conversationUuid,
-					'speaker' => $speakerUid,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
-			);
-
+			$this->logFailedTurn(turn: $turn, error: $e);
 			return $this->reportFailure(roomToken: $roomToken, reason: $e->getMessage());
 		} finally {
 			// Restore the prior identity whatever happened, so a failed turn
@@ -159,6 +124,64 @@ class TalkTurnService {
 		}//end try
 
 	}//end runTurn()
+
+	/**
+	 * Ask the engine and post its answer into the room.
+	 *
+	 * Compliance-ai-literacy: a speaker who must finish the course first is told
+	 * so in the room, and no model is called. The answer is posted under the
+	 * AGENT's own bot identity, not the shared one: without it the answer renders
+	 * as the bare actor id (`bot-<hash>-bot`) or as "Hermiq (Bot)" for every agent
+	 * alike — which is the whole problem per-agent bots exist to solve.
+	 *
+	 * @param TalkTurn $turn The turn, running as its speaker.
+	 *
+	 * @return bool True when an answer was posted.
+	 */
+	private function answerTurn(TalkTurn $turn): bool {
+		$this->literacy?->assertMayUseAgents(uid: $turn->speakerUid);
+
+		$result = $this->engine->processMessage(
+			conversationId: $turn->conversationUuid,
+			userId: $turn->speakerUid,
+			userMessage: $turn->message,
+			authorId: $turn->speakerUid,
+			authorDisplayName: $this->displayNameOf(uid: $turn->speakerUid)
+		);
+
+		$answer = (string)$result['message'];
+		if (trim($answer) === '') {
+			return $this->reportFailure(roomToken: $turn->roomToken, reason: 'the agent returned an empty answer');
+		}
+
+		return $this->bridge->postToRoom(
+			roomToken: $turn->roomToken,
+			message: $answer,
+			agentId: $this->agentForRoom(roomToken: $turn->roomToken)
+		);
+	}//end answerTurn()
+
+	/**
+	 * Log a Talk-originated turn that failed.
+	 *
+	 * @param TalkTurn  $turn  The turn.
+	 * @param Throwable $error The failure.
+	 *
+	 * @return void
+	 */
+	private function logFailedTurn(TalkTurn $turn, Throwable $error): void {
+		$this->logger->error(
+			message: '[TalkTurnService] Talk-originated agent turn failed',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'conversation' => $turn->conversationUuid,
+				'speaker' => $turn->speakerUid,
+				'roomToken' => $turn->roomToken,
+				'error' => $error->getMessage(),
+			]
+		);
+	}//end logFailedTurn()
 
 	/**
 	 * Tell the room the turn failed, so the reaction is not the only signal.
