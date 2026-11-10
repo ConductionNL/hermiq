@@ -37,6 +37,7 @@ namespace OCA\Hermiq\Flow;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
@@ -191,9 +192,7 @@ class HermiqScheduleDispatchNode implements IFlowNode {
 	 * domain layer is already handling. Only a failure that escapes
 	 * `runNow()` — one the domain layer could NOT record — fails the step.
 	 *
-	 * @param array $items The input items.
-	 * @param array $config The step configuration.
-	 * @param array $context Run-level metadata (carries the firing flow's id).
+	 * @param FlowNodeCall $call The input items, the step configuration and the run context.
 	 *
 	 * @return array The items, each carrying the occurrence's status.
 	 *
@@ -203,7 +202,10 @@ class HermiqScheduleDispatchNode implements IFlowNode {
 	 *
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
 	 */
-	public function execute(array $items, array $config, array $context): array {
+	public function execute(FlowNodeCall $call): array {
+		$items = $call->items;
+		$config = $call->config;
+		$context = $call->context;
 		$scheduleId = trim((string)($config['scheduleId'] ?? ''));
 		if ($scheduleId === '') {
 			// Same defect class as the agent step: a flow seeded or imported
