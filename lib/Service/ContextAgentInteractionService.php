@@ -52,6 +52,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\TaskProcessing\Exception\ProcessingException;
@@ -251,8 +252,7 @@ class ContextAgentInteractionService {
 			// below stays under the caller's own read rule.
 			$agent = $this->objectService->find(
 				id: $configured,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 			if ($agent instanceof ObjectEntity) {
@@ -295,8 +295,7 @@ class ContextAgentInteractionService {
 		if ($conversationToken !== '') {
 			$existing = $this->objectService->find(
 				id: $conversationToken,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($existing instanceof ObjectEntity
 				&& (string)($existing->getObject()['userId'] ?? '') === $userId

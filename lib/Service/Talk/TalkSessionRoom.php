@@ -41,6 +41,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use Psr\Container\ContainerInterface;
@@ -280,8 +281,7 @@ class TalkSessionRoom {
 		try {
 			$fresh = $this->objectService->find(
 				id: (string)$conversation->getUuid(),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 
 			if ($fresh instanceof ObjectEntity) {

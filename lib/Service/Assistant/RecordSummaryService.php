@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -304,7 +305,7 @@ class RecordSummaryService {
 		}
 
 		try {
-			$record = $this->objectService->find(id: $objectId, register: $register, schema: $schema);
+			$record = $this->objectService->find(id: $objectId, options: new ObjectFindOptions(register: $register, schema: $schema));
 		} catch (Throwable $e) {
 			$record = null;
 		}
@@ -346,7 +347,7 @@ class RecordSummaryService {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+			$agent = $this->objectService->find(id: $agentId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		} catch (Throwable $e) {
 			$this->logger->warning('[RecordSummaryService] Agent ' . $agentId . ' could not be read: ' . $e->getMessage());
 			return null;

@@ -48,6 +48,7 @@ use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1246,8 +1247,7 @@ class SkillConsolidationService {
 
 		$draft = $this->objectService->find(
 			id: $draftId,
-			register: self::REGISTER_SLUG,
-			schema: self::DRAFT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1871,8 +1871,7 @@ class SkillConsolidationService {
 
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);

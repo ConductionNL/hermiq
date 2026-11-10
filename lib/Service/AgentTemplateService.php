@@ -36,6 +36,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 
@@ -168,8 +169,7 @@ class AgentTemplateService {
 	private function get(string $templateId): ?ObjectEntity {
 		return $this->objectService->find(
 			id: $templateId,
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::TEMPLATE_SCHEMA)
 		);
 
 	}//end get()
@@ -241,8 +241,7 @@ class AgentTemplateService {
 	public function exportFromAgent(string $agentId): ?string {
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			return null;

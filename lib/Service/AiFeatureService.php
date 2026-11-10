@@ -35,6 +35,7 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 
@@ -154,8 +155,7 @@ class AiFeatureService {
 
 		return $this->objectService->find(
 			id: $id,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)
 		);
 
 	}//end getFeature()

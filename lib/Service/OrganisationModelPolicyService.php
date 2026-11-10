@@ -44,6 +44,7 @@ namespace OCA\Hermiq\Service;
 use InvalidArgumentException;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -133,8 +134,7 @@ class OrganisationModelPolicyService {
 
 		return $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 			_rbac: false,
 			_multitenancy: false
 		);

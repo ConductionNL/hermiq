@@ -45,6 +45,7 @@ use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -232,8 +233,7 @@ class AgentsController extends Controller {
 			$userId = (string)$this->userSession->getUser()?->getUID();
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -385,8 +385,7 @@ class AgentsController extends Controller {
 			$userId = (string)$this->userSession->getUser()?->getUID();
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(
@@ -493,8 +492,7 @@ class AgentsController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return new JSONResponse(

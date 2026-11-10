@@ -90,6 +90,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -1213,8 +1214,7 @@ class ApprovalService {
 
 		$agent = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1422,8 +1422,7 @@ class ApprovalService {
 
 		$approval = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::APPROVAL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1822,8 +1821,7 @@ class ApprovalService {
 
 		$schedule = $this->objectService->find(
 			id: $scheduleId,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEDULE_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);

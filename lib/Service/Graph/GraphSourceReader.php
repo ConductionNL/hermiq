@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Service\Graph;
 
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
@@ -128,8 +129,7 @@ class GraphSourceReader {
 	private function object(array $ref): ?array {
 		$object = $this->objectService->find(
 			id: (string)($ref['uuid'] ?? ''),
-			register: (string)($ref['register'] ?? ''),
-			schema: (string)($ref['schema'] ?? '')
+			options: new ObjectFindOptions(register: (string)($ref['register'] ?? ''), schema: (string)($ref['schema'] ?? ''))
 		);
 		if ($object === null) {
 			return null;
@@ -194,7 +194,7 @@ class GraphSourceReader {
 		foreach (self::TRANSCRIPTS as [$sessionSchema, $turnSchema, $link]) {
 			$session = null;
 			if ($uuid !== '') {
-				$session = $this->objectService->find(id: $uuid, register: 'hermiq', schema: $sessionSchema, _rbac: false);
+				$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: 'hermiq', schema: $sessionSchema), _rbac: false);
 			}
 
 			if ($session === null) {

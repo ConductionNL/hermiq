@@ -50,6 +50,7 @@ use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -274,8 +275,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -332,8 +332,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -630,8 +629,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -708,8 +706,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -778,8 +775,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();
@@ -861,8 +857,7 @@ class SessionController extends Controller {
 			$userId = $this->requireUserId();
 			$conversation = $this->objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				return $this->notFoundResponse();

@@ -24,6 +24,7 @@ use OCA\Hermiq\Service\GoalCheckService;
 use OCA\Hermiq\Service\GoalService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -74,15 +75,11 @@ class GoalServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				?ObjectFindOptions $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true
 			): ?ObjectEntity {
+				$schema = ($options?->schema ?? null);
 				return $this->objects[(string)$schema][(string)$id] ?? null;
 			}
 

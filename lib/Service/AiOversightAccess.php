@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
@@ -125,10 +126,9 @@ class AiOversightAccess {
         try {
             $subject = $this->objectService->find(
                 id: $subjectId,
+                options: new ObjectFindOptions(render: false, audit: false),
                 _rbac: true,
-                _multitenancy: true,
-                _render: false,
-                _audit: false
+                _multitenancy: true
             );
         } catch (Throwable $e) {
             $this->logger->info(

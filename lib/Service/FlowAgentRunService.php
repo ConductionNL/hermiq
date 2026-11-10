@@ -53,6 +53,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -172,8 +173,7 @@ class FlowAgentRunService {
 
 		$object = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -378,8 +378,7 @@ class FlowAgentRunService {
 	): void {
 		$fresh = $this->objectService->find(
 			id: $subjectUuid,
-			register: $subjectRegister,
-			schema: $subjectSchema,
+			options: new ObjectFindOptions(register: $subjectRegister, schema: $subjectSchema),
 			_rbac: false,
 			_multitenancy: false
 		);

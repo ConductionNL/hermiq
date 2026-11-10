@@ -48,6 +48,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -307,8 +308,7 @@ class SkillLearningsCaptureService {
 
 		$skill = $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -873,8 +873,7 @@ class SkillLearningsCaptureService {
 
 			$schedule = $this->objectService->find(
 				id: $scheduleUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEDULE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEDULE_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);

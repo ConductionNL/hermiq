@@ -32,6 +32,7 @@ use OCA\Hermiq\Service\OrganisationOpsService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IUser;
@@ -155,15 +156,11 @@ class OrganisationOpsServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				?ObjectFindOptions $options = null,
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
 			): ?ObjectEntity {
+				$schema = ($options?->schema ?? null);
 				foreach (($this->bySchema[(string)$schema] ?? []) as $object) {
 					if ($object->getUuid() === $id) {
 						return $object;

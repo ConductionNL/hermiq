@@ -40,6 +40,7 @@ use Exception;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
@@ -206,8 +207,7 @@ class AssistantService {
 		// caller's own; tenancy still applies.
 		$agent = $this->objectService->find(
 			id: (string)$conversation->getObject()['agentId'],
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false
 		);
 
@@ -535,8 +535,7 @@ class AssistantService {
 		if ($sessionId !== null && $sessionId !== '') {
 			$conversation = $this->objectService->find(
 				id: $sessionId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				throw new Exception('The session with id ' . $sessionId . ' does not exist', 404);

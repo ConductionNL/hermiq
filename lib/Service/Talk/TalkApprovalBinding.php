@@ -33,6 +33,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -207,8 +208,7 @@ class TalkApprovalBinding {
 		try {
 			$approval = $this->objectService->find(
 				id: $approvalUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA)
 			);
 
 			if (($approval instanceof ObjectEntity) === false) {

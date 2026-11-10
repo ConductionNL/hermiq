@@ -46,6 +46,7 @@ namespace OCA\Hermiq\Service;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 use Throwable;
@@ -229,8 +230,7 @@ class AgentVersionService {
 
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if (($agent instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Agent not found.');
@@ -402,8 +402,7 @@ class AgentVersionService {
 	private function liveAgentData(string $agentUuid): array {
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if (($agent instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Agent not found.');
