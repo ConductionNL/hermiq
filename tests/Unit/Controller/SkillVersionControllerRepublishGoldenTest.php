@@ -328,9 +328,19 @@ class SkillVersionControllerRepublishGoldenTest extends TestCase {
 			->willReturn(['repoUrl' => 'u', 'commitSha' => 'sha-1']);
 		$this->skillService->expects($this->once())->method('stampGithubPublish')
 			->with('skill-1', 'acme', 'hermiq-skill-x', $this->matchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$/'));
-		$this->audit->expects($this->once())->method('recordObjectEvent');
+		$captured = null;
+		$this->audit->expects($this->once())->method('recordObjectEvent')->willReturnCallback(
+			function ($event) use (&$captured) {
+				$captured = $event;
+				return null;
+			}
+		);
 		$this->request->expects($this->once())->method('getParam');
 
 		$this->assertAnswer($controller->republish('skill-1'), [Http::STATUS_CREATED, ['repoUrl' => 'u', 'commitSha' => 'sha-1']]);
+		$this->assertSame('skill-version', $captured->action);
+		$context = $captured->context;
+		unset($context['at']);
+		$this->assertSame(['transition' => 'republish', 'owner' => 'acme', 'repo' => 'hermiq-skill-x', 'commitSha' => 'sha-1'], $context);
 	}//end testSuccessfulRepublish()
 }//end class
