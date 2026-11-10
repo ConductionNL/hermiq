@@ -269,25 +269,9 @@ export default {
 			try {
 				const result = await answerLesson(lesson.slug, Number(this.choice))
 				if (result.correct) {
-					this.feedback = {
-						correct: true,
-						text: this.t('hermiq', 'Right. This lesson is done.'),
-					}
-					if (!lesson.done) {
-						lesson.done = true
-						this.done += 1
-					}
+					this.passLesson(lesson)
 				} else {
-					this.feedback = {
-						correct: false,
-						text: this.t(
-							'hermiq',
-							'Not quite. {explanation} Try again.',
-							{
-								explanation: result.explanation || '',
-							},
-						),
-					}
+					this.feedback = this.retryFeedback(result)
 				}
 			} catch {
 				this.feedback = {
@@ -296,6 +280,46 @@ export default {
 				}
 			} finally {
 				this.checking = false
+			}
+		},
+
+		/**
+		 * Say a right answer is right and mark the lesson done, counting it once.
+		 *
+		 * @param {object} lesson The lesson.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+		 */
+		passLesson(lesson) {
+			this.feedback = {
+				correct: true,
+				text: this.t('hermiq', 'Right. This lesson is done.'),
+			}
+			if (!lesson.done) {
+				lesson.done = true
+				this.done += 1
+			}
+		},
+
+		/**
+		 * The feedback for a wrong answer, with the lesson's explanation.
+		 *
+		 * @param {object} result The check's result.
+		 * @return {{correct: boolean, text: string}} The feedback.
+		 *
+		 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
+		 */
+		retryFeedback(result) {
+			return {
+				correct: false,
+				text: this.t(
+					'hermiq',
+					'Not quite. {explanation} Try again.',
+					{
+						explanation: result.explanation || '',
+					},
+				),
 			}
 		},
 
