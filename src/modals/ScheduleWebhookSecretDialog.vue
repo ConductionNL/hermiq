@@ -113,7 +113,7 @@
 </template>
 
 <script>
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { showSuccess } from '@nextcloud/dialogs'
 import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import ContentCopy from 'vue-material-design-icons/ContentCopy.vue'
 import {
@@ -122,6 +122,7 @@ import {
 	revokeScheduleWebhookSecret,
 	rotateScheduleWebhookSecret,
 } from '../api/scheduleWebhookSecret.js'
+import { copySecret, selectAll } from './secretReveal.js'
 
 export default {
 	name: 'ScheduleWebhookSecretDialog',
@@ -173,6 +174,8 @@ export default {
 	},
 
 	methods: {
+		selectAll,
+
 		/**
 		 * Load the current webhook-secret status ({configured:false} when unconfigured).
 		 *
@@ -186,37 +189,13 @@ export default {
 		},
 
 		/**
-		 * Select the full value in the readonly field for an easy manual copy.
-		 *
-		 * @param {FocusEvent} event The focus event.
-		 * @return {void}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
-		 */
-		selectAll(event) {
-			if (event && event.target && typeof event.target.select === 'function') {
-				event.target.select()
-			}
-		},
-
-		/**
-		 * Copy the revealed secret to the clipboard, with a graceful fallback
-		 * message when the Clipboard API is unavailable.
+		 * Copy the revealed secret to the clipboard.
 		 *
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
-		async copy() {
-			try {
-				await navigator.clipboard.writeText(this.revealedSecret)
-				showSuccess(this.t('hermiq', 'Secret copied to clipboard.'))
-			} catch (e) {
-				showError(
-					this.t(
-						'hermiq',
-						'Could not copy automatically — select and copy the value manually.',
-					),
-				)
-			}
+		copy() {
+			return copySecret(this.revealedSecret)
 		},
 
 		/**
@@ -225,20 +204,11 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
-		async mint() {
-			this.busy = true
-			this.error = ''
-			try {
-				const result = await mintScheduleWebhookSecret(this.scheduleId)
-				this.revealedSecret = result.secret
-				this.status = { configured: true, rotatedAt: result.rotatedAt }
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| this.t('hermiq', 'Could not mint webhook secret')
-			} finally {
-				this.busy = false
-			}
+		mint() {
+			return this.runSecretAction(
+				async () => this.reveal(await mintScheduleWebhookSecret(this.scheduleId)),
+				this.t('hermiq', 'Could not mint webhook secret'),
+			)
 		},
 
 		/**
@@ -248,20 +218,11 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
-		async rotate() {
-			this.busy = true
-			this.error = ''
-			try {
-				const result = await rotateScheduleWebhookSecret(this.scheduleId)
-				this.revealedSecret = result.secret
-				this.status = { configured: true, rotatedAt: result.rotatedAt }
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| this.t('hermiq', 'Could not rotate webhook secret')
-			} finally {
-				this.busy = false
-			}
+		rotate() {
+			return this.runSecretAction(
+				async () => this.reveal(await rotateScheduleWebhookSecret(this.scheduleId)),
+				this.t('hermiq', 'Could not rotate webhook secret'),
+			)
 		},
 
 		/**
@@ -270,17 +231,45 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
-		async revoke() {
+		revoke() {
+			return this.runSecretAction(
+				async () => {
+					this.status = await revokeScheduleWebhookSecret(this.scheduleId)
+					this.revealedSecret = ''
+					showSuccess(this.t('hermiq', 'Webhook secret revoked.'))
+				},
+				this.t('hermiq', 'Could not revoke webhook secret'),
+			)
+		},
+
+		/**
+		 * Show a just-minted or just-rotated secret once, and the configured status.
+		 *
+		 * @param {object} result The server's { secret, rotatedAt }.
+		 * @return {void}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 */
+		reveal(result) {
+			this.revealedSecret = result.secret
+			this.status = { configured: true, rotatedAt: result.rotatedAt }
+		},
+
+		/**
+		 * Run one secret action with the busy flag set, showing the server's error
+		 * (or the fallback) when it fails.
+		 *
+		 * @param {function(): Promise<void>} action The action.
+		 * @param {string} failure The translated fallback error.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 */
+		async runSecretAction(action, failure) {
 			this.busy = true
 			this.error = ''
 			try {
-				this.status = await revokeScheduleWebhookSecret(this.scheduleId)
-				this.revealedSecret = ''
-				showSuccess(this.t('hermiq', 'Webhook secret revoked.'))
+				await action()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| this.t('hermiq', 'Could not revoke webhook secret')
+				this.error = e?.response?.data?.error || failure
 			} finally {
 				this.busy = false
 			}
