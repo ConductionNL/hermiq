@@ -78,39 +78,19 @@ class TalkApprovalNotifier {
 	 */
 	public function postRequest(ObjectEntity $approval, string $displayName): bool {
 		try {
-			if ($this->bridge->isAvailable() === false) {
+			$room = $this->approvalRoom(approval: $approval);
+			if ($room === null) {
 				return false;
 			}
 
-			$agentId = (string)($approval->getObject()['agentId'] ?? '');
-			if ($agentId === '') {
-				return false;
-			}
-
-			$roomToken = $this->agentBinding->roomForAgent(agentId: $agentId);
-			if ($roomToken === null) {
-				// No room bound to this agent — the notification and inbox
-				// still carry the request. Not an error.
-				return false;
-			}
-
-			// Under the agent's OWN bot: an approval request asks a person to
-			// judge THIS agent's run, so it must be signed by it. Posting as the
-			// shared bot rendered it as a bare `bot-<hash>-bot` actor id in a
-			// room where the shared bot is not enabled — observed live.
-			$messageId = $this->bridge->postToRoomReturningId(
-				roomToken: $roomToken,
-				message: $this->requestText(displayName: $displayName),
-				agentId: $agentId
-			);
-
+			$messageId = $this->postAsAgent(room: $room, displayName: $displayName);
 			if ($messageId === null) {
 				return false;
 			}
 
 			return $this->approvalBinding->bind(
 				approval: $approval,
-				roomToken: $roomToken,
+				roomToken: $room->roomToken,
 				messageId: $messageId
 			);
 		} catch (Throwable $e) {
@@ -122,6 +102,55 @@ class TalkApprovalNotifier {
 		}//end try
 
 	}//end postRequest()
+
+	/**
+	 * The agent and room an approval request goes to, or null when Talk is absent,
+	 * the approval names no agent, or the agent has no room.
+	 *
+	 * @param ObjectEntity $approval The pending approval.
+	 *
+	 * @return ApprovalRoom|null The agent and room.
+	 */
+	private function approvalRoom(ObjectEntity $approval): ?ApprovalRoom {
+		if ($this->bridge->isAvailable() === false) {
+			return null;
+		}
+
+		$agentId = (string)($approval->getObject()['agentId'] ?? '');
+		if ($agentId === '') {
+			return null;
+		}
+
+		$roomToken = $this->agentBinding->roomForAgent(agentId: $agentId);
+		if ($roomToken === null) {
+			// No room bound to this agent — the notification and inbox
+			// still carry the request. Not an error.
+			return null;
+		}
+
+		return new ApprovalRoom(agentId: $agentId, roomToken: $roomToken);
+	}//end approvalRoom()
+
+	/**
+	 * Post the request text into the room, signed by the agent's own bot.
+	 *
+	 * Under the agent's OWN bot: an approval request asks a person to judge THIS
+	 * agent's run, so it must be signed by it. Posting as the shared bot rendered
+	 * it as a bare `bot-<hash>-bot` actor id in a room where the shared bot is not
+	 * enabled — observed live.
+	 *
+	 * @param ApprovalRoom $room        The agent and room.
+	 * @param string       $displayName What the approval is about.
+	 *
+	 * @return string|null The posted message's id, or null.
+	 */
+	private function postAsAgent(ApprovalRoom $room, string $displayName): ?string {
+		return $this->bridge->postToRoomReturningId(
+			roomToken: $room->roomToken,
+			message: $this->requestText(displayName: $displayName),
+			agentId: $room->agentId
+		);
+	}//end postAsAgent()
 
 	/**
 	 * The request message.
