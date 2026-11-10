@@ -174,6 +174,7 @@ import {
 	listGuardrailPolicies,
 	updateGuardrailPolicy,
 } from '../api/guardrailPolicy.js'
+import { errorMessage } from '../utils/errorMessage.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 
 export default {
@@ -317,10 +318,7 @@ export default {
 			try {
 				this.guardrailPolicies = await listGuardrailPolicies()
 			} catch (e) {
-				this.guardrailPolicyError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.guardrailPolicyError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			}
 		},
 

@@ -93,6 +93,7 @@ import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import Close from 'vue-material-design-icons/Close.vue'
 import { listSkills } from '../api/skills.js'
 import { useEvalDatasetStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillLinkPanel',
@@ -204,10 +205,7 @@ export default {
 				this.dataset = dataset || null
 				this.skills = Array.isArray(skills) ? skills : []
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the dataset.')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not load the dataset.'))
 			} finally {
 				this.loading = false
 			}
