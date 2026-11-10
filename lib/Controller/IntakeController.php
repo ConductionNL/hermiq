@@ -161,12 +161,31 @@ class IntakeController extends Controller {
 			);
 		}
 
-		try {
-			$conversation = $this->intake->conclude(
+		return $this->concluded(
+			conclusion: new IntakeConclusion(
 				conversationId: $conversationId,
 				classification: $classification,
 				catalogue: $catalogue,
 				intakeTool: $intakeTool
+			)
+		);
+	}//end conclude()
+
+	/**
+	 * Conclude the conversation and answer it, or the refusal: 403 for a refused
+	 * intake, 404 for no such conversation, 500 on any other failure.
+	 *
+	 * @param IntakeConclusion $conclusion The validated conclusion.
+	 *
+	 * @return JSONResponse
+	 */
+	private function concluded(IntakeConclusion $conclusion): JSONResponse {
+		try {
+			$conversation = $this->intake->conclude(
+				conversationId: $conclusion->conversationId,
+				classification: $conclusion->classification,
+				catalogue: $conclusion->catalogue,
+				intakeTool: $conclusion->intakeTool
 			);
 		} catch (IntakeRefusedException $refusal) {
 			return new JSONResponse(['error' => $refusal->getMessage()], Http::STATUS_FORBIDDEN);
@@ -180,7 +199,7 @@ class IntakeController extends Controller {
 		}
 
 		return new JSONResponse($conversation);
-	}//end conclude()
+	}//end concluded()
 
 	/**
 	 * Carry an external party's verdict into a conversation.
