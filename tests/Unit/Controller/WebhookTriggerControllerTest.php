@@ -334,4 +334,56 @@ class WebhookTriggerControllerTest extends TestCase {
 		$this->assertSame(['error' => 'invalid_json'], $response->getData());
 
 	}//end testNonJsonBodyRejectedOnlyAfterSecretVerifies()
+
+	/**
+	 * The enqueued context carries the webhook's approval settings, with their
+	 * defaults, and the same correlation id the response answers.
+	 *
+	 * @return void
+	 */
+	public function testTheContextCarriesTheApprovalSettings(): void {
+		$this->request->method('getHeader')->willReturnMap($this->headers(secret: 'hwh_correct'));
+		$this->webhookSecretService->method('verifyAndLoad')->willReturnOnConsecutiveCalls(
+			$this->webhook(['requiresApproval' => true, 'reviewer' => 'ops', 'reviewerType' => 'group']),
+			$this->webhook(['requiresApproval' => 'yes'])
+		);
+
+		$contexts = [];
+		$this->jobList->method('add')->willReturnCallback(
+			function (string $job, array $context) use (&$contexts): void {
+				$contexts[] = $context;
+			}
+		);
+
+		$first = $this->controller(rawBody: '[1,2]')->trigger(id: 'agent-1');
+		$this->controller(rawBody: ' ')->trigger(id: 'agent-2');
+
+		$this->assertSame($first->getData()['correlationId'], $contexts[0]['correlationId']);
+		unset($contexts[0]['correlationId'], $contexts[1]['correlationId']);
+		$this->assertSame(
+			[
+				['agentId' => 'agent-1', 'payload' => [1, 2], 'requiresApproval' => true, 'reviewer' => 'ops', 'reviewerType' => 'group'],
+				['agentId' => 'agent-2', 'payload' => [], 'requiresApproval' => false, 'reviewer' => '', 'reviewerType' => 'user'],
+			],
+			$contexts
+		);
+	}//end testTheContextCarriesTheApprovalSettings()
+
+	/**
+	 * A JSON scalar is invalid, and a failed enqueue is a 500 that marks nothing used.
+	 *
+	 * @return void
+	 */
+	public function testAScalarBodyAndAFailedEnqueue(): void {
+		$this->request->method('getHeader')->willReturnMap($this->headers(secret: 'hwh_correct'));
+		$this->webhookSecretService->method('verifyAndLoad')->willReturn($this->webhook());
+		$this->webhookSecretService->expects($this->never())->method('markUsed');
+		$this->jobList->method('add')->willThrowException(new \RuntimeException('queue down'));
+
+		$scalar = $this->controller(rawBody: '"text"')->trigger(id: 'agent-1');
+		$this->assertSame([400, ['error' => 'invalid_json']], [$scalar->getStatus(), $scalar->getData()]);
+
+		$failed = $this->controller(rawBody: '{}')->trigger(id: 'agent-1');
+		$this->assertSame([500, ['error' => 'Could not accept the trigger']], [$failed->getStatus(), $failed->getData()]);
+	}//end testAScalarBodyAndAFailedEnqueue()
 }//end class
