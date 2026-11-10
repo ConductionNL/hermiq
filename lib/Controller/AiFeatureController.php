@@ -46,7 +46,6 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -386,27 +385,15 @@ class AiFeatureController extends Controller {
 	}//end notFound()
 
 	/**
-	 * The signed-in user when they may perform the action, otherwise the refusal:
-	 * 401 when no one is signed in (before any action check), 403 with the refusal
-	 * message when the action is not theirs.
+	 * The signed-in user when they may perform the action, otherwise the 401/403
+	 * refusal (see ActionGate).
 	 *
 	 * @param string $action The ADR-023 action name to require.
 	 *
 	 * @return IUser|JSONResponse
 	 */
 	private function authorise(string $action): IUser|JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: $action);
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
-		}
-
-		return $user;
+		return (new ActionGate(userSession: $this->userSession, actionAuth: $this->actionAuth))->authorise(action: $action);
 	}//end authorise()
 
 	/**
