@@ -67,6 +67,7 @@ namespace OCA\Hermiq\Flow;
 
 use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\StageDispatchService;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -197,9 +198,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * shapes: a downstream router cannot tell "the gates found nothing" from
 	 * "the gates never ran", and both look like a clean tick.
 	 *
-	 * @param array $items The input items.
-	 * @param array $config The step configuration.
-	 * @param array $context Run-level metadata (carries the triggering user).
+	 * @param FlowNodeCall $call The input items, the step configuration and the run context.
 	 *
 	 * @return array The items, each with the workload's result added.
 	 *
@@ -207,7 +206,10 @@ class HermiqWorkloadNode implements IFlowNode {
 	 *
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md#requirement-a-command-that-ran-and-failed-is-data-not-a-step-failure
 	 */
-	public function execute(array $items, array $config, array $context): array {
+	public function execute(FlowNodeCall $call): array {
+		$items = $call->items;
+		$config = $call->config;
+		$context = $call->context;
 		// `validateConfig()` only runs when a flow is SAVED — a flow imported
 		// or seeded through another path reaches `execute()` unvalidated, and
 		// returning the items unchanged would make the step a silent
