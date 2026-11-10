@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -177,7 +178,7 @@ class ToolCatalogGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $agent): mixed {
-				$calls[] = ['find', $this->passed(class: ObjectService::class, method: 'find', args: $args)];
+				$calls[] = ['find', FindCallShape::named(args: $args)];
 				if ($agent === 'throws') {
 					throw new DoesNotExistException('no such object');
 				}

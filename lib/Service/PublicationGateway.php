@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 
@@ -148,8 +149,7 @@ class PublicationGateway {
 
 		$existing = $this->objectService->find(
 			id: $reference,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectFindOptions(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA)
 		);
 
 		$data = [];

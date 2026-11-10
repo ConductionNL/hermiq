@@ -57,6 +57,7 @@ use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -209,8 +210,7 @@ class ChatController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $agentUuid,
-				register: self::REGISTER_SLUG,
-				schema: 'agent'
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'agent')
 			);
 			if ($agent === null) {
 				return new JSONResponse(data: ['warmed' => false], statusCode: 200);
@@ -743,8 +743,7 @@ class ChatController extends Controller {
 			// above and the sessionId check below scope it to this conversation.
 			$message = $this->objectService->find(
 				id: $messageId,
-				register: self::REGISTER_SLUG,
-				schema: self::MESSAGE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA),
 				_rbac: false
 			);
 			if ($message === null
@@ -1034,8 +1033,7 @@ class ChatController extends Controller {
 	private function findConversation(string $uuid): ObjectEntity {
 		$conversation = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($conversation === null) {
 			throw new Exception('The conversation with UUID ' . $uuid . ' does not exist', 404);
@@ -1067,8 +1065,7 @@ class ChatController extends Controller {
 		// Look up agent by UUID.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new Exception('The agent with UUID ' . $agentUuid . ' does not exist', 404);

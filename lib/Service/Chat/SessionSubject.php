@@ -28,6 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Chat;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
 
@@ -236,8 +237,7 @@ class SessionSubject {
 		try {
 			$record = $this->objectService->find(
 				id: $subject['objectUuid'],
-				register: $this->orNull(value: $subject['register']),
-				schema: $this->orNull(value: $subject['schema'])
+				options: new ObjectFindOptions(register: $this->orNull(value: $subject['register']), schema: $this->orNull(value: $subject['schema']))
 			);
 		} catch (Throwable $e) {
 			$record = null;

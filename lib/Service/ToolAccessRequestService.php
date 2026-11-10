@@ -39,6 +39,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\Notification\IManager as INotificationManager;
 use DateTime;
@@ -554,7 +555,7 @@ class ToolAccessRequestService {
 
 		try {
 			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
-			$object = $objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: 'Agent');
+			$object = $objectService->find(id: $agentId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'Agent'));
 			if ($object === null) {
 				return [];
 			}

@@ -68,6 +68,7 @@ use OCA\Hermiq\Service\Chat\TurnAttachmentResolver;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IUserManager;
@@ -402,8 +403,7 @@ class Engine {
 		$turn = $request;
 		$turn['conversation'] = $this->objectService->find(
 			id: $request['conversationId'],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($turn['conversation'] === null) {
 			throw new Exception('Conversation not found: ' . $request['conversationId']);
@@ -439,8 +439,7 @@ class Engine {
 			// still applies.
 			$turn['agent'] = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 		}

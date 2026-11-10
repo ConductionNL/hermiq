@@ -26,6 +26,7 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -96,26 +97,17 @@ class ObjectService {
 	 * Find a single object by id/uuid.
 	 *
 	 * @param int|string $id The object id or uuid.
-	 * @param array|null $_extend Extend config.
-	 * @param bool $files Whether to include files.
-	 * @param mixed $register Register context.
-	 * @param mixed $schema Schema context.
+	 * @param ObjectFindOptions|null $options Register, schema, extend, files, render and audit.
 	 * @param bool $_rbac Whether RBAC applies.
 	 * @param bool $_multitenancy Whether multi-tenancy applies.
-	 * @param bool $_render Whether to render the object (mirrors the real service).
 	 *
 	 * @return ObjectEntity|null
 	 */
 	public function find(
 		int|string $id,
-		?array $_extend = [],
-		bool $files = false,
-		mixed $register = null,
-		mixed $schema = null,
+		?ObjectFindOptions $options = null,
 		bool $_rbac = true,
 		bool $_multitenancy = true,
-		bool $_render = true,
-		bool $_audit = true,
 	): ?ObjectEntity {
 		return null;
 	}//end find()

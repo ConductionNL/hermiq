@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -261,7 +262,7 @@ class SkillDraftEditGoldenTest extends TestCase {
 		);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $objects): mixed {
-				$passed = $this->passed(class: ObjectService::class, method: 'find', args: $args);
+				$passed = FindCallShape::named(args: $args);
 				$calls[] = ['find', $passed];
 				return ($objects[(string)($passed['schema'] ?? '')] ?? null);
 			}

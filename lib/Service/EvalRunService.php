@@ -57,6 +57,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1003,8 +1004,7 @@ class EvalRunService {
 		try {
 			$agentObject = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1630,8 +1630,7 @@ class EvalRunService {
 			try {
 				$skill = $this->objectService->find(
 					id: $skillId,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
+					options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
 					_rbac: false,
 					_multitenancy: false
 				);

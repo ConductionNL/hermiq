@@ -30,6 +30,7 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
@@ -648,8 +649,8 @@ class ChatControllerTest extends TestCase {
 	public function testSendFeedbackChecksMessageBelongsToConversation(): void {
 		$this->stubParams(['type' => 'positive']);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'agentsession') {
+			function (mixed ...$args): ?ObjectEntity {
+				if (FindCallShape::flat(args: $args)[4] === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
@@ -676,8 +677,8 @@ class ChatControllerTest extends TestCase {
 	public function testSendFeedbackCreatesFeedbackObject(): void {
 		$this->stubParams(['type' => 'negative', 'comment' => 'wrong answer']);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'agentsession') {
+			function (mixed ...$args): ?ObjectEntity {
+				if (FindCallShape::flat(args: $args)[4] === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 
@@ -735,8 +736,8 @@ class ChatControllerTest extends TestCase {
 	public function testSendFeedbackUpdatesExistingFeedback(): void {
 		$this->stubParams(['type' => 'positive', 'comment' => 'better now']);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				if ($schema === 'agentsession') {
+			function (mixed ...$args): ?ObjectEntity {
+				if (FindCallShape::flat(args: $args)[4] === 'agentsession') {
 					return $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
 				}
 

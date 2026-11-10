@@ -69,6 +69,7 @@ namespace OCA\Hermiq\Repair;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IDBConnection;
@@ -732,8 +733,7 @@ class MigrateAgentData implements IRepairStep {
 		try {
 			$found = $objectService->find(
 				id: $uuid,
-				register: self::REGISTER_SLUG,
-				schema: $schema,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: $schema),
 				_rbac: false,
 				_multitenancy: false
 			);

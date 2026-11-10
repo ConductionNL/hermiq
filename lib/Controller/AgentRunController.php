@@ -56,6 +56,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Agent\AgentContextBuilder;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -255,8 +256,7 @@ class AgentRunController extends Controller {
 		try {
 			$object = $this->objectService->find(
 				id: $objectId,
-				register: $register,
-				schema: $schema,
+				options: new ObjectFindOptions(register: $register, schema: $schema),
 				_rbac: true,
 				_multitenancy: true
 			);

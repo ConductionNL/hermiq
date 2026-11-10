@@ -78,7 +78,7 @@ class AiOversightAccessTest extends TestCase {
         $this->groupManager->method('isInGroup')->willReturn(false);
         $this->objectService->expects($this->once())
             ->method('find')
-            ->with(self::SUBJECT, $this->anything(), $this->anything(), $this->anything(), $this->anything(), true, true)
+            ->with(self::SUBJECT, $this->anything(), true, true)
             ->willReturn($this->createMock(ObjectEntity::class));
 
         $this->assertTrue($this->access->maySeeSubject(userId: 'alice', subjectId: self::SUBJECT));

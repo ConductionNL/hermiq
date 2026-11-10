@@ -39,6 +39,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
@@ -186,7 +187,7 @@ class SessionParticipantService {
 	 * @throws SessionParticipantException 404.
 	 */
 	private function ownedSession(string $uuid, string $callerUid): ObjectEntity {
-		$session = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
 		if ($session === null || $callerUid === '' || ($session->getObject()['userId'] ?? null) !== $callerUid) {
 			throw new SessionParticipantException('Session not found.', 404);
 		}

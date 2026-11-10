@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Service\ToolOversight;
 
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
@@ -139,8 +140,7 @@ class ToolGrantWrites {
 		try {
 			$requestObject = $this->objectService->find(
 				id: $requestId,
-				register: self::REGISTER_SLUG,
-				schema: 'toolAccessRequest'
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'toolAccessRequest')
 			);
 		} catch (Throwable $e) {
 			return null;

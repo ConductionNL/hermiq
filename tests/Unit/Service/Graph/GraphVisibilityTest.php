@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Graph;
 use OCA\Hermiq\Service\Graph\ActingUserScope;
 use OCA\Hermiq\Service\Graph\GraphVisibility;
 use OCA\Hermiq\Service\NcNative\MailReadService;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\Folder;
@@ -93,7 +94,8 @@ class GraphVisibilityTest extends TestCase {
 
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $withFiles = false, mixed $register = null, mixed $schema = null, bool $_rbac = true) use ($find): ?ObjectEntity {
+			function (mixed ...$args) use ($find): ?ObjectEntity {
+				[$id, , , , $schema, $_rbac] = FindCallShape::flat(args: $args);
 				$this->lookupsAs[] = $this->sessionUser?->getUID();
 
 				return $find((string)$id, (string)$schema, $_rbac, $this->sessionUser?->getUID());

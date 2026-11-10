@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -178,8 +179,7 @@ class ConversationTitleWriter {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			$this->logger->info(

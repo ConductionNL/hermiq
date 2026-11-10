@@ -49,6 +49,7 @@ use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -223,8 +224,8 @@ class SkillConsolidationServiceTest extends TestCase {
 			fn (): array => ($this->collections[$this->lastSchema] ?? [])
 		);
 		$this->objectService->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schema = null): ?ObjectEntity {
-				unset($_extend, $files, $register);
+			function (mixed ...$args): ?ObjectEntity {
+				[$id, , , , $schema] = FindCallShape::flat(args: $args);
 				return ($this->found[((string)$schema) . ':' . ((string)$id)] ?? null);
 			}
 		);

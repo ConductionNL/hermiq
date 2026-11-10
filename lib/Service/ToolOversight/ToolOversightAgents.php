@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Service\ToolOversight;
 
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
@@ -84,7 +85,7 @@ class ToolOversightAgents {
 	public function find(string $agentId): ?ObjectEntity {
 		$agent = null;
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+			$agent = $this->objectService->find(id: $agentId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and the
 			// endpoints call this OUTSIDE their own try block, so the throw would

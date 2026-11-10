@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\WebhookSecretService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -304,8 +305,7 @@ class AgentWebhookController extends Controller {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and every

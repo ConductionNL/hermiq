@@ -55,6 +55,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -375,8 +376,7 @@ class WebhookAgentRunService {
 
 		$agentObject = $this->objectService->find(
 			id: $agentId,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 			_rbac: false,
 			_multitenancy: false
 		);

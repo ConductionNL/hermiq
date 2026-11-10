@@ -47,6 +47,7 @@ use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -810,8 +811,7 @@ class ChatStreamController extends Controller {
 		if ($conversationUuid !== '') {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 			if ($conversation === null) {
 				throw new RuntimeException('Conversation not found: ' . $conversationUuid);
@@ -831,8 +831,7 @@ class ChatStreamController extends Controller {
 		// Need an agent to create a new conversation.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		// A private agent the caller may not use answers exactly like a missing
 		// one, so the stream cannot confirm it exists (hermiq#976).

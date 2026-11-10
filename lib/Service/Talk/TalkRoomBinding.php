@@ -34,6 +34,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -253,8 +254,7 @@ class TalkRoomBinding {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 
 			if (($conversation instanceof ObjectEntity) === false) {

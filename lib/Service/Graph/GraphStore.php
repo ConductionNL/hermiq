@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Service\Graph;
 
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -114,7 +115,7 @@ class GraphStore {
 	 */
 	public function entity(string $uuid): ?ObjectEntity {
 		try {
-			return $this->objectService->find(id: $uuid, register: self::REGISTER, schema: self::ENTITY_SCHEMA, _rbac: false);
+			return $this->objectService->find(id: $uuid, options: new ObjectFindOptions(register: self::REGISTER, schema: self::ENTITY_SCHEMA), _rbac: false);
 		} catch (Throwable $e) {
 			$this->logger->debug('Hermiq graph: an entity could not be read', ['uuid' => $uuid, 'exception' => $e]);
 

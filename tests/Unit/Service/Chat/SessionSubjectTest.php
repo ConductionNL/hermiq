@@ -23,6 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Chat;
 
 use DateTime;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -55,7 +56,7 @@ class SessionSubjectTest extends TestCase {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use ($answer): ?ObjectEntity {
-				$this->finds[] = $args;
+				$this->finds[] = FindCallShape::flat(args: $args);
 				if ($answer instanceof \Throwable) {
 					throw $answer;
 				}

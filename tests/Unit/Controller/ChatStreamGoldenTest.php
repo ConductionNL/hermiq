@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Service\ObjectService;
@@ -476,7 +477,7 @@ class ChatStreamGoldenTest extends TestCase {
 		$service = $this->createMock(ObjectService::class);
 		$service->method('find')->willReturnCallback(
 			function (...$args) use ($objects): ?ObjectEntity {
-				$named = $this->named(method: 'find', args: $args);
+				$named = FindCallShape::named(args: $args);
 				$this->events[] = ['find' => $named];
 				$id = (string)($named['id'] ?? '');
 				if (isset($objects[$id]) === false) {

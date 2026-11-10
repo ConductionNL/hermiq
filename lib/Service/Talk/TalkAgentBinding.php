@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -353,8 +354,7 @@ class TalkAgentBinding {
 			// only its owner, invited users and group members. Tenancy still applies.
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 

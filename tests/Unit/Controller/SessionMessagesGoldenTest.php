@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -173,7 +174,7 @@ class SessionMessagesGoldenTest extends TestCase {
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $conversation): mixed {
-				$calls[] = ['find', $this->passed(method: 'find', args: $args)];
+				$calls[] = ['find', FindCallShape::named(args: $args)];
 				if ($conversation === 'throws') {
 					throw new DoesNotExistException('no such object');
 				}

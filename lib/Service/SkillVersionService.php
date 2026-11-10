@@ -37,6 +37,7 @@ namespace OCA\Hermiq\Service;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 use Throwable;
@@ -199,8 +200,7 @@ class SkillVersionService {
 
 		$skill = $this->objectService->find(
 			id: $skillUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 		if (($skill instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Skill not found.');
@@ -395,8 +395,7 @@ class SkillVersionService {
 	private function liveSkillData(string $skillUuid): array {
 		$skill = $this->objectService->find(
 			id: $skillUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 		if (($skill instanceof ObjectEntity) === false) {
 			throw new RuntimeException('Skill not found.');

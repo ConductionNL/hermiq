@@ -63,6 +63,7 @@ use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -639,7 +640,7 @@ class McpRunController extends Controller {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+			$agent = $this->objectService->find(id: $agentId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA));
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and both
 			// callers invoke this helper OUTSIDE their own try block — so the
@@ -754,8 +755,7 @@ class McpRunController extends Controller {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationId,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

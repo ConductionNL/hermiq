@@ -41,6 +41,7 @@ use OCA\Hermiq\Service\Engine\PromptVariableResolver;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -144,7 +145,7 @@ class InstructionVariablesService {
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
 	 */
 	public function answer(string $sessionId, string $uid, array $values): ObjectEntity {
-		$session = $this->objectService->find(id: $sessionId, register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA);
+		$session = $this->objectService->find(id: $sessionId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA));
 		if ($session === null || (string)($session->getObject()['userId'] ?? '') !== $uid || $uid === '') {
 			throw new RuntimeException('Session not found', 404);
 		}
@@ -190,7 +191,11 @@ class InstructionVariablesService {
 			return [];
 		}
 
-		$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA, _rbac: false);
+		$agent = $this->objectService->find(
+			id: $agentId,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+			_rbac: false
+		);
 		if ($agent === null) {
 			return [];
 		}

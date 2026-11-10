@@ -67,6 +67,7 @@ use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -760,8 +761,7 @@ class AgentTemplateController extends Controller {
 			// caller's tenant never reaches the ownership comparison below.
 			$template = $this->objectService->find(
 				id: $templateId,
-				register: AgentTemplateService::REGISTER_SLUG,
-				schema: AgentTemplateService::TEMPLATE_SCHEMA
+				options: new ObjectFindOptions(register: AgentTemplateService::REGISTER_SLUG, schema: AgentTemplateService::TEMPLATE_SCHEMA)
 			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent and this

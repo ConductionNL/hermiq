@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\ToolSearchService;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
@@ -203,8 +204,8 @@ final class ToolDetailDriveTest extends TestCase {
 		$objects->method('setRegister')->willReturnSelf();
 		$objects->method('setSchema')->willReturnSelf();
 		$objects->method('find')->willReturnCallback(
-			static function (string $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) use ($conversation, $agent): ObjectEntity {
-				if ($schema === 'agent') {
+			static function (mixed ...$args) use ($conversation, $agent): ObjectEntity {
+				if (FindCallShape::flat(args: $args)[4] === 'agent') {
 					return $agent;
 				}
 
