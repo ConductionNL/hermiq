@@ -1273,27 +1273,15 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) The single dispatch chokepoint carries
-	 *   every optional per-run concern (channel frames, trace step, dry-run neutralisation,
-	 *   outcome override, encode fallback) as one flat nullable-guard each — splitting it
-	 *   would re-scatter the dry-run interception across governance branches.
-	 *
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
-		$this->channel?->emitToolCall(
-			payload: [
-				'toolId' => $name,
-				'arguments' => $arguments,
-			]
-		);
-
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: $name);
-		}
+		$dispatch = new ToolDispatch(name: $name, arguments: $arguments);
+		$dispatch->outcomeOverride = $outcomeOverride;
+		$reporter = new ToolCallReporter(channel: $this->channel, trace: $this->trace);
+		$reporter->started(dispatch: $dispatch);
 
 		// Run-replay-and-dry-run: this is the ONLY place `invokeTool()` is ever
 		// actually called, so intercepting here (rather than earlier in __call())
@@ -1302,51 +1290,30 @@ class FacadeToolInvoker {
 		// retry, or an already-approved gated invocation) — a single chokepoint,
 		// never duplicated per branch.
 		if ($this->dryRun === true && $this->isSideEffecting(name: $name) === true) {
-			return $this->recordWouldHaveCalled(name: $name, arguments: $arguments, traceToken: $traceToken);
+			return $this->recordWouldHaveCalled(name: $name, arguments: $arguments, traceToken: $dispatch->traceToken);
 		}
 
 		// The facade's return shape is a documented contract:
 		// {result: array, isError: bool} (ai-mcp REQ-006).
-		$envelope = $this->facade->invokeTool(
+		$dispatch->envelope = $this->facade->invokeTool(
 			toolId: $name,
 			arguments: $this->withFlowOwner(
 				name: $name,
 				arguments: $this->withAgentId(name: $name, arguments: $arguments)
 			)
 		);
-		$envelope['result'] = $this->withStagedBatchApproval(name: $name, result: $envelope['result'], isError: $envelope['isError']);
-
-		if ($this->trace !== null && $traceToken !== null) {
-			$outcome = 'ok';
-			if ($envelope['isError'] === true) {
-				$outcome = 'error';
-			}
-
-			if ($outcomeOverride !== null && $envelope['isError'] !== true) {
-				$outcome = $outcomeOverride;
-			}
-
-			$this->trace->endStep(
-				token: $traceToken,
-				outcome: $outcome,
-				extra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $envelope['result'])
-			);
-		}
-
-		$this->channel?->emitToolResult(
-			payload: [
-				'toolId' => $name,
-				'result' => $envelope['result'],
-				'isError' => $envelope['isError'],
-			]
+		$dispatch->envelope['result'] = $this->withStagedBatchApproval(
+			name: $name,
+			result: $dispatch->envelope['result'],
+			isError: $dispatch->envelope['isError']
 		);
 
-		$encoded = json_encode($envelope['result']);
-		if (is_string($encoded) === false) {
-			return '{"error":"Tool result could not be encoded"}';
-		}
+		$reporter->finished(
+			dispatch: $dispatch,
+			traceExtra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $dispatch->envelope['result'])
+		);
 
-		return $encoded;
+		return $dispatch->encodedResult();
 	}//end dispatchToFacade()
 
 	/**
