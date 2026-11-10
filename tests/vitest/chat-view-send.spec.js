@@ -135,3 +135,32 @@ describe('Chat sessionGroups', () => {
 		expect(groups.call({ showArchive: false, visibleSessions: [], isAutomated: automated, t: (a, s) => s })).toEqual([])
 	})
 })
+
+describe('Chat goalLine', () => {
+	/**
+	 * Translate as the identity, filling {placeholders}.
+	 *
+	 * @param {string} app The app id.
+	 * @param {string} text The text.
+	 * @param {object} vars The placeholders.
+	 * @return {string} The filled text.
+	 */
+	const t = (app, text, vars = {}) => text.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match))
+	const line = (sessionGoal) => Chat.computed.goalLine.call({ sessionGoal, t })
+
+	it('says nothing without a goal', () => {
+		expect(line(null)).toBe('')
+	})
+
+	it('names how an ended goal ended', () => {
+		expect(line({ status: 'stopped', statement: 'Book a room' })).toBe('Goal stopped: Book a room')
+		expect(line({ status: 'reached', statement: 'Book a room' })).toBe('Goal reached: Book a room')
+		expect(line({ status: 'exhausted' })).toBe('Turn limit used: ')
+	})
+
+	it('describes an active goal with its turns, block and last check', () => {
+		expect(line({ status: 'active', statement: 'S', turnsUsed: 3, maxTurns: 8, blocked: true, lastCheckResult: { summary: 'close' } }))
+			.toBe('Goal: S, turn 3 of 8, blocked, last check: close')
+		expect(line({ statement: 'S' })).toBe('Goal: S, turn 0 of 10')
+	})
+})
