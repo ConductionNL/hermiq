@@ -470,6 +470,15 @@ class FacadeToolInvoker {
 	}//end isStopped()
 
 	/**
+	 * How this run refuses a tool call: traced, shown on the stream, and returned to the model.
+	 *
+	 * @return ToolRefusals The refusals over this run's trace and stream.
+	 */
+	private function refusals(): ToolRefusals {
+		return new ToolRefusals(trace: $this->trace, channel: $this->channel);
+	}//end refusals()
+
+	/**
 	 * Catch LLPhant's `$instance->{$functionName}(...$args)` dispatch and route
 	 * it through `ToolRegistryFacade::invokeTool()` — unless it is the
 	 * `hermiq.searchTools` meta-tool (handled internally) or an un-granted
@@ -638,7 +647,7 @@ class FacadeToolInvoker {
 			'constraint' => ['mode' => $violation['mode'], 'permitted' => $violation['values']],
 		];
 
-		return $this->refuse(refusal: $refusal);
+		return $this->refusals()->refuse(refusal: $refusal);
 	}//end handleConstraintViolation()
 
 	/**
@@ -697,7 +706,7 @@ class FacadeToolInvoker {
 		);
 		$refusal->traceExtra = ['error' => 'owner_unresolved'];
 
-		return $this->refuse(refusal: $refusal);
+		return $this->refusals()->refuse(refusal: $refusal);
 	}//end handleOwnerUnresolved()
 
 	/**
@@ -780,7 +789,7 @@ class FacadeToolInvoker {
 		$refusal->outcome = 'denied';
 		$refusal->traceName = $name;
 
-		return $this->refuse(refusal: $refusal);
+		return $this->refusals()->refuse(refusal: $refusal);
 	}//end handleDeniedByPolicy()
 
 	/**
@@ -814,7 +823,7 @@ class FacadeToolInvoker {
 		$call = new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments);
 
 		if ($this->approvalService === null || $this->agentId === null) {
-			return $this->refuseWithoutAgentContext(call: $call);
+			return $this->refusals()->unavailable(call: $call);
 		}
 
 		$correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $call->toolId, arguments: $arguments);
@@ -827,144 +836,25 @@ class FacadeToolInvoker {
 
 		$pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
 		if ($pending !== null) {
-			return $this->refuseConfirmTool(
+			return $this->refusals()->confirm(
 				call: $call,
-				confirm: $this->awaiting(message: 'This action is still awaiting human approval.', approval: $pending)
+				confirm: $this->refusals()->awaiting(message: 'This action is still awaiting human approval.', approval: $pending)
 			);
 		}
 
-		return $this->refuseConfirmTool(
+		$approval = $this->approvalService->ensurePendingApprovalForToolCall(
+			agentId: $this->agentId,
+			toolId: $call->toolId,
+			arguments: $arguments,
+			correlationId: $correlationId
+		);
+
+		return $this->refusals()->confirm(
 			call: $call,
-			confirm: $this->awaiting(
-				message: 'This action requires human approval before it can run.',
-				approval: $this->requestToolCallApproval(call: $call, correlationId: $correlationId)
-			)
+			confirm: $this->refusals()->awaiting(message: 'This action requires human approval before it can run.', approval: $approval)
 		);
 
 	}//end handleConfirmClassifiedInvocation()
-
-	/**
-	 * Refuse a confirm-classified call when there is no agent context to route an approval to.
-	 *
-	 * @param ToolCall $call The refused call.
-	 *
-	 * @return string JSON-encoded refusal for the follow-up LLM turn.
-	 */
-	private function refuseWithoutAgentContext(ToolCall $call): string {
-		$confirm = new ConfirmRefusal(
-			status: 'unavailable',
-			message: 'This action requires human approval, but no agent context is available to route it — refused.'
-		);
-		$confirm->outcome = 'denied';
-
-		return $this->refuseConfirmTool(call: $call, confirm: $confirm);
-	}//end refuseWithoutAgentContext()
-
-	/**
-	 * A pending refusal that names the approval it waits on.
-	 *
-	 * @param string       $message  A human-readable refusal message for the LLM.
-	 * @param ObjectEntity $approval The pending approval.
-	 *
-	 * @return ConfirmRefusal The refusal reason.
-	 */
-	private function awaiting(string $message, ObjectEntity $approval): ConfirmRefusal {
-		$confirm = new ConfirmRefusal(status: 'pending', message: $message);
-		$confirm->approvalId = (string)$approval->getUuid();
-
-		return $confirm;
-	}//end awaiting()
-
-	/**
-	 * Raise the pending approval for this exact call (idempotent on the correlation id).
-	 *
-	 * @param ToolCall $call          The call.
-	 * @param string   $correlationId The call's correlation id.
-	 *
-	 * @return ObjectEntity The pending approval.
-	 */
-	private function requestToolCallApproval(ToolCall $call, string $correlationId): ObjectEntity {
-		return $this->approvalService->ensurePendingApprovalForToolCall(
-			agentId: (string)$this->agentId,
-			toolId: $call->toolId,
-			arguments: $call->arguments,
-			correlationId: $correlationId
-		);
-	}//end requestToolCallApproval()
-
-	/**
-	 * Refuse a `confirm`-classified tool call, recording a `tool` trace step
-	 * with the given outcome (spec: "record every ... tool confirm-request ...
-	 * as a trace step") and emitting the streaming channel's frames.
-	 *
-	 * @param ToolCall       $call    The refused call.
-	 * @param ConfirmRefusal $confirm The status, message, trace outcome and pending approval.
-	 *
-	 * @return string JSON-encoded refusal for the follow-up LLM turn.
-	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
-	 */
-	private function refuseConfirmTool(ToolCall $call, ConfirmRefusal $confirm): string {
-		$envelope = [
-			'isError' => true,
-			'error' => 'approval_required',
-			'toolId' => $call->toolId,
-			'status' => $confirm->status,
-			'message' => $confirm->message,
-		];
-
-		if ($confirm->approvalId !== null) {
-			$envelope['approvalId'] = $confirm->approvalId;
-		}
-
-		$refusal = new ToolRefusal(call: $call, envelope: $envelope);
-		$refusal->outcome = $confirm->outcome;
-
-		return $this->refuse(refusal: $refusal);
-	}//end refuseConfirmTool()
-
-	/**
-	 * Record a refused call as a `tool` trace step, show it on the stream, and
-	 * return its envelope to the model.
-	 *
-	 * @param ToolRefusal $refusal The refusal.
-	 *
-	 * @return string JSON-encoded refusal for the follow-up LLM turn.
-	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
-	 */
-	private function refuse(ToolRefusal $refusal): string {
-		$call = $refusal->call;
-		$traceToken = null;
-		if ($this->trace !== null) {
-			$traceToken = $this->trace->startStep(type: 'tool', name: ($refusal->traceName ?? $call->toolId));
-		}
-
-		if ($this->trace !== null && $traceToken !== null) {
-			$this->trace->endStep(token: $traceToken, outcome: $refusal->outcome, extra: $refusal->traceExtra);
-		}
-
-		$this->channel?->emitToolCall(payload: ['toolId' => $call->toolId, 'arguments' => $call->arguments]);
-		$this->channel?->emitToolResult(payload: ['toolId' => $call->toolId, 'result' => $refusal->envelope, 'isError' => true]);
-
-		return $this->encodedRefusal(envelope: $refusal->envelope);
-	}//end refuse()
-
-	/**
-	 * A refusal envelope as JSON; when it cannot be encoded, just its `ok`, `isError` and `error`.
-	 *
-	 * @param array<string, mixed> $envelope The refusal.
-	 *
-	 * @return string The JSON.
-	 */
-	private function encodedRefusal(array $envelope): string {
-		$encoded = json_encode($envelope);
-		if (is_string($encoded) === false) {
-			return (string)json_encode(array_intersect_key($envelope, array_flip(['ok', 'isError', 'error'])));
-		}
-
-		return $encoded;
-	}//end encodedRefusal()
 
 	/**
 	 * Compute the `confirm`-classified tool call's idempotency/authorization
@@ -1148,6 +1038,9 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded outcome for the follow-up LLM turn.
 	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver::resolve()` is a PURE
+	 *   classification function — see `requiresApprovalGate()`.
+	 *
 	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
 	 */
@@ -1163,33 +1056,22 @@ class FacadeToolInvoker {
 			return $this->dispatchToFacade(name: $name, arguments: $arguments);
 		}
 
-		$envelope = $this->reachEnvelope(name: $name, toolId: $toolId)
-			+ $this->gateVerdict(decided: $decided, call: new ToolCall(toolId: $toolId, arguments: $arguments));
+		$pending = null;
+		if ($decided === null) {
+			$pending = $this->approvalService->ensurePendingApprovalForToolInvocation(
+				agentId: (string)$this->agentId,
+				toolId: $toolId,
+				arguments: $arguments
+			);
+		}
 
-		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
-
-		return $this->encodedRefusal(envelope: $envelope);
-	}//end handleGatedInvocation()
-
-	/**
-	 * The gate's refusal head: approval required, naming the reach that triggered it.
-	 *
-	 * A run trace otherwise cannot tell a reach-triggered refusal from a
-	 * verb-triggered one, and the two want opposite remedies: a verb gate says "a
-	 * human should confirm this write", a reach gate says "this leaves the
-	 * instance — grant it by name or do not". The model reads this too, and
-	 * "external" is far more actionable to it than a bare `approval_required`.
-	 *
-	 * @param string $name   The LLPhant-side function name.
-	 * @param string $toolId The dotted tool id.
-	 *
-	 * @return array<string, mixed> The envelope's first fields.
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver::resolve()` is a PURE
-	 *   classification function — see `requiresApprovalGate()`.
-	 */
-	private function reachEnvelope(string $name, string $toolId): array {
-		return [
+		// Name the reach that triggered the gate. A run trace otherwise cannot
+		// tell a reach-triggered refusal from a verb-triggered one, and the two
+		// want opposite remedies: a verb gate says "a human should confirm this
+		// write", a reach gate says "this leaves the instance — grant it by name
+		// or do not". The model reads this too, and "external" is far more
+		// actionable to it than a bare `approval_required`.
+		$envelope = [
 			'isError' => true,
 			'error' => 'approval_required',
 			'toolId' => $toolId,
@@ -1197,39 +1079,12 @@ class FacadeToolInvoker {
 				toolId: $toolId,
 				descriptor: $this->descriptorFor(name: $name)
 			),
-		];
-	}//end reachEnvelope()
+		] + $this->refusals()->gateVerdict(decided: $decided, pending: $pending);
 
-	/**
-	 * The gate's verdict fields: denied by the reviewer who decided, or pending on
-	 * the approval this call raises.
-	 *
-	 * @param ObjectEntity|null $decided The decided (not approved) approval, or null.
-	 * @param ToolCall          $call    The gated call.
-	 *
-	 * @return array{status: string, approvalId: string, message: string} The verdict fields.
-	 */
-	private function gateVerdict(?ObjectEntity $decided, ToolCall $call): array {
-		if ($decided !== null) {
-			return [
-				'status' => 'denied',
-				'approvalId' => (string)$decided->getUuid(),
-				'message' => 'This action was denied by a reviewer and cannot be run.',
-			];
-		}
+		$this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
 
-		$approval = $this->approvalService->ensurePendingApprovalForToolInvocation(
-			agentId: (string)$this->agentId,
-			toolId: $call->toolId,
-			arguments: $call->arguments
-		);
-
-		return [
-			'status' => 'pending',
-			'approvalId' => (string)$approval->getUuid(),
-			'message' => 'This action requires human approval before it can run.',
-		];
-	}//end gateVerdict()
+		return $this->refusals()->encoded(envelope: $envelope);
+	}//end handleGatedInvocation()
 
 	/**
 	 * Resolve the LLPhant-side function name back to the dotted `mcpId` the
