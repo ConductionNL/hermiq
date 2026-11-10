@@ -134,6 +134,11 @@ class SetupControllerDemoDataTest extends TestCase {
 		$this->assertSame('demo', $this->written['demo_dataset'] ?? null);
 	}
 
+	/**
+	 * Only allow-listed keys are stored, and a non-scalar value is stored empty.
+	 *
+	 * @return void
+	 */
 	public function testOnlyWritableKeysAreStoredAndANonScalarIsStoredEmpty(): void {
 		$this->demoData->method('listChoices')->willReturn([['id' => 'demo']]);
 
@@ -145,6 +150,11 @@ class SetupControllerDemoDataTest extends TestCase {
 		$this->assertSame(expected: ['llmendpoint' => '', 'demo_dataset' => 'demo'], actual: $this->written);
 	}
 
+	/**
+	 * An unknown dataset is refused with its name, or "that" when it has none.
+	 *
+	 * @return void
+	 */
 	public function testAnUnknownDatasetIsRefusedWithItsName(): void {
 		$this->demoData->method('listChoices')->willReturn([['id' => 'demo']]);
 
