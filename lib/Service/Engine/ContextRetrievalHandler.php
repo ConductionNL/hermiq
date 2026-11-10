@@ -46,6 +46,7 @@ namespace OCA\Hermiq\Service\Engine;
 use Exception;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\SearchOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -425,7 +426,7 @@ class ContextRetrievalHandler {
 				'_register' => null,
 				'_schema' => null,
 			],
-			views: $views
+			options: new SearchOptions(views: $views)
 		);
 
 		return $this->transform(results: ($results['results'] ?? []), registerName: null);

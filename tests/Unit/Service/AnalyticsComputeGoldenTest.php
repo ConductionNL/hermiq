@@ -172,7 +172,7 @@ class AnalyticsComputeGoldenTest extends TestCase {
 				continue;
 			}
 
-			if ($param->isDefaultValueAvailable() === true && $param->getDefaultValue() === $args[$index]) {
+			if ($param->isDefaultValueAvailable() === true && $this->isDefault(default: $param->getDefaultValue(), value: $args[$index]) === true) {
 				continue;
 			}
 
@@ -330,4 +330,21 @@ class AnalyticsComputeGoldenTest extends TestCase {
 		return $shapes[$this->random->getInt(0, count($shapes) - 1)];
 
 	}//end usage()
+
+	/**
+	 * Whether a received argument equals its parameter's default; a default
+	 * value object counts as default when it is equal, not only identical.
+	 *
+	 * @param mixed $default The parameter's default.
+	 * @param mixed $value The received argument.
+	 *
+	 * @return bool
+	 */
+	private function isDefault(mixed $default, mixed $value): bool {
+		if (is_object($value) === true) {
+			return $default == $value;
+		}
+
+		return $default === $value;
+	}//end isDefault()
 }//end class
