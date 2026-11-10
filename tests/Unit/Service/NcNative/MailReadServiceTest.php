@@ -398,6 +398,73 @@ class MailReadServiceTest extends TestCase {
 	}//end testOversizedPageRequestIsClamped()
 
 	/**
+	 * A page is the slice of the mailbox's ids at that offset, newest first; a page
+	 * past the end fetches nothing and lists no messages.
+	 *
+	 * @return void
+	 */
+	public function testPagesAreSlicedAndAPagePastTheEndFetchesNothing(): void {
+		$manager = new class {
+			/**
+			 * Resolve a mailbox for a user.
+			 *
+			 * @param string $uid The user id.
+			 * @param int $id The mailbox id.
+			 *
+			 * @return object
+			 */
+			public function getMailbox(string $uid, int $id): object {
+				return new \stdClass();
+			}
+		};
+
+		$messages = new class {
+			/** @var array<int, array{0: string, 1: array<int, int>, 2: string}> */
+			public array $calls = [];
+
+			/**
+			 * All ids in a mailbox.
+			 *
+			 * @param object $mailbox The mailbox.
+			 *
+			 * @return array<int, int>
+			 */
+			public function findAllIds(object $mailbox): array {
+				return range(1, 12);
+			}
+
+			/**
+			 * Fetch by ids.
+			 *
+			 * @param string $uid The user id.
+			 * @param array<int, int> $ids The ids.
+			 * @param string $sortOrder The sort order.
+			 *
+			 * @return array<int, object>
+			 */
+			public function findByIds(string $uid, array $ids, string $sortOrder): array {
+				$this->calls[] = [$uid, $ids, $sortOrder];
+
+				return [];
+			}
+		};
+
+		$service = $this->serviceWithMail(['manager' => $manager, 'messages' => $messages]);
+
+		$second = $service->listMessages('alice', ['mailboxId' => 3, 'page' => 2, 'pageSize' => 5]);
+		$this->assertSame(['mailboxId' => 3, 'page' => 2, 'pageSize' => 5, 'messages' => []], $second);
+		$this->assertSame([['alice', [6, 7, 8, 9, 10], 'DESC']], $messages->calls);
+
+		$past = $service->listMessages('alice', ['mailboxId' => 3, 'page' => 9, 'pageSize' => 5]);
+		$this->assertSame(['mailboxId' => 3, 'page' => 9, 'pageSize' => 5, 'messages' => []], $past);
+		$this->assertCount(1, $messages->calls, 'A page past the end fetches nothing.');
+
+		$defaults = $service->listMessages('alice', ['mailboxId' => 3, 'page' => 0, 'pageSize' => 0]);
+		$this->assertSame([1, 1], [$defaults['page'], $defaults['pageSize']]);
+
+	}//end testPagesAreSlicedAndAPagePastTheEndFetchesNothing()
+
+	/**
 	 * A mailbox that cannot be resolved for this user is a structured refusal, not
 	 * an exception — the IDOR path and the not-found path are the same shape.
 	 *
