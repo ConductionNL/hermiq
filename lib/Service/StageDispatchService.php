@@ -611,14 +611,8 @@ class StageDispatchService {
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string {
-		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
-			return null;
-		}
-
-		// `https://github.com/owner/name(.git)` -> `owner/name`.
-		$path = trim((string)parse_url($repo, PHP_URL_PATH), '/');
-		$path = preg_replace('/\.git$/', '', $path);
-		if ($path === null || $path === '' || substr_count($path, '/') !== 1) {
+		$path = $this->brokeredArchivePath(repo: $repo);
+		if ($path === '') {
 			return null;
 		}
 
@@ -641,6 +635,41 @@ class StageDispatchService {
 			return null;
 		}
 
+		return $this->archiveFrom(response: $response);
+	}//end fetchToolArchive()
+
+	/**
+	 * The `owner/name` path to fetch a tool archive for, or '' when there is no
+	 * broker to fetch it through or the URL is not exactly `owner/name`.
+	 *
+	 * @param string $repo The tool repository URL.
+	 *
+	 * @return string The path, e.g. `owner/name` for `https://github.com/owner/name(.git)`, or ''.
+	 */
+	private function brokeredArchivePath(string $repo): string {
+		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
+			return '';
+		}
+
+		// `https://github.com/owner/name(.git)` -> `owner/name`. A failed
+		// replace (null) reads as '' and is refused with the empty path.
+		$path = trim((string)parse_url($repo, PHP_URL_PATH), '/');
+		$path = (string)preg_replace('/\.git$/', '', $path);
+		if ($path === '' || substr_count($path, '/') !== 1) {
+			return '';
+		}
+
+		return $path;
+	}//end brokeredArchivePath()
+
+	/**
+	 * The base64 archive from a forge answer, or null (with a warning) when it carries none.
+	 *
+	 * @param array<string, mixed> $response The broker's `{status, body}` answer.
+	 *
+	 * @return string|null Base64 `.tar.gz`, or null.
+	 */
+	private function archiveFrom(array $response): ?string {
 		$status = (int)($response['status'] ?? 0);
 		$body = (string)($response['body'] ?? '');
 		if ($status < 200 || $status > 299 || $body === '') {
@@ -653,7 +682,7 @@ class StageDispatchService {
 		}
 
 		return base64_encode($body);
-	}//end fetchToolArchive()
+	}//end archiveFrom()
 
 	/**
 	 * Resolve the forge token for the clone through OpenRegister's broker.
