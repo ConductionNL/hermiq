@@ -167,19 +167,13 @@ class OrganisationOpsController extends Controller {
 	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function attestReview(string $uuid): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		$uid = $this->authorise(action: 'tenantops.attest-review');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.attest-review');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
-		}
-
-		try {
-			return new JSONResponse($this->tenantOpsService->attestAgentReviewed(uuid: $uuid, reviewerUid: $user->getUID()));
+			return new JSONResponse($this->tenantOpsService->attestAgentReviewed(uuid: $uuid, reviewerUid: $uid));
 		} catch (RuntimeException $e) {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
 		} catch (Throwable $e) {
@@ -202,15 +196,9 @@ class OrganisationOpsController extends Controller {
 	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function reassignAgent(string $uuid): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.reassign-agent');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$uid = $this->authorise(action: 'tenantops.reassign-agent');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		$actingUser = (string)$this->request->getParam('actingUser', '');
@@ -266,15 +254,9 @@ class OrganisationOpsController extends Controller {
 	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function createIncident(): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.create-incident');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$uid = $this->authorise(action: 'tenantops.create-incident');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		$description = (string)$this->request->getParam('description', '');
@@ -287,24 +269,14 @@ class OrganisationOpsController extends Controller {
 			);
 		}
 
-		$linkedAgentId = $this->request->getParam('linkedAgentId');
-		if ($linkedAgentId !== null) {
-			$linkedAgentId = (string)$linkedAgentId;
-		}
-
-		$linkedRunIds = $this->request->getParam('linkedRunIds', []);
-		if (is_array($linkedRunIds) === false) {
-			$linkedRunIds = [];
-		}
-
 		try {
 			$incident = $this->tenantOpsService->createIncident(
 				description: $description,
 				impact: $impact,
 				actionsTaken: $actionsTaken,
-				linkedAgentId: $linkedAgentId,
-				linkedRunIds: $linkedRunIds,
-				createdBy: $user->getUID()
+				linkedAgentId: $this->linkedAgentIdParam(),
+				linkedRunIds: $this->linkedRunIdsParam(),
+				createdBy: $uid
 			);
 			return new JSONResponse($incident, Http::STATUS_CREATED);
 		} catch (Throwable $e) {
@@ -313,6 +285,58 @@ class OrganisationOpsController extends Controller {
 		}
 
 	}//end createIncident()
+
+	/**
+	 * The `linkedAgentId` param as a string, or null when absent.
+	 *
+	 * @return string|null
+	 */
+	private function linkedAgentIdParam(): ?string {
+		$linkedAgentId = $this->request->getParam('linkedAgentId');
+		if ($linkedAgentId === null) {
+			return null;
+		}
+
+		return (string)$linkedAgentId;
+	}//end linkedAgentIdParam()
+
+	/**
+	 * The `linkedRunIds` param, or [] when it is not a list.
+	 *
+	 * @return array
+	 */
+	private function linkedRunIdsParam(): array {
+		$linkedRunIds = $this->request->getParam('linkedRunIds', []);
+		if (is_array($linkedRunIds) === false) {
+			return [];
+		}
+
+		return $linkedRunIds;
+	}//end linkedRunIdsParam()
+
+	/**
+	 * The signed-in user's uid when they may perform the action, otherwise the refusal:
+	 * 401 when no one is signed in (before any action check), 403 with the refusal
+	 * message when the action is not theirs.
+	 *
+	 * @param string $action The ADR-023 action name to require.
+	 *
+	 * @return string|JSONResponse
+	 */
+	private function authorise(string $action): string|JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$this->actionAuth->requireAction(user: $user, action: $action);
+		} catch (OCSForbiddenException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		}
+
+		return $user->getUID();
+	}//end authorise()
 
 	/**
 	 * Report the caller's organisation's currently configured retention period.
@@ -350,15 +374,9 @@ class OrganisationOpsController extends Controller {
 	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function updateRetention(): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'tenantops.update-retention');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$uid = $this->authorise(action: 'tenantops.update-retention');
+		if ($uid instanceof JSONResponse) {
+			return $uid;
 		}
 
 		$months = (int)$this->request->getParam('retentionMonths', 0);
