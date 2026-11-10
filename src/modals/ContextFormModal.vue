@@ -124,6 +124,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { useContextStore } from '../store/store.js'
+import { formDialogSlot } from './formDialogSlot.js'
 
 let keySeed = 0
 
@@ -140,6 +141,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [formDialogSlot],
+
 	props: {
 		/** Whether the modal is visible. */
 		show: {
@@ -147,23 +150,6 @@ export default {
 			default: false,
 		},
 
-		/** The Context being edited, or null to create one. */
-		item: {
-			type: Object,
-			default: null,
-		},
-
-		/** Closes the host dialog (CnIndexPage form-dialog slot contract). */
-		close: {
-			type: Function,
-			default: null,
-		},
-
-		/** The effective JSON schema (slot contract; the form is hand-built). */
-		schema: {
-			type: Object,
-			default: null,
-		},
 	},
 
 	emits: ['close', 'saved'],
@@ -340,14 +326,6 @@ export default {
 			}
 		},
 
-		/**
-		 * Close the dialog (slot contract: emit and call the close prop).
-		 * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
-		 */
-		handleClose() {
-			this.$emit('close')
-			this.close?.()
-		},
 	},
 }
 </script>

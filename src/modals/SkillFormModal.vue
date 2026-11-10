@@ -227,6 +227,7 @@ import {
 } from '@nextcloud/vue'
 import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
 import { errorMessage } from '../utils/errorMessage.js'
+import { formDialogSlot } from './formDialogSlot.js'
 
 export default {
 	name: 'SkillFormModal',
@@ -241,44 +242,13 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [formDialogSlot],
+
 	props: {
 		/** Whether the modal is visible. */
 		show: {
 			type: Boolean,
 			default: false,
-		},
-
-		/**
-		 * The item being edited, or null in create mode (agent-form-slot
-		 * parity): supplied by CnIndexPage's `#form-dialog` scoped slot
-		 * (`{ show, item, schema, close }`) when this modal is wired via
-		 * SkillsCatalog's `slots.form-dialog`.
-		 */
-		item: {
-			type: Object,
-			default: null,
-		},
-
-		/**
-		 * Closes the host dialog (agent-form-slot parity): the `close`
-		 * binding from CnIndexPage's `#form-dialog` scoped slot. Called in
-		 * ADDITION to `$emit('close')` on cancel/close/save.
-		 */
-		close: {
-			type: Function,
-			default: null,
-		},
-
-		/**
-		 * The effective JSON schema driving the form (agent-form-slot
-		 * parity): the `schema` binding from CnIndexPage's `#form-dialog`
-		 * scoped slot. Not consumed — this form's fields are hand-authored —
-		 * but accepted so the slot binding lands without a Vue "extraneous
-		 * non-prop attribute" warning.
-		 */
-		schema: {
-			type: Object,
-			default: null,
 		},
 
 		/**
@@ -482,19 +452,6 @@ export default {
 		 */
 		removeFile(index) {
 			this.files.splice(index, 1)
-		},
-
-		/**
-		 * Close the modal (agent-form-slot parity). Always emits `close`,
-		 * and ADDITIONALLY invokes the `close` prop when supplied (CnIndexPage's
-		 * `#form-dialog` scoped slot).
-		 *
-		 * @return {void}
-		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
-		 */
-		handleClose() {
-			this.$emit('close')
-			this.close?.()
 		},
 
 		/**

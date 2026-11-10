@@ -532,6 +532,7 @@ import {
 } from '../utils/agentCredentials.js'
 import { sharingFields, sharingOf } from '../utils/agentSharing.js'
 import { insertPlaceholder, startFieldsOf } from '../utils/instructionVariables.js'
+import { formDialogSlot } from './formDialogSlot.js'
 
 /**
  * A copy of the stored agent to spread into a save, without OpenRegister's `@self`.
@@ -775,6 +776,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [formDialogSlot],
+
 	props: {
 		/** Whether the modal is visible. */
 		show: {
@@ -784,41 +787,6 @@ export default {
 
 		/** The agent being edited, or null when creating. */
 		agent: {
-			type: Object,
-			default: null,
-		},
-
-		/**
-		 * The item being edited, or null in create mode (agent-form-slot):
-		 * supplied by CnIndexPage's `#form-dialog` scoped slot ({ show, item,
-		 * schema, close }) when this modal is wired via
-		 * AgentCatalog's `slots.form-dialog`. Folded into `effectiveAgent`
-		 * below `agent` but above `routeAgent`.
-		 */
-		item: {
-			type: Object,
-			default: null,
-		},
-
-		/**
-		 * Closes the host dialog (agent-form-slot): the `close` binding from
-		 * CnIndexPage's `#form-dialog` scoped slot. Called in ADDITION to
-		 * `$emit('close')` on cancel/save-success so both the slot path and
-		 * the existing registry `agent-form` open-modal path keep working.
-		 */
-		close: {
-			type: Function,
-			default: null,
-		},
-
-		/**
-		 * The effective JSON schema driving the form (agent-form-slot): the
-		 * `schema` binding from CnIndexPage's `#form-dialog` scoped slot.
-		 * Not currently consumed — this form's fields are hand-authored
-		 * rather than schema-driven — but accepted so the slot binding lands
-		 * without a Vue "extraneous non-prop attribute" warning.
-		 */
-		schema: {
 			type: Object,
 			default: null,
 		},
@@ -1315,23 +1283,6 @@ export default {
 				provider,
 				option?.value || null,
 			)
-		},
-
-		/**
-		 * Close the modal (agent-form-slot). Always emits `close` (the
-		 * existing registry `agent-form` open-modal path — AgentDetail's
-		 * "Edit agent" action — listens for this event), and ADDITIONALLY
-		 * invokes the `close` prop when supplied (CnIndexPage's
-		 * `#form-dialog` scoped slot passes its own `close` function to hide
-		 * the dialog). Called on Cancel, the modal's own close (X / overlay),
-		 * and after a successful save.
-		 *
-		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
-		 */
-		handleClose() {
-			this.$emit('close')
-			this.close?.()
 		},
 
 		/**
