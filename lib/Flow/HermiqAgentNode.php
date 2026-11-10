@@ -33,6 +33,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Flow;
 
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCA\OpenRegister\Service\Flow\IFlowNodeLogActions;
 use OCP\IL10N;
@@ -221,9 +222,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 * answered nothing" from "the agent never answered", so the node must not
 	 * present the second as the first.
 	 *
-	 * @param array $items The input items.
-	 * @param array $config The step configuration.
-	 * @param array $context Run-level metadata (carries the triggering user).
+	 * @param FlowNodeCall $call The input items, the step configuration and the run context.
 	 *
 	 * @return array The items, each with the agent's answer added.
 	 *
@@ -232,7 +231,10 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
-	public function execute(array $items, array $config, array $context): array {
+	public function execute(FlowNodeCall $call): array {
+		$items = $call->items;
+		$config = $call->config;
+		$context = $call->context;
 		// Third shape of the same defect: a step that did not run must not
 		// report success. `validateConfig()` already rejects a nameless agent,
 		// but it only runs when a flow is SAVED — a flow imported or seeded
