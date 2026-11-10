@@ -104,24 +104,11 @@ class WebResearchSettingsController extends Controller {
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
-		$data = $this->request->getParam('webResearch');
-		if (is_array($data) === false) {
-			// Accept a flat body too (the whole request as the patch).
-			$data = $this->request->getParams();
-			unset($data['_route']);
-		}
+		$data = $this->requestedPatch();
 
-		$provider = $data['searchProvider'] ?? null;
-		if ($provider !== null
-			&& in_array($provider, WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS, true) === false
-		) {
-			return new JSONResponse(
-				[
-					'error' => 'Unsupported search provider',
-					'allowed' => WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS,
-				],
-				Http::STATUS_UNPROCESSABLE_ENTITY
-			);
+		$refusal = $this->providerRefusal(data: $data);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$data = $this->dropBlankSearchCredential(data: $data);
@@ -148,6 +135,47 @@ class WebResearchSettingsController extends Controller {
 		);
 
 	}//end update()
+
+	/**
+	 * The requested patch: the `webResearch` object, or the whole flat request body
+	 * without its route.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function requestedPatch(): array {
+		$data = $this->request->getParam('webResearch');
+		if (is_array($data) === false) {
+			// Accept a flat body too (the whole request as the patch).
+			$data = $this->request->getParams();
+			unset($data['_route']);
+		}
+
+		return $data;
+	}//end requestedPatch()
+
+	/**
+	 * The 422 for a search provider this instance does not support, or null.
+	 *
+	 * @param array<string, mixed> $data The requested patch.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function providerRefusal(array $data): ?JSONResponse {
+		$provider = $data['searchProvider'] ?? null;
+		if ($provider === null
+			|| in_array($provider, WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS, true) === true
+		) {
+			return null;
+		}
+
+		return new JSONResponse(
+			[
+				'error' => 'Unsupported search provider',
+				'allowed' => WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS,
+			],
+			Http::STATUS_UNPROCESSABLE_ENTITY
+		);
+	}//end providerRefusal()
 
 	/**
 	 * Report the `web-search` connection row for a saved configuration.

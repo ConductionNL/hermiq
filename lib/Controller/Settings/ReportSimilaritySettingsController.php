@@ -95,30 +95,11 @@ class ReportSimilaritySettingsController extends Controller {
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
-		$upper = $this->request->getParam('upper');
-		$lower = $this->request->getParam('lower');
-		$windows = $this->request->getParam('windows');
-
-		$upperValue = null;
-		if (is_numeric($upper) === true) {
-			$upperValue = (float)$upper;
-		}
-
-		$lowerValue = null;
-		if (is_numeric($lower) === true) {
-			$lowerValue = (float)$lower;
-		}
-
-		$windowsValue = null;
-		if (is_array($windows) === true) {
-			$windowsValue = $windows;
-		}
-
 		try {
 			$stored = $this->settings->store(
-				upper: $upperValue,
-				lower: $lowerValue,
-				windows: $windowsValue
+				upper: $this->numberParam(name: 'upper'),
+				lower: $this->numberParam(name: 'lower'),
+				windows: $this->windowsParam()
 			);
 		} catch (InvalidArgumentException $e) {
 			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
@@ -132,4 +113,34 @@ class ReportSimilaritySettingsController extends Controller {
 
 		return new JSONResponse($stored);
 	}//end update()
+
+	/**
+	 * A numeric request param as a float, or null when it is absent or not a number.
+	 *
+	 * @param string $name The param name.
+	 *
+	 * @return float|null
+	 */
+	private function numberParam(string $name): ?float {
+		$value = $this->request->getParam($name);
+		if (is_numeric($value) === false) {
+			return null;
+		}
+
+		return (float)$value;
+	}//end numberParam()
+
+	/**
+	 * The `windows` request param, or null when it is not a list.
+	 *
+	 * @return array|null
+	 */
+	private function windowsParam(): ?array {
+		$windows = $this->request->getParam('windows');
+		if (is_array($windows) === false) {
+			return null;
+		}
+
+		return $windows;
+	}//end windowsParam()
 }//end class
