@@ -77,6 +77,7 @@
 <script>
 import { NcButton, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import { getRunRetention, setRunRetention } from '../../api/runRetention.js'
+import { settingsCall } from './settingsCall.js'
 
 export default {
 	name: 'RunRetentionSettings',
@@ -87,6 +88,8 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [settingsCall],
+
 	data() {
 		return {
 			days: '90',
@@ -94,9 +97,6 @@ export default {
 			minimumDays: 1,
 			maximumDays: 3650,
 			lastCleanup: { ran: false, at: '', removed: null },
-			loading: true,
-			busy: false,
-			error: '',
 		}
 	},
 
@@ -111,10 +111,6 @@ export default {
 		},
 	},
 
-	created() {
-		this.load()
-	},
-
 	methods: {
 		/**
 		 * Read the retention and the report.
@@ -123,20 +119,14 @@ export default {
 		 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-the-last-cleanup-is-an-answerable-question
 		 */
 		async load() {
-			this.loading = true
-			this.error = ''
-			try {
+			await this.withFlag('loading', async () => {
 				const data = await getRunRetention()
 				this.days = String(data.defaultDays)
 				this.storedDays = String(data.defaultDays)
 				this.minimumDays = data.minimumDays
 				this.maximumDays = data.maximumDays
 				this.lastCleanup = data.lastCleanup
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.loading = false
-			}
+			})
 		},
 
 		/**
@@ -147,32 +137,12 @@ export default {
 		 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
 		 */
 		async save() {
-			this.busy = true
-			this.error = ''
-			try {
+			await this.withFlag('busy', async () => {
 				const data = await setRunRetention(Number(this.days))
 				this.storedDays = String(data.defaultDays)
 				this.days = String(data.defaultDays)
 				this.lastCleanup = data.lastCleanup
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * The server's own wording where there is one, because it names the range.
-		 *
-		 * @param {object} e The caught error.
-		 * @return {string} The message to show.
-		 */
-		messageFor(e) {
-			return (
-				e?.response?.data?.error
-				|| e?.message
-				|| this.t('hermiq', 'Unknown error')
-			)
+			})
 		},
 	},
 }

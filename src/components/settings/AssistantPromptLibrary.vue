@@ -95,6 +95,7 @@ import {
 	listAssistantPrompts,
 	saveAssistantPrompt,
 } from '../../api/assistantPrompts.js'
+import { settingsCall } from './settingsCall.js'
 
 export default {
 	name: 'AssistantPromptLibrary',
@@ -105,17 +106,12 @@ export default {
 		NcNoteCard,
 	},
 
+	mixins: [settingsCall],
+
 	data() {
 		return {
 			prompts: [],
-			loading: true,
-			busy: false,
-			error: '',
 		}
-	},
-
-	created() {
-		this.load()
 	},
 
 	methods: {
@@ -126,15 +122,9 @@ export default {
 		 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
 		 */
 		async load() {
-			this.loading = true
-			this.error = ''
-			try {
+			await this.withFlag('loading', async () => {
 				this.prompts = await listAssistantPrompts()
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.loading = false
-			}
+			})
 		},
 
 		/**
@@ -145,18 +135,12 @@ export default {
 		 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-coming-back-is-deliberate
 		 */
 		async toggle(prompt) {
-			this.busy = true
-			this.error = ''
-			try {
+			await this.withFlag('busy', async () => {
 				await saveAssistantPrompt(prompt.id, {
 					enabled: prompt.enabled === false,
 				})
 				await this.load()
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.busy = false
-			}
+			})
 		},
 
 		/**
@@ -166,30 +150,10 @@ export default {
 		 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
 		 */
 		async disableAll() {
-			this.busy = true
-			this.error = ''
-			try {
+			await this.withFlag('busy', async () => {
 				await disableAllAssistantPrompts()
 				await this.load()
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * The server's own wording where there is one.
-		 *
-		 * @param {object} e The caught error.
-		 * @return {string} The message to show.
-		 */
-		messageFor(e) {
-			return (
-				e?.response?.data?.error
-				|| e?.message
-				|| this.t('hermiq', 'Unknown error')
-			)
+			})
 		},
 	},
 }
