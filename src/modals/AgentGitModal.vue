@@ -139,6 +139,7 @@ import {
 	publishAgentToGit,
 	pushAgentToGit,
 } from '../api/agents.js'
+import { agentModalTarget, loadWhenShown } from '../dialogs/agentModalTarget.js'
 import { gitActions, repoLink } from '../utils/agentGit.js'
 
 export default {
@@ -152,19 +153,7 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
-		/** The agent; when absent, the route's `:id` (open-modal props are static). */
-		agentId: {
-			type: String,
-			default: '',
-		},
-	},
+	mixins: [agentModalTarget, loadWhenShown],
 
 	emits: ['close'],
 
@@ -184,16 +173,6 @@ export default {
 	},
 
 	computed: {
-		/**
-		 * The agent uuid: the prop, else the route's `:id`.
-		 *
-		 * @return {string}
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
-		 */
-		resolvedAgentId() {
-			return this.agentId || this.$route?.params?.id || ''
-		},
-
 		/**
 		 * The actions on offer for this agent.
 		 *
@@ -224,24 +203,6 @@ export default {
 			return this.credentials
 				.filter((c) => c.provider === 'github')
 				.map((c) => ({ label: c.name || c.id, value: c.id }))
-		},
-	},
-
-	watch: {
-		show: {
-			immediate: true,
-			/**
-			 * Load the agent and the credentials each time the modal opens.
-			 *
-			 * @param {boolean} open Whether it is open.
-			 * @return {void}
-			 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
-			 */
-			handler(open) {
-				if (open) {
-					this.load()
-				}
-			},
 		},
 	},
 

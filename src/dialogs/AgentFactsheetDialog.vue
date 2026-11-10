@@ -157,6 +157,7 @@ import {
 } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAgentFactsheet } from '../api/compliance.js'
+import { agentModalTarget, loadWhenShown } from './agentModalTarget.js'
 
 export default {
 	name: 'AgentFactsheetDialog',
@@ -170,26 +171,7 @@ export default {
 		ShieldIcon,
 	},
 
-	props: {
-		/** Whether the dialog is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
-		/**
-		 * The agent UUID to load a factsheet for. Optional — when opened as
-		 * the registry `agent-factsheet` open-modal target
-		 * (manifest-driven-pages), no prop is available (open-modal action
-		 * props are static JSON, not resolved against the current object),
-		 * so it self-resolves from the route's `:id` param instead (see
-		 * `resolvedAgentId`).
-		 */
-		agentId: {
-			type: String,
-			default: '',
-		},
-	},
+	mixins: [agentModalTarget, loadWhenShown],
 
 	emits: ['close'],
 
@@ -200,37 +182,6 @@ export default {
 			notAvailable: false,
 			error: '',
 		}
-	},
-
-	computed: {
-		/**
-		 * The agent uuid — the `agentId` prop when explicitly supplied, else
-		 * the current route's `:id` param.
-		 *
-		 * @return {string} The resolved agent uuid.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-		 */
-		resolvedAgentId() {
-			return this.agentId || this.$route?.params?.id || ''
-		},
-	},
-
-	watch: {
-		// `immediate: true`: when opened via the registry `agent-factsheet`
-		// open-modal action, CnAppRoot mounts this component FRESH with
-		// `show` already `true` — a plain watcher only fires on a CHANGE, so
-		// it would never run for that mount path without `immediate`.
-		show: {
-			immediate: true,
-			/**
-			 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-			 */
-			handler(open) {
-				if (open) {
-					this.load()
-				}
-			},
-		},
 	},
 
 	methods: {
