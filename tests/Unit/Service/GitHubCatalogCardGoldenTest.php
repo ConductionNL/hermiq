@@ -89,8 +89,8 @@ class GitHubCatalogCardGoldenTest extends TestCase {
 
 		$card = (new GitHubCatalogPayload())->card(base: $base, contents: $contents);
 
-		$this->assertSame($base + $expected, $card);
-		$this->assertSame(array_merge(array_keys($base), array_keys($expected)), array_keys($card));
+		$this->assertSame(expected: $base + $expected, actual: $card);
+		$this->assertSame(expected: array_merge(array_keys($base), array_keys($expected)), actual: array_keys($card));
 
 	}//end testCardOutcome()
 }//end class
