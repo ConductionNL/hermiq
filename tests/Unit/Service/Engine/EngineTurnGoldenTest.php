@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -284,7 +285,7 @@ class EngineTurnGoldenTest extends TestCase {
 		$service = $this->createMock(ObjectService::class);
 		$service->method('find')->willReturnCallback(
 			function (...$args) use ($conversationData): ?ObjectEntity {
-				$named = $this->named(class: ObjectService::class, method: 'find', args: $args);
+				$named = FindCallShape::named(args: $args);
 				$this->events[] = ['find' => $named];
 				$id = (string)($named['id'] ?? '');
 				$objects = ['conv-1' => $conversationData, 'agent-on' => ['name' => 'On'], 'agent-off' => ['name' => 'Off', 'active' => false]];

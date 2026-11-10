@@ -283,7 +283,12 @@ class ApprovalPreviewBuilder {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'), _rbac: false, _multitenancy: false);
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable $e) {
 			return [];
 		}

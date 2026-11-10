@@ -501,7 +501,8 @@ class MigrateAgentDataTest extends TestCase {
 			static fn (callable $operation) => $operation()
 		);
 		$objectService->method('find')->willReturnCallback(
-			function (mixed $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) {
+			function (mixed ...$args) {
+				$id = $args[0];
 				if (in_array((string)$id, $this->existing, true) === true) {
 					$entity = new ObjectEntity();
 					$entity->setUuid((string)$id);

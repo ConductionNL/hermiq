@@ -191,7 +191,11 @@ class InstructionVariablesService {
 			return [];
 		}
 
-		$agent = $this->objectService->find(id: $agentId, options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA), _rbac: false);
+		$agent = $this->objectService->find(
+			id: $agentId,
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+			_rbac: false
+		);
 		if ($agent === null) {
 			return [];
 		}

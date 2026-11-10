@@ -23,6 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Graph;
 
 use OCA\Hermiq\Service\Graph\GraphService;
 use OCA\Hermiq\Service\Graph\GraphVisibility;
+use OCA\Hermiq\Tests\Unit\Support\FindCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -120,7 +121,8 @@ trait InMemoryGraph {
 			}
 		);
 		$objects->method('find')->willReturnCallback(
-			function (int|string $id, ?array $_extend = [], bool $files = false, mixed $register = null, mixed $schemaArg = null, bool $_rbac = true): ?ObjectEntity {
+			function (mixed ...$args): ?ObjectEntity {
+				[$id, , , , $schemaArg, $_rbac] = FindCallShape::flat(args: $args);
 				$this->readRbac[] = $_rbac;
 				$data = ($this->store[(string)$schemaArg][(string)$id] ?? null);
 				$owner = ($this->ownerOf[(string)$id] ?? null);

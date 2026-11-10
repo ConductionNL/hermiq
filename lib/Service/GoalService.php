@@ -180,7 +180,12 @@ class GoalService {
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-goal-can-be-stopped-by-its-owner-or-the-agent-owner-req-aggoal-003
 	 */
 	public function stop(string $goalId, string $uid): array {
-		$goal = $this->objectService->find(id: $goalId, options: new ObjectFindOptions(register: self::REGISTER, schema: self::GOAL_SCHEMA), _rbac: false, _multitenancy: false);
+		$goal = $this->objectService->find(
+			id: $goalId,
+			options: new ObjectFindOptions(register: self::REGISTER, schema: self::GOAL_SCHEMA),
+			_rbac: false,
+			_multitenancy: false
+		);
 		if ($goal === null || $uid === '' || $this->mayStop(goal: $goal, uid: $uid) === false) {
 			throw new RuntimeException('Goal not found', 404);
 		}
