@@ -204,6 +204,47 @@ class ProviderFactory {
 	private const WARM_TIMEOUT_SECONDS = 10;
 
 	/**
+	 * Why a `cli` turn is refused, by reason: each names what is missing, because an
+	 * operator cannot act on a generic "cli unavailable". All are 503s.
+	 *
+	 * @var array<string, string>
+	 */
+	private const CLI_REFUSALS = [
+		'no_app_manager' => 'Anthropic executionMode "cli" is unavailable: the Nextcloud app manager could not be '
+			. 'resolved, so the runner ExApp cannot be detected. Use executionMode "http".',
+		'no_app_api' => 'Anthropic executionMode "cli" is unavailable: the AppAPI app ("' . self::APP_API_ID . '") is '
+			. 'not enabled. Enable it, or use executionMode "http".',
+		'no_app_api_interface' => 'Anthropic executionMode "cli" is unavailable: the AppAPI public interface could not be '
+			. 'loaded. Use executionMode "http".',
+		'no_runner' => 'Anthropic executionMode "cli" is unavailable: the "' . self::RUNNER_EXAPP_ID . '" ExApp is not '
+			. 'installed. Install it, or use executionMode "http".',
+		'runner_disabled' => 'Anthropic executionMode "cli" is unavailable: the "' . self::RUNNER_EXAPP_ID . '" ExApp is '
+			. 'installed but disabled. Enable it, or use executionMode "http".',
+		'no_token_service' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed run-token '
+			. 'service is unavailable, so the turn cannot be governed. It was refused rather than run '
+			. 'without its tools.',
+		'no_agent' => 'Anthropic executionMode "cli" cannot govern a tool-requiring turn without an agent '
+			. 'identity to bind the run to. It was refused rather than run without its tools.',
+		'no_user' => 'Anthropic executionMode "cli" cannot govern a tool-requiring turn without a user context '
+			. 'to bind the run token to. It was refused rather than run without its tools.',
+		'token_not_minted' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the per-run token could '
+			. 'not be minted. It was refused rather than run without its tools.',
+		'no_url_generator' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
+			. 'endpoint URL could not be resolved, so the MCP config could not be written. It was '
+			. 'refused rather than run without its tools.',
+		'empty_mcp_url' => 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
+			. 'endpoint URL resolved empty. It was refused rather than run without its tools.',
+		'no_broker' => 'Anthropic executionMode "cli" is unavailable: the OpenRegister credential broker is not '
+			. 'available, so the subscription token cannot be resolved.',
+		'broker_refused' => 'Anthropic executionMode "cli" cannot use this credential: the credential broker refused to '
+			. 'resolve it. Check that the credential is owned by the acting user and allows the "hermiq" '
+			. 'app.',
+		'not_injectable' => 'Anthropic executionMode "cli" cannot use this credential: it is not an inject-only '
+			. 'credential, so its secret cannot be placed in the CLI\'s environment. Select an '
+			. '"anthropic-cli" (Claude Max subscription) credential, or use executionMode "http".',
+	];
+
+	/**
 	 * The personal credential scope — the ONLY scope an `anthropic-cli` (Claude Max/Pro
 	 * subscription) credential may carry, per the Anthropic Terms of Service.
 	 *
@@ -1264,93 +1305,127 @@ class ProviderFactory {
 		?string $agentId = null,
 		string $conversationId = '',
 	): string {
-		$governedMcpConfig = null;
-		$runToken = null;
+		$turn = new CliTurn(model: $model, agentId: $agentId);
+		$turn->credentialId = $credentialId;
+		$turn->messageHistory = $messageHistory;
+		$turn->functions = $functions;
+		$turn->conversationId = $conversationId;
+		return $this->answerCliTurn(turn: $turn);
+	}//end callAnthropicCli()
 
+	/**
+	 * Serve one `cli` turn: the pool key, the runner check, the turn's run token
+	 * (and MCP config), the subscription token, the dispatch.
+	 *
+	 * @param CliTurn $turn The turn.
+	 *
+	 * @return string The completion text.
+	 *
+	 * @throws ProviderUnavailableException When the runner, governance, the credential or the dispatch fails (503).
+	 *
+	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+	 */
+	private function answerCliTurn(CliTurn $turn): string {
 		// A turn is POOLABLE only when it belongs to an identified conversation.
 		// Without one there is nothing safe to key a remembering process by, so the
 		// turn takes the cold path — the behaviour that shipped before pooling.
-		$poolKey = $this->poolKeyFor(conversationId: $conversationId, agentId: $agentId, model: $model);
+		$turn->poolKey = $this->poolKeyFor(conversationId: $turn->conversationId, agentId: $turn->agentId, model: $turn->model);
 
 		// 1. Availability — each component named separately, before any secret is touched.
 		$this->assertCliRunnerAvailable();
 
-		$uid = $this->currentUid();
+		$turn->uid = $this->currentUid();
 
 		try {
-			// 2. A tool-requiring turn is GOVERNED, not refused: mint a run token and
-			// assemble the MCP server config the runner hands to the CLI. Done BEFORE the
-			// subscription credential is resolved, so a turn that cannot be governed pulls
-			// no secret from the vault. Fails LOUD when governance is impossible — never a
-			// silent text-only downgrade.
-			//
-			// An EMPTY $functions here means the agent is legitimately tool-less: an agent
-			// whose grants were configured but matched nothing never reaches this point,
-			// because `ToolLoop::listAgentFunctions()` raises ToolGrantResolutionException
-			// at the resolution site. That distinction cannot be recovered here — both
-			// cases arrive as an empty array — which is exactly why it is enforced there.
-			// EVERY cli turn needs a run token, not only a tool-requiring one: it is also
-			// the identity the egress proxy presents to the PDP, and the runner container
-			// has no default route — a turn without one cannot reach api.anthropic.com at
-			// all. The two mints differ in STRICTNESS, deliberately:
-			//
-			// - a GOVERNED turn must have an agent (its grants are what the token
-			// resolves) and fails LOUD without one;
-			// - a text-only turn may legitimately have NO agent — conversation-title
-			// generation calls this path with `agentId: null` — so it gets a tolerant
-			// egress-only identity instead. Minting strictly here would 503 every
-			// title generation the moment `executionMode: cli` is switched on.
-			if (empty($functions) === false) {
-				$runToken = $this->mintGovernedRunToken(
-					agentId: $agentId,
-					uid: $uid,
-					conversationId: $conversationId,
-					pooled: ($poolKey !== '')
-				);
-				$governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
-			}
-
-			if (empty($functions) === true) {
-				$runToken = $this->mintEgressRunToken(agentId: $agentId, uid: $uid);
-			}
+			// 2. The turn's run token (and, for a governed turn, its MCP config).
+			$this->mintTurnTokens(turn: $turn);
 
 			// 3. Credential (subscription token). Local variable only: never stored on the
 			// ChatDriver (handlers hold that object), never logged, never in an exception
 			// message, never in a trace.
-			$token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+			$token = $this->resolveCliToken(credentialId: $turn->credentialId, uid: $turn->uid);
 
 			// 4+5. Dispatch and map.
-			return $this->dispatchCliTurn(
-				model: $model,
-				messageHistory: $messageHistory,
-				token: $token,
-				uid: $uid,
-				mcpConfig: $governedMcpConfig,
-				runToken: $runToken,
-				poolKey: $poolKey
-			);
+			return $this->dispatchCliTurn(turn: $turn, token: $token);
 		} finally {
-			// The run token dies with the turn (success, error, or timeout), so a token
-			// outliving its run has no legitimate caller.
-			//
-			// EXCEPT on a poolable turn. The CLI reads `--mcp-config` ONCE at startup
-			// and never re-reads it (measured 2026-08-17, `REREAD=false`), so a pooled
-			// process cannot be handed a fresh token: consuming here would kill the
-			// token its own next turn must present, and the failure is silent — the
-			// model simply reports it has no tools.
-			//
-			// This is design D0.1 option 1, adopted deliberately: the token's lifetime
-			// follows the pooled process instead of the turn. The window is bounded by
-			// the pool's idle/hard cap, which is therefore a SECURITY parameter and not
-			// merely a performance one. The token still expires on its own TTL if the
-			// runner never reaps.
-			$consume = ($runToken !== null && $this->runTokenService !== null);
-			if ($consume === true && $poolKey === '') {
-				$this->runTokenService->consume(token: $runToken);
-			}
-		}//end try
+			$this->consumeColdRunToken(turn: $turn);
+		}
+	}//end answerCliTurn()
 
-	}//end callAnthropicCli()
+	/**
+	 * Mint the turn's run token: governed (with its MCP config) for a tool-requiring
+	 * turn, egress-only for a text-only one. Exactly one token is minted.
+	 *
+	 * A tool-requiring turn is GOVERNED, not refused: mint a run token and
+	 * assemble the MCP server config the runner hands to the CLI. Done BEFORE the
+	 * subscription credential is resolved, so a turn that cannot be governed pulls
+	 * no secret from the vault. Fails LOUD when governance is impossible — never a
+	 * silent text-only downgrade.
+	 *
+	 * An EMPTY $functions here means the agent is legitimately tool-less: an agent
+	 * whose grants were configured but matched nothing never reaches this point,
+	 * because `ToolLoop::listAgentFunctions()` raises ToolGrantResolutionException
+	 * at the resolution site. That distinction cannot be recovered here — both
+	 * cases arrive as an empty array — which is exactly why it is enforced there.
+	 * EVERY cli turn needs a run token, not only a tool-requiring one: it is also
+	 * the identity the egress proxy presents to the PDP, and the runner container
+	 * has no default route — a turn without one cannot reach api.anthropic.com at
+	 * all. The two mints differ in STRICTNESS, deliberately:
+	 *
+	 * - a GOVERNED turn must have an agent (its grants are what the token
+	 * resolves) and fails LOUD without one;
+	 * - a text-only turn may legitimately have NO agent — conversation-title
+	 * generation calls this path with `agentId: null` — so it gets a tolerant
+	 * egress-only identity instead. Minting strictly here would 503 every
+	 * title generation the moment `executionMode: cli` is switched on.
+	 *
+	 * @param CliTurn $turn The turn; its run token and MCP config are set.
+	 *
+	 * @return void
+	 *
+	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503).
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 */
+	private function mintTurnTokens(CliTurn $turn): void {
+		if (empty($turn->functions) === false) {
+			$turn->runToken = $this->mintGovernedRunToken(turn: $turn);
+			$turn->mcpConfig = $this->buildGovernedMcpConfig(runToken: $turn->runToken);
+		}
+
+		if (empty($turn->functions) === true) {
+			$turn->runToken = $this->mintEgressRunToken(agentId: $turn->agentId, uid: $turn->uid);
+		}
+	}//end mintTurnTokens()
+
+	/**
+	 * Consume the turn's run token once the turn is over, unless the turn is pooled.
+	 *
+	 * The run token dies with the turn (success, error, or timeout), so a token
+	 * outliving its run has no legitimate caller.
+	 *
+	 * EXCEPT on a poolable turn. The CLI reads `--mcp-config` ONCE at startup
+	 * and never re-reads it (measured 2026-08-17, `REREAD=false`), so a pooled
+	 * process cannot be handed a fresh token: consuming here would kill the
+	 * token its own next turn must present, and the failure is silent — the
+	 * model simply reports it has no tools.
+	 *
+	 * This is design D0.1 option 1, adopted deliberately: the token's lifetime
+	 * follows the pooled process instead of the turn. The window is bounded by
+	 * the pool's idle/hard cap, which is therefore a SECURITY parameter and not
+	 * merely a performance one. The token still expires on its own TTL if the
+	 * runner never reaps.
+	 *
+	 * @param CliTurn $turn The finished turn.
+	 *
+	 * @return void
+	 */
+	private function consumeColdRunToken(CliTurn $turn): void {
+		$consume = ($turn->runToken !== null && $this->runTokenService !== null);
+		if ($consume === true && $turn->poolKey === '') {
+			$this->runTokenService->consume(token: $turn->runToken);
+		}
+	}//end consumeColdRunToken()
 
 	/**
 	 * Derive the key a pooled CLI process is reused under, or '' for the cold path.
@@ -1390,11 +1465,8 @@ class ProviderFactory {
 	 * tool-requiring `cli` turn. Fails LOUD (503) when the turn cannot be governed: no agent
 	 * identity to bind it to, no user context, or the token service is unavailable.
 	 *
-	 * @param string|null $agentId The acting agent's UUID.
-	 * @param string|null $uid The acting user's UID.
-	 * @param string      $conversationId The conversation the run belongs to, or ''.
-	 * @param bool        $pooled Whether the turn may be served by a pooled process,
-	 *                    in which case the token must outlive the turn (D0.1 option 1).
+	 * @param CliTurn $turn The turn: its agent, user and conversation, and its pool key (a pooled
+	 *                      process needs a token that outlives the turn, D0.1 option 1).
 	 *
 	 * @return string The minted run token (never logged, never on argv).
 	 *
@@ -1402,58 +1474,17 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 *
-	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$pooled` is a genuine two-mode
-	 *   selector, not a switch over two behaviours that wanted separate methods: a
-	 *   pooled token binds to a warmed process that outlives the turn, a per-turn
-	 *   token does not, and every call site passes it BY NAME (`pooled: true`).
 	 */
-	private function mintGovernedRunToken(
-		?string $agentId,
-		?string $uid,
-		string $conversationId = '',
-		bool $pooled = false,
-	): string {
-		if ($this->runTokenService === null) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed run-token '
-				. 'service is unavailable, so the turn cannot be governed. It was refused rather than run '
-				. 'without its tools.',
-				503
-			);
-		}
-
-		if ($agentId === null || $agentId === '') {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot govern a tool-requiring turn without an agent '
-				. 'identity to bind the run to. It was refused rather than run without its tools.',
-				503
-			);
-		}
-
-		if ($uid === null || $uid === '') {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot govern a tool-requiring turn without a user context '
-				. 'to bind the run token to. It was refused rather than run without its tools.',
-				503
-			);
-		}
+	private function mintGovernedRunToken(CliTurn $turn): string {
+		$service = $this->governedTokenService(turn: $turn);
 
 		try {
-			// A poolable turn's token must stay valid for as long as the process
-			// that holds it can be reused, because the CLI never re-reads the config
-			// it was given at startup. Otherwise the default per-run TTL applies and
-			// the token still dies with the turn.
-			$ttlSeconds = null;
-			if ($pooled === true) {
-				$ttlSeconds = self::POOL_PROCESS_LIFETIME_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS;
-			}
-
-			return $this->runTokenService->mint(
+			return $service->mint(
 				runId: bin2hex(random_bytes(16)),
-				agentId: $agentId,
-				userId: $uid,
-				conversationId: $conversationId,
-				ttlSeconds: $ttlSeconds
+				agentId: (string)$turn->agentId,
+				userId: (string)$turn->uid,
+				conversationId: $turn->conversationId,
+				ttlSeconds: $this->governedTokenTtl(turn: $turn)
 			);
 		} catch (Throwable $e) {
 			$this->logger->error(
@@ -1461,14 +1492,71 @@ class ProviderFactory {
 				['reason' => $e->getMessage()]
 			);
 
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the per-run token could '
-				. 'not be minted. It was refused rather than run without its tools.',
-				503
-			);
+			throw new ProviderUnavailableException(self::CLI_REFUSALS['token_not_minted'], 503);
 		}//end try
-
 	}//end mintGovernedRunToken()
+
+	/**
+	 * The run-token service a governed turn mints with, or the refusal naming what
+	 * the turn lacks: the service, an agent identity, or a user context.
+	 *
+	 * @param CliTurn $turn The turn.
+	 *
+	 * @return RunTokenService The service.
+	 *
+	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
+	 */
+	private function governedTokenService(CliTurn $turn): RunTokenService {
+		$gap = $this->governanceGap(turn: $turn);
+		if ($gap !== null || $this->runTokenService === null) {
+			throw new ProviderUnavailableException(self::CLI_REFUSALS[($gap ?? 'no_token_service')], 503);
+		}
+
+		return $this->runTokenService;
+	}//end governedTokenService()
+
+	/**
+	 * What a governed turn lacks, first missing first: the token service, the agent, the user.
+	 *
+	 * @param CliTurn $turn The turn.
+	 *
+	 * @return string|null The refusal reason, or null when the turn can be governed.
+	 */
+	private function governanceGap(CliTurn $turn): ?string {
+		if ($this->runTokenService === null) {
+			return 'no_token_service';
+		}
+
+		if ((string)$turn->agentId === '') {
+			return 'no_agent';
+		}
+
+		if ((string)$turn->uid === '') {
+			return 'no_user';
+		}
+
+		return null;
+	}//end governanceGap()
+
+	/**
+	 * The governed token's lifetime override.
+	 *
+	 * A poolable turn's token must stay valid for as long as the process that
+	 * holds it can be reused, because the CLI never re-reads the config it was
+	 * given at startup. Otherwise the default per-run TTL applies and the token
+	 * still dies with the turn.
+	 *
+	 * @param CliTurn $turn The turn.
+	 *
+	 * @return int|null The lifetime in seconds, or null for the default.
+	 */
+	private function governedTokenTtl(CliTurn $turn): ?int {
+		if ($turn->poolKey === '') {
+			return null;
+		}
+
+		return self::POOL_PROCESS_LIFETIME_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS;
+	}//end governedTokenTtl()
 
 	/**
 	 * The token and MCP config a warm-up must be built with.
@@ -1480,31 +1568,19 @@ class ProviderFactory {
 	 * is a side effect, not a default value, and it does not belong in the slot
 	 * where a default would go.
 	 *
-	 * @param bool $governed Whether the warmed process is governed.
-	 * @param string|null $agentId The acting agent's UUID.
-	 * @param string|null $uid The acting user's UID.
-	 * @param string $conversationId The conversation being warmed for.
+	 * @param CliTurn $turn The warm-up (its posture, agent, user, conversation and pool key);
+	 *                      its run token and MCP config are set.
 	 *
-	 * @return array{0: string, 1: array|null} The run token and the MCP config, if any.
+	 * @return void
 	 */
-	private function mintWarmupToken(
-		bool $governed,
-		?string $agentId,
-		?string $uid,
-		string $conversationId
-	): array {
-		if ($governed === false) {
-			return [$this->mintEgressRunToken(agentId: $agentId, uid: $uid), null];
+	private function mintWarmupToken(CliTurn $turn): void {
+		if ($turn->governed === false) {
+			$turn->runToken = $this->mintEgressRunToken(agentId: $turn->agentId, uid: $turn->uid);
+			return;
 		}
 
-		$runToken = $this->mintGovernedRunToken(
-			agentId: $agentId,
-			uid: $uid,
-			conversationId: $conversationId,
-			pooled: true
-		);
-
-		return [$runToken, $this->buildGovernedMcpConfig(runToken: $runToken)];
+		$turn->runToken = $this->mintGovernedRunToken(turn: $turn);
+		$turn->mcpConfig = $this->buildGovernedMcpConfig(runToken: $turn->runToken);
 	}//end mintWarmupToken()
 
 	/**
@@ -1584,13 +1660,34 @@ class ProviderFactory {
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	private function buildGovernedMcpConfig(string $runToken): array {
+		return [
+			'mcpServers' => [
+				'hermiq' => [
+					'type' => 'http',
+					'url' => $this->governedMcpUrl(),
+					'headers' => [
+						'Authorization' => 'Bearer ' . $runToken,
+						'OCS-APIRequest' => 'true',
+					],
+				],
+			],
+		];
+
+	}//end buildGovernedMcpConfig()
+
+	/**
+	 * The governed MCP endpoint's URL as the runner container must dial it.
+	 *
+	 * @return string The URL.
+	 *
+	 * @throws ProviderUnavailableException When the URL cannot be resolved or resolves empty (503).
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) GovernedMcpEndpoint::applyContainerOrigin() is the one
+	 *   shared, pure rewrite rule the egress PDP also applies.
+	 */
+	private function governedMcpUrl(): string {
 		if ($this->urlGenerator === null) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
-				. 'endpoint URL could not be resolved, so the MCP config could not be written. It was '
-				. 'refused rather than run without its tools.',
-				503
-			);
+			throw new ProviderUnavailableException(self::CLI_REFUSALS['no_url_generator'], 503);
 		}
 
 		$mcpUrl = $this->urlGenerator->linkToRouteAbsolute('hermiq.mcpRun.handle');
@@ -1614,27 +1711,11 @@ class ProviderFactory {
 		);
 
 		if ($mcpUrl === '') {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
-				. 'endpoint URL resolved empty. It was refused rather than run without its tools.',
-				503
-			);
+			throw new ProviderUnavailableException(self::CLI_REFUSALS['empty_mcp_url'], 503);
 		}
 
-		return [
-			'mcpServers' => [
-				'hermiq' => [
-					'type' => 'http',
-					'url' => $mcpUrl,
-					'headers' => [
-						'Authorization' => 'Bearer ' . $runToken,
-						'OCS-APIRequest' => 'true',
-					],
-				],
-			],
-		];
-
-	}//end buildGovernedMcpConfig()
+		return $mcpUrl;
+	}//end governedMcpUrl()
 
 	/**
 	 * Assert that the `cli` transport's components are installed and enabled.
@@ -1656,50 +1737,51 @@ class ProviderFactory {
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
 	 */
 	public function assertCliRunnerAvailable(): void {
-		if ($this->appManager === null) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the Nextcloud app manager could not be '
-				. 'resolved, so the runner ExApp cannot be detected. Use executionMode "http".',
-				503
-			);
-		}
-
-		if ($this->appManager->isInstalled(self::APP_API_ID) === false) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the AppAPI app ("' . self::APP_API_ID . '") is '
-				. 'not enabled. Enable it, or use executionMode "http".',
-				503
-			);
-		}
-
-		// Resolved lazily by class-name string, never a hard `use` or constructor type:
-		// Hermiq MUST still boot and still serve `http` with AppAPI absent.
-		if (class_exists(self::APP_API_PUBLIC_FUNCTIONS) === false) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the AppAPI public interface could not be '
-				. 'loaded. Use executionMode "http".',
-				503
-			);
-		}
-
-		$exApp = $this->appApiPublicFunctions()->getExApp(self::RUNNER_EXAPP_ID);
-		if ($exApp === null) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the "' . self::RUNNER_EXAPP_ID . '" ExApp is not '
-				. 'installed. Install it, or use executionMode "http".',
-				503
-			);
-		}
-
-		if (($exApp['enabled'] ?? false) === false) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the "' . self::RUNNER_EXAPP_ID . '" ExApp is '
-				. 'installed but disabled. Enable it, or use executionMode "http".',
-				503
-			);
+		$gap = ($this->appApiGap() ?? $this->runnerGap());
+		if ($gap !== null) {
+			throw new ProviderUnavailableException(self::CLI_REFUSALS[$gap], 503);
 		}
 
 	}//end assertCliRunnerAvailable()
+
+	/**
+	 * What AppAPI lacks, first missing first: the app manager, the AppAPI app, its public interface.
+	 *
+	 * @return string|null The refusal reason, or null when AppAPI is there.
+	 */
+	private function appApiGap(): ?string {
+		if ($this->appManager === null) {
+			return 'no_app_manager';
+		}
+
+		if ($this->appManager->isInstalled(self::APP_API_ID) === false) {
+			return 'no_app_api';
+		}
+
+		if (class_exists(self::APP_API_PUBLIC_FUNCTIONS) === false) {
+			return 'no_app_api_interface';
+		}
+
+		return null;
+	}//end appApiGap()
+
+	/**
+	 * What the runner ExApp lacks: being installed, or being enabled.
+	 *
+	 * @return string|null The refusal reason, or null when the runner is installed and enabled.
+	 */
+	private function runnerGap(): ?string {
+		$exApp = $this->appApiPublicFunctions()->getExApp(self::RUNNER_EXAPP_ID);
+		if ($exApp === null) {
+			return 'no_runner';
+		}
+
+		if (($exApp['enabled'] ?? false) === false) {
+			return 'runner_disabled';
+		}
+
+		return null;
+	}//end runnerGap()
 
 	/**
 	 * Resolve the subscription token for the CLI, failing closed.
@@ -1734,19 +1816,32 @@ class ProviderFactory {
 		$this->assertPersonalScopeCredential(credentialId: $credentialId);
 
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" is unavailable: the OpenRegister credential broker is not '
-				. 'available, so the subscription token cannot be resolved.',
-				503
-			);
+			throw new ProviderUnavailableException(self::CLI_REFUSALS['no_broker'], 503);
 		}
 
+		$token = $this->brokerToken(credentialId: $credentialId, uid: $uid);
+		if ($token === null || $token === '') {
+			throw new ProviderUnavailableException(self::CLI_REFUSALS['not_injectable'], 503);
+		}
+
+		return $token;
+	}//end resolveCliToken()
+
+	/**
+	 * The subscription token as the broker resolves it, through the broker's own guards.
+	 *
+	 * @param string      $credentialId The broker credential UUID.
+	 * @param string|null $uid          The acting user's UID, or null when there is no session.
+	 *
+	 * @return string|null The token, or null/'' when the credential is not inject-only.
+	 *
+	 * @throws ProviderUnavailableException When the broker refuses to resolve it (503).
+	 */
+	private function brokerToken(string $credentialId, ?string $uid): ?string {
 		try {
 			$broker = $this->serviceContainer()->get(BrokerHttpClient::BROKER_CLASS);
-			$token = $broker->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
+			return $broker->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
 		} catch (Throwable $e) {
-			// The broker's own denial reasons (owner/allowedApps) are operator-relevant but
-			// may name internals; log server-side, surface a static message (ADR-005).
 			$this->logger->warning(
 				'[ProviderFactory] Anthropic cli credential could not be resolved through the broker',
 				[
@@ -1755,28 +1850,9 @@ class ProviderFactory {
 				]
 			);
 
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot use this credential: the credential broker refused to '
-				. 'resolve it. Check that the credential is owned by the acting user and allows the "hermiq" '
-				. 'app.',
-				503
-			);
+			throw new ProviderUnavailableException(self::CLI_REFUSALS['broker_refused'], 503);
 		}//end try
-
-		// A null is a ROUTING signal from the broker ("not inject-only — use request()
-		// instead"), not a denial. But a CLI has no request() fallback, so here it is fatal.
-		// Do NOT fall back to `http` with a subscription token the Messages API refuses anyway.
-		if ($token === null || $token === '') {
-			throw new ProviderUnavailableException(
-				'Anthropic executionMode "cli" cannot use this credential: it is not an inject-only '
-				. 'credential, so its secret cannot be placed in the CLI\'s environment. Select an '
-				. '"anthropic-cli" (Claude Max subscription) credential, or use executionMode "http".',
-				503
-			);
-		}
-
-		return $token;
-	}//end resolveCliToken()
+	}//end brokerToken()
 
 	/**
 	 * Assert the credential is personal-scope — an Anthropic Terms of Service constraint.
@@ -1866,44 +1942,44 @@ class ProviderFactory {
 		string $conversationId,
 		bool $governed = true,
 	): bool {
-		$poolKey = $this->poolKeyFor(conversationId: $conversationId, agentId: $agentId, model: $model);
-		if ($poolKey === '') {
+		$turn = new CliTurn(model: $model, agentId: $agentId);
+		$turn->credentialId = $credentialId;
+		$turn->conversationId = $conversationId;
+		$turn->governed = $governed;
+		return $this->warmCliProcess(turn: $turn);
+
+	}//end warmAnthropicCli()
+
+	/**
+	 * Start the pooled process a conversation's first turn will use, best-effort.
+	 *
+	 * @param CliTurn $turn The warm-up.
+	 *
+	 * @return bool True when a warm-up was dispatched.
+	 */
+	private function warmCliProcess(CliTurn $turn): bool {
+		$turn->poolKey = $this->poolKeyFor(conversationId: $turn->conversationId, agentId: $turn->agentId, model: $turn->model);
+		if ($turn->poolKey === '') {
 			return false;
 		}
 
 		try {
 			$this->assertCliRunnerAvailable();
-			$uid = $this->currentUid();
+			$turn->uid = $this->currentUid();
 
 			// The warmed process must be built EXACTLY as the first turn will
 			// build it — same governed argv, same token, same mcp config — or it
 			// is a process that turn cannot use and the warm-up is worse than
 			// useless: it occupies a pool slot and saves nothing.
-			[$runToken, $governedMcpConfig] = $this->mintWarmupToken(
-				governed: $governed,
-				agentId: $agentId,
-				uid: $uid,
-				conversationId: $conversationId
-			);
-
-			$token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+			$this->mintWarmupToken(turn: $turn);
+			$token = $this->resolveCliToken(credentialId: $turn->credentialId, uid: $turn->uid);
 
 			$this->appApiPublicFunctions()->exAppRequest(
 				self::RUNNER_EXAPP_ID,
 				self::RUNNER_ROUTE,
-				$uid,
+				$turn->uid,
 				'POST',
-				[
-					'provider' => 'anthropic',
-					'model' => $model,
-					'messages' => [],
-					'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
-					'mcpConfig' => $governedMcpConfig,
-					'runToken' => $runToken,
-					'poolKey' => $poolKey,
-					'poolLifetimeSeconds' => self::POOL_PROCESS_LIFETIME_SECONDS,
-					'warmOnly' => true,
-				],
+				$this->warmupParams(turn: $turn, token: $token),
 				['timeout' => self::WARM_TIMEOUT_SECONDS]
 			);
 
@@ -1918,8 +1994,30 @@ class ProviderFactory {
 
 			return false;
 		}//end try
+	}//end warmCliProcess()
 
-	}//end warmAnthropicCli()
+	/**
+	 * The runner request of a warm-up: no messages, the same token, MCP config and
+	 * pool key the first turn will present, and the warm-only flag.
+	 *
+	 * @param CliTurn $turn  The warm-up.
+	 * @param string  $token The subscription token.
+	 *
+	 * @return array<string, mixed> The request parameters.
+	 */
+	private function warmupParams(CliTurn $turn, string $token): array {
+		return [
+			'provider' => 'anthropic',
+			'model' => $turn->model,
+			'messages' => [],
+			'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
+			'mcpConfig' => $turn->mcpConfig,
+			'runToken' => $turn->runToken,
+			'poolKey' => $turn->poolKey,
+			'poolLifetimeSeconds' => self::POOL_PROCESS_LIFETIME_SECONDS,
+			'warmOnly' => true,
+		];
+	}//end warmupParams()
 
 	/**
 	 * POST one turn to the `hermiq-llm-runner` ExApp and return its completion.
@@ -1930,14 +2028,8 @@ class ProviderFactory {
 	 * WITHOUT an error, producing an unauthenticated CLI rather than a 400, so
 	 * this is not a detail that tolerates a second spelling elsewhere.
 	 *
-	 * @param string $model The model identifier; empty ⇒ the CLI's own default.
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 * @param string $token The broker-issued OAuth token, passed as credentialEnv.
-	 * @param string|null $uid The acting user, for the runner's own accounting.
-	 * @param array|null $mcpConfig The governed MCP config for a tool-requiring turn;
-	 *                              null for a text-only one.
-	 * @param string $runToken The per-run bearer token the MCP endpoint verifies.
-	 * @param string $poolKey Selects the runner's warmed process; empty ⇒ unpooled.
+	 * @param CliTurn $turn  The turn: model, history, user, MCP config, run token and pool key.
+	 * @param string  $token The subscription token (never logged).
 	 *
 	 * Two AppAPI defaults are traps here and BOTH are overridden explicitly; neither is
 	 * visible in `exAppRequest()`'s signature:
@@ -1964,38 +2056,55 @@ class ProviderFactory {
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
-	private function dispatchCliTurn(
-		string $model,
-		array $messageHistory,
-		string $token,
-		?string $uid,
-		?array $mcpConfig = null,
-		string $runToken = '',
-		string $poolKey = '',
-	): string {
+	private function dispatchCliTurn(CliTurn $turn, string $token): string {
+		$result = $this->appApiPublicFunctions()->exAppRequest(
+			self::RUNNER_EXAPP_ID,
+			self::RUNNER_ROUTE,
+			$turn->uid,
+			'POST',
+			$this->dispatchParams(turn: $turn, token: $token),
+			$this->cliDispatchOptions()
+		);
+
+		$this->assertRunnerAnswered(result: $result);
+
+		// Check 3 — only now is the body the model's answer.
+		return $this->mapCliCompletion(body: (string)$result->getBody());
+	}//end dispatchCliTurn()
+
+	/**
+	 * The runner request of a turn: the mapped history and subscription token, and the
+	 * MCP config, run token and pool key when the turn has them.
+	 *
+	 * @param CliTurn $turn  The turn.
+	 * @param string  $token The subscription token.
+	 *
+	 * @return array<string, mixed> The request parameters.
+	 */
+	private function dispatchParams(CliTurn $turn, string $token): array {
 		// `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
 		// A key outside the allowlist is dropped WITHOUT an error, which would yield an
 		// unauthenticated CLI rather than a 400 — so this string has to be exactly right.
 		$params = [
 			'provider' => 'anthropic',
-			'model' => $model,
-			'messages' => $this->mapHistoryToCliMessages(messageHistory: $messageHistory),
+			'model' => $turn->model,
+			'messages' => $this->mapHistoryToCliMessages(messageHistory: $turn->messageHistory),
 			'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
 		];
 
 		// A tool-requiring turn carries the governed MCP config; the runner writes it to a
 		// 0600 scratch file and locks the CLI down with `--tools "" --strict-mcp-config
 		// --mcp-config <path>`. A text-only turn omits it entirely (unchanged link-2 path).
-		if ($mcpConfig !== null) {
-			$params['mcpConfig'] = $mcpConfig;
+		if ($turn->mcpConfig !== null) {
+			$params['mcpConfig'] = $turn->mcpConfig;
 		}
 
 		// The run identity for the egress PEP. The runner turns this into
 		// `HTTPS_PROXY=http://run:<token>@<proxy>` in the CLI's ENVIRONMENT — never on
 		// argv, where the process table would expose it. Sent on every turn: the proxy
 		// is the container's only route out.
-		if ($runToken !== '') {
-			$params['runToken'] = $runToken;
+		if ((string)$turn->runToken !== '') {
+			$params['runToken'] = $turn->runToken;
 		}
 
 		// The pool key is the CONVERSATION, never the agent or the user. A
@@ -2003,8 +2112,8 @@ class ProviderFactory {
 		// a canary with no history re-sent), so any key wider than one conversation
 		// carries one conversation's context into another's turn. Absent key = the
 		// runner takes the cold path, which is always correct and never pooled.
-		if ($poolKey !== '') {
-			$params['poolKey'] = $poolKey;
+		if ($turn->poolKey !== '') {
+			$params['poolKey'] = $turn->poolKey;
 			// Sent rather than configured separately in the runner: this bounds BOTH
 			// the process's reusable life and its token's validity, and the two
 			// drifting apart is precisely the failure that ends in a live process
@@ -2012,15 +2121,22 @@ class ProviderFactory {
 			$params['poolLifetimeSeconds'] = self::POOL_PROCESS_LIFETIME_SECONDS;
 		}
 
-		$result = $this->appApiPublicFunctions()->exAppRequest(
-			self::RUNNER_EXAPP_ID,
-			self::RUNNER_ROUTE,
-			$uid,
-			'POST',
-			$params,
-			$this->cliDispatchOptions()
-		);
+		return $params;
+	}//end dispatchParams()
 
+	/**
+	 * Refuse a dispatch the runner did not answer: AppAPI's never-throws error array,
+	 * or a non-success status. The order is load-bearing.
+	 *
+	 * @param mixed $result What exAppRequest() returned.
+	 *
+	 * @return void
+	 *
+	 * @throws ProviderUnavailableException When the runner was not reached or failed (503).
+	 *
+	 * @psalm-assert \OCP\Http\Client\IResponse $result
+	 */
+	private function assertRunnerAnswered(mixed $result): void {
 		// Check 1 — the never-throws failure channel. MUST precede any body read.
 		if (is_array($result) === true) {
 			$this->logger->warning(
@@ -2049,10 +2165,7 @@ class ProviderFactory {
 				503
 			);
 		}
-
-		// Check 3 — only now is the body the model's answer.
-		return $this->mapCliCompletion(body: (string)$result->getBody());
-	}//end dispatchCliTurn()
+	}//end assertRunnerAnswered()
 
 	/**
 	 * Build the AppAPI request options for a `cli` dispatch.
