@@ -30,6 +30,7 @@ const { default: SkillFormModal } = await import('../../src/modals/SkillFormModa
  */
 function modal(state) {
 	const ctx = {
+		...Object.assign({}, ...(SkillFormModal.mixins || []).map((mixin) => mixin.methods || {})),
 		...SkillFormModal.methods,
 		t: (app, text) => text,
 		emitted: [],
