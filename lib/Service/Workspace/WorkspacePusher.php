@@ -84,45 +84,108 @@ class WorkspacePusher {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
 	 */
 	public function push(array $run, string $root, string $repository, string $branch, array $arguments): array {
+		$this->assertOpenedRepository(arguments: $arguments, repository: $repository);
+		$sha = $this->branchSha(root: $root, branch: $branch);
+		$credential = $this->credentials->resolve(ownerUid: $run['userId'], agent: $this->agent(agentId: $run['agentId']));
+
+		$result = $this->git->run(
+			arguments: $this->pushArguments(url: $this->forge->cloneUrl(repository: $repository), branch: $branch),
+			workingDir: $root,
+			timeoutSeconds: self::TIMEOUT_SECONDS,
+			extraEnv: $this->authorization(secret: $credential['secret'])
+		);
+		$this->assertPushed(result: $result);
+
+		return [
+			'repository' => $repository,
+			'branch' => $branch,
+			'sha' => $sha,
+			'credentialId' => $credential['credentialId'],
+		];
+	}//end push()
+
+	/**
+	 * Refuse a push that does not name the repository this run opened.
+	 *
+	 * @param array<string, mixed> $arguments  The call's arguments.
+	 * @param string               $repository The workspace's repository slug.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException invalid_argument when the named repository differs.
+	 */
+	private function assertOpenedRepository(array $arguments, string $repository): void {
 		if ((string)($arguments['repository'] ?? '') !== $repository) {
 			throw new WorkspaceException(
 				errorCode: WorkspaceException::INVALID_ARGUMENT,
 				message: 'Push the repository this run opened (' . $repository . '), and name it.'
 			);
 		}
+	}//end assertOpenedRepository()
 
+	/**
+	 * The commit the local branch points at.
+	 *
+	 * @param string $root   The workspace root.
+	 * @param string $branch A validated branch name.
+	 *
+	 * @return string The trimmed commit id.
+	 *
+	 * @throws WorkspaceException invalid_argument when the branch does not exist.
+	 */
+	private function branchSha(string $root, string $branch): string {
 		$sha = $this->git->run(arguments: ['rev-parse', '--verify', '--quiet', 'refs/heads/' . $branch], workingDir: $root, timeoutSeconds: 20);
 		if ($sha['exit'] !== 0) {
 			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'That branch does not exist in the workspace.');
 		}
 
-		$credential = $this->credentials->resolve(ownerUid: $run['userId'], agent: $this->agent(agentId: $run['agentId']));
-		$url = $this->forge->cloneUrl(repository: $repository);
+		return trim($sha['stdout']);
+	}//end branchSha()
 
-		$result = $this->git->run(
-			arguments: ['push', '--porcelain', '--no-verify', $url, 'refs/heads/' . $branch . ':refs/heads/' . $branch],
-			workingDir: $root,
-			timeoutSeconds: self::TIMEOUT_SECONDS,
-			extraEnv: [
-				'GIT_CONFIG_COUNT' => '1',
-				'GIT_CONFIG_KEY_0' => 'http.extraHeader',
-				'GIT_CONFIG_VALUE_0' => 'Authorization: Basic ' . base64_encode('x-access-token:' . $credential['secret']),
-			]
-		);
+	/**
+	 * The push arguments: the local branch to the same branch at the forge URL, hooks skipped.
+	 *
+	 * @param string $url    The forge clone URL.
+	 * @param string $branch A validated branch name.
+	 *
+	 * @return array<int, string>
+	 */
+	private function pushArguments(string $url, string $branch): array {
+		return ['push', '--porcelain', '--no-verify', $url, 'refs/heads/' . $branch . ':refs/heads/' . $branch];
+	}//end pushArguments()
+
+	/**
+	 * The environment that hands git the credential as an HTTP header, never in argv.
+	 *
+	 * @param string $secret The forge credential's secret.
+	 *
+	 * @return array<string, string>
+	 */
+	private function authorization(string $secret): array {
+		return [
+			'GIT_CONFIG_COUNT' => '1',
+			'GIT_CONFIG_KEY_0' => 'http.extraHeader',
+			'GIT_CONFIG_VALUE_0' => 'Authorization: Basic ' . base64_encode('x-access-token:' . $secret),
+		];
+	}//end authorization()
+
+	/**
+	 * Refuse a push the forge did not accept, with a fixed sentence that carries no transport output.
+	 *
+	 * @param array{exit: int, stdout: string, stderr: string} $result The push's result.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException push_rejected when git exited non-zero.
+	 */
+	private function assertPushed(array $result): void {
 		if ($result['exit'] !== 0) {
 			throw new WorkspaceException(
 				errorCode: WorkspaceException::PUSH_REJECTED,
 				message: 'The forge refused the push. The branch may be protected, behind the remote, or outside what the credential may write.'
 			);
 		}
-
-		return [
-			'repository' => $repository,
-			'branch' => $branch,
-			'sha' => trim($sha['stdout']),
-			'credentialId' => $credential['credentialId'],
-		];
-	}//end push()
+	}//end assertPushed()
 
 	/**
 	 * The run's agent, or null.
