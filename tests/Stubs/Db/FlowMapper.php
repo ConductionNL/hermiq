@@ -39,6 +39,7 @@ class FlowMapper {
 	 * List flows, optionally scoped by app, tenant and enabled state.
 	 *
 	 * @param string|null $app Restrict to one owning app id.
+	 * @param string|null $applicationSlug Restrict to one application slug.
 	 * @param string|null $organisation Restrict to one tenant.
 	 * @param boolean|null $enabled Restrict to enabled or disabled flows.
 	 * @param integer $limit Page size.
@@ -48,6 +49,7 @@ class FlowMapper {
 	 */
 	public function findAllFlows(
 		?string $app = null,
+		?string $applicationSlug = null,
 		?string $organisation = null,
 		?bool $enabled = null,
 		int $limit = 100,

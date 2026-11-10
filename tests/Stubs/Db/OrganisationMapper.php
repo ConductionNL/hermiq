@@ -45,10 +45,11 @@ class OrganisationMapper {
 	 *
 	 * @param int $limit Maximum rows.
 	 * @param int $offset Row offset.
+	 * @param array<string, mixed>|null $filters Column => value equality filters.
 	 *
 	 * @return array<int, Organisation>
 	 */
-	public function findAll(int $limit = 50, int $offset = 0): array {
+	public function findAll(int $limit = 50, int $offset = 0, ?array $filters = []): array {
 		return [];
 	}//end findAll()
 

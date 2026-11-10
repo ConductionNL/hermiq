@@ -33,7 +33,9 @@ use OCA\OpenRegister\Db\Schema;
 use OCA\OpenRegister\Service\ConditionMatcher;
 use OCA\OpenRegister\Service\Lifecycle\StateFieldRuleResolver;
 use OCA\OpenRegister\Service\Lifecycle\StateFieldRules;
+use OCA\OpenRegister\Service\PropertyRbacCaller;
 use OCA\OpenRegister\Service\PropertyRbacHandler;
+use OCA\OpenRegister\Service\PropertyRbacRules;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -56,6 +58,17 @@ class ToolAccessRequestPropertyRulesTest extends TestCase {
 	 */
 	private const REAL_CLASSES = [
 		'OCA\\OpenRegister\\Service\\PropertyRbacHandler',
+		'OCA\\OpenRegister\\Service\\PropertyRbacCaller',
+		'OCA\\OpenRegister\\Service\\PropertyRbacRules',
+		'OCA\\OpenRegister\\Service\\PropertyAccessRequest',
+		'OCA\\OpenRegister\\Service\\PropertyWriteCheck',
+		'OCA\\OpenRegister\\Service\\ProtectedCarryForward',
+		'OCA\\OpenRegister\\Service\\ProtectedPropertyRead',
+		'OCA\\OpenRegister\\Service\\Lifecycle\\StateFieldRuleResolverInterface',
+		'OCA\\OpenRegister\\Service\\Rbac\\WriteOnlyPathWalker',
+		'OCA\\OpenRegister\\Service\\PropertyRbacHandlerInterface',
+		'OCA\\OpenRegister\\Service\\Lifecycle\\StateFieldLists',
+		'OCA\\OpenRegister\\Service\\Lifecycle\\StateFieldRulesInterface',
 		'OCA\\OpenRegister\\Service\\ConditionMatcher',
 		'OCA\\OpenRegister\\Service\\Lifecycle\\StateFieldRuleResolver',
 		'OCA\\OpenRegister\\Service\\Lifecycle\\StateFieldRules',
@@ -128,11 +141,12 @@ class ToolAccessRequestPropertyRulesTest extends TestCase {
 		$stateRules->method('resolve')->willReturn(new StateFieldRules());
 
 		$handler = new PropertyRbacHandler(
-			userSession: $session,
-			groupManager: $groups,
-			conditionMatcher: $this->createMock(originalClassName: ConditionMatcher::class),
-			logger: new NullLogger(),
-			stateFieldRules: $stateRules
+			caller: new PropertyRbacCaller(userSession: $session, groupManager: $groups),
+			rules: new PropertyRbacRules(
+				conditionMatcher: $this->createMock(originalClassName: ConditionMatcher::class),
+				stateFieldRules: $stateRules
+			),
+			logger: new NullLogger()
 		);
 
 		$stored = self::STORED;

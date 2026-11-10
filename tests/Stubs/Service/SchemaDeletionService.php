@@ -34,10 +34,11 @@ class SchemaDeletionService {
 	 * itself — mirrors the real service's signature and result shape.
 	 *
 	 * @param Schema $schema The schema to tear down.
+	 * @param object|null $override The teardown override (a SchemaTeardownOverride on the real service).
 	 *
 	 * @return array{deletedCount: int, deletedUuids: array<int, string>, tableDropped: bool} The cascade result.
 	 */
-	public function cascadeDeleteSchema(Schema $schema): array {
+	public function cascadeDeleteSchema(Schema $schema, ?object $override = null): array {
 		return [
 			'deletedCount' => 0,
 			'deletedUuids' => [],
