@@ -196,6 +196,7 @@ import {
 	getRetention,
 	setRetention,
 } from '../api/tenantOps.js'
+import { dateOrDash } from '../utils/displayDate.js'
 
 export default {
 	name: 'ComplianceOperations',
@@ -243,6 +244,8 @@ export default {
 	},
 
 	methods: {
+		formatDate: dateOrDash,
+
 		/**
 		 * Fetch the AI Act audit export and download it as a JSON file.
 		 *
@@ -286,21 +289,6 @@ export default {
 			a.click()
 			document.body.removeChild(a)
 			URL.revokeObjectURL(url)
-		},
-
-		/**
-		 * Human-readable date, or an em-dash when absent/unparseable.
-		 *
-		 * @param {string} value An ISO-8601 timestamp.
-		 * @return {string} The formatted date.
-		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 		},
 
 		/**

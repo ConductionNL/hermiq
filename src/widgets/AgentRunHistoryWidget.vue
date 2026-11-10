@@ -315,6 +315,8 @@ import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import Replay from 'vue-material-design-icons/Replay.vue'
 import { getRunTrace, listRuns, replayRun, runScheduleNow } from '../api/agents.js'
 import { useScheduleStore } from '../store/store.js'
+import { dateOrDash } from '../utils/displayDate.js'
+import { stepTypeLabel } from './runStepLabels.js'
 
 export default {
 	name: 'AgentRunHistoryWidget',
@@ -384,6 +386,9 @@ export default {
 	},
 
 	methods: {
+		formatDate: dateOrDash,
+		stepTypeLabel,
+
 		/**
 		 * Open the Runs page with this run ticked, to choose the second run.
 		 *
@@ -584,25 +589,6 @@ export default {
 		},
 
 		/**
-		 * Human label for a trace step's type.
-		 *
-		 * @param {string} type The step type (gate_wait|context|history|llm|tool|delivery).
-		 * @return {string} The localised label.
-		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
-		 */
-		stepTypeLabel(type) {
-			const labels = {
-				gate_wait: this.t('hermiq', 'Awaiting approval'),
-				context: this.t('hermiq', 'Context'),
-				history: this.t('hermiq', 'History'),
-				llm: this.t('hermiq', 'LLM'),
-				tool: this.t('hermiq', 'Tool'),
-				delivery: this.t('hermiq', 'Delivery'),
-			}
-			return labels[type] || type || '—'
-		},
-
-		/**
 		 * Human label for a trace step's duration in milliseconds.
 		 *
 		 * @param {number} ms The duration in milliseconds.
@@ -635,21 +621,6 @@ export default {
 				return '—'
 			}
 			return String(versionId).split('-')[0]
-		},
-
-		/**
-		 * Format an ISO date for display, or a dash when absent/invalid.
-		 *
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The localised date, or '—'.
-		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 		},
 
 		/**
