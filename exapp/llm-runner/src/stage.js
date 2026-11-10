@@ -48,6 +48,7 @@ const path = require('path')
 
 const { assertPushAllowed, PushRefused } = require('./pushGuard')
 const { selectCredentialEnv } = require('./runner')
+const { proxyEnvFor } = require('./proxyEnv')
 
 const DEFAULT_STAGE_TIMEOUT_MS = Number(
 	process.env.RUNNER_STAGE_TIMEOUT_MS || String(30 * 60 * 1000),
@@ -100,24 +101,7 @@ const STAGE_COMMITTER = {
  * @returns {object} Proxy env vars, or `{}` when there is nothing to point at.
  */
 function buildEgressProxyEnv(runToken) {
-	if (
-		EGRESS_PROXY_AUTHORITY === ''
-		|| typeof runToken !== 'string'
-		|| runToken === ''
-	) {
-		return {}
-	}
-
-	// Basic-auth userinfo is how every HTTP client and git itself forward proxy
-	// credentials, and it keeps the token off argv.
-	const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`
-
-	return {
-		HTTPS_PROXY: url,
-		https_proxy: url,
-		HTTP_PROXY: url,
-		http_proxy: url,
-	}
+	return proxyEnvFor(EGRESS_PROXY_AUTHORITY, runToken)
 }
 
 /**
@@ -360,71 +344,106 @@ async function extractToolArchive({ base64, scratch, env, deadline }) {
  * @returns {object} A map of path to contents, or null where absent.
  */
 function readCollected({ paths, workdir }) {
-	const isList = Array.isArray(paths)
-	const isMap = paths !== null && typeof paths === 'object' && isList === false
-	if (
-		(isList === false && isMap === false)
-		|| (isList === true && paths.length === 0)
-	) {
+	if (nothingToCollect(paths) === true) {
 		return {}
 	}
 
 	const root = path.resolve(workdir)
 	const out = {}
 
-	// An ARRAY keys each file by its own path; an OBJECT keys it by an ALIAS.
-	//
-	// The alias form exists because a flow addresses data with a dotted path,
-	// and a file path is not one: `files.reviews/latest.json.code_review` is
-	// unresolvable — the key contains both dots and slashes, so every traversal
-	// splits it in the wrong places. Collecting a file a flow then cannot reach
-	// is the whole feature failing quietly at the last step.
-	//
-	// So `collect: {findings: "reviews/latest.json"}` yields `files.findings`,
-	// which a flow can walk.
-	const entries =
-		Array.isArray(paths) === true
-			? paths.map((p) => [String(p), String(p)])
-			: Object.entries(paths).map(([alias, p]) => [String(alias), String(p)])
-
-	for (const [name, requested] of entries) {
-		const resolved = path.resolve(root, requested)
-
-		// `startsWith(root + sep)` and not `startsWith(root)`: the latter admits
-		// a sibling directory whose name merely begins with the same characters.
-		if (resolved.startsWith(root + path.sep) === false) {
-			throw new Error(`collect path escapes the clone: ${name}`)
-		}
-
-		try {
-			const raw = fs.readFileSync(resolved, 'utf8').slice(0, MAX_OUTPUT_BYTES)
-
-			// A `.json` file is PARSED, because the consumer is a flow and a
-			// flow cannot address into a string. hydra's reviewer writes
-			// `{code_review: {findings: [...]}}`; handing that back as text
-			// means the one thing anybody wants to do with it — iterate the
-			// findings and file an issue each — is impossible without a node
-			// that parses JSON, which does not exist.
-			//
-			// Unparseable JSON stays TEXT rather than becoming null: the file
-			// was found and has contents, and reporting "absent" for "present
-			// but malformed" is the same conflation this function's null
-			// handling exists to avoid. The consumer can then see what it
-			// actually got.
-			out[name] = raw
-			if (requested.endsWith('.json') === true) {
-				try {
-					out[name] = JSON.parse(raw)
-				} catch (err) {
-					// Intentionally keeps the text. See above.
-				}
-			}
-		} catch (err) {
-			out[name] = null
-		}
+	for (const entry of collectEntries(paths)) {
+		out[entry[0]] = readCollectedFile(root, entry)
 	}
 
 	return out
+}
+
+/**
+ * Whether `collect` asks for nothing: not a list or a map, or an empty list.
+ *
+ * @param {*} paths The `collect` value.
+ * @returns {boolean} True when there is nothing to read back.
+ */
+function nothingToCollect(paths) {
+	if (Array.isArray(paths) === true) {
+		return paths.length === 0
+	}
+
+	return paths === null || typeof paths !== 'object'
+}
+
+/**
+ * The `[name, requested path]` pairs a `collect` value asks for.
+ *
+ * An ARRAY keys each file by its own path; an OBJECT keys it by an ALIAS.
+ *
+ * The alias form exists because a flow addresses data with a dotted path,
+ * and a file path is not one: `files.reviews/latest.json.code_review` is
+ * unresolvable — the key contains both dots and slashes, so every traversal
+ * splits it in the wrong places. Collecting a file a flow then cannot reach
+ * is the whole feature failing quietly at the last step.
+ *
+ * So `collect: {findings: "reviews/latest.json"}` yields `files.findings`,
+ * which a flow can walk.
+ *
+ * @param {Array|object} paths A non-empty list, or a map of alias to path.
+ * @returns {Array<Array<string>>} The pairs.
+ */
+function collectEntries(paths) {
+	return Array.isArray(paths) === true
+		? paths.map((p) => [String(p), String(p)])
+		: Object.entries(paths).map(([alias, p]) => [String(alias), String(p)])
+}
+
+/**
+ * Read one collected file inside the clone: its text, its parsed JSON for a
+ * `.json` file, or null when it cannot be read.
+ *
+ * @param {string} root The resolved clone root.
+ * @param {Array<string>} entry The `[name, requested path]` pair.
+ * @returns {*} The contents, or null where absent.
+ * @throws {Error} When the path escapes the clone.
+ */
+function readCollectedFile(root, entry) {
+	const [name, requested] = entry
+	const resolved = path.resolve(root, requested)
+
+	// `startsWith(root + sep)` and not `startsWith(root)`: the latter admits
+	// a sibling directory whose name merely begins with the same characters.
+	if (resolved.startsWith(root + path.sep) === false) {
+		throw new Error(`collect path escapes the clone: ${name}`)
+	}
+
+	try {
+		const raw = fs.readFileSync(resolved, 'utf8').slice(0, MAX_OUTPUT_BYTES)
+		return requested.endsWith('.json') === true ? parsedOrText(raw) : raw
+	} catch (err) {
+		return null
+	}
+}
+
+/**
+ * A collected `.json` file's contents, PARSED, because the consumer is a flow
+ * and a flow cannot address into a string. hydra's reviewer writes
+ * `{code_review: {findings: [...]}}`; handing that back as text means the one
+ * thing anybody wants to do with it — iterate the findings and file an issue
+ * each — is impossible without a node that parses JSON, which does not exist.
+ *
+ * Unparseable JSON stays TEXT rather than becoming null: the file was found
+ * and has contents, and reporting "absent" for "present but malformed" is the
+ * same conflation readCollected's null handling exists to avoid. The consumer
+ * can then see what it actually got.
+ *
+ * @param {string} raw The file's text.
+ * @returns {*} The parsed value, or the text when it does not parse.
+ */
+function parsedOrText(raw) {
+	try {
+		return JSON.parse(raw)
+	} catch (err) {
+		// Intentionally keeps the text. See above.
+		return raw
+	}
 }
 
 /**
