@@ -228,4 +228,27 @@ class AiFeatureControllerAccessGoldenTest extends TestCase {
 		$this->assertSame(200, $status);
 		$this->assertSame('feat-1', $data['id']);
 	}//end testEveryPublishOutcome()
+
+	/**
+	 * Every transition outcome of enable and disable, with its exact body.
+	 *
+	 * @return void
+	 */
+	public function testEveryTransitionOutcome(): void {
+		$outcomes = [
+			AiFeatureService::RESULT_ENABLED => [200, ['id' => 'feat-1', 'lifecycle' => AiFeatureService::RESULT_ENABLED]],
+			AiFeatureService::RESULT_DISABLED => [200, ['id' => 'feat-1', 'lifecycle' => AiFeatureService::RESULT_DISABLED]],
+			AiFeatureService::RESULT_NOT_FOUND => [404, ['error' => 'AI feature not found']],
+			AiFeatureService::RESULT_BLOCKED => [409, ['error' => 'Transition blocked: the DPO has not acknowledged this AI feature.']],
+			'something-else' => [422, ['error' => 'Transition not allowed from the current state.']],
+		];
+		foreach ($outcomes as $result => $expected) {
+			foreach (['enable', 'disable'] as $route) {
+				$service = $this->createMock(AiFeatureService::class);
+				$service->method($route)->willReturn($result);
+				$response = $this->controller('admin', true, $service)->{$route}('feat-1');
+				$this->assertSame($expected, [$response->getStatus(), $response->getData()], $route . ' ' . $result);
+			}
+		}
+	}//end testEveryTransitionOutcome()
 }//end class
