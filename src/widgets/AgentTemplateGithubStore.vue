@@ -164,6 +164,40 @@ const SEARCH_DEBOUNCE_MS = 400
 const KIND_AGENT_TEMPLATE = 'agent-template'
 const KIND_SKILL = 'skill'
 
+/**
+ * What a search that could not reach GitHub answers: no cards, and the outcome
+ * that says so.
+ *
+ * @return {object} A fresh unreachable search result.
+ * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ */
+function unreachableSearch() {
+	return {
+		outcome: 'github_unreachable',
+		cards: [],
+		rateLimited: false,
+		brokerCredentialAvailable: false,
+	}
+}
+
+/**
+ * The outcome of a merged search: `ok` when any kind answered ok, else rate
+ * limited when any was, else the first kind's own outcome.
+ *
+ * @param {Array<object>} results The per-kind search results.
+ * @return {string} The outcome.
+ * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ */
+function searchOutcome(results) {
+	if (results.some((r) => r.outcome === 'ok')) {
+		return 'ok'
+	}
+	if (results.some((r) => r.rateLimited === true)) {
+		return 'github_rate_limited'
+	}
+	return (results[0] && results[0].outcome) || 'ok'
+}
+
 export default {
 	name: 'AgentTemplateGithubStore',
 
@@ -357,53 +391,39 @@ export default {
 		async doSearch() {
 			this.loading = true
 			try {
-				const credentialId = this.selectedCredential?.value || null
-				const calls = []
-				if (this.kindActive(KIND_AGENT_TEMPLATE)) {
-					calls.push(
-						searchGithubTemplates(this.query, credentialId).catch(
-							() => ({
-								outcome: 'github_unreachable',
-								cards: [],
-								rateLimited: false,
-								brokerCredentialAvailable: false,
-							}),
-						),
-					)
-				}
-				if (this.kindActive(KIND_SKILL)) {
-					calls.push(
-						searchGithubSkills(this.query, credentialId).catch(() => ({
-							outcome: 'github_unreachable',
-							cards: [],
-							rateLimited: false,
-							brokerCredentialAvailable: false,
-						})),
-					)
-				}
-
-				const results = await Promise.all(calls)
+				const results = await Promise.all(
+					this.searchCalls(this.selectedCredential?.value || null),
+				)
 				this.cards = results.flatMap((r) => r.cards || [])
 				this.brokerCredentialAvailable = results.some(
 					(r) => r.brokerCredentialAvailable === true,
 				)
-
-				const anyOk = results.some((r) => r.outcome === 'ok')
-				const anyRateLimited = results.some((r) => r.rateLimited === true)
-				this.rateLimited = anyRateLimited
-				if (anyOk) {
-					this.outcome = 'ok'
-				} else if (anyRateLimited) {
-					this.outcome = 'github_rate_limited'
-				} else {
-					this.outcome = (results[0] && results[0].outcome) || 'ok'
-				}
+				this.rateLimited = results.some((r) => r.rateLimited === true)
+				this.outcome = searchOutcome(results)
 			} catch (e) {
 				this.cards = []
 				this.outcome = 'github_unreachable'
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * One search per active kind; a search that fails answers unreachable.
+		 *
+		 * @param {string|null} credentialId The selected broker credential, if any.
+		 * @return {Array<Promise<object>>} The searches.
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 */
+		searchCalls(credentialId) {
+			const calls = []
+			if (this.kindActive(KIND_AGENT_TEMPLATE)) {
+				calls.push(searchGithubTemplates(this.query, credentialId).catch(unreachableSearch))
+			}
+			if (this.kindActive(KIND_SKILL)) {
+				calls.push(searchGithubSkills(this.query, credentialId).catch(unreachableSearch))
+			}
+			return calls
 		},
 
 		/**
