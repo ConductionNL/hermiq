@@ -108,6 +108,15 @@ describe('SkillFormModal save', () => {
 		expect(ctx.emitted[0]).toEqual(['saved', { id: 'i1' }])
 	})
 
+	it('emits a create the server answered with nothing', async () => {
+		vi.mocked(api.importSkill).mockResolvedValue(null)
+		const ctx = modal({ form: { name: 'N' } })
+		await ctx.save()
+
+		expect(ctx.error).toBe('')
+		expect(ctx.emitted[0]).toEqual(['saved', null])
+	})
+
 	it('creates without files and writes nothing more', async () => {
 		vi.mocked(api.importSkill).mockResolvedValue({ id: 'c1' })
 		const ctx = modal({ form: { name: 'N' } })
