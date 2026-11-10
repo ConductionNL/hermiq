@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\NcNative;
 
 use DateTimeImmutable;
+use OCP\Calendar\ICalendarEventBuilder;
 use OCP\Calendar\ICalendarIsWritable;
 use OCP\Calendar\ICreateFromString;
 use OCP\Calendar\IManager as ICalendarManager;
@@ -79,6 +80,28 @@ class CalendarWriteService {
 			return $invalid;
 		}
 
+		$calendar = $this->targetCalendar(uid: $uid, arguments: $arguments);
+		if (is_array($calendar) === true) {
+			return $calendar;
+		}
+
+		$event = new CalendarEvent(calendar: $calendar, arguments: $arguments);
+		$event->attendees = $this->normaliseAttendees(raw: ($arguments['attendees'] ?? []));
+		$event->agentId = $agentId;
+
+		return $this->store(event: $event);
+
+	}//end create()
+
+	/**
+	 * The writable calendar of the user's own the event goes to, or the refusal.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param array<string, mixed> $arguments The tool arguments (calendarUri).
+	 *
+	 * @return ICreateFromString|array<string, mixed> The calendar, or an error envelope.
+	 */
+	private function targetCalendar(string $uid, array $arguments): ICreateFromString|array {
 		$calendar = $this->resolveWritableCalendar(
 			uid: $uid,
 			calendarUri: trim((string)($arguments['calendarUri'] ?? ''))
@@ -90,16 +113,9 @@ class CalendarWriteService {
 			);
 		}
 
-		$attendees = $this->normaliseAttendees(raw: ($arguments['attendees'] ?? []));
+		return $calendar;
 
-		return $this->store(
-			calendar: $calendar,
-			arguments: $arguments,
-			attendees: $attendees,
-			agentId: $agentId
-		);
-
-	}//end create()
+	}//end targetCalendar()
 
 	/**
 	 * Validate the caller's arguments, returning an error envelope or null.
@@ -130,59 +146,81 @@ class CalendarWriteService {
 	/**
 	 * Build and store the event.
 	 *
-	 * @param ICreateFromString $calendar The resolved target calendar.
-	 * @param array<string, mixed> $arguments The tool arguments.
-	 * @param array<int, string> $attendees The normalised attendee addresses.
-	 * @param string $agentId The invoking agent id.
+	 * @param CalendarEvent $event The event being created.
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 */
-	private function store(ICreateFromString $calendar, array $arguments, array $attendees, string $agentId): array {
+	private function store(CalendarEvent $event): array {
 		$objectUri = '';
 
 		try {
-			$builder = $this->calendarManager->createEventBuilder();
-			$builder->setSummary(trim((string)($arguments['summary'] ?? '')));
-			$builder->setStartDate(new DateTimeImmutable((string)($arguments['start'] ?? '')));
-			$builder->setEndDate(new DateTimeImmutable((string)($arguments['end'] ?? '')));
-
-			$description = trim((string)($arguments['description'] ?? ''));
-			if ($description !== '') {
-				$builder->setDescription($description);
-			}
-
-			$location = trim((string)($arguments['location'] ?? ''));
-			if ($location !== '') {
-				$builder->setLocation($location);
-			}
-
-			foreach ($attendees as $attendee) {
-				$builder->addAttendee($attendee);
-			}
-
-			// ADR-088: the mark goes into the SAME serialised object that is
-			// stored, so the event cannot exist unmarked even momentarily. System
-			// tags do not apply to CalDAV objects, hence an `X-` property — which
-			// also travels with the event through sync and export.
-			$ics = $this->withAgentProperty(ics: $builder->toIcs(), agentId: $agentId);
+			$ics = $this->eventIcs(event: $event);
 
 			$objectUri = ('hermiq-' . bin2hex(random_bytes(8)) . '.ics');
-			$calendar->createFromString($objectUri, $ics);
+			$event->calendar->createFromString($objectUri, $ics);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq: calendar event creation failed', ['exception' => $e]);
 
 			return $this->err(code: 'calendar_write_failed', message: 'The event could not be created.');
-		}//end try
+		}
 
 		return [
 			'created' => true,
-			'summary' => trim((string)($arguments['summary'] ?? '')),
-			'calendar' => $calendar->getDisplayName(),
-			'attendeeCount' => count($attendees),
+			'summary' => trim((string)($event->arguments['summary'] ?? '')),
+			'calendar' => $event->calendar->getDisplayName(),
+			'attendeeCount' => count($event->attendees),
 			'artefact' => ['type' => 'calendar-event', 'id' => $objectUri],
 		];
 
 	}//end store()
+
+	/**
+	 * The marked calendar object of the event.
+	 *
+	 * @param CalendarEvent $event The event being created.
+	 *
+	 * @return string The marked calendar object.
+	 */
+	private function eventIcs(CalendarEvent $event): string {
+		$arguments = $event->arguments;
+		$builder = $this->calendarManager->createEventBuilder();
+		$builder->setSummary(trim((string)($arguments['summary'] ?? '')));
+		$builder->setStartDate(new DateTimeImmutable((string)($arguments['start'] ?? '')));
+		$builder->setEndDate(new DateTimeImmutable((string)($arguments['end'] ?? '')));
+		$this->describe(builder: $builder, arguments: $arguments);
+
+		foreach ($event->attendees as $attendee) {
+			$builder->addAttendee($attendee);
+		}
+
+		// ADR-088: the mark goes into the SAME serialised object that is
+		// stored, so the event cannot exist unmarked even momentarily. System
+		// tags do not apply to CalDAV objects, hence an `X-` property — which
+		// also travels with the event through sync and export.
+		return $this->withAgentProperty(ics: $builder->toIcs(), agentId: $event->agentId);
+
+	}//end eventIcs()
+
+	/**
+	 * Set the description and the location, each only when given.
+	 *
+	 * @param ICalendarEventBuilder $builder The event builder.
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return void
+	 */
+	private function describe(ICalendarEventBuilder $builder, array $arguments): void {
+		$description = trim((string)($arguments['description'] ?? ''));
+		if ($description !== '') {
+			$builder->setDescription($description);
+		}
+
+		$location = trim((string)($arguments['location'] ?? ''));
+		if ($location !== '') {
+			$builder->setLocation($location);
+		}
+
+	}//end describe()
 
 	/**
 	 * Resolve a calendar the acting user owns AND can write to.
