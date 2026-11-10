@@ -149,7 +149,7 @@ class GraphService {
 	 *
 	 * @param array<string, mixed> $proposal The proposal.
 	 *
-	 * @return array{label: string, labelKey: string, entityType: string, sourceType: string, sourceRef: array<string, int|string>, aliases: array<int, string>}
+	 * @return array<string, mixed> The label and its labelKey, the entityType, sourceType, sourceRef and aliases.
 	 *
 	 * @throws InvalidArgumentException When the label, the type or the source record is missing.
 	 */
