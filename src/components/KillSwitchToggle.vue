@@ -76,6 +76,7 @@ import {
 } from '@nextcloud/vue'
 import AlertOctagon from 'vue-material-design-icons/AlertOctagon.vue'
 import { getKillSwitch, toggleKillSwitch } from '../api/approvals.js'
+import { organisationPicker } from '../utils/organisationPicker.js'
 
 export default {
 	name: 'KillSwitchToggle',
@@ -87,6 +88,8 @@ export default {
 		NcNoteCard,
 		NcSelect,
 	},
+
+	mixins: [organisationPicker('load')],
 
 	data() {
 		// Capability + manageable organisations come from the backend via
@@ -102,45 +105,6 @@ export default {
 			saving: false,
 			error: '',
 		}
-	},
-
-	computed: {
-		/**
-		 * The manageable organisations as NcSelect options.
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-		 */
-		orgOptions() {
-			return this.organisations.map((org) => ({
-				label: org.label || org.id,
-				value: org.id,
-			}))
-		},
-
-		/**
-		 * Two-way bridge between the selected org id and the NcSelect option object.
-		 */
-		orgOption: {
-			/**
-			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-			 */
-			get() {
-				return (
-					this.orgOptions.find(
-						(option) => option.value === this.selectedOrg,
-					) || this.orgOptions[0]
-				)
-			},
-
-			/**
-			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-			 */
-			set(option) {
-				this.selectedOrg = option ? option.value : ''
-				this.load()
-			},
-		},
 	},
 
 	/**
