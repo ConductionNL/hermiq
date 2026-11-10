@@ -94,14 +94,14 @@ class SkillController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
+	public const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
 
 	/**
 	 * Safe git-ref pattern (hermiq-github-store).
 	 *
 	 * @var string
 	 */
-	private const REF_PATTERN = '/^[A-Za-z0-9._\/-]{1,255}$/';
+	public const REF_PATTERN = '/^[A-Za-z0-9._\/-]{1,255}$/';
 
 	/**
 	 * Constructor.
@@ -385,20 +385,6 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		return new JSONResponse($this->skillSearch(actingUserId: $user->getUID()), Http::STATUS_OK);
-
-	}//end githubSearch()
-
-	/**
-	 * The search answer: the catalog's cards, or the unreachable answer when the search throws.
-	 *
-	 * @param string $actingUserId The caller.
-	 *
-	 * @return array{outcome: mixed, cards: mixed, brokerCredentialAvailable: bool, brokerUsed: mixed, rateLimited: mixed}
-	 *
-	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-	 */
-	private function skillSearch(string $actingUserId): array {
 		$query = $this->request->getParam('q');
 		if (is_string($query) === false) {
 			$query = null;
@@ -407,24 +393,18 @@ class SkillController extends Controller {
 		try {
 			$result = $this->catalogService->search(
 				query: $query,
-				actingUserId: $actingUserId,
+				actingUserId: $user->getUID(),
 				credentialId: $this->credentialParam(),
 				kind: GitHubTemplateCatalogService::KIND_SKILL
 			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill github search failed: ' . $e->getMessage(), ['exception' => $e]);
-			$result = ['outcome' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE, 'cards' => [], 'brokerUsed' => false, 'rateLimited' => false];
+			$result = GitHubSkillStore::UNREACHABLE;
 		}
 
-		return [
-			'outcome' => $result['outcome'],
-			'cards' => $result['cards'],
-			'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-			'brokerUsed' => $result['brokerUsed'],
-			'rateLimited' => $result['rateLimited'],
-		];
+		return new JSONResponse($this->gitHubSkillStore()->searchAnswer(result: $result), Http::STATUS_OK);
 
-	}//end skillSearch()
+	}//end githubSearch()
 
 	/**
 	 * Install a discovered GitHub skill: fetch its agentskills.io package file →
@@ -446,92 +426,43 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$target = $this->installTarget(actingUserId: $user->getUID());
-		if ($target instanceof JSONResponse) {
-			return $target;
+		$target = new GitHubSkillTarget(
+			owner: (string)($this->request->getParam('owner') ?? ''),
+			repo: (string)($this->request->getParam('repo') ?? ''),
+			ref: $this->request->getParam('ref'),
+			actingUserId: $user->getUID(),
+			credentialId: $this->credentialParam()
+		);
+		$refusal = $target->refusal();
+		if ($refusal !== null) {
+			return new JSONResponse(['error' => $refusal], Http::STATUS_BAD_REQUEST);
 		}
 
 		try {
-			return $this->installSkill(target: $target);
+			$skill = $this->gitHubSkillStore()->install(target: $target);
+			if ($skill === null) {
+				return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+			}
+
+			return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill github install failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}
+		}//end try
 
 	}//end githubInstall()
 
 	/**
-	 * The validated install target, or the 400 for an invalid owner/repo or ref.
+	 * The GitHub skill store steps over this controller's catalog and marketplace.
 	 *
-	 * @param string $actingUserId The caller.
-	 *
-	 * @return GitHubSkillTarget|JSONResponse
-	 *
-	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
-	 */
-	private function installTarget(string $actingUserId): GitHubSkillTarget|JSONResponse {
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		$ref = $this->refParam();
-
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
-		}
-
-		if ($ref !== null && preg_match(self::REF_PATTERN, $ref) !== 1) {
-			return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
-		}
-
-		return new GitHubSkillTarget(owner: $owner, repo: $repo, ref: $ref, actingUserId: $actingUserId, credentialId: $this->credentialParam());
-
-	}//end installTarget()
-
-	/**
-	 * The optional `ref` parameter; an empty or non-string ref is none.
-	 *
-	 * @return string|null
+	 * @return GitHubSkillStore
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
 	 */
-	private function refParam(): ?string {
-		$ref = $this->request->getParam('ref');
-		if (is_string($ref) === true && $ref !== '') {
-			return $ref;
-		}
+	private function gitHubSkillStore(): GitHubSkillStore {
+		return new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
 
-		return null;
-
-	}//end refParam()
-
-	/**
-	 * Fetch the skill package and its auxiliary files, and install them quarantined.
-	 *
-	 * @param GitHubSkillTarget $target The validated target.
-	 *
-	 * @return JSONResponse 201 with the created skill, or 404 when the package cannot be fetched.
-	 *
-	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
-	 */
-	private function installSkill(GitHubSkillTarget $target): JSONResponse {
-		$arguments = $target->fetchArguments();
-		$package = $this->catalogService->fetchPackageFile(...$arguments);
-		if ($package === null) {
-			return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
-		}
-
-		// Skill-package-multifile: a published skill repo carries its auxiliary
-		// files as sibling blobs. Fetching only the package file reconstructed a
-		// bare SKILL.md and silently dropped every references/ and learnings.md
-		// entry — install must mirror what publish emitted.
-		$skill = $this->marketplaceService->installFromSource(
-			package: $package,
-			source: 'hub',
-			createdBy: $target->actingUserId,
-			auxFiles: $this->catalogService->fetchAuxFiles(...$arguments)
-		);
-		return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
-
-	}//end installSkill()
+	}//end gitHubSkillStore()
 
 	/**
 	 * IDOR guard for the skill WRITE path: the caller must own the skill, or be

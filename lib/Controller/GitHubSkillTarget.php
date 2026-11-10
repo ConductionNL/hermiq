@@ -3,7 +3,7 @@
 /**
  * Hermiq GitHubSkillTarget
  *
- * The validated GitHub repository a skill install fetches from, and for whom.
+ * The GitHub repository a skill install fetches from, and for whom.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -36,11 +36,18 @@ use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 final class GitHubSkillTarget {
 
 	/**
+	 * The ref, or null for the default branch.
+	 *
+	 * @var string|null
+	 */
+	public readonly ?string $ref;
+
+	/**
 	 * Build the target.
 	 *
-	 * @param string      $owner        The validated repository owner.
-	 * @param string      $repo         The validated repository name.
-	 * @param string|null $ref          The validated ref, or null for the default branch.
+	 * @param string      $owner        The repository owner, as sent.
+	 * @param string      $repo         The repository name, as sent.
+	 * @param mixed       $ref          The ref as sent; an empty or non-string ref is the default branch.
 	 * @param string      $actingUserId The caller.
 	 * @param string|null $credentialId The broker credential, or null for none.
 	 *
@@ -49,11 +56,59 @@ final class GitHubSkillTarget {
 	public function __construct(
 		public readonly string $owner,
 		public readonly string $repo,
-		public readonly ?string $ref,
+		mixed $ref,
 		public readonly string $actingUserId,
 		public readonly ?string $credentialId,
 	) {
+		$given = null;
+		if (is_string($ref) === true && $ref !== '') {
+			$given = $ref;
+		}
+
+		$this->ref = $given;
 	}//end __construct()
+
+	/**
+	 * Why the coordinates are refused: `invalid_repo`, `invalid_ref`, or null when valid.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+	 */
+	public function refusal(): ?string {
+		if ($this->validRepo() === false) {
+			return 'invalid_repo';
+		}
+
+		if ($this->validRef() === false) {
+			return 'invalid_ref';
+		}
+
+		return null;
+	}//end refusal()
+
+	/**
+	 * Whether owner and repo both match the owner/repo pattern.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+	 */
+	private function validRepo(): bool {
+		return preg_match(SkillController::OWNER_REPO_PATTERN, $this->owner) === 1
+			&& preg_match(SkillController::OWNER_REPO_PATTERN, $this->repo) === 1;
+	}//end validRepo()
+
+	/**
+	 * Whether the ref is absent or matches the ref pattern.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+	 */
+	private function validRef(): bool {
+		return $this->ref === null || preg_match(SkillController::REF_PATTERN, $this->ref) === 1;
+	}//end validRef()
 
 	/**
 	 * The named arguments of the catalog's package and auxiliary-file fetches.
