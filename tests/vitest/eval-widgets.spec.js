@@ -87,6 +87,7 @@ describe('EvalRunPanelWidget load', () => {
 		const answer = (value) => (value instanceof Error ? Promise.reject(value) : Promise.resolve(value))
 		skillsApi.listSkills.mockImplementation(() => answer(answers.skills))
 		return {
+			...EvalRunPanelWidget.methods,
 			t,
 			datasetId: 'ds-1',
 			error: 'old',
@@ -145,6 +146,7 @@ describe('EvalRunPanelWidget load', () => {
 describe('SkillEvalEvidence load', () => {
 	it('loads the skill, datasets, agents and runs, and reports a failure', async () => {
 		const ctx = {
+			...SkillEvalEvidence.methods,
 			t,
 			skillId: 'sk-1',
 			skillStore: { fetchObject: async () => ({ id: 'sk-1' }) },
