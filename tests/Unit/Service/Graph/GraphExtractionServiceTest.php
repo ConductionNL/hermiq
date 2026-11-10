@@ -251,4 +251,47 @@ class GraphExtractionServiceTest extends TestCase {
 		$this->assertSame([], $this->writes);
 
 	}//end testReRunsAreIdempotentAndGarbageIsHarmless()
+
+	/**
+	 * Characterisation of the proposal edges: entries without a usable label are
+	 * skipped, a repeated label (any case) counts once, a missing type is a topic,
+	 * blank aliases are dropped, and a relation naming an unknown entity or
+	 * carrying no string predicate is not written.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-graph-write-is-audit-trailed
+	 */
+	public function testUnusableProposalPartsAreSkipped(): void {
+		$answer = json_encode(
+			[
+				'entities' => [
+					'not an entity',
+					['label' => '   '],
+					['label' => 'Gemeente Utrecht', 'aliases' => ['', 'Utrecht', '  ']],
+					['label' => 'gemeente utrecht', 'type' => 'organisation'],
+					['label' => 'Parkeren'],
+				],
+				'relations' => [
+					['from' => 'Gemeente Utrecht', 'predicate' => 'regulates', 'to' => 'Parkeren'],
+					['from' => 'Unknown', 'predicate' => 'regulates', 'to' => 'Parkeren'],
+					['from' => 'Parkeren', 'predicate' => ['not', 'a', 'string'], 'to' => 'Gemeente Utrecht'],
+				],
+			]
+		);
+		[$service] = $this->service(llmAnswer: (string)$answer);
+		$ref = ['register' => 'crm', 'schema' => 'contact', 'uuid' => 'rec-jan'];
+
+		$counts = $service->extract(uid: 'alice', sources: [['sourceType' => 'object', 'sourceRef' => $ref]]);
+
+		$this->assertSame(['entities' => 2, 'relations' => 1, 'skipped' => 0], $counts);
+		$entities = array_values(array_filter($this->writes, static fn (array $write): bool => $write['schema'] === GraphService::ENTITY_SCHEMA));
+		$this->assertSame('Gemeente Utrecht', $entities[0]['object']['label']);
+		$this->assertSame('topic', $entities[0]['object']['entityType']);
+		$this->assertSame(['Utrecht'], $entities[0]['object']['aliases']);
+		$relations = array_values(array_filter($this->writes, static fn (array $write): bool => $write['schema'] === GraphService::RELATION_SCHEMA));
+		$this->assertCount(1, $relations);
+		$this->assertSame('regulates', $relations[0]['object']['predicate']);
+
+	}//end testUnusableProposalPartsAreSkipped()
 }//end class
