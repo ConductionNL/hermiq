@@ -66,6 +66,8 @@ use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -351,9 +353,10 @@ class CourseRecommendationEngine {
 		try {
 			$saved = $this->objectService->saveObject(
 				object: $payload,
-				register: self::HERMIQ_REGISTER,
-				schema: self::SCHEMA_COURSE_RECOMMENDATION,
-				uuid: $existingUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::HERMIQ_REGISTER, schema: self::SCHEMA_COURSE_RECOMMENDATION),
+					uuid: $existingUuid
+				)
 			);
 			$result = $saved->getObject();
 			$result['uuid'] = (string)$saved->getUuid();

@@ -69,6 +69,8 @@ namespace OCA\Hermiq\Repair;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IDBConnection;
@@ -699,9 +701,10 @@ class MigrateAgentData implements IRepairStep {
 		try {
 			$objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: $schema,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

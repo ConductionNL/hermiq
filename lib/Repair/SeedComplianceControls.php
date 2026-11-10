@@ -32,6 +32,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -140,8 +142,9 @@ class SeedComplianceControls implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $framework,
-					register: self::REGISTER_SLUG,
-					schema: self::FRAMEWORK_SCHEMA,
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::FRAMEWORK_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -166,8 +169,9 @@ class SeedComplianceControls implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $control,
-					register: self::REGISTER_SLUG,
-					schema: self::CONTROL_SCHEMA,
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONTROL_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);

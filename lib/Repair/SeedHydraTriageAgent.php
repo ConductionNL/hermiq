@@ -69,6 +69,8 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\SchemaMapper;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
@@ -259,8 +261,9 @@ class SeedHydraTriageAgent implements IRepairStep {
 
 			$objectService->saveObject(
 				object: $this->agentObject(grants: $grants),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

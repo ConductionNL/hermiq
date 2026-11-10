@@ -40,6 +40,9 @@ namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
+use OCA\OpenRegister\Service\Object\SaveActor;
 use OCP\Notification\IManager as INotificationManager;
 use DateTime;
 use DateTimeImmutable;
@@ -718,10 +721,11 @@ class ToolAccessRequestService {
 			// before every rule, so the requester must not own the request.
 			$saved = $objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::REQUEST_SCHEMA,
-				_rbac: false,
-				_unowned: true
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::REQUEST_SCHEMA),
+					actor: new SaveActor(unowned: true)
+				),
+				_rbac: false
 			);
 
 			return $this->asRecord(value: $saved);

@@ -33,6 +33,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -120,9 +122,10 @@ class TalkApprovalBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $approvalUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $approvalUuid
+				)
 			);
 
 			return true;
@@ -220,9 +223,10 @@ class TalkApprovalBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $approvalUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $approvalUuid
+				)
 			);
 		} catch (Throwable $e) {
 			// Provenance is an audit nicety; never fail a decision over it.

@@ -32,6 +32,8 @@ use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -123,8 +125,9 @@ class GoalService {
 
 		$saved = $this->objectService->saveObject(
 			object: $goal,
-			register: self::REGISTER,
-			schema: self::GOAL_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::GOAL_SCHEMA)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -442,9 +445,10 @@ class GoalService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER,
-			schema: self::GOAL_SCHEMA,
-			uuid: (string)$goal->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER, schema: self::GOAL_SCHEMA),
+				uuid: (string)$goal->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

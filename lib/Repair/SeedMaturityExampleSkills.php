@@ -49,6 +49,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -188,9 +190,10 @@ class SeedMaturityExampleSkills implements IRepairStep {
 
 					$objectService->saveObject(
 						object: $refreshed,
-						register: self::REGISTER_SLUG,
-						schema: self::SKILL_SCHEMA,
-						uuid: (string)$existing->getUuid(),
+						options: new ObjectSaveOptions(
+							target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+							uuid: (string)$existing->getUuid()
+						),
 						_rbac: false,
 						_multitenancy: false
 					);
@@ -204,8 +207,9 @@ class SeedMaturityExampleSkills implements IRepairStep {
 				// starts at seed time.
 				$objectService->saveObject(
 					object: $this->freshness->stampFresh(seed: $seed),
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -615,9 +619,10 @@ class SeedMaturityExampleSkills implements IRepairStep {
 
 		$objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

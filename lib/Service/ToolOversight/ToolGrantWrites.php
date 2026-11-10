@@ -29,6 +29,8 @@ namespace OCA\Hermiq\Service\ToolOversight;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Throwable;
 
@@ -84,9 +86,10 @@ class ToolGrantWrites {
 	public function saveAgent(array $payload, string $agentId): array {
 		$updated = $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $agentId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $agentId
+			)
 		);
 
 		return ($updated->getObject()['tools'] ?? $payload['tools']);
@@ -109,9 +112,10 @@ class ToolGrantWrites {
 		// caller checked that the acting user owns the agent the request is for.
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: 'toolAccessRequest',
-			uuid: $requestId,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: 'toolAccessRequest'),
+				uuid: $requestId
+			),
 			_rbac: false
 		);
 

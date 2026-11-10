@@ -39,6 +39,8 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
@@ -227,9 +229,10 @@ class SessionParticipantService {
 		$payload['participants'] = array_values($roster);
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				uuid: $uuid
+			)
 		);
 	}//end saveRoster()
 

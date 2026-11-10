@@ -35,6 +35,8 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 
@@ -272,9 +274,10 @@ class AiFeatureService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end acknowledge()
@@ -305,9 +308,10 @@ class AiFeatureService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end recordPublication()
@@ -335,9 +339,10 @@ class AiFeatureService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end recordWithdrawal()
@@ -408,9 +413,10 @@ class AiFeatureService {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
-				uuid: (string)$feature->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+					uuid: (string)$feature->getUuid()
+				)
 			);
 		} catch (HookStoppedException $e) {
 			// The lifecycle guard denied the transition (e.g. no DPO acknowledgement),

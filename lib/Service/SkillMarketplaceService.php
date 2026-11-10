@@ -43,6 +43,8 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Container\ContainerInterface;
@@ -216,8 +218,9 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $object,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
+			)
 		);
 
 	}//end installFromSource()
@@ -329,9 +332,10 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $existing->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $existing->getUuid()
+			)
 		);
 
 	}//end updateExisting()
@@ -518,9 +522,10 @@ class SkillMarketplaceService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: $uuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: $uuid
+			),
 			_rbac: ($systemWide === false),
 			_multitenancy: ($systemWide === false)
 		);

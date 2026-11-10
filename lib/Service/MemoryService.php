@@ -37,6 +37,8 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
 
@@ -155,8 +157,9 @@ class MemoryService {
 				'charBudget' => self::DEFAULT_MEMORY_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA)
+			)
 		);
 
 	}//end getMemory()
@@ -191,8 +194,9 @@ class MemoryService {
 				'charBudget' => self::DEFAULT_PROFILE_BUDGET,
 				'needsConsolidation' => false,
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::USER_PROFILE_SCHEMA
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::USER_PROFILE_SCHEMA)
+			)
 		);
 
 	}//end getUserProfile()
@@ -259,9 +263,10 @@ class MemoryService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end consolidateMemory()
@@ -544,9 +549,10 @@ class MemoryService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::MEMORY_SCHEMA,
-			uuid: (string)$memory->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MEMORY_SCHEMA),
+				uuid: (string)$memory->getUuid()
+			)
 		);
 
 	}//end correctMemoryEntry()
@@ -610,9 +616,10 @@ class MemoryService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 	}//end appendEntry()
@@ -659,9 +666,10 @@ class MemoryService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: $schema,
-			uuid: (string)$object->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema),
+				uuid: (string)$object->getUuid()
+			)
 		);
 
 		return true;
