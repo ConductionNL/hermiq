@@ -290,6 +290,24 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 	}//end testAPushNeedsTheApprovalAndTheRunsOwnRepository()
 
 	/**
+	 * A push of a branch the workspace does not have is invalid_argument, refused before any credential is fetched.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
+	 */
+	public function testAPushOfAMissingBranchIsRefusedBeforeTheCredential(): void {
+		$toolset = $this->opened(runId: 'run-a', owner: 'alice');
+		$this->approve(runId: 'run-a');
+
+		$push = $toolset->invoke(toolId: WorkspaceToolDescriptors::PUSH, arguments: ['repository' => 'example-org/example-app', 'branch' => 'no-such-branch']);
+
+		self::assertSame(WorkspaceException::INVALID_ARGUMENT, $push['error']['code'] ?? null);
+		self::assertSame('That branch does not exist in the workspace.', $push['error']['message'] ?? null, (string)json_encode($push));
+		self::assertSame([], $this->forgeCredentialsUsed, 'No credential was fetched for a missing branch.');
+	}//end testAPushOfAMissingBranchIsRefusedBeforeTheCredential()
+
+	/**
 	 * A push leaves a record naming run, agent, tool, owner, credential, approval, arguments and outcome.
 	 *
 	 * @return void
