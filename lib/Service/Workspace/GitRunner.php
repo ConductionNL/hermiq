@@ -61,6 +61,21 @@ class GitRunner {
 	];
 
 	/**
+	 * The fixed, prompt-free part of every run's environment, after PATH and HOME.
+	 *
+	 * @var array<string, string>
+	 */
+	private const FIXED_ENV = [
+		'GIT_CONFIG_NOSYSTEM' => '1',
+		'GIT_CONFIG_GLOBAL' => '/dev/null',
+		'GIT_TERMINAL_PROMPT' => '0',
+		'GIT_ASKPASS' => '',
+		'SSH_ASKPASS' => '',
+		'GIT_PAGER' => 'cat',
+		'LC_ALL' => 'C',
+	];
+
+	/**
 	 * Run git with the given arguments.
 	 *
 	 * @param array<int, string>    $arguments      The git arguments (after the hardening options).
@@ -121,20 +136,7 @@ class GitRunner {
 	 * @return array<string, string>
 	 */
 	private function environment(string $home, array $extraEnv): array {
-		return array_merge(
-			[
-				'PATH' => '/usr/local/bin:/usr/bin:/bin',
-				'HOME' => $home,
-				'GIT_CONFIG_NOSYSTEM' => '1',
-				'GIT_CONFIG_GLOBAL' => '/dev/null',
-				'GIT_TERMINAL_PROMPT' => '0',
-				'GIT_ASKPASS' => '',
-				'SSH_ASKPASS' => '',
-				'GIT_PAGER' => 'cat',
-				'LC_ALL' => 'C',
-			],
-			$extraEnv
-		);
+		return array_merge(['PATH' => '/usr/local/bin:/usr/bin:/bin', 'HOME' => $home], self::FIXED_ENV, $extraEnv);
 	}//end environment()
 
 	/**
@@ -148,6 +150,22 @@ class GitRunner {
 	 * @throws WorkspaceException git_failed when git cannot start, tool_timeout when the budget runs out.
 	 */
 	private function spawn(GitCommand $command, array $env): array {
+		$running = $this->start(command: $command, env: $env);
+		$running->feed(stdin: $command->stdin);
+		return $running->collect(deadline: (microtime(true) + $command->timeoutSeconds));
+	}//end spawn()
+
+	/**
+	 * Start git, hardened, with three pipes, in the command's directory.
+	 *
+	 * @param GitCommand            $command The invocation.
+	 * @param array<string, string> $env     The environment.
+	 *
+	 * @return GitProcess The started process.
+	 *
+	 * @throws WorkspaceException git_failed when git cannot start.
+	 */
+	private function start(GitCommand $command, array $env): GitProcess {
 		$pipes = [];
 		$process = proc_open(
 			array_merge(['git'], self::HARDENING, $command->arguments),
@@ -160,8 +178,6 @@ class GitRunner {
 			throw new WorkspaceException(errorCode: WorkspaceException::GIT_FAILED, message: 'The version control tool could not start.');
 		}
 
-		$running = new GitProcess(process: $process, pipes: $pipes);
-		$running->feed(stdin: $command->stdin);
-		return $running->collect(deadline: (microtime(true) + $command->timeoutSeconds));
-	}//end spawn()
+		return new GitProcess(process: $process, pipes: $pipes);
+	}//end start()
 }//end class
