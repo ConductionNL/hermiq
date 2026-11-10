@@ -53,7 +53,7 @@ final class ToolStep {
 	 *
 	 * @param string       $name      The tool that ran.
 	 * @param array|string $arguments The arguments as the chat may show them; a
-	 *                                 string when the output filter withheld them.
+	 *                                string when the output filter withheld them.
 	 */
 	public function __construct(
 		public readonly string $name,
