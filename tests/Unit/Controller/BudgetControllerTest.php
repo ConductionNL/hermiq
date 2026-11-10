@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use InvalidArgumentException;
 use OCA\Hermiq\Controller\BudgetController;
 use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Tests\Unit\Support\DeleteCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -503,7 +504,13 @@ class BudgetControllerTest extends TestCase {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->expects($this->once())
 			->method('deleteObject')
-			->with('b1', BudgetService::REGISTER_SLUG, BudgetService::BUDGET_SCHEMA, false, false)
+			->with(
+				$this->callback(
+					static fn (mixed $deletion): bool => DeleteCallShape::flat(args: [$deletion]) === ['b1', BudgetService::REGISTER_SLUG, BudgetService::BUDGET_SCHEMA, true, true]
+				),
+				false,
+				false
+			)
 			->willReturn(true);
 
 		$response = $this->controller(

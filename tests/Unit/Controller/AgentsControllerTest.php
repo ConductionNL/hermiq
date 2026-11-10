@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentsController;
+use OCA\Hermiq\Tests\Unit\Support\DeleteCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\Agent\AgentCatalog;
@@ -411,7 +412,8 @@ class AgentsControllerTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (mixed ...$args) use (&$deleted): bool {
+				[$uuid, , $schema] = DeleteCallShape::flat(args: $args);
 				$deleted[] = [$uuid, $schema];
 				return true;
 			}

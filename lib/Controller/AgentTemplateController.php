@@ -68,6 +68,8 @@ use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectDeletion;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -260,9 +262,10 @@ class AgentTemplateController extends Controller {
 			// wrapper on AgentTemplateService added nothing but a second name for this
 			// call. The authority to run it is the ownership guard four lines up.
 			$this->objectService->deleteObject(
-				uuid: $id,
-				register: AgentTemplateService::REGISTER_SLUG,
-				schema: AgentTemplateService::TEMPLATE_SCHEMA
+				deletion: new ObjectDeletion(
+					uuid: $id,
+					target: new ObjectFindTarget(register: AgentTemplateService::REGISTER_SLUG, schema: AgentTemplateService::TEMPLATE_SCHEMA)
+				)
 			);
 			return new JSONResponse([]);
 		} catch (Throwable $e) {

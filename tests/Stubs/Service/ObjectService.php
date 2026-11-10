@@ -26,6 +26,7 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Service\Object\ObjectDeletion;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -243,20 +244,18 @@ class ObjectService {
 	/**
 	 * Delete an object by UUID.
 	 *
-	 * @param string $uuid The object UUID.
-	 * @param mixed $register Register context.
-	 * @param mixed $schema Schema context.
+	 * @param ObjectDeletion $deletion The uuid, register, schema, user and permanence.
 	 * @param bool $_rbac Whether RBAC applies.
 	 * @param bool $_multitenancy Whether multi-tenancy applies.
+	 * @param bool $_retentionSweep Whether the retention sweep is deleting.
 	 *
 	 * @return bool
 	 */
 	public function deleteObject(
-		string $uuid,
-		mixed $register = null,
-		mixed $schema = null,
+		ObjectDeletion $deletion,
 		bool $_rbac = true,
 		bool $_multitenancy = true,
+		bool $_retentionSweep = false,
 	): bool {
 		return true;
 	}//end deleteObject()

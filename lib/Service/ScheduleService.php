@@ -50,6 +50,8 @@ use OCA\OpenRegister\Mcp\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectDeletion;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -2890,18 +2892,20 @@ class ScheduleService {
 				}
 
 				$this->objectService->deleteObject(
-					uuid: (string)$message->getUuid(),
-					register: self::REGISTER_SLUG,
-					schema: self::MESSAGE_SCHEMA,
+					deletion: new ObjectDeletion(
+						uuid: (string)$message->getUuid(),
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
+				deletion: new ObjectDeletion(
+					uuid: $conversationUuid,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -3391,9 +3395,10 @@ class ScheduleService {
 	 */
 	private function deleteSchedule(ObjectEntity $schedule): void {
 		$this->objectService->deleteObject(
-			uuid: (string)$schedule->getUuid(),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
+			deletion: new ObjectDeletion(
+				uuid: (string)$schedule->getUuid(),
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

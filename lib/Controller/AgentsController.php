@@ -47,6 +47,8 @@ use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectDeletion;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -512,9 +514,10 @@ class AgentsController extends Controller {
 			}
 
 			$this->objectService->deleteObject(
-				uuid: $id,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				deletion: new ObjectDeletion(
+					uuid: $id,
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+				)
 			);
 
 			$this->logger->info(

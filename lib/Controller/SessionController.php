@@ -51,6 +51,8 @@ use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectDeletion;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -913,9 +915,10 @@ class SessionController extends Controller {
 	private function purgeConversation(string $uuid): JSONResponse {
 		$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
 		$this->objectService->deleteObject(
-			uuid: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			deletion: new ObjectDeletion(
+				uuid: $uuid,
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			)
 		);
 
 		$this->logger->info(
@@ -1076,9 +1079,10 @@ class SessionController extends Controller {
 			}
 
 			$this->objectService->deleteObject(
-				uuid: (string)$object->getUuid(),
-				register: self::REGISTER_SLUG,
-				schema: $schema
+				deletion: new ObjectDeletion(
+					uuid: (string)$object->getUuid(),
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: $schema)
+				)
 			);
 		}
 	}//end deleteRelatedObjects()

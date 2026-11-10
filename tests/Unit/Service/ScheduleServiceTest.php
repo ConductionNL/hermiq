@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Tests\Unit\Support\DeleteCallShape;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -690,8 +691,8 @@ class ScheduleServiceTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid) use (&$deleted): bool {
-				$deleted[] = $uuid;
+			function (mixed ...$args) use (&$deleted): bool {
+				$deleted[] = DeleteCallShape::flat(args: $args)[0];
 				return true;
 			}
 		);
@@ -815,8 +816,8 @@ class ScheduleServiceTest extends TestCase {
 			}
 		);
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid) use (&$deleted): bool {
-				$deleted[] = $uuid;
+			function (mixed ...$args) use (&$deleted): bool {
+				$deleted[] = DeleteCallShape::flat(args: $args)[0];
 				return true;
 			}
 		);
@@ -3499,7 +3500,8 @@ class ScheduleServiceTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (mixed ...$args) use (&$deleted): bool {
+				[$uuid, , $schema] = DeleteCallShape::flat(args: $args);
 				$deleted[] = ['uuid' => $uuid, 'schema' => (string)$schema];
 				return true;
 			}
