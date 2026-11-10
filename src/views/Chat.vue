@@ -848,6 +848,7 @@ import {
 } from '../utils/instructionVariables.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
+import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -1118,45 +1119,9 @@ export default {
 					{ key: 'archive', heading: '', sessions: this.visibleSessions },
 				]
 			}
-
-			const human = []
-			const shared = []
-			const automated = []
-			for (const session of this.visibleSessions) {
-				if (session.role === 'participant') {
-					shared.push(session)
-					continue
-				}
-				;(this.isAutomated(session) ? automated : human).push(session)
-			}
-
-			const groups = []
-			if (human.length > 0) {
-				groups.push({
-					key: 'human',
-					heading: this.t('hermiq', 'Started by you'),
-					sessions: human,
-				})
-			}
-			if (shared.length > 0) {
-				groups.push({
-					key: 'shared',
-					heading: this.t('hermiq', 'Shared with me'),
-					sessions: shared,
-				})
-			}
-			if (automated.length > 0) {
-				groups.push({
-					key: 'automated',
-					heading: this.t('hermiq', 'Started automatically'),
-					sessions: automated,
-				})
-			}
-			// One group needs no heading: the tab label already says what it is.
-			if (groups.length === 1) {
-				groups[0].heading = ''
-			}
-			return groups
+			return headedSessionGroups(
+				partitionSessions(this.visibleSessions, (session) => this.isAutomated(session)),
+			)
 		},
 
 		/**
@@ -1864,29 +1829,11 @@ export default {
 		 */
 		async handleSend() {
 			const text = this.currentMessage.trim()
-			if (!text || this.sending || !this.activeSession) {
+			if (!this.mayStartTurn(text) || !(await this.startAnswersSaved())) {
 				return
 			}
-			if (this.startFields.length > 0 && !(await this.saveStartAnswers())) {
-				return
-			}
-			const attached = this.pendingAttachments
-			this.currentMessage = ''
-			this.pendingAttachments = []
-			this.sendError = ''
-			this.attachmentNotices = []
-			this.attachmentNoticesFor = ''
-			this.sending = true
-
-			// Optimistic user bubble (replaced by server truth after the turn).
-			this.messages.push({
-				id: `optimistic-${Date.now()}`,
-				role: 'user',
-				content: text,
-				attachments: attached,
-				created: new Date().toISOString(),
-			})
-			this.scrollToBottom()
+			const attached = this.takeComposerAttachments()
+			this.showOptimisticTurn(text, attached)
 
 			// Only the id and where it came from go out: the server reads the file
 			// itself, as the person sending, and takes its name and type from Files.
@@ -1902,23 +1849,106 @@ export default {
 					await this.sendViaStream(text, uuid, attachments)
 				}
 			} catch (e) {
-				this.sendError =
-					e?.response?.data?.message
-					|| e?.message
-					|| this.t('hermiq', 'Failed to get a response.')
-				this.sendNeedsCourse =
-					(e?.code || e?.response?.data?.errorCode)
-					=== 'ai_literacy_required'
+				this.showSendFailure(e)
 			} finally {
-				this.isStreaming = false
-				this.streamingText = ''
-				this.streamingTools = []
-				this.sending = false
-				// Server truth: persisted ids (feedback), sources, generated title.
-				await this.refreshThread(uuid)
-				this.scrollToBottom()
-				this.focusComposer()
+				await this.finishTurn(uuid)
 			}
+		},
+
+		/**
+		 * Whether a turn can start: there is text, no turn in flight, and a session.
+		 *
+		 * @param {string} text The trimmed message.
+		 * @return {boolean} True when it can.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		mayStartTurn(text) {
+			return Boolean(text) && !this.sending && Boolean(this.activeSession)
+		},
+
+		/**
+		 * Save the session's start answers first, when the agent asks for any.
+		 *
+		 * @return {Promise<boolean>} True when the turn may go on.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		async startAnswersSaved() {
+			if (this.startFields.length === 0) {
+				return true
+			}
+			return Boolean(await this.saveStartAnswers())
+		},
+
+		/**
+		 * Empty the composer and the turn's notices, mark the turn in flight, and
+		 * hand back the attachments it carries.
+		 *
+		 * @return {Array<object>} The pending attachments.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		takeComposerAttachments() {
+			const attached = this.pendingAttachments
+			this.currentMessage = ''
+			this.pendingAttachments = []
+			this.sendError = ''
+			this.attachmentNotices = []
+			this.attachmentNoticesFor = ''
+			this.sending = true
+			return attached
+		},
+
+		/**
+		 * The optimistic user bubble (replaced by server truth after the turn).
+		 *
+		 * @param {string} text The message.
+		 * @param {Array<object>} attached Its attachments.
+		 * @return {void}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		showOptimisticTurn(text, attached) {
+			this.messages.push({
+				id: `optimistic-${Date.now()}`,
+				role: 'user',
+				content: text,
+				attachments: attached,
+				created: new Date().toISOString(),
+			})
+			this.scrollToBottom()
+		},
+
+		/**
+		 * Show why the turn failed, and whether the AI-literacy course is the way on.
+		 *
+		 * @param {object} e What was thrown.
+		 * @return {void}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		showSendFailure(e) {
+			this.sendError =
+				e?.response?.data?.message
+				|| e?.message
+				|| this.t('hermiq', 'Failed to get a response.')
+			this.sendNeedsCourse =
+				(e?.code || e?.response?.data?.errorCode)
+				=== 'ai_literacy_required'
+		},
+
+		/**
+		 * End the turn: stop streaming, then load the server truth (persisted ids
+		 * for feedback, sources, generated title) and return to the composer.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		async finishTurn(uuid) {
+			this.isStreaming = false
+			this.streamingText = ''
+			this.streamingTools = []
+			this.sending = false
+			await this.refreshThread(uuid)
+			this.scrollToBottom()
+			this.focusComposer()
 		},
 
 		/**
