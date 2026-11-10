@@ -36,6 +36,19 @@ const { default: AgentExportModal } = await import('../../src/modals/AgentExport
 const { default: AgentVersionHistoryDialog } = await import('../../src/dialogs/agents/AgentVersionHistoryDialog.vue')
 
 /**
+ * One option of a component, from the component itself or one of its mixins.
+ *
+ * @param {object} component The component.
+ * @param {string} kind `computed` or `props`.
+ * @param {string} name The option name.
+ * @return {*} The option.
+ */
+function option(component, kind, name) {
+	const owner = [component, ...(component.mixins || [])].find((entry) => entry[kind]?.[name] !== undefined)
+	return owner[kind][name]
+}
+
+/**
  * Mount a dialog on a route whose `:id` is `route-1`.
  *
  * @param {object} component The component.
@@ -65,12 +78,12 @@ describe('agent dialogs resolve their agent', () => {
 		['AgentExportModal', AgentExportModal],
 		['AgentVersionHistoryDialog', AgentVersionHistoryDialog],
 	])('%s takes the prop, else the route id', (name, component) => {
-		const resolve = component.computed.resolvedAgentId
+		const resolve = option(component, 'computed', 'resolvedAgentId')
 		expect(resolve.call({ agentId: 'prop-1', $route: { params: { id: 'route-1' } } })).toBe('prop-1')
 		expect(resolve.call({ agentId: '', $route: { params: { id: 'route-1' } } })).toBe('route-1')
 		expect(resolve.call({ agentId: '', $route: undefined })).toBe('')
-		expect(component.props.show.default).toBe(false)
-		expect(component.props.agentId.default).toBe('')
+		expect(option(component, 'props', 'show').default).toBe(false)
+		expect(option(component, 'props', 'agentId').default).toBe('')
 	})
 })
 
