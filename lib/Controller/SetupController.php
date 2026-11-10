@@ -206,32 +206,60 @@ class SetupController extends Controller {
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function saveConfig(): JSONResponse {
-		// 🔴 THE DATASET IS VALIDATED BEFORE IT IS STORED. The allow-list above
-		// keeps this endpoint from writing arbitrary keys; it says nothing
-		// about the VALUE. The load step reads this one back and hands it to
-		// the importer, so an unknown value would surface one step later as a
-		// failed import with no clue why.
-		$dataset = $this->request->getParam(self::DATASET_KEY);
-		if ($dataset !== null) {
-			$named = 'that';
-			if (is_scalar($dataset) === true) {
-				$named = (string)$dataset;
-			}
-
-			$known = array_column($this->demoDataService->listChoices(), 'id');
-			if (in_array($named, $known, true) === false) {
-				return new JSONResponse(
-					data: ['success' => false, 'message' => 'No dataset is called "' . $named . '".'],
-					statusCode: Http::STATUS_BAD_REQUEST,
-				);
-			}
+		$refusal = $this->postedDatasetRefusal();
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		foreach ($this->request->getParams() as $key => $value) {
-			if (in_array($key, self::WRITABLE_KEYS, true) === false) {
-				continue;
-			}
+		$this->storeWritable(params: $this->request->getParams());
 
+		return new JSONResponse(data: ['success' => true]);
+	}//end saveConfig()
+
+	/**
+	 * Refuse a posted dataset no dataset answers to; no dataset posted is no refusal.
+	 *
+	 * 🔴 THE DATASET IS VALIDATED BEFORE IT IS STORED. The allow-list keeps
+	 * saveConfig() from writing arbitrary keys; it says nothing about the VALUE.
+	 * The load step reads this one back and hands it to the importer, so an
+	 * unknown value would surface one step later as a failed import with no clue why.
+	 *
+	 * @return JSONResponse|null The 400 naming the dataset, or null.
+	 *
+	 * @spec exclude First-time-setup config persistence; no behavioural spec.
+	 */
+	private function postedDatasetRefusal(): ?JSONResponse {
+		$dataset = $this->request->getParam(self::DATASET_KEY);
+		if ($dataset === null) {
+			return null;
+		}
+
+		$named = 'that';
+		if (is_scalar($dataset) === true) {
+			$named = (string)$dataset;
+		}
+
+		if (in_array($named, array_column($this->demoDataService->listChoices(), 'id'), true) === true) {
+			return null;
+		}
+
+		return new JSONResponse(
+			data: ['success' => false, 'message' => 'No dataset is called "' . $named . '".'],
+			statusCode: Http::STATUS_BAD_REQUEST,
+		);
+	}//end postedDatasetRefusal()
+
+	/**
+	 * Store every allow-listed parameter; a non-scalar value is stored empty.
+	 *
+	 * @param array<array-key, mixed> $params The request parameters.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude First-time-setup config persistence; no behavioural spec.
+	 */
+	private function storeWritable(array $params): void {
+		foreach (array_intersect_key($params, array_flip(self::WRITABLE_KEYS)) as $key => $value) {
 			$stored = '';
 			if (is_scalar($value) === true) {
 				$stored = (string)$value;
@@ -243,9 +271,7 @@ class SetupController extends Controller {
 				$stored,
 			);
 		}
-
-		return new JSONResponse(data: ['success' => true]);
-	}//end saveConfig()
+	}//end storeWritable()
 
 	/**
 	 * Run a privileged server-side setup action (admin-only).
