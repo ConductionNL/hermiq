@@ -42,7 +42,6 @@ use OCA\Hermiq\Service\OrganisationOpsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -315,24 +314,17 @@ class OrganisationOpsController extends Controller {
 	}//end linkedRunIdsParam()
 
 	/**
-	 * The signed-in user's uid when they may perform the action, otherwise the refusal:
-	 * 401 when no one is signed in (before any action check), 403 with the refusal
-	 * message when the action is not theirs.
+	 * The signed-in user's uid when they may perform the action, otherwise the
+	 * 401/403 refusal (see ActionGate).
 	 *
 	 * @param string $action The ADR-023 action name to require.
 	 *
 	 * @return string|JSONResponse
 	 */
 	private function authorise(string $action): string|JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: $action);
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$user = (new ActionGate(userSession: $this->userSession, actionAuth: $this->actionAuth))->authorise(action: $action);
+		if ($user instanceof JSONResponse) {
+			return $user;
 		}
 
 		return $user->getUID();
