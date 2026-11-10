@@ -36,6 +36,7 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
@@ -659,17 +660,17 @@ class SkillLearningsCaptureServiceTest extends TestCase {
 		);
 
 		$recorded = null;
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			static function (ObjectEntity $object, string $action, array $context = []) use (&$recorded): AuditTrail {
+		$this->auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			static function (ObjectAuditEvent $event) use (&$recorded): AuditTrail {
 				$recorded = [
-					'objectUuid' => (string)$object->getUuid(),
-					'action' => $action,
-					'context' => $context,
+					'objectUuid' => (string)$event->object->getUuid(),
+					'action' => $event->action,
+					'context' => $event->context,
 				];
 
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);

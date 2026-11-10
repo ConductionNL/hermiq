@@ -37,6 +37,7 @@ namespace OCA\Hermiq\Service\Agent;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
@@ -133,15 +134,17 @@ class GrantWaiverAudit {
 		}
 
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $agent,
-				action: self::ACTION,
-				context: [
-					'added' => $added,
-					'removed' => $removed,
-					'actor' => $this->actor(),
-					'at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $agent,
+					action: self::ACTION,
+					context: [
+						'added' => $added,
+						'removed' => $removed,
+						'actor' => $this->actor(),
+						'at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

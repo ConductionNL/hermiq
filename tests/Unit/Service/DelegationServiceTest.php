@@ -49,6 +49,7 @@ use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -197,11 +198,11 @@ class DelegationServiceTest extends TestCase {
 		$budgetService = ($budgetService ?? $this->createMock(BudgetService::class));
 
 		$auditTrailMapper = ($auditTrailMapper ?? $this->createMock(AuditTrailMapper::class));
-		$auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			static function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
+		$auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			static function (ObjectAuditEvent $event): AuditTrail {
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);
@@ -237,7 +238,7 @@ class DelegationServiceTest extends TestCase {
 		$scheduleService->expects($this->never())->method('runAgentAsOwner');
 
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$service = $this->service(
 			objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
@@ -811,7 +812,7 @@ class DelegationServiceTest extends TestCase {
 		$target = $this->agent('agent-b', 'org-x');
 
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$service = $this->service(
 			objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
@@ -856,14 +857,14 @@ class DelegationServiceTest extends TestCase {
 		$capturedContext = null;
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
 		$auditTrailMapper->expects($this->once())
-			->method('createAuditTrailEntry')
+			->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $ctx = []) use (&$capturedObject, &$capturedAction, &$capturedContext): AuditTrail {
-					$capturedObject = $object;
-					$capturedAction = $action;
-					$capturedContext = $ctx;
+				function (ObjectAuditEvent $event) use (&$capturedObject, &$capturedAction, &$capturedContext): AuditTrail {
+					$capturedObject = $event->object;
+					$capturedAction = $event->action;
+					$capturedContext = $event->context;
 					$entry = new AuditTrail();
-					$entry->setAction($action);
+					$entry->setAction($event->action);
 					return $entry;
 				}
 			);
@@ -955,11 +956,11 @@ class DelegationServiceTest extends TestCase {
 
 		$capturedContext = null;
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $ctx = []) use (&$capturedContext): AuditTrail {
-				$capturedContext = $ctx;
+		$auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$capturedContext): AuditTrail {
+				$capturedContext = $event->context;
 				$entry = new AuditTrail();
-				$entry->setAction($action);
+				$entry->setAction($event->action);
 				return $entry;
 			}
 		);

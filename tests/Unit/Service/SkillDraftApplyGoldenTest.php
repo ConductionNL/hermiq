@@ -39,6 +39,7 @@ use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -221,9 +222,9 @@ class SkillDraftApplyGoldenTest extends TestCase {
 
 		$audit = $this->createMock(originalClassName: AuditTrailMapper::class);
 		$auditFails = ($this->random->getInt(0, 9) === 0);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []) use (&$calls, $auditFails): AuditTrail {
-				$calls[] = ['createAuditTrailEntry', $object->getUuid(), $action, $context];
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$calls, $auditFails): AuditTrail {
+				$calls[] = ['recordObjectEvent', $event->object->getUuid(), $event->action, $event->context];
 				if ($auditFails === true) {
 					throw new RuntimeException('audit down');
 				}

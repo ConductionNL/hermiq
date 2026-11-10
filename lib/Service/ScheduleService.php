@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Mcp\Db\Conversation;
@@ -740,13 +741,15 @@ class ScheduleService {
 	 */
 	private function writeOffboardingAudit(ObjectEntity $schedule, string $uid): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: [
-					'status' => 'paused_offboarding',
-					'offboardedUser' => $uid,
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $schedule,
+					action: 'run',
+					context: [
+						'status' => 'paused_offboarding',
+						'offboardedUser' => $uid,
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -1950,10 +1953,12 @@ class ScheduleService {
 			);
 		}
 
-		$this->auditTrailMapper->createAuditTrailEntry(
-			object: $schedule,
-			action: 'run',
-			context: $context
+		$this->auditTrailMapper->recordObjectEvent(
+			event: new ObjectAuditEvent(
+				object: $schedule,
+				action: 'run',
+				context: $context
+			)
 		);
 	}//end persistRunAudit()
 

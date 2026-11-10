@@ -46,6 +46,7 @@ use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -387,10 +388,12 @@ class SkillVersionController extends Controller {
 	private function writeAudit(ObjectEntity $skill, array $context): void {
 		try {
 			$context['at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $skill,
-				action: 'skill-version',
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $skill,
+					action: 'skill-version',
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

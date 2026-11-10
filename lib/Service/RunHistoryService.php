@@ -78,13 +78,13 @@ class RunHistoryService {
 	 * WHY read by `object_uuid` via AuditTrailMapper::findAll() rather than
 	 * ObjectService::getLogs(): OpenRegister's `getLogs()` filters audit rows by the
 	 * object's INTEGER id (`GetObject::findLogs()` sets `$filters['object'] = getId()`),
-	 * but the app-writable `AuditTrailMapper::createAuditTrailEntry()` we use for the
+	 * but the app-writable `AuditTrailMapper::recordObjectEvent()` we use for the
 	 * per-run entry sets `object_uuid`/`register`/`schema` yet NEVER sets the integer
 	 * `object` column — so our run rows have `object = NULL` and `getLogs()` never
 	 * matches them (confirmed in the DB: auto create/update rows carry object=<id>, our
 	 * `run` row carries object=NULL). Reading by the string `object_uuid` (which
 	 * findAll() special-cases as a valid filter column) matches our entries reliably.
-	 * This is an upstream OR omission (createAuditTrailEntry should also setObject) —
+	 * This is an upstream OR omission (recordObjectEvent should also setObject) —
 	 * see design.md Risks; the audit read is NOT tenant-filtered here, so the caller's
 	 * owner check (RunHistoryController) remains the security boundary.
 	 *

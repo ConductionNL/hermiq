@@ -36,6 +36,7 @@ use OCA\Hermiq\Service\FlowAgentRunService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -106,7 +107,7 @@ class FlowAgentRunServiceTest extends TestCase {
 	private AgentVersionService $agentVersionService;
 
 	/**
-	 * Recorded createAuditTrailEntry() calls: each ['action' => ..., 'context' => ...].
+	 * Recorded recordObjectEvent() calls: each ['action' => ..., 'context' => ...].
 	 *
 	 * @var array<int, array<string, mixed>>
 	 */
@@ -137,12 +138,12 @@ class FlowAgentRunServiceTest extends TestCase {
 
 		$this->auditCalls = [];
 		$this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->auditCalls[] = ['action' => $action, 'context' => $context];
+		$this->auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->auditCalls[] = ['action' => $event->action, 'context' => $event->context];
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);

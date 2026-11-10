@@ -48,6 +48,7 @@ use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1940,10 +1941,12 @@ class SkillConsolidationService {
 	private function auditDraft(ObjectEntity $draft, array $context): void {
 		try {
 			$context['at'] = $this->now();
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $draft,
-				action: self::AUDIT_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $draft,
+					action: self::AUDIT_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -1970,10 +1973,12 @@ class SkillConsolidationService {
 	private function auditSkill(ObjectEntity $skill, array $context): void {
 		try {
 			$context['at'] = $this->now();
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $skill,
-				action: self::AUDIT_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $skill,
+					action: self::AUDIT_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -2000,17 +2005,19 @@ class SkillConsolidationService {
 	 */
 	private function recordConsolidationUsage(ObjectEntity $draft, string $prompt, string $response): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $draft,
-				action: 'run',
-				context: [
-					'status' => 'consolidation',
-					'usage' => [
-						'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
-						'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
-					],
-					'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $draft,
+					action: 'run',
+					context: [
+						'status' => 'consolidation',
+						'usage' => [
+							'promptTokens' => (int)ceil(strlen($prompt) / self::CHARS_PER_TOKEN),
+							'completionTokens' => (int)ceil(strlen($response) / self::CHARS_PER_TOKEN),
+						],
+						'summary' => 'Skill consolidation LLM pass (skill-self-improvement).',
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

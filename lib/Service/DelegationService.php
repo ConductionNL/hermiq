@@ -46,6 +46,7 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -617,10 +618,12 @@ class DelegationService {
 				'summary' => $this->redactionService->redact($summary),
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $auditTarget,
-				action: self::RUN_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $auditTarget,
+					action: self::RUN_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

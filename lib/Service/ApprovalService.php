@@ -89,6 +89,7 @@ use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
@@ -2038,10 +2039,12 @@ class ApprovalService {
 				$context['reason'] = $this->redactionService->redact($reason);
 			}
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $approval,
-				action: $action,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $approval,
+					action: $action,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

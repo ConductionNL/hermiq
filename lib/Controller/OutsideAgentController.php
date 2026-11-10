@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\OutsideAgent\OutsideAgentGateway;
 use OCA\Hermiq\Service\OutsideAgent\OutsideCallRefusedException;
 use OCA\Hermiq\Service\OutsideAgent\OutsideToolSurface;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -185,15 +186,17 @@ class OutsideAgentController extends Controller {
 			$marker = new ObjectEntity();
 			$marker->setUuid('outside-agent');
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $marker,
-				action: self::AUDIT_ACTION,
-				context: [
-					'principal' => $principal,
-					'tool' => $toolId,
-					'outcome' => $outcome,
-					'gate' => $gate,
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $marker,
+					action: self::AUDIT_ACTION,
+					context: [
+						'principal' => $principal,
+						'tool' => $toolId,
+						'outcome' => $outcome,
+						'gate' => $gate,
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
