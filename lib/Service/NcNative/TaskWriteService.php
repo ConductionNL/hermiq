@@ -115,7 +115,7 @@ class TaskWriteService {
 	}//end canComplete()
 
 	/**
-	 * List tasks from every task list the user can read, at most fifty.
+	 * List the user's tasks across their task lists.
 	 *
 	 * @param string $uid The acting user id.
 	 * @param array<string, mixed> $arguments status, dueBefore, taskListUri, limit.
@@ -125,9 +125,7 @@ class TaskWriteService {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-list-the-acting-users-tasks-req-nctask-001
 	 */
 	public function listTasks(string $uid, array $arguments): array {
-		$status = (string)($arguments['status'] ?? 'open');
-		$dueBefore = trim((string)($arguments['dueBefore'] ?? ''));
-		if (in_array($status, ['open', 'completed', 'all'], true) === false || $this->isDateOrEmpty(value: $dueBefore) === false) {
+		if ($this->validListArguments(arguments: $arguments) === false) {
 			return $this->err(code: 'invalid_argument', message: 'status is open, completed or all; dueBefore is an ISO-8601 date.');
 		}
 
@@ -136,21 +134,8 @@ class TaskWriteService {
 			return $this->lists->unavailable();
 		}
 
-		$before = null;
-		if ($dueBefore !== '') {
-			$before = new DateTimeImmutable($dueBefore);
-		}
-
-		try {
-			$tasks = $this->reader->read(
-				lists: $lists,
-				status: $status,
-				before: $before,
-				listUri: trim((string)($arguments['taskListUri'] ?? ''))
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning('Hermiq: task listing failed', ['exception' => $e]);
-
+		$tasks = $this->readTasks(lists: $lists, arguments: $arguments);
+		if ($tasks === null) {
 			return $this->err(code: 'tasks_read_failed', message: 'Your tasks could not be read.');
 		}
 
@@ -159,6 +144,51 @@ class TaskWriteService {
 		return ['tasks' => array_slice($tasks, 0, $limit), 'truncated' => count($tasks) > $limit];
 
 	}//end listTasks()
+
+	/**
+	 * Whether the listing's status is open, completed or all and its dueBefore empty or an ISO-8601 date.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return bool True when both are acceptable.
+	 */
+	private function validListArguments(array $arguments): bool {
+		$status = (string)($arguments['status'] ?? 'open');
+		$dueBefore = trim((string)($arguments['dueBefore'] ?? ''));
+
+		return in_array($status, ['open', 'completed', 'all'], true) === true && $this->isDateOrEmpty(value: $dueBefore) === true;
+
+	}//end validListArguments()
+
+	/**
+	 * Read the tasks of the given lists with the listing's filters; a failure is logged.
+	 *
+	 * @param array<int, ICalendar> $lists The user's task lists.
+	 * @param array<string, mixed> $arguments status, dueBefore, taskListUri.
+	 *
+	 * @return array<int, array<string, mixed>>|null The tasks, or null when they could not be read.
+	 */
+	private function readTasks(array $lists, array $arguments): ?array {
+		$dueBefore = trim((string)($arguments['dueBefore'] ?? ''));
+		$before = null;
+		if ($dueBefore !== '') {
+			$before = new DateTimeImmutable($dueBefore);
+		}
+
+		try {
+			return $this->reader->read(
+				lists: $lists,
+				status: (string)($arguments['status'] ?? 'open'),
+				before: $before,
+				listUri: trim((string)($arguments['taskListUri'] ?? ''))
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq: task listing failed', ['exception' => $e]);
+
+			return null;
+		}
+
+	}//end readTasks()
 
 	/**
 	 * Create a marked task in one of the user's own task lists.
@@ -176,6 +206,27 @@ class TaskWriteService {
 			return $invalid;
 		}
 
+		$target = $this->createTarget(uid: $uid, arguments: $arguments);
+		if (is_array($target) === true) {
+			return $target;
+		}
+
+		$creation = new TaskCreation(target: $target, taskUid: $this->newUid());
+		$creation->fields = $arguments;
+
+		return $this->storeTask(creation: $creation);
+
+	}//end createTask()
+
+	/**
+	 * The user's own writable task list a new task goes to: the one named, or the first.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param array<string, mixed> $arguments The tool arguments (taskListUri).
+	 *
+	 * @return ICreateFromString|array<string, mixed> The list, or an error envelope.
+	 */
+	private function createTarget(string $uid, array $arguments): ICreateFromString|array {
 		$own = $this->lists->ownWritable(uid: $uid, listUri: trim((string)($arguments['taskListUri'] ?? '')));
 		if (isset($own['error']) === true) {
 			return $own;
@@ -186,32 +237,57 @@ class TaskWriteService {
 			return $this->err(code: 'no_task_list', message: 'You have no task list. Create one in the Tasks app.');
 		}
 
-		$taskUid = $this->newUid();
+		return $target;
+
+	}//end createTarget()
+
+	/**
+	 * Build the marked object and store it under a fresh name; a failed write is logged.
+	 *
+	 * @param TaskCreation $creation The creation.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 */
+	private function storeTask(TaskCreation $creation): array {
 		$ics = $this->taskObject->build(
-			taskUid: $taskUid,
-			fields: $arguments,
-			markValue: $this->marker->objectPropertyValue(agentId: (string)($arguments['agentId'] ?? '')),
+			taskUid: $creation->taskUid,
+			fields: $creation->fields,
+			markValue: $this->marker->objectPropertyValue(agentId: (string)($creation->fields['agentId'] ?? '')),
 			now: new DateTimeImmutable()
 		);
 
 		try {
-			$target->createFromString('hermiq-' . bin2hex(random_bytes(8)) . '.ics', $ics);
+			$creation->target->createFromString('hermiq-' . bin2hex(random_bytes(8)) . '.ics', $ics);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq: task creation failed', ['exception' => $e]);
 
 			return $this->err(code: 'task_write_failed', message: 'The task could not be created.');
 		}
 
+		return $this->created(creation: $creation);
+
+	}//end storeTask()
+
+	/**
+	 * The result of a created task: its uid, trimmed summary, list and artefact.
+	 *
+	 * @param TaskCreation $creation The creation.
+	 *
+	 * @return array<string, mixed> The result.
+	 */
+	private function created(TaskCreation $creation): array {
+		$target = $creation->target;
+
 		return [
 			'created' => true,
-			'uid' => $taskUid,
-			'summary' => trim((string)$arguments['summary']),
+			'uid' => $creation->taskUid,
+			'summary' => trim((string)$creation->fields['summary']),
 			'list' => $target->getUri(),
 			'listName' => $target->getDisplayName(),
-			'artefact' => ['type' => 'task', 'id' => $target->getUri() . '/' . $taskUid],
+			'artefact' => ['type' => 'task', 'id' => $target->getUri() . '/' . $creation->taskUid],
 		];
 
-	}//end createTask()
+	}//end created()
 
 	/**
 	 * Complete one of the user's tasks, keeping everything else they wrote.
@@ -224,6 +300,28 @@ class TaskWriteService {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
 	 */
 	public function completeTask(string $uid, array $arguments): array {
+		$completion = $this->startCompletion(arguments: $arguments);
+		if (is_array($completion) === true) {
+			return $completion;
+		}
+
+		$own = $this->lists->ownWritable(uid: $uid, listUri: trim((string)($arguments['taskListUri'] ?? '')));
+		if (isset($own['error']) === true) {
+			return $own;
+		}
+
+		return $this->completeFirstFound(completion: $completion, own: $own);
+
+	}//end completeTask()
+
+	/**
+	 * Start a completion: the DAV backend must be there and the task uid given.
+	 *
+	 * @param array<string, mixed> $arguments uid, agentId.
+	 *
+	 * @return TaskCompletion|array<string, mixed> The completion, or an error envelope.
+	 */
+	private function startCompletion(array $arguments): TaskCompletion|array {
 		$backend = $this->lists->davBackend();
 		if ($backend === null) {
 			return $this->err(code: 'tasks_not_writable', message: 'Completing tasks is not available on this instance.');
@@ -234,57 +332,75 @@ class TaskWriteService {
 			return $this->err(code: 'invalid_argument', message: 'The task uid is required; take it from listTasks.');
 		}
 
-		$own = $this->lists->ownWritable(uid: $uid, listUri: trim((string)($arguments['taskListUri'] ?? '')));
-		if (isset($own['error']) === true) {
-			return $own;
-		}
+		$completion = new TaskCompletion(backend: $backend, taskUid: $taskUid);
+		$completion->agentId = (string)($arguments['agentId'] ?? '');
 
+		return $completion;
+
+	}//end startCompletion()
+
+	/**
+	 * Complete the task in the first own list that holds it.
+	 *
+	 * @param TaskCompletion $completion The completion.
+	 * @param array<int|string, mixed> $own The user's own writable lists.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 */
+	private function completeFirstFound(TaskCompletion $completion, array $own): array {
 		foreach ($own as $list) {
-			$rows = $list->search('', [], ['types' => ['VTODO'], 'uid' => $taskUid], 1);
+			$rows = $list->search('', [], ['types' => ['VTODO'], 'uid' => $completion->taskUid], 1);
 			if (isset($rows[0]['uri']) === true) {
-				return $this->writeCompleted(
-					backend: $backend,
-					list: $list,
-					objectUri: (string)$rows[0]['uri'],
-					taskUid: $taskUid,
-					agentId: (string)($arguments['agentId'] ?? '')
-				);
+				$completion->list = $list;
+				$completion->objectUri = (string)$rows[0]['uri'];
+
+				return $this->writeCompleted(completion: $completion);
 			}
 		}
 
 		return $this->notFound();
 
-	}//end completeTask()
+	}//end completeFirstFound()
 
 	/**
 	 * Read, rewrite and store one task object through the DAV backend.
 	 *
-	 * @param object $backend The DAV backend.
-	 * @param ICalendar $list The user's own list holding the task.
-	 * @param string $objectUri The object's uri in that list.
-	 * @param string $taskUid The task uid.
-	 * @param string $agentId The run's agent id, for the mark.
+	 * @param TaskCompletion $completion The completion, with the list and object found.
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 */
-	private function writeCompleted(object $backend, ICalendar $list, string $objectUri, string $taskUid, string $agentId): array {
-		$calendarId = $this->lists->calendarId(list: $list);
-		$stored = $backend->getCalendarObject($calendarId, $objectUri);
+	private function writeCompleted(TaskCompletion $completion): array {
+		$completion->calendarId = $this->lists->calendarId(list: $completion->list);
+		$stored = $completion->backend->getCalendarObject($completion->calendarId, $completion->objectUri);
 		if (is_array($stored) === false || is_string($stored['calendardata'] ?? null) === false) {
 			return $this->notFound();
 		}
 
 		$rewritten = $this->taskObject->complete(
 			ics: $stored['calendardata'],
-			markValue: $this->marker->objectPropertyValue(agentId: $agentId),
+			markValue: $this->marker->objectPropertyValue(agentId: $completion->agentId),
 			now: new DateTimeImmutable()
 		);
 		if ($rewritten === null) {
 			return $this->err(code: 'artefact_not_marked', message: 'The task could not be marked, so it was not changed.');
 		}
 
+		return $this->storeCompleted(completion: $completion, rewritten: $rewritten);
+
+	}//end writeCompleted()
+
+	/**
+	 * Store the rewritten object under its own uri; a failed write is logged.
+	 *
+	 * @param TaskCompletion $completion The completion, with the list and object found.
+	 * @param string $rewritten The completed object.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 */
+	private function storeCompleted(TaskCompletion $completion, string $rewritten): array {
+		$list = $completion->list;
 		try {
-			$backend->updateCalendarObject($calendarId, $objectUri, $rewritten);
+			$completion->backend->updateCalendarObject($completion->calendarId, $completion->objectUri, $rewritten);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq: task completion failed', ['exception' => $e]);
 
@@ -293,12 +409,12 @@ class TaskWriteService {
 
 		return [
 			'completed' => true,
-			'uid' => $taskUid,
+			'uid' => $completion->taskUid,
 			'list' => $list->getUri(),
-			'artefact' => ['type' => 'task', 'id' => $list->getUri() . '/' . $taskUid],
+			'artefact' => ['type' => 'task', 'id' => $list->getUri() . '/' . $completion->taskUid],
 		];
 
-	}//end writeCompleted()
+	}//end storeCompleted()
 
 	/**
 	 * Validate create arguments.
