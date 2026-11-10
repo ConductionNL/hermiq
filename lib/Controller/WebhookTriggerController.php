@@ -51,6 +51,7 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\WebhookAgentRunJob;
 use OCA\Hermiq\Service\WebhookSecretService;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -139,6 +140,29 @@ class WebhookTriggerController extends Controller {
 			return $this->unauthorizedResponse();
 		}
 
+		$payload = $this->readPayload();
+		if ($payload instanceof JSONResponse) {
+			return $payload;
+		}
+
+		$context = [
+			'agentId' => $id,
+			'payload' => $payload,
+			'correlationId' => $this->generateCorrelationId(),
+		] + $this->approvalSettings(webhook: $webhook);
+
+		return $this->enqueueRun(webhook: $webhook, context: $context);
+
+	}//end trigger()
+
+	/**
+	 * The request body as the run payload: [] for an empty body, the decoded array
+	 * otherwise; or the 413 for a body over the limit, the 400 for one that is not
+	 * a JSON array or object.
+	 *
+	 * @return array|JSONResponse
+	 */
+	private function readPayload(): array|JSONResponse {
 		$rawBody = $this->readRawBody();
 
 		// Re-checked on the ACTUAL byte count — catches a missing or lying
@@ -147,26 +171,45 @@ class WebhookTriggerController extends Controller {
 			return $this->tooLargeResponse();
 		}
 
-		$payload = [];
-		if (trim($rawBody) !== '') {
-			$decoded = json_decode($rawBody, true);
-			if (json_last_error() !== JSON_ERROR_NONE || is_array($decoded) === false) {
-				return new JSONResponse(['error' => 'invalid_json'], Http::STATUS_BAD_REQUEST);
-			}
-
-			$payload = $decoded;
+		if (trim($rawBody) === '') {
+			return [];
 		}
 
+		$decoded = json_decode($rawBody, true);
+		if (json_last_error() !== JSON_ERROR_NONE || is_array($decoded) === false) {
+			return new JSONResponse(['error' => 'invalid_json'], Http::STATUS_BAD_REQUEST);
+		}
+
+		return $decoded;
+	}//end readPayload()
+
+	/**
+	 * Whether the webhook's runs need approval, and from whom.
+	 *
+	 * @param ObjectEntity $webhook The verified webhook.
+	 *
+	 * @return array{requiresApproval: bool, reviewer: string, reviewerType: string}
+	 */
+	private function approvalSettings(ObjectEntity $webhook): array {
 		$webhookData = $webhook->getObject();
-		$context = [
-			'agentId' => $id,
-			'payload' => $payload,
-			'correlationId' => $this->generateCorrelationId(),
+
+		return [
 			'requiresApproval' => (($webhookData['requiresApproval'] ?? false) === true),
 			'reviewer' => (string)($webhookData['reviewer'] ?? ''),
 			'reviewerType' => (string)($webhookData['reviewerType'] ?? 'user'),
 		];
+	}//end approvalSettings()
 
+	/**
+	 * Enqueue the agent run, mark the webhook used and answer 202, or the 500 when it
+	 * cannot be enqueued.
+	 *
+	 * @param ObjectEntity $webhook The verified webhook.
+	 * @param array $context The run's job context.
+	 *
+	 * @return JSONResponse
+	 */
+	private function enqueueRun(ObjectEntity $webhook, array $context): JSONResponse {
 		try {
 			$this->jobList->add(WebhookAgentRunJob::class, $context);
 		} catch (Throwable $e) {
@@ -181,8 +224,7 @@ class WebhookTriggerController extends Controller {
 			['status' => 'accepted', 'correlationId' => $context['correlationId']],
 			Http::STATUS_ACCEPTED
 		);
-
-	}//end trigger()
+	}//end enqueueRun()
 
 	/**
 	 * Read the raw POST body. Indirected (mirrors pipelinq's
