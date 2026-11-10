@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service\Agent;
 use Cron\CronExpression;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
 use OCP\IL10N;
 use Throwable;

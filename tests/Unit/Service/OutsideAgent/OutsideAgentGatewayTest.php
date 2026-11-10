@@ -30,7 +30,7 @@ use OCA\Hermiq\Service\OutsideAgent\OutsideAgentGateway;
 use OCA\Hermiq\Service\OutsideAgent\OutsideCallRefusedException;
 use OCA\Hermiq\Service\OutsideAgent\OutsideToolSurface;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;

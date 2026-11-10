@@ -4,7 +4,7 @@
  * Hermiq Chat Conversation Management Handler.
  *
  * Handler for conversation lifecycle management: title generation, summarisation.
- * Ported from `OCA\OpenRegister\Service\Chat\ConversationManagementHandler`,
+ * Ported from `OCA\OpenRegister\Mcp\Service\Chat\ConversationManagementHandler`,
  * re-pointed at the `Conversation`/`Message` OR objects (agent-engine-schemas) via
  * `ObjectService`, and at `ProviderFactory` instead of OR's inline per-provider
  * LLPhant config building.

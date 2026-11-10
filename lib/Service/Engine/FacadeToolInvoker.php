@@ -149,7 +149,7 @@ use OCA\Hermiq\Service\ToolSearchService;
 // the middle of a tool call rather than a failure to load.
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 
 /**
  * Dispatches LLPhant tool calls onto the OR tool-registry facade.

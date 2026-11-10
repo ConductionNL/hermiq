@@ -3,7 +3,7 @@
 /**
  * Test stub for OpenRegister ConversationMapper.
  *
- * Stands in for OCA\OpenRegister\Db\ConversationMapper when OpenRegister is not
+ * Stands in for OCA\OpenRegister\Mcp\Db\ConversationMapper when OpenRegister is not
  * installed (standalone CI). Exposes only insert, used by ScheduleService to open
  * an agent-bound conversation. The real mapper ships with OpenRegister.
  *
@@ -19,7 +19,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\OpenRegister\Db;
+namespace OCA\OpenRegister\Mcp\Db;
 
 /**
  * Minimal ConversationMapper stub for standalone unit runs.

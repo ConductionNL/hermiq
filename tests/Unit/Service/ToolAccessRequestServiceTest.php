@@ -165,7 +165,7 @@ class ToolAccessRequestServiceTest extends TestCase {
 					return $objectService;
 				}
 
-				if ($id === 'OCA\OpenRegister\Service\Mcp\ToolRegistryFacade') {
+				if ($id === 'OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade') {
 					return $facade;
 				}
 

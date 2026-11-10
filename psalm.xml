@@ -94,7 +94,7 @@
                 <referencedClass name="OCA\OpenRegister\Service\RegisterService"/>
                 <referencedClass name="OCA\OpenRegister\Service\FileService"/>
                 <referencedClass name="OCA\OpenRegister\Service\CalendarEventService"/>
-                <referencedClass name="OCA\OpenRegister\Service\RiskLevelService"/>
+                <referencedClass name="OCA\OpenRegister\Files\Service\RiskLevelService"/>
                 <referencedClass name="OCA\OpenRegister\Db\EntityRelationMapper"/>
                 <referencedClass name="OCA\OpenRegister\Mcp\IMcpToolProvider"/>
                 <!-- Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily -->
