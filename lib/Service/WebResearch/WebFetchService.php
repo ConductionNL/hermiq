@@ -46,6 +46,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\WebResearch;
 
 use OCP\Http\Client\IClientService;
+use OCP\Http\Client\IResponse;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -110,25 +111,59 @@ class WebFetchService {
 	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
 	 */
 	public function fetch(string $url): array {
-		$config = $this->settingsHandler->getWebResearchSettingsOnly();
+		$run = new WebFetchRun(url: $url, config: $this->settingsHandler->getWebResearchSettingsOnly());
 
+		$refusal = $this->guardRefusal(run: $run);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		$response = $this->send(run: $run);
+		if ($response === null) {
+			return $this->error(code: 'fetch_failed', message: 'The request failed or timed out.');
+		}
+
+		return ($this->statusRefusal(response: $response) ?? $this->readablePage(run: $run, response: $response));
+
+	}//end fetch()
+
+	/**
+	 * The egress guard's refusal of the URL under the configured allow/deny lists
+	 * and the plain-HTTP setting, or null when it may be fetched.
+	 *
+	 * @param WebFetchRun $run The fetch.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null.
+	 */
+	private function guardRefusal(WebFetchRun $run): ?array {
 		$safety = $this->guard->assertSafe(
-			url: $url,
+			url: $run->url,
 			isAdminConfiguredEndpoint: false,
-			allowlist: (array)$config['fetchAllowlist'],
-			denylist: (array)$config['fetchDenylist'],
-			allowInsecureHttp: (bool)$config['allowInsecureHttp']
+			allowlist: (array)$run->config['fetchAllowlist'],
+			denylist: (array)$run->config['fetchDenylist'],
+			allowInsecureHttp: (bool)$run->config['allowInsecureHttp']
 		);
 		if ($safety['allowed'] === false) {
 			return $this->error(code: (string)$safety['code'], message: (string)$safety['message']);
 		}
 
-		$timeout = (int)$config['timeoutSeconds'];
+		return null;
+	}//end guardRefusal()
+
+	/**
+	 * GET the URL within the configured timeout, never following a redirect;
+	 * null (logged) when the request fails or times out.
+	 *
+	 * @param WebFetchRun $run The fetch.
+	 *
+	 * @return IResponse|null
+	 */
+	private function send(WebFetchRun $run): ?IResponse {
+		$timeout = (int)$run->config['timeoutSeconds'];
 
 		try {
-			$client = $this->clientService->newClient();
-			$response = $client->get(
-				$url,
+			return $this->clientService->newClient()->get(
+				$run->url,
 				[
 					'timeout' => $timeout,
 					'connect_timeout' => min(5, max(1, $timeout)),
@@ -138,9 +173,18 @@ class WebFetchService {
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning('[Hermiq] web.fetch request failed', ['error' => $e->getMessage()]);
-			return $this->error(code: 'fetch_failed', message: 'The request failed or timed out.');
+			return null;
 		}//end try
+	}//end send()
 
+	/**
+	 * The error envelope of a redirect or an error status, or null for a success.
+	 *
+	 * @param IResponse $response The response.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function statusRefusal(IResponse $response): ?array {
 		$status = $response->getStatusCode();
 		if ($status >= 300 && $status < 400) {
 			return $this->redirectEnvelope(location: $response->getHeader('Location'));
@@ -150,6 +194,19 @@ class WebFetchService {
 			return $this->error(code: 'fetch_failed', message: "The request failed with HTTP status {$status}.");
 		}
 
+		return null;
+	}//end statusRefusal()
+
+	/**
+	 * The page's readable text, delimited as untrusted and truncated to the
+	 * configured cap, or the error of an unsupported content type.
+	 *
+	 * @param WebFetchRun $run      The fetch.
+	 * @param IResponse   $response The successful response.
+	 *
+	 * @return array<string, mixed> `{url, truncated, content}`, or an error envelope.
+	 */
+	private function readablePage(WebFetchRun $run, IResponse $response): array {
 		$contentType = $this->baseContentType(header: $response->getHeader('Content-Type'));
 		if (in_array($contentType, self::ALLOWED_CONTENT_TYPES, true) === false) {
 			return $this->error(
@@ -161,16 +218,15 @@ class WebFetchService {
 		[$text, $truncated] = $this->extractAndTruncate(
 			body: (string)$response->getBody(),
 			contentType: $contentType,
-			maxBytes: (int)$config['maxResponseBytes']
+			maxBytes: (int)$run->config['maxResponseBytes']
 		);
 
 		return [
-			'url' => $url,
+			'url' => $run->url,
 			'truncated' => $truncated,
-			'content' => self::UNTRUSTED_BEGIN . "\nSource: {$url}\n\n{$text}\n" . self::UNTRUSTED_END,
+			'content' => self::UNTRUSTED_BEGIN . "\nSource: {$run->url}\n\n{$text}\n" . self::UNTRUSTED_END,
 		];
-
-	}//end fetch()
+	}//end readablePage()
 
 	/**
 	 * Build the structured error envelope for a 3xx response, naming the redirect
