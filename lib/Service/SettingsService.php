@@ -175,10 +175,7 @@ class SettingsService {
 	public function loadConfiguration(bool $force = false): array {
 		if ($this->isOpenRegisterAvailable() === false) {
 			$this->logger->warning('Hermiq: OpenRegister not available, skipping register initialization');
-			return [
-				'success' => false,
-				'message' => 'OpenRegister is not installed or enabled.',
-			];
+			return $this->failure(message: 'OpenRegister is not installed or enabled.');
 		}
 
 		$read = $this->readRegisterConfig();
@@ -186,43 +183,62 @@ class SettingsService {
 			return $read['failure'];
 		}
 
-		$configData = $read['config'];
-		$configVersion = ($configData['info']['version'] ?? '0.0.0');
-
 		try {
-			$configurationService = $this->container->get('OCA\OpenRegister\Service\ConfigurationService');
-
-			$result = $configurationService->importFromApp(
-				appId: Application::APP_ID,
-				data: $configData,
-				version: $configVersion,
-				force: $force
-			);
-
-			if (empty($result) === false) {
-				$this->logger->info('Hermiq: register configuration imported successfully');
-				return [
-					'success' => true,
-					'message' => 'Configuration imported successfully.',
-					'version' => ($result['version'] ?? $configVersion),
-				];
-			}
-
-			return [
-				'success' => false,
-				'message' => 'Import returned an empty result.',
-			];
+			return $this->importConfiguration(configData: $read['config'], force: $force);
 		} catch (\Throwable $e) {
 			$this->logger->error(
 				'Hermiq: configuration import failed',
 				['exception' => $e->getMessage()]
 			);
-			return [
-				'success' => false,
-				'message' => $e->getMessage(),
-			];
+			return $this->failure(message: $e->getMessage());
 		}//end try
 	}//end loadConfiguration()
+
+	/**
+	 * Import the register configuration through OpenRegister's ConfigurationService
+	 * and report the outcome.
+	 *
+	 * @param array $configData The decoded hermiq_register.json.
+	 * @param bool $force Whether to force the import.
+	 *
+	 * @return array{success: bool, message: string, version?: string}
+	 */
+	private function importConfiguration(array $configData, bool $force): array {
+		$configVersion = ($configData['info']['version'] ?? '0.0.0');
+		$configurationService = $this->container->get('OCA\OpenRegister\Service\ConfigurationService');
+
+		$result = $configurationService->importFromApp(
+			appId: Application::APP_ID,
+			data: $configData,
+			version: $configVersion,
+			force: $force
+		);
+
+		if (empty($result) === true) {
+			return $this->failure(message: 'Import returned an empty result.');
+		}
+
+		$this->logger->info('Hermiq: register configuration imported successfully');
+		return [
+			'success' => true,
+			'message' => 'Configuration imported successfully.',
+			'version' => ($result['version'] ?? $configVersion),
+		];
+	}//end importConfiguration()
+
+	/**
+	 * A failed outcome with its message.
+	 *
+	 * @param string $message Why it failed.
+	 *
+	 * @return array{success: false, message: string}
+	 */
+	private function failure(string $message): array {
+		return [
+			'success' => false,
+			'message' => $message,
+		];
+	}//end failure()
 
 	/**
 	 * Read and decode hermiq_register.json.
@@ -236,28 +252,19 @@ class SettingsService {
 		$configPath = __DIR__ . '/../Settings/hermiq_register.json';
 		if (file_exists($configPath) === false) {
 			$this->logger->error('Hermiq: hermiq_register.json not found at ' . $configPath);
-			return ['failure' => [
-				'success' => false,
-				'message' => 'Configuration file hermiq_register.json not found.',
-			]];
+			return ['failure' => $this->failure(message: 'Configuration file hermiq_register.json not found.')];
 		}
 
 		$configContent = file_get_contents($configPath);
 		if ($configContent === false) {
 			$this->logger->error('Hermiq: failed to read hermiq_register.json');
-			return ['failure' => [
-				'success' => false,
-				'message' => 'Failed to read configuration file.',
-			]];
+			return ['failure' => $this->failure(message: 'Failed to read configuration file.')];
 		}
 
 		$configData = json_decode($configContent, true);
 		if (json_last_error() !== JSON_ERROR_NONE) {
 			$this->logger->error('Hermiq: failed to parse hermiq_register.json: ' . json_last_error_msg());
-			return ['failure' => [
-				'success' => false,
-				'message' => 'Failed to parse configuration file: ' . json_last_error_msg(),
-			]];
+			return ['failure' => $this->failure(message: 'Failed to parse configuration file: ' . json_last_error_msg())];
 		}
 
 		return ['config' => $configData];
