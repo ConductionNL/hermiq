@@ -11,25 +11,10 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { githubSearchParams, listOrResults as toList } from './listEnvelope.js'
 
 /** Hermiq agent-templates API base. */
 const TEMPLATES_BASE = '/apps/hermiq/api/agent-templates'
-
-/**
- * Normalise the Hermiq list envelope to a plain array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	return []
-}
 
 /**
  * List the tenant's agent templates.
@@ -190,13 +175,7 @@ export async function instantiateAgentTemplate(id, overrides = {}) {
  * @return {Promise<object>} `{ outcome, cards, brokerCredentialAvailable, brokerUsed, rateLimited }`.
  */
 export async function searchGithubTemplates(query = '', credentialId = null) {
-	const params = {}
-	if (query) {
-		params.q = query
-	}
-	if (credentialId) {
-		params.credentialId = credentialId
-	}
+	const params = githubSearchParams(query, credentialId)
 	const response = await axios.get(
 		generateUrl(`${TEMPLATES_BASE}/github/search`),
 		{ params },
