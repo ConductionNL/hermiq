@@ -55,6 +55,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -528,10 +529,12 @@ class WebhookAgentRunService {
 				'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $this->scheduleService->getLastRunSkillsUsed()),
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $agentObject,
-				action: 'agent-run',
-				context: $auditContext
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $agentObject,
+					action: 'agent-run',
+					context: $auditContext
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

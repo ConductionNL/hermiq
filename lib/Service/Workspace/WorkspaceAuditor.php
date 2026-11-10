@@ -36,6 +36,7 @@ namespace OCA\Hermiq\Service\Workspace;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -127,7 +128,9 @@ class WorkspaceAuditor {
 		];
 
 		try {
-			$this->auditTrail->createAuditTrailEntry(object: $this->subject(agentId: $run['agentId']), action: self::ACTION, context: $context);
+			$this->auditTrail->recordObjectEvent(
+				event: new ObjectAuditEvent(object: $this->subject(agentId: $run['agentId']), action: self::ACTION, context: $context)
+			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'Hermiq could not write the workspace audit record for run ' . $run['runId'] . ': ' . $e->getMessage(),

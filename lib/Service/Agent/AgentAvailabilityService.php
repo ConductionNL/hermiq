@@ -28,6 +28,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -339,10 +340,12 @@ class AgentAvailabilityService {
 	 */
 	private function audit(ObjectEntity $agent, array $context): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $agent,
-				action: self::AUDIT_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $agent,
+					action: self::AUDIT_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq could not record an agent switch: ' . $e->getMessage(), ['exception' => $e]);

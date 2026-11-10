@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -245,12 +246,12 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$auditCalls = [];
 		$audit = $this->createMock(AuditTrailMapper::class);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []) use (&$auditCalls): AuditTrail {
-				$auditCalls[] = $context;
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$auditCalls): AuditTrail {
+				$auditCalls[] = $event->context;
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);

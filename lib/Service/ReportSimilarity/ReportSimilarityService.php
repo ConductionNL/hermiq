@@ -44,6 +44,7 @@ namespace OCA\Hermiq\Service\ReportSimilarity;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -591,19 +592,21 @@ class ReportSimilarityService {
 			$marker = new ObjectEntity();
 			$marker->setUuid((string)($answer['groupId'] ?? 'report-similarity'));
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $marker,
-				action: self::AUDIT_ACTION,
-				context: [
-					'reportId' => $reportId,
-					'reportType' => $reportType,
-					'groupId' => (string)($answer['groupId'] ?? ''),
-					'score' => ($answer['score'] ?? null),
-					'uncertain' => ($answer['uncertain'] ?? false),
-					'newGroup' => ($answer['newGroup'] ?? false),
-					'windowMinutes' => $windowMinutes,
-					'terms' => ($answer['terms'] ?? []),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $marker,
+					action: self::AUDIT_ACTION,
+					context: [
+						'reportId' => $reportId,
+						'reportType' => $reportType,
+						'groupId' => (string)($answer['groupId'] ?? ''),
+						'score' => ($answer['score'] ?? null),
+						'uncertain' => ($answer['uncertain'] ?? false),
+						'newGroup' => ($answer['newGroup'] ?? false),
+						'windowMinutes' => $windowMinutes,
+						'terms' => ($answer['terms'] ?? []),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

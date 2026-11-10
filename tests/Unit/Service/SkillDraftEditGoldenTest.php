@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -307,9 +308,9 @@ class SkillDraftEditGoldenTest extends TestCase {
 		);
 
 		$audit = $this->createMock(originalClassName: AuditTrailMapper::class);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []) use (&$calls): AuditTrail {
-				$calls[] = ['createAuditTrailEntry', $object->getUuid(), $action, $context];
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$calls): AuditTrail {
+				$calls[] = ['recordObjectEvent', $event->object->getUuid(), $event->action, $event->context];
 				return new AuditTrail();
 			}
 		);

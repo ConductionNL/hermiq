@@ -42,6 +42,7 @@ namespace OCA\Hermiq\Service\Assistant;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -423,15 +424,17 @@ class AssistantPromptLibrary {
 			$marker = new ObjectEntity();
 			$marker->setUuid('assistant-prompts');
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $marker,
-				action: self::DISABLE_ALL_ACTION,
-				context: [
-					'actor' => $actor,
-					'usageScope' => ($usageScope ?? '*'),
-					'disabled' => $disabled,
-					'at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $marker,
+					action: self::DISABLE_ALL_ACTION,
+					context: [
+						'actor' => $actor,
+						'usageScope' => ($usageScope ?? '*'),
+						'disabled' => $disabled,
+						'at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

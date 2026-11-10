@@ -30,6 +30,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Assistant;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -119,13 +120,13 @@ class AssistantPromptLibraryTest extends TestCase {
 		$this->audits = [];
 
 		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->audits[] = ['action' => $action, 'context' => $context];
+		$mapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->audits[] = ['action' => $event->action, 'context' => $event->context];
 
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);

@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\ReportSimilarity\ReportSimilaritySettings;
 use OCA\Hermiq\Service\ReportSimilarity\TermOverlapScorer;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -117,12 +118,12 @@ class ReportSimilarityServiceTest extends TestCase {
 	 */
 	private function auditTrailMapper(): AuditTrailMapper {
 		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->audits[] = ['action' => $action, 'context' => $context];
+		$mapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->audits[] = ['action' => $event->action, 'context' => $event->context];
 
 				$entry = new AuditTrail();
-				$entry->setAction($action);
+				$entry->setAction($event->action);
 				return $entry;
 			}
 		);

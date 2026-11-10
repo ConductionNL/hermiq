@@ -48,6 +48,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -885,20 +886,22 @@ class SkillLearningsCaptureService {
 				return;
 			}
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $schedule,
-				action: 'run',
-				context: [
-					'status' => 'skill_capture',
-					'runType' => 'skill-capture',
-					'runId' => $runId,
-					'agentId' => $agentId,
-					'dryRun' => false,
-					'usage' => [
-						'promptTokens' => $promptTokens,
-						'completionTokens' => $completionTokens,
-					],
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $schedule,
+					action: 'run',
+					context: [
+						'status' => 'skill_capture',
+						'runType' => 'skill-capture',
+						'runId' => $runId,
+						'agentId' => $agentId,
+						'dryRun' => false,
+						'usage' => [
+							'promptTokens' => $promptTokens,
+							'completionTokens' => $completionTokens,
+						],
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

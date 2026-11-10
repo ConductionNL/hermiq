@@ -38,6 +38,7 @@ use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\Hermiq\Service\ToolOversight\ToolInvocationLog;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Capability\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -461,7 +462,7 @@ class ToolOversightControllerTest extends TestCase {
 	public function testUpdateToolGrantsRefusesANonOwnerAddingAWaiver(): void {
 		$this->objectService->method('find')->willReturn($this->agent(['tools' => ['a.b.search']], 'carol'));
 		$this->objectService->expects($this->never())->method('saveObject');
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$this->request->method('getParam')->with('grants')
 			->willReturn(['hermiq.sendMail' . ToolGrantResolver::WAIVER_FRAGMENT]);
@@ -486,10 +487,10 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
-		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $context) use (&$captured) {
-					$captured = ['action' => $action, 'context' => $context];
+				function (ObjectAuditEvent $event) use (&$captured) {
+					$captured = ['action' => $event->action, 'context' => $event->context];
 					return new AuditTrail();
 				}
 			);
@@ -524,10 +525,10 @@ class ToolOversightControllerTest extends TestCase {
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
 		$captured = [];
-		$this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+		$this->auditTrailMapper->expects($this->once())->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $context) use (&$captured) {
-					$captured = ['action' => $action, 'context' => $context];
+				function (ObjectAuditEvent $event) use (&$captured) {
+					$captured = ['action' => $event->action, 'context' => $event->context];
 					return new AuditTrail();
 				}
 			);
@@ -558,7 +559,7 @@ class ToolOversightControllerTest extends TestCase {
 			->willReturn(['pipelinq.lead.search', 'pipelinq.lead.get']);
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$response = $this->controller()->updateToolGrants('agent-1');
 
@@ -579,7 +580,7 @@ class ToolOversightControllerTest extends TestCase {
 		$this->request->method('getParam')->with('grants')->willReturn(array_reverse($grants));
 		$this->objectService->method('saveObject')->willReturnCallback($this->savingWithObjectEvent());
 
-		$this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$this->auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$this->controller()->updateToolGrants('agent-1');
 

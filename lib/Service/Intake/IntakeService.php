@@ -52,6 +52,7 @@ namespace OCA\Hermiq\Service\Intake;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -611,17 +612,19 @@ class IntakeService {
 			$marker = new ObjectEntity();
 			$marker->setUuid($conversationId);
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $marker,
-				action: self::AUDIT_ACTION,
-				context: [
-					'feature' => self::FEATURE_SLUG,
-					'conversation' => $conversationId,
-					'state' => (string)($data['state'] ?? ''),
-					'classification' => ($data['classification'] ?? []),
-					'escalation' => ($data['escalation'] ?? []),
-					'reviews' => ($data['reviews'] ?? []),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $marker,
+					action: self::AUDIT_ACTION,
+					context: [
+						'feature' => self::FEATURE_SLUG,
+						'conversation' => $conversationId,
+						'state' => (string)($data['state'] ?? ''),
+						'classification' => ($data['classification'] ?? []),
+						'escalation' => ($data['escalation'] ?? []),
+						'reviews' => ($data['reviews'] ?? []),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

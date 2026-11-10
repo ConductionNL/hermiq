@@ -40,6 +40,7 @@ use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -443,9 +444,9 @@ class EvalRunServicePairedTest extends TestCase {
 
 		$this->auditContexts = [];
 		$audit = $this->createMock(AuditTrailMapper::class);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->auditContexts[] = $context;
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->auditContexts[] = $event->context;
 				$this->events[] = 'audit';
 				$entry = new AuditTrail();
 				$entry->setUuid('audit-uuid');
@@ -1336,9 +1337,9 @@ class EvalRunServicePairedTest extends TestCase {
 		);
 
 		$audit = $this->createMock(AuditTrailMapper::class);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []) use (&$calls): AuditTrail {
-				$calls[] = ['audit' => [$object->getUuid(), $action, $context]];
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$calls): AuditTrail {
+				$calls[] = ['audit' => [$event->object->getUuid(), $event->action, $event->context]];
 				$entry = new AuditTrail();
 				$entry->setUuid('audit-uuid');
 				return $entry;

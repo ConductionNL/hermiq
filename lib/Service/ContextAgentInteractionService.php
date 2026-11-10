@@ -51,6 +51,7 @@ namespace OCA\Hermiq\Service;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -417,18 +418,20 @@ class ContextAgentInteractionService {
 	 */
 	private function audit(ObjectEntity $object, string $status, string $summary, string $agentId): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $object,
-				action: 'contextagent-interaction',
-				context: [
-					'status' => $status,
-					'agentId' => $agentId,
-					'summary' => $this->redactionService->redact($summary),
-					// Agent-versioning: the version of the serving agent's config at
-					// the time of this interaction (null when unresolvable — never
-					// fatal to the interaction).
-					'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $object,
+					action: 'contextagent-interaction',
+					context: [
+						'status' => $status,
+						'agentId' => $agentId,
+						'summary' => $this->redactionService->redact($summary),
+						// Agent-versioning: the version of the serving agent's config at
+						// the time of this interaction (null when unresolvable — never
+						// fatal to the interaction).
+						'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

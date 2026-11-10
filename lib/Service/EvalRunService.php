@@ -57,6 +57,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1498,10 +1499,12 @@ class EvalRunService {
 				'summary' => $this->redactionService->redact($summary),
 			];
 
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $evalRun,
-				action: self::RUN_ACTION,
-				context: $context
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $evalRun,
+					action: self::RUN_ACTION,
+					context: $context
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

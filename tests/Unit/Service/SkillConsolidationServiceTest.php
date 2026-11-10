@@ -49,6 +49,7 @@ use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -264,12 +265,11 @@ class SkillConsolidationServiceTest extends TestCase {
 			}
 		);
 
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): \OCA\OpenRegister\Db\AuditTrail {
-				unset($object);
+		$this->auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): \OCA\OpenRegister\Db\AuditTrail {
 				$this->auditEntries[] = [
-					$action,
-					$context,
+					$event->action,
+					$event->context,
 				];
 				return new \OCA\OpenRegister\Db\AuditTrail();
 			}

@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\Workspace\WorkspaceWriteAuthoriser;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -464,9 +465,9 @@ final class WorkspaceToolsetWriteTest extends TestCase {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('find')->willReturn($agent);
 		$trail = $this->createMock(AuditTrailMapper::class);
-		$trail->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->audits[] = ['action' => $action, 'agent' => (string)$object->getUuid(), 'context' => $context];
+		$trail->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->audits[] = ['action' => $event->action, 'agent' => (string)$event->object->getUuid(), 'context' => $event->context];
 				return new AuditTrail();
 			}
 		);
