@@ -124,7 +124,7 @@ class GraphExtractionService {
 			}
 
 			$proposal = $this->propose(text: $record['text'], organisation: $record['organisation']);
-			$written = $this->persist(sourceType: $sourceType, sourceRef: $sourceRef, proposal: $proposal);
+			$written = $this->persist(run: new GraphExtractionRun(sourceType: $sourceType, sourceRef: $sourceRef), proposal: $proposal);
 			$counts['entities'] += $written['entities'];
 			$counts['relations'] += $written['relations'];
 		}
@@ -172,59 +172,106 @@ class GraphExtractionService {
 	/**
 	 * Write one record's proposal through GraphService.
 	 *
-	 * @param string $sourceType The record's source type.
-	 * @param array<string, mixed> $sourceRef The record's pointer.
+	 * @param GraphExtractionRun $run The record's write: its source type and pointer.
 	 * @param array{entities: array<int, mixed>, relations: array<int, mixed>} $proposal The proposal.
 	 *
 	 * @return array{entities: int, relations: int}
 	 */
-	private function persist(string $sourceType, array $sourceRef, array $proposal): array {
-		$byLabel = [];
+	private function persist(GraphExtractionRun $run, array $proposal): array {
 		foreach ($proposal['entities'] as $entity) {
-			$label = $this->clean(value: ($entity['label'] ?? null));
-			if (is_array($entity) === false || $label === '') {
-				continue;
-			}
-
-			$aliases = array_values(array_filter(array_map(fn (mixed $alias): string => $this->clean(value: $alias), (array)($entity['aliases'] ?? []))));
-			$byLabel[mb_strtolower($label)] = $this->graph->upsertEntity(
-				[
-					'label' => $label,
-					'entityType' => (string)($entity['type'] ?? 'topic'),
-					'sourceType' => $sourceType,
-					'sourceRef' => $sourceRef,
-					'aliases' => $aliases,
-					'confidence' => ($entity['confidence'] ?? null),
-					'extractedBy' => self::EXTRACTOR,
-				]
-			);
+			$this->persistEntity(run: $run, entity: $entity);
 		}
 
 		$relations = 0;
 		foreach ($proposal['relations'] as $relation) {
-			$from = ($byLabel[mb_strtolower($this->clean(value: ($relation['from'] ?? null)))] ?? null);
-			$to = ($byLabel[mb_strtolower($this->clean(value: ($relation['to'] ?? null)))] ?? null);
-			if ($from === null || $to === null || is_string($relation['predicate'] ?? null) === false) {
-				continue;
+			if ($this->persistRelation(run: $run, relation: $relation) === true) {
+				$relations++;
 			}
-
-			$this->graph->upsertRelation(
-				[
-					'fromEntity' => $from,
-					'predicate' => $relation['predicate'],
-					'toEntity' => $to,
-					'sourceType' => $sourceType,
-					'sourceRef' => $sourceRef,
-					'confidence' => ($relation['confidence'] ?? null),
-					'extractedBy' => self::EXTRACTOR,
-				]
-			);
-			$relations++;
 		}
 
-		return ['entities' => count($byLabel), 'relations' => $relations];
+		return ['entities' => count($run->byLabel), 'relations' => $relations];
 
 	}//end persist()
+
+	/**
+	 * Write one proposed entity, when it carries a usable label.
+	 *
+	 * @param GraphExtractionRun $run    The source's write.
+	 * @param mixed              $entity The proposed entity.
+	 *
+	 * @return void
+	 */
+	private function persistEntity(GraphExtractionRun $run, mixed $entity): void {
+		$label = $this->clean(value: ($entity['label'] ?? null));
+		if (is_array($entity) === false || $label === '') {
+			return;
+		}
+
+		$run->byLabel[mb_strtolower($label)] = $this->graph->upsertEntity(
+			[
+				'label' => $label,
+				'entityType' => (string)($entity['type'] ?? 'topic'),
+				'sourceType' => $run->sourceType,
+				'sourceRef' => $run->sourceRef,
+				'aliases' => $this->cleanAliases(entity: $entity),
+				'confidence' => ($entity['confidence'] ?? null),
+				'extractedBy' => self::EXTRACTOR,
+			]
+		);
+	}//end persistEntity()
+
+	/**
+	 * A proposed entity's non-empty, cleaned aliases.
+	 *
+	 * @param array<string, mixed> $entity The proposed entity.
+	 *
+	 * @return array<int, string>
+	 */
+	private function cleanAliases(array $entity): array {
+		return array_values(array_filter(array_map(fn (mixed $alias): string => $this->clean(value: $alias), (array)($entity['aliases'] ?? []))));
+	}//end cleanAliases()
+
+	/**
+	 * Write one proposed relation between two entities of this source, when both
+	 * ends were written and it carries a string predicate.
+	 *
+	 * @param GraphExtractionRun $run      The source's write.
+	 * @param mixed              $relation The proposed relation.
+	 *
+	 * @return bool True when it was written.
+	 */
+	private function persistRelation(GraphExtractionRun $run, mixed $relation): bool {
+		$from = $this->writtenEntity(run: $run, label: ($relation['from'] ?? null));
+		$to = $this->writtenEntity(run: $run, label: ($relation['to'] ?? null));
+		if ($from === null || $to === null || is_string($relation['predicate'] ?? null) === false) {
+			return false;
+		}
+
+		$this->graph->upsertRelation(
+			[
+				'fromEntity' => $from,
+				'predicate' => $relation['predicate'],
+				'toEntity' => $to,
+				'sourceType' => $run->sourceType,
+				'sourceRef' => $run->sourceRef,
+				'confidence' => ($relation['confidence'] ?? null),
+				'extractedBy' => self::EXTRACTOR,
+			]
+		);
+		return true;
+	}//end persistRelation()
+
+	/**
+	 * The uuid of the entity this source wrote under a label, or null.
+	 *
+	 * @param GraphExtractionRun $run   The source's write.
+	 * @param mixed              $label The label a relation names.
+	 *
+	 * @return mixed
+	 */
+	private function writtenEntity(GraphExtractionRun $run, mixed $label): mixed {
+		return ($run->byLabel[mb_strtolower($this->clean(value: $label))] ?? null);
+	}//end writtenEntity()
 
 	/**
 	 * A redacted, trimmed label; empty for anything that is not a string.
