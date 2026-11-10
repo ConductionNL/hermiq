@@ -88,6 +88,29 @@ class LearnerSignalReader {
 	private const SCHEMA_COMPETENCY_ATTAINMENT = 'competency-attainment';
 
 	/**
+	 * Every signal collect() reads, in read order: schema, learner filter field, limit.
+	 *
+	 * Courses are deliberately UNfiltered by lifecycle: scoreCandidates() needs every
+	 * course the learner is already enrolled in (which may be archived) to resolve
+	 * curriculum-path/mandatory-renewal signals from it, not just published
+	 * candidates. Candidate ELIGIBILITY (published only) is enforced inside
+	 * scoreCandidates(), not at the query layer.
+	 *
+	 * Competency attainment is optional and speculative (the schema does not exist in
+	 * Scholiq at this revision; a Throwable from an unknown schema degrades identically
+	 * to a read failure).
+	 *
+	 * @var array<string, array{0: string, 1: string|null, 2: int}>
+	 */
+	private const SIGNAL_READS = [
+		'enrolments' => [self::SCHEMA_ENROLMENT, 'learnerId', 200],
+		'courses' => [self::SCHEMA_COURSE, null, 500],
+		'xapiStatements' => [self::SCHEMA_XAPI_STATEMENT, 'verified_actor_id', 500],
+		'plans' => [self::SCHEMA_LEARNING_PLAN, 'learnerId', 200],
+		'competency' => [self::SCHEMA_COMPETENCY_ATTAINMENT, 'learnerId', 200],
+	];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService   $objectService OpenRegister read path.
@@ -121,58 +144,60 @@ class LearnerSignalReader {
 	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
 	 */
 	public function collect(string $learnerUid, string $registerSlug): array {
-		$enrolments = $this->readSignal(
-			register: $registerSlug,
-			schema: self::SCHEMA_ENROLMENT,
-			filters: ['learnerId' => $learnerUid],
-			limit: 200
-		) ?? [];
-		// Deliberately UNfiltered by lifecycle: scoreCandidates() needs every course
-		// the learner is already enrolled in (which may be archived) to resolve
-		// curriculum-path/mandatory-renewal signals from it, not just published
-		// candidates. Candidate ELIGIBILITY (published only) is enforced inside
-		// scoreCandidates(), not at the query layer.
-		$courses = $this->readSignal(register: $registerSlug, schema: self::SCHEMA_COURSE, filters: [], limit: 500) ?? [];
-		$xapiStatements = $this->readSignal(
-			register: $registerSlug,
-			schema: self::SCHEMA_XAPI_STATEMENT,
-			filters: ['verified_actor_id' => $learnerUid],
-			limit: 500
-		) ?? [];
-		$plans = $this->readSignal(
-			register: $registerSlug,
-			schema: self::SCHEMA_LEARNING_PLAN,
-			filters: ['learnerId' => $learnerUid],
-			limit: 200
-		) ?? [];
-		// Optional, speculative (schema does not exist in Scholiq at this revision;
-		// a Throwable from an unknown schema degrades identically to a read failure).
-		$competencyRaw = $this->readSignal(
-			register: $registerSlug,
-			schema: self::SCHEMA_COMPETENCY_ATTAINMENT,
-			filters: ['learnerId' => $learnerUid],
-			limit: 200
-		);
+		$scope = new LearnerSignalScope(learnerUid: $learnerUid, register: $registerSlug);
+		$signals = [];
+		foreach (array_keys(self::SIGNAL_READS) as $signal) {
+			$signals[$signal] = $this->readSignal(scope: $scope, signal: $signal);
+		}
 
-		$goals = $this->openGoals(plans: $plans);
-		$hasCompetencyData = ($competencyRaw !== null && $competencyRaw !== []);
-
-		return [
-			'courses' => $courses,
-			'enrolments' => $enrolments,
-			'xapiStatements' => $xapiStatements,
-			'goals' => $goals,
-			'gapIds' => $this->competencyGapIds(rows: ($competencyRaw ?? [])),
-			'signalsUsed' => [
-				'enrolmentCount' => count($enrolments),
-				'completedCourseCount' => $this->completedCount(enrolments: $enrolments),
-				'xapiStatementCount' => count($xapiStatements),
-				'goalCount' => count($goals),
-				'competencyDataAvailable' => $hasCompetencyData,
-			],
-		];
+		return $this->summarise(signals: $signals);
 
 	}//end collect()
+
+	/**
+	 * Shape the read signals into what the scorer needs, failed reads as empty lists.
+	 *
+	 * @param array<string, array<int, array<string, mixed>>|null> $signals Each signal's rows, or null on failure.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 */
+	private function summarise(array $signals): array {
+		$competencyRows = ($signals['competency'] ?? []);
+		$collected = [
+			'courses' => ($signals['courses'] ?? []),
+			'enrolments' => ($signals['enrolments'] ?? []),
+			'xapiStatements' => ($signals['xapiStatements'] ?? []),
+			'goals' => $this->openGoals(plans: ($signals['plans'] ?? [])),
+			'gapIds' => $this->competencyGapIds(rows: $competencyRows),
+		];
+		$collected['signalsUsed'] = $this->signalsUsed(collected: $collected, competencyAvailable: ($competencyRows !== []));
+
+		return $collected;
+
+	}//end summarise()
+
+	/**
+	 * The `signalsUsed` summary of one collection.
+	 *
+	 * @param array<string, array<int, mixed>> $collected           The shaped signals.
+	 * @param bool                             $competencyAvailable Whether any competency row was read.
+	 *
+	 * @return array<string, int|bool>
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 */
+	private function signalsUsed(array $collected, bool $competencyAvailable): array {
+		return [
+			'enrolmentCount' => count($collected['enrolments']),
+			'completedCourseCount' => $this->completedCount(enrolments: $collected['enrolments']),
+			'xapiStatementCount' => count($collected['xapiStatements']),
+			'goalCount' => count($collected['goals']),
+			'competencyDataAvailable' => $competencyAvailable,
+		];
+
+	}//end signalsUsed()
 
 	/**
 	 * The open goals of the learning plans; a goal without a status is open.
@@ -243,25 +268,25 @@ class LearnerSignalReader {
 	 * `competency-attainment`) and a transient OpenRegister error are treated
 	 * identically (spec.md "Cross-app signal reads degrade gracefully").
 	 *
-	 * @param string $register The RESOLVED register slug, from {@see LearnerSignalRegister}.
-	 *                         Never a literal: with the other slug this read matches
-	 *                         nothing and returns the empty list an empty register
-	 *                         returns, so a wrong value here is silent by construction.
-	 * @param string $schema Scholiq schema slug.
-	 * @param array<string, mixed> $filters OpenRegister filter map.
-	 * @param int $limit Max objects to read.
+	 * @param LearnerSignalScope $scope  The learner and the RESOLVED register slug, from
+	 *                                   {@see LearnerSignalRegister}. Never a literal: with
+	 *                                   the other slug this read matches nothing and returns
+	 *                                   the empty list an empty register returns, so a wrong
+	 *                                   value here is silent by construction.
+	 * @param string             $signal A key of SIGNAL_READS.
 	 *
 	 * @return array<int, array<string, mixed>>|null The object payloads (each carries
 	 *                                               `_uuid`), or null on failure.
 	 *
 	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
 	 */
-	private function readSignal(string $register, string $schema, array $filters, int $limit): ?array {
+	private function readSignal(LearnerSignalScope $scope, string $signal): ?array {
+		[$schema, $learnerField, $limit] = self::SIGNAL_READS[$signal];
 		try {
 			$objects = $this->objectService
-				->setRegister($register)
+				->setRegister($scope->register)
 				->setSchema($schema)
-				->findAll(config: ['filters' => $filters, 'limit' => $limit]);
+				->findAll(config: ['filters' => $scope->filtersOn(field: $learnerField), 'limit' => $limit]);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'[CourseRecommendationEngine] Scholiq signal read failed for schema "' . $schema . '": ' . $e->getMessage(),
