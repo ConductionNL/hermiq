@@ -88,6 +88,7 @@ final class LeafDescriptor {
 	 *                           it the listener's own registration throws and the leaf
 	 *                           silently disappears, which is exactly the failure mode
 	 *                           the leaf tests exist to catch.
+	 * @param string|null $loadStrategy How the render bundle reaches the page, or null when unsaid.
 	 */
 	public function __construct(
 		private string $id,
@@ -100,6 +101,7 @@ final class LeafDescriptor {
 		private ?string $referenceType = null,
 		private ?string $requiresPermission = null,
 		private string $renderMode = self::RENDER_MODE_COMPONENT,
+		private ?string $loadStrategy = null,
 	) {
 	}//end __construct()
 

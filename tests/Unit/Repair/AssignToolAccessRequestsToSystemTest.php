@@ -152,9 +152,12 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 			}
 		};
 
+		$organisations = $this->createMock(originalClassName: OrganisationService::class);
+		$organisations->method('getSystemUserId')->willReturn('__system__');
+
 		$services = [
 			ObjectService::class => $objects,
-			OrganisationService::class => new OrganisationService(),
+			OrganisationService::class => $organisations,
 			'OCA\\OpenRegister\\Db\\MagicMapper' => $mapper,
 		];
 		$container = $this->createMock(originalClassName: ContainerInterface::class);

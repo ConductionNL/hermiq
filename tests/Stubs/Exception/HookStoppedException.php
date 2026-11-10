@@ -24,7 +24,6 @@ declare(strict_types=1);
 namespace OCA\OpenRegister\Exception;
 
 use Exception;
-use Throwable;
 
 /**
  * Minimal HookStoppedException stub for standalone unit runs.
@@ -43,17 +42,13 @@ class HookStoppedException extends Exception {
 	 *
 	 * @param string $message Error message.
 	 * @param array<string, mixed> $errors Hook validation errors.
-	 * @param int $code Error code.
-	 * @param Throwable|null $previous Previous exception.
 	 */
 	public function __construct(
 		string $message = 'Operation blocked by schema hook',
 		array $errors = [],
-		int $code = 0,
-		?Throwable $previous = null,
 	) {
 		$this->errors = $errors;
-		parent::__construct(message: $message, code: $code, previous: $previous);
+		parent::__construct(message: $message, code: 0);
 	}//end __construct()
 
 	/**
