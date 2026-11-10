@@ -40,6 +40,67 @@ use RuntimeException;
  */
 class LlmSettingsHandler {
 
+
+	/**
+	 * The shape of the `hermiq.llm` configuration, with every field's default.
+	 *
+	 * `apiKey` is GONE. It used to sit in CLEARTEXT inside this JSON blob in
+	 * oc_appconfig — readable by anything that could read the database, and printed
+	 * verbatim by `occ config:app:get hermiq llm`. What lives here now is
+	 * `credentialId`: a broker credential UUID whose secret is in the vault and is
+	 * injected server-side. It is a reference, not a secret, so it is stored and
+	 * returned in the clear. `RemoveLegacyLlmKeys` deletes the keys stored before
+	 * this release.
+	 *
+	 * `executionMode` selects the transport: `http` (default — the direct
+	 * BrokerHttpClient path) or `cli` (dispatch the turn to the hermiq-llm-runner
+	 * ExApp, running the OpenAI Codex CLI or the `claude` CLI). Defaulting to `http`
+	 * keeps every existing config unchanged (llm-cli-runner-exapp).
+	 *
+	 * Anthropic (anthropic-agent-provider): like openai/fireworks the secret is NOT
+	 * here — `credentialId` is a broker reference. `authMode` selects the header set
+	 * (api_key → x-api-key; oauth → Authorization: Bearer + the anthropic-beta oauth
+	 * flag). `scope` is organisation | personal; a Claude Max OAuth token MUST be
+	 * personal-only (validated on save).
+	 *
+	 * @var array<string, mixed>
+	 */
+	private const DEFAULT_CONFIG = [
+		'enabled' => false,
+		'embeddingProvider' => null,
+		'chatProvider' => null,
+		'openaiConfig' => [
+			'credentialId' => '',
+			'model' => null,
+			'chatModel' => null,
+			'organizationId' => '',
+			'executionMode' => 'http',
+		],
+		'ollamaConfig' => [
+			'url' => 'http://localhost:11434',
+			'model' => null,
+			'chatModel' => null,
+		],
+		'fireworksConfig' => [
+			'credentialId' => '',
+			'embeddingModel' => null,
+			'chatModel' => null,
+			'baseUrl' => 'https://api.fireworks.ai/inference/v1',
+		],
+		'anthropicConfig' => [
+			'credentialId' => '',
+			'chatModel' => null,
+			'authMode' => 'api_key',
+			'scope' => 'organisation',
+			'baseUrl' => 'https://api.anthropic.com/v1',
+			'executionMode' => 'http',
+		],
+		'vectorConfig' => [
+			'backend' => 'php',
+			'solrField' => '_embedding_',
+		],
+	];
+
 	/**
 	 * The allowed `chatProvider` values. `nextcloud` is additive to OR's original three
 	 * (openai, ollama, fireworks) — plan §8 move 1, background/non-interactive only.
@@ -89,28 +150,38 @@ class LlmSettingsHandler {
 				throw new Exception('Stored hermiq.llm config is not a JSON object');
 			}
 
-			// Backward/forward compatible field defaults.
-			if (isset($decoded['enabled']) === false) {
-				$decoded['enabled'] = false;
-			}
-
-			if (isset($decoded['vectorConfig']) === false) {
-				$decoded['vectorConfig'] = [];
-			}
-
-			if (isset($decoded['vectorConfig']['backend']) === false) {
-				$decoded['vectorConfig']['backend'] = 'php';
-			}
-
-			if (isset($decoded['vectorConfig']['solrField']) === false) {
-				$decoded['vectorConfig']['solrField'] = '_embedding_';
-			}
-
-			return $decoded;
+			return $this->backfillStored(decoded: $decoded);
 		} catch (Exception $e) {
 			throw new RuntimeException('Failed to retrieve LLM settings: ' . $e->getMessage());
 		}//end try
 	}//end getLLMSettingsOnly()
+
+	/**
+	 * Backward/forward compatible field defaults for a stored configuration.
+	 *
+	 * @param array<string, mixed> $decoded The stored configuration.
+	 *
+	 * @return array<string, mixed> The configuration with `enabled` and the vector fields set.
+	 */
+	private function backfillStored(array $decoded): array {
+		if (isset($decoded['enabled']) === false) {
+			$decoded['enabled'] = false;
+		}
+
+		if (isset($decoded['vectorConfig']) === false) {
+			$decoded['vectorConfig'] = [];
+		}
+
+		if (isset($decoded['vectorConfig']['backend']) === false) {
+			$decoded['vectorConfig']['backend'] = 'php';
+		}
+
+		if (isset($decoded['vectorConfig']['solrField']) === false) {
+			$decoded['vectorConfig']['solrField'] = '_embedding_';
+		}
+
+		return $decoded;
+	}//end backfillStored()
 
 	/**
 	 * Update the LLM settings (PATCH semantics — merges with the existing stored config).
@@ -125,76 +196,7 @@ class LlmSettingsHandler {
 	 */
 	public function updateLLMSettingsOnly(array $llmData): array {
 		try {
-			$existingConfig = $this->getLLMSettingsOnly();
-
-			$newOai = $llmData['openaiConfig'] ?? [];
-			$exOai = $existingConfig['openaiConfig'] ?? [];
-			$newOll = $llmData['ollamaConfig'] ?? [];
-			$exOll = $existingConfig['ollamaConfig'] ?? [];
-			$newFw = $llmData['fireworksConfig'] ?? [];
-			$exFw = $existingConfig['fireworksConfig'] ?? [];
-			$newAnt = $llmData['anthropicConfig'] ?? [];
-			$exAnt = $existingConfig['anthropicConfig'] ?? [];
-			$newVec = $llmData['vectorConfig'] ?? [];
-			$exVec = $existingConfig['vectorConfig'] ?? [];
-
-			$llmConfig = [
-				'enabled' => $llmData['enabled'] ?? $existingConfig['enabled'] ?? false,
-				'embeddingProvider' => $llmData['embeddingProvider'] ?? $existingConfig['embeddingProvider'] ?? null,
-				'chatProvider' => $llmData['chatProvider'] ?? $existingConfig['chatProvider'] ?? null,
-				// `apiKey` is GONE. It used to sit in CLEARTEXT inside this JSON blob in
-				// oc_appconfig — readable by anything that could read the database, and
-				// printed verbatim by `occ config:app:get hermiq llm`. What lives here now
-				// is `credentialId`: a broker credential UUID whose secret is in the vault
-				// and is injected server-side. It is a reference, not a secret, so it is
-				// stored and returned in the clear. `RemoveLegacyLlmKeys` deletes the keys
-				// stored before this release.
-				'openaiConfig' => [
-					'credentialId' => $newOai['credentialId'] ?? $exOai['credentialId'] ?? '',
-					'model' => $newOai['model'] ?? $exOai['model'] ?? null,
-					'chatModel' => $newOai['chatModel'] ?? $exOai['chatModel'] ?? null,
-					'organizationId' => $newOai['organizationId'] ?? $exOai['organizationId'] ?? '',
-					// `executionMode` selects the transport: `http` (default — the direct
-					// BrokerHttpClient path) or `cli` (dispatch the turn to the
-					// hermiq-llm-runner ExApp, running the OpenAI Codex CLI). Defaulting to
-					// `http` keeps every existing config unchanged (llm-cli-runner-exapp).
-					'executionMode' => $newOai['executionMode'] ?? $exOai['executionMode'] ?? 'http',
-				],
-				'ollamaConfig' => [
-					'url' => $newOll['url'] ?? $exOll['url'] ?? 'http://localhost:11434',
-					'model' => $newOll['model'] ?? $exOll['model'] ?? null,
-					'chatModel' => $newOll['chatModel'] ?? $exOll['chatModel'] ?? null,
-				],
-				'fireworksConfig' => [
-					'credentialId' => $newFw['credentialId'] ?? $exFw['credentialId'] ?? '',
-					'embeddingModel' => $newFw['embeddingModel'] ?? $exFw['embeddingModel'] ?? null,
-					'chatModel' => $newFw['chatModel'] ?? $exFw['chatModel'] ?? null,
-					'baseUrl' => $newFw['baseUrl'] ?? $exFw['baseUrl'] ?? 'https://api.fireworks.ai/inference/v1',
-				],
-				// Anthropic (anthropic-agent-provider). Like openai/fireworks the secret is
-				// NOT here — `credentialId` is a broker reference; the key or OAuth token
-				// lives in the vault and is injected server-side. `authMode` selects the
-				// header set (api_key → x-api-key; oauth → Authorization: Bearer + the
-				// anthropic-beta oauth flag). `scope` is organisation | personal; a
-				// Claude Max OAuth token MUST be personal-only (validated on save).
-				'anthropicConfig' => [
-					'credentialId' => $newAnt['credentialId'] ?? $exAnt['credentialId'] ?? '',
-					'chatModel' => $newAnt['chatModel'] ?? $exAnt['chatModel'] ?? null,
-					'authMode' => $newAnt['authMode'] ?? $exAnt['authMode'] ?? 'api_key',
-					'scope' => $newAnt['scope'] ?? $exAnt['scope'] ?? 'organisation',
-					'baseUrl' => $newAnt['baseUrl'] ?? $exAnt['baseUrl'] ?? 'https://api.anthropic.com/v1',
-					// `executionMode`: `http` (default — direct BrokerHttpClient Messages API)
-					// or `cli` (dispatch the turn to the hermiq-llm-runner ExApp, running the
-					// `claude` CLI). Default `http` keeps existing configs unchanged; the
-					// credential scope rules (personal Claude Max OAuth vs org API key) carry
-					// over unchanged (llm-cli-runner-exapp).
-					'executionMode' => $newAnt['executionMode'] ?? $exAnt['executionMode'] ?? 'http',
-				],
-				'vectorConfig' => [
-					'backend' => $newVec['backend'] ?? $exVec['backend'] ?? 'php',
-					'solrField' => $newVec['solrField'] ?? $exVec['solrField'] ?? '_embedding_',
-				],
-			];
+			$llmConfig = $this->mergeSettings(patch: $llmData, existing: $this->getLLMSettingsOnly());
 
 			$this->appConfig->setValueString($this->appName, 'llm', json_encode($llmConfig));
 			return $llmConfig;
@@ -204,46 +206,40 @@ class LlmSettingsHandler {
 	}//end updateLLMSettingsOnly()
 
 	/**
+	 * Merge a patch over the stored configuration: every field of the default
+	 * shape takes the patch's value, else the stored one, else its default (a
+	 * null falls through like an absent value). Keys outside the shape are
+	 * dropped, so a submitted `apiKey` is never carried over.
+	 *
+	 * @param array<string, mixed> $patch    Partial or full LLM configuration.
+	 * @param array<string, mixed> $existing The stored configuration.
+	 *
+	 * @return array<string, mixed> The merged configuration, in the default shape's order.
+	 */
+	private function mergeSettings(array $patch, array $existing): array {
+		$merged = [];
+		foreach (self::DEFAULT_CONFIG as $key => $default) {
+			if (is_array($default) === false) {
+				$merged[$key] = ($patch[$key] ?? $existing[$key] ?? $default);
+				continue;
+			}
+
+			$patchSection = ($patch[$key] ?? []);
+			$existingSection = ($existing[$key] ?? []);
+			foreach ($default as $field => $fieldDefault) {
+				$merged[$key][$field] = ($patchSection[$field] ?? $existingSection[$field] ?? $fieldDefault);
+			}
+		}
+
+		return $merged;
+	}//end mergeSettings()
+
+	/**
 	 * The default configuration returned when `hermiq.llm` has never been set.
 	 *
 	 * @return array Default LLM configuration.
 	 */
 	private function defaultConfig(): array {
-		return [
-			'enabled' => false,
-			'embeddingProvider' => null,
-			'chatProvider' => null,
-			'openaiConfig' => [
-				'credentialId' => '',
-				'model' => null,
-				'chatModel' => null,
-				'organizationId' => '',
-				'executionMode' => 'http',
-			],
-			'ollamaConfig' => [
-				'url' => 'http://localhost:11434',
-				'model' => null,
-				'chatModel' => null,
-			],
-			'fireworksConfig' => [
-				'credentialId' => '',
-				'embeddingModel' => null,
-				'chatModel' => null,
-				'baseUrl' => 'https://api.fireworks.ai/inference/v1',
-			],
-			'anthropicConfig' => [
-				'credentialId' => '',
-				'chatModel' => null,
-				'authMode' => 'api_key',
-				'scope' => 'organisation',
-				'baseUrl' => 'https://api.anthropic.com/v1',
-				'executionMode' => 'http',
-			],
-			'vectorConfig' => [
-				'backend' => 'php',
-				'solrField' => '_embedding_',
-			],
-		];
-
+		return self::DEFAULT_CONFIG;
 	}//end defaultConfig()
 }//end class
