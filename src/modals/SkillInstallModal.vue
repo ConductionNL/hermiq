@@ -54,6 +54,7 @@
 import { NcButton, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { installSkill } from '../api/skills.js'
 import { useAgentStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillInstallModal',
@@ -154,10 +155,7 @@ export default {
 				await installSkill(this.skillId, this.selectedAgent.value)
 				this.$emit('installed')
 			} catch (e) {
-				this.installError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.installError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.installing = false
 			}
