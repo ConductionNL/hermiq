@@ -125,7 +125,7 @@
 				</NcNoteCard>
 				<NcButton
 					v-else
-					type="primary"
+					variant="primary"
 					:disabled="installingId === cardKey(card)"
 					@click="doInstall(card)">
 					{{
@@ -435,28 +435,9 @@ export default {
 			try {
 				const credentialId = this.selectedCredential?.value || null
 				if (card.kind === KIND_SKILL) {
-					await installGithubSkill({
-						owner: card.owner,
-						repo: card.repo,
-						credentialId,
-					})
-					this.installNotice = this.t(
-						'hermiq',
-						'Installed skill "{name}" — it is quarantined until reviewed. Find it on the Skills page.',
-						{ name: card.name || this.cardKey(card) },
-					)
+					await this.installSkill(card, credentialId)
 				} else {
-					await installGithubTemplate({
-						owner: card.owner,
-						repo: card.repo,
-						credentialId,
-					})
-					this.installNotice = this.t(
-						'hermiq',
-						'Installed "{name}" — it is quarantined until reviewed.',
-						{ name: card.name || this.cardKey(card) },
-					)
-					emit('cn:page:refresh', {})
+					await this.installTemplate(card, credentialId)
 				}
 			} catch (e) {
 				this.installError =
@@ -466,6 +447,49 @@ export default {
 			} finally {
 				this.installingId = null
 			}
+		},
+
+		/**
+		 * Install a skill repo, quarantined, and say where to find it.
+		 *
+		 * @param {object} card The skill card.
+		 * @param {string|null} credentialId The chosen broker credential, or null.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 */
+		async installSkill(card, credentialId) {
+			await installGithubSkill({
+				owner: card.owner,
+				repo: card.repo,
+				credentialId,
+			})
+			this.installNotice = this.t(
+				'hermiq',
+				'Installed skill "{name}" — it is quarantined until reviewed. Find it on the Skills page.',
+				{ name: card.name || this.cardKey(card) },
+			)
+		},
+
+		/**
+		 * Install an agent-template repo, quarantined, and refresh the page's table.
+		 *
+		 * @param {object} card The template card.
+		 * @param {string|null} credentialId The chosen broker credential, or null.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+		 */
+		async installTemplate(card, credentialId) {
+			await installGithubTemplate({
+				owner: card.owner,
+				repo: card.repo,
+				credentialId,
+			})
+			this.installNotice = this.t(
+				'hermiq',
+				'Installed "{name}" — it is quarantined until reviewed.',
+				{ name: card.name || this.cardKey(card) },
+			)
+			emit('cn:page:refresh', {})
 		},
 	},
 }
