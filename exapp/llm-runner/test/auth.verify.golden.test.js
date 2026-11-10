@@ -15,14 +15,14 @@
 
 'use strict'
 
-const test = require('node:test')
 const assert = require('node:assert')
+const test = require('node:test')
 
 /**
  * Load auth.js afresh under the given secret.
  *
  * @param {string} secret The APP_SECRET to load with ('' for none).
- * @returns {object} The module.
+ * @return {object} The module.
  */
 function loadAuth(secret) {
 	const path = require.resolve('../src/auth')
@@ -36,7 +36,7 @@ function loadAuth(secret) {
  * An AUTHORIZATION-APP-API value for user:secret.
  *
  * @param {string} pair The user:secret pair.
- * @returns {string} The base64 header value.
+ * @return {string} The base64 header value.
  */
 const header = (pair) => Buffer.from(pair).toString('base64')
 
