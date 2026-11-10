@@ -97,35 +97,18 @@ class WorkspaceAuditor {
 	/**
 	 * Record one write-shaped call.
 	 *
-	 * @param array{runId: string, agentId: string, userId: string} $run       The verified run.
-	 * @param string                                               $toolId    The tool.
-	 * @param array<string, mixed>                                 $arguments The call's arguments.
-	 * @param array{approvalId: string, decidedBy: string}|null    $approval  The decision that permitted it, or null.
-	 * @param array<string, mixed>|null                            $result    The tool's result, or null when refused.
-	 * @param string                                               $outcome   `ok` or the refusal code.
+	 * @param WorkspaceWrite $write   The write: the verified run, the tool, the call's arguments,
+	 *                               the decision that permitted it (or null) and the tool's
+	 *                               result (or null when refused).
+	 * @param string         $outcome `ok` or the refusal code.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-refused-write-is-audited-too
 	 */
-	public function record(array $run, string $toolId, array $arguments, ?array $approval, ?array $result, string $outcome): void {
-		$recorded = $this->recordedArguments(toolId: $toolId, arguments: $arguments);
-		if ($toolId === WorkspaceToolDescriptors::APPLY_PATCH) {
-			$recorded['files'] = array_values(array_map('strval', (array)($result['files'] ?? [])));
-		}
-
-		$context = [
-			'runId' => $run['runId'],
-			'agentId' => $run['agentId'],
-			'tool' => $toolId,
-			'classification' => $this->classification(toolId: $toolId),
-			'owner' => $run['userId'],
-			'credentialId' => (string)($result['credentialId'] ?? ''),
-			'approvalId' => (string)($approval['approvalId'] ?? ''),
-			'decidedBy' => (string)($approval['decidedBy'] ?? ''),
-			'arguments' => $recorded,
-			'outcome' => $outcome,
-		];
+	public function record(WorkspaceWrite $write, string $outcome): void {
+		$run = $write->run;
+		$context = $this->context(write: $write, outcome: $outcome);
 
 		try {
 			$this->auditTrail->recordObjectEvent(
@@ -138,6 +121,36 @@ class WorkspaceAuditor {
 			);
 		}
 	}//end record()
+
+	/**
+	 * The audit context of a write: run, agent, tool and classification, owner,
+	 * the credential a push used, the approval, the recorded arguments (plus the
+	 * files a patch touched) and the outcome.
+	 *
+	 * @param WorkspaceWrite $write   The write.
+	 * @param string         $outcome `ok` or the refusal code.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function context(WorkspaceWrite $write, string $outcome): array {
+		$recorded = $this->recordedArguments(toolId: $write->toolId, arguments: $write->arguments);
+		if ($write->toolId === WorkspaceToolDescriptors::APPLY_PATCH) {
+			$recorded['files'] = array_values(array_map('strval', (array)($write->result['files'] ?? [])));
+		}
+
+		return [
+			'runId' => $write->run['runId'],
+			'agentId' => $write->run['agentId'],
+			'tool' => $write->toolId,
+			'classification' => $this->classification(toolId: $write->toolId),
+			'owner' => $write->run['userId'],
+			'credentialId' => (string)($write->result['credentialId'] ?? ''),
+			'approvalId' => (string)($write->approval['approvalId'] ?? ''),
+			'decidedBy' => (string)($write->approval['decidedBy'] ?? ''),
+			'arguments' => $recorded,
+			'outcome' => $outcome,
+		];
+	}//end context()
 
 	/**
 	 * The allowlisted, redacted arguments of a call.
