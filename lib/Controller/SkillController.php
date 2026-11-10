@@ -623,133 +623,98 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$parsed = $this->parseBundlePublishRequest();
-		if (($parsed['error'] ?? null) instanceof JSONResponse) {
-			return $parsed['error'];
+		$run = new BundlePublishRun(user: $user);
+		$refusal = $this->readBundlePublishRequest(run: $run);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		$owner = $parsed['owner'];
-		$repo = $parsed['repo'];
-		$skillIds = $parsed['skillIds'];
-		$agentIds = $parsed['agentIds'];
-		$visibility = $parsed['visibility'];
+		$run->skills = $this->collectPublishablePayloads(skillIds: $run->skillIds);
+		$run->agents = $this->collectPublishableAgentPayloads(agentIds: $run->agentIds, userId: $user->getUID());
 
-		$collected = $this->collectPublishablePayloads(skillIds: $skillIds);
-		$payloads = $collected['payloads'];
-		$outcomes = $collected['outcomes'];
+		return (new SkillBundleAnswers())->nothingToPublish(run: $run) ?? $this->publishBundleRun(run: $run);
+	}//end bundlePublish()
 
-		$collectedAgents = $this->collectPublishableAgentPayloads(agentIds: $agentIds, userId: $user->getUID());
-		$agentPayloads = $collectedAgents['payloads'];
-		$agentOutcomes = $collectedAgents['outcomes'];
-
-		if ($payloads === [] && $agentPayloads === []) {
-			return new JSONResponse(
-				['error' => 'no_publishable_content', 'skills' => $outcomes, 'agents' => $agentOutcomes],
-				Http::STATUS_BAD_REQUEST
-			);
+	/**
+	 * Read the target and the requested skills, agents and visibility into the run;
+	 * the 400 for a bad owner or repo, for neither set having an entry, or for a
+	 * visibility other than `public`/`private`.
+	 *
+	 * @param BundlePublishRun $run The publish.
+	 *
+	 * @return JSONResponse|null The refusal, or null.
+	 */
+	private function readBundlePublishRequest(BundlePublishRun $run): ?JSONResponse {
+		$run->owner = (string)($this->request->getParam('owner') ?? '');
+		$run->repo = (string)($this->request->getParam('repo') ?? '');
+		if (preg_match(self::OWNER_REPO_PATTERN, $run->owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $run->repo) !== 1) {
+			return (new SkillBundleAnswers())->badRequest(code: 'invalid_repo');
 		}
 
+		$run->skillIds = $this->arrayParam(name: 'skillIds');
+		$run->agentIds = $this->arrayParam(name: 'agentIds');
+		if ($run->hasRequestedContent() === false) {
+			return (new SkillBundleAnswers())->badRequest(code: 'skillIds or agentIds must be a non-empty array');
+		}
+
+		$run->visibility = (string)($this->request->getParam('visibility') ?? 'private');
+		if ($run->hasKnownVisibility() === false) {
+			return (new SkillBundleAnswers())->badRequest(code: 'invalid_visibility');
+		}
+
+		return null;
+	}//end readBundlePublishRequest()
+
+	/**
+	 * An array request parameter, [] when it is absent or not an array.
+	 *
+	 * @param string $name The parameter name.
+	 *
+	 * @return array<int|string, mixed> The value.
+	 */
+	private function arrayParam(string $name): array {
+		$value = $this->request->getParam($name);
+		if (is_array($value) === false) {
+			return [];
+		}
+
+		return $value;
+	}//end arrayParam()
+
+	/**
+	 * Serialise what resolved, push it, and report what was serialised; a failure is a 502.
+	 *
+	 * @param BundlePublishRun $run The publish, with its skills and agents resolved.
+	 *
+	 * @return JSONResponse The publish report, or the 502.
+	 */
+	private function publishBundleRun(BundlePublishRun $run): JSONResponse {
 		try {
-			// `$dropped` is read back below and folded into the per-skill outcomes.
+			// `dropped` is read back below and folded into the per-skill outcomes.
 			// Reporting `published` for a skill the serialiser discarded is how the
 			// first real bundle claimed 94 while shipping 64 — the response must be
 			// built from what was SERIALISED, not from what was requested.
-			$dropped = [];
-			$droppedAgents = [];
-			$tree = $this->bundleSerializer->toBundle(skills: $payloads, dropped: $dropped, agents: $agentPayloads, droppedAgents: $droppedAgents);
-
+			$tree = $this->bundleSerializer->toBundle(
+				skills: $run->skills['payloads'],
+				dropped: $run->dropped,
+				agents: $run->agents['payloads'],
+				droppedAgents: $run->droppedAgents
+			);
 			$result = $this->pushService->publishBundle(
 				files: $tree,
-				owner: $owner,
-				repo: $repo,
-				visibility: $visibility,
+				owner: $run->owner,
+				repo: $run->repo,
+				visibility: $run->visibility,
 				credentialId: (string)($this->credentialParam() ?? ''),
-				actingUserId: $user->getUID()
+				actingUserId: $run->user->getUID()
 			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill bundle publish failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'publish_failed'], Http::STATUS_BAD_GATEWAY);
 		}
 
-		$reconciled = $this->reconcileOutcomes(outcomes: $outcomes, dropped: $dropped);
-		$reconciledAgents = $this->reconcileOutcomes(outcomes: $agentOutcomes, dropped: $droppedAgents);
-
-		return new JSONResponse(
-			[
-				'repoUrl' => $result['repoUrl'],
-				'commitSha' => $result['commitSha'],
-				'created' => $result['created'],
-				'published' => $reconciled['published'],
-				'dropped' => count($dropped),
-				'truncated' => ($dropped !== [] || $droppedAgents !== []),
-				'skills' => $reconciled['outcomes'],
-				'agentsPublished' => $reconciledAgents['published'],
-				'agentsDropped' => count($droppedAgents),
-				'agents' => $reconciledAgents['outcomes'],
-			],
-			Http::STATUS_OK
-		);
-
-	}//end bundlePublish()
-
-	/**
-	 * Read and validate `bundlePublish()`'s request parameters.
-	 *
-	 * Split out so the publish method itself is about publishing. The validation
-	 * is a flat run of independent guards whose branches multiply into the
-	 * publish flow's own — folding them together is what took `bundlePublish()`
-	 * to an NPath of 864 without any of it being publish logic.
-	 *
-	 * Either `skillIds` or `agentIds` may be empty; both empty is the rejection.
-	 * A bundle of only agents and a bundle of only skills are both legitimate.
-	 *
-	 * @return array{error?:JSONResponse,owner:string,repo:string,skillIds:array<int,mixed>,agentIds:array<int,mixed>,visibility:string}
-	 *         The validated request, or a shape carrying `error` — the caller returns that response verbatim.
-	 */
-	private function parseBundlePublishRequest(): array {
-		$reject = static fn (string $code): array => [
-			'error' => new JSONResponse(['error' => $code], Http::STATUS_BAD_REQUEST),
-			'owner' => '',
-			'repo' => '',
-			'skillIds' => [],
-			'agentIds' => [],
-			'visibility' => 'private',
-		];
-
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			return $reject('invalid_repo');
-		}
-
-		$skillIds = $this->request->getParam('skillIds');
-		if (is_array($skillIds) === false) {
-			$skillIds = [];
-		}
-
-		$agentIds = $this->request->getParam('agentIds');
-		if (is_array($agentIds) === false) {
-			$agentIds = [];
-		}
-
-		if ($skillIds === [] && $agentIds === []) {
-			return $reject('skillIds or agentIds must be a non-empty array');
-		}
-
-		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
-		if (in_array($visibility, ['public', 'private'], true) === false) {
-			return $reject('invalid_visibility');
-		}
-
-		return [
-			'owner' => $owner,
-			'repo' => $repo,
-			'skillIds' => $skillIds,
-			'agentIds' => $agentIds,
-			'visibility' => $visibility,
-		];
-
-	}//end parseBundlePublishRequest()
+		return (new SkillBundleAnswers())->published(run: $run, result: $result);
+	}//end publishBundleRun()
 
 	/**
 	 * Install every skill from a bundle repository (skill-bundle-publish).
@@ -776,25 +741,45 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
+		$run = new BundleInstallRun(user: $user);
+
+		return $this->bundleSourceRefusal(run: $run)
+			?? $this->bundleFetchRefusal(run: $run)
+			?? $this->installFetchedBundle(run: $run);
+	}//end bundleInstall()
+
+	/**
+	 * Read the source repository and ref into the run; the 400 for a bad owner, repo or ref.
+	 *
+	 * @param BundleInstallRun $run The install.
+	 *
+	 * @return JSONResponse|null The refusal, or null.
+	 */
+	private function bundleSourceRefusal(BundleInstallRun $run): ?JSONResponse {
+		$run->owner = (string)($this->request->getParam('owner') ?? '');
+		$run->repo = (string)($this->request->getParam('repo') ?? '');
 		$refRaw = $this->request->getParam('ref');
-		$ref = null;
 		if (is_string($refRaw) === true && $refRaw !== '') {
-			$ref = $refRaw;
+			$run->ref = $refRaw;
 		}
 
-		$invalid = $this->rejectBadCoordinates(owner: $owner, repo: $repo, ref: $ref);
-		if ($invalid !== null) {
-			return $invalid;
-		}
+		return $this->rejectBadCoordinates(owner: $run->owner, repo: $run->repo, ref: $run->ref);
+	}//end bundleSourceRefusal()
 
+	/**
+	 * Fetch the bundle into the run; the 502 when it cannot be fetched, the 404 when the repo holds none.
+	 *
+	 * @param BundleInstallRun $run The install.
+	 *
+	 * @return JSONResponse|null The refusal, or null when the bundle was fetched.
+	 */
+	private function bundleFetchRefusal(BundleInstallRun $run): ?JSONResponse {
 		try {
 			$bundle = $this->catalogService->fetchBundle(
-				owner: $owner,
-				repo: $repo,
-				ref: $ref,
-				actingUserId: $user->getUID(),
+				owner: $run->owner,
+				repo: $run->repo,
+				ref: $run->ref,
+				actingUserId: $run->user->getUID(),
 				credentialId: $this->credentialParam()
 			);
 		} catch (Throwable $e) {
@@ -806,18 +791,30 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
 		}
 
+		$run->bundle = $bundle;
+		return null;
+	}//end bundleFetchRefusal()
+
+	/**
+	 * Install the fetched bundle's skills, then its agents, and report both; an unparseable bundle is a 404.
+	 *
+	 * @param BundleInstallRun $run The install, with its bundle fetched.
+	 *
+	 * @return JSONResponse The install report, or the 404.
+	 */
+	private function installFetchedBundle(BundleInstallRun $run): JSONResponse {
 		try {
-			$parsed = $this->bundleSerializer->fromBundle(files: $bundle['files']);
+			$parsed = $this->bundleSerializer->fromBundle(files: $run->bundle['files']);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq bundle install: parse failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
 		}
 
-		$result = $this->installBundleSkills(
+		$run->skillResult = $this->installBundleSkills(
 			parsed: $parsed,
-			createdBy: $user->getUID(),
-			owner: $owner,
-			repo: $repo
+			createdBy: $run->user->getUID(),
+			owner: $run->owner,
+			repo: $run->repo
 		);
 
 		// This direct HTTP path predates the skill-bundle agents extension and,
@@ -825,24 +822,11 @@ class SkillController extends Controller {
 		// SkillBundleInstaller::installFromRepo() route, never called
 		// agentsFromBundle()/installAgents() — a bundle installed straight
 		// through this endpoint silently dropped every agent it declared.
-		$agents = $this->bundleSerializer->agentsFromBundle(files: $bundle['files']);
-		$agentResult = $this->bundleInstaller->installAgents(parsed: $agents);
+		$agents = $this->bundleSerializer->agentsFromBundle(files: $run->bundle['files']);
+		$run->agentResult = $this->bundleInstaller->installAgents(parsed: $agents);
 
-		return new JSONResponse(
-			[
-				'installed' => $result['counts']['installed'],
-				'updated' => $result['counts']['updated'],
-				'unchanged' => $result['counts']['unchanged'],
-				'skipped' => $result['counts']['skipped'],
-				'failed' => $result['counts']['failed'],
-				'truncated' => $bundle['truncated'],
-				'skills' => $result['outcomes'],
-				'agents' => $agentResult['outcomes'],
-			],
-			Http::STATUS_OK
-		);
-
-	}//end bundleInstall()
+		return (new SkillBundleAnswers())->installed(run: $run);
+	}//end installFetchedBundle()
 
 	/**
 	 * Reject invalid repo coordinates BEFORE any outbound GitHub call.
@@ -982,48 +966,6 @@ class SkillController extends Controller {
 
 		return ['payloads' => $payloads, 'outcomes' => $outcomes];
 	}//end collectPublishableAgentPayloads()
-
-	/**
-	 * Reconcile the per-skill outcomes against what the serialiser actually
-	 * bundled, so the response describes the ARTEFACT rather than the request.
-	 *
-	 * A skill the serialiser discarded is re-marked `dropped` with its reason, and
-	 * only skills that reached the tree count as published. Without this the API
-	 * reports success for content it never shipped — observed on the first real
-	 * bundle, where 94 skills were requested, 64 were bundled, and all 94 came back
-	 * as `published`.
-	 *
-	 * @param array<int, array<string, mixed>> $outcomes The per-skill outcomes built from the request.
-	 * @param array<int, array<string, mixed>> $dropped The serialiser's dropped list.
-	 *
-	 * @return array{outcomes:array<int,array<string,mixed>>,published:int}
-	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-	 */
-	private function reconcileOutcomes(array $outcomes, array $dropped): array {
-		$byName = [];
-		foreach ($dropped as $entry) {
-			$byName[(string)($entry['name'] ?? '')] = (string)($entry['reason'] ?? 'dropped');
-		}
-
-		$published = 0;
-		$out = [];
-		foreach ($outcomes as $outcome) {
-			$name = (string)($outcome['name'] ?? '');
-			if (isset($byName[$name]) === true) {
-				$outcome['outcome'] = 'dropped';
-				$outcome['reason'] = $byName[$name];
-			}
-
-			if (($outcome['outcome'] ?? '') === 'published') {
-				$published++;
-			}
-
-			$out[] = $outcome;
-		}
-
-		return ['outcomes' => $out, 'published' => $published];
-	}//end reconcileOutcomes()
 
 	/**
 	 * Install every parsed bundle entry through the UNCHANGED per-skill path.
