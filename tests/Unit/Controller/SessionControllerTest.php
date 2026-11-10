@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
+use OCA\Hermiq\Tests\Unit\Support\DeleteCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -612,7 +613,8 @@ class SessionControllerTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (mixed ...$args) use (&$deleted): bool {
+				[$uuid, , $schema] = DeleteCallShape::flat(args: $args);
 				$deleted[] = [$uuid, $schema];
 				return true;
 			}
@@ -697,7 +699,8 @@ class SessionControllerTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (mixed ...$args) use (&$deleted): bool {
+				[$uuid, , $schema] = DeleteCallShape::flat(args: $args);
 				$deleted[] = [$uuid, $schema];
 				return true;
 			}

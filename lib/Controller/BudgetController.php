@@ -35,6 +35,8 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectDeletion;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -288,9 +290,10 @@ class BudgetController extends Controller {
 			// to run this line is the `mayAdminister()` gate four lines up; without
 			// that gate this call would be an IDOR.
 			$this->objectService->deleteObject(
-				uuid: $budgetId,
-				register: BudgetService::REGISTER_SLUG,
-				schema: BudgetService::BUDGET_SCHEMA,
+				deletion: new ObjectDeletion(
+					uuid: $budgetId,
+					target: new ObjectFindTarget(register: BudgetService::REGISTER_SLUG, schema: BudgetService::BUDGET_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
