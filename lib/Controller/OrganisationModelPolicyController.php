@@ -50,7 +50,6 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -114,7 +113,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		try {
-			$organisation = $this->resolveActiveOrganisation(uid: $user->getUID());
+			$organisation = $this->policyGate()->activeOrganisation(uid: $user->getUID(), logger: $this->logger);
 			return new JSONResponse($this->modelPolicyService->effectivePolicyFor(organisation: $organisation));
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq model-policy effective read failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -142,15 +141,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		try {
-			$isAdmin = $this->groupManager->isAdmin($user->getUID());
-
-			$visible = [];
-			foreach ($this->modelPolicyService->listAll() as $policy) {
-				$organisation = (string)($policy->getOrganisation() ?? '');
-				if ($isAdmin === true || $this->ownsOrganisation(organisation: $organisation, uid: $user->getUID()) === true) {
-					$visible[] = $policy;
-				}
-			}
+			$visible = $this->policyGate()->visiblePolicies(user: $user, listAll: fn (): array => $this->modelPolicyService->listAll());
 
 			$shaped = array_map(
 				function (ObjectEntity $policy) {
@@ -204,7 +195,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		$organisation = (string)$this->request->getParam('organisation', '');
-		if ($this->mayAdminister(organisation: $organisation, user: $user) === false) {
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
 			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -247,7 +238,7 @@ class OrganisationModelPolicyController extends Controller {
 		}
 
 		$organisation = (string)($existing->getOrganisation() ?? '');
-		if ($this->mayAdminister(organisation: $organisation, user: $user) === false) {
+		if ($this->policyGate()->mayAdminister(organisation: $organisation, user: $user) === false) {
 			return new JSONResponse(['error' => 'Forbidden'], Http::STATUS_FORBIDDEN);
 		}
 
@@ -266,79 +257,11 @@ class OrganisationModelPolicyController extends Controller {
 	}//end update()
 
 	/**
-	 * Whether the user may administer the ModelPolicy for the given organisation
-	 * scope. An empty `$organisation` (the instance-wide default) is admitted
-	 * ONLY for an instance admin — there is no "owner" of no organisation. A
-	 * non-empty organisation is admitted for an instance admin OR the owner of
-	 * that OpenRegister organisation, mirroring
-	 * `OrganisationControlController::mayAdminister()`.
+	 * Who may read and administer this controller's policies.
 	 *
-	 * @param string $organisation The organisation identifier, or '' for the instance default.
-	 * @param IUser $user The requesting user.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @return OrganisationPolicyGate The gate over this controller's group manager and organisation mapper.
 	 */
-	private function mayAdminister(string $organisation, IUser $user): bool {
-		$isAdmin = $this->groupManager->isAdmin($user->getUID());
-
-		if ($organisation === '') {
-			return $isAdmin;
-		}
-
-		if ($isAdmin === true) {
-			return true;
-		}
-
-		return $this->ownsOrganisation(organisation: $organisation, uid: $user->getUID());
-	}//end mayAdminister()
-
-	/**
-	 * Whether the given user owns the given OpenRegister organisation.
-	 *
-	 * @param string $organisation The organisation identifier.
-	 * @param string $uid The user id.
-	 *
-	 * @return bool
-	 */
-	private function ownsOrganisation(string $organisation, string $uid): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		try {
-			$org = $this->organisationMapper->findByUuid($organisation);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-		return (string)($org->getOwner() ?? '') === $uid;
-	}//end ownsOrganisation()
-
-	/**
-	 * Resolve the calling user's active organisation for the `effective()` read
-	 * (identity from session — no request parameter). Falls back to '' (the
-	 * instance-wide default scope) when the user has no active/default
-	 * organisation, so the read never errors for a user outside any organisation.
-	 *
-	 * @param string $uid The requesting user's id.
-	 *
-	 * @return string The organisation identifier, or '' when none resolves.
-	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
-	 */
-	private function resolveActiveOrganisation(string $uid): string {
-		try {
-			// OpenRegister's OrganisationMapper declares
-			// getActiveOrganisationWithFallback() on both `main` and
-			// `development`, so the method_exists() probe this replaces could
-			// never be false.
-			return (string)($this->organisationMapper->getActiveOrganisationWithFallback($uid) ?? '');
-		} catch (Throwable $e) {
-			$this->logger->warning('Hermiq could not resolve active organisation: ' . $e->getMessage(), ['exception' => $e]);
-		}
-
-		return '';
-	}//end resolveActiveOrganisation()
+	private function policyGate(): OrganisationPolicyGate {
+		return new OrganisationPolicyGate(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+	}//end policyGate()
 }//end class
