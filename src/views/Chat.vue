@@ -848,6 +848,7 @@ import {
 } from '../utils/instructionVariables.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
+import { goalLine as describeGoal } from './chatGoalLine.js'
 import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
 
 /**
@@ -1039,38 +1040,7 @@ export default {
 		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 		 */
 		goalLine() {
-			const goal = this.sessionGoal
-			if (!goal) {
-				return ''
-			}
-			const statement = goal.statement || ''
-			if (goal.status === 'stopped') {
-				return this.t('hermiq', 'Goal stopped: {statement}', { statement })
-			}
-			if (goal.status === 'reached') {
-				return this.t('hermiq', 'Goal reached: {statement}', { statement })
-			}
-			if (goal.status === 'exhausted') {
-				return this.t('hermiq', 'Turn limit used: {statement}', {
-					statement,
-				})
-			}
-			const turns = this.t('hermiq', 'turn {used} of {max}', {
-				used: goal.turnsUsed ?? 0,
-				max: goal.maxTurns ?? 10,
-			})
-			const summary = goal.lastCheckResult?.summary
-			const blocked = goal.blocked ? this.t('hermiq', 'blocked') : ''
-			return [
-				this.t('hermiq', 'Goal: {statement}', { statement }),
-				turns,
-				blocked,
-				summary
-					? this.t('hermiq', 'last check: {summary}', { summary })
-					: '',
-			]
-				.filter(Boolean)
-				.join(', ')
+			return describeGoal(this.sessionGoal)
 		},
 
 		/**
