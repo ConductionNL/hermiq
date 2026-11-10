@@ -191,6 +191,7 @@ import {
 	useEvalRunStore,
 	useSkillStore,
 } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillVersionHistory',
@@ -337,10 +338,7 @@ export default {
 					? evalRuns
 					: evalRuns?.results || []
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the version history.')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not load the version history.'))
 			} finally {
 				this.loading = false
 			}
@@ -365,10 +363,7 @@ export default {
 				)
 				this.diffVersionId = versionId
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Diff failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Diff failed.'))
 			} finally {
 				this.busy = false
 			}
@@ -391,10 +386,7 @@ export default {
 				this.diffVersionId = ''
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Rollback failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Rollback failed.'))
 			} finally {
 				this.busy = false
 			}
@@ -414,10 +406,7 @@ export default {
 				await republishSkill(this.skillId, this.republishCredentialId.trim())
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Republish failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Republish failed.'))
 			} finally {
 				this.busy = false
 			}

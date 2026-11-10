@@ -135,6 +135,7 @@ import {
 	exportAgentTemplate,
 	instantiateAgentTemplate,
 } from '../api/agentTemplates.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AgentTemplateRowActions',
@@ -202,10 +203,7 @@ export default {
 					this.$router.push(`/agents/${result.agent?.uuid}`)
 				}
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -240,10 +238,7 @@ export default {
 				await approveAgentTemplate(this.templateId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -261,10 +256,7 @@ export default {
 				this.exportedPackage = await exportAgentTemplate(this.templateId())
 				this.showExport = true
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			}
 		},
 

@@ -152,6 +152,7 @@ import CloseThick from 'vue-material-design-icons/CloseThick.vue'
 import SkillMaturityDots from './SkillMaturityDots.vue'
 import { attestSkillL4, qualifySkill } from '../api/skills.js'
 import { useSkillStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 /**
  * The line for a level the system checks by itself.
@@ -424,10 +425,7 @@ export default {
 				this.scorecard = result.scorecard || []
 				await this.fetchSkill()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.qualifying = false
 			}
@@ -452,10 +450,7 @@ export default {
 				this.attestNote = ''
 				await this.fetchSkill()
 			} catch (e) {
-				this.attestError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.attestError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.attesting = false
 			}
