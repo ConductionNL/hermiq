@@ -402,7 +402,8 @@ class SkillController extends Controller {
 			$result = GitHubSkillStore::UNREACHABLE;
 		}
 
-		return new JSONResponse($this->gitHubSkillStore()->searchAnswer(result: $result), Http::STATUS_OK);
+		$store = new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
+		return new JSONResponse($store->searchAnswer(result: $result), Http::STATUS_OK);
 
 	}//end githubSearch()
 
@@ -439,7 +440,8 @@ class SkillController extends Controller {
 		}
 
 		try {
-			$skill = $this->gitHubSkillStore()->install(target: $target);
+			$store = new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
+			$skill = $store->install(target: $target);
 			if ($skill === null) {
 				return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
 			}
@@ -451,18 +453,6 @@ class SkillController extends Controller {
 		}//end try
 
 	}//end githubInstall()
-
-	/**
-	 * The GitHub skill store steps over this controller's catalog and marketplace.
-	 *
-	 * @return GitHubSkillStore
-	 *
-	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
-	 */
-	private function gitHubSkillStore(): GitHubSkillStore {
-		return new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
-
-	}//end gitHubSkillStore()
 
 	/**
 	 * IDOR guard for the skill WRITE path: the caller must own the skill, or be
