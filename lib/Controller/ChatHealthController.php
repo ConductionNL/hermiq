@@ -99,28 +99,7 @@ class ChatHealthController extends Controller {
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {
 		try {
-			$llmConfig = $this->llmSettings->getLLMSettingsOnly();
-			$chatProvider = ($llmConfig['chatProvider'] ?? null);
-
-			if (empty($chatProvider) === true) {
-				return new JSONResponse(
-					data: [
-						'status' => 'unconfigured',
-						'configured' => false,
-						'capabilities' => [],
-					],
-					statusCode: 200
-				);
-			}
-
-			return new JSONResponse(
-				data: [
-					'status' => 'ok',
-					'configured' => true,
-					'capabilities' => ['chat', 'stream'],
-				],
-				statusCode: 200
-			);
+			return new JSONResponse(data: $this->probe(), statusCode: 200);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[ChatHealthController] Health probe failed reading LLM settings',
@@ -137,4 +116,29 @@ class ChatHealthController extends Controller {
 			);
 		}//end try
 	}//end health()
+
+	/**
+	 * What the configured LLM settings say about chat: unconfigured without a chat
+	 * provider, otherwise ok with the chat and stream capabilities.
+	 *
+	 * @return array{status: string, configured: bool, capabilities: array<int, string>}
+	 */
+	private function probe(): array {
+		$llmConfig = $this->llmSettings->getLLMSettingsOnly();
+		$chatProvider = ($llmConfig['chatProvider'] ?? null);
+
+		if (empty($chatProvider) === true) {
+			return [
+				'status' => 'unconfigured',
+				'configured' => false,
+				'capabilities' => [],
+			];
+		}
+
+		return [
+			'status' => 'ok',
+			'configured' => true,
+			'capabilities' => ['chat', 'stream'],
+		];
+	}//end probe()
 }//end class
