@@ -122,13 +122,7 @@ class LlmSettingsController extends Controller {
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
-		$data = $this->request->getParam('llm');
-		if (is_array($data) === false) {
-			// Accept a flat body too (the whole request as the llm patch).
-			$data = $this->request->getParams();
-			unset($data['_route']);
-		}
-
+		$data = $this->readPatch();
 		$refusal = $this->refusalFor(data: $data);
 		if ($refusal !== null) {
 			return $refusal;
@@ -144,15 +138,44 @@ class LlmSettingsController extends Controller {
 
 		unset($data['modelCapabilities']);
 
-		$data = $this->dropBlankCredentials(data: $data);
+		return $this->save(patch: $this->dropBlankCredentials(data: $data), capabilities: $capabilities);
 
-		try {
-			$merged = $this->settingsHandler->updateLLMSettingsOnly($data);
-		} catch (Throwable $e) {
-			$this->logger->error(
-				message: '[LlmSettingsController] Failed to persist hermiq.llm config',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
-			);
+	}//end update()
+
+	/**
+	 * The llm patch: the `llm` parameter, or the whole request without its route name.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	private function readPatch(): array {
+		$data = $this->request->getParam('llm');
+		if (is_array($data) === true) {
+			return $data;
+		}
+
+		// Accept a flat body too (the whole request as the llm patch).
+		$data = $this->request->getParams();
+		unset($data['_route']);
+
+		return $data;
+
+	}//end readPatch()
+
+	/**
+	 * Persist the patch, report it, write the declarations, and answer the masked result.
+	 *
+	 * @param array<string, mixed>             $patch        The validated llm patch.
+	 * @param array<string, list<string>>|null $capabilities The declarations, or null when none were sent.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function save(array $patch, ?array $capabilities): JSONResponse {
+		$merged = $this->persist(patch: $patch);
+		if ($merged === null) {
 			return new JSONResponse(['error' => 'Failed to save LLM configuration'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
@@ -172,7 +195,29 @@ class LlmSettingsController extends Controller {
 			]
 		);
 
-	}//end update()
+	}//end save()
+
+	/**
+	 * Merge the patch into the stored llm config, or log the failure.
+	 *
+	 * @param array<string, mixed> $patch The validated llm patch.
+	 *
+	 * @return array<string, mixed>|null The merged config, or null when the save failed.
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	private function persist(array $patch): ?array {
+		try {
+			return $this->settingsHandler->updateLLMSettingsOnly($patch);
+		} catch (Throwable $e) {
+			$this->logger->error(
+				message: '[LlmSettingsController] Failed to persist hermiq.llm config',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+	}//end persist()
 
 	/**
 	 * The patch's declared model capabilities, normalised; null when the patch names none.
