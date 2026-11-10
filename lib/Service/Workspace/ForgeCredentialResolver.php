@@ -97,53 +97,77 @@ class ForgeCredentialResolver {
 			);
 		}
 
-		$data = [];
-		if ($agent !== null) {
-			$data = $agent->getObject();
-		}
-
-		$pins = $data['credentialIds'] ?? null;
-		if (is_array($pins) === false) {
-			$pins = null;
-		}
-
-		$forgeId = $this->pick(provider: $this->forgeProvider(), ownerUid: $ownerUid, organisation: null, pins: $pins);
-		if ($forgeId === null || $this->scopes->scopeOfCredential(credentialId: $forgeId) !== 'personal'
-			|| $this->scopes->ownerOfCredential(credentialId: $forgeId) !== $ownerUid
-		) {
-			throw $this->refused(message: 'The run owner has no personal forge credential this app may use, so nothing was pushed.');
-		}
-
-		$this->assertSameOwner(forgeId: $forgeId, agentData: $data, agent: $agent, ownerUid: $ownerUid, pins: $pins);
+		$run = $this->pushRun(ownerUid: $ownerUid, agent: $agent);
+		$forgeId = $this->forgeCredential(run: $run);
+		$this->assertSameOwner(run: $run, forgeId: $forgeId);
 
 		return ['credentialId' => $forgeId, 'secret' => $this->secret(credentialId: $forgeId, ownerUid: $ownerUid)];
 	}//end resolve()
 
 	/**
+	 * The resolution for a run: its owner, its agent, the agent's data and its pins (a non-list counts as none).
+	 *
+	 * @param string            $ownerUid The resolved run owner.
+	 * @param ObjectEntity|null $agent    The run's agent.
+	 *
+	 * @return PushCredentialRun The resolution.
+	 */
+	private function pushRun(string $ownerUid, ?ObjectEntity $agent): PushCredentialRun {
+		$run = new PushCredentialRun(ownerUid: $ownerUid, agent: $agent);
+		if ($agent !== null) {
+			$run->agentData = $agent->getObject();
+		}
+
+		$pins = $run->agentData['credentialIds'] ?? null;
+		if (is_array($pins) === true) {
+			$run->pins = $pins;
+		}
+
+		return $run;
+	}//end pushRun()
+
+	/**
+	 * The owner's personal forge credential, or the refusal.
+	 *
+	 * @param PushCredentialRun $run The resolution.
+	 *
+	 * @return string The forge credential id.
+	 *
+	 * @throws WorkspaceException credential_scope_refused.
+	 */
+	private function forgeCredential(PushCredentialRun $run): string {
+		$forgeId = $this->pick(run: $run, target: new CredentialTarget(provider: $this->forgeProvider(), organisation: null));
+		if ($forgeId === null || $this->scopes->scopeOfCredential(credentialId: $forgeId) !== 'personal'
+			|| $this->scopes->ownerOfCredential(credentialId: $forgeId) !== $run->ownerUid
+		) {
+			throw $this->refused(message: 'The run owner has no personal forge credential this app may use, so nothing was pushed.');
+		}
+
+		return $forgeId;
+	}//end forgeCredential()
+
+	/**
 	 * Refuse when the model credential is another person's personal credential.
 	 *
-	 * @param string                     $forgeId   The forge credential id.
-	 * @param array<string, mixed>       $agentData The agent object.
-	 * @param ObjectEntity|null          $agent     The agent entity.
-	 * @param string                     $ownerUid  The run owner.
-	 * @param array<string, string>|null $pins      The agent's pinned credentials.
+	 * @param PushCredentialRun $run     The resolution.
+	 * @param string            $forgeId The forge credential id.
 	 *
 	 * @return void
 	 *
 	 * @throws WorkspaceException credential_scope_refused.
 	 */
-	private function assertSameOwner(string $forgeId, array $agentData, ?ObjectEntity $agent, string $ownerUid, ?array $pins): void {
-		$provider = trim((string)($agentData['provider'] ?? ''));
+	private function assertSameOwner(PushCredentialRun $run, string $forgeId): void {
+		$provider = trim((string)($run->agentData['provider'] ?? ''));
 		if ($provider === '') {
 			return;
 		}
 
 		$organisation = null;
-		if ($agent !== null) {
-			$organisation = $agent->getOrganisation();
+		if ($run->agent !== null) {
+			$organisation = $run->agent->getOrganisation();
 		}
 
-		$modelId = $this->pick(provider: $provider, ownerUid: $ownerUid, organisation: $organisation, pins: $pins);
+		$modelId = $this->pick(run: $run, target: new CredentialTarget(provider: $provider, organisation: $organisation));
 		if ($modelId === null || $this->scopes->scopeOfCredential(credentialId: $modelId) !== 'personal') {
 			return;
 		}
@@ -156,18 +180,16 @@ class ForgeCredentialResolver {
 	/**
 	 * Resolve a credential id, a refused pin counting as none.
 	 *
-	 * @param string                     $provider     The provider id.
-	 * @param string                     $ownerUid     The run owner.
-	 * @param string|null                $organisation The agent organisation, or null for personal only.
-	 * @param array<string, string>|null $pins         The agent's pinned credentials.
+	 * @param PushCredentialRun $run    The resolution (owner and pins).
+	 * @param CredentialTarget  $target The provider and organisation to look in.
 	 *
 	 * @return string|null
 	 *
 	 * @throws WorkspaceException credential_scope_refused when a pin cannot be used.
 	 */
-	private function pick(string $provider, string $ownerUid, ?string $organisation, ?array $pins): ?string {
+	private function pick(PushCredentialRun $run, CredentialTarget $target): ?string {
 		try {
-			return $this->scopes->resolve(provider: $provider, actingUserId: $ownerUid, organisation: $organisation, pinned: $pins);
+			return $this->scopes->resolve(provider: $target->provider, actingUserId: $run->ownerUid, organisation: $target->organisation, pinned: $run->pins);
 		} catch (PinnedCredentialRefusedException) {
 			throw $this->refused(message: 'The credential pinned on this agent cannot be used by this run, so nothing was pushed.');
 		}
