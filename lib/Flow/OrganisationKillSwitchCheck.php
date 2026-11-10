@@ -167,15 +167,7 @@ class OrganisationKillSwitchCheck implements IFlowOversightCheck {
 
 		$organisations = [];
 		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if (($object->getObject()['engaged'] ?? false) !== true) {
-				continue;
-			}
-
-			$organisation = (string)($object->getOrganisation() ?? '');
+			$organisation = $this->engagedOrganisationOf(object: $object);
 			if ($organisation !== '') {
 				$organisations[] = $organisation;
 			}
@@ -183,6 +175,25 @@ class OrganisationKillSwitchCheck implements IFlowOversightCheck {
 
 		return array_values(array_unique($organisations));
 	}//end engagedOrganisations()
+
+	/**
+	 * The organisation of an engaged kill switch, or '' when the object is not one.
+	 *
+	 * @param mixed $object A stored tenant control.
+	 *
+	 * @return string
+	 */
+	private function engagedOrganisationOf(mixed $object): string {
+		if (($object instanceof ObjectEntity) === false) {
+			return '';
+		}
+
+		if (($object->getObject()['engaged'] ?? false) !== true) {
+			return '';
+		}
+
+		return (string)($object->getOrganisation() ?? '');
+	}//end engagedOrganisationOf()
 
 	/**
 	 * The organisation the identified run belongs to, or null when unknown.
