@@ -142,6 +142,7 @@ import {
 	publishSkill,
 	qualifySkill,
 } from '../api/skills.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -227,16 +228,10 @@ export default {
 		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 		 */
 		async doApprove() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await approveSkill(this.skillId())
 				emit('cn:page:refresh', {})
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -248,16 +243,10 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doQualify() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.scorecardResult = await qualifySkill(this.skillId())
 				emit('cn:page:refresh', {})
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -284,20 +273,14 @@ export default {
 		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 		 */
 		async doPublish() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				const result = await publishSkill(this.skillId())
 				if (result && result.error) {
 					this.error =
 						result.error.message
 						|| this.t('hermiq', 'Publishing is not available.')
 				}
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**

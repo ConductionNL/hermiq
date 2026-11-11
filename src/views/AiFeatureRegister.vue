@@ -230,6 +230,7 @@ import {
 	publishAiFeature,
 	withdrawAiFeature,
 } from '../api/aiFeatures.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
@@ -569,16 +570,10 @@ export default {
 		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doWithdraw(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await withdrawAiFeature(feature.uuid)
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -589,16 +584,10 @@ export default {
 		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doAcknowledge(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await acknowledgeAiFeature(feature.slug)
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -609,16 +598,10 @@ export default {
 		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doEnable(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await enableAiFeature(feature.uuid)
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -629,16 +612,10 @@ export default {
 		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doDisable(feature) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await disableAiFeature(feature.uuid)
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }

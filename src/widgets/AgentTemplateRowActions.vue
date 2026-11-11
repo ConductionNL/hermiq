@@ -135,6 +135,7 @@ import {
 	exportAgentTemplate,
 	instantiateAgentTemplate,
 } from '../api/agentTemplates.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -232,16 +233,10 @@ export default {
 		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		async doApprove() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await approveAgentTemplate(this.templateId())
 				emit('cn:page:refresh', {})
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
