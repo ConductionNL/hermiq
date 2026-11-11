@@ -94,19 +94,6 @@ use Throwable;
  * carried by BudgetController, McpRunController and AgentTemplateController.
  */
 class ChatController extends Controller {
-
-	/**
-	 * The refusals a failed turn answers with their own sentence, in the order the
-	 * cause chain is searched for them, each with the stable code the frontend keys on.
-	 *
-	 * @var array<class-string, string>
-	 */
-	private const REFUSAL_CODES = [
-		PinnedCredentialRefusedException::class => PinnedCredentialRefusedException::ERROR_CODE,
-		AgentSwitchedOffException::class => AgentSwitchedOffException::ERROR_CODE,
-		LiteracyRequiredException::class => LiteracyRequiredException::ERROR_CODE,
-		DataUseViolationException::class => DataUseViolationException::ERROR_CODE,
-	];
 	use SanitizesForSaveTrait;
 
 	/**
@@ -478,44 +465,47 @@ class ChatController extends Controller {
 	}//end withRefusalSentence()
 
 	/**
-	 * The message, stable code and (for the literacy course) link of the first known
-	 * refusal the cause is an instance of.
+	 * The message, stable code and (for the literacy course) link of a known refusal.
 	 *
 	 * @param Throwable $cause One exception in the failure's cause chain.
 	 *
 	 * @return array<string, string>|null The fields to set, or null for any other exception.
 	 */
 	private function refusalSentence(Throwable $cause): ?array {
-		foreach (self::REFUSAL_CODES as $class => $errorCode) {
-			if ($cause instanceof $class) {
-				return $this->refusalFields(class: $class, errorCode: $errorCode);
-			}
+		$errorCode = $this->refusalCode(cause: $cause);
+		if ($errorCode === null) {
+			return null;
 		}
 
-		return null;
-
-	}//end refusalSentence()
-
-	/**
-	 * The response fields of one known refusal; the literacy refusal also links the course.
-	 *
-	 * @param class-string $class The refusal's exception class.
-	 * @param string $errorCode The refusal's stable code.
-	 *
-	 * @return array<string, string> The fields to set.
-	 */
-	private function refusalFields(string $class, string $errorCode): array {
-		$fields = ['message' => $this->refusalMessages()[$class], 'errorCode' => $errorCode];
-		if ($class === LiteracyRequiredException::class) {
+		$fields = ['message' => $this->refusalMessages()[$errorCode], 'errorCode' => $errorCode];
+		if ($errorCode === LiteracyRequiredException::ERROR_CODE) {
 			$fields['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
 		}
 
 		return $fields;
 
-	}//end refusalFields()
+	}//end refusalSentence()
 
 	/**
-	 * The sentence the person reads for each known refusal, keyed like REFUSAL_CODES.
+	 * The stable code of a known refusal, checked in this order.
+	 *
+	 * @param Throwable $cause One exception in the failure's cause chain.
+	 *
+	 * @return string|null The refusal's code, or null for any other exception.
+	 */
+	private function refusalCode(Throwable $cause): ?string {
+		return match (true) {
+			$cause instanceof PinnedCredentialRefusedException => PinnedCredentialRefusedException::ERROR_CODE,
+			$cause instanceof AgentSwitchedOffException => AgentSwitchedOffException::ERROR_CODE,
+			$cause instanceof LiteracyRequiredException => LiteracyRequiredException::ERROR_CODE,
+			$cause instanceof DataUseViolationException => DataUseViolationException::ERROR_CODE,
+			default => null,
+		};
+
+	}//end refusalCode()
+
+	/**
+	 * The sentence the person reads for each known refusal, keyed by its code.
 	 *
 	 * A refused pinned credential stops the turn (operations-a-credential-per-agent);
 	 * a switched-off agent gives no answer, only the sentence (agents-switch-off-and-stop);
@@ -523,14 +513,14 @@ class ChatController extends Controller {
 	 * (compliance-ai-literacy); and it may only allow providers that never train on its
 	 * data (models-no-training-guarantee).
 	 *
-	 * @return array<class-string, string> The translated sentences.
+	 * @return array<string, string> The translated sentences.
 	 */
 	private function refusalMessages(): array {
 		return [
-			PinnedCredentialRefusedException::class => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
-			AgentSwitchedOffException::class => $this->l10n->t('This agent is switched off.'),
-			LiteracyRequiredException::class => $this->l10n->t('Finish the short course Working with AI first.'),
-			DataUseViolationException::class => $this->l10n->t(
+			PinnedCredentialRefusedException::ERROR_CODE => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+			AgentSwitchedOffException::ERROR_CODE => $this->l10n->t('This agent is switched off.'),
+			LiteracyRequiredException::ERROR_CODE => $this->l10n->t('Finish the short course Working with AI first.'),
+			DataUseViolationException::ERROR_CODE => $this->l10n->t(
 				'This assistant cannot answer: your organisation only allows AI providers that never train on its data.'
 			),
 		];
