@@ -315,20 +315,7 @@ class BudgetController extends Controller {
 	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 	 */
 	private function mayAdminister(string $organisation, IUser $user): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		if ($this->groupManager->isAdmin($user->getUID()) === true) {
-			return true;
-		}
-
-		try {
-			$org = $this->organisationMapper->findByUuid($organisation);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-		return (string)($org->getOwner() ?? '') === $user->getUID();
+		$administrators = new OrganisationAdministrators(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+		return $administrators->mayAdminister(organisation: $organisation, user: $user);
 	}//end mayAdminister()
 }//end class
