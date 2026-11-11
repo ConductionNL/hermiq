@@ -156,6 +156,7 @@ import {
 	searchGithubTemplates,
 } from '../api/agentTemplates.js'
 import { installGithubSkill, searchGithubSkills } from '../api/skills.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 /** Debounce delay (ms) before a typed search term triggers a request. */
 const SEARCH_DEBOUNCE_MS = 400
@@ -459,10 +460,7 @@ export default {
 					emit('cn:page:refresh', {})
 				}
 			} catch (e) {
-				this.installError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.installError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.installingId = null
 			}

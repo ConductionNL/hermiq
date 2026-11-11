@@ -94,6 +94,7 @@ import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useSkillStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillLearnings',
@@ -205,10 +206,7 @@ export default {
 				)
 				this.skill = skill || null
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the skill.')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not load the skill.'))
 			} finally {
 				this.loading = false
 			}

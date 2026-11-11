@@ -168,6 +168,7 @@ import { CnDataTable } from '@conduction/nextcloud-vue'
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getComplianceDashboard, getComplianceExport } from '../api/compliance.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ComplianceDashboard',
@@ -260,10 +261,7 @@ export default {
 				const data = await getComplianceExport()
 				this.downloadJson(data, 'hermiq-compliance-auditor-pack.json')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.exporting = false
 			}
