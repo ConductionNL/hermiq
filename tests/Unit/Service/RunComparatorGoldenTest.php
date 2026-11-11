@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\ComparedRun;
 use OCA\Hermiq\Service\RunComparator;
 use PHPUnit\Framework\TestCase;
 use Random\Engine\Mt19937;
@@ -69,7 +70,10 @@ class RunComparatorGoldenTest extends TestCase {
 
 			$comparator = new RunComparator();
 			$actual[] = [
-				'compare' => $comparator->compare(leftSteps: $left, rightSteps: $right, leftSummary: $leftSummary, rightSummary: $rightSummary),
+				'compare' => $comparator->compareRuns(
+					left: new ComparedRun(steps: $left, summary: $leftSummary),
+					right: new ComparedRun(steps: $right, summary: $rightSummary)
+				),
 				'replay' => $comparator->toReplayDiff(
 					originalSteps: $left,
 					replaySteps: $right,

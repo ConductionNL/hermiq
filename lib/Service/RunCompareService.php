@@ -80,11 +80,9 @@ class RunCompareService
         }
 
         $result['sameAgent']  = ($left['agentId'] === $right['agentId']);
-        $result['comparison'] = $this->runComparator->compare(
-            leftSteps: $left['steps'],
-            rightSteps: $right['steps'],
-            leftSummary: (string) ($left['summary'] ?? ''),
-            rightSummary: (string) ($right['summary'] ?? '')
+        $result['comparison'] = $this->runComparator->compareRuns(
+            left: new ComparedRun(steps: $left['steps'], summary: (string) ($left['summary'] ?? '')),
+            right: new ComparedRun(steps: $right['steps'], summary: (string) ($right['summary'] ?? ''))
         );
 
         return $result;
