@@ -124,27 +124,55 @@ class CourseCandidateScorer {
 		$candidateCount = 0;
 		$scored = [];
 		foreach ($evidence['courses'] as $uuid => $course) {
-			if ((string)($course['lifecycle'] ?? '') !== 'published' || isset($evidence['excluded'][$uuid]) === true) {
+			if ($this->isCandidate(evidence: $evidence, uuid: $uuid) === false) {
 				continue;
 			}
 
 			$candidateCount++;
-			$signals = $this->signalsFor(evidence: $evidence, candidate: ['uuid' => $uuid, 'course' => $course]);
-			if ($signals === []) {
-				continue;
+			$candidate = ['uuid' => $uuid, 'course' => $course];
+			$signals = $this->signalsFor(evidence: $evidence, candidate: $candidate);
+			if ($signals !== []) {
+				$scored[] = $this->recommendation(candidate: $candidate, signals: $signals);
 			}
-
-			$scored[] = [
-				'courseId' => $uuid,
-				'courseCode' => (string)($course['code'] ?? ''),
-				'courseName' => (string)($course['name'] ?? ''),
-				'score' => $this->weightOf(signals: $signals),
-				'matchedSignals' => $signals,
-			];
 		}
 
 		return ['candidateCount' => $candidateCount, 'recommendations' => $this->ranked(scored: $scored)];
 	}//end score()
+
+	/**
+	 * Whether a course is a candidate: published, and not one the learner is already enrolled in.
+	 *
+	 * @param array<string, mixed> $evidence The learner's indexed evidence.
+	 * @param int|string           $uuid     The course uuid.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 */
+	private function isCandidate(array $evidence, int|string $uuid): bool {
+		$course = $evidence['courses'][$uuid];
+		return ((string)($course['lifecycle'] ?? '') === 'published' && isset($evidence['excluded'][$uuid]) === false);
+	}//end isCandidate()
+
+	/**
+	 * One scored recommendation for a candidate with its matched signals.
+	 *
+	 * @param array{uuid: int|string, course: array<string, mixed>} $candidate The candidate.
+	 * @param array<int, string>                                    $signals   Its matched signals.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 */
+	private function recommendation(array $candidate, array $signals): array {
+		return [
+			'courseId' => $candidate['uuid'],
+			'courseCode' => (string)($candidate['course']['code'] ?? ''),
+			'courseName' => (string)($candidate['course']['name'] ?? ''),
+			'score' => $this->weightOf(signals: $signals),
+			'matchedSignals' => $signals,
+		];
+	}//end recommendation()
 
 	/**
 	 * The signals one candidate matches, unique and in SIGNAL_ORDER.
