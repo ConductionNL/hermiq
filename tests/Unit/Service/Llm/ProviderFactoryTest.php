@@ -29,6 +29,7 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\Llm\CliTurn;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
@@ -1100,6 +1101,20 @@ class ProviderFactoryTest extends TestCase {
 	}//end callPrivate()
 
 	/**
+	 * A `cli` turn for an agent and user, as the factory builds one.
+	 *
+	 * @param string|null $agentId The acting agent's UUID.
+	 * @param string|null $uid     The acting user's UID.
+	 *
+	 * @return CliTurn The turn.
+	 */
+	private function cliTurn(?string $agentId, ?string $uid): CliTurn {
+		$turn = new CliTurn(model: 'claude-sonnet', agentId: $agentId);
+		$turn->uid = $uid;
+		return $turn;
+	}//end cliTurn()
+
+	/**
 	 * Read a private constant off the factory.
 	 *
 	 * @param string $name The constant name.
@@ -1231,7 +1246,7 @@ class ProviderFactoryTest extends TestCase {
 		$this->expectException(ProviderUnavailableException::class);
 		$this->expectExceptionCode(503);
 
-		$this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', 'alice']);
+		$this->callPrivate($factory, 'mintGovernedRunToken', [$this->cliTurn(agentId: 'agent-uuid-1', uid: 'alice')]);
 
 	}//end testMintGovernedRunTokenFailsLoudWithoutTokenService()
 
@@ -1246,7 +1261,7 @@ class ProviderFactoryTest extends TestCase {
 		$factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
 
 		try {
-			$this->callPrivate($factory, 'mintGovernedRunToken', [null, 'alice']);
+			$this->callPrivate($factory, 'mintGovernedRunToken', [$this->cliTurn(agentId: null, uid: 'alice')]);
 			$this->fail('A tool-requiring turn without an agent id must fail loud.');
 		} catch (ProviderUnavailableException $e) {
 			$this->assertSame(503, $e->getCode());
@@ -1266,7 +1281,7 @@ class ProviderFactoryTest extends TestCase {
 		$factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
 
 		try {
-			$this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', null]);
+			$this->callPrivate($factory, 'mintGovernedRunToken', [$this->cliTurn(agentId: 'agent-uuid-1', uid: null)]);
 			$this->fail('A tool-requiring turn without a user context must fail loud.');
 		} catch (ProviderUnavailableException $e) {
 			$this->assertSame(503, $e->getCode());
@@ -1287,7 +1302,7 @@ class ProviderFactoryTest extends TestCase {
 		$runTokenService = $this->realRunTokenService();
 		$factory = $this->governedFactory(runTokenService: $runTokenService);
 
-		$token = $this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', 'alice']);
+		$token = $this->callPrivate($factory, 'mintGovernedRunToken', [$this->cliTurn(agentId: 'agent-uuid-1', uid: 'alice')]);
 		$this->assertIsString($token);
 		$this->assertNotSame('', $token);
 
