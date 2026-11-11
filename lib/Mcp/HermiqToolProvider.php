@@ -1153,11 +1153,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed> The send result, or an error envelope.
 	 */
 	private function sendMail(\OCP\IUser $user, array $arguments): array {
-		$mail = [
-			'to' => trim((string)($arguments['to'] ?? '')),
-			'subject' => (string)($arguments['subject'] ?? ''),
-			'body' => (string)($arguments['body'] ?? ''),
-		];
+		$mail = $this->requestedMail(arguments: $arguments);
 		$refusal = $this->mailRefusal(mail: $mail);
 		if ($refusal !== null) {
 			return $refusal;
@@ -1172,6 +1168,22 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end sendMail()
 
 	/**
+	 * The mail the tool call asks for: a trimmed recipient, the subject and the body.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array{to: string, subject: string, body: string} The requested mail.
+	 */
+	private function requestedMail(array $arguments): array {
+		return [
+			'to' => trim((string)($arguments['to'] ?? '')),
+			'subject' => (string)($arguments['subject'] ?? ''),
+			'body' => (string)($arguments['body'] ?? ''),
+		];
+
+	}//end requestedMail()
+
+	/**
 	 * Refuse a mail without a recipient, subject or body, or to an invalid address.
 	 *
 	 * @param array{to: string, subject: string, body: string} $mail The requested mail.
@@ -1179,7 +1191,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed>|null The error envelope, or null when the mail may be sent.
 	 */
 	private function mailRefusal(array $mail): ?array {
-		if ($mail['to'] === '' || $mail['subject'] === '' || $mail['body'] === '') {
+		if (in_array('', [$mail['to'], $mail['subject'], $mail['body']], true) === true) {
 			return $this->error(code: 'invalid_argument', message: 'to, subject and body are all required.');
 		}
 
@@ -1255,6 +1267,18 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end boardTitles()
 
 	/**
+	 * Whether a value is a Deck board entity carrying a title.
+	 *
+	 * @param mixed $board One board.
+	 *
+	 * @return bool True for a board with a title.
+	 */
+	private function isDeckBoard(mixed $board): bool {
+		return is_object($board) === true && property_exists($board, 'title') === true;
+
+	}//end isDeckBoard()
+
+	/**
 	 * One board's title; a board that is not a Deck entity, cannot be read, or has a
 	 * non-scalar title yields none.
 	 *
@@ -1267,7 +1291,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 		// reached through `Entity::__call()`, so this listed NOTHING for its whole
 		// life. `property_exists()` is what `Entity::getter()` itself consults;
 		// `is_callable()` would only invert the silence. See DeckBoardMagicAccessorTest.
-		if (is_object($board) === false || property_exists($board, 'title') === false) {
+		if ($this->isDeckBoard(board: $board) === false) {
 			return null;
 		}
 
