@@ -514,13 +514,9 @@ class ProviderFactory {
 	 * complexity gate, and the provider CHOICE is a separable question from the
 	 * feature binding above it and the model policy below it.
 	 *
-	 * @param string $chatProvider The provider name, already resolved and non-empty.
-	 * @param array<string, mixed> $llmConfig The instance's LLM configuration.
-	 * @param string|null $agentModel Model override, if the agent set one.
-	 * @param float|null $agentTemperature Temperature override, if set.
-	 * @param integer|null $agentMaxTokens Max-token override, if set.
-	 * @param string|null $organisation The organisation, for credential resolution.
-	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
+	 * @param ChatDriverRequest $request The resolution: the provider name (already resolved and
+	 *                                   non-empty), the instance's LLM configuration, the agent's
+	 *                                   overrides, the organisation and the pinned credentials.
 	 *
 	 * @return ChatDriver The driver for that provider.
 	 *
@@ -528,41 +524,15 @@ class ProviderFactory {
 	 *
 	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
 	 */
-	private function instantiateChatDriver(
-		string $chatProvider,
-		array $llmConfig,
-		?string $agentModel,
-		?float $agentTemperature,
-		?int $agentMaxTokens,
-		?string $organisation,
-		?array $pinned = null,
-	): ChatDriver {
-		return match ($chatProvider) {
-			'ollama' => $this->createOllamaDriver(
-				ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
-				agentModel: $agentModel,
-				agentTemperature: $agentTemperature,
-				agentMaxTokens: $agentMaxTokens
-			),
-			'openai' => $this->createOpenAiDriver(
-				openaiConfig: $llmConfig['openaiConfig'] ?? [],
-				agentModel: $agentModel,
-				agentTemperature: $agentTemperature,
-				credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation, pinned: $pinned),
-				agentMaxTokens: $agentMaxTokens
-			),
-			'fireworks' => $this->createFireworksDriver(
-				fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
-				agentModel: $agentModel,
-				credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation, pinned: $pinned)
-			),
-			'anthropic' => $this->createAnthropicDriver(
-				anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
-				agentModel: $agentModel,
-				agentMaxTokens: $agentMaxTokens
-			),
+	private function instantiateChatDriver(ChatDriverRequest $request): ChatDriver {
+		$llmConfig = $request->llmConfig;
+		return match ((string)$request->chatProvider) {
+			'ollama' => $this->createOllamaDriver(ollamaConfig: $llmConfig['ollamaConfig'] ?? [], request: $request),
+			'openai' => $this->createOpenAiDriver(openaiConfig: $llmConfig['openaiConfig'] ?? [], request: $request),
+			'fireworks' => $this->createFireworksDriver(fireworksConfig: $llmConfig['fireworksConfig'] ?? [], request: $request),
+			'anthropic' => $this->createAnthropicDriver(anthropicConfig: $llmConfig['anthropicConfig'] ?? [], request: $request),
 			'nextcloud' => $this->createNextcloudDriver(),
-			default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
+			default => throw new ProviderUnavailableException("Unsupported chat provider: {$request->chatProvider}"),
 		};// End match.
 	}//end instantiateChatDriver()
 
@@ -578,32 +548,25 @@ class ProviderFactory {
 	 * exists, INCLUDING when the resolver answered with nothing — that is the
 	 * existing behaviour and the caller depends on it.
 	 *
-	 * @param string|null $aiFeature The feature slug, if the call names one.
-	 * @param string|null $organisation The organisation, if known.
-	 * @param mixed $chatProvider The provider resolved so far.
-	 * @param string|null $agentModel The model resolved so far.
+	 * @param ChatDriverRequest $request The resolution: its feature slug and organisation, and
+	 *                                   the provider and model resolved so far, which a binding
+	 *                                   replaces.
 	 *
-	 * @return array{provider: mixed, model: string|null, featureBound: bool} The resolution.
+	 * @return void
 	 *
 	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
 	 */
-	private function resolveFeatureBinding(
-		?string $aiFeature,
-		?string $organisation,
-		mixed $chatProvider,
-		?string $agentModel,
-	): array {
-		if ($aiFeature === null || $aiFeature === '' || $this->featureResolver === null || $organisation === null) {
-			return ['provider' => $chatProvider, 'model' => $agentModel, 'featureBound' => false];
+	private function resolveFeatureBinding(ChatDriverRequest $request): void {
+		if ($request->aiFeature === null || $request->aiFeature === '' || $this->featureResolver === null || $request->organisation === null) {
+			return;
 		}
 
-		$binding = $this->featureResolver->bindingFor(featureSlug: $aiFeature, organisation: $organisation);
+		$request->featureBound = true;
+		$binding = $this->featureResolver->bindingFor(featureSlug: $request->aiFeature, organisation: $request->organisation);
 		if ($binding['provider'] !== null && $binding['model'] !== null) {
-			$chatProvider = $binding['provider'];
-			$agentModel = $binding['model'];
+			$request->chatProvider = $binding['provider'];
+			$request->agentModel = $binding['model'];
 		}
-
-		return ['provider' => $chatProvider, 'model' => $agentModel, 'featureBound' => true];
 	}//end resolveFeatureBinding()
 
 	/**
@@ -673,84 +636,108 @@ class ProviderFactory {
 		?array $agentCredentialIds = null,
 		array $attachmentReferences = [],
 	): ChatDriver {
-		$chatProvider = $llmConfig['chatProvider'] ?? null;
+		$request = new ChatDriverRequest(llmConfig: $llmConfig, organisation: $organisation);
+		$request->agentModel = $agentModel;
+		$request->agentTemperature = $agentTemperature;
+		$request->agentMaxTokens = $agentMaxTokens;
+		$request->aiFeature = $aiFeature;
+		$request->documentReference = $documentReference;
+		$request->agentCredentialIds = $agentCredentialIds;
+		$request->attachmentReferences = $attachmentReferences;
 
-		// Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
-		// resolve the feature's own binding. It only resolves; the ceiling is
-		// applied below, so a binding can narrow the policy and never widen it.
-		$bound = $this->resolveFeatureBinding(
-			aiFeature: $aiFeature,
-			organisation: $organisation,
-			chatProvider: $chatProvider,
-			agentModel: $agentModel
-		);
-		$chatProvider = $bound['provider'];
-		$agentModel = $bound['model'];
-		$featureBound = $bound['featureBound'];
+		return $this->resolveChatDriver(request: $request);
+	}//end createChatDriver()
 
-		if (empty($chatProvider) === true) {
+	/**
+	 * Resolve the driver in the specified order: the feature's own binding, the
+	 * provider's driver, then the gates.
+	 *
+	 * Spec a-provider-and-a-place-per-ai-feature, step 1 of the specified order:
+	 * resolve the feature's own binding. It only resolves; the ceiling is applied
+	 * after the driver is built, so a binding can narrow the policy and never widen it.
+	 *
+	 * @param ChatDriverRequest $request The resolution.
+	 *
+	 * @return ChatDriver The resolved driver.
+	 *
+	 * @throws ProviderUnavailableException When no provider is configured or it cannot be built.
+	 */
+	private function resolveChatDriver(ChatDriverRequest $request): ChatDriver {
+		$this->resolveFeatureBinding(request: $request);
+
+		if (empty($request->chatProvider) === true) {
 			throw new ProviderUnavailableException(
 				'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
 				503
 			);
 		}
 
-		$driver = $this->instantiateChatDriver(
-			chatProvider: (string)$chatProvider,
-			llmConfig: $llmConfig,
-			agentModel: $agentModel,
-			agentTemperature: $agentTemperature,
-			agentMaxTokens: $agentMaxTokens,
-			organisation: $organisation,
-			pinned: $agentCredentialIds
+		$driver = $this->instantiateChatDriver(request: $request);
+		$this->enforceDriverGates(request: $request, driver: $driver);
+		return $driver;
+	}//end resolveChatDriver()
+
+	/**
+	 * Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3 of
+	 * this change's specified order. Runs AFTER the agent override is applied (the
+	 * driver builders already resolved agentModel ?? providerConfig into
+	 * $driver->model) so a policy cannot be bypassed by leaving the per-agent model
+	 * field blank — see design.md "Decisions". Runs BEFORE any network call: driver
+	 * construction only builds client value objects, it never sends a request.
+	 *
+	 * When the run names an AI feature the resolver applies both gates in order and
+	 * names the one that refuses; with no feature named the model-policy gate alone
+	 * runs, exactly as before, followed by the data-use step (models-no-training-
+	 * guarantee), so a run that names no AI feature cannot reach a provider that
+	 * may train.
+	 *
+	 * @param ChatDriverRequest $request The resolution.
+	 * @param ChatDriver        $driver  The built driver.
+	 *
+	 * @return void
+	 */
+	private function enforceDriverGates(ChatDriverRequest $request, ChatDriver $driver): void {
+		if ($request->featureBound === true && $this->featureResolver !== null && $request->organisation !== null) {
+			$this->enforceFeatureGates(request: $request, driver: $driver);
+			return;
+		}
+
+		$this->enforceModelPolicy(organisation: $request->organisation, provider: $driver->provider, model: $driver->model);
+
+		if ($request->organisation !== null) {
+			$this->dataUseGate?->enforce(organisation: $request->organisation, provider: $driver->provider);
+		}
+	}//end enforceDriverGates()
+
+	/**
+	 * Apply the feature's gates to the run's document and then, one call per file,
+	 * to every attachment, so a redacted first file cannot carry an unredacted
+	 * second one past the gate (chat-attachments-and-images).
+	 *
+	 * @param ChatDriverRequest $request The resolution (feature-bound, with an organisation).
+	 * @param ChatDriver        $driver  The built driver.
+	 *
+	 * @return void
+	 */
+	private function enforceFeatureGates(ChatDriverRequest $request, ChatDriver $driver): void {
+		$this->featureResolver?->enforceForRun(
+			featureSlug: (string)$request->aiFeature,
+			organisation: (string)$request->organisation,
+			provider: $driver->provider,
+			model: $driver->model,
+			documentReference: $request->documentReference
 		);
 
-		// Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3
-		// of this change's specified order. Runs AFTER the agent override is applied
-		// (createOllamaDriver()/createOpenAiDriver()/createFireworksDriver() already
-		// resolved agentModel ?? providerConfig into $driver->model) so a policy
-		// cannot be bypassed by leaving the per-agent model field blank — see
-		// design.md "Decisions". Runs BEFORE any network call: driver construction
-		// above only builds client value objects, it never sends a request.
-		//
-		// When the run names an AI feature the resolver applies both gates in order
-		// and names the one that refuses; with no feature named the model-policy gate
-		// alone runs, exactly as before.
-		if ($featureBound === true && $this->featureResolver !== null && $organisation !== null) {
-			$this->featureResolver->enforceForRun(
-				featureSlug: (string)$aiFeature,
-				organisation: $organisation,
+		foreach ($request->attachmentReferences as $attachmentReference) {
+			$this->featureResolver?->enforceForRun(
+				featureSlug: (string)$request->aiFeature,
+				organisation: (string)$request->organisation,
 				provider: $driver->provider,
 				model: $driver->model,
-				documentReference: $documentReference
+				documentReference: (string)$attachmentReference
 			);
-
-			// Chat-attachments-and-images: every file on the turn is a document
-			// reference of its own, checked one call per file, so a redacted first
-			// file cannot carry an unredacted second one past the gate.
-			foreach ($attachmentReferences as $attachmentReference) {
-				$this->featureResolver->enforceForRun(
-					featureSlug: (string)$aiFeature,
-					organisation: $organisation,
-					provider: $driver->provider,
-					model: $driver->model,
-					documentReference: (string)$attachmentReference
-				);
-			}
-
-			return $driver;
 		}
-
-		$this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
-
-		// Models-no-training-guarantee: the data-use step runs on this path too, so
-		// a run that names no AI feature cannot reach a provider that may train.
-		if ($organisation !== null) {
-			$this->dataUseGate?->enforce(organisation: $organisation, provider: $driver->provider);
-		}
-
-		return $driver;
-	}//end createChatDriver()
+	}//end enforceFeatureGates()
 
 	/**
 	 * Check a resolved (provider, model) pair against the calling organisation's
@@ -2859,101 +2846,94 @@ class ProviderFactory {
 	/**
 	 * Build the `ollama` driver: native OllamaConfig + OllamaChat.
 	 *
-	 * @param array $ollamaConfig The `ollamaConfig` sub-block.
-	 * @param string|null $agentModel Agent model override.
-	 * @param float|null $agentTemperature Agent temperature override.
-	 * @param int|null $agentMaxTokens Agent max-tokens override (maps to `num_predict`).
+	 * @param array             $ollamaConfig The `ollamaConfig` sub-block.
+	 * @param ChatDriverRequest $request      The agent's model, temperature and max-tokens
+	 *                                        override (maps to `num_predict`).
 	 *
 	 * @return ChatDriver
 	 *
 	 * @throws ProviderUnavailableException When the Ollama URL is not configured.
 	 */
-	private function createOllamaDriver(array $ollamaConfig, ?string $agentModel, ?float $agentTemperature, ?int $agentMaxTokens = null): ChatDriver {
+	private function createOllamaDriver(array $ollamaConfig, ChatDriverRequest $request): ChatDriver {
 		if (empty($ollamaConfig['url']) === true) {
 			throw new ProviderUnavailableException('Ollama URL is not configured');
 		}
 
 		$config = new OllamaConfig();
 		$config->url = rtrim($ollamaConfig['url'], '/') . '/api/';
-
-		$config->model = ($ollamaConfig['chatModel'] ?? 'llama2');
-		if (empty($agentModel) === false) {
-			$config->model = $agentModel;
-		}
-
-		if ($agentTemperature !== null) {
-			$config->modelOptions['temperature'] = $agentTemperature;
-		}
+		$config->model = $this->agentModelOr(configured: ($ollamaConfig['chatModel'] ?? 'llama2'), request: $request);
 
 		// The agent's own ceiling, wired the same way temperature already was.
 		// Without this the field was stored, versioned and shown in the UI while
 		// having no effect on a single request.
-		if ($agentMaxTokens !== null) {
-			$config->modelOptions['num_predict'] = $agentMaxTokens;
-		}
+		$config->modelOptions = array_merge($config->modelOptions, $this->agentModelOptions(request: $request, ceilingKey: 'num_predict'));
 
 		$chat = new OllamaChat($config);
 
-		return new ChatDriver(provider: 'ollama', chat: $chat, model: $config->model, maxTokens: $agentMaxTokens);
+		return new ChatDriver(provider: 'ollama', chat: $chat, model: $config->model, maxTokens: $request->agentMaxTokens);
 	}//end createOllamaDriver()
 
 	/**
 	 * Build the `openai` driver: OpenAIConfig + OpenAIChat.
 	 *
-	 * @param array $openaiConfig The `openaiConfig` sub-block.
-	 * @param string|null $agentModel Agent model override.
-	 * @param float|null $agentTemperature Agent temperature override.
-	 * @param string|null $credentialOverride Personal/organisation broker credential id
-	 *                                        (agent-credentials) that overrides
-	 *                                        `$openaiConfig['credentialId']` when non-empty.
-	 * @param int|null $agentMaxTokens Agent max-tokens override (maps to `max_tokens`).
+	 * The personal/organisation broker credential id (agent-credentials) resolved for
+	 * the request overrides `$openaiConfig['credentialId']` when non-empty.
+	 *
+	 * @param array             $openaiConfig The `openaiConfig` sub-block.
+	 * @param ChatDriverRequest $request      The agent's model, temperature and max-tokens
+	 *                                        override (maps to `max_tokens`), organisation
+	 *                                        and pinned credentials.
 	 *
 	 * @return ChatDriver
 	 *
 	 * @throws ProviderUnavailableException When the OpenAI API key is not configured.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) BrokerHttpClient::isAvailable() is that class's
-	 *   own static feature-detection seam for the optional OpenRegister broker — checked
-	 *   here so the driver fails loud (503) instead of at request time.
-	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
-	private function createOpenAiDriver(
-		array $openaiConfig,
-		?string $agentModel,
-		?float $agentTemperature,
-		?string $credentialOverride = null,
-		?int $agentMaxTokens = null,
-	): ChatDriver {
-		$credentialId = (string)($openaiConfig['credentialId'] ?? '');
-		if (empty($credentialOverride) === false) {
-			$credentialId = $credentialOverride;
-		}
+	private function createOpenAiDriver(array $openaiConfig, ChatDriverRequest $request): ChatDriver {
+		$credentialId = $this->overriddenCredentialId(
+			config: $openaiConfig,
+			override: $this->resolveCredentialOverride(provider: 'openai', organisation: $request->organisation, pinned: $request->agentCredentialIds)
+		);
+		$this->assertBrokerCredential(credentialId: $credentialId, label: 'OpenAI');
 
-		if ($credentialId === '') {
-			throw new ProviderUnavailableException(
-				'OpenAI has no credential. Select one from the credential broker in the Hermiq LLM settings.',
-				503
-			);
-		}
+		$config = $this->brokeredOpenAiConfig(credentialId: $credentialId);
+		$config->model = $this->agentModelOr(configured: ($openaiConfig['chatModel'] ?? 'gpt-4o-mini'), request: $request);
 
-		if (BrokerHttpClient::isAvailable() === false) {
-			throw new ProviderUnavailableException(
-				'OpenAI cannot be used: the OpenRegister credential broker is not available.',
-				503
-			);
-		}
+		// The agent's own ceiling, wired the same way temperature already was.
+		$config->modelOptions = array_merge($config->modelOptions, $this->agentModelOptions(request: $request, ceilingKey: 'max_tokens'));
 
+		$chat = new OpenAIChat($config);
+
+		// `credentialId` is carried on the driver for OpenAI too (previously only
+		// fireworks/anthropic did, since they need it for their own direct-HTTP call) —
+		// it is otherwise baked opaquely into `$config->client`'s BrokerHttpClient with no
+		// public accessor, and this is the only externally-observable proof of WHICH
+		// credential a personal/organisation override actually resolved to
+		// (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
+		// today; this is metadata only, not a behaviour change.
+		return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId, maxTokens: $request->agentMaxTokens);
+	}//end createOpenAiDriver()
+
+	/**
+	 * An OpenAI client configuration whose requests go through the credential broker.
+	 *
+	 * The openai-php client REQUIRES an api key and sets it as a Bearer header before
+	 * our client ever sees the request. BrokerHttpClient strips that header and the
+	 * broker injects the real secret, so what we hand it here is a placeholder, not a
+	 * key — Hermiq has none to give. The seam that makes this possible without
+	 * rewriting LLPhant: OpenAIChat uses `$config->client` when set, and
+	 * OpenAI::factory() accepts any PSR-18 client.
+	 *
+	 * @param string $credentialId The broker credential UUID.
+	 *
+	 * @return OpenAIConfig
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) OpenAI::factory() is the client library's own builder.
+	 */
+	private function brokeredOpenAiConfig(string $credentialId): OpenAIConfig {
 		$config = new OpenAIConfig();
-
-		// The openai-php client REQUIRES an api key and sets it as a Bearer header before
-		// our client ever sees the request. BrokerHttpClient strips that header and the
-		// broker injects the real secret, so what we hand it here is a placeholder, not a
-		// key — Hermiq has none to give.
 		$config->apiKey = BrokerHttpClient::BROKER_MANAGED_KEY;
-
-		// The seam that makes this possible without rewriting LLPhant: OpenAIChat uses
-		// `$config->client` when set, and OpenAI::factory() accepts any PSR-18 client.
 		$config->client = OpenAI::factory()
 			->withApiKey(BrokerHttpClient::BROKER_MANAGED_KEY)
 			->withHttpClient(
@@ -2966,77 +2946,118 @@ class ProviderFactory {
 			)
 			->make();
 
-		$config->model = ($openaiConfig['chatModel'] ?? 'gpt-4o-mini');
-		if (empty($agentModel) === false) {
-			$config->model = $agentModel;
-		}
-
-		if ($agentTemperature !== null) {
-			$config->modelOptions['temperature'] = $agentTemperature;
-		}
-
-		// The agent's own ceiling, wired the same way temperature already was.
-		if ($agentMaxTokens !== null) {
-			$config->modelOptions['max_tokens'] = $agentMaxTokens;
-		}
-
-		$chat = new OpenAIChat($config);
-
-		// `credentialId` is carried on the driver for OpenAI too (previously only
-		// fireworks/anthropic did, since they need it for their own direct-HTTP call) —
-		// it is otherwise baked opaquely into `$config->client`'s BrokerHttpClient with no
-		// public accessor, and this is the only externally-observable proof of WHICH
-		// credential a personal/organisation override actually resolved to
-		// (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
-		// today; this is metadata only, not a behaviour change.
-		return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId, maxTokens: $agentMaxTokens);
-	}//end createOpenAiDriver()
+		return $config;
+	}//end brokeredOpenAiConfig()
 
 	/**
-	 * Build the `fireworks` driver descriptor. No LLPhant chat instance is
-	 * created — generation goes through `callFireworksChat()` (direct HTTP);
-	 * see the class docblock for why.
+	 * The configured model, or the agent's override when it set a non-empty one.
 	 *
-	 * @param array $fireworksConfig The `fireworksConfig` sub-block.
-	 * @param string|null $agentModel Agent model override.
-	 * @param string|null $credentialOverride Personal/organisation broker credential id
-	 *                                        (agent-credentials) that overrides
-	 *                                        `$fireworksConfig['credentialId']` when non-empty.
+	 * @param mixed             $configured The provider configuration's model (or its default).
+	 * @param ChatDriverRequest $request    The agent's override.
 	 *
-	 * @return ChatDriver
+	 * @return mixed
+	 */
+	private function agentModelOr(mixed $configured, ChatDriverRequest $request): mixed {
+		if (empty($request->agentModel) === false) {
+			return $request->agentModel;
+		}
+
+		return $configured;
+	}//end agentModelOr()
+
+	/**
+	 * The agent's temperature and output ceiling as client model options.
 	 *
-	 * @throws ProviderUnavailableException When the Fireworks API key is not configured.
+	 * @param ChatDriverRequest $request    The agent's overrides.
+	 * @param string            $ceilingKey The option name the provider reads the ceiling from.
+	 *
+	 * @return array<string, int|float>
+	 */
+	private function agentModelOptions(ChatDriverRequest $request, string $ceilingKey): array {
+		$options = [];
+		if ($request->agentTemperature !== null) {
+			$options['temperature'] = $request->agentTemperature;
+		}
+
+		if ($request->agentMaxTokens !== null) {
+			$options[$ceilingKey] = $request->agentMaxTokens;
+		}
+
+		return $options;
+	}//end agentModelOptions()
+
+	/**
+	 * The provider configuration's credential id, or the override when non-empty.
+	 *
+	 * @param array<string, mixed> $config   The provider's configuration sub-block.
+	 * @param string|null          $override The resolved personal/organisation/pinned credential.
+	 *
+	 * @return string
+	 */
+	private function overriddenCredentialId(array $config, ?string $override): string {
+		if (empty($override) === false) {
+			return $override;
+		}
+
+		return (string)($config['credentialId'] ?? '');
+	}//end overriddenCredentialId()
+
+	/**
+	 * Refuse a provider without a broker credential, or when the broker is missing.
+	 *
+	 * @param string $credentialId The credential id ('' when none).
+	 * @param string $label        The provider's display name in the message.
+	 *
+	 * @return void
+	 *
+	 * @throws ProviderUnavailableException When there is no credential or no broker.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) BrokerHttpClient::isAvailable() is that class's
 	 *   own static feature-detection seam for the optional OpenRegister broker — checked
 	 *   here so the driver fails loud (503) instead of at request time.
-	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
-	private function createFireworksDriver(array $fireworksConfig, ?string $agentModel, ?string $credentialOverride = null): ChatDriver {
-		$credentialId = (string)($fireworksConfig['credentialId'] ?? '');
-		if (empty($credentialOverride) === false) {
-			$credentialId = $credentialOverride;
-		}
-
+	private function assertBrokerCredential(string $credentialId, string $label): void {
 		if ($credentialId === '') {
 			throw new ProviderUnavailableException(
-				'Fireworks AI has no credential. Select one from the credential broker in the Hermiq LLM settings.',
+				$label . ' has no credential. Select one from the credential broker in the Hermiq LLM settings.',
 				503
 			);
 		}
 
 		if (BrokerHttpClient::isAvailable() === false) {
 			throw new ProviderUnavailableException(
-				'Fireworks AI cannot be used: the OpenRegister credential broker is not available.',
+				$label . ' cannot be used: the OpenRegister credential broker is not available.',
 				503
 			);
 		}
+	}//end assertBrokerCredential()
 
-		$model = ($fireworksConfig['chatModel'] ?? 'accounts/fireworks/models/llama-v3p1-8b-instruct');
-		if (empty($agentModel) === false) {
-			$model = $agentModel;
-		}
+	/**
+	 * Build the `fireworks` driver descriptor. No LLPhant chat instance is
+	 * created — generation goes through `callFireworksChat()` (direct HTTP);
+	 * see the class docblock for why.
+	 *
+	 * The personal/organisation broker credential id (agent-credentials) resolved for
+	 * the request overrides `$fireworksConfig['credentialId']` when non-empty.
+	 *
+	 * @param array             $fireworksConfig The `fireworksConfig` sub-block.
+	 * @param ChatDriverRequest $request         The agent's model override, organisation
+	 *                                           and pinned credentials.
+	 *
+	 * @return ChatDriver
+	 *
+	 * @throws ProviderUnavailableException When the Fireworks API key is not configured.
+	 *
+	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 */
+	private function createFireworksDriver(array $fireworksConfig, ChatDriverRequest $request): ChatDriver {
+		$credentialId = $this->overriddenCredentialId(
+			config: $fireworksConfig,
+			override: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $request->organisation, pinned: $request->agentCredentialIds)
+		);
+		$this->assertBrokerCredential(credentialId: $credentialId, label: 'Fireworks AI');
+
+		$model = $this->agentModelOr(configured: ($fireworksConfig['chatModel'] ?? 'accounts/fireworks/models/llama-v3p1-8b-instruct'), request: $request);
 
 		$baseUrl = rtrim($fireworksConfig['baseUrl'] ?? 'https://api.fireworks.ai/inference/v1', '/');
 		if (str_ends_with($baseUrl, '/v1') === false) {
@@ -3064,9 +3085,9 @@ class ProviderFactory {
 	 * client and exposes no seam for the OAuth header set. The resolved model still flows
 	 * through `enforceModelPolicy()` at the `createChatDriver()` chokepoint (unchanged).
 	 *
-	 * @param array $anthropicConfig The `anthropicConfig` sub-block.
-	 * @param string|null $agentModel Agent model override.
-	 * @param int|null $agentMaxTokens Agent max-tokens override, applied when set.
+	 * @param array             $anthropicConfig The `anthropicConfig` sub-block.
+	 * @param ChatDriverRequest $request         The agent's model and max-tokens override,
+	 *                                           applied when set.
 	 *
 	 * @return ChatDriver
 	 *
@@ -3074,31 +3095,15 @@ class ProviderFactory {
 	 *                                      OpenRegister credential broker is unavailable (503),
 	 *                                      mirroring createOpenAiDriver().
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) BrokerHttpClient::isAvailable() is that class's
-	 *   own static feature-detection seam for the optional OpenRegister broker — checked
-	 *   here so the driver fails loud (503) instead of at request time.
-	 *
 	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
-	private function createAnthropicDriver(array $anthropicConfig, ?string $agentModel, ?int $agentMaxTokens = null): ChatDriver {
+	private function createAnthropicDriver(array $anthropicConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = (string)($anthropicConfig['credentialId'] ?? '');
-		if ($credentialId === '') {
-			throw new ProviderUnavailableException(
-				'Anthropic has no credential. Select one from the credential broker in the Hermiq LLM settings.',
-				503
-			);
-		}
-
-		if (BrokerHttpClient::isAvailable() === false) {
-			throw new ProviderUnavailableException(
-				'Anthropic cannot be used: the OpenRegister credential broker is not available.',
-				503
-			);
-		}
+		$this->assertBrokerCredential(credentialId: $credentialId, label: 'Anthropic');
 
 		$model = $this->resolveAnthropicModel(
 			configuredModel: ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8'),
-			agentModel: $agentModel
+			agentModel: $request->agentModel
 		);
 
 		$authMode = ($anthropicConfig['authMode'] ?? 'api_key');
@@ -3129,7 +3134,7 @@ class ProviderFactory {
 			baseUrl: $baseUrl,
 			authMode: $authMode,
 			executionMode: $executionMode,
-			maxTokens: $agentMaxTokens
+			maxTokens: $request->agentMaxTokens
 		);
 
 	}//end createAnthropicDriver()
