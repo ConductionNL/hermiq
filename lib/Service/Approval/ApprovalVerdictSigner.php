@@ -103,17 +103,62 @@ class ApprovalVerdictSigner
      */
     private function secretKey(): string
     {
+        return ($this->storedSecret() ?? $this->newSecret());
+
+    }//end secretKey()
+
+    /**
+     * The stored secret, when it decodes to a key whose public half is the one stored.
+     *
+     * @return string|null
+     *
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     */
+    private function storedSecret(): ?string
+    {
         $secret = base64_decode($this->appConfig->getValueString('hermiq', self::SECRET_KEY, ''), true);
         $public = base64_decode($this->appConfig->getValueString('hermiq', self::PUBLIC_KEY, ''), true);
-        if (is_string($secret) === true
-            && is_string($public) === true
-            && strlen($secret) === SODIUM_CRYPTO_SIGN_SECRETKEYBYTES
-            && strlen($public) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
-            && sodium_crypto_sign_publickey_from_secretkey($secret) === $public
-        ) {
+        if ($this->isPair(secret: $secret, public: $public) === true) {
             return $secret;
         }
 
+        return null;
+
+    }//end storedSecret()
+
+    /**
+     * Whether two decoded values are a signing key and its own public half.
+     *
+     * @param mixed $secret The decoded secret.
+     * @param mixed $public The decoded public half.
+     *
+     * @return bool
+     *
+     * @psalm-assert-if-true string $secret
+     */
+    private function isPair(mixed $secret, mixed $public): bool
+    {
+        if (is_string($secret) === false || is_string($public) === false) {
+            return false;
+        }
+
+        if (strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES || strlen($public) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+            return false;
+        }
+
+        return sodium_crypto_sign_publickey_from_secretkey($secret) === $public;
+
+    }//end isPair()
+
+    /**
+     * Make and store a new pair (the secret lazy and sensitive, the public half eager) and answer its secret.
+     *
+     * @return string
+     *
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-answers-a-signed-verdict-on-a-toolcall-approval-req-apver-001
+     */
+    private function newSecret(): string
+    {
         $pair   = sodium_crypto_sign_keypair();
         $secret = sodium_crypto_sign_secretkey($pair);
         $this->appConfig->setValueString('hermiq', self::SECRET_KEY, base64_encode($secret), lazy: true, sensitive: true);
@@ -122,5 +167,5 @@ class ApprovalVerdictSigner
 
         return $secret;
 
-    }//end secretKey()
+    }//end newSecret()
 }//end class
