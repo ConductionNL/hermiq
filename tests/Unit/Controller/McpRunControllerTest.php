@@ -638,4 +638,108 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertNotEmpty($seenIds);
 
 	}//end testBodyCannotRedirectTheRun()
+
+	/**
+	 * Run one request through handle() with the token `good`, and return its status and data.
+	 *
+	 * @param string $auth The Authorization header.
+	 * @param string $body The raw JSON-RPC body.
+	 *
+	 * @return array{0: int, 1: mixed}
+	 */
+	private function handled(string $auth, string $body): array {
+		$response = $this->controller(
+			$auth,
+			$body,
+			$this->tokens('good'),
+			$this->createMock(ObjectService::class),
+			$this->createMock(ToolRegistryFacade::class),
+			$this->createMock(ToolLoop::class),
+			$this->createMock(ToolSearchService::class)
+		)->handle();
+
+		$data = null;
+		if ($response instanceof \OCP\AppFramework\Http\JSONResponse) {
+			$data = $response->getData();
+		}
+
+		return [$response->getStatus(), $data];
+	}//end handled()
+
+	/**
+	 * Every request shape handle() answers before or around the dispatch: the token
+	 * is checked before the body is parsed, then parse errors, invalid requests,
+	 * notifications, initialize (non-array params become none) and the dispatch with
+	 * the token's agent.
+	 *
+	 * @return void
+	 */
+	public function testEveryRequestShapeIsAnsweredAsBefore(): void {
+		$cases = [
+			['Bearer bad', 'not json', [401, ['error' => 'invalid_token']]],
+			['Bearer good', 'not json', [400, ['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Parse error']]]],
+			['Bearer good', '"x"', [400, ['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Parse error']]]],
+			['Bearer good', '[]', [400, ['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Invalid request']]]],
+			['Bearer good', '{"jsonrpc":"1.0","id":7,"method":"x"}', [400, ['jsonrpc' => '2.0', 'id' => 7, 'error' => ['code' => -32600, 'message' => 'Invalid request']]]],
+			['Bearer good', '{"jsonrpc":"2.0","id":8}', [400, ['jsonrpc' => '2.0', 'id' => 8, 'error' => ['code' => -32600, 'message' => 'Invalid request']]]],
+			['Bearer good', '{"jsonrpc":"2.0","method":"notifications/initialized"}', [202, null]],
+			[
+				'Bearer good',
+				'{"jsonrpc":"2.0","id":1,"method":"initialize","params":"x"}',
+				[200, ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['protocolVersion' => '2025-06-18', 'capabilities' => ['tools' => ['listChanged' => false]], 'serverInfo' => ['name' => 'Hermiq', 'version' => '1.0.0']]]],
+			],
+			['Bearer good', '{"jsonrpc":"2.0","id":"a","method":"no/such","params":5}', [400, ['jsonrpc' => '2.0', 'id' => 'a', 'error' => ['code' => -32601, 'message' => 'Method not found']]]],
+			['Bearer good', '{"jsonrpc":"2.0","id":3,"method":"tools/list"}', [200, ['jsonrpc' => '2.0', 'id' => 3, 'result' => ['tools' => []]]]],
+			['Bearer good', '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":"bad"}', [400, ['jsonrpc' => '2.0', 'id' => 5, 'error' => ['code' => -32602, 'message' => 'Invalid params']]]],
+		];
+		foreach ($cases as [$auth, $body, $expected]) {
+			$this->assertSame($expected, $this->handled($auth, $body), $auth . ' ' . $body);
+		}
+
+		[$status, $data] = $this->handled('Bearer good', '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"x.y","arguments":{}}}');
+		$this->assertSame(200, $status);
+		$this->assertSame(4, $data['id']);
+		$this->assertSame(true, $data['result']['isError']);
+		$this->assertSame("Tool 'x.y' is not available to this agent.", $data['result']['content'][0]['text']);
+
+	}//end testEveryRequestShapeIsAnsweredAsBefore()
+
+	/**
+	 * Tool input schemas: empty or non-array properties become an object, nested
+	 * property and item schemas are normalised the same way, anything else is kept.
+	 *
+	 * @return void
+	 */
+	public function testInputSchemasAreNormalisedRecursively(): void {
+		$controller = $this->controller(
+			'Bearer good',
+			'',
+			$this->tokens('good'),
+			$this->createMock(ObjectService::class),
+			$this->createMock(ToolRegistryFacade::class),
+			$this->createMock(ToolLoop::class),
+			$this->createMock(ToolSearchService::class)
+		);
+		$normalise = new \ReflectionMethod(McpRunController::class, 'normaliseSchemaProperties');
+
+		$schema = [
+			'type' => 'object',
+			'properties' => [
+				'plain' => 'not-a-schema',
+				'nested' => ['type' => 'object', 'properties' => []],
+				'list' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => 'x']],
+			],
+			'items' => 'kept',
+		];
+		$result = $normalise->invoke($controller, $schema);
+
+		$this->assertSame(
+			'{"type":"object","properties":{"plain":"not-a-schema","nested":{"type":"object","properties":{}},"list":{"type":"array","items":{"type":"object","properties":{}}}},"items":"kept"}',
+			json_encode($result)
+		);
+		$this->assertSame(['type', 'properties', 'items'], array_keys($result));
+		$this->assertSame('{"properties":{}}', json_encode($normalise->invoke($controller, ['properties' => null])));
+		$this->assertSame('{"type":"string"}', json_encode($normalise->invoke($controller, ['type' => 'string'])));
+
+	}//end testInputSchemasAreNormalisedRecursively()
 }//end class
