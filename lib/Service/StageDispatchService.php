@@ -202,9 +202,6 @@ class StageDispatchService {
 	 *
 	 * @throws RuntimeException When the stage could not be run.
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess)           AppAPI and the optional OpenRegister
-	 *   broker are named by class-string and resolved through the injected container, so
-	 *   this class stays constructible when either is absent.
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) The tenth parameter takes this one
 	 *   over the threshold, and the remedy the rule implies — bundling some of them into
 	 *   an array — is the exact shape in which a field has already been silently dropped
@@ -229,69 +226,118 @@ class StageDispatchService {
 		string $llmCredentialId = '',
 		array $collect = [],
 	): array {
-		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
-		if ($timeoutMs > 0) {
-			$ceiling = $timeoutMs;
-		}
-
-		$params = $this->buildParams(
-			repo: $repo,
-			ref: $ref,
-			command: $command,
-			uid: $uid,
-			credentialId: $credentialId,
-			ceiling: $ceiling,
-			toolRepo: $toolRepo,
-			toolRef: $toolRef,
-			push: $push,
-			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId,
-			collect: $collect
+		return $this->dispatchStage(
+			request: new StageRequest(
+				repo: $repo,
+				ref: $ref,
+				command: $command,
+				uid: $uid,
+				options: new StageOptions(
+					credentialId: $credentialId,
+					timeoutMs: $timeoutMs,
+					toolRepo: $toolRepo,
+					toolRef: $toolRef,
+					push: $push,
+					pushCredentialId: $pushCredentialId,
+					llmCredentialId: $llmCredentialId,
+					collect: $collect,
+				)
+			)
 		);
+	}//end dispatch()
+
+	/**
+	 * Run one stage, as `dispatch()` describes, from one request.
+	 *
+	 * @param StageRequest $request The stage.
+	 *
+	 * @return array{exitCode: int, output: string, ref: string, files?: array} The stage result.
+	 *
+	 * @throws RuntimeException When the stage could not be run.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI and the optional OpenRegister broker are
+	 *   named by class-string and resolved through the injected container; see dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md#requirement-a-command-that-ran-and-failed-is-data-not-a-step-failure
+	 */
+	public function dispatchStage(StageRequest $request): array {
+		$ceiling = $request->options->ceilingOr(defaultMs: self::DEFAULT_STAGE_TIMEOUT_MS);
+		$params  = $this->buildParams(request: $request);
 
 		$result = $this->serviceContainer()->get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
 			self::RUNNER_EXAPP_ID,
 			self::RUNNER_ROUTE,
-			$uid,
+			$request->uid,
 			'POST',
 			$params,
 			['timeout' => (intdiv($ceiling, 1000) + self::TRANSPORT_SLACK_SECONDS)]
 		);
 
 		// Check 1 — the never-throws failure channel. MUST precede any body read.
-		if (is_array($result) === true) {
-			$this->logger->warning(
-				'[StageDispatchService] stage dispatch failed at the AppAPI transport',
-				['reason' => (string)($result['error'] ?? 'unknown')]
-			);
-
-			throw new RuntimeException(
-				'The workload could not reach the "' . self::RUNNER_EXAPP_ID . '" ExApp. '
-				. 'Check that the ExApp is running.'
-			);
-		}
+		$this->refuseUnreachable(result: $result);
 
 		// Check 2 — `http_errors => false`, so a 4xx/5xx is an ordinary response.
-		// The runner answers 502 when it could not carry the stage out, which is
-		// exactly the distinction this method exists to preserve: a stage that
-		// RAN and failed comes back 200 with a non-zero exit code.
-		$status = $result->getStatusCode();
-		if ($status < 200 || $status > 299) {
-			$reason = $this->reasonFrom(body: (string)$result->getBody());
-			$this->logger->warning(
-				'[StageDispatchService] the runner refused or could not run the stage',
-				[
-					'status' => $status,
-					'reason' => $reason,
-				]
-			);
-
-			throw new RuntimeException('The workload could not be run: ' . $reason);
-		}
+		$this->refuseUnrunStage(result: $result);
 
 		// Check 3 — only now is the body a stage result.
 		return $this->mapResult(body: (string)$result->getBody());
-	}//end dispatch()
+	}//end dispatchStage()
+
+	/**
+	 * AppAPI never throws: an array answer is its failure channel. Log and refuse it.
+	 *
+	 * @param mixed $result Whatever `exAppRequest()` gave back.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException When the ExApp could not be reached.
+	 */
+	private function refuseUnreachable(mixed $result): void {
+		if (is_array($result) === false) {
+			return;
+		}
+
+		$this->logger->warning(
+			'[StageDispatchService] stage dispatch failed at the AppAPI transport',
+			['reason' => (string)($result['error'] ?? 'unknown')]
+		);
+
+		throw new RuntimeException(
+			'The workload could not reach the "' . self::RUNNER_EXAPP_ID . '" ExApp. '
+			. 'Check that the ExApp is running.'
+		);
+	}//end refuseUnreachable()
+
+	/**
+	 * Log and refuse a non-2xx answer.
+	 *
+	 * The runner answers 502 when it could not carry the stage out, which is
+	 * exactly the distinction `dispatch()` exists to preserve: a stage that
+	 * RAN and failed comes back 200 with a non-zero exit code.
+	 *
+	 * @param object $result The response.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException When the runner refused or could not run the stage.
+	 */
+	private function refuseUnrunStage(object $result): void {
+		$status = $result->getStatusCode();
+		if ($status >= 200 && $status <= 299) {
+			return;
+		}
+
+		$reason = $this->reasonFrom(body: (string)$result->getBody());
+		$this->logger->warning(
+			'[StageDispatchService] the runner refused or could not run the stage',
+			[
+				'status' => $status,
+				'reason' => $reason,
+			]
+		);
+
+		throw new RuntimeException('The workload could not be run: ' . $reason);
+	}//end refuseUnrunStage()
 
 	/**
 	 * Mint the per-run token a stage needs to get out through the governed proxy.
@@ -339,67 +385,69 @@ class StageDispatchService {
 	 * from is a different question from what the stage is allowed to do.
 	 *
 	 * @param array $params The payload so far.
-	 * @param string|null $uid The acting user's UID.
-	 * @param string $credentialId Broker credential, or ''.
-	 * @param string $toolRepo Tool tree URL, or ''.
-	 * @param string $toolRef Tool tree ref, or ''.
+	 * @param StageRequest $request The stage.
 	 *
 	 * @return array The payload, with the tool tree added when there is one.
 	 */
-	private function withToolTree(
-		array $params,
-		?string $uid,
-		string $credentialId,
-		string $toolRepo,
-		string $toolRef,
-	): array {
-		if ($toolRepo !== '') {
-			$params['toolRepo'] = $toolRepo;
-			if ($toolRef !== '') {
-				$params['toolRef'] = $toolRef;
-			}
+	private function withToolTree(array $params, StageRequest $request): array {
+		if ($request->options->toolRepo === '') {
+			return $params;
+		}
 
-			// A PRIVATE tool tree cannot be cloned by the ExApp: the brokered
-			// forge credential is a host-locked proxy credential, so
-			// `resolveInjectable()` returns null for it BY DESIGN and no token
-			// can be handed over. The broker can still FETCH, though, and
-			// `GET /repos/*/tarball/*` is already covered by its existing
-			// `GET /repos/*` rule — so the archive is pulled server-side and
-			// only the BYTES cross into the container.
-			//
-			// The usual objection to a tarball is that it carries no git
-			// history, so `--scope-to-diff` diffs against nothing and reports
-			// zero failures. That objection is about the TARGET and does not
-			// apply here: the tool tree is scripts. The target is cloned
-			// normally with its full history and needs no credential, because
-			// the repositories being gated are public. Splitting the two is
-			// what makes the credential question go away instead of trading it
-			// off.
-			if ($credentialId !== '') {
-				$archiveRef = 'HEAD';
-				if ($toolRef !== '') {
-					$archiveRef = $toolRef;
-				}
+		$params['toolRepo'] = $request->options->toolRepo;
+		if ($request->options->toolRef !== '') {
+			$params['toolRef'] = $request->options->toolRef;
+		}
 
-				$tarball = $this->fetchToolArchive(
-					credentialId: $credentialId,
-					uid: $uid,
-					repo: $toolRepo,
-					ref: $archiveRef
-				);
+		// A PRIVATE tool tree cannot be cloned by the ExApp: the brokered
+		// forge credential is a host-locked proxy credential, so
+		// `resolveInjectable()` returns null for it BY DESIGN and no token
+		// can be handed over. The broker can still FETCH, though, and
+		// `GET /repos/*/tarball/*` is already covered by its existing
+		// `GET /repos/*` rule — so the archive is pulled server-side and
+		// only the BYTES cross into the container.
+		//
+		// The usual objection to a tarball is that it carries no git
+		// history, so `--scope-to-diff` diffs against nothing and reports
+		// zero failures. That objection is about the TARGET and does not
+		// apply here: the tool tree is scripts. The target is cloned
+		// normally with its full history and needs no credential, because
+		// the repositories being gated are public. Splitting the two is
+		// what makes the credential question go away instead of trading it
+		// off.
+		if ($request->options->credentialId === '') {
+			return $params;
+		}
 
-				if ($tarball !== null) {
-					$params['toolTarball'] = $tarball;
-					// The ExApp prefers the archive, but leaving `toolRepo` in
-					// place keeps the log line meaningful about WHICH tree this
-					// is, which is otherwise unrecoverable from a blob.
-					unset($params['toolRef']);
-				}
-			}//end if
-		}//end if
+		return $this->withToolArchive(params: $params, request: $request);
+	}//end withToolTree()
+
+	/**
+	 * Swap the tool tree's ref for its broker-fetched archive, when one can be had.
+	 *
+	 * @param array $params The payload, with the tool tree already named.
+	 * @param StageRequest $request The stage, with a broker credential.
+	 *
+	 * @return array The payload, with `toolTarball` in place of `toolRef` when fetched.
+	 */
+	private function withToolArchive(array $params, StageRequest $request): array {
+		$tarball = $this->fetchToolArchive(
+			credentialId: $request->options->credentialId,
+			uid: $request->uid,
+			repo: $request->options->toolRepo,
+			ref: $request->options->toolArchiveRef()
+		);
+
+		if ($tarball !== null) {
+			$params['toolTarball'] = $tarball;
+			// The ExApp prefers the archive, but leaving `toolRepo` in
+			// place keeps the log line meaningful about WHICH tree this
+			// is, which is otherwise unrecoverable from a blob.
+			unset($params['toolRef']);
+		}
 
 		return $params;
-	}//end withToolTree()
+	}//end withToolArchive()
 
 	/**
 	 * Assemble the `/stage` payload.
@@ -417,117 +465,89 @@ class StageDispatchService {
 	 * from the response-mapping seams, and both of which are exactly the kind of
 	 * field that has been silently dropped at a boundary here before.
 	 *
-	 * @param string $repo Clone URL of the tree the command runs OVER.
-	 * @param string $ref The ref to check out.
-	 * @param array $command The command and its arguments.
-	 * @param string|null $uid The acting user's UID.
-	 * @param string $credentialId Broker credential, or '' for a public repo.
-	 * @param int $ceiling Stage timeout in milliseconds.
-	 * @param string $toolRepo Tool tree URL, or ''.
-	 * @param string $toolRef Tool tree ref, or ''.
-	 * @param array $push Push declaration, or [] for a read-only stage.
-	 * @param string $pushCredentialId The injectable credential, or '' to reuse $credentialId.
-	 * @param string $llmCredentialId The injectable model credential, or '' for a stage that
-	 *                                runs without a model.
-	 * @param array $collect Artefacts to read back out of the clone, or [].
+	 * @param StageRequest $request The stage.
 	 *
 	 * @return array The request payload.
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()`; see the reason
-	 *   stated there. This method is the boundary in question.
-	 *
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
-	protected function buildParams(
-		string $repo,
-		string $ref,
-		array $command,
-		?string $uid,
-		string $credentialId,
-		int $ceiling,
-		string $toolRepo,
-		string $toolRef,
-		array $push = [],
-		string $pushCredentialId = '',
-		string $llmCredentialId = '',
-		array $collect = [],
-	): array {
-		$params = [
-			'repo' => $repo,
-			'ref' => $ref,
-			'command' => array_values($command),
+	protected function buildParams(StageRequest $request): array {
+		$ceiling = $request->options->ceilingOr(defaultMs: self::DEFAULT_STAGE_TIMEOUT_MS);
+		$params  = [
+			'repo' => $request->repo,
+			'ref' => $request->ref,
+			'command' => array_values($request->command),
 			'timeoutMs' => $ceiling,
 			// The per-run egress identity. See mintEgressIdentity().
-			'runToken' => $this->mintEgressIdentity(uid: $uid, ceiling: $ceiling),
+			'runToken' => $this->mintEgressIdentity(uid: $request->uid, ceiling: $ceiling),
 		];
 
 		// A stage that may WRITE says so, and saying so is what makes the
 		// runner withhold the credential from the command child and perform the
 		// push itself behind its own fences. An absent `push` leaves the stage
 		// exactly as read-only as it has always been.
-		if ($push !== []) {
-			$params['push'] = $push;
+		if ($request->options->push !== []) {
+			$params['push'] = $request->options->push;
 		}
 
-		$params = $this->withCollect(params: $params, collect: $collect);
+		$params = $this->withCollect(params: $params, collect: $request->options->collect);
+		$params = $this->withToolTree(params: $params, request: $request);
+		$params = $this->withForgeToken(params: $params, request: $request);
 
-		$params = $this->withToolTree(
-			params: $params,
-			uid: $uid,
-			credentialId: $credentialId,
-			toolRepo: $toolRepo,
-			toolRef: $toolRef
-		);
+		return $this->withModelCredential(params: $params, request: $request);
+	}//end buildParams()
 
-		// WHICH credential is asked to INJECT. Not necessarily the one above:
-		// `withToolTree()` has just spent `$credentialId` on a broker-side
+	/**
+	 * Attach the injectable forge token, when the credential asked to inject is one.
+	 *
+	 * @param array $params The stage payload so far.
+	 * @param StageRequest $request The stage.
+	 *
+	 * @return array The payload, with `forgeToken` and `forgeUser` when a token resolved.
+	 */
+	private function withForgeToken(array $params, StageRequest $request): array {
+		// WHICH credential is asked to INJECT. Not necessarily the broker one:
+		// `withToolTree()` has just spent `credentialId` on a broker-side
 		// `request()`, which only a host-locked PROXY credential can serve —
 		// and `resolveInjectable()` refuses that shape by design. So a stage
 		// that fetches a private tool tree AND pushes needs a second,
 		// `inject_only` credential, and this is where it is chosen.
 		//
-		// Falling back to `$credentialId` keeps every stage that shipped before
-		// this parameter existed on exactly the path it was on.
-		$injectCredentialId = $credentialId;
-		if ($pushCredentialId !== '') {
-			$injectCredentialId = $pushCredentialId;
+		// Falling back to `credentialId` keeps every stage that shipped before
+		// `pushCredentialId` existed on exactly the path it was on.
+		$injectCredentialId = $request->options->injectCredentialId();
+
+		if ($injectCredentialId === '') {
+			return $params;
 		}
 
-		if ($injectCredentialId !== '') {
-			// An INJECTABLE token, if this credential is one. Most are not: the
-			// brokered forge credential is a host-locked proxy credential, and
-			// `resolveInjectable()` returns null for it BY DESIGN — its secret
-			// never leaving OpenRegister is the property that makes the proxy
-			// path worth having.
-			//
-			// A null is therefore a ROUTING signal, not a denial, and it must
-			// NOT fail the stage. Most targets this pipeline gates are public
-			// and need no token at all; the tool tree, which is the private
-			// half, already arrived as an archive fetched server-side. Failing
-			// here would refuse a stage that has everything it needs.
-			//
-			// When a target really is private and no token could be injected,
-			// the clone fails with git's own words — which is a far better
-			// diagnostic than a credential error raised before anything was
-			// attempted.
-			$token = $this->resolveForgeToken(credentialId: $injectCredentialId, uid: $uid);
-			if ($token !== null) {
-				// The token reaches the runner in the payload and the runner
-				// puts it in the child ENVIRONMENT behind `GIT_ASKPASS` — never
-				// on argv, never in a file that outlives the run.
-				$params['forgeToken'] = $token;
-				$params['forgeUser'] = 'x-access-token';
-			}
-		}//end if
-
-		$params = $this->withModelCredential(
-			params: $params,
-			uid: $uid,
-			llmCredentialId: $llmCredentialId
-		);
+		// An INJECTABLE token, if this credential is one. Most are not: the
+		// brokered forge credential is a host-locked proxy credential, and
+		// `resolveInjectable()` returns null for it BY DESIGN — its secret
+		// never leaving OpenRegister is the property that makes the proxy
+		// path worth having.
+		//
+		// A null is therefore a ROUTING signal, not a denial, and it must
+		// NOT fail the stage. Most targets this pipeline gates are public
+		// and need no token at all; the tool tree, which is the private
+		// half, already arrived as an archive fetched server-side. Failing
+		// here would refuse a stage that has everything it needs.
+		//
+		// When a target really is private and no token could be injected,
+		// the clone fails with git's own words — which is a far better
+		// diagnostic than a credential error raised before anything was
+		// attempted.
+		$token = $this->resolveForgeToken(credentialId: $injectCredentialId, uid: $request->uid);
+		if ($token !== null) {
+			// The token reaches the runner in the payload and the runner
+			// puts it in the child ENVIRONMENT behind `GIT_ASKPASS` — never
+			// on argv, never in a file that outlives the run.
+			$params['forgeToken'] = $token;
+			$params['forgeUser'] = 'x-access-token';
+		}
 
 		return $params;
-	}//end buildParams()
+	}//end withForgeToken()
 
 	/**
 	 * Attach the model credential, when the stage's command is one that talks to a model.
@@ -537,14 +557,14 @@ class StageDispatchService {
 	 * one input and one effect.
 	 *
 	 * @param array $params The stage payload so far.
-	 * @param string|null $uid The acting user.
-	 * @param string $llmCredentialId The injectable model credential, or '' for none.
+	 * @param StageRequest $request The stage; its `llmCredentialId` is the injectable
+	 *                              model credential, or '' for none.
 	 *
 	 * @return array The payload, with `credentialEnv` when one resolved.
 	 *
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
-	private function withModelCredential(array $params, ?string $uid, string $llmCredentialId): array {
+	private function withModelCredential(array $params, StageRequest $request): array {
 		// THE MODEL CREDENTIAL — the other half of an agent that has a tree.
 		//
 		// `/run` has been able to give `claude -p` a token since the anthropic
@@ -565,11 +585,11 @@ class StageDispatchService {
 		// A null is a ROUTING signal, exactly as it is for the forge token in
 		// buildParams(): a stage whose command needs no model is a normal stage,
 		// and failing here would refuse one that has everything it needs.
-		if ($llmCredentialId === '') {
+		if ($request->options->llmCredentialId === '') {
 			return $params;
 		}
 
-		$llmToken = $this->resolveForgeToken(credentialId: $llmCredentialId, uid: $uid);
+		$llmToken = $this->resolveForgeToken(credentialId: $request->options->llmCredentialId, uid: $request->uid);
 		if ($llmToken !== null) {
 			$params['credentialEnv'] = ['CLAUDE_CODE_OAUTH_TOKEN' => $llmToken];
 		}
