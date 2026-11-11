@@ -33,7 +33,6 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCP\IAppConfig;
 
@@ -109,12 +108,7 @@ class ProviderResidencyRegistry {
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function all(): array {
-		$out = [];
-		foreach (array_keys($this->stored()) as $provider) {
-			$out[$provider] = $this->forProvider(provider: (string)$provider);
-		}
-
-		return $out;
+		return $this->store()->each(read: fn (string $provider): array => $this->forProvider(provider: $provider));
 	}//end all()
 
 	/**
@@ -129,7 +123,7 @@ class ProviderResidencyRegistry {
 	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function forProvider(string $provider): array {
-		$entry = ($this->stored()[$provider] ?? null);
+		$entry = ($this->store()->stored()[$provider] ?? null);
 
 		$residency = self::RESIDENCY_UNDECLARED;
 		$location = '';
@@ -176,37 +170,17 @@ class ProviderResidencyRegistry {
 			);
 		}
 
-		$stored = $this->stored();
-		$stored[$provider] = [
-			'residency' => $residency,
-			'location' => trim($location),
-		];
-
-		$this->appConfig->setValueString(
-			Application::APP_ID,
-			self::CONFIG_KEY,
-			(string)json_encode($stored)
-		);
+		$this->store()->put(provider: $provider, entry: ['residency' => $residency, 'location' => trim($location)]);
 
 		return $this->forProvider(provider: $provider);
 	}//end declareResidency()
 
 	/**
-	 * The raw stored map, or an empty map when nothing has been declared.
+	 * This registry's stored declarations.
 	 *
-	 * @return array<string, mixed> The stored declarations.
+	 * @return ProviderDeclarationStore
 	 */
-	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
-		if ($raw === '') {
-			return [];
-		}
-
-		$decoded = json_decode($raw, true);
-		if (is_array($decoded) === false) {
-			return [];
-		}
-
-		return $decoded;
-	}//end stored()
+	private function store(): ProviderDeclarationStore {
+		return new ProviderDeclarationStore(appConfig: $this->appConfig, key: self::CONFIG_KEY);
+	}//end store()
 }//end class
