@@ -68,42 +68,45 @@ class ChatRefusalFrame {
 		// An attachment that is not available to the speaker, or that the
 		// feature refuses unredacted: the sentence is written for the person.
 		if ($cause instanceof AttachmentRefusedException) {
-			return ['code' => 'attachment_refused', 'message' => $cause->getMessage()];
+			return $this->frame(code: 'attachment_refused', message: $cause->getMessage());
 		}
 
-		// A refused pinned credential (operations-a-credential-per-agent).
-		if ($cause instanceof PinnedCredentialRefusedException) {
-			return [
-				'code' => PinnedCredentialRefusedException::ERROR_CODE,
-				'message' => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
-			];
-		}
-
-		// Agents-switch-off-and-stop: the agent is switched off; no answer.
-		if ($cause instanceof AgentSwitchedOffException) {
-			return [
-				'code' => AgentSwitchedOffException::ERROR_CODE,
-				'message' => $this->l10n->t('This agent is switched off.'),
-			];
-		}
-
-		// Compliance-ai-literacy: the person is sent to the course.
-		if ($cause instanceof LiteracyRequiredException) {
-			return [
-				'code' => LiteracyRequiredException::ERROR_CODE,
-				'message' => $this->l10n->t('Finish the short course Working with AI first.'),
-				'courseUrl' => LiteracyRequiredException::COURSE_PATH,
-			];
-		}
-
-		// Models-no-training-guarantee: the person reads why, not the step text.
-		if ($cause instanceof DataUseViolationException) {
-			return [
-				'code' => DataUseViolationException::ERROR_CODE,
-				'message' => $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.'),
-			];
-		}
-
-		return null;
+		return match (true) {
+			// A refused pinned credential (operations-a-credential-per-agent).
+			$cause instanceof PinnedCredentialRefusedException => $this->frame(
+				code: PinnedCredentialRefusedException::ERROR_CODE,
+				message: $this->l10n->t('The credential pinned to this agent cannot be used for this run.')
+			),
+			// Agents-switch-off-and-stop: the agent is switched off; no answer.
+			$cause instanceof AgentSwitchedOffException => $this->frame(
+				code: AgentSwitchedOffException::ERROR_CODE,
+				message: $this->l10n->t('This agent is switched off.')
+			),
+			// Compliance-ai-literacy: the person is sent to the course.
+			$cause instanceof LiteracyRequiredException => $this->frame(
+				code: LiteracyRequiredException::ERROR_CODE,
+				message: $this->l10n->t('Finish the short course Working with AI first.')
+			) + ['courseUrl' => LiteracyRequiredException::COURSE_PATH],
+			// Models-no-training-guarantee: the person reads why, not the step text.
+			$cause instanceof DataUseViolationException => $this->frame(
+				code: DataUseViolationException::ERROR_CODE,
+				message: $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.')
+			),
+			default => null,
+		};
 	}//end forCause()
+
+	/**
+	 * One error frame.
+	 *
+	 * @param string $code    The stable error code.
+	 * @param string $message The sentence the person reads.
+	 *
+	 * @return array{code: string, message: string}
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	private function frame(string $code, string $message): array {
+		return ['code' => $code, 'message' => $message];
+	}//end frame()
 }//end class
