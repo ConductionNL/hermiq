@@ -228,6 +228,7 @@ import {
 import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
 import { errorMessage } from '../utils/errorMessage.js'
 import { formDialogSlot } from './formDialogSlot.js'
+import { resetOnOpen } from './resetOnOpen.js'
 
 export default {
 	name: 'SkillFormModal',
@@ -242,15 +243,9 @@ export default {
 		NcTextField,
 	},
 
-	mixins: [formDialogSlot],
+	mixins: [formDialogSlot, resetOnOpen],
 
 	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
 		/**
 		 * hermiq-skill-conversational-authoring: pre-fill `body` when opened
 		 * fresh (no `item`) — used by the chat "Save as skill" seam to seed
@@ -333,17 +328,6 @@ export default {
 		 */
 		showPastePackage() {
 			return !this.effectiveSkill
-		},
-	},
-
-	watch: {
-		/**
-		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
 		},
 	},
 

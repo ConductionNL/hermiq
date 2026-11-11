@@ -83,6 +83,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { createIncident } from '../api/tenantOps.js'
+import { resetOnOpen } from '../modals/resetOnOpen.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -97,13 +98,9 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the dialog is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [resetOnOpen],
 
+	props: {
 		/** Optional agent UUID to preselect (e.g. opened from an agent/run context). */
 		defaultAgentId: {
 			type: String,
@@ -142,17 +139,6 @@ export default {
 				&& this.form.impact.trim() !== ''
 				&& this.form.actionsTaken.trim() !== ''
 			)
-		},
-	},
-
-	watch: {
-		/**
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
 		},
 	},
 

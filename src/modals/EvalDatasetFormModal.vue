@@ -135,6 +135,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { useEvalDatasetStore } from '../store/store.js'
+import { resetOnOpen } from './resetOnOpen.js'
 
 export default {
 	name: 'EvalDatasetFormModal',
@@ -149,13 +150,9 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [resetOnOpen],
 
+	props: {
 		/** The dataset being edited, or null when creating a new one. */
 		dataset: {
 			type: Object,
@@ -202,17 +199,6 @@ export default {
 			return this.dataset
 				? this.t('hermiq', 'Edit dataset')
 				: this.t('hermiq', 'Create dataset')
-		},
-	},
-
-	watch: {
-		/**
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
 		},
 	},
 
