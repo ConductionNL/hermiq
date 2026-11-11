@@ -452,4 +452,80 @@ class EvalRunServiceTest extends TestCase {
 		$this->assertSame('draft-comparison', $result['status']);
 
 	}//end testDraftComparisonRunDoesNotEnqueueEvalFailCapture()
+
+	/**
+	 * A failing audit write and a failing capture enqueue are logged and never fail
+	 * the run: every failing case is still offered to the job list, and the
+	 * warnings name the run and the cause, in order.
+	 *
+	 * @return void
+	 */
+	public function testAuditAndCaptureFailuresAreLoggedAndNeverFailTheRun(): void {
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturn(false);
+		$schedule->method('runAgentAsOwner')->willReturn('agent output');
+		$schedule->method('getLastRunUsage')->willReturn([]);
+		$schedule->method('getLastRunSkillsUsed')->willReturn(['skill-1']);
+
+		$scoring = $this->createMock(EvalScoringService::class);
+		$scoring->method('score')->willReturn(['passed' => false, 'errorMessage' => 'nope', 'score' => null, 'judgeRationale' => null]);
+
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('getValueString')->willReturnArgument(2);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->method('recordObjectEvent')->willThrowException(new RuntimeException('audit store down'));
+		$jobList = $this->createMock(IJobList::class);
+		$jobArguments = [];
+		$jobList->method('add')->willReturnCallback(
+			static function (mixed $job, mixed $argument = null) use (&$jobArguments): void {
+				$jobArguments[] = $argument['evalFail'];
+				throw new RuntimeException('queue down');
+			}
+		);
+		$warnings = [];
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			static function (string|\Stringable $message, array $context = []) use (&$warnings): void {
+				$warnings[] = [(string)$message, get_class($context['exception'])];
+			}
+		);
+
+		$service = new EvalRunService(
+			objectService: $this->objectService(),
+			scheduleService: $schedule,
+			budgetService: $this->createMock(BudgetService::class),
+			scoringService: $scoring,
+			auditTrailMapper: $audit,
+			redactionService: $redaction,
+			appConfig: $appConfig,
+			logger: $logger,
+			contextAssembler: $this->createMock(ContextAssembler::class),
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			jobList: $jobList,
+		);
+
+		$result = $service->run(
+			$this->dataset(
+				[
+					['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+					['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+				]
+			),
+			$this->agent()
+		);
+
+		$this->assertSame('completed', $result['status']);
+		$this->assertSame(['eval-run-uuid#0', 'eval-run-uuid#1'], $jobArguments);
+		$this->assertSame(
+			[
+				['Hermiq could not write eval-run audit for eval-run-uuid: audit store down', RuntimeException::class],
+				['Hermiq could not enqueue eval-fail learnings capture for run eval-run-uuid: queue down', RuntimeException::class],
+				['Hermiq could not enqueue eval-fail learnings capture for run eval-run-uuid: queue down', RuntimeException::class],
+			],
+			$warnings
+		);
+
+	}//end testAuditAndCaptureFailuresAreLoggedAndNeverFailTheRun()
 }//end class
