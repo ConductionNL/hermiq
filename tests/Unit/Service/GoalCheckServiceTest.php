@@ -87,6 +87,50 @@ class GoalCheckServiceTest extends TestCase {
 	}//end testAnObjectCountIsReachedAtItsTarget()
 
 	/**
+	 * A count check without a register or schema, one whose read fails, and one
+	 * without filters answer exactly.
+	 *
+	 * @return void
+	 */
+	public function testTheOtherCountAnswers(): void {
+		$scorer = $this->createMock(originalClassName: EvalScoringService::class);
+		$failing = $this->createMock(originalClassName: ObjectService::class);
+		$failing->method('setRegister')->willReturnSelf();
+		$failing->method('setSchema')->willReturnSelf();
+		$failing->method('findAll')->willThrowException(new \RuntimeException(message: 'register gone'));
+		$two = $this->objects(count: 2);
+
+		$checks = [
+			[$two, ['kind' => 'objectCount', 'register' => 'permits', 'target' => 2]],
+			[$failing, ['kind' => 'objectCount', 'register' => 'r', 'schema' => 's', 'target' => 1]],
+			[$two, ['kind' => 'objectCount', 'register' => 'r', 'schema' => 's', 'filters' => [], 'target' => '2']],
+		];
+		[$unnamed, $failed, $plain] = array_map(
+			static fn (array $case): array => (new GoalCheckService(objectService: $case[0], scoring: $scorer))->check(
+				check: $case[1],
+				lastAnswer: '',
+				organisation: ''
+			),
+			$checks
+		);
+
+		$this->assertSame(
+			expected: [
+				['reached' => false, 'value' => null, 'summary' => 'The check names no register or schema.'],
+				['reached' => false, 'value' => null, 'summary' => 'The count could not be read: register gone'],
+				['reached' => true, 'value' => 2, 'summary' => '2 left, target 2'],
+			],
+			actual: [
+				array_intersect_key($unnamed, array_flip(['reached', 'value', 'summary'])),
+				array_intersect_key($failed, array_flip(['reached', 'value', 'summary'])),
+				array_intersect_key($plain, array_flip(['reached', 'value', 'summary'])),
+			]
+		);
+		$this->assertSame(expected: ['limit' => 500], actual: $two->seen['config']);
+
+	}//end testTheOtherCountAnswers()
+
+	/**
 	 * The judge is the rubric scorer, with the goal's question and the organisation.
 	 *
 	 * @return void
