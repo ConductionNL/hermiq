@@ -77,6 +77,7 @@ use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
@@ -1065,9 +1066,6 @@ class ProviderFactory {
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)   API call requires handling many response scenarios
-	 * @SuppressWarnings(PHPMD.NPathComplexity)        API call requires handling many response scenarios
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  Tool-loop orchestration plus API error handling
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors callFireworksChat's direct-HTTP signature
 	 *
 	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
@@ -1087,123 +1085,241 @@ class ProviderFactory {
 		string $conversationId = '',
 		?int $maxToolCalls = null,
 	): string {
-		$this->lastCallUsage = [];
-		$this->lastCallHitToolCap = false;
+		$this->resetCallState();
+		$run = new AnthropicChatRun(credentialId: $credentialId, model: $model);
+		$run->baseUrl = $baseUrl;
+		$run->messageHistory = $messageHistory;
+		$run->authMode = $authMode;
+		$run->maxTokens = $maxTokens;
+		$run->functions = $functions;
+		$run->toolExecutor = $toolExecutor;
+		$run->agentId = $agentId;
+		$run->conversationId = $conversationId;
+		$run->maxToolCalls = $maxToolCalls;
 
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
 		// below this point, and `http` must stay bit-for-bit unaffected.
 		if ($executionMode === 'cli') {
-			return $this->callAnthropicCli(
-				credentialId: $credentialId,
-				model: $model,
-				messageHistory: $messageHistory,
-				functions: $functions,
-				agentId: $agentId,
-				conversationId: $conversationId
-			);
+			return $this->callAnthropicCliTurn(run: $run);
 		}
 
-		$url = rtrim($baseUrl, '/') . '/messages';
-
-		// Anthropic keeps the system prompt OUT of `messages`; hoist system turns into
-		// the top-level `system` field and map user/assistant turns through.
-		$mapped = $this->mapHistoryToAnthropicMessages(messageHistory: $messageHistory);
-		$system = $mapped['system'];
-		$messages = $mapped['messages'];
-
-		// Tools are offered ONLY when both a schema AND an executor are present — the
-		// model must never be told about a tool Hermiq cannot then run for it.
-		$tools = [];
-		if (empty($functions) === false && $toolExecutor !== null) {
-			$tools = $this->buildAnthropicTools(functions: $functions);
-		} elseif (empty($functions) === false) {
-			$this->logger->warning(
-				message: '[ProviderFactory] Anthropic turn has tools but no executor; running text-only.',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'functionCount' => count($functions),
-				]
-			);
-		}
-
-		$headers = $this->buildAnthropicHeaders(authMode: $authMode);
-		$text = '';
-		$cap = ($maxToolCalls ?? self::MAX_TOOL_ITERATIONS);
-		$executed = 0;
-
-		// At most one request per allowed tool call plus the closing one.
-		for ($iteration = 0; $iteration <= $cap; $iteration++) {
-			$payload = [
-				'model' => $model,
-				'max_tokens' => ($maxTokens ?? 4096),
-				'messages' => $messages,
-			];
-
-			if ($system !== '') {
-				$payload['system'] = $system;
-			}
-
-			if (empty($tools) === false) {
-				$payload['tools'] = $tools;
-			}
-
-			$data = $this->postToAnthropic(credentialId: $credentialId, url: $url, headers: $headers, payload: $payload, model: $model);
-			$parsed = $this->parseAnthropicResponse(data: $data);
-			$text = $parsed['text'];
-
-			// Every request of the tool loop is billed, so every request counts.
-			$this->lastCallUsage = $this->addUsage(
-				total: $this->lastCallUsage,
-				promptTokens: ($parsed['usage']['promptTokens'] ?? 0),
-				completionTokens: ($parsed['usage']['completionTokens'] ?? 0)
-			);
-
-			// No tool call requested (or no executor to run one) — the turn is complete.
-			if ($tools === [] || $toolExecutor === null || $parsed['stopReason'] !== 'tool_use' || $parsed['toolCalls'] === []) {
-				break;
-			}
-
-			// The turn used every tool call it may make: no tool runs, the model's last
-			// answer stands (agents-switch-off-and-stop).
-			if ($executed >= $cap) {
-				$this->lastCallHitToolCap = true;
-				break;
-			}
-
-			// Echo the assistant's tool_use turn back verbatim, run each requested tool
-			// through Hermiq's governed engine (the executor), and feed the results back.
-			$messages[] = [
-				'role' => 'assistant',
-				'content' => $parsed['content'],
-			];
-			$toolResults = [];
-			foreach ($parsed['toolCalls'] as $toolCall) {
-				$result = '{"isError":true,"result":{"error":"Tool call limit reached for this turn"}}';
-				if ($executed < $cap) {
-					$result = (string)$toolExecutor($toolCall['name'], $toolCall['input']);
-					$executed++;
-				}
-
-				$toolResults[] = [
-					'tool_use_id' => $toolCall['id'],
-					'content' => $result,
-				];
-			}
-
-			$messages[] = [
-				'role' => 'user',
-				'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
-			];
-		}//end for
-
-		if ($this->lastCallHitToolCap === true && trim($text) === '') {
-			$text = 'Tool call limit reached for this turn.';
-		}
-
-		return $text;
+		return $this->callAnthropicHttp(run: $run);
 	}//end callAnthropicChat()
+
+	/**
+	 * Clear what the previous call recorded: its usage and whether it hit the
+	 * tool call cap.
+	 *
+	 * @return void
+	 */
+	private function resetCallState(): void {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+	}//end resetCallState()
+
+	/**
+	 * Hand the turn to the `cli` transport, {@see callAnthropicCli()}.
+	 *
+	 * @param AnthropicChatRun $run The turn.
+	 *
+	 * @return string The completion text.
+	 */
+	private function callAnthropicCliTurn(AnthropicChatRun $run): string {
+		return $this->callAnthropicCli(
+			credentialId: $run->credentialId,
+			model: $run->model,
+			messageHistory: $run->messageHistory,
+			functions: $run->functions,
+			agentId: $run->agentId,
+			conversationId: $run->conversationId
+		);
+	}//end callAnthropicCliTurn()
+
+	/**
+	 * Run one Anthropic turn on the direct Messages API: at most one request per
+	 * allowed tool call plus the closing one.
+	 *
+	 * Anthropic keeps the system prompt OUT of `messages`; system turns are hoisted
+	 * into the top-level `system` field and user/assistant turns mapped through.
+	 *
+	 * @param AnthropicChatRun $run The turn.
+	 *
+	 * @return string Generated response text (the final assistant turn).
+	 *
+	 * @throws \Exception If the HTTP call fails or the response is malformed.
+	 */
+	private function callAnthropicHttp(AnthropicChatRun $run): string {
+		$loop = new AnthropicToolLoop(run: $run, defaultCap: self::MAX_TOOL_ITERATIONS);
+		$mapped = $this->mapHistoryToAnthropicMessages(messageHistory: $run->messageHistory);
+		$loop->system = $mapped['system'];
+		$loop->messages = $mapped['messages'];
+		$loop->tools = $this->offeredAnthropicTools(run: $run);
+		$loop->headers = $this->buildAnthropicHeaders(authMode: $run->authMode);
+
+		for ($iteration = 0; $iteration <= $loop->cap; $iteration++) {
+			if ($this->anthropicRound(loop: $loop) === false) {
+				break;
+			}
+		}
+
+		if ($this->lastCallHitToolCap === true && trim($loop->text) === '') {
+			return 'Tool call limit reached for this turn.';
+		}
+
+		return $loop->text;
+	}//end callAnthropicHttp()
+
+	/**
+	 * The tools offered to the model. Tools are offered ONLY when both a schema AND
+	 * an executor are present — the model must never be told about a tool Hermiq
+	 * cannot then run for it.
+	 *
+	 * @param AnthropicChatRun $run The turn.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function offeredAnthropicTools(AnthropicChatRun $run): array {
+		if (empty($run->functions) === true) {
+			return [];
+		}
+
+		if ($run->toolExecutor !== null) {
+			return $this->buildAnthropicTools(functions: $run->functions);
+		}
+
+		$this->logger->warning(
+			message: '[ProviderFactory] Anthropic turn has tools but no executor; running text-only.',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'functionCount' => count($run->functions),
+			]
+		);
+		return [];
+	}//end offeredAnthropicTools()
+
+	/**
+	 * One request of the tool loop, and the tool calls it asks for.
+	 *
+	 * @param AnthropicToolLoop $loop The loop.
+	 *
+	 * @return bool True when the loop needs another request.
+	 */
+	private function anthropicRound(AnthropicToolLoop $loop): bool {
+		$parsed = $this->parseAnthropicResponse(
+			data: $this->postToAnthropic(loop: $loop, payload: $this->anthropicPayload(loop: $loop))
+		);
+		$loop->text = $parsed['text'];
+
+		// Every request of the tool loop is billed, so every request counts.
+		$this->lastCallUsage = $this->addUsage(
+			total: $this->lastCallUsage,
+			promptTokens: ($parsed['usage']['promptTokens'] ?? 0),
+			completionTokens: ($parsed['usage']['completionTokens'] ?? 0)
+		);
+
+		if ($this->anthropicTurnComplete(loop: $loop, parsed: $parsed) === true) {
+			return false;
+		}
+
+		$this->runAnthropicToolCalls(loop: $loop, parsed: $parsed);
+		return true;
+	}//end anthropicRound()
+
+	/**
+	 * Whether the turn is over after a response: no tool call requested (or no
+	 * executor to run one), or the turn used every tool call it may make — then no
+	 * tool runs and the model's last answer stands (agents-switch-off-and-stop).
+	 *
+	 * @param AnthropicToolLoop    $loop   The loop.
+	 * @param array<string, mixed> $parsed The parsed response.
+	 *
+	 * @return bool
+	 */
+	private function anthropicTurnComplete(AnthropicToolLoop $loop, array $parsed): bool {
+		if ($loop->tools === [] || $loop->run->toolExecutor === null || $parsed['stopReason'] !== 'tool_use' || $parsed['toolCalls'] === []) {
+			return true;
+		}
+
+		if ($loop->executed >= $loop->cap) {
+			$this->lastCallHitToolCap = true;
+			return true;
+		}
+
+		return false;
+	}//end anthropicTurnComplete()
+
+	/**
+	 * The payload of the loop's next request.
+	 *
+	 * @param AnthropicToolLoop $loop The loop.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function anthropicPayload(AnthropicToolLoop $loop): array {
+		$payload = [
+			'model' => $loop->run->model,
+			'max_tokens' => ($loop->run->maxTokens ?? 4096),
+			'messages' => $loop->messages,
+		];
+
+		if ($loop->system !== '') {
+			$payload['system'] = $loop->system;
+		}
+
+		if (empty($loop->tools) === false) {
+			$payload['tools'] = $loop->tools;
+		}
+
+		return $payload;
+	}//end anthropicPayload()
+
+	/**
+	 * Echo the assistant's tool_use turn back verbatim, run each requested tool
+	 * through Hermiq's governed engine (the executor), and feed the results back.
+	 *
+	 * @param AnthropicToolLoop    $loop   The loop.
+	 * @param array<string, mixed> $parsed The parsed response asking for tools.
+	 *
+	 * @return void
+	 */
+	private function runAnthropicToolCalls(AnthropicToolLoop $loop, array $parsed): void {
+		$loop->messages[] = [
+			'role' => 'assistant',
+			'content' => $parsed['content'],
+		];
+		$toolResults = [];
+		foreach ($parsed['toolCalls'] as $toolCall) {
+			$toolResults[] = [
+				'tool_use_id' => $toolCall['id'],
+				'content' => $this->anthropicToolResult(loop: $loop, toolCall: $toolCall),
+			];
+		}
+
+		$loop->messages[] = [
+			'role' => 'user',
+			'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
+		];
+	}//end runAnthropicToolCalls()
+
+	/**
+	 * Run one requested tool, unless the turn has used every tool call it may make.
+	 *
+	 * @param AnthropicToolLoop    $loop     The loop.
+	 * @param array<string, mixed> $toolCall The requested call (`id`, `name`, `input`).
+	 *
+	 * @return string The tool result.
+	 */
+	private function anthropicToolResult(AnthropicToolLoop $loop, array $toolCall): string {
+		if ($loop->executed >= $loop->cap) {
+			return '{"isError":true,"result":{"error":"Tool call limit reached for this turn"}}';
+		}
+
+		$result = (string)($loop->run->toolExecutor)($toolCall['name'], $toolCall['input']);
+		$loop->executed++;
+		return $result;
+	}//end anthropicToolResult()
 
 	/**
 	 * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
@@ -2325,51 +2441,81 @@ class ProviderFactory {
 			$content = $data['content'];
 		}
 
-		$text = '';
-		$toolCalls = [];
-		foreach ($content as $block) {
-			if (is_array($block) === false) {
-				continue;
-			}
-
-			$type = ($block['type'] ?? '');
-			if ($type === 'text') {
-				$text .= (string)($block['text'] ?? '');
-				continue;
-			}
-
-			if ($type === 'tool_use') {
-				$input = ($block['input'] ?? []);
-				if (is_array($input) === false) {
-					$input = [];
-				}
-
-				$toolCalls[] = [
-					'id' => (string)($block['id'] ?? ''),
-					'name' => (string)($block['name'] ?? ''),
-					'input' => $input,
-				];
-			}
-		}//end foreach
-
-		$usage = [];
-		$rawUsage = ($data['usage'] ?? []);
-		if (is_array($rawUsage) === true) {
-			$usage = [
-				'promptTokens' => (int)($rawUsage['input_tokens'] ?? 0),
-				'completionTokens' => (int)($rawUsage['output_tokens'] ?? 0),
-			];
-		}
-
 		return [
-			'text' => $text,
-			'toolCalls' => $toolCalls,
+			'text' => $this->anthropicText(content: $content),
+			'toolCalls' => $this->anthropicToolCalls(content: $content),
 			'stopReason' => (string)($data['stop_reason'] ?? ''),
 			'content' => $content,
-			'usage' => $usage,
+			'usage' => $this->anthropicUsage(data: $data),
 		];
 
 	}//end parseAnthropicResponse()
+
+	/**
+	 * The concatenated text of every `text` block.
+	 *
+	 * @param array<int, mixed> $content The response's content blocks.
+	 *
+	 * @return string
+	 */
+	private function anthropicText(array $content): string {
+		$text = '';
+		foreach ($content as $block) {
+			if (is_array($block) === true && ($block['type'] ?? '') === 'text') {
+				$text .= (string)($block['text'] ?? '');
+			}
+		}
+
+		return $text;
+	}//end anthropicText()
+
+	/**
+	 * Every `tool_use` block as `{id, name, input}`, with a non-array input as `[]`.
+	 *
+	 * @param array<int, mixed> $content The response's content blocks.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function anthropicToolCalls(array $content): array {
+		$toolCalls = [];
+		foreach ($content as $block) {
+			if (is_array($block) === false || ($block['type'] ?? '') !== 'tool_use') {
+				continue;
+			}
+
+			$input = ($block['input'] ?? []);
+			if (is_array($input) === false) {
+				$input = [];
+			}
+
+			$toolCalls[] = [
+				'id' => (string)($block['id'] ?? ''),
+				'name' => (string)($block['name'] ?? ''),
+				'input' => $input,
+			];
+		}
+
+		return $toolCalls;
+	}//end anthropicToolCalls()
+
+	/**
+	 * The response's token usage, or `[]` when it reports none.
+	 *
+	 * @param array<string, mixed> $data Decoded Anthropic Messages API response.
+	 *
+	 * @return array<string, int>
+	 */
+	private function anthropicUsage(array $data): array {
+		$rawUsage = ($data['usage'] ?? []);
+		if (is_array($rawUsage) === false) {
+			return [];
+		}
+
+		return [
+			'promptTokens' => (int)($rawUsage['input_tokens'] ?? 0),
+			'completionTokens' => (int)($rawUsage['output_tokens'] ?? 0),
+		];
+	}//end anthropicUsage()
 
 	/**
 	 * Build the Anthropic `tool_result` content blocks for one user turn.
@@ -2414,96 +2560,25 @@ class ProviderFactory {
 	 * Extracted so the tool loop can issue multiple round-trips without duplicating the
 	 * broker wiring or the HTTP error mapping.
 	 *
-	 * @param string $credentialId Broker credential UUID.
-	 * @param string $url The `/messages` endpoint URL.
-	 * @param array<string,string> $headers Auth/version headers from `buildAnthropicHeaders()`.
+	 * @param AnthropicToolLoop   $loop    The loop: credential, endpoint, headers and model.
 	 * @param array<string,mixed> $payload The request payload.
-	 * @param string $model Model id (for error messages only).
 	 *
 	 * @return array<string, mixed> The decoded response body.
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)   API error handling requires many branches
-	 * @SuppressWarnings(PHPMD.NPathComplexity)        API error handling requires many branches
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Direct-HTTP request needs each of these
-	 *
 	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 */
-	private function postToAnthropic(string $credentialId, string $url, array $headers, array $payload, string $model): array {
-		// Through the broker, not straight out. Hermiq has no Anthropic secret to send: the
-		// broker holds it, checks the allow-rules, and injects the auth header server-side.
-		$client = new BrokerHttpClient(
-			credentialId: $credentialId,
-			logger: $this->logger,
-			actingUserId: $this->currentUid(),
-			container: $this->container
-		);
-
-		try {
-			$psrResponse = $client->sendRequest(
-				new Request(
-					'POST',
-					$url,
-					$headers,
-					(string)json_encode($payload)
-				)
-			);
-		} catch (Throwable $e) {
-			throw new Exception('Anthropic API request failed: ' . $e->getMessage());
-		}
-
+	private function postToAnthropic(AnthropicToolLoop $loop, array $payload): array {
+		$psrResponse = $this->sendToAnthropic(loop: $loop, payload: $payload);
 		$httpCode = $psrResponse->getStatusCode();
 		$response = (string)$psrResponse->getBody();
 
 		if ($httpCode !== 200) {
-			$errorData = json_decode($response, true);
-			if (is_array($errorData) === false) {
-				$errorData = [];
-			}
-
-			$errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $response;
-			if (is_string($errorMessage) === false) {
-				$errorMessage = 'Unknown error';
-			}
-
-			if ($httpCode === 401 || $httpCode === 403) {
-				throw new Exception('Authentication failed. Please check your Anthropic credential.');
-			}
-
-			if ($httpCode === 404) {
-				throw new Exception("Model not found: {$model}. Please check the model name.");
-			}
-
-			if ($httpCode === 429) {
-				// `retry-after` only reaches us because BrokerHttpClient forwards the
-				// provider's response headers; without it a 429 is opaque.
-				$retryAfter = trim($psrResponse->getHeaderLine('retry-after'));
-				if ($retryAfter !== '') {
-					throw new Exception('Rate limit exceeded. Please try again in ' . $retryAfter . ' seconds.');
-				}
-
-				// No retry-after and no `anthropic-ratelimit-*` counters means Anthropic is
-				// refusing this credential for this endpoint rather than reporting a usage
-				// window — the signature of a subscription (Claude Max) OAuth token, which
-				// is not entitled to the direct Messages API. Say so instead of implying
-				// that waiting will help.
-				if ($psrResponse->hasHeader('anthropic-ratelimit-requests-remaining') === false
-					&& $psrResponse->hasHeader('anthropic-ratelimit-tokens-remaining') === false
-				) {
-					throw new Exception(
-						'Anthropic refused this credential for the Messages API (rate_limit_error with no '
-						. 'rate-limit counters). A Claude Max/Pro subscription OAuth token is not entitled to '
-						. 'the direct API — use an Anthropic API key, or run the subscription through the '
-						. 'hermiq-llm-runner ExApp (executionMode: cli), which uses the official Claude CLI.'
-					);
-				}
-
-				throw new Exception('Rate limit exceeded. Please try again later.');
-			}//end if
-
-			throw new Exception("Anthropic API error (HTTP {$httpCode}): {$errorMessage}");
-		}//end if
+			throw ($this->anthropicStatusError(httpCode: $httpCode, model: $loop->run->model)
+				?? $this->anthropicRateLimitError(psrResponse: $psrResponse)
+				?? new Exception("Anthropic API error (HTTP {$httpCode}): " . $this->anthropicErrorMessage(response: $response)));
+		}
 
 		$data = json_decode($response, true);
 		if (is_array($data) === false) {
@@ -2512,6 +2587,121 @@ class ProviderFactory {
 
 		return $data;
 	}//end postToAnthropic()
+
+	/**
+	 * Send one Messages request. Through the broker, not straight out: Hermiq has no
+	 * Anthropic secret to send — the broker holds it, checks the allow-rules, and
+	 * injects the auth header server-side.
+	 *
+	 * @param AnthropicToolLoop   $loop    The loop: credential, endpoint and headers.
+	 * @param array<string,mixed> $payload The request payload.
+	 *
+	 * @return ResponseInterface
+	 *
+	 * @throws \Exception If the request cannot be sent.
+	 */
+	private function sendToAnthropic(AnthropicToolLoop $loop, array $payload): ResponseInterface {
+		$client = new BrokerHttpClient(
+			credentialId: $loop->run->credentialId,
+			logger: $this->logger,
+			actingUserId: $this->currentUid(),
+			container: $this->container
+		);
+
+		try {
+			return $client->sendRequest(
+				new Request(
+					'POST',
+					$loop->url,
+					$loop->headers,
+					(string)json_encode($payload)
+				)
+			);
+		} catch (Throwable $e) {
+			throw new Exception('Anthropic API request failed: ' . $e->getMessage());
+		}
+	}//end sendToAnthropic()
+
+	/**
+	 * The failure of a refused credential or an unknown model, or null for any
+	 * other status.
+	 *
+	 * @param int    $httpCode The response status.
+	 * @param string $model    Model id (for the message only).
+	 *
+	 * @return Exception|null
+	 */
+	private function anthropicStatusError(int $httpCode, string $model): ?Exception {
+		if ($httpCode === 401 || $httpCode === 403) {
+			return new Exception('Authentication failed. Please check your Anthropic credential.');
+		}
+
+		if ($httpCode === 404) {
+			return new Exception("Model not found: {$model}. Please check the model name.");
+		}
+
+		return null;
+	}//end anthropicStatusError()
+
+	/**
+	 * The failure of a 429, or null for any other status.
+	 *
+	 * `retry-after` only reaches us because BrokerHttpClient forwards the provider's
+	 * response headers; without it a 429 is opaque. No retry-after and no
+	 * `anthropic-ratelimit-*` counters means Anthropic is refusing this credential
+	 * for this endpoint rather than reporting a usage window — the signature of a
+	 * subscription (Claude Max) OAuth token, which is not entitled to the direct
+	 * Messages API. Say so instead of implying that waiting will help.
+	 *
+	 * @param ResponseInterface $psrResponse The response.
+	 *
+	 * @return Exception|null
+	 */
+	private function anthropicRateLimitError(ResponseInterface $psrResponse): ?Exception {
+		if ($psrResponse->getStatusCode() !== 429) {
+			return null;
+		}
+
+		$retryAfter = trim($psrResponse->getHeaderLine('retry-after'));
+		if ($retryAfter !== '') {
+			return new Exception('Rate limit exceeded. Please try again in ' . $retryAfter . ' seconds.');
+		}
+
+		if ($psrResponse->hasHeader('anthropic-ratelimit-requests-remaining') === false
+			&& $psrResponse->hasHeader('anthropic-ratelimit-tokens-remaining') === false
+		) {
+			return new Exception(
+				'Anthropic refused this credential for the Messages API (rate_limit_error with no '
+				. 'rate-limit counters). A Claude Max/Pro subscription OAuth token is not entitled to '
+				. 'the direct API — use an Anthropic API key, or run the subscription through the '
+				. 'hermiq-llm-runner ExApp (executionMode: cli), which uses the official Claude CLI.'
+			);
+		}
+
+		return new Exception('Rate limit exceeded. Please try again later.');
+	}//end anthropicRateLimitError()
+
+	/**
+	 * The error message an Anthropic error body carries, the raw body when it
+	 * carries none, or 'Unknown error' when it is not a string.
+	 *
+	 * @param string $response The raw response body.
+	 *
+	 * @return string
+	 */
+	private function anthropicErrorMessage(string $response): string {
+		$errorData = json_decode($response, true);
+		if (is_array($errorData) === false) {
+			$errorData = [];
+		}
+
+		$errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $response;
+		if (is_string($errorMessage) === false) {
+			return 'Unknown error';
+		}
+
+		return $errorMessage;
+	}//end anthropicErrorMessage()
 
 	/**
 	 * Generate text via the `nextcloud` TaskProcessing driver.
