@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\ActionMatrix;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IAppConfig;
 use OCP\IGroupManager;
@@ -46,6 +47,13 @@ class ActionAuthServiceTest extends TestCase {
 	 * @var ActionAuthService
 	 */
 	private ActionAuthService $service;
+
+	/**
+	 * The matrix the service reads.
+	 *
+	 * @var ActionMatrix
+	 */
+	private ActionMatrix $matrix;
 
 	/**
 	 * Mock IAppConfig.
@@ -70,8 +78,9 @@ class ActionAuthServiceTest extends TestCase {
 		parent::setUp();
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->groupManager = $this->createMock(IGroupManager::class);
+		$this->matrix = new ActionMatrix(appConfig: $this->appConfig);
 		$this->service = new ActionAuthService(
-			appConfig: $this->appConfig,
+			actionMatrix: $this->matrix,
 			groupManager: $this->groupManager,
 		);
 
@@ -236,7 +245,7 @@ class ActionAuthServiceTest extends TestCase {
 		foreach ($stored as $json) {
 			$config = $this->createMock(originalClassName: IAppConfig::class);
 			$config->method('getValueString')->willReturn($json);
-			$read[] = (new ActionAuthService(appConfig: $config, groupManager: $this->groupManager))->getMatrix();
+			$read[] = (new ActionMatrix(appConfig: $config))->getMatrix();
 		}
 
 		$this->assertSame(expected: [[], [], [], ['a.b' => ['x', 'y'], 'e.f' => []]], actual: $read);
@@ -251,7 +260,7 @@ class ActionAuthServiceTest extends TestCase {
 	public function testGetAllowedGroupsDefaultsToAdmin(): void {
 		$this->setMatrix([]);
 
-		$this->assertSame(['admin'], $this->service->getAllowedGroups('unknown.action'));
+		$this->assertSame(['admin'], $this->matrix->getAllowedGroups('unknown.action'));
 
 	}//end testGetAllowedGroupsDefaultsToAdmin()
 
@@ -299,9 +308,9 @@ class ActionAuthServiceTest extends TestCase {
 			->with('hermiq', 'actions', '{"a.b":["x","y"],"c.d":[]}');
 		$this->setMatrix(['a.b' => ['x'], 'c.d' => []]);
 
-		$this->service->setMatrix(['a.b' => ['x', '', 'x', 'y'], 'c.d' => ['']]);
+		$this->matrix->setMatrix(['a.b' => ['x', '', 'x', 'y'], 'c.d' => ['']]);
 
-		$this->assertSame(['a.b', 'c.d'], $this->service->getActions());
+		$this->assertSame(['a.b', 'c.d'], $this->matrix->getActions());
 
 	}//end testTheMatrixIsWrittenNormalisedAndListsItsActions()
 }//end class
