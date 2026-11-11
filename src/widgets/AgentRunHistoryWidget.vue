@@ -316,6 +316,7 @@ import Replay from 'vue-material-design-icons/Replay.vue'
 import { getRunTrace, listRuns, replayRun, runScheduleNow } from '../api/agents.js'
 import { useScheduleStore } from '../store/store.js'
 import { dateOrDash } from '../utils/displayDate.js'
+import { downloadJson } from '../utils/downloadJson.js'
 import { stepTypeLabel } from './runStepLabels.js'
 
 export default {
@@ -506,17 +507,7 @@ export default {
 			if (!trace) {
 				return
 			}
-			const blob = new Blob([JSON.stringify(trace, null, 2)], {
-				type: 'application/json',
-			})
-			const url = URL.createObjectURL(blob)
-			const link = document.createElement('a')
-			link.href = url
-			link.download = `run-trace-${run.id}.json`
-			document.body.appendChild(link)
-			link.click()
-			document.body.removeChild(link)
-			URL.revokeObjectURL(url)
+			downloadJson(trace, `run-trace-${run.id}.json`)
 		},
 
 		/**
