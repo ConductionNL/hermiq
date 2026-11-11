@@ -43,13 +43,6 @@ namespace OCA\Hermiq\Service\Workspace;
 class GitRunner {
 
 	/**
-	 * Output kept per stream; the rest is dropped so a huge diff cannot hold memory.
-	 *
-	 * @var int
-	 */
-	private const MAX_OUTPUT_BYTES = 4194304;
-
-	/**
 	 * Options that outrank any repository-local configuration.
 	 *
 	 * @var array<int, string>
@@ -68,6 +61,21 @@ class GitRunner {
 	];
 
 	/**
+	 * The fixed, prompt-free part of every run's environment, after PATH and HOME.
+	 *
+	 * @var array<string, string>
+	 */
+	private const FIXED_ENV = [
+		'GIT_CONFIG_NOSYSTEM' => '1',
+		'GIT_CONFIG_GLOBAL' => '/dev/null',
+		'GIT_TERMINAL_PROMPT' => '0',
+		'GIT_ASKPASS' => '',
+		'SSH_ASKPASS' => '',
+		'GIT_PAGER' => 'cat',
+		'LC_ALL' => 'C',
+	];
+
+	/**
 	 * Run git with the given arguments.
 	 *
 	 * @param array<int, string>    $arguments      The git arguments (after the hardening options).
@@ -83,112 +91,93 @@ class GitRunner {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-repository-metadata-directory-is-never-writable-through-a-governed-tool
 	 */
 	public function run(array $arguments, ?string $workingDir, int $timeoutSeconds, array $extraEnv = [], ?string $stdin = null): array {
-		$home = sys_get_temp_dir() . '/hermiq-git-home-' . bin2hex(random_bytes(6));
-		mkdir($home, 0700, true);
+		$command = new GitCommand(arguments: $arguments, timeoutSeconds: $timeoutSeconds);
+		$command->workingDir = $workingDir;
+		$command->stdin = $stdin;
 
-		$env = array_merge(
-			[
-				'PATH' => '/usr/local/bin:/usr/bin:/bin',
-				'HOME' => $home,
-				'GIT_CONFIG_NOSYSTEM' => '1',
-				'GIT_CONFIG_GLOBAL' => '/dev/null',
-				'GIT_TERMINAL_PROMPT' => '0',
-				'GIT_ASKPASS' => '',
-				'SSH_ASKPASS' => '',
-				'GIT_PAGER' => 'cat',
-				'LC_ALL' => 'C',
-			],
-			$extraEnv
-		);
-
-		$command = array_merge(['git'], self::HARDENING, $arguments);
-
+		$home = $this->createHome();
 		try {
-			return $this->spawn(command: $command, workingDir: $workingDir, env: $env, timeoutSeconds: $timeoutSeconds, stdin: $stdin);
+			return $this->spawn(command: $command, env: $this->environment(home: $home, extraEnv: $extraEnv));
 		} finally {
-			if (is_dir($home) === true) {
-				rmdir($home);
-			}
+			$this->removeHome(home: $home);
 		}
 	}//end run()
 
 	/**
+	 * A throwaway HOME for one run, so no user-level git configuration applies.
+	 *
+	 * @return string The directory, created with mode 0700.
+	 */
+	private function createHome(): string {
+		$home = sys_get_temp_dir() . '/hermiq-git-home-' . bin2hex(random_bytes(6));
+		mkdir($home, 0700, true);
+		return $home;
+	}//end createHome()
+
+	/**
+	 * Remove the throwaway HOME, when it is still there.
+	 *
+	 * @param string $home The directory.
+	 *
+	 * @return void
+	 */
+	private function removeHome(string $home): void {
+		if (is_dir($home) === true) {
+			rmdir($home);
+		}
+	}//end removeHome()
+
+	/**
+	 * The process environment: a fixed, prompt-free base, then the extra variables on top.
+	 *
+	 * @param string                $home     The throwaway HOME.
+	 * @param array<string, string> $extraEnv Extra environment (identity, never a secret in argv).
+	 *
+	 * @return array<string, string>
+	 */
+	private function environment(string $home, array $extraEnv): array {
+		return array_merge(['PATH' => '/usr/local/bin:/usr/bin:/bin', 'HOME' => $home], self::FIXED_ENV, $extraEnv);
+	}//end environment()
+
+	/**
 	 * Start the process and collect its output within the budget.
 	 *
-	 * @param array<int, string>    $command        The argv.
-	 * @param string|null           $workingDir     The cwd.
-	 * @param array<string, string> $env            The environment.
-	 * @param int                   $timeoutSeconds The budget.
-	 * @param string|null           $stdin          Input, or null.
+	 * @param GitCommand            $command The invocation.
+	 * @param array<string, string> $env     The environment.
 	 *
 	 * @return array{exit: int, stdout: string, stderr: string}
 	 *
-	 * @throws WorkspaceException
+	 * @throws WorkspaceException git_failed when git cannot start, tool_timeout when the budget runs out.
 	 */
-	private function spawn(array $command, ?string $workingDir, array $env, int $timeoutSeconds, ?string $stdin): array {
+	private function spawn(GitCommand $command, array $env): array {
+		$running = $this->start(command: $command, env: $env);
+		$running->feed(stdin: $command->stdin);
+		return $running->collect(deadline: (microtime(true) + $command->timeoutSeconds));
+	}//end spawn()
+
+	/**
+	 * Start git, hardened, with three pipes, in the command's directory.
+	 *
+	 * @param GitCommand            $command The invocation.
+	 * @param array<string, string> $env     The environment.
+	 *
+	 * @return GitProcess The started process.
+	 *
+	 * @throws WorkspaceException git_failed when git cannot start.
+	 */
+	private function start(GitCommand $command, array $env): GitProcess {
 		$pipes = [];
 		$process = proc_open(
-			$command,
+			array_merge(['git'], self::HARDENING, $command->arguments),
 			[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes,
-			$workingDir,
+			$command->workingDir,
 			$env
 		);
 		if (is_resource($process) === false) {
 			throw new WorkspaceException(errorCode: WorkspaceException::GIT_FAILED, message: 'The version control tool could not start.');
 		}
 
-		if ($stdin !== null) {
-			fwrite($pipes[0], $stdin);
-		}
-
-		fclose($pipes[0]);
-		stream_set_blocking($pipes[1], false);
-		stream_set_blocking($pipes[2], false);
-
-		$stdout = '';
-		$stderr = '';
-		$deadline = (microtime(true) + $timeoutSeconds);
-		while (true) {
-			$stdout .= $this->drain(pipe: $pipes[1], have: strlen($stdout));
-			$stderr .= $this->drain(pipe: $pipes[2], have: strlen($stderr));
-			$status = proc_get_status($process);
-			if ($status['running'] === false) {
-				$stdout .= $this->drain(pipe: $pipes[1], have: strlen($stdout));
-				$stderr .= $this->drain(pipe: $pipes[2], have: strlen($stderr));
-				fclose($pipes[1]);
-				fclose($pipes[2]);
-				proc_close($process);
-				return ['exit' => (int)$status['exitcode'], 'stdout' => $stdout, 'stderr' => $stderr];
-			}
-
-			if (microtime(true) > $deadline) {
-				proc_terminate($process, 9);
-				fclose($pipes[1]);
-				fclose($pipes[2]);
-				proc_close($process);
-				throw new WorkspaceException(errorCode: WorkspaceException::TOOL_TIMEOUT, message: 'The operation took too long and was stopped.');
-			}
-
-			usleep(10000);
-		}//end while
-	}//end spawn()
-
-	/**
-	 * Read what a non-blocking pipe has, up to the output cap.
-	 *
-	 * @param resource $pipe The pipe.
-	 * @param int      $have Bytes already collected.
-	 *
-	 * @return string
-	 */
-	private function drain($pipe, int $have): string {
-		$chunk = (string)stream_get_contents($pipe);
-		$room = (self::MAX_OUTPUT_BYTES - $have);
-		if ($room <= 0) {
-			return '';
-		}
-
-		return substr($chunk, 0, $room);
-	}//end drain()
+		return new GitProcess(process: $process, pipes: $pipes);
+	}//end start()
 }//end class
