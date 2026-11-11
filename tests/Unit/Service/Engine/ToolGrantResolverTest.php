@@ -748,11 +748,11 @@ class ToolGrantResolverTest extends TestCase {
 		);
 
 		$this->assertTrue(
-			ToolGrantResolver::waives($waived, 'openregister.runFlow', ['flowId' => 'A']),
+			ToolGrantResolver::waivedBy(($waived['openregister.runFlow'] ?? []), ['flowId' => 'A']),
 			'The waived entry covers its own flow.'
 		);
 		$this->assertFalse(
-			ToolGrantResolver::waives($waived, 'openregister.runFlow', ['flowId' => 'B']),
+			ToolGrantResolver::waivedBy(($waived['openregister.runFlow'] ?? []), ['flowId' => 'B']),
 			'Flow B is granted and conforming, but it was never waived — it still meets a human.'
 		);
 
@@ -762,7 +762,7 @@ class ToolGrantResolverTest extends TestCase {
 	 * 🔴 The absent-tool guard: a tool with NO waiver must never come back waived.
 	 *
 	 * `violationFor()` returns null for an empty alternatives list, meaning
-	 * "conforms". Read through `waives()` that same null would mean "waived", so
+	 * "conforms". Read through `waivedBy()` that same null would mean "waived", so
 	 * without the guard EVERY tool would be waived and the fragment would be the
 	 * default rather than an opt-in. This is the single most dangerous line in
 	 * the waiver path, so it gets its own test.
@@ -776,17 +776,17 @@ class ToolGrantResolverTest extends TestCase {
 		$waived = $resolver->waivedConstraintSets(grants: ['hermiq.readFile' . ToolGrantResolver::WAIVER_FRAGMENT]);
 
 		$this->assertFalse(
-			ToolGrantResolver::waives($waived, 'hermiq.sendMail', []),
+			ToolGrantResolver::waivedBy(($waived['hermiq.sendMail'] ?? []), []),
 			'A tool no waiver names must not inherit one.'
 		);
 		$this->assertFalse(
-			ToolGrantResolver::waives([], 'hermiq.sendMail', []),
+			ToolGrantResolver::waivedBy([], []),
 			'An empty waiver map must waive nothing at all.'
 		);
 
 		// Positive control: the tool that WAS waived still is, so the two
 		// assertions above are not passing because the whole path is inert.
-		$this->assertTrue(ToolGrantResolver::waives($waived, 'hermiq.readFile', []));
+		$this->assertTrue(ToolGrantResolver::waivedBy(($waived['hermiq.readFile'] ?? []), []));
 
 	}//end testAnUnwaivedToolIsNeverReportedAsWaived()
 
