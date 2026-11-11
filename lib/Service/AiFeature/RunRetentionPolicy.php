@@ -166,28 +166,47 @@ class RunRetentionPolicy {
 			return $default;
 		}
 
+		return ($this->featureDays(slug: trim($featureSlug)) ?? $default);
+	}//end retentionDaysFor()
+
+	/**
+	 * A feature's own retention when it is a number within the permitted range, else null.
+	 *
+	 * @param string $slug The trimmed feature slug.
+	 *
+	 * @return int|null Null for an unknown or unreadable feature, or no valid retention.
+	 *
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-a-feature-may-keep-less
+	 */
+	private function featureDays(string $slug): ?int {
 		try {
-			$feature = $this->features->findBySlug(slug: trim($featureSlug));
+			$feature = $this->features->findBySlug(slug: $slug);
 		} catch (Throwable $e) {
-			return $default;
+			return null;
 		}
 
-		if ($feature === null) {
-			return $default;
-		}
+		return $this->validDays(override: ($feature?->getObject()['retentionDays'] ?? null));
+	}//end featureDays()
 
-		$override = ($feature->getObject()['retentionDays'] ?? null);
+	/**
+	 * A stored retention as whole days when it is a number within the permitted range, else null.
+	 *
+	 * @param mixed $override The stored retention.
+	 *
+	 * @return int|null
+	 */
+	private function validDays(mixed $override): ?int {
 		if (is_numeric($override) === false) {
-			return $default;
+			return null;
 		}
 
 		$days = (int)$override;
 		if ($days < self::MINIMUM_DAYS || $days > self::MAXIMUM_DAYS) {
-			return $default;
+			return null;
 		}
 
 		return $days;
-	}//end retentionDaysFor()
+	}//end validDays()
 
 	/**
 	 * Write the resolved retention onto a run's context, as a number of days and as
