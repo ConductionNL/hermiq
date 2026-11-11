@@ -185,6 +185,70 @@ class OpenRegisterManageableOrganisationsTest extends TestCase {
 	}//end testAPlainUserGetsOnlyTheOrganisationsTheyOwn()
 
 	/**
+	 * An admin's list is read with the admin cap and a plain user's by their user
+	 * id; the result is a list whatever keys the mapper used.
+	 *
+	 * @return void
+	 */
+	public function testTheReadDependsOnTheAdminFlagAndTheResultIsAList(): void {
+		$mapper = new class ($this) {
+			/** @var array<int, array{0: string, 1: mixed}> */
+			public array $calls = [];
+
+			/**
+			 * Keep the test.
+			 *
+			 * @param OpenRegisterManageableOrganisationsTest $test The test.
+			 */
+			public function __construct(private OpenRegisterManageableOrganisationsTest $test) {
+			}
+
+			/**
+			 * Every organisation, capped.
+			 *
+			 * @param int $limit The cap.
+			 *
+			 * @return array<string, object>
+			 */
+			public function findAll(int $limit): array {
+				$this->calls[] = ['findAll', $limit];
+				return ['k1' => $this->test->org(uuid: 'org-1', owner: 'bob')];
+			}
+
+			/**
+			 * The user's organisations.
+			 *
+			 * @param string $userId The user.
+			 *
+			 * @return array<string, object>
+			 */
+			public function findByUserId(string $userId): array {
+				$this->calls[] = ['findByUserId', $userId];
+				return ['k1' => $this->test->org(uuid: 'org-1', owner: 'bob'), 'k2' => $this->test->org(uuid: 'org-2', owner: 'alice')];
+			}
+		};
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturn($mapper);
+		$service = $this->build(installed: true, container: $container);
+
+		$this->assertSame([['id' => 'org-1', 'label' => 'org-1']], $service->forUser(userId: 'alice', isAdmin: true));
+		$this->assertSame([['id' => 'org-2', 'label' => 'org-2']], $service->forUser(userId: 'alice', isAdmin: false));
+		$this->assertSame([['findAll', 500], ['findByUserId', 'alice']], $mapper->calls);
+	}//end testTheReadDependsOnTheAdminFlagAndTheResultIsAList()
+
+	/**
+	 * An organisation row for the read test.
+	 *
+	 * @param string $uuid  The uuid.
+	 * @param string $owner The owner.
+	 *
+	 * @return object
+	 */
+	public function org(string $uuid, string $owner): object {
+		return $this->organisation(uuid: $uuid, name: '', owner: $owner);
+	}//end org()
+
+	/**
 	 * Build an organisation-mapper double over a fixed row set.
 	 *
 	 * @param array<int, object> $rows The organisation rows.
