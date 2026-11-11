@@ -163,6 +163,23 @@ class ActionAuthService {
 	 * @spec openspec/architecture/adr-023-action-authorization.md
 	 */
 	public function getMatrix(): array {
+		// Normalize: discard any non-array values + any non-string group entries.
+		$matrix = [];
+		foreach ($this->storedMatrix() as $action => $groups) {
+			if (is_string($action) === true && is_array($groups) === true) {
+				$matrix[$action] = $this->groupsOf(groups: $groups);
+			}
+		}
+
+		return $matrix;
+	}//end getMatrix()
+
+	/**
+	 * The stored matrix as decoded, or empty when it is unreadable or not an object.
+	 *
+	 * @return array<array-key, mixed>
+	 */
+	private function storedMatrix(): array {
 		$json = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '{}');
 
 		try {
@@ -175,25 +192,26 @@ class ActionAuthService {
 			return [];
 		}
 
-		// Normalize: discard any non-array values + any non-string group entries.
-		$matrix = [];
-		foreach ($decoded as $action => $groups) {
-			if (is_string($action) === false || is_array($groups) === false) {
-				continue;
-			}
+		return $decoded;
+	}//end storedMatrix()
 
-			$clean = [];
-			foreach ($groups as $g) {
-				if (is_string($g) === true && $g !== '') {
-					$clean[] = $g;
-				}
+	/**
+	 * An action's groups: each non-empty string once, in first-seen order.
+	 *
+	 * @param array<array-key, mixed> $groups The stored group entries.
+	 *
+	 * @return list<string>
+	 */
+	private function groupsOf(array $groups): array {
+		$clean = [];
+		foreach ($groups as $group) {
+			if (is_string($group) === true && $group !== '') {
+				$clean[] = $group;
 			}
-
-			$matrix[$action] = array_values(array_unique($clean));
 		}
 
-		return $matrix;
-	}//end getMatrix()
+		return array_values(array_unique($clean));
+	}//end groupsOf()
 
 	/**
 	 * Set the full action-to-groups matrix.
