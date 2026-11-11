@@ -1060,6 +1060,71 @@ class EvalRunServicePairedTest extends TestCase {
 	}//end testPlainRunRecordsSkillsUsedAndNoPairedFields()
 
 	/**
+	 * A plain run skips a case that is not an array, records a turn that throws
+	 * as a failed infra-error case (stored without the infraError flag), runs
+	 * every turn as the agent's owner with no skill-set override, and sums every
+	 * case's usage and exposed skills into the one audit entry.
+	 *
+	 * @return void
+	 */
+	public function testPlainRunRecordsEachCaseTurnAndItsUsage(): void {
+		$turns = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturn(false);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			function (string $owner, string $agentId, string $prompt, string $organisation = '', bool $dryRun = false, bool $forceOwner = false, ?ObjectEntity $anchor = null, ?array $skillSetOverride = null) use (&$turns): string {
+				$turns[] = [$owner, $agentId, $prompt, $organisation, $skillSetOverride];
+				if ($prompt === 'a') {
+					throw new RuntimeException('no provider');
+				}
+
+				return 'output MARKER';
+			}
+		);
+		$schedule->method('getLastRunUsage')->willReturnOnConsecutiveCalls(
+			['promptTokens' => 4, 'completionTokens' => 2],
+			['promptTokens' => 6]
+		);
+		$schedule->method('getLastRunSkillsUsed')->willReturnOnConsecutiveCalls(['skill-x'], ['skill-y', 'skill-x']);
+
+		$objectService = new RecordingObjectService();
+		$service = $this->service(objectService: $objectService, schedule: $schedule, scoring: $this->scoring());
+		$cases = $this->cases(3);
+		array_splice($cases, 1, 0, ['not-a-case']);
+
+		$result = $service->run($this->dataset($cases), $this->agent());
+
+		$this->assertSame('failed', $result['status']);
+		$this->assertSame((2 / 3), $result['passRate']);
+		$this->assertSame(
+			[
+				['alice', 'agent-uuid', 'a', 'org-a', null],
+				['alice', 'agent-uuid', 'b', 'org-a', null],
+				['alice', 'agent-uuid', 'c', 'org-a', null],
+			],
+			$turns
+		);
+		$results = $objectService->savesFor('evalrun')[0]['object']['results'];
+		$this->assertSame(
+			[
+				'caseIndex' => 0,
+				'prompt' => 'a',
+				'expectationType' => 'contains',
+				'actualOutput' => '',
+				'passed' => false,
+				'errorMessage' => 'Agent run failed: no provider',
+				'score' => null,
+				'judgeRationale' => null,
+			],
+			$results[0]
+		);
+		$this->assertSame([0, 2, 3], array_column($results, 'caseIndex'));
+		$this->assertSame(['promptTokens' => 10, 'completionTokens' => 2], $this->auditContexts[0]['usage']);
+		$this->assertSame(['skill-x', 'skill-y'], $this->auditContexts[0]['skillsUsed']);
+
+	}//end testPlainRunRecordsEachCaseTurnAndItsUsage()
+
+	/**
 	 * A completed joint run writes in this order: the run, its audit entry, the
 	 * fail captures (the capture job reads the trace from that entry), then the
 	 * l5 evidence. Every turn runs as the agent's owner.
