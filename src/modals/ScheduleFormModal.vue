@@ -45,21 +45,12 @@
 			<!-- Pre-run cost estimate (cost-guardrails): trailing average, clearly
 			     labelled an estimate — never a fabricated figure without history. -->
 			<p v-if="estimate && estimate.available" class="schedule-form__estimate">
-				{{
-					t(
-						'hermiq',
-						'Estimate: ~{tokens} tokens per run (average of the last {count} runs)',
-						{
-							tokens: estimate.avgTotalTokens,
-							count: estimate.sampleSize,
-						},
-					)
-				}}
+				{{ estimateLine(estimate) }}
 			</p>
 			<p
 				v-else-if="estimate"
 				class="schedule-form__estimate schedule-form__estimate--empty">
-				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
+				{{ estimateLine(estimate) }}
 			</p>
 
 			<NcTextField
@@ -251,6 +242,7 @@ import {
 import ScheduleWebhookSecretDialog from './ScheduleWebhookSecretDialog.vue'
 import { getBudgetEstimate } from '../api/budgets.js'
 import { useScheduleStore } from '../store/store.js'
+import { estimateLine } from '../utils/costEstimate.js'
 
 export default {
 	name: 'ScheduleFormModal',
@@ -417,6 +409,8 @@ export default {
 	},
 
 	methods: {
+		estimateLine,
+
 		/**
 		 * Load the agent's pre-run cost estimate (cost-guardrails). Non-fatal:
 		 * the estimate line simply stays hidden when the request fails.
