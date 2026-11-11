@@ -573,8 +573,7 @@ class HermiqWorkloadNode implements IFlowNode {
 			throw new UnexpectedValueException($this->l10n->t('A workload step needs a ref.'));
 		}
 
-		$command = ($config['command'] ?? null);
-		if (is_array($command) === false || $command === [] || trim((string)($command[0] ?? '')) === '') {
+		if ($this->namesACommand(command: ($config['command'] ?? null)) === false) {
 			// An argv ARRAY rather than a command string, so nothing here has
 			// to parse a shell. The runner allowlists the first token; a string
 			// would invite splitting it here and getting quoting wrong.
@@ -586,6 +585,17 @@ class HermiqWorkloadNode implements IFlowNode {
 		$this->assertPushConfigured(config: $config);
 
 	}//end assertConfigured()
+
+	/**
+	 * Whether a configured command is a non-empty argv array with a first token.
+	 *
+	 * @param mixed $command The configured command.
+	 *
+	 * @return boolean True when the command can be run.
+	 */
+	private function namesACommand(mixed $command): bool {
+		return is_array($command) === true && $command !== [] && trim((string)($command[0] ?? '')) !== '';
+	}//end namesACommand()
 
 	/**
 	 * Assert a `push` declaration the runner can actually fence.
@@ -621,6 +631,21 @@ class HermiqWorkloadNode implements IFlowNode {
 			);
 		}
 
+		$this->assertPushNamesItsFence(push: $push);
+		$this->assertPushScopeIsAList(push: $push);
+
+	}//end assertPushConfigured()
+
+	/**
+	 * Assert the push names the branch and the issue its allowlist is built from.
+	 *
+	 * @param array $push The push declaration.
+	 *
+	 * @return void
+	 *
+	 * @throws UnexpectedValueException When the branch or the issue is missing.
+	 */
+	private function assertPushNamesItsFence(array $push): void {
 		if (trim((string)($push['branch'] ?? '')) === '') {
 			throw new UnexpectedValueException(
 				$this->l10n->t('A workload step that pushes must name the branch to push to.')
@@ -638,13 +663,25 @@ class HermiqWorkloadNode implements IFlowNode {
 			);
 		}
 
+	}//end assertPushNamesItsFence()
+
+	/**
+	 * Assert a declared push `scope` is a list of path prefixes.
+	 *
+	 * @param array $push The push declaration.
+	 *
+	 * @return void
+	 *
+	 * @throws UnexpectedValueException When `scope` is present and not a list.
+	 */
+	private function assertPushScopeIsAList(array $push): void {
 		if (isset($push['scope']) === true && is_array($push['scope']) === false) {
 			throw new UnexpectedValueException(
 				$this->l10n->t('A workload step\'s push "scope" must be a list of path prefixes.')
 			);
 		}
 
-	}//end assertPushConfigured()
+	}//end assertPushScopeIsAList()
 
 	/**
 	 * Render the push declaration's placeholders against one item.
@@ -672,12 +709,7 @@ class HermiqWorkloadNode implements IFlowNode {
 		$out = [];
 		foreach ($push as $key => $value) {
 			if (is_array($value) === true) {
-				$out[$key] = array_values(
-					array_map(
-						fn (mixed $entry): string => $placeholders->render(template: (string)$entry),
-						array_filter($value, static fn (mixed $entry): bool => is_array($entry) === false)
-					)
-				);
+				$out[$key] = $this->renderPushList(list: $value, placeholders: $placeholders);
 				continue;
 			}
 
@@ -686,4 +718,21 @@ class HermiqWorkloadNode implements IFlowNode {
 
 		return $out;
 	}//end renderPush()
+
+	/**
+	 * Render a list value of the push declaration element-wise, dropping nested lists.
+	 *
+	 * @param array            $list         The list value.
+	 * @param ItemPlaceholders $placeholders The item's placeholder substitution.
+	 *
+	 * @return array<int, string> The rendered list.
+	 */
+	private function renderPushList(array $list, ItemPlaceholders $placeholders): array {
+		return array_values(
+			array_map(
+				fn (mixed $entry): string => $placeholders->render(template: (string)$entry),
+				array_filter($list, static fn (mixed $entry): bool => is_array($entry) === false)
+			)
+		);
+	}//end renderPushList()
 }//end class

@@ -345,6 +345,17 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 
 		$json[$run->outputKey()] = $this->decode(config: $run->config, answer: $answer);
 
+		return $this->withSessionPointer(json: $json);
+	}//end answerOnto()
+
+	/**
+	 * Put the session the last turn produced on the item's json, when there is one.
+	 *
+	 * @param array $json The item's record.
+	 *
+	 * @return array The record, with `sessionId` when the turn produced a session.
+	 */
+	private function withSessionPointer(array $json): array {
 		// The conversation this turn produced, so the run log can link to
 		// it. A POINTER, never a copy: the session is the record, and a
 		// copy of its messages in the log would diverge from it the moment
@@ -360,7 +371,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		}
 
 		return $json;
-	}//end answerOnto()
+	}//end withSessionPointer()
 
 	/**
 	 * The prompt for one item: the rendered template, plus the JSON instruction when asked.
@@ -407,10 +418,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 			return $answer;
 		}
 
-		$text = trim($answer);
-		if (str_starts_with($text, '```') === true) {
-			$text = trim((string)preg_replace('/^```[a-zA-Z]*\s*|\s*```$/', '', $text));
-		}
+		$text = $this->withoutCodeFence(text: trim($answer));
 
 		$decoded = json_decode($text, true);
 		if (json_last_error() !== JSON_ERROR_NONE || is_array($decoded) === false) {
@@ -426,4 +434,19 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 
 		return $decoded;
 	}//end decode()
+
+	/**
+	 * Strip a markdown code fence around an answer, when it has one.
+	 *
+	 * @param string $text The trimmed answer.
+	 *
+	 * @return string The answer without its fence.
+	 */
+	private function withoutCodeFence(string $text): string {
+		if (str_starts_with($text, '```') === true) {
+			return trim((string)preg_replace('/^```[a-zA-Z]*\s*|\s*```$/', '', $text));
+		}
+
+		return $text;
+	}//end withoutCodeFence()
 }//end class

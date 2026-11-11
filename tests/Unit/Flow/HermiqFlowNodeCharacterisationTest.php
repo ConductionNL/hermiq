@@ -315,4 +315,57 @@ class HermiqFlowNodeCharacterisationTest extends TestCase {
 			$out[0]['json']['stage']
 		);
 	}//end testAnAsyncStepWithoutCredentialsAttributesNoCredential()
+
+	/**
+	 * Each refused workload configuration, with the message it is refused with.
+	 *
+	 * @return array<string, array{0: array, 1: string}> The cases.
+	 */
+	public static function refusedWorkloadConfigs(): array {
+		$base = ['repo' => 'r', 'ref' => 'f', 'command' => ['x']];
+
+		return [
+			'blank repo' => [['repo' => ' '] + $base, 'A workload step needs a repository.'],
+			'blank ref' => [['ref' => ' '] + $base, 'A workload step needs a ref.'],
+			'command a string' => [['command' => 'x'] + $base, 'A workload step needs a command, given as an array of arguments.'],
+			'command empty' => [['command' => []] + $base, 'A workload step needs a command, given as an array of arguments.'],
+			'command blank first token' => [['command' => [' ', 'y']] + $base, 'A workload step needs a command, given as an array of arguments.'],
+			'push a string' => [$base + ['push' => 'main'], 'A workload step\'s "push" must be an object naming a branch and an issue.'],
+			'push without branch' => [$base + ['push' => ['issue' => '1']], 'A workload step that pushes must name the branch to push to.'],
+			'push without issue' => [$base + ['push' => ['branch' => 'b']], 'A workload step that pushes must name the issue it answers — the push allowlist is built from it.'],
+			'push scope not a list' => [$base + ['push' => ['branch' => 'b', 'issue' => '1', 'scope' => 'lib']], 'A workload step\'s push "scope" must be a list of path prefixes.'],
+		];
+	}//end refusedWorkloadConfigs()
+
+	/**
+	 * A workload configuration is refused with its own message.
+	 *
+	 * @param array  $config  The configuration.
+	 * @param string $message The refusal.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider refusedWorkloadConfigs
+	 */
+	public function testAWorkloadConfigIsRefusedWithItsMessage(array $config, string $message): void {
+		$node = $this->asyncNode(result: []);
+
+		$this->expectException(UnexpectedValueException::class);
+		$this->expectExceptionMessage($message);
+		$node->validateConfig(config: $config);
+	}//end testAWorkloadConfigIsRefusedWithItsMessage()
+
+	/**
+	 * An empty push declaration, and a push with a list scope, are accepted.
+	 *
+	 * @return void
+	 */
+	public function testAnEmptyOrFencedPushIsAccepted(): void {
+		$node = $this->asyncNode(result: []);
+		$base = ['repo' => 'r', 'ref' => 'f', 'command' => ['x']];
+
+		$node->validateConfig(config: $base + ['push' => []]);
+		$node->validateConfig(config: $base + ['push' => ['branch' => 'b', 'issue' => '1', 'scope' => ['lib']]]);
+		$this->addToAssertionCount(1);
+	}//end testAnEmptyOrFencedPushIsAccepted()
 }//end class
