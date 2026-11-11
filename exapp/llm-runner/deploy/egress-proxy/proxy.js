@@ -314,8 +314,16 @@ function forwardableHeaders(headers) {
 	return out
 }
 
-const server = http.createServer(async (req, res) => {
-	const refuse = (status, code, reason, extraHeaders) => {
+/**
+ * The refusal of one plain-HTTP forward request: logged, answered with the deny
+ * code, and the unread body drained.
+ *
+ * @param {http.IncomingMessage} req The client request.
+ * @param {http.ServerResponse} res The client response.
+ * @return {(status: number, code: string, reason: string, extraHeaders?: object) => void} The refusal.
+ */
+function httpRefusal(req, res) {
+	return (status, code, reason, extraHeaders) => {
 		// eslint-disable-next-line no-console
 		console.log(`[hermiq-egress-proxy] DENY ${req.method} (${code})`)
 		res.writeHead(status, {
@@ -328,38 +336,17 @@ const server = http.createServer(async (req, res) => {
 		// without the client seeing a reset instead of its 403.
 		req.resume()
 	}
+}
 
-	// Origin-form (`GET /health`) is not a proxy request: this process is a proxy,
-	// not a web server, and it exposes no endpoints of its own.
-	const target = parseAbsoluteTarget(req.url)
-	if (target === null) {
-		refuse(
-			405,
-			'not_a_proxy_request',
-			'this proxy serves CONNECT and http:// forward requests only',
-		)
-		return
-	}
-
-	const token = tokenFromProxyAuth(req.headers)
-	if (token === '') {
-		// Identical to the CONNECT path: challenge rather than refuse, so a client
-		// holding a credential it has not offered yet learns to offer it. No tunnel,
-		// no forward, and the PDP is not consulted — there is no run to ask about.
-		// eslint-disable-next-line no-console
-		console.log(`[hermiq-egress-proxy] CHALLENGE ${req.method} (no_run_token)`)
-		refuse(407, 'no_run_token', 'no run token presented to the proxy', {
-			'Proxy-Authenticate': 'Basic realm="hermiq-egress"',
-		})
-		return
-	}
-
-	const verdict = await askPdp(target.host, target.port, token)
-	if (verdict.allowed !== true) {
-		refuse(403, verdict.code, verdict.message)
-		return
-	}
-
+/**
+ * Forward one allowed plain-HTTP request to its origin and stream the answer back.
+ *
+ * @param {{req: http.IncomingMessage, res: http.ServerResponse}} exchange The client request and response.
+ * @param {{host: string, port: number, path: string}} target The allowed absolute target.
+ * @return {void}
+ */
+function forwardHttp(exchange, target) {
+	const { req, res } = exchange
 	const upstream = http.request(
 		{
 			host: target.host,
@@ -394,6 +381,43 @@ const server = http.createServer(async (req, res) => {
 	// eslint-disable-next-line no-console
 	console.log(`[hermiq-egress-proxy] ALLOW ${target.host}:${target.port} (http)`)
 	req.pipe(upstream)
+}
+
+const server = http.createServer(async (req, res) => {
+	const refuse = httpRefusal(req, res)
+
+	// Origin-form (`GET /health`) is not a proxy request: this process is a proxy,
+	// not a web server, and it exposes no endpoints of its own.
+	const target = parseAbsoluteTarget(req.url)
+	if (target === null) {
+		refuse(
+			405,
+			'not_a_proxy_request',
+			'this proxy serves CONNECT and http:// forward requests only',
+		)
+		return
+	}
+
+	const token = tokenFromProxyAuth(req.headers)
+	if (token === '') {
+		// Identical to the CONNECT path: challenge rather than refuse, so a client
+		// holding a credential it has not offered yet learns to offer it. No tunnel,
+		// no forward, and the PDP is not consulted — there is no run to ask about.
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] CHALLENGE ${req.method} (no_run_token)`)
+		refuse(407, 'no_run_token', 'no run token presented to the proxy', {
+			'Proxy-Authenticate': 'Basic realm="hermiq-egress"',
+		})
+		return
+	}
+
+	const verdict = await askPdp(target.host, target.port, token)
+	if (verdict.allowed !== true) {
+		refuse(403, verdict.code, verdict.message)
+		return
+	}
+
+	forwardHttp({ req, res }, target)
 })
 
 server.on('connect', async (req, clientSocket, head) => {
