@@ -35,6 +35,7 @@ namespace OCA\Hermiq\Tests\Unit\Flow;
 
 use OCA\Hermiq\Flow\HermiqWorkloadNode;
 use OCA\Hermiq\Service\StageDispatchService;
+use OCA\Hermiq\Service\StageRequest;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -63,9 +64,24 @@ class HermiqWorkloadNodeTest extends TestCase {
 	 */
 	private function nodeReturning(array $result): HermiqWorkloadNode {
 		$stages = $this->createMock(StageDispatchService::class);
-		$stages->method('dispatch')->willReturnCallback(
-			function (...$arguments) use ($result): array {
-				$this->lastCall = $arguments;
+		$stages->method('dispatchStage')->willReturnCallback(
+			function (StageRequest $request) use ($result): array {
+				// Kept in the positional order of dispatch(), which the
+				// assertions below index into.
+				$this->lastCall = [
+					$request->repo,
+					$request->ref,
+					$request->command,
+					$request->uid,
+					$request->options->credentialId,
+					$request->options->timeoutMs,
+					$request->options->toolRepo,
+					$request->options->toolRef,
+					$request->options->push,
+					$request->options->pushCredentialId,
+					$request->options->llmCredentialId,
+					$request->options->collect,
+				];
 
 				return $result;
 			}
@@ -83,7 +99,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	 */
 	private function nodeFailingWith(\Throwable $error): HermiqWorkloadNode {
 		$stages = $this->createMock(StageDispatchService::class);
-		$stages->method('dispatch')->willThrowException($error);
+		$stages->method('dispatchStage')->willThrowException($error);
 
 		return $this->node(stages: $stages);
 	}//end nodeFailingWith()

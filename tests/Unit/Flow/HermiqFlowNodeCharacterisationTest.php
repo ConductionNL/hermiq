@@ -21,6 +21,7 @@ use OCA\Hermiq\Flow\HermiqWorkloadNode;
 use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\StageDispatchService;
+use OCA\Hermiq\Service\StageRequest;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -193,9 +194,24 @@ class HermiqFlowNodeCharacterisationTest extends TestCase {
 	 */
 	private function asyncNode(array $result): HermiqWorkloadNode {
 		$async = $this->createMock(AsyncStageDispatchService::class);
-		$async->method('dispatchAsync')->willReturnCallback(
-			function (...$arguments) use ($result): array {
-				$this->asyncCall = $arguments;
+		$async->method('dispatchStageAsync')->willReturnCallback(
+			function (StageRequest $request) use ($result): array {
+				// Kept in the positional order of dispatchAsync().
+				$this->asyncCall = [
+					$request->repo,
+					$request->ref,
+					$request->command,
+					$request->uid,
+					$request->options->credentialId,
+					$request->options->timeoutMs,
+					$request->options->toolRepo,
+					$request->options->toolRef,
+					$request->options->push,
+					$request->options->pushCredentialId,
+					$request->options->llmCredentialId,
+					$request->options->jobKey,
+					$request->options->collect,
+				];
 
 				return $result;
 			}
