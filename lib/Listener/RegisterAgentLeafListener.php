@@ -51,7 +51,10 @@ namespace OCA\Hermiq\Listener;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
+use OCA\OpenRegister\Service\Integration\LeafAvailability;
 use OCA\OpenRegister\Service\Integration\LeafDescriptor;
+use OCA\OpenRegister\Service\Integration\LeafIdentity;
+use OCA\OpenRegister\Service\Integration\LeafRendering;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IL10N;
@@ -124,8 +127,6 @@ class RegisterAgentLeafListener implements IEventListener {
 
 		try {
 			$descriptor = new LeafDescriptor(
-				id: self::LEAF_ID,
-				label: $this->l10n->t('Agent'),
 				// `Creation` (the AI sparkles), matching src/integration-leaf.js
 				// and src/manifest.json. This half said `RobotOutline`, so the two
 				// halves of one registration described different leaves (gate-24
@@ -133,13 +134,17 @@ class RegisterAgentLeafListener implements IEventListener {
 				// which half it read. `RobotOutline` is the retired spelling —
 				// src/icons.js keeps it registered only because an agent's OWN
 				// icon is free-form and older saved agents still carry it.
-				icon: 'Creation',
+				identity: new LeafIdentity(
+					id: self::LEAF_ID,
+					label: $this->l10n->t('Agent'),
+					icon: 'Creation',
+					group: 'workflow',
+				),
 				kinds: [
 					LeafDescriptor::KIND_RENDER_SURFACE,
 					LeafDescriptor::KIND_AGENT_RUNNER,
 				],
-				requiredApp: Application::APP_ID,
-				group: 'workflow',
+				availability: new LeafAvailability(requiredApp: Application::APP_ID),
 				// Declared EXPLICITLY and identically on both halves of the
 				// registration (hydra-console-agent-leaves). The JS half shipped a
 				// dashboard-sized `widget` (CnAgentRunsWidget, defaultSize 4x4)
@@ -150,13 +155,15 @@ class RegisterAgentLeafListener implements IEventListener {
 				// list is written out rather than derived so the cross-layer parity
 				// gate (gate-24) has two explicit sets to compare, since declaring
 				// by omission is what let the two drift apart unnoticed.
-				surfaces: self::SURFACES,
-				referenceType: self::LEAF_ID,
 				// Vue 3 leaf under a Vue 2.7 host: the JS registration renders via a
 				// `mount`/`unmount` DOM hand-off (openregister#2127, ADR-066), so the
 				// server descriptor MUST declare the SAME render mode under the shared
 				// id for cross-layer parity (gate-24 integration-parity).
-				renderMode: LeafDescriptor::RENDER_MODE_MOUNT,
+				rendering: new LeafRendering(
+					surfaces: self::SURFACES,
+					referenceType: self::LEAF_ID,
+					renderMode: LeafDescriptor::RENDER_MODE_MOUNT,
+				),
 				// 🔴 SAID OUT LOUD BECAUSE IT WAS NEARLY INFERRED WRONGLY.
 				// hermiq ships no `hermiq-leaves.js` and does not need one: it
 				// loads `hermiq-agent-leaf.js` itself, on EVERY Nextcloud page,
