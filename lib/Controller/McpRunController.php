@@ -84,7 +84,6 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\Security\Bruteforce\IThrottler;
 use Psr\Log\LoggerInterface;
-use stdClass;
 use Throwable;
 
 /**
@@ -490,7 +489,7 @@ class McpRunController extends Controller {
 			$tools[] = [
 				'name' => (string)$descriptor['name'],
 				'description' => (string)($descriptor['description'] ?? ''),
-				'inputSchema' => $this->normaliseInputSchema(schema: ($descriptor['parameters'] ?? [])),
+				'inputSchema' => (new McpInputSchema())->normalise(schema: ($descriptor['parameters'] ?? [])),
 			];
 		}
 
@@ -904,80 +903,6 @@ class McpRunController extends Controller {
 
 		return (string)($agent->getOrganisation() ?? '');
 	}//end organisationOf()
-
-	/**
-	 * Normalise a facade descriptor's JSON-schema into an MCP `inputSchema` whose
-	 * `properties` is ALWAYS a JSON object — never `[]` (the exact shape the
-	 * `claude` CLI's strict validator rejects). Recurses so nested object schemas
-	 * with an empty `properties` are also objects.
-	 *
-	 * @param mixed $schema The descriptor's `parameters` fragment.
-	 *
-	 * @return array<string, mixed> The MCP-safe input schema.
-	 */
-	private function normaliseInputSchema(mixed $schema): array {
-		if (is_array($schema) === false) {
-			$schema = [];
-		}
-
-		if (isset($schema['type']) === false) {
-			$schema['type'] = 'object';
-		}
-
-		// An object schema MUST carry a `properties` object — an argument-less tool
-		// that omits it entirely (or carries `[]`) is exactly what the CLI's strict
-		// validator rejects. Force a present, object-typed `properties`.
-		if ($schema['type'] === 'object' && array_key_exists('properties', $schema) === false) {
-			$schema['properties'] = new stdClass();
-		}
-
-		return $this->normaliseSchemaProperties(schema: $schema);
-	}//end normaliseInputSchema()
-
-	/**
-	 * Force every `properties` map in a schema fragment to serialise as an object,
-	 * recursing into each property's own schema.
-	 *
-	 * @param array<string, mixed> $schema The schema fragment.
-	 *
-	 * @return array<string, mixed> The normalised fragment.
-	 */
-	private function normaliseSchemaProperties(array $schema): array {
-		if (array_key_exists('properties', $schema) === true) {
-			$schema['properties'] = $this->normaliseProperties(properties: $schema['properties']);
-		}
-
-		if (isset($schema['items']) === true && is_array($schema['items']) === true) {
-			$schema['items'] = $this->normaliseSchemaProperties(schema: $schema['items']);
-		}
-
-		return $schema;
-	}//end normaliseSchemaProperties()
-
-	/**
-	 * A schema's `properties`, each property schema normalised in turn. Empty (or
-	 * non-array) properties MUST be an object, not `[]`.
-	 *
-	 * @param mixed $properties The schema's `properties` value.
-	 *
-	 * @return array<mixed>|stdClass The normalised properties, or an empty object.
-	 */
-	private function normaliseProperties(mixed $properties): array|stdClass {
-		if (is_array($properties) === false || $properties === []) {
-			return new stdClass();
-		}
-
-		$normalised = [];
-		foreach ($properties as $propName => $propSchema) {
-			$normalised[$propName] = $propSchema;
-			if (is_array($propSchema) === true) {
-				$normalised[$propName] = $this->normaliseSchemaProperties(schema: $propSchema);
-			}
-		}
-
-		return $normalised;
-
-	}//end normaliseProperties()
 
 	/**
 	 * Wrap a `FacadeToolInvoker` result string as an MCP `tools/call` result. The

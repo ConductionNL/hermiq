@@ -711,16 +711,8 @@ final class McpRunControllerTest extends TestCase {
 	 * @return void
 	 */
 	public function testInputSchemasAreNormalisedRecursively(): void {
-		$controller = $this->controller(
-			'Bearer good',
-			'',
-			$this->tokens('good'),
-			$this->createMock(ObjectService::class),
-			$this->createMock(ToolRegistryFacade::class),
-			$this->createMock(ToolLoop::class),
-			$this->createMock(ToolSearchService::class)
-		);
-		$normalise = new \ReflectionMethod(McpRunController::class, 'normaliseSchemaProperties');
+		$controller = new \OCA\Hermiq\Controller\McpInputSchema();
+		$normalise = new \ReflectionMethod(\OCA\Hermiq\Controller\McpInputSchema::class, 'normaliseSchemaProperties');
 
 		$schema = [
 			'type' => 'object',
