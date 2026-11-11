@@ -667,25 +667,8 @@ class AnalyticsService
                 ]
             );
 
-            $page = ($result['results'] ?? []);
-            foreach ($page as $object) {
-                if (($object instanceof ObjectEntity) === false) {
-                    continue;
-                }
-
-                $uuid = (string) $object->getUuid();
-
-                // Narrowing to one agent happens HERE, against the visible set, rather
-                // than by trusting the caller-supplied id: an agentId the caller may not
-                // see simply finds no match and yields an empty map, so the agent-scoped
-                // detail page cannot be used to read another tenant's run metrics.
-                if ($agentId !== null && $agentId !== '' && $uuid !== $agentId) {
-                    continue;
-                }
-
-                $data          = $object->getObject();
-                $agents[$uuid] = trim((string) ($data['name'] ?? ''));
-            }
+            $page   = ($result['results'] ?? []);
+            $agents = array_replace($agents, $this->visibleAgentsOn(page: $page, agentId: $agentId));
 
             $offset += self::AGENT_PAGE_SIZE;
             $total   = (int) ($result['total'] ?? 0);
@@ -694,6 +677,40 @@ class AnalyticsService
         return $agents;
 
     }//end loadVisibleAgents()
+
+    /**
+     * The agents on one page, as uuid => display name, narrowed to one agent when asked.
+     *
+     * @param array<int, mixed> $page    The page's objects.
+     * @param string|null       $agentId Optional agent UUID to narrow to.
+     *
+     * @return array<string, string>
+     */
+    private function visibleAgentsOn(array $page, ?string $agentId): array
+    {
+        $agents = [];
+        foreach ($page as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $uuid = (string) $object->getUuid();
+
+        // Narrowing to one agent happens HERE, against the visible set, rather
+        // than by trusting the caller-supplied id: an agentId the caller may not
+        // see simply finds no match and yields an empty map, so the agent-scoped
+        // detail page cannot be used to read another tenant's run metrics.
+            if ($agentId !== null && $agentId !== '' && $uuid !== $agentId) {
+                continue;
+            }
+
+            $data          = $object->getObject();
+            $agents[$uuid] = trim((string) ($data['name'] ?? ''));
+        }
+
+        return $agents;
+
+    }//end visibleAgentsOn()
 
     /**
      * A percentage rate rounded to one decimal (0 when the denominator is 0).
