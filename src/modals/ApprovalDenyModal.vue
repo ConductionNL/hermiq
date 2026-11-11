@@ -60,6 +60,7 @@ import {
 	NcTextArea,
 } from '@nextcloud/vue'
 import { denyApproval } from '../api/approvals.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ApprovalDenyModal',
@@ -152,10 +153,7 @@ export default {
 				this.$emit('denied', this.approval.id)
 				this.$emit('close')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.saving = false
 			}

@@ -71,6 +71,7 @@
 <script>
 import { NcButton, NcDialog, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { diffAgentVersions } from '../../api/agents.js'
+import { errorMessage } from '../../utils/errorMessage.js'
 
 export default {
 	name: 'AgentVersionDiffDialog',
@@ -162,10 +163,7 @@ export default {
 					this.toId,
 				)
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 				this.diff = {}
 			} finally {
 				this.loading = false

@@ -73,6 +73,7 @@ import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { publishSkillToGithub } from '../api/skills.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillGithubPublishModal',
@@ -205,10 +206,7 @@ export default {
 				})
 				this.$emit('published', result.repoUrl)
 			} catch (e) {
-				this.githubPublishError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.githubPublishError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.githubPublishing = false
 			}

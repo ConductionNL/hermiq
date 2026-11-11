@@ -73,6 +73,7 @@ import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { publishAgentTemplateToGithub } from '../api/agentTemplates.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AgentTemplatePublishModal',
@@ -203,10 +204,7 @@ export default {
 				})
 				this.$emit('published', result.repoUrl)
 			} catch (e) {
-				this.publishError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.publishError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.publishing = false
 			}
