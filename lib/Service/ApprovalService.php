@@ -1245,97 +1245,6 @@ class ApprovalService {
 	}//end summarizeArguments()
 
 	/**
-	 * List the pending Approvals routed to the given user as reviewer.
-	 *
-	 * Returns approvals where the user is the reviewer user, or a member of the
-	 * reviewer group. Instance-admin visibility is deliberately NOT included — this
-	 * is the "routed to me" inbox, not a global queue.
-	 *
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return array<int, array<string, mixed>> Compact pending-approval records.
-	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
-	 */
-	public function listPendingForReviewer(string $uid): array {
-		if ($uid === '') {
-			return [];
-		}
-
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::APPROVAL_SCHEMA)
-			->findAll(
-				config: ['filters' => ['status' => 'pending']],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		$records = [];
-		$previews = $this->previewBuilder();
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ((string)($data['status'] ?? '') !== 'pending') {
-				continue;
-			}
-
-			if ($this->userMatchesReviewer(data: $data, uid: $uid) === false) {
-				continue;
-			}
-
-			$toolArguments = null;
-			if (is_array($data['toolArguments'] ?? null) === true) {
-				$toolArguments = $data['toolArguments'];
-			}
-
-			$records[] = [
-				'id' => (string)$object->getUuid(),
-				'scheduleId' => (string)($data['scheduleId'] ?? ''),
-				'agentId' => (string)($data['agentId'] ?? ''),
-				'prompt' => (string)($data['prompt'] ?? ''),
-				'requestedAt' => ($data['requestedAt'] ?? null),
-				'reviewer' => (string)($data['reviewer'] ?? ''),
-				'reviewerType' => (string)($data['reviewerType'] ?? 'user'),
-				'status' => 'pending',
-				'sourceType' => (string)($data['sourceType'] ?? 'schedule'),
-				'toolId' => (string)($data['toolId'] ?? ''),
-				// As stored: redacted before persistence, never re-read unredacted.
-				'toolArguments' => $toolArguments,
-				'preview' => $previews?->build(approval: $data),
-			];
-		}//end foreach
-
-		return $records;
-	}//end listPendingForReviewer()
-
-	/**
-	 * The preview builder, or null when it cannot be had (the inbox then lists
-	 * the approvals without their preview rather than failing).
-	 *
-	 * @return ApprovalPreviewBuilder|null The builder.
-	 *
-	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-reviewer-sees-what-a-held-action-will-do-req-apprev-001
-	 */
-	private function previewBuilder(): ?ApprovalPreviewBuilder {
-		try {
-			$builder = $this->container->get(ApprovalPreviewBuilder::class);
-		} catch (Throwable $e) {
-			$this->logger->warning('[ApprovalService] approval preview unavailable: ' . $e->getMessage());
-			return null;
-		}
-
-		if (($builder instanceof ApprovalPreviewBuilder) === false) {
-			return null;
-		}
-
-		return $builder;
-	}//end previewBuilder()
-
-	/**
 	 * List every Approval visible in the caller's own tenant (RBAC + tenancy
 	 * scoped, mirrors `OrganisationOpsService::loadObjects()`'s tenant-scoped read) —
 	 * the org-scoped decision-history seam `ComplianceService` reads for the
@@ -1408,7 +1317,7 @@ class ApprovalService {
 	 *
 	 * The Approval is owned by the schedule owner, but the decider is the reviewer —
 	 * a different user — so an RBAC read would hide it. It is loaded RBAC-off and the
-	 * caller MUST authorise via isReviewer() before acting (IDOR guard).
+	 * caller MUST authorise via ApprovalInbox::isReviewer() before acting (IDOR guard).
 	 *
 	 * @param string $uuid The Approval object UUID.
 	 *
@@ -1435,33 +1344,6 @@ class ApprovalService {
 
 		return $approval;
 	}//end loadApproval()
-
-	/**
-	 * Whether the given user may decide the given Approval (separation of duties).
-	 *
-	 * Admits the resolved reviewer user, a member of the reviewer group, or a
-	 * Nextcloud instance admin. The schedule owner is admitted only when they are
-	 * themselves the reviewer (Art. 14 separation of duties).
-	 *
-	 * @param ObjectEntity $approval The approval object.
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return bool
-	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
-	 */
-	public function isReviewer(ObjectEntity $approval, string $uid): bool {
-		if ($uid === '') {
-			return false;
-		}
-
-		// Instance admins may always decide.
-		if ($this->groupManager->isAdmin($uid) === true) {
-			return true;
-		}
-
-		return $this->userMatchesReviewer(data: $approval->getObject(), uid: $uid);
-	}//end isReviewer()
 
 	/**
 	 * Approve a pending Approval and execute the gated run.
@@ -1778,29 +1660,6 @@ class ApprovalService {
 
 		return [$reviewer];
 	}//end reviewerUids()
-
-	/**
-	 * Whether a user matches an approval's stored reviewer designation.
-	 *
-	 * @param array<string,mixed> $data The approval payload.
-	 * @param string $uid The user UID.
-	 *
-	 * @return bool
-	 */
-	private function userMatchesReviewer(array $data, string $uid): bool {
-		$reviewer = (string)($data['reviewer'] ?? '');
-		$type = (string)($data['reviewerType'] ?? 'user');
-
-		if ($reviewer === '') {
-			return false;
-		}
-
-		if ($type === 'group') {
-			return $this->groupManager->isInGroup($uid, $reviewer);
-		}
-
-		return $reviewer === $uid;
-	}//end userMatchesReviewer()
 
 	/**
 	 * Run an approved schedule via the shared dispatch path, bypassing the gate.

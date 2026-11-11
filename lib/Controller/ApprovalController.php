@@ -12,7 +12,7 @@
  * authenticated user can call it, so the decision endpoints MUST NOT trust the
  * {approvalId} path blindly. Because the Approval is owned by the schedule owner but
  * decided by a DIFFERENT party (the reviewer), the object is loaded RBAC-off and the
- * caller is authorised via ApprovalService::isReviewer() — the resolved reviewer user,
+ * caller is authorised via ApprovalInbox::isReviewer() — the resolved reviewer user,
  * a member of the reviewer group, or an instance admin. The schedule owner is refused
  * (404) unless owner == reviewer (separation of duties).
  *
@@ -36,6 +36,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
@@ -56,9 +57,10 @@ class ApprovalController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param ApprovalService $approvalService The approval gate write-path + reviewer guard.
+	 * @param ApprovalService $approvalService The approval gate write-path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ApprovalInbox $approvalInbox The reviewer inbox + reviewer guard.
 	 *
 	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
@@ -67,6 +69,7 @@ class ApprovalController extends Controller {
 		private readonly ApprovalService $approvalService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -88,7 +91,7 @@ class ApprovalController extends Controller {
 		}
 
 		try {
-			$records = $this->approvalService->listPendingForReviewer(uid: $user->getUID());
+			$records = $this->approvalInbox->listPendingForReviewer(uid: $user->getUID());
 			return new JSONResponse(['results' => $records, 'total' => count($records)]);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq approval inbox read failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -251,7 +254,7 @@ class ApprovalController extends Controller {
 			return new JSONResponse(['error' => 'Approval not found'], Http::STATUS_NOT_FOUND);
 		}
 
-		if ($this->approvalService->isReviewer(approval: $approval, uid: $user->getUID()) === false) {
+		if ($this->approvalInbox->isReviewer(approval: $approval, uid: $user->getUID()) === false) {
 			// 404 (not 403) so a non-reviewer cannot even confirm the approval exists.
 			return new JSONResponse(['error' => 'Approval not found'], Http::STATUS_NOT_FOUND);
 		}

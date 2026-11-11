@@ -12,7 +12,7 @@
  * if any bystander's 👍 released a gated run this listener would make Hermiq's
  * oversight mechanism weaker than not having it at all. The reactor is
  * therefore checked against the approval's resolved reviewer — using the SAME
- * `ApprovalService::isReviewer()` the inbox uses, never a second opinion — and
+ * `ApprovalInbox::isReviewer()` the inbox uses, never a second opinion — and
  * a reaction from anyone else is ignored.
  *
  * Unlike the chat bridge's turn, the decision runs INLINE: applying an approval
@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Talk\TalkApprovalBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
@@ -79,12 +80,14 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @param TalkApprovalBinding $approvalBinding Resolves an approval from a message id.
 	 * @param ApprovalService $approvalService Applies the decision — the same path the inbox uses.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ApprovalInbox $approvalInbox The reviewer guard — the same check the inbox uses.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
 		private readonly TalkApprovalBinding $approvalBinding,
 		private readonly ApprovalService $approvalService,
 		private readonly LoggerInterface $logger,
+		private readonly ApprovalInbox $approvalInbox,
 	) {
 	}//end __construct()
 
@@ -158,7 +161,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function fromReviewer(ObjectEntity $approval, string $reactor): bool {
-		if ($this->approvalService->isReviewer($approval, $reactor) === true) {
+		if ($this->approvalInbox->isReviewer($approval, $reactor) === true) {
 			return true;
 		}
 

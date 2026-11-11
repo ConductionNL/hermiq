@@ -26,6 +26,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\ContextAgent;
 
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
 use OCA\Hermiq\Service\Engine\Engine;
@@ -64,6 +65,11 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	private ApprovalService&MockObject $approvalService;
 
 	/**
+	 * @var ApprovalInbox&MockObject
+	 */
+	private ApprovalInbox&MockObject $approvalInbox;
+
+	/**
 	 * @var ScheduleService&MockObject
 	 */
 	private ScheduleService&MockObject $scheduleService;
@@ -87,6 +93,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->engine = $this->createMock(Engine::class);
 		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalInbox = $this->createMock(ApprovalInbox::class);
 		$this->scheduleService = $this->createMock(ScheduleService::class);
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->agentAccess = $this->createMock(AgentAccessService::class);
@@ -120,7 +127,8 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->appConfig,
 			new NullLogger(),
 			$agentVersionService,
-			$this->agentAccess
+			$this->agentAccess,
+			$this->approvalInbox
 		);
 	}//end service()
 
@@ -272,7 +280,8 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->appConfig,
 			new NullLogger(),
 			$agentVersionService,
-			$this->agentAccess
+			$this->agentAccess,
+			$this->approvalInbox
 		);
 
 		$service->interact('alice', 'hi', null, '');
@@ -328,7 +337,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$approval = new ObjectEntity();
 		$approval->setUuid('appr-1');
-		$this->approvalService->method('listPendingForReviewer')->with('alice')->willReturn(
+		$this->approvalInbox->method('listPendingForReviewer')->with('alice')->willReturn(
 			[['id' => 'appr-1', 'agentId' => 'agent-1']]
 		);
 		$this->approvalService->method('loadApproval')->with('appr-1')->willReturn($approval);
@@ -353,7 +362,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$approval = new ObjectEntity();
 		$approval->setUuid('appr-1');
-		$this->approvalService->method('listPendingForReviewer')->willReturn(
+		$this->approvalInbox->method('listPendingForReviewer')->willReturn(
 			[['id' => 'appr-1', 'agentId' => 'agent-1']]
 		);
 		$this->approvalService->method('loadApproval')->willReturn($approval);
@@ -375,7 +384,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
-		$this->approvalService->method('listPendingForReviewer')->willReturn([]);
+		$this->approvalInbox->method('listPendingForReviewer')->willReturn([]);
 		$this->approvalService->expects($this->never())->method('approve');
 		$this->approvalService->expects($this->never())->method('deny');
 
