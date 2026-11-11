@@ -157,6 +157,7 @@ import {
 } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAgentFactsheet } from '../api/compliance.js'
+import { dateOrDash } from '../utils/displayDate.js'
 import { agentModalTarget, loadWhenShown } from './agentModalTarget.js'
 
 export default {
@@ -217,20 +218,7 @@ export default {
 			}
 		},
 
-		/**
-		 * Human-readable date, or an em-dash when absent/unparseable.
-		 *
-		 * @param {string} value An ISO-8601 timestamp.
-		 * @return {string} The formatted date.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-		},
+		formatDate: dateOrDash,
 	},
 }
 </script>

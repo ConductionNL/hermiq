@@ -133,6 +133,7 @@ import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
+import { dateOrText } from '../utils/displayDate.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -244,23 +245,7 @@ export default {
 			return (agent && agent.name) || approval.agentId || '—'
 		},
 
-		/**
-		 * Human-friendly requested-at timestamp.
-		 *
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The formatted date, or a dash.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			if (Number.isNaN(date.getTime())) {
-				return String(value)
-			}
-			return date.toLocaleString()
-		},
+		formatDate: dateOrText,
 
 		/**
 		 * Approve from the details dialog.
