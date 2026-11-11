@@ -126,13 +126,24 @@ class CourseEvidenceIndexer {
 				$excluded[$courseId] = true;
 			}
 
-			if ($lifecycle === 'completed' && ($enrolment['mandatory'] ?? false) === true) {
+			if ($this->isMandatoryDone(enrolment: $enrolment) === true) {
 				$mandatoryDone[$courseId] = true;
 			}
 		}
 
 		return [$excluded, $mandatoryDone];
 	}//end enrolmentSets()
+
+	/**
+	 * Whether an enrolment is a completed mandatory course.
+	 *
+	 * @param array<string, mixed> $enrolment One enrolment.
+	 *
+	 * @return bool
+	 */
+	private function isMandatoryDone(array $enrolment): bool {
+		return ((string)($enrolment['lifecycle'] ?? '') === 'completed' && ($enrolment['mandatory'] ?? false) === true);
+	}//end isMandatoryDone()
 
 	/**
 	 * Parents and programmes the learner already continues through their enrolments.
@@ -188,24 +199,37 @@ class CourseEvidenceIndexer {
 		$recent = [];
 		foreach ($statements as $statement) {
 			$courseId = (string)($statement['courseId'] ?? '');
-			$timestamp = $statement['timestamp'] ?? null;
-			if ($courseId === '' || is_string($timestamp) === false || $timestamp === '') {
+			if ($courseId === '') {
 				continue;
 			}
 
-			try {
-				$statementTime = new DateTimeImmutable($timestamp);
-			} catch (Throwable $e) {
-				continue;
-			}
-
-			if ($statementTime >= $threshold) {
+			$statementTime = $this->statementTime(timestamp: ($statement['timestamp'] ?? null));
+			if ($statementTime !== null && $statementTime >= $threshold) {
 				$recent[$courseId] = true;
 			}
 		}
 
 		return $recent;
 	}//end recentCourseIds()
+
+	/**
+	 * A statement's time, or null when it has no readable timestamp.
+	 *
+	 * @param mixed $timestamp The statement's timestamp.
+	 *
+	 * @return DateTimeImmutable|null
+	 */
+	private function statementTime(mixed $timestamp): ?DateTimeImmutable {
+		if (is_string($timestamp) === false || $timestamp === '') {
+			return null;
+		}
+
+		try {
+			return new DateTimeImmutable($timestamp);
+		} catch (Throwable $e) {
+			return null;
+		}
+	}//end statementTime()
 
 	/**
 	 * Course uuids grouped by their non-empty `parentCourseId`.
