@@ -1317,7 +1317,7 @@ class ApprovalService {
 	 *
 	 * The Approval is owned by the schedule owner, but the decider is the reviewer —
 	 * a different user — so an RBAC read would hide it. It is loaded RBAC-off and the
-	 * caller MUST authorise via ApprovalInbox::isReviewer() before acting (IDOR guard).
+	 * caller MUST authorise via isReviewer() before acting (IDOR guard).
 	 *
 	 * @param string $uuid The Approval object UUID.
 	 *
