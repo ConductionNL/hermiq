@@ -284,6 +284,54 @@ class EvalRunServiceTest extends TestCase {
 	}//end testTwoCaseRunComputesPassRate()
 
 	/**
+	 * The regression gate fails only when the drop EXCEEDS the threshold: a drop
+	 * equal to it passes, and a previous run without a pass rate counts as 0.0.
+	 *
+	 * @return void
+	 */
+	public function testRegressionGateFailsOnlyAboveTheThreshold(): void {
+		$outcomes = [];
+		foreach ([[1.0, 50], [1.0, 49], [null, 0]] as [$previousPassRate, $threshold]) {
+			$schedule = $this->createMock(ScheduleService::class);
+			$schedule->method('isOrganisationEngaged')->willReturn(false);
+			$schedule->method('runAgentAsOwner')->willReturn('agent output');
+			$schedule->method('getLastRunUsage')->willReturn([]);
+
+			$scoring = $this->createMock(EvalScoringService::class);
+			$scoring->method('score')->willReturnOnConsecutiveCalls(
+				['passed' => true, 'errorMessage' => null, 'score' => null, 'judgeRationale' => null],
+				['passed' => false, 'errorMessage' => null, 'score' => null, 'judgeRationale' => null]
+			);
+
+			$previousData = ['datasetId' => 'dataset-uuid', 'agentId' => 'agent-uuid', 'status' => 'completed'];
+			if ($previousPassRate !== null) {
+				$previousData['passRate'] = $previousPassRate;
+			}
+
+			$previous = new ObjectEntity();
+			$previous->setUuid('previous-run');
+			$previous->setObject($previousData);
+			$previous->setCreated(new \DateTime('2026-07-01T00:00:00+00:00'));
+
+			$service = $this->service(objectService: $this->objectService([$previous]), scheduleService: $schedule, scoring: $scoring);
+			$result = $service->run(
+				$this->dataset(
+					[
+						['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+						['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+					]
+				),
+				$this->agent(),
+				regressionThresholdOverride: $threshold
+			);
+			$outcomes[] = [$result['regressionGateResult'], $result['previousPassRate']];
+		}//end foreach
+
+		$this->assertSame([['passed', 1.0], ['failed', 1.0], ['passed', 0.0]], $outcomes);
+
+	}//end testRegressionGateFailsOnlyAboveTheThreshold()
+
+	/**
 	 * An agent turn that throws is recorded as a failed case (infraError) and the run
 	 * is marked failed, but scoring of the OTHER case still happens — one bad case
 	 * never aborts the run.
