@@ -77,9 +77,6 @@
   "src/modals/AgentTemplatePublishModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/modals/ApprovalDenyModal.vue": {
@@ -132,9 +129,6 @@
   },
   "src/modals/SkillGithubPublishModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -250,7 +244,7 @@
       "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "src/widgets/AgentTemplateRowActions.vue": {

@@ -3,7 +3,8 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  *
  * Behaviour the admin settings modals share: loading their configuration each
- * time they open, and listing the caller's broker credentials.
+ * time they open, listing the caller's broker credentials, and offering the
+ * GitHub ones.
  */
 
 import axios from '@nextcloud/axios'
@@ -86,6 +87,27 @@ export const brokerCredentials = {
 			} finally {
 				this.loadingCredentials = false
 			}
+		},
+	},
+}
+
+/**
+ * The caller's GitHub broker credentials, shaped for NcSelect, as the computed
+ * `githubCredentials`. Reads the `credentials` the component lists.
+ */
+export const githubCredentialChoices = {
+	computed: {
+		/**
+		 * The GitHub credentials among the listed broker credentials.
+		 *
+		 * @return {Array<object>} NcSelect options.
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+		 */
+		githubCredentials() {
+			return this.credentials
+				.filter((c) => c.provider === 'github')
+				.map((c) => ({ label: c.name || c.id, value: c.id }))
 		},
 	},
 }
