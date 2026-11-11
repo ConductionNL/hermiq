@@ -235,8 +235,6 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -248,7 +246,8 @@ import {
 } from '@nextcloud/vue'
 import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
-
+import { applyStoredConfig, optionWithValue } from './llmProviderForm.js'
+import { brokerCredentials, reloadOnOpen } from './settingsModalMixins.js'
 export default {
 	name: 'LlmProviderModal',
 
@@ -263,17 +262,7 @@ export default {
 		ProviderDeclarations,
 	},
 
-	props: {
-		/**
-		 * Whether the modal is visible.
-		 *
-		 * @spec exclude Trivial visibility prop; no behavioural spec.
-		 */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-	},
+	mixins: [reloadOnOpen, brokerCredentials],
 
 	emits: ['close', 'saved'],
 
@@ -475,35 +464,6 @@ export default {
 		},
 	},
 
-	watch: {
-		/**
-		 * Reload the config each time the modal is opened.
-		 *
-		 * @param {boolean} visible Whether the modal became visible.
-		 * @return {void}
-		 *
-		 * @spec exclude Trivial watch handler delegating to load(); no behavioural spec.
-		 */
-		show(visible) {
-			if (visible) {
-				this.load()
-			}
-		},
-	},
-
-	/**
-	 * Load the config when the modal mounts already open.
-	 *
-	 * @return {void}
-	 *
-	 * @spec exclude Trivial lifecycle hook delegating to load(); no behavioural spec.
-	 */
-	mounted() {
-		if (this.show) {
-			this.load()
-		}
-	},
-
 	methods: {
 		/**
 		 * Whether the current model was declared to read one kind of input.
@@ -553,57 +513,8 @@ export default {
 				await this.fetchCredentials()
 
 				const config = await getLlmSettings()
-				this.openaiKeySet = config.openaiApiKeySet === true
-				this.fireworksKeySet = config.fireworksApiKeySet === true
-				this.form.openaiConfig.chatModel =
-					(config.openaiConfig && config.openaiConfig.chatModel) || ''
-				this.form.openaiConfig.credentialId =
-					(config.openaiConfig && config.openaiConfig.credentialId) || ''
-				this.form.ollamaConfig.url =
-					(config.ollamaConfig && config.ollamaConfig.url) || ''
-				this.form.ollamaConfig.chatModel =
-					(config.ollamaConfig && config.ollamaConfig.chatModel) || ''
-				this.form.fireworksConfig.baseUrl =
-					(config.fireworksConfig && config.fireworksConfig.baseUrl) || ''
-				this.form.fireworksConfig.chatModel =
-					(config.fireworksConfig && config.fireworksConfig.chatModel)
-					|| ''
-				this.form.fireworksConfig.credentialId =
-					(config.fireworksConfig && config.fireworksConfig.credentialId)
-					|| ''
-				this.form.anthropicConfig.chatModel =
-					(config.anthropicConfig && config.anthropicConfig.chatModel)
-					|| ''
-				this.form.anthropicConfig.credentialId =
-					(config.anthropicConfig && config.anthropicConfig.credentialId)
-					|| ''
-				this.form.anthropicConfig.authMode =
-					(config.anthropicConfig && config.anthropicConfig.authMode)
-					|| 'api_key'
-				this.modelCapabilities = { ...(config.modelCapabilities || {}) }
-
-				// Reflect the stored credential references back into the pickers.
-				this.openaiCredential =
-					this.credentialsFor('openai').find(
-						(o) => o.value === this.form.openaiConfig.credentialId,
-					) || null
-				this.fireworksCredential =
-					this.credentialsFor('fireworks').find(
-						(o) => o.value === this.form.fireworksConfig.credentialId,
-					) || null
-				this.anthropicCredential =
-					this.credentialsFor('anthropic').find(
-						(o) => o.value === this.form.anthropicConfig.credentialId,
-					) || null
-				this.anthropicAuthMode =
-					this.authModeOptions.find(
-						(o) => o.value === this.form.anthropicConfig.authMode,
-					) || this.authModeOptions[0]
-
-				this.selectedProvider =
-					this.providerOptions.find(
-						(option) => option.value === config.chatProvider,
-					) || null
+				this.applyConfig(config)
+				this.reflectPickers(config.chatProvider)
 			} catch (e) {
 				this.error = this.t(
 					'hermiq',
@@ -615,27 +526,37 @@ export default {
 		},
 
 		/**
-		 * Load the user's broker credentials.
+		 * Copy the stored (masked) config into the key flags, the form and the
+		 * declared model capabilities.
 		 *
-		 * The endpoint already scopes to the caller's own credentials, and the response
-		 * carries no secrets — only names, providers and UUIDs.
+		 * @param {object} config The stored configuration.
+		 * @return {void}
 		 *
-		 * @return {Promise<void>}
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		applyConfig(config) {
+			this.openaiKeySet = config.openaiApiKeySet === true
+			this.fireworksKeySet = config.fireworksApiKeySet === true
+			applyStoredConfig(this.form, config)
+			this.modelCapabilities = { ...(config.modelCapabilities || {}) }
+		},
+
+		/**
+		 * Reflect the stored credential references, auth mode and provider back into
+		 * the pickers.
+		 *
+		 * @param {string} chatProvider The stored provider.
+		 * @return {void}
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
-		async fetchCredentials() {
-			this.loadingCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
-			} finally {
-				this.loadingCredentials = false
-			}
+		reflectPickers(chatProvider) {
+			this.openaiCredential = optionWithValue(this.credentialsFor('openai'), this.form.openaiConfig.credentialId)
+			this.fireworksCredential = optionWithValue(this.credentialsFor('fireworks'), this.form.fireworksConfig.credentialId)
+			this.anthropicCredential = optionWithValue(this.credentialsFor('anthropic'), this.form.anthropicConfig.credentialId)
+			this.anthropicAuthMode = optionWithValue(this.authModeOptions, this.form.anthropicConfig.authMode)
+				|| this.authModeOptions[0]
+			this.selectedProvider = optionWithValue(this.providerOptions, chatProvider)
 		},
 
 		/**
@@ -679,6 +600,144 @@ export default {
 		},
 
 		/**
+		 * The minimal patch for the selected provider, or null when a required
+		 * choice is missing (the error then says which). Only a credential
+		 * REFERENCE is ever sent — never a key. Hermiq has none.
+		 *
+		 * @return {object|null} The patch.
+		 *
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		providerPayload() {
+			const payload = { chatProvider: this.providerValue }
+			const section = {
+				openai: this.openaiSection,
+				ollama: this.ollamaSection,
+				fireworks: this.fireworksSection,
+				anthropic: this.anthropicSection,
+			}[this.providerValue]
+			if (!section) {
+				return payload
+			}
+			const config = section()
+			if (config === null) {
+				return null
+			}
+			payload[`${this.providerValue}Config`] = config
+			return payload
+		},
+
+		/**
+		 * The OpenAI section of the patch, or null without a credential.
+		 *
+		 * @return {object|null} The section.
+		 *
+		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		openaiSection() {
+			if (!this.openaiCredential) {
+				return this.refuse(this.t('hermiq', 'Pick an OpenAI credential first.'))
+			}
+			return {
+				chatModel: this.form.openaiConfig.chatModel,
+				credentialId: this.openaiCredential.value,
+			}
+		},
+
+		/**
+		 * The Ollama section of the patch.
+		 *
+		 * @return {object} The section.
+		 *
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		ollamaSection() {
+			return {
+				url: this.form.ollamaConfig.url,
+				chatModel: this.form.ollamaConfig.chatModel,
+			}
+		},
+
+		/**
+		 * The Fireworks AI section of the patch, or null without a credential.
+		 *
+		 * @return {object|null} The section.
+		 *
+		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		fireworksSection() {
+			if (!this.fireworksCredential) {
+				return this.refuse(this.t('hermiq', 'Pick a Fireworks AI credential first.'))
+			}
+			return {
+				baseUrl: this.form.fireworksConfig.baseUrl,
+				chatModel: this.form.fireworksConfig.chatModel,
+				credentialId: this.fireworksCredential.value,
+			}
+		},
+
+		/**
+		 * The Anthropic section of the patch, or null for OAuth or without a credential.
+		 *
+		 * Claude Max (OAuth) is personal-only per the Anthropic ToS — it may never be
+		 * configured as an organisation credential here (admin settings). The server
+		 * rejects it too; this guard gives an immediate, clear message.
+		 *
+		 * @return {object|null} The section.
+		 *
+		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		anthropicSection() {
+			if (this.anthropicAuthModeValue === 'oauth') {
+				return this.refuse(this.t(
+					'hermiq',
+					'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.',
+				))
+			}
+			if (!this.anthropicCredential) {
+				return this.refuse(this.t('hermiq', 'Pick an Anthropic credential first.'))
+			}
+			return {
+				chatModel: this.form.anthropicConfig.chatModel,
+				credentialId: this.anthropicCredential.value,
+				authMode: this.anthropicAuthModeValue,
+				// Admin settings are always organisation scope.
+				scope: 'organisation',
+			}
+		},
+
+		/**
+		 * Show why the patch cannot be built.
+		 *
+		 * @param {string} message The translated reason.
+		 * @return {null} Always null, the missing section.
+		 *
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		refuse(message) {
+			this.error = message
+			return null
+		},
+
+		/**
+		 * The ticks for the model being saved travel with it; an untouched model is
+		 * sent as declared "neither", which is what the boxes show.
+		 *
+		 * @param {object} payload The patch.
+		 * @return {void}
+		 *
+		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		attachModelCapabilities(payload) {
+			if (this.capabilityKey === '') {
+				return
+			}
+			payload.modelCapabilities = {
+				[this.capabilityKey]: this.modelCapabilities[this.capabilityKey] || [],
+			}
+		},
+
+		/**
 		 * Build a minimal patch for the selected provider and PATCH it.
 		 *
 		 * @return {Promise<void>}
@@ -692,74 +751,13 @@ export default {
 			}
 			this.saving = true
 			this.error = ''
-			const payload = { chatProvider: this.providerValue }
-			// Only a credential REFERENCE is ever sent — never a key. Hermiq has none.
-			if (this.providerValue === 'openai') {
-				if (!this.openaiCredential) {
-					this.error = this.t('hermiq', 'Pick an OpenAI credential first.')
-					this.saving = false
-					return
-				}
-				payload.openaiConfig = {
-					chatModel: this.form.openaiConfig.chatModel,
-					credentialId: this.openaiCredential.value,
-				}
-			} else if (this.providerValue === 'ollama') {
-				payload.ollamaConfig = {
-					url: this.form.ollamaConfig.url,
-					chatModel: this.form.ollamaConfig.chatModel,
-				}
-			} else if (this.providerValue === 'fireworks') {
-				if (!this.fireworksCredential) {
-					this.error = this.t(
-						'hermiq',
-						'Pick a Fireworks AI credential first.',
-					)
-					this.saving = false
-					return
-				}
-				payload.fireworksConfig = {
-					baseUrl: this.form.fireworksConfig.baseUrl,
-					chatModel: this.form.fireworksConfig.chatModel,
-					credentialId: this.fireworksCredential.value,
-				}
-			} else if (this.providerValue === 'anthropic') {
-				// Claude Max (OAuth) is personal-only per the Anthropic ToS — it may never be
-				// configured as an organisation credential here (admin settings). The server
-				// rejects it too; this guard gives an immediate, clear message.
-				if (this.anthropicAuthModeValue === 'oauth') {
-					this.error = this.t(
-						'hermiq',
-						'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.',
-					)
-					this.saving = false
-					return
-				}
-				if (!this.anthropicCredential) {
-					this.error = this.t(
-						'hermiq',
-						'Pick an Anthropic credential first.',
-					)
-					this.saving = false
-					return
-				}
-				payload.anthropicConfig = {
-					chatModel: this.form.anthropicConfig.chatModel,
-					credentialId: this.anthropicCredential.value,
-					authMode: this.anthropicAuthModeValue,
-					// Admin settings are always organisation scope.
-					scope: 'organisation',
-				}
+			const payload = this.providerPayload()
+			if (payload === null) {
+				this.saving = false
+				return
 			}
 			try {
-				// The ticks for the model being saved travel with it; an untouched
-				// model is sent as declared "neither", which is what the boxes show.
-				if (this.capabilityKey !== '') {
-					payload.modelCapabilities = {
-						[this.capabilityKey]:
-							this.modelCapabilities[this.capabilityKey] || [],
-					}
-				}
+				this.attachModelCapabilities(payload)
 				await patchLlmSettings(payload)
 				// The residency and data-use statements are saved with the provider.
 				await this.$refs.declarations?.save()
