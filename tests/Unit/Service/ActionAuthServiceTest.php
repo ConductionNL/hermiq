@@ -219,6 +219,31 @@ class ActionAuthServiceTest extends TestCase {
 	}//end testMalformedMatrixFallsBackToDeny()
 
 	/**
+	 * The stored matrix normalises exactly: unreadable or non-object JSON is empty,
+	 * a non-string action or non-list groups entry is dropped, and groups keep their
+	 * first occurrence of each non-empty string, in order.
+	 *
+	 * @return void
+	 */
+	public function testTheStoredMatrixNormalisesExactly(): void {
+		$stored = [
+			'{oops',
+			'"text"',
+			'[["a"]]',
+			'{"a.b":["x","","x",3,"y",null,["z"]],"c.d":"admin","e.f":[],"7":["q"]}',
+		];
+		$read = [];
+		foreach ($stored as $json) {
+			$config = $this->createMock(originalClassName: IAppConfig::class);
+			$config->method('getValueString')->willReturn($json);
+			$read[] = (new ActionAuthService(appConfig: $config, groupManager: $this->groupManager))->getMatrix();
+		}
+
+		$this->assertSame(expected: [[], [], [], ['a.b' => ['x', 'y'], 'e.f' => []]], actual: $read);
+
+	}//end testTheStoredMatrixNormalisesExactly()
+
+	/**
 	 * `getAllowedGroups` returns ["admin"] for an unknown action.
 	 *
 	 * @return void
