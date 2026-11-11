@@ -101,15 +101,6 @@ class SetupController extends Controller {
 	private const DEFAULT_ENDPOINT = 'http://host.docker.internal:11434';
 
 	/**
-	 * Hosts an LLM endpoint may point at. Keeps the probe from becoming an SSRF
-	 * primitive — the realistic Ollama locations in a Nextcloud deployment are
-	 * the loopback interface or the Docker host gateway.
-	 *
-	 * @var array<int, string>
-	 */
-	private const ALLOWED_LLM_HOSTS = ['localhost', '127.0.0.1', '::1', 'host.docker.internal'];
-
-	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
@@ -281,9 +272,7 @@ class SetupController extends Controller {
 		// Skipping IS choosing "None", so both keys are written: an older
 		// runbook may read either one.
 		if ($actionId === 'skip-demo-data') {
-			$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
-			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
-			return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
+			return $this->declineDemoData();
 		}
 
 		return new JSONResponse(
@@ -309,12 +298,44 @@ class SetupController extends Controller {
 	 * @spec openspec/changes/wizard-dataset-card-load/specs/first-time-setup/spec.md
 	 */
 	private function loadDataset(string $actionId): JSONResponse {
+		$picked = $this->pickedDataset(actionId: $actionId);
+		if ($picked instanceof JSONResponse) {
+			return $picked;
+		}
+
+		// 🔴 NO SILENT DEFAULT. Importing here because the operator clicked Run
+		// one step early would plant example objects nobody asked for.
+		if ($picked === '') {
+			return new JSONResponse(
+				data: ['success' => false, 'message' => 'Pick a dataset first.'],
+				statusCode: Http::STATUS_BAD_REQUEST,
+			);
+		}
+
+		if ($picked === DemoDataService::NONE_DATASET) {
+			return $this->declineDemoData();
+		}
+
+		return $this->importDataset(picked: $picked);
+	}//end loadDataset()
+
+	/**
+	 * The dataset to load: the one the card posted, else the stored pick, else —
+	 * for the legacy action only — the shipped dataset; or the refusal of a posted
+	 * dataset no dataset answers to.
+	 *
+	 * The card's Load button names its dataset in the body. An older wizard
+	 * posts nothing and relies on the pick stored a step earlier. Nothing is
+	 * stored before the load succeeds: a failed load must leave the step
+	 * open for an operator who asked for data and got none.
+	 *
+	 * @param string $actionId The action that asked.
+	 *
+	 * @return string|JSONResponse The dataset id ('' when none is chosen), or the refusal.
+	 */
+	private function pickedDataset(string $actionId): string|JSONResponse {
 		$picked = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
 
-		// The card's Load button names its dataset in the body. An older wizard
-		// posts nothing and relies on the pick stored a step earlier. Nothing is
-		// stored before the load succeeds: a failed load must leave the step
-		// open for an operator who asked for data and got none.
 		$posted = $this->request->getParam('dataset');
 		if ($posted !== null) {
 			$refusal = $this->refuseDataset(value: $posted);
@@ -331,47 +352,63 @@ class SetupController extends Controller {
 			$picked = DemoDataService::DEMO_DATASET;
 		}
 
-		// 🔴 NO SILENT DEFAULT. Importing here because the operator clicked Run
-		// one step early would plant example objects nobody asked for.
-		if ($picked === '') {
-			return new JSONResponse(
-				data: ['success' => false, 'message' => 'Pick a dataset first.'],
-				statusCode: Http::STATUS_BAD_REQUEST,
-			);
-		}
+		return $picked;
+	}//end pickedDataset()
 
-		if ($picked === DemoDataService::NONE_DATASET) {
-			$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
-			$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
+	/**
+	 * Record that no example data is wanted, which closes both the choice and the load step.
+	 *
+	 * Skipping IS choosing "None", so both keys are written: an older runbook
+	 * may read either one.
+	 *
+	 * @return JSONResponse `{ success: true, message }`.
+	 */
+	private function declineDemoData(): JSONResponse {
+		$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
+		$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
 
-			return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
-		}
+		return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
+	}//end declineDemoData()
 
+	/**
+	 * Import the picked dataset and record the pick; a failed import is reported, and stores nothing.
+	 *
+	 * @param string $picked The dataset id.
+	 *
+	 * @return JSONResponse `{ success, message }`.
+	 */
+	private function importDataset(string $picked): JSONResponse {
 		try {
 			$imported = $this->demoDataService->install();
 		} catch (\Throwable $e) {
-			$this->logger->error(
-				'Hermiq setup install-demo-data failed: ' . $e->getMessage(),
-				['app' => Application::APP_ID, 'exception' => $e]
-			);
-			return new JSONResponse(
-				data: ['success' => false, 'message' => 'Could not import the demo data: ' . $e->getMessage()],
-				statusCode: Http::STATUS_INTERNAL_SERVER_ERROR,
-			);
+			return $this->importFailed(error: $e);
 		}
 
 		// Loading IS choosing the set, so the pick is recorded too.
 		$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, $picked);
 		$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'installed');
 
-		return new JSONResponse(
-			data: [
-				'success' => true,
-				'message' => 'Imported ' . $imported['objects'] . ' demo object(s).',
-			]
+		return new JSONResponse(data: ['success' => true, 'message' => 'Imported ' . $imported['objects'] . ' demo object(s).']);
+	}//end importDataset()
+
+	/**
+	 * Log a failed import and report it.
+	 *
+	 * @param \Throwable $error Why the import failed.
+	 *
+	 * @return JSONResponse `{ success: false, message }` with a 500.
+	 */
+	private function importFailed(\Throwable $error): JSONResponse {
+		$this->logger->error(
+			'Hermiq setup install-demo-data failed: ' . $error->getMessage(),
+			['app' => Application::APP_ID, 'exception' => $error]
 		);
 
-	}//end loadDataset()
+		return new JSONResponse(
+			data: ['success' => false, 'message' => 'Could not import the demo data: ' . $error->getMessage()],
+			statusCode: Http::STATUS_INTERNAL_SERVER_ERROR,
+		);
+	}//end importFailed()
 
 	/**
 	 * Refuse a posted dataset id no dataset answers to.
@@ -407,12 +444,9 @@ class SetupController extends Controller {
 	 * @return JSONResponse `{ success, message }`.
 	 */
 	private function testLlm(): JSONResponse {
-		$base = trim($this->config(key: 'llmendpoint'));
-		if ($base === '') {
-			$base = self::DEFAULT_ENDPOINT;
-		}
-
-		if ($this->isAllowedEndpoint(endpoint: $base) === false) {
+		$base = $this->llmEndpoint();
+		$probe = new LlmEndpointProbe(clientService: $this->clientService);
+		if ($probe->isAllowedEndpoint(endpoint: $base) === false) {
 			return new JSONResponse(
 				data: [
 					'success' => false,
@@ -422,87 +456,85 @@ class SetupController extends Controller {
 			);
 		}
 
-		$url = rtrim($base, '/') . '/api/tags';
+		return $this->probeModels(probe: $probe, url: rtrim($base, '/') . '/api/tags');
+	}//end testLlm()
 
+	/**
+	 * The configured LLM endpoint, or the default Ollama endpoint when none is set.
+	 *
+	 * @return string The endpoint URL.
+	 */
+	private function llmEndpoint(): string {
+		$base = trim($this->config(key: 'llmendpoint'));
+		if ($base === '') {
+			return self::DEFAULT_ENDPOINT;
+		}
+
+		return $base;
+	}//end llmEndpoint()
+
+	/**
+	 * Ask an allow-listed host for its models and answer with what it advertises;
+	 * an unreachable host (or any failure on the way) is reported, never thrown.
+	 *
+	 * @param LlmEndpointProbe $probe The probe.
+	 * @param string $url The `/api/tags` URL of an allow-listed endpoint.
+	 *
+	 * @return JSONResponse `{ success, message }`.
+	 */
+	private function probeModels(LlmEndpointProbe $probe, string $url): JSONResponse {
 		try {
-			$client = $this->clientService->newClient();
-			// Opt this single request past Nextcloud's local-address guard: the LLM host is a
-			// loopback / Docker-gateway service (the realistic Ollama location), and the host is
-			// already constrained to the ALLOWED_LLM_HOSTS allow-list above, so this is not an
-			// open SSRF. The global guard stays on for every other request.
-			$response = $client->get(
-				$url,
-				[
-					'timeout' => 5,
-					'connect_timeout' => 3,
-					'nextcloud' => ['allow_local_address' => true],
-				]
-			);
-			$decoded = json_decode((string)$response->getBody(), true);
-
-			$models = [];
-			foreach (($decoded['models'] ?? []) as $model) {
-				$name = (string)($model['name'] ?? '');
-				if ($name !== '') {
-					$models[] = $name;
-				}
-			}
-
-			if ($models === []) {
-				return new JSONResponse(
-					data: ['success' => false, 'message' => 'Reachable, but the host advertises no models. Pull a model on the Ollama host first.']
-				);
-			}
-
-			$this->appConfig->setValueString(Application::APP_ID, 'defaultmodel', $models[0]);
-			$this->appConfig->setValueString(Application::APP_ID, 'setup_llm_tested', '1');
-
-			$sample = implode(', ', array_slice($models, 0, 4));
-			$plural = 's';
-			if (count($models) === 1) {
-				$plural = '';
-			}
-
-			return new JSONResponse(
-				data: [
-					'success' => true,
-					'message' => sprintf(
-						'Connected — %d model%s (%s). Default set to "%s".',
-						count($models),
-						$plural,
-						$sample,
-						$models[0],
-					),
-				]
-			);
+			return $this->modelsAnswer(models: $probe->advertisedModels(url: $url));
 		} catch (Throwable $e) {
 			$this->logger->debug('[Hermiq] LLM test failed: ' . $e->getMessage());
 			return new JSONResponse(
 				data: ['success' => false, 'message' => 'Not reachable: ' . $e->getMessage()]
 			);
 		}//end try
-
-	}//end testLlm()
+	}//end probeModels()
 
 	/**
-	 * Whether an LLM endpoint URL is a well-formed http(s) URL pointing at an allow-listed host.
+	 * The answer to a reachable host: no models, or the first one recorded as the
+	 * default and the LLM step marked done.
 	 *
-	 * @param string $endpoint The endpoint URL.
+	 * @param array<int, string> $models The advertised model names.
 	 *
-	 * @return bool True when the endpoint may be probed.
+	 * @return JSONResponse `{ success, message }`.
 	 */
-	private function isAllowedEndpoint(string $endpoint): bool {
-		$parts = parse_url($endpoint);
-		if ($parts === false || isset($parts['scheme']) === false || isset($parts['host']) === false) {
-			return false;
+	private function modelsAnswer(array $models): JSONResponse {
+		if ($models === []) {
+			return new JSONResponse(
+				data: ['success' => false, 'message' => 'Reachable, but the host advertises no models. Pull a model on the Ollama host first.']
+			);
 		}
 
-		if (in_array(strtolower($parts['scheme']), ['http', 'https'], true) === false) {
-			return false;
+		$this->appConfig->setValueString(Application::APP_ID, 'defaultmodel', $models[0]);
+		$this->appConfig->setValueString(Application::APP_ID, 'setup_llm_tested', '1');
+
+		return new JSONResponse(data: ['success' => true, 'message' => $this->connectedMessage(models: $models)]);
+	}//end modelsAnswer()
+
+	/**
+	 * `Connected — N model(s) (first four). Default set to "first".`
+	 *
+	 * @param array<int, string> $models The advertised model names (at least one).
+	 *
+	 * @return string The message.
+	 */
+	private function connectedMessage(array $models): string {
+		$plural = 's';
+		if (count($models) === 1) {
+			$plural = '';
 		}
 
-		return in_array(strtolower($parts['host']), self::ALLOWED_LLM_HOSTS, true);
-	}//end isAllowedEndpoint()
+		return sprintf(
+			'Connected — %d model%s (%s). Default set to "%s".',
+			count($models),
+			$plural,
+			implode(', ', array_slice($models, 0, 4)),
+			$models[0],
+		);
+	}//end connectedMessage()
 
 	/**
 	 * Read a Hermiq app-config string value.
