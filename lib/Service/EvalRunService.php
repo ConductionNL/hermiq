@@ -255,7 +255,7 @@ class EvalRunService {
 	): array {
 		$trigger = $this->triggerFor(dataset: $dataset, agent: $agent);
 		$trigger->agentVersionId = $agentVersionId;
-		$trigger->regressionThresholdOverride = $regressionThresholdOverride;
+		$trigger->thresholdOverride = $regressionThresholdOverride;
 		$trigger->baseline = $baseline;
 
 		return $this->runTriggered(trigger: $trigger);
@@ -623,7 +623,7 @@ class EvalRunService {
 			'organisation' => $trigger->organisation,
 			'datasetId' => $trigger->datasetId(),
 			'agentVersionId' => $trigger->agentVersionId,
-			'thresholdOverride' => $trigger->regressionThresholdOverride,
+			'thresholdOverride' => $trigger->thresholdOverride,
 			'startedAt' => $trigger->startedAt,
 		];
 
