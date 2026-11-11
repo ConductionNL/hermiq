@@ -41,6 +41,8 @@ class AgentDraftServiceTest extends TestCase {
 	 * The service: a catalogue of three tools, an organisation that allows only
 	 * ollama/qwen2.5, and a person who is in the group legal only.
 	 *
+	 * @param array<string, mixed>|null $policy The effective model policy, or null for that default.
+	 *
 	 * @return AgentDraftService
 	 */
 	private function service(?array $policy = null): AgentDraftService {
