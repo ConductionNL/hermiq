@@ -94,14 +94,14 @@ class SkillController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
+	public const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
 
 	/**
 	 * Safe git-ref pattern (hermiq-github-store).
 	 *
 	 * @var string
 	 */
-	private const REF_PATTERN = '/^[A-Za-z0-9._\/-]{1,255}$/';
+	public const REF_PATTERN = '/^[A-Za-z0-9._\/-]{1,255}$/';
 
 	/**
 	 * Constructor.
@@ -399,28 +399,11 @@ class SkillController extends Controller {
 			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill github search failed: ' . $e->getMessage(), ['exception' => $e]);
-			return new JSONResponse(
-				[
-					'outcome' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
-					'cards' => [],
-					'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-					'brokerUsed' => false,
-					'rateLimited' => false,
-				],
-				Http::STATUS_OK
-			);
+			$result = GitHubSkillStore::UNREACHABLE;
 		}
 
-		return new JSONResponse(
-			[
-				'outcome' => $result['outcome'],
-				'cards' => $result['cards'],
-				'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-				'brokerUsed' => $result['brokerUsed'],
-				'rateLimited' => $result['rateLimited'],
-			],
-			Http::STATUS_OK
-		);
+		$store = new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
+		return new JSONResponse($store->searchAnswer(result: $result), Http::STATUS_OK);
 
 	}//end githubSearch()
 
@@ -437,10 +420,6 @@ class SkillController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential input-validation guards
-	 *   (auth, owner/repo/ref patterns, fetch outcome) each add a branch; the flow
-	 *   itself is a straight guard-then-delegate path.
 	 */
 	public function githubInstall(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -448,54 +427,25 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		$refRaw = $this->request->getParam('ref');
-		$ref = null;
-		if (is_string($refRaw) === true && $refRaw !== '') {
-			$ref = $refRaw;
-		}
-
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
-		}
-
-		if ($ref !== null && preg_match(self::REF_PATTERN, $ref) !== 1) {
-			return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
+		$target = new GitHubSkillTarget(
+			owner: (string)($this->request->getParam('owner') ?? ''),
+			repo: (string)($this->request->getParam('repo') ?? ''),
+			ref: $this->request->getParam('ref'),
+			actingUserId: $user->getUID(),
+			credentialId: $this->credentialParam()
+		);
+		$refusal = $target->refusal();
+		if ($refusal !== null) {
+			return new JSONResponse(['error' => $refusal], Http::STATUS_BAD_REQUEST);
 		}
 
 		try {
-			$package = $this->catalogService->fetchPackageFile(
-				kind: GitHubTemplateCatalogService::KIND_SKILL,
-				owner: $owner,
-				repo: $repo,
-				ref: $ref,
-				actingUserId: $user->getUID(),
-				credentialId: $this->credentialParam()
-			);
-			if ($package === null) {
+			$store = new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
+			$skill = $store->install(target: $target);
+			if ($skill === null) {
 				return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
 			}
 
-			// Skill-package-multifile: a published skill repo carries its auxiliary
-			// files as sibling blobs. Fetching only the package file reconstructed a
-			// bare SKILL.md and silently dropped every references/ and learnings.md
-			// entry — install must mirror what publish emitted.
-			$auxFiles = $this->catalogService->fetchAuxFiles(
-				kind: GitHubTemplateCatalogService::KIND_SKILL,
-				owner: $owner,
-				repo: $repo,
-				ref: $ref,
-				actingUserId: $user->getUID(),
-				credentialId: $this->credentialParam()
-			);
-
-			$skill = $this->marketplaceService->installFromSource(
-				package: $package,
-				source: 'hub',
-				createdBy: $user->getUID(),
-				auxFiles: $auxFiles
-			);
 			return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill github install failed: ' . $e->getMessage(), ['exception' => $e]);
