@@ -25,7 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\AiFeature;
 
 use OCA\Hermiq\Service\AiFeature\DocumentFeatureRun;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Chat\AttachmentTextReader;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
@@ -87,7 +87,7 @@ class DocumentFeatureRunTest extends TestCase {
 	 * @return DocumentFeatureRun The run.
 	 */
 	private function featureRun(string $lifecycle = 'enabled', ?GuardrailPolicyService $guardrails = null): DocumentFeatureRun {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlugForGate')->willReturnCallback(
 			static function () use ($lifecycle): ?ObjectEntity {
 				if ($lifecycle === '') {

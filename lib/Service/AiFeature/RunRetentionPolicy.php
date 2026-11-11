@@ -36,7 +36,6 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiFeatureService;
 use OCP\IAppConfig;
 use Throwable;
 
@@ -91,11 +90,11 @@ class RunRetentionPolicy {
 	 * Constructor.
 	 *
 	 * @param IAppConfig $appConfig App config holding the default and the report.
-	 * @param AiFeatureService $features Reads a feature's own shorter retention.
+	 * @param AiFeatureLookup $features Reads a feature's own shorter retention.
 	 */
 	public function __construct(
 		private readonly IAppConfig $appConfig,
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 	) {
 	}//end __construct()
 

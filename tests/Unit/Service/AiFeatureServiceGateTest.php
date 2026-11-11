@@ -22,6 +22,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -107,7 +108,7 @@ class AiFeatureServiceGateTest extends TestCase {
 	 */
 	public function testTheGateReadSkipsRbacAndKeepsTenancy(): void {
 		$objects = $this->objectService([$this->feature('course-recommendations'), 'not-an-entity', $this->feature('message-translation')]);
-		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class));
+		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class), lookup: new AiFeatureLookup($objects));
 
 		$found = $service->findBySlugForGate(slug: 'message-translation');
 
@@ -124,7 +125,7 @@ class AiFeatureServiceGateTest extends TestCase {
 	 */
 	public function testTheOrdinaryReadKeepsRbac(): void {
 		$objects = $this->objectService([$this->feature('message-translation')]);
-		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class));
+		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class), lookup: new AiFeatureLookup($objects));
 
 		$this->assertNull($service->findBySlug(slug: 'message-translation'));
 		$this->assertSame([['rbac' => true, 'multitenancy' => true]], $objects->reads);
@@ -138,7 +139,7 @@ class AiFeatureServiceGateTest extends TestCase {
 	 */
 	public function testEmptyAndUnknownSlugsAreNull(): void {
 		$objects = $this->objectService([$this->feature('message-translation')]);
-		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class));
+		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class), lookup: new AiFeatureLookup($objects));
 
 		$this->assertNull($service->findBySlugForGate(slug: ''));
 		$this->assertNull($service->findBySlugForGate(slug: 'lesson-authoring'));
@@ -155,7 +156,7 @@ class AiFeatureServiceGateTest extends TestCase {
 	public function testTheOrdinaryReadFindsAVisibleFeature(): void {
 		$objects = $this->objectService([$this->feature('course-recommendations'), $this->feature('message-translation')]);
 		$objects->rbacSeesRows = true;
-		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class));
+		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class), lookup: new AiFeatureLookup($objects));
 
 		$found = $service->findBySlug(slug: 'message-translation');
 
@@ -177,7 +178,7 @@ class AiFeatureServiceGateTest extends TestCase {
 	 */
 	public function testTheGateReadQueriesTheSameRows(): void {
 		$objects = $this->objectService([$this->feature('message-translation')]);
-		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class));
+		$service = new AiFeatureService(objectService: $objects, appConfig: $this->createMock(IAppConfig::class), lookup: new AiFeatureLookup($objects));
 
 		$service->findBySlugForGate(slug: 'message-translation');
 
