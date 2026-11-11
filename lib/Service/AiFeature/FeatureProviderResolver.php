@@ -114,48 +114,72 @@ class FeatureProviderResolver {
 	public function bindingFor(string $featureSlug, string $organisation): array {
 		$data = $this->featureData(featureSlug: $featureSlug);
 
+		$pair = $this->featurePair(data: $data) ?? $this->policyPair(organisation: $organisation);
+
+		return [
+			'provider' => ($pair['provider'] ?? null),
+			'model' => ($pair['model'] ?? null),
+		] + $this->requirementsOf(data: $data) + [
+			'source' => ($pair['source'] ?? self::SOURCE_INSTANCE),
+		];
+
+	}//end bindingFor()
+
+	/**
+	 * The feature's own provider and model, when it binds both.
+	 *
+	 * @param array<string, mixed> $data The feature's object data.
+	 *
+	 * @return array{provider: string, model: string, source: string}|null
+	 */
+	private function featurePair(array $data): ?array {
 		$provider = trim((string)($data['provider'] ?? ''));
 		$model = trim((string)($data['model'] ?? ''));
+		if ($provider === '' || $model === '') {
+			return null;
+		}
+
+		return ['provider' => $provider, 'model' => $model, 'source' => self::SOURCE_FEATURE];
+	}//end featurePair()
+
+	/**
+	 * The organisation's effective policy default, when it names both a provider and
+	 * a model.
+	 *
+	 * @param string $organisation The organisation the run belongs to.
+	 *
+	 * @return array{provider: string, model: string, source: string}|null
+	 */
+	private function policyPair(string $organisation): ?array {
+		$default = ($this->modelPolicy->effectivePolicyFor(organisation: $organisation)['defaultModel'] ?? null);
+		if (is_array($default) === false
+			|| (string)($default['provider'] ?? '') === ''
+			|| (string)($default['model'] ?? '') === ''
+		) {
+			return null;
+		}
+
+		return ['provider' => (string)$default['provider'], 'model' => (string)$default['model'], 'source' => self::SOURCE_POLICY];
+	}//end policyPair()
+
+	/**
+	 * The residency and redaction the feature demands, whatever the pair's source.
+	 *
+	 * @param array<string, mixed> $data The feature's object data.
+	 *
+	 * @return array{requiredResidency: string|null, requiresRedaction: bool}
+	 */
+	private function requirementsOf(array $data): array {
 		$requiredResidency = trim((string)($data['requiredResidency'] ?? ''));
 		if ($requiredResidency === '') {
 			$requiredResidency = null;
 		}
 
-		$requiresRedaction = (($data['requiresRedaction'] ?? false) === true);
-
-		if ($provider !== '' && $model !== '') {
-			return [
-				'provider' => $provider,
-				'model' => $model,
-				'requiredResidency' => $requiredResidency,
-				'requiresRedaction' => $requiresRedaction,
-				'source' => self::SOURCE_FEATURE,
-			];
-		}
-
-		$default = ($this->modelPolicy->effectivePolicyFor(organisation: $organisation)['defaultModel'] ?? null);
-		if (is_array($default) === true
-			&& (string)($default['provider'] ?? '') !== ''
-			&& (string)($default['model'] ?? '') !== ''
-		) {
-			return [
-				'provider' => (string)$default['provider'],
-				'model' => (string)$default['model'],
-				'requiredResidency' => $requiredResidency,
-				'requiresRedaction' => $requiresRedaction,
-				'source' => self::SOURCE_POLICY,
-			];
-		}
-
 		return [
-			'provider' => null,
-			'model' => null,
 			'requiredResidency' => $requiredResidency,
-			'requiresRedaction' => $requiresRedaction,
-			'source' => self::SOURCE_INSTANCE,
+			'requiresRedaction' => (($data['requiresRedaction'] ?? false) === true),
 		];
-
-	}//end bindingFor()
+	}//end requirementsOf()
 
 	/**
 	 * Apply both pre-call gates to an already-resolved pair, in the specified
@@ -190,57 +214,104 @@ class FeatureProviderResolver {
 		string $model,
 		?string $documentReference = null,
 	): array {
-		if ($this->modelPolicy->isAllowed(organisation: $organisation, provider: $provider, model: $model) === false) {
-			$orgLabel = $organisation;
-			if ($orgLabel === '') {
-				$orgLabel = '(instance-wide)';
-			}
+		return $this->enforce(
+			check: new FeatureRunCheck(
+				featureSlug: $featureSlug,
+				organisation: $organisation,
+				provider: $provider,
+				model: $model,
+				documentReference: $documentReference
+			)
+		);
+	}//end enforceForRun()
 
-			throw new ModelPolicyViolationException(
-				message: sprintf(
-					"Refused by the %s check: organisation '%s' does not permit provider '%s' model '%s' for feature '%s'.",
-					ModelPolicyViolationException::STEP,
-					$orgLabel,
-					$provider,
-					$model,
-					$featureSlug
-				),
-				code: 422
-			);
-		}
+	/**
+	 * Apply the pre-call gates to one run, as `enforceForRun()` describes, and return
+	 * what the run must record.
+	 *
+	 * @param FeatureRunCheck $check The run.
+	 *
+	 * @return array<string, mixed>
+	 *         The disclosure to copy onto the run.
+	 *
+	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
+	 * @throws ResidencyViolationException When the provider runs somewhere the feature forbids.
+	 * @throws RedactionRequiredException When the document has not been redacted and the feature requires it.
+	 *
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
+	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
+	 */
+	public function enforce(FeatureRunCheck $check): array {
+		$this->enforceModelPolicy(check: $check);
 
 		// Models-no-training-guarantee: data use is checked after the model policy
 		// and before residency, and refuses before any request is built.
-		$this->dataUse?->enforce(organisation: $organisation, provider: $provider);
+		$this->dataUse?->enforce(organisation: $check->organisation, provider: $check->provider);
 
-		$binding = $this->bindingFor(featureSlug: $featureSlug, organisation: $organisation);
+		$binding = $this->bindingFor(featureSlug: $check->featureSlug, organisation: $check->organisation);
+		$declaration = $this->enforceResidency(check: $check, binding: $binding);
 
-		$declaration = $this->residency->forProvider(provider: $provider);
+		$redaction = $this->enforceRedaction(
+			check: $check,
+			requiresRedaction: (($binding['requiresRedaction'] ?? false) === true)
+		);
+
+		return $this->disclosure(check: $check, declaration: $declaration) + ['redaction' => $redaction];
+	}//end enforce()
+
+	/**
+	 * The first gate: the resolved pair must be inside the organisation's effective policy.
+	 *
+	 * @param FeatureRunCheck $check The run.
+	 *
+	 * @return void
+	 *
+	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
+	 */
+	private function enforceModelPolicy(FeatureRunCheck $check): void {
+		if ($this->modelPolicy->isAllowed(organisation: $check->organisation, provider: $check->provider, model: $check->model) === true) {
+			return;
+		}
+
+		throw new ModelPolicyViolationException(
+			message: sprintf(
+				"Refused by the %s check: organisation '%s' does not permit provider '%s' model '%s' for feature '%s'.",
+				ModelPolicyViolationException::STEP,
+				$check->organisationLabel(),
+				$check->provider,
+				$check->model,
+				$check->featureSlug
+			),
+			code: 422
+		);
+	}//end enforceModelPolicy()
+
+	/**
+	 * The residency gate: the provider's declaration, refused when the feature demands
+	 * a residency the provider does not have.
+	 *
+	 * @param FeatureRunCheck $check The run.
+	 * @param array<string, mixed> $binding The feature's binding.
+	 *
+	 * @return array{provider: string, residency: string, location: string} The provider's declaration.
+	 *
+	 * @throws ResidencyViolationException When the provider runs somewhere the feature forbids.
+	 */
+	private function enforceResidency(FeatureRunCheck $check, array $binding): array {
+		$declaration = $this->residency->forProvider(provider: $check->provider);
 		$required = ($binding['requiredResidency'] ?? null);
 
 		if ($required !== null && $declaration['residency'] !== $required) {
 			throw new ResidencyViolationException(
-				featureSlug: $featureSlug,
+				featureSlug: $check->featureSlug,
 				requiredResidency: $required,
 				actualResidency: $declaration['residency'],
-				provider: $provider
+				provider: $check->provider
 			);
 		}
 
-		$redaction = $this->enforceRedaction(
-			featureSlug: $featureSlug,
-			requiresRedaction: (($binding['requiresRedaction'] ?? false) === true),
-			documentReference: $documentReference
-		);
-
-		return $this->disclosure(
-			featureSlug: $featureSlug,
-			provider: $provider,
-			model: $model,
-			declaration: $declaration,
-			redaction: $redaction
-		);
-	}//end enforceForRun()
+		return $declaration;
+	}//end enforceResidency()
 
 	/**
 	 * The fourth and last gate: a feature that reads no unredacted document is not
@@ -254,9 +325,8 @@ class FeatureProviderResolver {
 	 * and needs the model to see that text, so treating it as evidence of redaction
 	 * would mark a run safe on the strength of having sent exactly what it must not.
 	 *
-	 * @param string $featureSlug The AI feature slug.
+	 * @param FeatureRunCheck $check The run, with the document it was handed when there is one.
 	 * @param bool $requiresRedaction Whether the feature declares the requirement.
-	 * @param string|null $documentReference The document this run was handed, when there is one.
 	 *
 	 * @return array{required: bool, satisfied: bool, status: string, redactedAt: string, reference: string}
 	 *         What the run records about the document it read.
@@ -266,44 +336,16 @@ class FeatureProviderResolver {
 	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
 	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-missing-redaction-client-must-fail-closed
 	 */
-	private function enforceRedaction(string $featureSlug, bool $requiresRedaction, ?string $documentReference): array {
-		$reference = trim((string)$documentReference);
+	private function enforceRedaction(FeatureRunCheck $check, bool $requiresRedaction): array {
+		$reference = $check->documentReference();
 
-		if ($requiresRedaction === false || $reference === '') {
-			return [
-				'required' => $requiresRedaction,
-				'satisfied' => true,
-				'status' => 'not-applicable',
-				'redactedAt' => '',
-				'reference' => $reference,
-			];
-		}
-
-		if ($this->redaction === null) {
-			throw new RedactionRequiredException(
-				featureSlug: $featureSlug,
-				documentReference: $reference,
-				reason: 'the redaction client (filinq) is not available to this instance'
-			);
-		}
-
-		$outcome = $this->redaction->outcomeFor(documentReference: $reference);
-
-		if ($outcome['available'] === false || $outcome['redacted'] === false) {
-			$reason = $outcome['reason'];
-			if ($reason === '') {
-				$reason = sprintf("the recorded redaction state is '%s'", $outcome['status']);
-			}
-
-			throw new RedactionRequiredException(
-				featureSlug: $featureSlug,
-				documentReference: $reference,
-				reason: $reason
-			);
+		$outcome = ['status' => 'not-applicable', 'redactedAt' => ''];
+		if ($requiresRedaction === true && $reference !== '') {
+			$outcome = $this->redactionOutcome(check: $check);
 		}
 
 		return [
-			'required' => true,
+			'required' => $requiresRedaction,
 			'satisfied' => true,
 			'status' => $outcome['status'],
 			'redactedAt' => $outcome['redactedAt'],
@@ -311,6 +353,53 @@ class FeatureProviderResolver {
 		];
 
 	}//end enforceRedaction()
+
+	/**
+	 * The recorded redaction of the run's document, refused when there is no client to
+	 * ask or the document has no redaction to show.
+	 *
+	 * @param FeatureRunCheck $check The run, with a document.
+	 *
+	 * @return array<string, mixed> The redaction outcome.
+	 *
+	 * @throws RedactionRequiredException When the document has no redaction to show.
+	 */
+	private function redactionOutcome(FeatureRunCheck $check): array {
+		if ($this->redaction === null) {
+			throw new RedactionRequiredException(
+				featureSlug: $check->featureSlug,
+				documentReference: $check->documentReference(),
+				reason: 'the redaction client (filinq) is not available to this instance'
+			);
+		}
+
+		$outcome = $this->redaction->outcomeFor(documentReference: $check->documentReference());
+		if ($outcome['available'] === false || $outcome['redacted'] === false) {
+			throw new RedactionRequiredException(
+				featureSlug: $check->featureSlug,
+				documentReference: $check->documentReference(),
+				reason: $this->unredactedReason(outcome: $outcome)
+			);
+		}
+
+		return $outcome;
+	}//end redactionOutcome()
+
+	/**
+	 * Why a document counts as not redacted: the reader's reason, or its recorded state.
+	 *
+	 * @param array<string, mixed> $outcome The redaction outcome.
+	 *
+	 * @return string
+	 */
+	private function unredactedReason(array $outcome): string {
+		$reason = $outcome['reason'];
+		if ($reason === '') {
+			$reason = sprintf("the recorded redaction state is '%s'", $outcome['status']);
+		}
+
+		return $reason;
+	}//end unredactedReason()
 
 	/**
 	 * What a completed run records about where it went: the feature, the provider
@@ -329,9 +418,7 @@ class FeatureProviderResolver {
 	 */
 	public function disclosureFor(string $featureSlug, string $provider, string $model): array {
 		return $this->disclosure(
-			featureSlug: $featureSlug,
-			provider: $provider,
-			model: $model,
+			check: new FeatureRunCheck(featureSlug: $featureSlug, organisation: '', provider: $provider, model: $model),
 			declaration: $this->residency->forProvider(provider: $provider)
 		);
 
@@ -340,39 +427,26 @@ class FeatureProviderResolver {
 	/**
 	 * Shape one disclosure record.
 	 *
-	 * @param string $featureSlug The AI feature slug.
-	 * @param string $provider The provider actually used.
-	 * @param string $model The model actually used.
+	 * @param FeatureRunCheck $check The run: its feature, and the provider and model actually used.
 	 * @param array{provider: string, residency: string, location: string} $declaration The provider's declaration.
-	 * @param array<string, mixed> $redaction What the redaction gate found, when the run passed through it.
 	 *
 	 * @return array<string, mixed>
 	 *         The disclosure.
 	 */
-	private function disclosure(
-		string $featureSlug,
-		string $provider,
-		string $model,
-		array $declaration,
-		array $redaction = [],
-	): array {
+	private function disclosure(FeatureRunCheck $check, array $declaration): array {
 		$disclosure = [
-			'feature' => $featureSlug,
-			'provider' => $provider,
-			'model' => $model,
+			'feature' => $check->featureSlug,
+			'provider' => $check->provider,
+			'model' => $check->model,
 			'residency' => $declaration['residency'],
 			'location' => $declaration['location'],
 		];
 
 		// The data-use term in force, copied so a later declaration cannot rewrite it.
 		if ($this->dataUse !== null) {
-			$terms = $this->dataUse->declaration(provider: $provider);
+			$terms = $this->dataUse->declaration(provider: $check->provider);
 			$disclosure['dataUse'] = $terms['dataUse'];
 			$disclosure['termsReference'] = $terms['termsReference'];
-		}
-
-		if ($redaction !== []) {
-			$disclosure['redaction'] = $redaction;
 		}
 
 		return $disclosure;
