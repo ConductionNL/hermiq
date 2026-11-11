@@ -33,6 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\AgentsByName;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -62,13 +63,6 @@ class SeedIncidents implements IRepairStep {
 	 * @var string
 	 */
 	private const INCIDENT_SCHEMA = 'incident';
-
-	/**
-	 * OpenRegister schema slug for Agent objects.
-	 *
-	 * @var string
-	 */
-	private const AGENT_SCHEMA = 'agent';
 
 	/**
 	 * Constructor.
@@ -247,21 +241,6 @@ class SeedIncidents implements IRepairStep {
 	 * @return ObjectEntity|null The matching agent, or null when none exists.
 	 */
 	private function findAgentByName(ObjectService $objectService, string $name): ?ObjectEntity {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
+		return AgentsByName::find(objectService: $objectService, name: $name);
 	}//end findAgentByName()
 }//end class

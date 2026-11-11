@@ -40,6 +40,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\AgentsByName;
 use OCA\Hermiq\Repair\Support\FirstOrganisation;
 use OCA\Hermiq\Repair\Support\OrganisationSeed;
 use OCA\Hermiq\Service\BudgetService;
@@ -76,13 +77,6 @@ class SeedBudgets implements IRepairStep {
 	 * @var string
 	 */
 	private const BUDGET_SCHEMA = 'agentbudget';
-
-	/**
-	 * OpenRegister schema slug for agent objects.
-	 *
-	 * @var string
-	 */
-	private const AGENT_SCHEMA = 'agent';
 
 	/**
 	 * The organisation-scoped budget seeded on the first organisation.
@@ -342,21 +336,6 @@ class SeedBudgets implements IRepairStep {
 	 * @return ObjectEntity|null The matching agent, or null when none exists.
 	 */
 	private function findAgentByName(ObjectService $objectService, string $name): ?ObjectEntity {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AGENT_SCHEMA)
-			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
+		return AgentsByName::find(objectService: $objectService, name: $name);
 	}//end findAgentByName()
 }//end class
