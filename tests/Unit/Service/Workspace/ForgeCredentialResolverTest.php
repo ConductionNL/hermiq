@@ -141,6 +141,70 @@ final class ForgeCredentialResolverTest extends TestCase {
 	}//end testAProxyOnlyCredentialCannotPush()
 
 	/**
+	 * The forge credential is looked up personal-only, the model credential in the
+	 * agent's organisation, both with the agent's pins; a model credential that is
+	 * not personal is no reason to refuse.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 */
+	public function testTheLookupsCarryTheOrganisationAndPins(): void {
+		$asked = [];
+		$scopes = $this->createMock(CredentialScopeResolver::class);
+		$scopes->method('resolve')->willReturnCallback(
+			static function (string $provider, string $actingUserId, ?string $organisation, ?array $pinned) use (&$asked): ?string {
+				$asked[] = [$provider, $actingUserId, $organisation, $pinned];
+				return ($provider === 'github' ? 'forge-alice' : 'model-org');
+			}
+		);
+		$scopes->method('scopeOfCredential')->willReturnCallback(
+			static fn (string $credentialId): string => ($credentialId === 'forge-alice' ? 'personal' : 'organisation')
+		);
+		$scopes->method('ownerOfCredential')->willReturnCallback(
+			static fn (string $credentialId): ?string => ($credentialId === 'forge-alice' ? 'alice' : 'admin')
+		);
+		$pins = ['github' => 'forge-alice', 'anthropic' => 'model-org'];
+
+		$result = $this->resolver(credentials: [], scopes: $scopes)->resolve(
+			ownerUid: 'alice',
+			agent: $this->agent(data: ['provider' => ' anthropic ', 'credentialIds' => $pins], organisation: 'org-1')
+		);
+
+		self::assertSame('forge-alice', $result['credentialId']);
+		self::assertSame([['github', 'alice', null, $pins], ['anthropic', 'alice', 'org-1', $pins]], $asked);
+	}//end testTheLookupsCarryTheOrganisationAndPins()
+
+	/**
+	 * A pin the run may not use refuses the push with its own sentence; pins that
+	 * are not a list count as none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 */
+	public function testARefusedPinRefusesThePush(): void {
+		$asked = [];
+		$scopes = $this->createMock(CredentialScopeResolver::class);
+		$scopes->method('resolve')->willReturnCallback(
+			static function (string $provider, string $actingUserId, ?string $organisation, ?array $pinned) use (&$asked): ?string {
+				$asked[] = $pinned;
+				throw new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException('nope');
+			}
+		);
+
+		try {
+			$this->resolver(credentials: [], scopes: $scopes)->resolve(ownerUid: 'alice', agent: $this->agent(data: ['credentialIds' => 'not-a-list']));
+			self::fail('Expected a refusal.');
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::CREDENTIAL_SCOPE_REFUSED, $e->getErrorCode());
+			self::assertSame('The credential pinned on this agent cannot be used by this run, so nothing was pushed.', $e->getMessage());
+		}
+
+		self::assertSame([null], $asked);
+	}//end testARefusedPinRefusesThePush()
+
+	/**
 	 * Assert a call is refused with a code, and that the message holds no secret.
 	 *
 	 * @param string   $code The expected error code.
