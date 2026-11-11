@@ -110,9 +110,6 @@
   "src/modals/ScheduleWebhookSecretDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/modals/SkillDraftEditModal.vue": {
@@ -172,9 +169,6 @@
   },
   "src/modals/WebhookSecretDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
