@@ -1679,6 +1679,28 @@ export default {
 
 			const payload = {
 				...base,
+				...this.formFields(base),
+			}
+
+			this.applyOptionalFields(payload)
+
+			// Preserve the object id on edit so saveObject issues a PUT.
+			if (this.effectiveAgent && this.effectiveAgent.id) {
+				payload.id = this.effectiveAgent.id
+			}
+			return payload
+		},
+
+		/**
+		 * The fields the form owns, for the payload. On an edit the stored tools are
+		 * carried forward verbatim; on a create the selected grants ride along.
+		 *
+		 * @param {object} base The editable copy of the stored agent.
+		 * @return {object} The form's fields, in the payload's order.
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 */
+		formFields(base) {
+			return {
 				name: this.form.name,
 				description: this.form.description,
 				icon: this.form.icon || '',
@@ -1698,7 +1720,16 @@ export default {
 				...searchAndVoicePayload(this.form),
 				credentialIds: this.form.credentialIds,
 			}
+		},
 
+		/**
+		 * Add the tuning, sharing and limit fields the form sets, in that order.
+		 *
+		 * @param {object} payload The payload being built.
+		 * @return {void}
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 */
+		applyOptionalFields(payload) {
 			assignDefined(payload, tuningFields(this.form))
 			Object.assign(
 				payload,
@@ -1709,12 +1740,6 @@ export default {
 				),
 			)
 			assignDefined(payload, limitFields(this.form))
-
-			// Preserve the object id on edit so saveObject issues a PUT.
-			if (this.effectiveAgent && this.effectiveAgent.id) {
-				payload.id = this.effectiveAgent.id
-			}
-			return payload
 		},
 
 		appSlugOf,
