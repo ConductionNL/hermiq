@@ -165,103 +165,102 @@ class SkillBundleSerializer {
 	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function toBundle(array $skills, ?array &$dropped = null, array $agents = [], ?array &$droppedAgents = null): array {
-		$tree = [];
-		$entries = [];
-		$agentEntries = [];
-		$dropped = [];
-		$droppedAgents = [];
+		$skillPick = $this->selectEntries(items: $skills, kind: new BundleKind(name: 'skill', cap: self::MAX_SKILLS));
+		$dropped = $skillPick->dropped;
+		$skillFiles = $this->skillFiles(accepted: $skillPick->accepted);
 
-		foreach ($this->selectEntries(items: $skills, cap: self::MAX_SKILLS, kind: 'skill', dropped: $dropped) as $accepted) {
-			$name = $accepted['name'];
-
-			$files = $this->skillSerializer->toPackageFiles(skill: $accepted['item']);
-			foreach ($files as $path => $contents) {
-				$tree[self::SKILLS_PREFIX . $name . '/' . $path] = $contents;
-			}
-
-			$entries[] = [
-				'name' => $name,
-				'files' => (count($files) - 1),
-			];
-		}//end foreach
-
-		foreach ($this->selectEntries(items: $agents, cap: self::MAX_AGENTS, kind: 'agent', dropped: $droppedAgents) as $accepted) {
-			// The whole payload is opaque data to this class — verbatim through,
-			// same as a skill's frontmatter/body. Only `uuid`/OR envelope fields
-			// are stripped: a bundle installed onto a DIFFERENT instance must get
-			// a fresh identity, not silently collide with (or overwrite) whatever
-			// already holds that uuid there.
-			$payload = $accepted['item'];
-			unset($payload['uuid'], $payload['id'], $payload['@self']);
-			$tree[self::AGENTS_PREFIX . $accepted['name'] . '.json'] = ($this->encode(value: $payload));
-
-			$agentEntries[] = ['name' => $accepted['name']];
-		}//end foreach
+		$agentPick = $this->selectEntries(items: $agents, kind: new BundleKind(name: 'agent', cap: self::MAX_AGENTS));
+		$droppedAgents = $agentPick->dropped;
+		$agentFiles = $this->agentFiles(accepted: $agentPick->accepted);
 
 		$manifest = [
 			'formatVersion' => self::FORMAT_VERSION,
-			'skills' => $entries,
-			'agents' => $agentEntries,
+			'skills' => $skillFiles['entries'],
+			'agents' => $agentFiles['entries'],
 		];
 
-		return array_merge([self::MANIFEST_FILE => $this->encode(value: $manifest)], $tree);
+		return array_merge([self::MANIFEST_FILE => $this->encode(value: $manifest)], $skillFiles['tree'], $agentFiles['tree']);
 
 	}//end toBundle()
 
 	/**
-	 * Validate, de-duplicate and cap a set of publishable items.
+	 * The bundle files and manifest entries of the accepted skills.
 	 *
-	 * Skills and agents were selected by two loops that differed only in the
-	 * noun in their log lines. One implementation, not two: the two channels
-	 * enforce the SAME three rules — a name that survives {@see normaliseName()},
-	 * a cap, and no two items landing on one path — and a rule that has to be
-	 * re-typed per channel is a rule that will eventually only hold on one of
-	 * them.
+	 * @param list<array{name: string, item: array<string, mixed>}> $accepted The accepted skills.
 	 *
-	 * @param array<int,mixed> $items The requested payloads; a non-array entry is skipped silently.
-	 * @param int $cap The maximum number of accepted entries for this channel.
-	 * @param string $kind The channel noun, for diagnostics only ('skill' / 'agent').
-	 * @param array<int,array<string,string>> $dropped OUT: every item NOT accepted, as `{name, reason}`.
+	 * @return array{tree: array<string, string>, entries: list<array{name: string, files: int}>}
 	 *
-	 * @return array<int,array{name:string,item:array<string,mixed>}> The accepted items, in request order.
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
-	private function selectEntries(array $items, int $cap, string $kind, array &$dropped): array {
-		$accepted = [];
-		$usedNames = [];
+	private function skillFiles(array $accepted): array {
+		$tree = [];
+		$entries = [];
+		foreach ($accepted as $entry) {
+			$files = $this->skillSerializer->toPackageFiles(skill: $entry['item']);
+			foreach ($files as $path => $contents) {
+				$tree[self::SKILLS_PREFIX . $entry['name'] . '/' . $path] = $contents;
+			}
 
+			$entries[] = ['name' => $entry['name'], 'files' => (count($files) - 1)];
+		}
+
+		return ['tree' => $tree, 'entries' => $entries];
+
+	}//end skillFiles()
+
+	/**
+	 * The bundle files and manifest entries of the accepted agents.
+	 *
+	 * The whole payload is opaque data to this class — verbatim through, same as a
+	 * skill's frontmatter/body. Only `uuid`/OR envelope fields are stripped: a bundle
+	 * installed onto a DIFFERENT instance must get a fresh identity, not silently
+	 * collide with (or overwrite) whatever already holds that uuid there.
+	 *
+	 * @param list<array{name: string, item: array<string, mixed>}> $accepted The accepted agents.
+	 *
+	 * @return array{tree: array<string, string>, entries: list<array{name: string}>}
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	private function agentFiles(array $accepted): array {
+		$tree = [];
+		$entries = [];
+		foreach ($accepted as $entry) {
+			$payload = $entry['item'];
+			unset($payload['uuid'], $payload['id'], $payload['@self']);
+			$tree[self::AGENTS_PREFIX . $entry['name'] . '.json'] = ($this->encode(value: $payload));
+
+			$entries[] = ['name' => $entry['name']];
+		}
+
+		return ['tree' => $tree, 'entries' => $entries];
+
+	}//end agentFiles()
+
+	/**
+	 * Accept each array entry in order, up to the kind's cap and once per safe name.
+	 *
+	 * @param array<int, mixed> $items The entries as given.
+	 * @param BundleKind        $kind  The entry kind.
+	 *
+	 * @return BundleSelection The accepted entries and the dropped ones with their reason.
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	private function selectEntries(array $items, BundleKind $kind): BundleSelection {
+		$selection = new BundleSelection(
+			kind: $kind,
+			reject: function (string $what, string $why): void {
+				$this->reject(what: $what, why: $why);
+			}
+		);
 		foreach ($items as $item) {
-			if (is_array($item) === false) {
-				continue;
+			if (is_array($item) === true) {
+				$selection->offer(item: $item, name: $this->normaliseName(name: (string)($item['name'] ?? '')));
 			}
+		}
 
-			$rawName = (string)($item['name'] ?? '');
-			$name = $this->normaliseName(name: $rawName);
-			if ($name === null) {
-				$this->reject(what: $rawName, why: 'not a valid bundled ' . $kind . ' name');
-				$dropped[] = ['name' => $rawName, 'reason' => 'invalid_name'];
-				continue;
-			}
-
-			if (count($accepted) >= $cap) {
-				$this->reject(what: $name, why: 'bundle ' . $kind . ' cap of ' . $cap . ' reached');
-				$dropped[] = ['name' => $name, 'reason' => 'cap_reached'];
-				continue;
-			}
-
-			// Sanitising a name to a safe path component can map two different
-			// items onto one path. Writing both would silently overwrite the
-			// first — a dropped item wearing a successful publish. Reported.
-			if (isset($usedNames[$name]) === true) {
-				$this->reject(what: $rawName, why: $kind . ' path name "' . $name . '" already taken in this bundle');
-				$dropped[] = ['name' => $rawName, 'reason' => 'duplicate_directory_name'];
-				continue;
-			}
-
-			$usedNames[$name] = true;
-			$accepted[] = ['name' => $name, 'item' => $item];
-		}//end foreach
-
-		return $accepted;
+		return $selection;
 	}//end selectEntries()
 
 	/**
@@ -291,17 +290,19 @@ class SkillBundleSerializer {
 	public function fromBundle(array $files): array {
 		return $this->parseDeclared(
 			declared: $this->readManifest(files: $files),
-			cap: self::MAX_SKILLS,
-			kind: 'skill',
-			load: function (string $name) use ($files): ?array {
-				$own = $this->entriesFor(name: $name, files: $files);
-				if (isset($own[SkillSerializer::SKILL_FILE]) === false) {
-					$this->reject(what: $name, why: 'declared in the manifest but has no ' . SkillSerializer::SKILL_FILE);
-					return null;
-				}
+			kind: new BundleKind(
+				name: 'skill',
+				cap: self::MAX_SKILLS,
+				load: function (string $name) use ($files): ?array {
+					$own = $this->entriesFor(name: $name, files: $files);
+					if (isset($own[SkillSerializer::SKILL_FILE]) === false) {
+						$this->reject(what: $name, why: 'declared in the manifest but has no ' . SkillSerializer::SKILL_FILE);
+						return null;
+					}
 
-				return $this->skillSerializer->fromPackageFiles(files: $own);
-			}
+					return $this->skillSerializer->fromPackageFiles(files: $own);
+				}
+			)
 		);
 	}//end fromBundle()
 
@@ -322,24 +323,26 @@ class SkillBundleSerializer {
 	public function agentsFromBundle(array $files): array {
 		return $this->parseDeclared(
 			declared: $this->readAgentManifest(files: $files),
-			cap: self::MAX_AGENTS,
-			kind: 'agent',
-			load: function (string $name) use ($files): ?array {
-				$path = self::AGENTS_PREFIX . $name . '.json';
-				$raw = ($files[$path] ?? null);
-				if (is_string($raw) === false || $raw === '') {
-					$this->reject(what: $name, why: 'declared in the manifest but ' . $path . ' is missing');
-					return null;
-				}
+			kind: new BundleKind(
+				name: 'agent',
+				cap: self::MAX_AGENTS,
+				load: function (string $name) use ($files): ?array {
+					$path = self::AGENTS_PREFIX . $name . '.json';
+					$raw = ($files[$path] ?? null);
+					if (is_string($raw) === false || $raw === '') {
+						$this->reject(what: $name, why: 'declared in the manifest but ' . $path . ' is missing');
+						return null;
+					}
 
-				$decoded = json_decode($raw, true);
-				if (is_array($decoded) === false) {
-					$this->reject(what: $name, why: $path . ' is not valid JSON');
-					return null;
-				}
+					$decoded = json_decode($raw, true);
+					if (is_array($decoded) === false) {
+						$this->reject(what: $name, why: $path . ' is not valid JSON');
+						return null;
+					}
 
-				return $decoded;
-			}
+					return $decoded;
+				}
+			)
 		);
 	}//end agentsFromBundle()
 
@@ -350,18 +353,17 @@ class SkillBundleSerializer {
 	 * rules — the declared name must survive {@see normaliseName()}, the channel
 	 * cap applies, and an entry that will not load is dropped rather than half
 	 * parsed — and differ only in HOW one entry's bytes become a payload. That
-	 * difference is the `$load` callback; everything around it is shared, so a
+	 * difference is the kind's `load` callback; everything around it is shared, so a
 	 * name that is unsafe to use as a path is rejected identically on both
 	 * channels instead of in two places that have to be kept in step.
 	 *
 	 * @param array<int,string>|null $declared The manifest's declared names, or null when the manifest is absent/unsupported.
-	 * @param int $cap The channel's maximum entry count.
-	 * @param string $kind The channel noun, for diagnostics only ('skill' / 'agent').
-	 * @param callable $load Loader taking the validated name and returning the payload, or null when it rejected the entry itself.
+	 * @param BundleKind             $kind     The channel: its noun for diagnostics, its cap, and its loader (taking the
+	 *                                         validated name and returning the payload, or null when it rejected the entry).
 	 *
 	 * @return array<int, array<string, mixed>> One parsed payload per accepted entry.
 	 */
-	private function parseDeclared(?array $declared, int $cap, string $kind, callable $load): array {
+	private function parseDeclared(?array $declared, BundleKind $kind): array {
 		if ($declared === null) {
 			return [];
 		}
@@ -370,16 +372,16 @@ class SkillBundleSerializer {
 		foreach ($declared as $name) {
 			$safeName = $this->normaliseName(name: $name);
 			if ($safeName === null) {
-				$this->reject(what: $name, why: 'manifest name is not a safe bundled ' . $kind . ' name');
+				$this->reject(what: $name, why: 'manifest name is not a safe bundled ' . $kind->name . ' name');
 				continue;
 			}
 
-			if (count($parsed) >= $cap) {
-				$this->reject(what: $safeName, why: 'bundle ' . $kind . ' cap of ' . $cap . ' reached');
+			if (count($parsed) >= $kind->cap) {
+				$this->reject(what: $safeName, why: 'bundle ' . $kind->name . ' cap of ' . $kind->cap . ' reached');
 				continue;
 			}
 
-			$payload = $load($safeName);
+			$payload = ($kind->load)($safeName);
 			if ($payload === null) {
 				continue;
 			}
