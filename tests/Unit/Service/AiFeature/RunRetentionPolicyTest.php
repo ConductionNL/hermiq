@@ -169,6 +169,40 @@ class RunRetentionPolicyTest extends TestCase {
 	}//end testAFeatureMayKeepLess()
 
 	/**
+	 * A feature's own retention applies only when it is a number within the range;
+	 * a blank, padded, unknown or unreadable feature falls back to the default.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
+	 */
+	public function testAFeatureRetentionAppliesOnlyWithinTheRange(): void {
+		$features = [
+			'low' => ['retentionDays' => 1],
+			'high' => ['retentionDays' => '3650'],
+			'zero' => ['retentionDays' => 0],
+			'over' => ['retentionDays' => 3651],
+			'text' => ['retentionDays' => 'week'],
+			'none' => [],
+			'frac' => ['retentionDays' => '7.9'],
+		];
+		$config = $this->appConfig(initial: ['runRetentionDays' => '30']);
+		$policy = new RunRetentionPolicy(appConfig: $config, features: $this->features(features: $features));
+		$failing = $this->createMock(originalClassName: AiFeatureService::class);
+		$failing->method('findBySlug')->willThrowException(new \RuntimeException(message: 'register gone'));
+		$broken = new RunRetentionPolicy(appConfig: $this->appConfig(initial: ['runRetentionDays' => '30']), features: $failing);
+
+		$days = [];
+		foreach (['low', ' high ', 'zero', 'over', 'text', 'none', 'frac', 'unknown', '  ', null] as $slug) {
+			$days[] = $policy->retentionDaysFor(featureSlug: $slug);
+		}
+
+		$days[] = $broken->retentionDaysFor(featureSlug: 'low');
+		$this->assertSame(expected: [1, 3650, 30, 30, 30, 30, 7, 30, 30, 30, 30], actual: $days);
+
+	}//end testAFeatureRetentionAppliesOnlyWithinTheRange()
+
+	/**
 	 * A retention outside the permitted range is refused rather than stored, so a
 	 * typed zero cannot quietly delete every run before anybody reads it.
 	 *
