@@ -177,27 +177,50 @@ final class StartFields {
 			return null;
 		}
 
-		$options = [];
-		foreach ((array)($raw['options'] ?? []) as $option) {
-			if (is_scalar($option) === true && trim((string)$option) !== '') {
-				$options[] = trim((string)$option);
-			}
-		}
-
-		$label = trim((string)($raw['label'] ?? ''));
-		if ($label === '') {
-			$label = $key;
-		}
-
 		return [
 			'key' => $key,
-			'label' => $label,
+			'label' => $this->labelOf(raw: $raw, key: $key),
 			'type' => $type,
-			'options' => $options,
+			'options' => $this->optionsOf(options: ($raw['options'] ?? [])),
 			'required' => (($raw['required'] ?? false) === true),
 			'default' => $this->answerText(value: ($raw['default'] ?? null)),
 		];
 	}//end normalise()
+
+	/**
+	 * A field's trimmed options, without blanks or non-scalars.
+	 *
+	 * @param mixed $options The stored options (a single value counts as one).
+	 *
+	 * @return array<int, string>
+	 */
+	private function optionsOf(mixed $options): array {
+		$kept = [];
+		foreach ((array)$options as $option) {
+			if (is_scalar($option) === true && trim((string)$option) !== '') {
+				$kept[] = trim((string)$option);
+			}
+		}
+
+		return $kept;
+	}//end optionsOf()
+
+	/**
+	 * A field's trimmed label, or its key when it has none.
+	 *
+	 * @param array<string, mixed> $raw The stored entry.
+	 * @param string               $key The field key.
+	 *
+	 * @return string
+	 */
+	private function labelOf(array $raw, string $key): string {
+		$label = trim((string)($raw['label'] ?? ''));
+		if ($label === '') {
+			return $key;
+		}
+
+		return $label;
+	}//end labelOf()
 
 	/**
 	 * Why one answer is not acceptable, or null.
