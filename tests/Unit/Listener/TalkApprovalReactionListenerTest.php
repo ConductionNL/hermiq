@@ -214,6 +214,121 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	}//end makeApproval()
 
 	/**
+	 * Every reaction outcome makes exactly the recorded calls, in order: the
+	 * reviewer check, the decision, the record and the confirmation with its agent.
+	 *
+	 * @return void
+	 */
+	public function testEveryReactionOutcomeMakesTheExactCalls(): void {
+		$cases = [
+			'approve as agent' => [$this->makeReaction(emoji: '👍', actorId: 'users/alice'), 'pending', 'agent-7', true],
+			'approve no agent' => [$this->makeReaction(emoji: '👍'), 'pending', '', true],
+			'deny' => [$this->makeReaction(emoji: '👎'), 'pending', 'agent-7', true],
+			'non-reviewer' => [$this->makeReaction(emoji: '👍', actorId: 'mallory'), 'pending', 'agent-7', false],
+			'undo' => [$this->makeReaction(emoji: '👍', type: 'Undo'), 'pending', 'agent-7', true],
+			'decided' => [$this->makeReaction(emoji: '👎'), 'approved', 'agent-7', true],
+		];
+		$seen = [];
+		foreach ($cases as $name => [$event, $status, $agentId, $reviewer]) {
+			$approval = $this->makeApproval(status: $status);
+			if ($agentId !== '') {
+				$approval->setObject(array_merge($approval->getObject(), ['agentId' => $agentId]));
+			}
+
+			$seen[$name] = $this->recordedCalls(event: $event, approval: $approval, reviewer: $reviewer);
+		}
+
+		$approved = '✅ Approved — the run has been released.';
+		$this->assertSame(
+			expected: [
+				'approve as agent' => [
+					'isReviewer appr-1 alice',
+					'approve appr-1 alice',
+					'recordDecidedVia appr-1 reaction',
+					'post room1 ' . $approved . ' agent-7',
+				],
+				'approve no agent' => [
+					'isReviewer appr-1 alice',
+					'approve appr-1 alice',
+					'recordDecidedVia appr-1 reaction',
+					'post room1 ' . $approved . ' -',
+				],
+				'deny' => [
+					'isReviewer appr-1 alice',
+					'deny appr-1 alice Denied by reaction in Talk',
+					'recordDecidedVia appr-1 reaction',
+					'post room1 🚫 Denied — the run will not execute. agent-7',
+				],
+				'non-reviewer' => ['isReviewer appr-1 mallory'],
+				'undo' => [
+					'isReviewer appr-1 alice',
+					'post room1 ↩️ Removing a reaction does not undo a decision — an approval is a governance record, not a toggle. -',
+				],
+				'decided' => ['isReviewer appr-1 alice', 'post room1 ℹ️ That request was already approved — this reaction changed nothing. -'],
+			],
+			actual: $seen
+		);
+
+	}//end testEveryReactionOutcomeMakesTheExactCalls()
+
+	/**
+	 * The calls one reaction makes on fresh recording doubles.
+	 *
+	 * @param Event        $event    The reaction.
+	 * @param ObjectEntity $approval The bound approval.
+	 * @param bool         $reviewer Whether the reactor reviews it.
+	 *
+	 * @return list<string>
+	 */
+	private function recordedCalls(Event $event, ObjectEntity $approval, bool $reviewer): array {
+		$calls = [];
+		$bridge = $this->createMock(originalClassName: TalkBridge::class);
+		$bridge->method('isAvailable')->willReturn(true);
+		$bridge->method('postToRoom')->willReturnCallback(
+			function (string $roomToken, string $message, ?string $agentId = null) use (&$calls): bool {
+				$calls[] = 'post ' . $roomToken . ' ' . $message . ' ' . ($agentId ?? '-');
+				return true;
+			}
+		);
+		$binding = $this->createMock(originalClassName: TalkApprovalBinding::class);
+		$binding->method('findByMessageId')->willReturn($approval);
+		$binding->method('recordDecidedVia')->willReturnCallback(
+			function (string $approvalUuid, string $via) use (&$calls): void {
+				$calls[] = 'recordDecidedVia ' . $approvalUuid . ' ' . $via;
+			}
+		);
+		$approvals = $this->createMock(originalClassName: ApprovalService::class);
+		$approvals->method('isReviewer')->willReturnCallback(
+			function (ObjectEntity $subject, string $uid) use (&$calls, $reviewer): bool {
+				$calls[] = 'isReviewer ' . $subject->getUuid() . ' ' . $uid;
+				return $reviewer;
+			}
+		);
+		$approvals->method('approve')->willReturnCallback(
+			function (ObjectEntity $subject, string $deciderUid) use (&$calls): array {
+				$calls[] = 'approve ' . $subject->getUuid() . ' ' . $deciderUid;
+				return ['status' => 'approved'];
+			}
+		);
+		$approvals->method('deny')->willReturnCallback(
+			function (ObjectEntity $subject, string $deciderUid, ?string $reason) use (&$calls): void {
+				$calls[] = 'deny ' . $subject->getUuid() . ' ' . $deciderUid . ' ' . $reason;
+			}
+		);
+
+		$listener = new TalkApprovalReactionListener(
+			bridge: $bridge,
+			approvalBinding: $binding,
+			approvalService: $approvals,
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
+		);
+		$listener->handle(event: $event);
+
+		return $calls;
+
+	}//end recordedCalls()
+
+	/**
 	 * 🔴 A non-reviewer's reaction decides nothing.
 	 *
 	 * The property this whole feature rests on.
