@@ -306,6 +306,24 @@ export default {
 			this.messages.push({ role: 'user', text: message })
 			this.draft = ''
 
+			try {
+				await this.takeReply(await this.postConverse(this.conversePayload(message)))
+			} catch (e) {
+				this.error = t('hermiq', 'The agent service is unreachable.')
+			} finally {
+				this.sending = false
+			}
+		},
+
+		/**
+		 * The converse request for one message: the message, the object it is
+		 * about, and the session it continues.
+		 *
+		 * @param {string} message The trimmed message.
+		 * @return {object} The payload.
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		conversePayload(message) {
 			const payload = {
 				message,
 				context: {
@@ -318,43 +336,56 @@ export default {
 			if (this.sessionId) {
 				payload.sessionId = this.sessionId
 			}
+			return payload
+		},
 
-			try {
-				const res = await fetch(
-					generateUrl('/apps/hermiq/api/assistant/converse'),
-					{
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							requesttoken: getRequestToken(),
-						},
-						body: JSON.stringify(payload),
+		/**
+		 * POST a converse request.
+		 *
+		 * @param {object} payload The payload.
+		 * @return {Promise<Response>} The response.
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		postConverse(payload) {
+			return fetch(
+				generateUrl('/apps/hermiq/api/assistant/converse'),
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						requesttoken: getRequestToken(),
 					},
-				)
-				const body = await res.json()
-				if (res.status === 503) {
-					this.unavailable = true
-					return
-				}
-				if (!res.ok) {
-					this.error =
-						body?.message || t('hermiq', 'The agent could not answer.')
-					return
-				}
-				this.sessionId = body?.sessionId || this.sessionId
-				// Carry the grounding fact onto the reply itself, not just onto the
-				// tab: a reply scrolled away from the notice must still be readable
-				// as ungrounded.
-				this.messages.push({
-					role: 'agent',
-					text: body?.reply || '',
-					grounded: this.hasBoundedContext,
-				})
-			} catch (e) {
-				this.error = t('hermiq', 'The agent service is unreachable.')
-			} finally {
-				this.sending = false
+					body: JSON.stringify(payload),
+				},
+			)
+		},
+
+		/**
+		 * Land the converse answer on the tab: an unavailable agent, a refusal, or
+		 * the reply. The reply carries the grounding fact itself, not just the tab:
+		 * a reply scrolled away from the notice must still be readable as
+		 * ungrounded.
+		 *
+		 * @param {Response} res The converse response.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		async takeReply(res) {
+			const body = await res.json()
+			if (res.status === 503) {
+				this.unavailable = true
+				return
 			}
+			if (!res.ok) {
+				this.error = body?.message || t('hermiq', 'The agent could not answer.')
+				return
+			}
+			this.sessionId = body?.sessionId || this.sessionId
+			this.messages.push({
+				role: 'agent',
+				text: body?.reply || '',
+				grounded: this.hasBoundedContext,
+			})
 		},
 	},
 }
