@@ -237,6 +237,7 @@ import {
 	updateSkillDraftContent,
 } from '../api/skills.js'
 import { useSkillStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillDraftReview',
@@ -406,10 +407,7 @@ export default {
 				this.skill = skill || null
 				this.drafts = drafts
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the drafts.')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not load the drafts.'))
 			} finally {
 				this.loading = false
 			}
@@ -428,10 +426,7 @@ export default {
 				await proposeSkillImprovement(this.skillId)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Propose failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Propose failed.'))
 			} finally {
 				this.busy = false
 			}
@@ -455,10 +450,7 @@ export default {
 				// as SkillRowActions' qualify.
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Accept failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Accept failed.'))
 			} finally {
 				this.busy = false
 			}
@@ -489,10 +481,7 @@ export default {
 				this.showEditor = false
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Edit failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Edit failed.'))
 			} finally {
 				this.busy = false
 			}
@@ -520,10 +509,7 @@ export default {
 				// other surfaces (same pattern as doAccept).
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Reject failed.')
+				this.error = errorMessage(e, this.t('hermiq', 'Reject failed.'))
 			} finally {
 				this.busy = false
 			}
