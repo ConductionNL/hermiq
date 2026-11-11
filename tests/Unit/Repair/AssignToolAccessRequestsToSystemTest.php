@@ -147,6 +147,10 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 			 * @return ObjectEntity
 			 */
 			public function update(ObjectEntity $entity): ObjectEntity {
+				if (str_starts_with((string)$entity->getUuid(), 'fail-') === true) {
+					throw new RuntimeException(message: 'row locked');
+				}
+
 				$this->updated[] = [(string)$entity->getUuid(), $entity->getOwner()];
 				return $entity;
 			}
@@ -199,6 +203,40 @@ class AssignToolAccessRequestsToSystemTest extends TestCase {
 		}
 
 	}//end testRequesterOwnedRequestsBecomeSystemOwned()
+
+	/**
+	 * A non-object entry is skipped, a failing update is reported and the rest
+	 * carry on, and the summary counts only the requests handed over.
+	 *
+	 * @return void
+	 */
+	public function testAFailedHandOverIsReportedAndTheRestCarryOn(): void {
+		$failing = new ObjectEntity();
+		$failing->setUuid('fail-1');
+		$failing->setOwner('carol');
+		$this->requests = ['junk' => 'not an object', 'fail-1' => $failing] + $this->requests;
+		$lines = [];
+		$output = $this->createMock(originalClassName: IOutput::class);
+		foreach (['warning', 'info'] as $level) {
+			$output->method($level)->willReturnCallback(
+				function (string $message) use (&$lines, $level): void {
+					$lines[] = $level . ' ' . $message;
+				}
+			);
+		}
+
+		$this->step()->run($output);
+
+		$this->assertSame(expected: [['req-alice', '__system__'], ['req-bob', '__system__']], actual: $this->updated);
+		$this->assertSame(
+			expected: [
+				'warning Could not hand tool-access request fail-1 to the system: row locked',
+				'info 2 tool-access request(s) given the system owner.',
+			],
+			actual: $lines
+		);
+
+	}//end testAFailedHandOverIsReportedAndTheRestCarryOn()
 
 	/**
 	 * A second run changes nothing.
