@@ -1,0 +1,729 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AgentMemoryPanel.addFact > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "addMemory(["a-1","likes tea"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.addFact > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "addMemory(["a-1","likes tea"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.addFact > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "addMemory(["a-1","likes tea"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.addFact > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "addMemory(["a-1","likes tea"])",
+    "memory={"ok":1}",
+    "newEntry=""",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.confirmForget > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "forgetMemoryEntry(["a-1","e-2"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.confirmForget > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "forgetMemoryEntry(["a-1","e-2"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.confirmForget > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "forgetMemoryEntry(["a-1","e-2"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.confirmForget > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "forgetMemoryEntry(["a-1","e-2"])",
+    "memory={"ok":1}",
+    "forgetTarget=null",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.consolidate > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "consolidateMemory(["a-1"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.consolidate > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "consolidateMemory(["a-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.consolidate > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "consolidateMemory(["a-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.consolidate > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "consolidateMemory(["a-1"])",
+    "memory={"ok":1}",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.saveCorrection > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "correctMemoryEntry(["a-1","e-1","fixed"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.saveCorrection > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "correctMemoryEntry(["a-1","e-1","fixed"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.saveCorrection > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "correctMemoryEntry(["a-1","e-1","fixed"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentMemoryPanel.saveCorrection > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "correctMemoryEntry(["a-1","e-1","fixed"])",
+    "memory={"ok":1}",
+    "editingId=""",
+    "editText=""",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentTemplateRowActions.doApprove > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveAgentTemplate(["tpl-1"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentTemplateRowActions.doApprove > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveAgentTemplate(["tpl-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentTemplateRowActions.doApprove > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveAgentTemplate(["tpl-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AgentTemplateRowActions.doApprove > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveAgentTemplate(["tpl-1"])",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureBindingModal.save > binds the instance default when no provider is chosen 1`] = `
+[
+  "busy=true",
+  "error=""",
+  "bindAiFeature(["f-9",{"provider":"","model":"","requiredResidency":""}])",
+  "$emit saved",
+  "busy=false",
+]
+`;
+
+exports[`AiFeatureBindingModal.save > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "bindAiFeature(["f-9",{"provider":"claude","model":"m-1","requiredResidency":"eu"}])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureBindingModal.save > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "bindAiFeature(["f-9",{"provider":"claude","model":"m-1","requiredResidency":"eu"}])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureBindingModal.save > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "bindAiFeature(["f-9",{"provider":"claude","model":"m-1","requiredResidency":"eu"}])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureBindingModal.save > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "bindAiFeature(["f-9",{"provider":"claude","model":"m-1","requiredResidency":"eu"}])",
+    "$emit saved",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doAcknowledge > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acknowledgeAiFeature(["summary"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doAcknowledge > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acknowledgeAiFeature(["summary"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doAcknowledge > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acknowledgeAiFeature(["summary"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doAcknowledge > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acknowledgeAiFeature(["summary"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doDisable > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "disableAiFeature(["f-1"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doDisable > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "disableAiFeature(["f-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doDisable > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "disableAiFeature(["f-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doDisable > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "disableAiFeature(["f-1"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doEnable > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "enableAiFeature(["f-1"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doEnable > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "enableAiFeature(["f-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doEnable > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "enableAiFeature(["f-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doEnable > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "enableAiFeature(["f-1"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doWithdraw > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "withdrawAiFeature(["f-1"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doWithdraw > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "withdrawAiFeature(["f-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doWithdraw > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "withdrawAiFeature(["f-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`AiFeatureRegister.doWithdraw > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "withdrawAiFeature(["f-1"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doApprove > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveSkill(["sk-1"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doApprove > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveSkill(["sk-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doApprove > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveSkill(["sk-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doApprove > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "approveSkill(["sk-1"])",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doPublish > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "publishSkill(["sk-3"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doPublish > reports a structured publish refusal without throwing 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "publishSkill(["sk-3"])",
+    "error="Hub unavailable"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doPublish > reports a structured publish refusal without throwing 2`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "publishSkill(["sk-3"])",
+    "error="Publishing is not available."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doPublish > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "publishSkill(["sk-3"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doPublish > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "publishSkill(["sk-3"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doPublish > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "publishSkill(["sk-3"])",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doQualify > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "qualifySkill(["sk-2"])",
+    "error="Unknown error"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doQualify > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "qualifySkill(["sk-2"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doQualify > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "qualifySkill(["sk-2"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillRowActions.doQualify > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "qualifySkill(["sk-2"])",
+    "scorecardResult={"ok":1}",
+    "busy=false",
+  ],
+}
+`;
