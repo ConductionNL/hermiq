@@ -122,15 +122,10 @@ class SkillDraftController extends Controller {
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
 	 */
 	public function propose(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$skill = $this->loadOwnedSkill(skillId: $id, uid: $user->getUID());
-		if ($skill === null) {
-			// 404 (never 403) so a non-owner cannot even confirm the skill exists.
-			return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
+		// 404 (never 403) so a non-owner cannot even confirm the skill exists.
+		$skill = $this->skills()->ownedBy(user: $this->userSession->getUser(), skillId: $id);
+		if ($skill instanceof JSONResponse) {
+			return $skill;
 		}
 
 		try {
@@ -140,6 +135,19 @@ class SkillDraftController extends Controller {
 			return new JSONResponse(['error' => 'Propose failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
+		return $this->proposalResponse(result: $result);
+
+	}//end propose()
+
+	/**
+	 * The response to a proposal: 429 for a kill-switch or budget block (the gate is
+	 * evidence, never bypassed), 422 when no draft came of it, the draft otherwise.
+	 *
+	 * @param array $result The proposal result.
+	 *
+	 * @return JSONResponse
+	 */
+	private function proposalResponse(array $result): JSONResponse {
 		$status = (string)$result['status'];
 		if ($status === 'blocked_killswitch' || $status === 'blocked_budget') {
 			// Structured 429-style block: the gate is evidence, never bypassed.
@@ -157,7 +165,7 @@ class SkillDraftController extends Controller {
 			]
 		);
 
-	}//end propose()
+	}//end proposalResponse()
 
 	/**
 	 * The skill's drafts, newest first (the SkillDetail review surface's list).
@@ -176,7 +184,7 @@ class SkillDraftController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$skill = $this->loadVisibleSkill(skillId: $id);
+		$skill = $this->skills()->visible(skillId: $id);
 		if ($skill === null) {
 			return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
 		}
@@ -264,8 +272,49 @@ class SkillDraftController extends Controller {
 			return new JSONResponse(['error' => 'The draft has no pending approval'], Http::STATUS_CONFLICT);
 		}
 
+		$outcome = $this->approveAs(approval: $approval, deciderUid: $user->getUID());
+		if ($outcome instanceof JSONResponse) {
+			return $outcome;
+		}
+
+		if ((string)$outcome['status'] !== 'approved') {
+			return $this->notApprovable(outcome: $outcome);
+		}
+
+		return $this->acceptedResponse(draftId: $id, skillId: (string)($data['skillId'] ?? ''));
+
+	}//end accept()
+
+	/**
+	 * The accepted draft: the skill's new current version and the settled draft.
+	 *
+	 * @param string $draftId The SkillDraft UUID.
+	 * @param string $skillId The Skill UUID.
+	 *
+	 * @return JSONResponse
+	 */
+	private function acceptedResponse(string $draftId, string $skillId): JSONResponse {
+		return new JSONResponse(
+			[
+				'status' => 'accepted',
+				'versionId' => (string)($this->versionService->currentVersionId(skillUuid: $skillId) ?? ''),
+				'draft' => $this->shapeCurrent(draftId: $draftId),
+			]
+		);
+	}//end acceptedResponse()
+
+	/**
+	 * Approve the draft's Approval as the curator, or the refusal: 404 when it vanished
+	 * or fell out of the caller's scope, 500 on any other failure.
+	 *
+	 * @param ObjectEntity $approval The draft's pending Approval.
+	 * @param string $deciderUid The deciding curator.
+	 *
+	 * @return array|JSONResponse The transition outcome, or the refusal.
+	 */
+	private function approveAs(ObjectEntity $approval, string $deciderUid): array|JSONResponse {
 		try {
-			$outcome = $this->approvalService->approve(approval: $approval, deciderUid: $user->getUID());
+			return $this->approvalService->approve(approval: $approval, deciderUid: $deciderUid);
 		} catch (DoesNotExistException $e) {
 			// The approval/draft/skill vanished or fell out of the caller's scope
 			// between the guard and the transition — 404, not a raw 500 on the
@@ -275,30 +324,25 @@ class SkillDraftController extends Controller {
 			$this->logger->error('Hermiq draft accept failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Accept failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
+	}//end approveAs()
 
-		if ((string)$outcome['status'] !== 'approved') {
-			// The transition was refused (e.g. edited draft awaiting re-qualification)
-			// or the Approval was already decided — nothing was applied here.
-			return new JSONResponse(
-				[
-					'error' => 'not_approvable',
-					'status' => (string)$outcome['status'],
-				],
-				Http::STATUS_CONFLICT
-			);
-		}
-
-		$skillId = (string)($data['skillId'] ?? '');
-
+	/**
+	 * The 409 for a transition that was refused (e.g. an edited draft awaiting
+	 * re-qualification) or an Approval already decided — nothing was applied.
+	 *
+	 * @param array $outcome The transition outcome.
+	 *
+	 * @return JSONResponse
+	 */
+	private function notApprovable(array $outcome): JSONResponse {
 		return new JSONResponse(
 			[
-				'status' => 'accepted',
-				'versionId' => (string)($this->versionService->currentVersionId(skillUuid: $skillId) ?? ''),
-				'draft' => $this->shapeCurrent(draftId: $id),
-			]
+				'error' => 'not_approvable',
+				'status' => (string)$outcome['status'],
+			],
+			Http::STATUS_CONFLICT
 		);
-
-	}//end accept()
+	}//end notApprovable()
 
 	/**
 	 * Reject a draft — records any curator-marked bad learnings on the DRAFT
@@ -322,40 +366,17 @@ class SkillDraftController extends Controller {
 
 		[$draft, $user] = $guarded;
 
-		$note = trim((string)$this->request->getParam('note', ''));
-		$refs = $this->request->getParam('rejectedLearningRefs', []);
-		if (is_array($refs) === false) {
-			$refs = [];
+		$rejection = new DraftRejection(
+			draftId: $id,
+			deciderUid: $user->getUID(),
+			note: trim((string)$this->request->getParam('note', '')),
+			refs: $this->rejectedLearningRefs()
+		);
+
+		$refusal = $this->settleRejection(draft: $draft, rejection: $rejection);
+		if ($refusal !== null) {
+			return $refusal;
 		}
-
-		try {
-			if ($refs !== []) {
-				$draft = $this->consolidation->markRejectedLearningRefs(draft: $draft, refs: $refs);
-			}
-
-			$approval = $this->approvalService->loadApproval(uuid: (string)($draft->getObject()['approvalId'] ?? ''));
-			if ($approval !== null) {
-				$this->approvalService->deny(approval: $approval, deciderUid: $user->getUID(), reason: $note);
-			}
-
-			if ($approval === null) {
-				// No Approval yet (e.g. draft still proposed) — settle the draft
-				// directly through the same reconcile path a denial runs.
-				$this->consolidation->rejectDraftByDecision(
-					draftId: $id,
-					deciderUid: $user->getUID(),
-					note: $note,
-					refs: $refs
-				);
-			}
-		} catch (DoesNotExistException $e) {
-			// The approval/draft vanished or fell out of the caller's scope between
-			// the guard and the transition — 404, not a raw 500 (gate-49).
-			return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
-		} catch (Throwable $e) {
-			$this->logger->error('Hermiq draft reject failed: ' . $e->getMessage(), ['exception' => $e]);
-			return new JSONResponse(['error' => 'Reject failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
 
 		return new JSONResponse(
 			[
@@ -365,6 +386,74 @@ class SkillDraftController extends Controller {
 		);
 
 	}//end reject()
+
+	/**
+	 * The learnings the curator marked as bad, or none when the param is not a list.
+	 *
+	 * @return array
+	 */
+	private function rejectedLearningRefs(): array {
+		$refs = $this->request->getParam('rejectedLearningRefs', []);
+		if (is_array($refs) === false) {
+			return [];
+		}
+
+		return $refs;
+	}//end rejectedLearningRefs()
+
+	/**
+	 * Settle the rejection, or the refusal: 404 when the approval or draft vanished or
+	 * fell out of the caller's scope, 500 on any other failure.
+	 *
+	 * @param ObjectEntity $draft The guarded draft.
+	 * @param DraftRejection $rejection The rejection.
+	 *
+	 * @return JSONResponse|null Null when settled.
+	 */
+	private function settleRejection(ObjectEntity $draft, DraftRejection $rejection): ?JSONResponse {
+		try {
+			$this->rejectDraft(draft: $draft, rejection: $rejection);
+		} catch (DoesNotExistException $e) {
+			// The approval/draft vanished or fell out of the caller's scope between
+			// the guard and the transition — 404, not a raw 500 (gate-49).
+			return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq draft reject failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Reject failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		return null;
+	}//end settleRejection()
+
+	/**
+	 * Record the marked learnings on the draft, then deny its Approval, or settle the
+	 * draft directly when it has none yet.
+	 *
+	 * @param ObjectEntity $draft The guarded draft.
+	 * @param DraftRejection $rejection The rejection.
+	 *
+	 * @return void
+	 */
+	private function rejectDraft(ObjectEntity $draft, DraftRejection $rejection): void {
+		if ($rejection->refs !== []) {
+			$draft = $this->consolidation->markRejectedLearningRefs(draft: $draft, refs: $rejection->refs);
+		}
+
+		$approval = $this->approvalService->loadApproval(uuid: (string)($draft->getObject()['approvalId'] ?? ''));
+		if ($approval !== null) {
+			$this->approvalService->deny(approval: $approval, deciderUid: $rejection->deciderUid, reason: $rejection->note);
+			return;
+		}
+
+		// No Approval yet (e.g. draft still proposed) — settle the draft
+		// directly through the same reconcile path a denial runs.
+		$this->consolidation->rejectDraftByDecision(
+			draftId: $rejection->draftId,
+			deciderUid: $rejection->deciderUid,
+			note: $rejection->note,
+			refs: $rejection->refs
+		);
+	}//end rejectDraft()
 
 	/**
 	 * Shared guard for the decision endpoints: resolve the draft, resolve its skill
@@ -392,7 +481,7 @@ class SkillDraftController extends Controller {
 
 		// Visibility through the SKILL (tenant-scoped read): an invisible skill makes
 		// the draft invisible too — 404 BEFORE the action check.
-		$skill = $this->loadVisibleSkill(skillId: (string)($draft->getObject()['skillId'] ?? ''));
+		$skill = $this->skills()->visible(skillId: (string)($draft->getObject()['skillId'] ?? ''));
 		if ($skill === null) {
 			return new JSONResponse(['error' => 'Draft not found'], Http::STATUS_NOT_FOUND);
 		}
@@ -406,49 +495,6 @@ class SkillDraftController extends Controller {
 
 		return [$draft, $user];
 	}//end loadGuardedDraft()
-
-	/**
-	 * Load the skill only if the given user OWNS it (IDOR guard, mirrors
-	 * `SkillMaturityController::loadOwnedSkill()`).
-	 *
-	 * @param string $skillId The Skill UUID.
-	 * @param string $uid The requesting user's UID.
-	 *
-	 * @return ObjectEntity|null The owned skill, or null when absent/not owned.
-	 *
-	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
-	 */
-	private function loadOwnedSkill(string $skillId, string $uid): ?ObjectEntity {
-		$skill = $this->loadVisibleSkill(skillId: $skillId);
-		if ($skill === null) {
-			return null;
-		}
-
-		if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
-			return null;
-		}
-
-		return $skill;
-	}//end loadOwnedSkill()
-
-	/**
-	 * Load the skill within the caller's RBAC visibility (the review actions are
-	 * gated separately by the action matrix).
-	 *
-	 * @param string $skillId The Skill UUID.
-	 *
-	 * @return ObjectEntity|null The visible skill, or null when absent/invisible.
-	 *
-	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-	 */
-	private function loadVisibleSkill(string $skillId): ?ObjectEntity {
-		try {
-			return $this->skillService->getSkill(skillId: $skillId);
-		} catch (Throwable $e) {
-			return null;
-		}
-
-	}//end loadVisibleSkill()
 
 	/**
 	 * Shape a draft ObjectEntity into a UUID + payload response map.
@@ -483,4 +529,13 @@ class SkillDraftController extends Controller {
 
 		return $this->shape(object: $draft);
 	}//end shapeCurrent()
+
+	/**
+	 * The visibility and ownership guard over this controller's skill reads.
+	 *
+	 * @return SkillOwnership
+	 */
+	private function skills(): SkillOwnership {
+		return new SkillOwnership(skillService: $this->skillService, seedCustody: $this->seedCustody);
+	}//end skills()
 }//end class
