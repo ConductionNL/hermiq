@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -221,25 +221,6 @@ class SeedAiFeatures implements IRepairStep {
 	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	private function slugExists(ObjectService $objectService, string $slug): bool {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => $slug], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === $slug) {
-				return true;
-			}
-		}
-
-		return false;
+		return AiFeatureRows::exists(objectService: $objectService, slug: $slug);
 	}//end slugExists()
 }//end class

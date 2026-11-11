@@ -32,6 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -229,25 +230,6 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 * @return ObjectEntity|null The existing row, or null when there is none.
 	 */
 	private function findExisting(ObjectService $objectService): ?ObjectEntity {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => self::FEATURE_SLUG], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === self::FEATURE_SLUG) {
-				return $object;
-			}
-		}
-
-		return null;
+		return AiFeatureRows::find(objectService: $objectService, slug: self::FEATURE_SLUG);
 	}//end findExisting()
 }//end class
