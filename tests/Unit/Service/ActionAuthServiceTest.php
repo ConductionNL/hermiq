@@ -255,4 +255,53 @@ class ActionAuthServiceTest extends TestCase {
 
 	}//end testGetAllowedGroupsDefaultsToAdmin()
 
+	/**
+	 * Each refusal names the action and why: admin-only (or no entry), or no matching group.
+	 *
+	 * @return void
+	 */
+	public function testEachRefusalNamesItsReason(): void {
+		$user = $this->mockUser('jane');
+		$this->groupManager->method('isAdmin')->willReturn(false);
+		$this->groupManager->method('getUserGroupIds')->willReturn(['staff']);
+		$this->setMatrix(['a.admin' => ['admin'], 'a.none' => [], 'a.chairs' => ['admin', 'chairs']]);
+
+		$messages = [];
+		foreach (['a.admin', 'a.none', 'a.missing', 'a.chairs'] as $action) {
+			try {
+				$this->service->requireAction(user: $user, action: $action);
+				$messages[] = 'allowed';
+			} catch (OCSForbiddenException $e) {
+				$messages[] = $e->getMessage();
+			}
+		}
+
+		$this->assertSame(
+			[
+				"Action 'a.admin' requires admin rights",
+				"Action 'a.none' requires admin rights",
+				"Action 'a.missing' requires admin rights",
+				"Action 'a.chairs' not allowed for your groups",
+			],
+			$messages
+		);
+
+	}//end testEachRefusalNamesItsReason()
+
+	/**
+	 * The matrix is written normalised (empty groups dropped, duplicates removed, reindexed)
+	 * under the app's `actions` key, and its actions are its keys.
+	 *
+	 * @return void
+	 */
+	public function testTheMatrixIsWrittenNormalisedAndListsItsActions(): void {
+		$this->appConfig->expects($this->once())->method('setValueString')
+			->with('hermiq', 'actions', '{"a.b":["x","y"],"c.d":[]}');
+		$this->setMatrix(['a.b' => ['x'], 'c.d' => []]);
+
+		$this->service->setMatrix(['a.b' => ['x', '', 'x', 'y'], 'c.d' => ['']]);
+
+		$this->assertSame(['a.b', 'c.d'], $this->service->getActions());
+
+	}//end testTheMatrixIsWrittenNormalisedAndListsItsActions()
 }//end class
