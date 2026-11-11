@@ -165,7 +165,7 @@ class ToolCatalogView {
 			'reach' => ToolReachResolver::resolve(toolId: $id, descriptor: $hints),
 			'destructiveHint' => $isWrite,
 			'granted' => $granted,
-			'grantedBy' => $this->grantedBy(id: $id, grants: $grantState['grants'], granted: $granted),
+			'grantedBy' => $this->grantedBy(id: $id, grantState: $grantState),
 			// The UNION, not `$isWrite` — a read-scoped tool whose reach
 			// is `instance` or beyond needs naming just as explicitly.
 			'requiresExplicitGrant' => (
@@ -202,39 +202,62 @@ class ToolCatalogView {
 	 * Best-effort "which grant entry produced this id" for the editor's UX —
 	 * informational only, never load-bearing for the grant/deny decision itself.
 	 *
-	 * @param string $id The resolved tool id.
-	 * @param array<int, string> $grants The agent's raw grant strings.
-	 * @param bool $granted Whether `$id` is in the resolved set.
+	 * @param string                                                         $id         The resolved tool id.
+	 * @param array{grants: array<int, string>, resolved: array<string, int>} $grantState The agent's raw grant strings and the resolved ids.
 	 *
 	 * @return string|null
 	 */
-	private function grantedBy(string $id, array $grants, bool $granted): ?string {
-		if ($granted === false) {
+	private function grantedBy(string $id, array $grantState): ?string {
+		if (isset($grantState['resolved'][$id]) === false) {
 			return null;
 		}
 
+		$grants = $grantState['grants'];
+		if (in_array($id, $grants, true) === true) {
+			return $id;
+		}
+
+		return $this->wildcardGrant(id: $id, grants: $grants) ?? $this->defaultGrant(grants: $grants);
+	}//end grantedBy()
+
+	/**
+	 * The `<app>.<area>.*` (or `.*:write`) grant covering a three-segment id, first match first.
+	 *
+	 * @param string             $id     The resolved tool id.
+	 * @param array<int, string> $grants The agent's raw grant strings.
+	 *
+	 * @return string|null The covering grant, or null.
+	 */
+	private function wildcardGrant(string $id, array $grants): ?string {
+		$parts = explode('.', $id);
+		if (count($parts) !== 3) {
+			return null;
+		}
+
+		$prefix = $parts[0] . '.' . $parts[1];
 		foreach ($grants as $grant) {
-			if ($grant === $id) {
+			if ($grant === ($prefix . '.*') || $grant === ($prefix . '.*:write')) {
 				return $grant;
 			}
 		}
 
-		$parts = explode('.', $id);
-		if (count($parts) === 3) {
-			$prefix = $parts[0] . '.' . $parts[1];
-			foreach ($grants as $grant) {
-				if ($grant === ($prefix . '.*') || $grant === ($prefix . '.*:write')) {
-					return $grant;
-				}
-			}
-		}
+		return null;
+	}//end wildcardGrant()
 
+	/**
+	 * The label of an empty grant list, which grants every discovered tool.
+	 *
+	 * @param array<int, string> $grants The agent's raw grant strings.
+	 *
+	 * @return string|null The label, or null when the agent has grants.
+	 */
+	private function defaultGrant(array $grants): ?string {
 		if ($grants === []) {
 			return '(default: all discovered tools)';
 		}
 
 		return null;
-	}//end grantedBy()
+	}//end defaultGrant()
 
 	/**
 	 * The configured progressive-disclosure threshold.
