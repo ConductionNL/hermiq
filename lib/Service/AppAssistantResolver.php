@@ -30,7 +30,6 @@ namespace OCA\Hermiq\Service;
 
 use Generator;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
-use OCA\Hermiq\Service\Agent\AppAssistantChoice;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -74,36 +73,20 @@ class AppAssistantResolver
      */
     public function resolve(string $userId, string $appId): string
     {
-        $appId           = strtolower(trim($appId));
-        $choice          = new AppAssistantChoice();
-        $firstAccessible = '';
-        $firstOfApp      = '';
+        $pick = new AssistantPick(appId: strtolower(trim($appId)));
 
         try {
             foreach ($this->usableAgents(userId: $userId) as $agent) {
-                $uuid = (string) $agent->getUuid();
-                $data = $agent->getObject();
-                if ($appId === '' || $choice->answersIn(data: $data, app: $appId) === true) {
-                    return $uuid;
-                }
-
-                if ($firstAccessible === '') {
-                    $firstAccessible = $uuid;
-                }
-
-                if ($firstOfApp === '' && $choice->appOf(data: $data) === $appId) {
-                    $firstOfApp = $uuid;
+                $answer = $pick->consider(agent: $agent);
+                if ($answer !== null) {
+                    return $answer;
                 }
             }
         } catch (Throwable $e) {
             $this->logger->warning('[AppAssistantResolver] Agent lookup failed: '.$e->getMessage(), ['exception' => $e]);
         }
 
-        if ($firstOfApp !== '') {
-            return $firstOfApp;
-        }
-
-        return $firstAccessible;
+        return $pick->fallback();
 
     }//end resolve()
 

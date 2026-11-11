@@ -175,6 +175,37 @@ final class AppAssistantResolverTest extends TestCase {
 		self::assertSame([0, 2, 4], $this->offsets);
 	}//end testTheAssistantIsFoundPastTheFirstPage()
 
+	/**
+	 * A lookup that fails on a later page still answers from the agents already seen.
+	 *
+	 * @return void
+	 */
+	public function testAFailedLaterPageKeepsTheAgentsAlreadySeen(): void {
+		$first = [$this->agent(uuid: 'other', slug: 'hydra-console'), $this->agent(uuid: 'of-app', slug: 'subsidies')];
+		$objects = $this->createMock(originalClassName: ObjectService::class);
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willReturnCallback(
+			static function (array $config = []) use ($first): array {
+				if ((int)($config['offset'] ?? 0) > 0) {
+					throw new \RuntimeException(message: 'store down');
+				}
+
+				return $first;
+			}
+		);
+		$logger = $this->createMock(originalClassName: LoggerInterface::class);
+		$logger->expects($this->exactly(count: 2))
+			->method('warning')
+			->with($this->stringStartsWith(prefix: '[AppAssistantResolver] Agent lookup failed: store down'));
+		$groups = $this->createMock(originalClassName: IGroupManager::class);
+		$access = new AgentAccessService(objectService: $objects, logger: $this->createMock(originalClassName: LoggerInterface::class), groupManager: $groups);
+		$resolver = new AppAssistantResolver(objectService: $objects, agentAccess: $access, logger: $logger, pageSize: 2);
+
+		self::assertSame(expected: 'of-app', actual: $resolver->resolve(userId: 'alice', appId: 'subsidies'));
+		self::assertSame(expected: 'other', actual: $resolver->resolve(userId: 'alice', appId: 'elsewhere'));
+	}//end testAFailedLaterPageKeepsTheAgentsAlreadySeen()
+
 	public function testNoAccessibleAgentIsAnEmptyAnswer(): void {
 		self::assertSame('', $this->resolve([$this->agent('private', 'subsidies', isPrivate: true)], 'subsidies'));
 	}//end testNoAccessibleAgentIsAnEmptyAnswer()
