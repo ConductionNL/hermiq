@@ -392,68 +392,92 @@ class EvalRunService {
 		string $skillId,
 		array $draftContent,
 	): array {
-		$run = [
-			'organisation' => (string)($agent->getOrganisation() ?? ''),
-			'agentId' => (string)$agent->getUuid(),
-			'datasetId' => (string)$dataset->getUuid(),
-			'owner' => (string)($agent->getOwner() ?? ''),
-			'startedAt' => new DateTimeImmutable('now', new DateTimeZone('UTC')),
-		];
-		$skip = $this->draftComparisonGateSkip(dataset: $dataset, run: $run);
+		$trigger = $this->triggerFor(dataset: $dataset, agent: $agent);
+
+		return $this->compareDraft(trigger: $trigger, draft: new SkillDraftOverride(skillId: $skillId, content: $draftContent));
+
+	}//end runDraftComparison()
+
+	/**
+	 * Gate the comparison, run the ACTIVE half with the stored skill content and the
+	 * DRAFT half with the draft swapped in, and record both.
+	 *
+	 * @param EvalRunTrigger     $trigger The triggered comparison.
+	 * @param SkillDraftOverride $draft   The draft under comparison.
+	 *
+	 * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
+	 */
+	private function compareDraft(EvalRunTrigger $trigger, SkillDraftOverride $draft): array {
+		$skip = $this->draftComparisonGateSkip(trigger: $trigger);
 		if ($skip !== null) {
 			return $skip;
 		}
 
-		$cases = ($dataset->getObject()['cases'] ?? []);
-		if (is_array($cases) === false) {
-			$cases = [];
-		}
-
-		[$installedSkills] = $this->agentSkillProfile(agentId: $run['agentId']);
-		$run += [
-			'cases' => $cases,
-			'skillId' => $skillId,
-			'withSet' => array_values(array_unique(array_merge($installedSkills, [$skillId]))),
-			'usage' => ['promptTokens' => 0, 'completionTokens' => 0],
-			'skillsUsed' => [],
-		];
+		$run = $this->draftComparisonRun(trigger: $trigger, draft: $draft);
 
 		// ACTIVE half: the stored skill content, same effective set.
 		$activeHalf = $this->runContextHalf(run: $run, skillSet: $run['withSet']);
+		$draftHalf = $this->draftHalf(run: $run, draft: $draft);
 
-		// DRAFT half: identical set, the draft's content swapped in IN MEMORY only —
-		// cleared in `finally` so no later run can ever see it.
-		$this->contextAssembler->setTransientSkillContentOverride(override: [$skillId => $draftContent]);
+		return $this->recordDraftComparison(run: $run, halves: ['active' => $activeHalf, 'draft' => $draftHalf]);
+	}//end compareDraft()
+
+	/**
+	 * The draft comparison's run context: the agent's installed skills plus the
+	 * skill under comparison as the effective set of both halves.
+	 *
+	 * @param EvalRunTrigger     $trigger The triggered comparison.
+	 * @param SkillDraftOverride $draft   The draft under comparison.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function draftComparisonRun(EvalRunTrigger $trigger, SkillDraftOverride $draft): array {
+		[$installedSkills] = $this->agentSkillProfile(agentId: $trigger->agentId);
+
+		return $this->runContext(trigger: $trigger) + [
+			'skillId' => $draft->skillId,
+			'withSet' => array_values(array_unique(array_merge($installedSkills, [$draft->skillId]))),
+			'usage' => ['promptTokens' => 0, 'completionTokens' => 0],
+			'skillsUsed' => [],
+		];
+	}//end draftComparisonRun()
+
+	/**
+	 * DRAFT half: the identical set, the draft's content swapped in IN MEMORY only —
+	 * cleared in `finally` so no later run can ever see it.
+	 *
+	 * @param array<string, mixed> $run   The draft-comparison context; its usage accumulates in place.
+	 * @param SkillDraftOverride   $draft The draft under comparison.
+	 *
+	 * @return array{results: array<int,array<string,mixed>>, passRate: float, hadInfraError: bool}
+	 */
+	private function draftHalf(array &$run, SkillDraftOverride $draft): array {
+		$this->contextAssembler->setTransientSkillContentOverride(override: [$draft->skillId => $draft->content]);
 		try {
-			$draftHalf = $this->runContextHalf(run: $run, skillSet: $run['withSet']);
+			return $this->runContextHalf(run: $run, skillSet: $run['withSet']);
 		} finally {
 			$this->contextAssembler->setTransientSkillContentOverride(override: null);
 		}
-
-		return $this->recordDraftComparison(run: $run, halves: ['active' => $activeHalf, 'draft' => $draftHalf]);
-
-	}//end runDraftComparison()
+	}//end draftHalf()
 
 	/**
 	 * Applies the kill-switch and then the budget hard cap exactly as `run()` does,
 	 * and persists the skipped run when one of them blocks.
 	 *
-	 * @param ObjectEntity         $dataset The linked EvalDataset.
-	 * @param array<string, mixed> $run     The draft-comparison context.
+	 * @param EvalRunTrigger $trigger The triggered comparison.
 	 *
 	 * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}|null Null when neither gate blocks.
 	 *
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
 	 */
-	private function draftComparisonGateSkip(ObjectEntity $dataset, array $run): ?array {
-		$status = $this->draftComparisonGateStatus(run: $run);
+	private function draftComparisonGateSkip(EvalRunTrigger $trigger): ?array {
+		$status = $this->draftComparisonGateStatus(trigger: $trigger);
 		if ($status === null) {
 			return null;
 		}
 
-		$trigger = new EvalRunTrigger(dataset: $dataset, startedAt: $run['startedAt']);
-		$trigger->agentId = $run['agentId'];
-		$trigger->organisation = $run['organisation'];
 		$skip = $this->persistGateSkip(trigger: $trigger, status: $status);
 
 		return ['evalRunId' => (string)$skip['evalRunId'], 'status' => $status, 'draftPassRate' => 0.0, 'activePassRate' => 0.0];
@@ -463,17 +487,17 @@ class EvalRunService {
 	 * The status the kill-switch or the budget hard cap blocks a draft comparison
 	 * with (no soft-threshold check), or null when neither blocks.
 	 *
-	 * @param array<string, mixed> $run The draft-comparison context.
+	 * @param EvalRunTrigger $trigger The triggered comparison.
 	 *
 	 * @return string|null blocked_killswitch|blocked_budget, or null.
 	 */
-	private function draftComparisonGateStatus(array $run): ?string {
-		$organisation = $run['organisation'];
+	private function draftComparisonGateStatus(EvalRunTrigger $trigger): ?string {
+		$organisation = $trigger->organisation;
 		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
 			return 'blocked_killswitch';
 		}
 
-		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $run['agentId']) === true) {
+		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $trigger->agentId) === true) {
 			return 'blocked_budget';
 		}
 
