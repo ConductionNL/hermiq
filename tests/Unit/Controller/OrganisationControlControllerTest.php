@@ -270,4 +270,48 @@ class OrganisationControlControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
 	}//end testUnauthenticatedIsRejected()
+
+	/**
+	 * An empty organisation is refused before any admin or owner lookup, even
+	 * for an instance admin; an owner lookup that throws is a refusal too, and
+	 * an admin is allowed without any owner lookup.
+	 *
+	 * @return void
+	 */
+	public function testEmptyOrganisationAndFailedOwnerLookupAreRefused(): void {
+		$service = $this->createMock(OrganisationControlService::class);
+		$service->expects($this->never())->method('getForOrganisation');
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->expects($this->never())->method('isAdmin');
+		$orgMapper = $this->createMock(OrganisationMapper::class);
+		$orgMapper->expects($this->never())->method('findByUuid');
+
+		$controller = $this->controller($this->request(), $service, $this->session('root'), $groupManager, $orgMapper);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('')->getStatus());
+		$this->assertSame(Http::STATUS_FORBIDDEN, $controller->toggle('')->getStatus());
+
+		$plain = $this->createMock(IGroupManager::class);
+		$plain->method('isAdmin')->willReturn(false);
+		$failed = $this->controller($this->request(), $service, $this->session('alice'), $plain, $this->orgMapper(null));
+		$this->assertSame(['error' => 'Not found'], $failed->show('org-x')->getData());
+
+	}//end testEmptyOrganisationAndFailedOwnerLookupAreRefused()
+
+	/**
+	 * An instance admin passes without the owner lookup being made.
+	 *
+	 * @return void
+	 */
+	public function testInstanceAdminSkipsOwnerLookup(): void {
+		$service = $this->createMock(OrganisationControlService::class);
+		$service->method('getForOrganisation')->willReturn(null);
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn(true);
+		$orgMapper = $this->createMock(OrganisationMapper::class);
+		$orgMapper->expects($this->never())->method('findByUuid');
+
+		$controller = $this->controller($this->request(), $service, $this->session('root'), $groupManager, $orgMapper);
+		$this->assertSame(Http::STATUS_OK, $controller->show('org-x')->getStatus());
+
+	}//end testInstanceAdminSkipsOwnerLookup()
 }//end class
