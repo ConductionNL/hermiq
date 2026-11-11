@@ -175,19 +175,10 @@ class TurnAttachmentResolver {
 			throw $this->notAvailable();
 		}
 
-		$byPath = isset($entry['fileId']) === false && is_string($entry['path'] ?? null) === true;
 		$node = $this->findNode(userFolder: $userFolder, entry: $entry);
 
 		if ($node instanceof File === false || $node->isReadable() === false) {
 			throw $this->notAvailable();
-		}
-
-		$origin = (string)($entry['origin'] ?? '');
-		if (in_array($origin, self::ORIGINS, true) === false) {
-			$origin = 'files';
-			if ($byPath === true) {
-				$origin = 'upload';
-			}
 		}
 
 		return [
@@ -195,9 +186,32 @@ class TurnAttachmentResolver {
 			'name' => $node->getName(),
 			'mimeType' => $node->getMimetype(),
 			'size' => (int)$node->getSize(),
-			'origin' => $origin,
+			'origin' => $this->originOf(entry: $entry),
 		];
 	}//end resolveOne()
+
+	/**
+	 * The request's own origin when it is a known one; otherwise `upload` for a file
+	 * named by path alone and `files` for anything else.
+	 *
+	 * @param array<string, mixed> $entry One entry from the request.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function originOf(array $entry): string {
+		$origin = (string)($entry['origin'] ?? '');
+		if (in_array($origin, self::ORIGINS, true) === true) {
+			return $origin;
+		}
+
+		if (isset($entry['fileId']) === false && is_string($entry['path'] ?? null) === true) {
+			return 'upload';
+		}
+
+		return 'files';
+	}//end originOf()
 
 	/**
 	 * Look the entry up by file id, else by path; null when neither finds a node.
