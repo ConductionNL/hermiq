@@ -64,6 +64,14 @@ final class ReportEvaluation {
 	public int $windowMinutes = 0;
 
 	/**
+	 * The moment before which a group's last member makes it closed: the window
+	 * in force, counted back from the moment of evaluation (as `modify()` answers it).
+	 *
+	 * @var DateTimeImmutable|false
+	 */
+	public DateTimeImmutable|false $cutoff = false;
+
+	/**
 	 * Start the evaluation.
 	 *
 	 * @param string $reportId The owning app's identifier for the report.
@@ -75,14 +83,4 @@ final class ReportEvaluation {
 	) {
 	}//end __construct()
 
-	/**
-	 * The moment before which a group's last member makes it closed.
-	 *
-	 * @return DateTimeImmutable
-	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
-	 */
-	public function cutoff(): DateTimeImmutable {
-		return $this->at->modify(sprintf('-%d minutes', $this->windowMinutes));
-	}//end cutoff()
 }//end class

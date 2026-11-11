@@ -569,6 +569,7 @@ class ReportSimilarityService {
 	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
 	 */
 	private function openGroups(ReportEvaluation $evaluation): array {
+		$evaluation->cutoff = $evaluation->at->modify(sprintf('-%d minutes', $evaluation->windowMinutes));
 		$objects = $this->groupsOfType(reportType: $evaluation->reportType);
 
 		return array_values(
@@ -622,7 +623,7 @@ class ReportSimilarityService {
 			return false;
 		}
 
-		return ($this->lastJoinedAt(data: $data) < $evaluation->cutoff()) === false;
+		return ($this->lastJoinedAt(data: $data) < $evaluation->cutoff) === false;
 	}//end isOpenGroup()
 
 	/**
