@@ -467,4 +467,34 @@ class GuardrailPolicyServiceTest extends TestCase {
 		$this->assertSame('confirm', $result['toolPolicy'][0]['classification']);
 
 	}//end testUpsertForOrganisationPersistsAndShapesTheResult()
+
+	/**
+	 * The PII action at each boundary: off, empty text and clean text pass through;
+	 * redact (and any action other than off or block) replaces the sensitive part;
+	 * block withholds the text, as empty input and as the placeholder on output.
+	 *
+	 * @return void
+	 */
+	public function testThePiiActionAtEachBoundary(): void {
+		$service = $this->service();
+		$pass = static fn (string $text): array => ['text' => $text, 'blocked' => false, 'reason' => null];
+		$input = static fn (string $pii, string $injection = 'off'): array => ['inputFilters' => ['piiAction' => $pii, 'promptInjectionAction' => $injection]];
+		$output = static fn (string $pii): array => ['outputFilters' => ['piiAction' => $pii]];
+		$placeholder = $service->filterOutput(policy: $output('block'), text: 'SECRET')['text'];
+
+		$this->assertNotSame('', $placeholder);
+		$this->assertSame($pass('a SECRET b'), $service->filterInput(policy: $input('off'), text: 'a SECRET b'));
+		$this->assertSame($pass(''), $service->filterInput(policy: $input('block'), text: ''));
+		$this->assertSame($pass('clean'), $service->filterInput(policy: $input('block'), text: 'clean'));
+		$this->assertSame($pass('a [REDACTED] b'), $service->filterInput(policy: $input('redact'), text: 'a SECRET b'));
+		$this->assertSame(['text' => '', 'blocked' => true, 'reason' => 'sensitive_content'], $service->filterInput(policy: $input('block'), text: 'a SECRET b'));
+		$this->assertSame($pass('a [REDACTED] b'), $service->filterInput(policy: $input('unknown'), text: 'a SECRET b'));
+
+		$this->assertSame($pass('a SECRET b'), $service->filterOutput(policy: $output('off'), text: 'a SECRET b'));
+		$this->assertSame($pass(''), $service->filterOutput(policy: $output('block'), text: ''));
+		$this->assertSame($pass('a [REDACTED] b'), $service->filterOutput(policy: $output('redact'), text: 'a SECRET b'));
+		$this->assertSame(['text' => $placeholder, 'blocked' => true, 'reason' => 'sensitive_content'], $service->filterOutput(policy: $output('block'), text: 'a SECRET b'));
+		$this->assertSame($pass('clean'), $service->filterOutput(policy: [], text: 'clean'));
+
+	}//end testThePiiActionAtEachBoundary()
 }//end class
