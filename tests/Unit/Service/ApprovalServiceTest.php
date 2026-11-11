@@ -748,6 +748,97 @@ class ApprovalServiceTest extends TestCase {
 	}//end testInboxRecordsCarryThePreview()
 
 	/**
+	 * The inbox lists every field of a pending approval routed to the reviewer,
+	 * in a fixed order; rows that are not entities or not pending are skipped,
+	 * non-array stored arguments read as null, and an unavailable preview
+	 * builder leaves the preview null instead of failing the inbox.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 */
+	public function testInboxRecordShapeAndSkippedRows(): void {
+		$decided = $this->approval(['status' => 'approved', 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$decided->setUuid('decided');
+		$full = $this->approval(
+			[
+				'status' => 'pending',
+				'scheduleId' => 's1',
+				'agentId' => 'agent-1',
+				'prompt' => 'Do it',
+				'requestedAt' => '2026-01-01T00:00:00+00:00',
+				'reviewer' => 'bob',
+				'reviewerType' => 'user',
+				'sourceType' => 'toolcall',
+				'toolId' => 'files.deleteFile',
+				'toolArguments' => ['path' => '/a.pdf'],
+			]
+		);
+		$full->setUuid('full');
+		$bare = $this->approval(['status' => 'pending', 'reviewer' => 'bob', 'toolArguments' => 'not-an-array']);
+		$bare->setUuid('bare');
+
+		$this->objectService->method('findAll')->willReturn(['not-an-entity', $decided, $full, $bare]);
+		$this->container->method('get')->willThrowException(new \RuntimeException('no builder'));
+
+		$records = $this->service()->listPendingForReviewer('bob');
+
+		$this->assertSame(
+			[
+				[
+					'id' => 'full',
+					'scheduleId' => 's1',
+					'agentId' => 'agent-1',
+					'prompt' => 'Do it',
+					'requestedAt' => '2026-01-01T00:00:00+00:00',
+					'reviewer' => 'bob',
+					'reviewerType' => 'user',
+					'status' => 'pending',
+					'sourceType' => 'toolcall',
+					'toolId' => 'files.deleteFile',
+					'toolArguments' => ['path' => '/a.pdf'],
+					'preview' => null,
+				],
+				[
+					'id' => 'bare',
+					'scheduleId' => '',
+					'agentId' => '',
+					'prompt' => '',
+					'requestedAt' => null,
+					'reviewer' => 'bob',
+					'reviewerType' => 'user',
+					'status' => 'pending',
+					'sourceType' => 'schedule',
+					'toolId' => '',
+					'toolArguments' => null,
+					'preview' => null,
+				],
+			],
+			$records
+		);
+	}//end testInboxRecordShapeAndSkippedRows()
+
+	/**
+	 * An empty user id has no inbox and may decide nothing, without a query.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-1-2
+	 */
+	public function testEmptyUserHasNoInboxAndIsNoReviewer(): void {
+		$this->objectService->expects($this->never())->method('findAll');
+		$this->groupManager->method('isAdmin')->willReturnCallback(
+			static fn (string $uid): bool => ($uid === '')
+		);
+		$approval = $this->approval(['status' => 'pending', 'reviewer' => '', 'reviewerType' => 'user']);
+		$service = $this->service();
+
+		$this->assertSame([], $service->listPendingForReviewer(''));
+		$this->assertFalse($service->isReviewer($approval, ''), 'An empty user id is refused even when isAdmin would say yes.');
+		$this->assertFalse($service->isReviewer($this->approval(['status' => 'pending']), 'bob'), 'An approval without a reviewer admits no non-admin.');
+	}//end testEmptyUserHasNoInboxAndIsNoReviewer()
+
+	/**
 	 * listForOrganisation() returns every Approval the tenant-scoped read yields
 	 * (compliance-control-packs) — a thin, purely-additive pass-through over
 	 * ObjectService's own RBAC/tenancy scoping.
