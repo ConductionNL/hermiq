@@ -250,17 +250,6 @@ class DeliveryService {
 	}//end __construct()
 
 	/**
-	 * The conversation this delivery's run produced, when the caller knows it.
-	 *
-	 * Set by `deliver()` for the duration of one delivery so `deliverTalk()`
-	 * can bind that conversation to the room it posts into. Deliberately NOT a
-	 * constructor dependency: it is per-delivery state, not configuration.
-	 *
-	 * @var string|null
-	 */
-	private ?string $boundConversationUuid = null;
-
-	/**
 	 * Deliver a run's output for one schedule.
 	 *
 	 * Never throws for a delivery problem: the outcome (including any warning to
@@ -286,30 +275,47 @@ class DeliveryService {
 		// room delivery can bind it and become repliable. Null for every caller
 		// that does not know (and for every non-Talk channel), which leaves the
 		// binding step a no-op.
-		$this->boundConversationUuid = $conversationUuid;
+		$delivery = new ScheduleDelivery(schedule: $schedule, output: $output);
+		$delivery->conversationUuid = $conversationUuid;
 
-		// None / empty channel, or silent/empty output → deliberate no-op.
-		if ($channel === '' || $channel === 'none' || trim($output) === '') {
+		return $this->deliverOn(delivery: $delivery, channel: $channel);
+
+	}//end deliver()
+
+	/**
+	 * Deliver over the named channel; an empty or `none` channel, or silent/empty
+	 * output, is a deliberate no-op and an unknown channel a warning, never a failure.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 * @param string           $channel  The delivery channel.
+	 *
+	 * @return DeliveryResult The delivery outcome.
+	 *
+	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 */
+	private function deliverOn(ScheduleDelivery $delivery, string $channel): DeliveryResult {
+		if ($channel === '' || $channel === 'none' || trim($delivery->output) === '') {
 			return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
 		}
 
-		if ($channel === 'notification') {
-			return $this->deliverNotification(schedule: $schedule, output: $output, fellBack: false);
-		}
+		return match ($channel) {
+			'notification' => $this->deliverNotification(delivery: $delivery),
+			'talk' => $this->deliverTalk(delivery: $delivery),
+			'email' => $this->deliverEmail(schedule: $delivery->schedule, output: $delivery->output),
+			'webhook' => $this->deliverWebhook(schedule: $delivery->schedule, output: $delivery->output),
+			default => $this->unknownChannel(channel: $channel),
+		};
 
-		if ($channel === 'talk') {
-			return $this->deliverTalk(schedule: $schedule, output: $output);
-		}
+	}//end deliverOn()
 
-		if ($channel === 'email') {
-			return $this->deliverEmail(schedule: $schedule, output: $output);
-		}
-
-		if ($channel === 'webhook') {
-			return $this->deliverWebhook(schedule: $schedule, output: $output);
-		}
-
-		// Unknown channel: record a warning but never fail the run.
+	/**
+	 * Unknown channel: record a warning but never fail the run.
+	 *
+	 * @param string $channel The unknown channel name.
+	 *
+	 * @return DeliveryResult The undelivered outcome with its warning.
+	 */
+	private function unknownChannel(string $channel): DeliveryResult {
 		return new DeliveryResult(
 			delivered: false,
 			channel: $channel,
@@ -317,7 +323,7 @@ class DeliveryService {
 			warning: sprintf("Unknown delivery channel '%s'", $channel)
 		);
 
-	}//end deliver()
+	}//end unknownChannel()
 
 	/**
 	 * Notify a schedule's resolved reviewer(s) that an approval is pending (Art. 14).
@@ -596,7 +602,7 @@ class DeliveryService {
 			$failures[] = $this->sendNotification(uid: $uid, configure: $notice->configure);
 
 			if ($talkOk === true) {
-				$this->tryPostToNoteToSelf(owner: $uid, output: ($notice->talkText)());
+				$this->tryPostToNoteToSelf(post: new TalkPost(owner: $uid, message: ($notice->talkText)()));
 			}
 		}
 
@@ -844,104 +850,121 @@ class DeliveryService {
 	 * Each fall-through accumulates a warning; the returned DeliveryResult carries the
 	 * combined warning (to be persisted as lastDeliveryError) and the channel used.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $output The agent output to post.
+	 * @param ScheduleDelivery $delivery The delivery.
 	 *
 	 * @return DeliveryResult The Talk delivery outcome.
 	 *
 	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function deliverTalk(ObjectEntity $schedule, string $output): DeliveryResult {
-		$owner = (string)($schedule->getOwner() ?? '');
-		$data = $schedule->getObject();
-		$target = trim((string)($data['deliverTarget'] ?? ''));
-		$reasons = [];
-
+	private function deliverTalk(ScheduleDelivery $delivery): DeliveryResult {
 		if ($this->isTalkAvailable() === false) {
-			return $this->deliverNotification(
-				schedule: $schedule,
-				output: $output,
-				fellBack: true,
-				reason: 'Talk (spreed) is not available'
-			);
+			return $this->deliverNotification(delivery: $delivery, fallbackReason: 'Talk (spreed) is not available');
 		}
 
-		// When the schedule names no room, fall back to the owner's default
-		// delivery room (Personal settings) — lazily creating a "Hermiq" room the
-		// first time so a user with nothing configured still gets a real room
-		// rather than only Note-to-self. Any failure leaves $target empty and the
-		// Note-to-self fallback below still applies.
-		if ($target === '') {
-			$target = $this->resolveDefaultRoom(owner: $owner);
-		}
+		$reasons = [];
+		$target = $this->talkTarget(delivery: $delivery);
 
 		// 1) Targeted room (membership-checked) when deliverTarget is set.
 		if ($target !== '') {
-			$posted = $this->tryPostToTargetRoom(token: $target, owner: $owner, output: $output);
+			$posted = $this->tryPostToTargetRoom(token: $target, post: $delivery->talkPost());
 			if ($posted === null) {
-				// The report reached a room, so bind the conversation this run
-				// produced to that room — a reply there then continues THIS
-				// session instead of dead-ending (talk-chat-bridge). Strictly
-				// best-effort: bindByUuid() swallows its own failures, so a
-				// binding problem can never fail a delivery or a run.
-				if ($this->boundConversationUuid !== null) {
-					$this->talkRoomBinding->bindByUuid(
-						conversationUuid: $this->boundConversationUuid,
-						roomToken: $target
-					);
-				}
-
-				return new DeliveryResult(delivered: true, channel: 'talk', fellBack: false, warning: null);
+				return $this->deliveredToRoom(delivery: $delivery, token: $target);
 			}
 
 			$reasons[] = $posted;
 		}
 
-		// 2) Owner's Note-to-self conversation.
-		$noteReason = $this->tryPostToNoteToSelf(owner: $owner, output: $output);
+		return $this->deliverToNoteToSelf(delivery: $delivery, reasons: $reasons);
+
+	}//end deliverTalk()
+
+	/**
+	 * The Talk room to deliver to: the schedule's target, or else the owner's default
+	 * delivery room.
+	 *
+	 * When the schedule names no room, fall back to the owner's default delivery room
+	 * (Personal settings) — lazily creating a "Hermiq" room the first time so a user
+	 * with nothing configured still gets a real room rather than only Note-to-self.
+	 * Any failure leaves the target empty and the Note-to-self fallback still applies.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return string The room token, or '' for none.
+	 */
+	private function talkTarget(ScheduleDelivery $delivery): string {
+		$target = $delivery->target();
+		if ($target === '') {
+			$target = $this->resolveDefaultRoom(owner: $delivery->owner());
+		}
+
+		return $target;
+
+	}//end talkTarget()
+
+	/**
+	 * The report reached a room: bind the conversation this run produced to that
+	 * room, so a reply there continues THIS session instead of dead-ending
+	 * (talk-chat-bridge). Strictly best-effort: bindByUuid() swallows its own
+	 * failures, so a binding problem can never fail a delivery or a run.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 * @param string           $token    The room the output was posted into.
+	 *
+	 * @return DeliveryResult The delivered outcome.
+	 */
+	private function deliveredToRoom(ScheduleDelivery $delivery, string $token): DeliveryResult {
+		if ($delivery->conversationUuid !== null) {
+			$this->talkRoomBinding->bindByUuid(conversationUuid: $delivery->conversationUuid, roomToken: $token);
+		}
+
+		return new DeliveryResult(delivered: true, channel: 'talk', fellBack: false, warning: null);
+
+	}//end deliveredToRoom()
+
+	/**
+	 * 2) The owner's Note-to-self conversation; 3) else, a Nextcloud notification.
+	 *
+	 * @param ScheduleDelivery   $delivery The delivery.
+	 * @param array<int, string> $reasons  Why the earlier steps fell through.
+	 *
+	 * @return DeliveryResult The Talk or notification outcome.
+	 */
+	private function deliverToNoteToSelf(ScheduleDelivery $delivery, array $reasons): DeliveryResult {
+		$noteReason = $this->tryPostToNoteToSelf(post: $delivery->talkPost());
 		if ($noteReason === null) {
 			$warning = null;
 			if ($reasons !== []) {
 				$warning = implode('; ', $reasons) . ' — delivered to Note-to-self';
 			}
 
-			$this->logWarning(warning: $warning, uuid: (string)$schedule->getUuid(), channel: 'talk');
+			$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'talk');
 			return new DeliveryResult(delivered: true, channel: 'talk', fellBack: ($reasons !== []), warning: $warning);
 		}
 
 		$reasons[] = $noteReason;
 
-		// 3) Final fallback: a Nextcloud notification.
-		return $this->deliverNotification(
-			schedule: $schedule,
-			output: $output,
-			fellBack: true,
-			reason: implode('; ', $reasons)
-		);
+		return $this->deliverNotification(delivery: $delivery, fallbackReason: implode('; ', $reasons));
 
-	}//end deliverTalk()
+	}//end deliverToNoteToSelf()
 
 	/**
-	 * Attempt to post to a specific Talk room the owner must be a member of.
+	 * Attempt to post to a specific Talk room the poster must be a member of.
 	 *
 	 * Membership is enforced by resolving the room owner-scoped via
 	 * Manager::getRoomForUserByToken(token, owner), which throws when the owner has no
 	 * access — Hermiq never posts to a room the owner is not in.
 	 *
-	 * @param string $token The deliverTarget room token.
-	 * @param string $owner The schedule owner UID (already impersonated).
-	 * @param string $output The message to post.
+	 * @param string   $token The deliverTarget room token.
+	 * @param TalkPost $post  The message and its poster (already impersonated).
 	 *
 	 * @return string|null Null on success, or a reason string when the room is unusable.
 	 *
 	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function tryPostToTargetRoom(string $token, string $owner, string $output): ?string {
+	private function tryPostToTargetRoom(string $token, TalkPost $post): ?string {
 		try {
-			$room = $this->talkManager()->getRoomForUserByToken($token, $owner);
-			$participant = $this->talkParticipantService()->getParticipant($room, $owner);
-			$this->postToRoom(room: $room, participant: $participant, owner: $owner, output: $output);
+			$room = $this->talkManager()->getRoomForUserByToken($token, $post->owner);
+			$this->postToRoom(room: $room, post: $post);
 			return null;
 		} catch (Throwable $e) {
 			return sprintf("target room '%s' unavailable: %s", $token, $e->getMessage());
@@ -982,20 +1005,18 @@ class DeliveryService {
 	}//end toolApprovalTalkText()
 
 	/**
-	 * Attempt to post to the owner's Note-to-self conversation.
+	 * Attempt to post to the poster's Note-to-self conversation.
 	 *
-	 * @param string $owner The schedule owner UID.
-	 * @param string $output The message to post.
+	 * @param TalkPost $post The message and its poster.
 	 *
 	 * @return string|null Null on success, or a reason string on failure.
 	 *
 	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function tryPostToNoteToSelf(string $owner, string $output): ?string {
+	private function tryPostToNoteToSelf(TalkPost $post): ?string {
 		try {
-			$room = $this->talkNoteToSelfService()->ensureNoteToSelfExistsForUser($owner);
-			$participant = $this->talkParticipantService()->getParticipant($room, $owner);
-			$this->postToRoom(room: $room, participant: $participant, owner: $owner, output: $output);
+			$room = $this->talkNoteToSelfService()->ensureNoteToSelfExistsForUser($post->owner);
+			$this->postToRoom(room: $room, post: $post);
 			return null;
 		} catch (Throwable $e) {
 			return 'Note-to-self unavailable: ' . $e->getMessage();
@@ -1004,24 +1025,23 @@ class DeliveryService {
 	}//end tryPostToNoteToSelf()
 
 	/**
-	 * Post a message to a resolved Talk room as the owner via ChatManager::sendMessage.
+	 * Post a message to a resolved Talk room as its poster via ChatManager::sendMessage.
 	 *
-	 * @param object $room The resolved spreed Room (owner is a member).
-	 * @param object|null $participant The owner's Participant, or null.
-	 * @param string $owner The owner UID (actorId).
-	 * @param string $output The message body.
+	 * @param object   $room The resolved spreed Room (the poster is a member).
+	 * @param TalkPost $post The message and its poster (actorId).
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function postToRoom(object $room, ?object $participant, string $owner, string $output): void {
+	private function postToRoom(object $room, TalkPost $post): void {
+		$participant = $this->talkParticipantService()->getParticipant($room, $post->owner);
 		$this->talkChatManager()->sendMessage(
 			$room,
 			$participant,
 			self::ACTOR_USERS,
-			$owner,
-			$output,
+			$post->owner,
+			$post->message,
 			new DateTime()
 		);
 
@@ -1033,44 +1053,48 @@ class DeliveryService {
 	 * The baseline channel and the terminal fallback of the Talk chain. Has no Talk
 	 * dependency. A failure here is still non-fatal — it is caught and reported.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $output The agent output (used to size a short summary).
-	 * @param bool $fellBack Whether this was reached as a fallback.
-	 * @param string|null $reason The accumulated Talk fallback reason, if any.
+	 * @param ScheduleDelivery $delivery       The delivery.
+	 * @param string|null      $fallbackReason The accumulated Talk fallback reason when this
+	 *                                         is reached as a fallback; null otherwise.
 	 *
 	 * @return DeliveryResult The notification delivery outcome.
 	 *
 	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function deliverNotification(ObjectEntity $schedule, string $output, bool $fellBack, ?string $reason = null): DeliveryResult {
-		$uuid = (string)$schedule->getUuid();
-
+	private function deliverNotification(ScheduleDelivery $delivery, ?string $fallbackReason = null): DeliveryResult {
+		$fellBack = ($fallbackReason !== null);
 		try {
-			$notification = $this->notificationManager->createNotification();
-			$notification->setApp('hermiq')
-				->setUser((string)($schedule->getOwner() ?? ''))
-				->setDateTime(new DateTime())
-				->setObject('schedule', $uuid)
-				->setSubject('run_complete', ['name' => (string)($schedule->getObject()['name'] ?? '')])
-				->setMessage('run_summary', ['length' => strlen($output)])
-				->setLink($this->buildScheduleLink(uuid: $uuid));
-			$this->notificationManager->notify($notification);
-
-			$warning = null;
-			if ($fellBack === true) {
-				$warning = $reason;
-			}
-
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'notification');
-			return new DeliveryResult(delivered: true, channel: 'notification', fellBack: $fellBack, warning: $warning);
+			$this->notifyOwner(delivery: $delivery);
+			$this->logWarning(warning: $fallbackReason, uuid: $delivery->uuid(), channel: 'notification');
+			return new DeliveryResult(delivered: true, channel: 'notification', fellBack: $fellBack, warning: $fallbackReason);
 		} catch (Throwable $e) {
-			$parts = array_filter([$reason, 'notification failed: ' . $e->getMessage()]);
-			$warning = implode('; ', $parts);
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'notification');
+			$warning = implode('; ', array_filter([$fallbackReason, 'notification failed: ' . $e->getMessage()]));
+			$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'notification');
 			return new DeliveryResult(delivered: false, channel: 'notification', fellBack: $fellBack, warning: $warning);
 		}//end try
 
 	}//end deliverNotification()
+
+	/**
+	 * Notify the schedule owner that the run completed, linking to the schedule.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return void
+	 */
+	private function notifyOwner(ScheduleDelivery $delivery): void {
+		$uuid = $delivery->uuid();
+		$notification = $this->notificationManager->createNotification();
+		$notification->setApp('hermiq')
+			->setUser($delivery->owner())
+			->setDateTime(new DateTime())
+			->setObject('schedule', $uuid)
+			->setSubject('run_complete', ['name' => (string)($delivery->schedule->getObject()['name'] ?? '')])
+			->setMessage('run_summary', ['length' => strlen($delivery->output)])
+			->setLink($this->buildScheduleLink(uuid: $uuid));
+		$this->notificationManager->notify($notification);
+
+	}//end notifyOwner()
 
 	/**
 	 * Deliver via email (delivery-channels): the redacted output is sent to the
