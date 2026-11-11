@@ -64,7 +64,6 @@ use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
-use Throwable;
 
 /**
  * ChatController handles the AI chat API endpoints against the in-app engine.
@@ -467,11 +466,11 @@ class ChatController extends Controller {
 	/**
 	 * The message, stable code and (for the literacy course) link of a known refusal.
 	 *
-	 * @param Throwable $cause One exception in the failure's cause chain.
+	 * @param \Throwable $cause One exception in the failure's cause chain.
 	 *
 	 * @return array<string, string>|null The fields to set, or null for any other exception.
 	 */
-	private function refusalSentence(Throwable $cause): ?array {
+	private function refusalSentence(\Throwable $cause): ?array {
 		$errorCode = $this->refusalCode(cause: $cause);
 		if ($errorCode === null) {
 			return null;
@@ -489,11 +488,11 @@ class ChatController extends Controller {
 	/**
 	 * The stable code of a known refusal, checked in this order.
 	 *
-	 * @param Throwable $cause One exception in the failure's cause chain.
+	 * @param \Throwable $cause One exception in the failure's cause chain.
 	 *
 	 * @return string|null The refusal's code, or null for any other exception.
 	 */
-	private function refusalCode(Throwable $cause): ?string {
+	private function refusalCode(\Throwable $cause): ?string {
 		return match (true) {
 			$cause instanceof PinnedCredentialRefusedException => PinnedCredentialRefusedException::ERROR_CODE,
 			$cause instanceof AgentSwitchedOffException => AgentSwitchedOffException::ERROR_CODE,
