@@ -44,48 +44,65 @@ class RunComparator
      * Each aligned row is marked `same`, `only-left`, `only-right` or
      * `different-outcome` (the same tool in both, with another outcome).
      *
-     * @param array<int, mixed> $leftSteps    The left run's step timeline.
-     * @param array<int, mixed> $rightSteps   The right run's step timeline.
-     * @param string            $leftSummary  The left run's redacted summary.
-     * @param string            $rightSummary The right run's redacted summary.
+     * @param ComparedRun $left  The left run.
+     * @param ComparedRun $right The right run.
      *
      * @return array{steps: list<array{mark: string, left: ?array, right: ?array}>, differences: int, summaryChanged: bool}
      *
      * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
      */
-    public function compare(array $leftSteps, array $rightSteps, string $leftSummary, string $rightSummary): array
+    public function compareRuns(ComparedRun $left, ComparedRun $right): array
     {
-        $left  = $this->toolSteps(steps: $leftSteps);
-        $right = $this->toolSteps(steps: $rightSteps);
-
-        $rows        = [];
-        $differences = 0;
-        foreach ($this->align(left: $left, right: $right) as [$leftIndex, $rightIndex]) {
-            $leftStep  = null;
-            $rightStep = null;
-            if ($leftIndex !== null) {
-                $leftStep = $left[$leftIndex];
-            }
-
-            if ($rightIndex !== null) {
-                $rightStep = $right[$rightIndex];
-            }
-
-            $mark = $this->mark(leftStep: $leftStep, rightStep: $rightStep);
-            if ($mark !== 'same') {
-                $differences++;
-            }
-
-            $rows[] = ['mark' => $mark, 'left' => $leftStep, 'right' => $rightStep];
-        }
+        $rows = $this->alignedRows(left: $this->toolSteps(steps: $left->steps), right: $this->toolSteps(steps: $right->steps));
 
         return [
             'steps'          => $rows,
-            'differences'    => $differences,
-            'summaryChanged' => ($leftSummary !== $rightSummary),
+            'differences'    => count(array_filter($rows, static fn (array $row): bool => $row['mark'] !== 'same')),
+            'summaryChanged' => ($left->summary !== $right->summary),
         ];
 
-    }//end compare()
+    }//end compareRuns()
+
+    /**
+     * The aligned rows of two tool-step lists, each with its mark.
+     *
+     * @param list<array<string, mixed>> $left  The left run's tool steps.
+     * @param list<array<string, mixed>> $right The right run's tool steps.
+     *
+     * @return list<array{mark: string, left: ?array, right: ?array}>
+     *
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
+     */
+    private function alignedRows(array $left, array $right): array
+    {
+        $rows = [];
+        foreach ($this->align(left: $left, right: $right) as [$leftIndex, $rightIndex]) {
+            $leftStep  = $this->stepAt(steps: $left, index: $leftIndex);
+            $rightStep = $this->stepAt(steps: $right, index: $rightIndex);
+            $rows[]    = ['mark' => $this->mark(leftStep: $leftStep, rightStep: $rightStep), 'left' => $leftStep, 'right' => $rightStep];
+        }
+
+        return $rows;
+
+    }//end alignedRows()
+
+    /**
+     * The step at an aligned index, or null for a gap.
+     *
+     * @param list<array<string, mixed>> $steps The tool steps.
+     * @param int|null                   $index The aligned index, or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function stepAt(array $steps, ?int $index): ?array
+    {
+        if ($index === null) {
+            return null;
+        }
+
+        return $steps[$index];
+
+    }//end stepAt()
 
     /**
      * The replay diff's shape, from the same alignment.
@@ -105,22 +122,13 @@ class RunComparator
      */
     public function toReplayDiff(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array
     {
-        $compared = $this->compare(
-            leftSteps: $originalSteps,
-            rightSteps: $replaySteps,
-            leftSummary: $originalSummary,
-            rightSummary: $replaySummary
+        $compared = $this->compareRuns(
+            left: new ComparedRun(steps: $originalSteps, summary: $originalSummary),
+            right: new ComparedRun(steps: $replaySteps, summary: $replaySummary)
         );
 
-        $pairs = $this->replayPairs(rows: $compared['steps']);
-
         $toolCalls = [];
-        $allMatch  = true;
-        foreach ($pairs as $seq => $pair) {
-            if ($pair['match'] === false) {
-                $allMatch = false;
-            }
-
+        foreach ($this->replayPairs(rows: $compared['steps']) as $seq => $pair) {
             $toolCalls[] = [
                 'seq'      => $seq,
                 'original' => $pair['original'],
@@ -130,7 +138,7 @@ class RunComparator
         }
 
         return [
-            'toolSequenceMatches' => $allMatch,
+            'toolSequenceMatches' => (in_array(false, array_column($toolCalls, 'match'), true) === false),
             'toolCalls'           => $toolCalls,
             'outputChanged'       => $compared['summaryChanged'],
         ];

@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\ComparedRun;
 use OCA\Hermiq\Service\RunComparator;
 use PHPUnit\Framework\TestCase;
 
@@ -51,7 +52,10 @@ class RunComparatorTest extends TestCase {
 		$left  = [$this->tool('Search contacts'), $this->tool('Read file'), $this->tool('Send email')];
 		$right = [$this->tool('Search contacts'), $this->tool('Read file'), $this->tool('Read file'), $this->tool('Send email')];
 
-		$result = (new RunComparator())->compare(leftSteps: $left, rightSteps: $right, leftSummary: 'Done', rightSummary: 'Done');
+		$result = (new RunComparator())->compareRuns(
+			left: new ComparedRun(steps: $left, summary: 'Done'),
+			right: new ComparedRun(steps: $right, summary: 'Done')
+		);
 
 		$marks = array_column($result['steps'], 'mark');
 		$this->assertSame(['same', 'same', 'only-right', 'same'], $marks);
@@ -70,7 +74,10 @@ class RunComparatorTest extends TestCase {
 		$left  = [$this->tool('Read file'), $this->tool('Send email', 'ok', 300)];
 		$right = [$this->tool('Read file'), $this->tool('Send email', 'error', 900)];
 
-		$result = (new RunComparator())->compare(leftSteps: $left, rightSteps: $right, leftSummary: 'Sent', rightSummary: 'Failed');
+		$result = (new RunComparator())->compareRuns(
+			left: new ComparedRun(steps: $left, summary: 'Sent'),
+			right: new ComparedRun(steps: $right, summary: 'Failed')
+		);
 
 		$this->assertSame(['same', 'different-outcome'], array_column($result['steps'], 'mark'));
 		$this->assertSame(['name' => 'Send email', 'outcome' => 'error', 'durationMs' => 900], $result['steps'][1]['right']);
@@ -88,7 +95,10 @@ class RunComparatorTest extends TestCase {
 		$left  = [['type' => 'guardrail', 'name' => 'Input check'], $this->tool('Read file')];
 		$right = [$this->tool('Read file'), ['type' => 'delivery', 'name' => 'Talk']];
 
-		$result = (new RunComparator())->compare(leftSteps: $left, rightSteps: $right, leftSummary: '', rightSummary: '');
+		$result = (new RunComparator())->compareRuns(
+			left: new ComparedRun(steps: $left, summary: ''),
+			right: new ComparedRun(steps: $right, summary: '')
+		);
 
 		$this->assertSame(['same'], array_column($result['steps'], 'mark'));
 		$this->assertSame(0, $result['differences']);
