@@ -209,61 +209,151 @@ class MessageHistoryHandler {
 	private function toLlmHistory(array $messages, bool $isMultiSpeaker): array {
 		$history = [];
 		foreach ($messages as $message) {
-			$data = $message->getObject();
-			$role = $data['role'] ?? null;
-			$content = $data['content'] ?? null;
-
-			if (empty($role) === true || empty($content) === true) {
-				$this->logger->warning(
-					message: '[MessageHistoryHandler] Skipping message with missing role or content',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'hasRole' => empty($role) === false,
-						'hasContent' => empty($content) === false,
-					]
-				);
-				continue;
+			$llmMessage = $this->toLlmMessage(data: $message->getObject(), isMultiSpeaker: $isMultiSpeaker);
+			if ($llmMessage !== null) {
+				$history[] = $llmMessage;
 			}
+		}
 
-			if (in_array($role, ['user', 'assistant', 'system'], true) === false) {
-				$this->logger->warning(
-					message: '[MessageHistoryHandler] Unknown message role',
-					context: [
-						'file' => __FILE__,
-						'line' => __LINE__,
-						'role' => $role,
-					]
-				);
-				continue;
-			}
+		$this->logHistoryBuilt(historyCount: count($history));
 
-			if ($role === 'user' && $isMultiSpeaker === true) {
-				$content = $this->labelWithAuthor(content: $content, data: $data);
-			}
+		return $history;
+	}//end toLlmHistory()
 
-			if ($role === 'user') {
-				$content = $this->withAttachmentLines(content: (string)$content, data: $data);
-			}
+	/**
+	 * One stored turn as an LLPhant message; a turn without a role or content, or
+	 * with an unknown role, is skipped.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return LLPhantMessage|null The message, or null when the turn is skipped.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message role factories
+	 * (Message::user()/assistant()/system()) are the library's public API;
+	 * there is no injectable seam.
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per turn.
+	 */
+	private function toLlmMessage(array $data, bool $isMultiSpeaker): ?LLPhantMessage {
+		$role = $this->usableRole(data: $data);
+		if ($role === null) {
+			return null;
+		}
 
-			$history[] = match ($role) {
-				'user' => LLPhantMessage::user($content),
-				'assistant' => LLPhantMessage::assistant($content),
-				'system' => LLPhantMessage::system($content),
-			};
-		}//end foreach
+		return match ($role) {
+			'user' => LLPhantMessage::user($this->userTurnContent(data: $data, isMultiSpeaker: $isMultiSpeaker)),
+			'assistant' => LLPhantMessage::assistant($data['content']),
+			'system' => LLPhantMessage::system($data['content']),
+		};
 
+	}//end toLlmMessage()
+
+	/**
+	 * The role of a stored turn that has a role and content and a role the model
+	 * knows; a turn that does not is logged.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 *
+	 * @return 'user'|'assistant'|'system'|null The role, or null when the turn is skipped.
+	 */
+	private function usableRole(array $data): ?string {
+		$role = $data['role'] ?? null;
+		$content = $data['content'] ?? null;
+		if (empty($role) === true || empty($content) === true) {
+			$this->logMissingRoleOrContent(role: $role, content: $content);
+			return null;
+		}
+
+		if (in_array($role, ['user', 'assistant', 'system'], true) === false) {
+			$this->logUnknownRole(role: $role);
+			return null;
+		}
+
+		return $role;
+
+	}//end usableRole()
+
+	/**
+	 * The text of a human turn: labelled with its author in a shared session, then
+	 * followed by its attachment lines.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 * @param bool $isMultiSpeaker Whether to label human turns with their author.
+	 *
+	 * @return string The turn's text.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
+	 * whole recent window, so it is handed in rather than recomputed per turn.
+	 */
+	private function userTurnContent(array $data, bool $isMultiSpeaker): string {
+		$content = $data['content'];
+		if ($isMultiSpeaker === true) {
+			$content = $this->labelWithAuthor(content: $content, data: $data);
+		}
+
+		return $this->withAttachmentLines(content: (string)$content, data: $data);
+
+	}//end userTurnContent()
+
+	/**
+	 * Log a stored turn skipped for a missing role or content.
+	 *
+	 * @param mixed $role The turn's role.
+	 * @param mixed $content The turn's content.
+	 *
+	 * @return void
+	 */
+	private function logMissingRoleOrContent(mixed $role, mixed $content): void {
+		$this->logger->warning(
+			message: '[MessageHistoryHandler] Skipping message with missing role or content',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'hasRole' => empty($role) === false,
+				'hasContent' => empty($content) === false,
+			]
+		);
+
+	}//end logMissingRoleOrContent()
+
+	/**
+	 * Log a stored turn skipped for a role the model does not know.
+	 *
+	 * @param mixed $role The turn's role.
+	 *
+	 * @return void
+	 */
+	private function logUnknownRole(mixed $role): void {
+		$this->logger->warning(
+			message: '[MessageHistoryHandler] Unknown message role',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'role' => $role,
+			]
+		);
+
+	}//end logUnknownRole()
+
+	/**
+	 * Log the size of a built history.
+	 *
+	 * @param int $historyCount The number of messages in the history.
+	 *
+	 * @return void
+	 */
+	private function logHistoryBuilt(int $historyCount): void {
 		$this->logger->info(
 			message: '[MessageHistoryHandler] Message history built',
 			context: [
 				'file' => __FILE__,
 				'line' => __LINE__,
-				'historyCount' => count($history),
+				'historyCount' => $historyCount,
 			]
 		);
 
-		return $history;
-	}//end toLlmHistory()
+	}//end logHistoryBuilt()
 
 	/**
 	 * Attach authorship to a message payload, for human turns only.
@@ -313,13 +403,8 @@ class MessageHistoryHandler {
 	private function hasMultipleHumanAuthors(array $messages): bool {
 		$authors = [];
 		foreach ($messages as $message) {
-			$data = $message->getObject();
-			if (($data['role'] ?? null) !== 'user') {
-				continue;
-			}
-
-			$authorId = ($data['authorId'] ?? null);
-			if (is_string($authorId) === true && $authorId !== '' && in_array($authorId, $authors, true) === false) {
+			$authorId = $this->humanAuthorOf(data: $message->getObject());
+			if ($authorId !== null && in_array($authorId, $authors, true) === false) {
 				$authors[] = $authorId;
 				if (count($authors) > 1) {
 					return true;
@@ -329,6 +414,27 @@ class MessageHistoryHandler {
 
 		return false;
 	}//end hasMultipleHumanAuthors()
+
+	/**
+	 * The author uid of a human turn.
+	 *
+	 * @param array<string, mixed> $data The stored turn.
+	 *
+	 * @return string|null The author uid, or null for another role or no author.
+	 */
+	private function humanAuthorOf(array $data): ?string {
+		if (($data['role'] ?? null) !== 'user') {
+			return null;
+		}
+
+		$authorId = ($data['authorId'] ?? null);
+		if (is_string($authorId) === true && $authorId !== '') {
+			return $authorId;
+		}
+
+		return null;
+
+	}//end humanAuthorOf()
 
 	/**
 	 * Prefix a human turn with its author so the model can attribute it.
@@ -371,26 +477,36 @@ class MessageHistoryHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	private function withAttachmentLines(string $content, array $data): string {
-		$attachments = ($data['attachments'] ?? []);
-		if (is_array($attachments) === false || $attachments === []) {
-			return $content;
-		}
-
-		$lines = [];
-		foreach ($attachments as $attachment) {
-			if (is_array($attachment) === false || isset($attachment['fileId']) === false) {
-				continue;
-			}
-
-			$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
-		}
-
+		$lines = $this->attachmentLines(attachments: ($data['attachments'] ?? []));
 		if ($lines === []) {
 			return $content;
 		}
 
 		return $content . "\n\n" . implode("\n", $lines);
 	}//end withAttachmentLines()
+
+	/**
+	 * One `Attached earlier:` line per stored attachment that has a file id.
+	 *
+	 * @param mixed $attachments The stored turn's `attachments` value.
+	 *
+	 * @return array<int, string> The lines.
+	 */
+	private function attachmentLines(mixed $attachments): array {
+		if (is_array($attachments) === false) {
+			return [];
+		}
+
+		$lines = [];
+		foreach ($attachments as $attachment) {
+			if (is_array($attachment) === true && isset($attachment['fileId']) === true) {
+				$lines[] = sprintf('Attached earlier: %s, file %s', (string)($attachment['name'] ?? ''), (string)$attachment['fileId']);
+			}
+		}
+
+		return $lines;
+
+	}//end attachmentLines()
 
 	/**
 	 * Store a message as a `Message` OR object.
