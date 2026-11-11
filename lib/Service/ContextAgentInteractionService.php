@@ -110,7 +110,7 @@ class ContextAgentInteractionService {
 	 * @param ObjectService $objectService OR object read/write.
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
 	 * @param ApprovalService $approvalService Approval-gate decisions (confirmation mapping).
-	 * @param ScheduleService $scheduleService Kill-switch source (isOrganisationEngaged).
+	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
 	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
 	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
 	 * @param IAppConfig $appConfig Reads the configured ContextAgent agent id.
@@ -129,7 +129,7 @@ class ContextAgentInteractionService {
 		private readonly ObjectService $objectService,
 		private readonly Engine $engine,
 		private readonly ApprovalService $approvalService,
-		private readonly ScheduleService $scheduleService,
+		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly RedactionService $redactionService,
 		private readonly IAppConfig $appConfig,
@@ -179,7 +179,7 @@ class ContextAgentInteractionService {
 
 		// GATE — org kill-switch (EU-AI-Act Art. 14 / governance differentiator).
 		$organisation = (string)($agent->getOrganisation() ?? '');
-		if ($this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+		if ($this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation) === true) {
 			$this->audit(object: $agent, status: 'skipped_killswitch', summary: '', agentId: $agentId);
 			throw new ProcessingException('Hermiq kill-switch is engaged for this organisation; the agent will not run.');
 		}
