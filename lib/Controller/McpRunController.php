@@ -232,6 +232,24 @@ class McpRunController extends Controller {
 		}
 
 		$body = json_decode($this->readRawBody(), true);
+		$refusal = $this->jsonRpcRefusal(body: $body);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		return $this->handleRequest(body: $body, binding: $binding);
+
+	}//end handle()
+
+	/**
+	 * Refuse a body that is not a JSON-RPC 2.0 request: not JSON at all (parse error),
+	 * or without the version or a method (invalid request).
+	 *
+	 * @param mixed $body The decoded body.
+	 *
+	 * @return Response|null The JSON-RPC error, or null for a well-formed request.
+	 */
+	private function jsonRpcRefusal(mixed $body): ?Response {
 		if (is_array($body) === false) {
 			return $this->jsonRpcError(id: null, code: -32700, message: 'Parse error', status: Http::STATUS_BAD_REQUEST);
 		}
@@ -245,53 +263,113 @@ class McpRunController extends Controller {
 			);
 		}
 
-		$method = (string)$body['method'];
-		$id = ($body['id'] ?? null);
-		$params = $body['params'] ?? [];
-		if (is_array($params) === false) {
-			$params = [];
-		}
+		return null;
 
+	}//end jsonRpcRefusal()
+
+	/**
+	 * Answer a well-formed request: a notification (no id) is acknowledged, initialize
+	 * is answered directly, anything else is dispatched as the token's user.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return Response The answer.
+	 */
+	private function handleRequest(array $body, array $binding): Response {
 		// Notifications (no id) — acknowledge with 202, no body (e.g.
 		// notifications/initialized).
-		if ($id === null) {
+		if (($body['id'] ?? null) === null) {
 			$response = new Response();
 			$response->setStatus(Http::STATUS_ACCEPTED);
 			return $response;
 		}
 
-		if ($method === 'initialize') {
-			return $this->handleInitialize(id: $id, params: $params);
+		if ((string)$body['method'] === 'initialize') {
+			return $this->handleInitialize(id: $body['id'], params: $this->requestParams(body: $body));
 		}
 
-		// Identity comes from the token ONLY — the request body cannot redirect
-		// the run. Impersonate the token's user so OR RBAC applies to that user.
+		return $this->dispatchAsTokenUser(body: $body, binding: $binding);
+
+	}//end handleRequest()
+
+	/**
+	 * The request's params when they are an object, none otherwise.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 *
+	 * @return array<mixed> The params.
+	 */
+	private function requestParams(array $body): array {
+		$params = $body['params'] ?? [];
+		if (is_array($params) === false) {
+			return [];
+		}
+
+		return $params;
+
+	}//end requestParams()
+
+	/**
+	 * Dispatch a request as the token's user.
+	 *
+	 * Identity comes from the token ONLY — the request body cannot redirect the run.
+	 * Impersonate the token's user so OR RBAC applies to that user.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return Response The answer.
+	 */
+	private function dispatchAsTokenUser(array $body, array $binding): Response {
 		return $this->withImpersonatedUser(
 			userId: $binding['userId'],
-			work: function () use ($id, $method, $params, $binding): Response {
-				// The workspace tools address the run's checkout by THIS run id,
-				// taken from the verified token, never from the body.
-				$this->runId = (string)$binding['runId'];
-				$this->workspaceScope?->enter(
-					runId: $binding['runId'],
-					agentId: $binding['agentId'],
-					userId: $binding['userId']
-				);
-				try {
-					return $this->dispatch(
-						id: $id,
-						method: $method,
-						params: $params,
-						agentId: $binding['agentId'],
-						conversationId: $binding['conversationId']
-					);
-				} finally {
-					$this->workspaceScope?->leave();
-				}
-			}
+			work: fn (): Response => $this->dispatchInRunWorkspace(body: $body, binding: $binding)
 		);
 
-	}//end handle()
+	}//end dispatchAsTokenUser()
+
+	/**
+	 * Dispatch a request inside the token's run workspace, leaving it afterwards.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return Response The answer.
+	 */
+	private function dispatchInRunWorkspace(array $body, array $binding): Response {
+		$this->enterRunWorkspace(binding: $binding);
+		try {
+			return $this->dispatch(
+				id: $body['id'],
+				method: (string)$body['method'],
+				params: $this->requestParams(body: $body),
+				agentId: $binding['agentId'],
+				conversationId: $binding['conversationId']
+			);
+		} finally {
+			$this->workspaceScope?->leave();
+		}
+
+	}//end dispatchInRunWorkspace()
+
+	/**
+	 * Enter the token's run: the workspace tools address the run's checkout by THIS
+	 * run id, taken from the verified token, never from the body.
+	 *
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return void
+	 */
+	private function enterRunWorkspace(array $binding): void {
+		$this->runId = (string)$binding['runId'];
+		$this->workspaceScope?->enter(
+			runId: $binding['runId'],
+			agentId: $binding['agentId'],
+			userId: $binding['userId']
+		);
+
+	}//end enterRunWorkspace()
 
 	/**
 	 * Refuse a token that failed verification, and count it with the brute-force
@@ -583,30 +661,67 @@ class McpRunController extends Controller {
 			return [];
 		}
 
+		$grants = $this->grantsOf(agent: $agent);
+		$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
+		$allowed = array_flip($this->resolvedToolIds(grants: $grants, catalog: $catalog));
+
+		return array_values(
+			array_filter(
+				$catalog,
+				static fn (mixed $descriptor): bool => self::isAllowedDescriptor(descriptor: $descriptor, allowed: $allowed)
+			)
+		);
+	}//end resolvedDescriptorsFor()
+
+	/**
+	 * An agent's tool grants; a non-array value grants nothing.
+	 *
+	 * @param ObjectEntity $agent The agent.
+	 *
+	 * @return array<mixed> The grants.
+	 */
+	private function grantsOf(ObjectEntity $agent): array {
 		$grants = ($agent->getObject()['tools'] ?? []);
 		if (is_array($grants) === false) {
-			$grants = [];
+			return [];
 		}
 
-		$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
-		// Hermiq-runner-git-capability: a repo-effecting tool resolves only from a
-		// grant that pins the repository and constrains the branch.
-		$resolvedIds = RepoEffectingGrants::filterIds(
+		return $grants;
+
+	}//end grantsOf()
+
+	/**
+	 * The catalogue tool ids the grants resolve to. Hermiq-runner-git-capability: a
+	 * repo-effecting tool resolves only from a grant that pins the repository and
+	 * constrains the branch.
+	 *
+	 * @param array<mixed> $grants The agent's grants.
+	 * @param array<int, array<string, mixed>> $catalog The tool catalogue.
+	 *
+	 * @return array<int, string> The resolved tool ids.
+	 */
+	private function resolvedToolIds(array $grants, array $catalog): array {
+		return RepoEffectingGrants::filterIds(
 			resolvedIds: $this->grantResolver->resolve(grants: $grants, catalog: $catalog),
 			constraints: $this->grantResolver->argumentConstraints(grants: $grants)
 		);
-		$allowed = array_flip($resolvedIds);
 
-		$out = [];
-		foreach ($catalog as $descriptor) {
-			$descriptorId = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-			if (is_string($descriptorId) === true && isset($allowed[$descriptorId]) === true) {
-				$out[] = $descriptor;
-			}
-		}
+	}//end resolvedToolIds()
 
-		return $out;
-	}//end resolvedDescriptorsFor()
+	/**
+	 * Whether a catalogue descriptor, by its mcpId or else its name, is among the
+	 * allowed tool ids.
+	 *
+	 * @param mixed $descriptor One catalogue descriptor.
+	 * @param array<string, int> $allowed The allowed tool ids as keys.
+	 *
+	 * @return bool True when the descriptor is allowed.
+	 */
+	private static function isAllowedDescriptor(mixed $descriptor, array $allowed): bool {
+		$descriptorId = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
+		return is_string($descriptorId) === true && isset($allowed[$descriptorId]) === true;
+
+	}//end isAllowedDescriptor()
 
 	/**
 	 * Whether an MCP tool name matches a granted descriptor (by `name` or `mcpId`).
@@ -829,21 +944,8 @@ class McpRunController extends Controller {
 	 */
 	private function normaliseSchemaProperties(array $schema): array {
 		if (array_key_exists('properties', $schema) === true) {
-			$properties = $schema['properties'];
-			// Empty (or non-array) properties MUST be an object, not `[]`.
-			$schema['properties'] = new stdClass();
-			if (is_array($properties) === true && $properties !== []) {
-				$normalised = [];
-				foreach ($properties as $propName => $propSchema) {
-					$normalised[$propName] = $propSchema;
-					if (is_array($propSchema) === true) {
-						$normalised[$propName] = $this->normaliseSchemaProperties(schema: $propSchema);
-					}
-				}
-
-				$schema['properties'] = $normalised;
-			}
-		}//end if
+			$schema['properties'] = $this->normaliseProperties(properties: $schema['properties']);
+		}
 
 		if (isset($schema['items']) === true && is_array($schema['items']) === true) {
 			$schema['items'] = $this->normaliseSchemaProperties(schema: $schema['items']);
@@ -851,6 +953,31 @@ class McpRunController extends Controller {
 
 		return $schema;
 	}//end normaliseSchemaProperties()
+
+	/**
+	 * A schema's `properties`, each property schema normalised in turn. Empty (or
+	 * non-array) properties MUST be an object, not `[]`.
+	 *
+	 * @param mixed $properties The schema's `properties` value.
+	 *
+	 * @return array<mixed>|stdClass The normalised properties, or an empty object.
+	 */
+	private function normaliseProperties(mixed $properties): array|stdClass {
+		if (is_array($properties) === false || $properties === []) {
+			return new stdClass();
+		}
+
+		$normalised = [];
+		foreach ($properties as $propName => $propSchema) {
+			$normalised[$propName] = $propSchema;
+			if (is_array($propSchema) === true) {
+				$normalised[$propName] = $this->normaliseSchemaProperties(schema: $propSchema);
+			}
+		}
+
+		return $normalised;
+
+	}//end normaliseProperties()
 
 	/**
 	 * Wrap a `FacadeToolInvoker` result string as an MCP `tools/call` result. The
