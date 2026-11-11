@@ -202,9 +202,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function validateConfig(array $config): void {
-		if (trim((string)($config['agentId'] ?? ($config['agent'] ?? ''))) === '') {
-			throw new UnexpectedValueException($this->l10n->t('An agent step needs an agent.'));
-		}
+		$this->requiredAgentId(config: $config);
 
 	}//end validateConfig()
 
@@ -232,9 +230,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function execute(FlowNodeCall $call): array {
-		$items = $call->items;
 		$config = $call->config;
-		$context = $call->context;
 		// Third shape of the same defect: a step that did not run must not
 		// report success. `validateConfig()` already rejects a nameless agent,
 		// but it only runs when a flow is SAVED — a flow imported or seeded
@@ -242,130 +238,153 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		// the items unchanged makes the step a silent pass-through. The output
 		// key is then absent, so a downstream router takes its default branch
 		// exactly as though the agent had answered.
-		$agentId = trim((string)($config['agentId'] ?? ($config['agent'] ?? '')));
-		if ($agentId === '') {
-			throw new UnexpectedValueException($this->l10n->t('An agent step needs an agent.'));
-		}
-
-		$outKey = (string)($config['output'] ?? 'result');
-		// 🔴 The flow document does NOT get to name the identity.
-		//
-		// This read used to be `$config['owner'] ?? $context['triggeredBy']`, and
-		// Integriq's FlowOwner names it by hand as "the anti-pattern this class
-		// exists to avoid, not the template". A flow document is authored by
-		// anyone who may edit flows, so letting it name the identity its steps run
-		// as is an authoring-time privilege escalation: write `owner: admin` into
-		// a node and the turn executes with admin's rights, attributed to admin.
-		//
-		// ADR-099: identity NARROWS along an invocation chain and never widens.
-		// A step may act as its caller, or refuse. Widening needs a delegation
-		// grant checked against the CALLER, which is a record — not a key in the
-		// document being checked.
-		//
-		// 🔴 `runAs` (AUTHORIZATION) first; `triggeredBy` (PROVENANCE) is a
-		// compatibility fallback — see the class docblock, including its removal.
-		$owner = trim((string)($context['runAs'] ?? ($context['triggeredBy'] ?? '')));
-		$org = (string)($config['organisation'] ?? '');
+		$this->requiredAgentId(config: $config);
+		$run = new AgentStepRun(config: $config, owner: $this->actingIdentity(context: $call->context));
 
 		$out = [];
-		foreach ($items as $index => $item) {
-			$json = (array)($item['json'] ?? []);
-			$prompt = $this->render(template: (string)($config['prompt'] ?? ''), json: $json);
-			if (($config['expectJson'] ?? false) === true) {
-				$prompt .= "\n\n" . self::JSON_INSTRUCTION;
-			}
-
-			// A failed turn is NOT caught here. The engine's per-step `onError`
-			// policy is what decides — and it only ever sees failures that
-			// propagate out of `execute()`.
-			//
-			// This used to swallow every Throwable into `$answer = ''` while
-			// its own comment claimed the run's onError handling would decide.
-			// It could not: `FlowEngine::outcomeForFailedStep()` is reached from
-			// the `catch (Throwable)` around the step dispatch, so a swallowed
-			// failure never reached it. The step reported success, the item
-			// carried an empty answer, and a downstream router read '' as
-			// "the agent said nothing" rather than "the agent never ran".
-			//
-			// That is the wrong default for anything the answer gates. hydra's
-			// pipeline is the case in point: a failed applier turn would leave
-			// `json.stage.verdict` empty, the flow would release its slot and
-			// finish clean, and the run would look like a completed tick that
-			// simply had nothing to do.
-			//
-			// Authors who genuinely want the walk to continue past a failed
-			// turn already have the supported way to say so — `onError:
-			// continue` on the step — and saying it there records the choice in
-			// the flow rather than hard-coding it for everyone.
-			$answer = $this->scheduleService->runAgentAsOwner(
-				owner: $owner,
-				agentId: $agentId,
-				prompt: $prompt,
-				organisation: $org,
-				dryRun: false,
-				forceOwner: false,
-				anchor: null
-			);
-
-			$json[$outKey] = $this->decode(config: $config, answer: $answer);
-
-			// The conversation this turn produced, so the run log can link to
-			// it. A POINTER, never a copy: the session is the record, and a
-			// copy of its messages in the log would diverge from it the moment
-			// the session gains a reply — and would put the whole reasoning
-			// into a record kept for months.
-			//
-			// Empty on a dry run and on the flag-off legacy path, which produce
-			// no bindable conversation. Written only when there is one, so an
-			// absent key means "no session", not "the link failed".
-			$sessionUuid = $this->scheduleService->lastRunConversationUuid();
-			if ($sessionUuid !== '') {
-				$json['sessionId'] = $sessionUuid;
-			}
-
-			$out[] = [
-				'json' => $json,
-				'binary' => (array)($item['binary'] ?? []),
-				'pairedItem' => ['item' => $index],
-			];
-		}//end foreach
+		foreach ($call->items as $index => $item) {
+			$slot = new FlowItemSlot(item: $item, index: $index);
+			$out[] = $slot->withJson(json: $this->answerOnto(run: $run, json: $slot->json()));
+		}
 
 		return $out;
 	}//end execute()
 
 	/**
-	 * Substitute `{{dotted.path}}` placeholders from the item's json.
+	 * The agent the step names, refusing a step that names none.
 	 *
-	 * @param string $template The prompt template.
-	 * @param array $json The item's record.
+	 * @param array $config The step configuration.
 	 *
-	 * @return string The rendered prompt.
+	 * @return string The trimmed agent id.
 	 *
-	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 * @throws UnexpectedValueException When no agent is named.
 	 */
-	private function render(string $template, array $json): string {
-		return (string)preg_replace_callback(
-			'/\{\{\s*([A-Za-z0-9_@.]+)\s*\}\}/',
-			static function (array $matches) use ($json): string {
-				$value = $json;
-				foreach (explode('.', $matches[1]) as $segment) {
-					if (is_array($value) === false || array_key_exists($segment, $value) === false) {
-						return '';
-					}
+	private function requiredAgentId(array $config): string {
+		$agentId = trim((string)($config['agentId'] ?? ($config['agent'] ?? '')));
+		if ($agentId === '') {
+			throw new UnexpectedValueException($this->l10n->t('An agent step needs an agent.'));
+		}
 
-					$value = $value[$segment];
-				}
+		return $agentId;
+	}//end requiredAgentId()
 
-				if (is_array($value) === true) {
-					return (string)json_encode($value);
-				}
+	/**
+	 * The identity the turns act as, read from the run context only.
+	 *
+	 * 🔴 The flow document does NOT get to name the identity.
+	 *
+	 * This read used to be `$config['owner'] ?? $context['triggeredBy']`, and
+	 * Integriq's FlowOwner names it by hand as "the anti-pattern this class
+	 * exists to avoid, not the template". A flow document is authored by
+	 * anyone who may edit flows, so letting it name the identity its steps run
+	 * as is an authoring-time privilege escalation: write `owner: admin` into
+	 * a node and the turn executes with admin's rights, attributed to admin.
+	 *
+	 * ADR-099: identity NARROWS along an invocation chain and never widens.
+	 * A step may act as its caller, or refuse. Widening needs a delegation
+	 * grant checked against the CALLER, which is a record — not a key in the
+	 * document being checked.
+	 *
+	 * 🔴 `runAs` (AUTHORIZATION) first; `triggeredBy` (PROVENANCE) is a
+	 * compatibility fallback — see the class docblock, including its removal.
+	 *
+	 * @param array $context The run context.
+	 *
+	 * @return string The trimmed identity, '' when the run records none.
+	 */
+	private function actingIdentity(array $context): string {
+		return trim((string)($context['runAs'] ?? ($context['triggeredBy'] ?? '')));
+	}//end actingIdentity()
 
-				return (string)$value;
-			},
-			$template
+	/**
+	 * Run the agent for one item and put its answer and session on the item's json.
+	 *
+	 * @param AgentStepRun $run  The step run.
+	 * @param array        $json The item's record.
+	 *
+	 * @return array The record with the answer added.
+	 *
+	 * @throws Throwable When the agent turn fails.
+	 */
+	private function answerOnto(AgentStepRun $run, array $json): array {
+		// A failed turn is NOT caught here. The engine's per-step `onError`
+		// policy is what decides — and it only ever sees failures that
+		// propagate out of `execute()`.
+		//
+		// This used to swallow every Throwable into `$answer = ''` while
+		// its own comment claimed the run's onError handling would decide.
+		// It could not: `FlowEngine::outcomeForFailedStep()` is reached from
+		// the `catch (Throwable)` around the step dispatch, so a swallowed
+		// failure never reached it. The step reported success, the item
+		// carried an empty answer, and a downstream router read '' as
+		// "the agent said nothing" rather than "the agent never ran".
+		//
+		// That is the wrong default for anything the answer gates. hydra's
+		// pipeline is the case in point: a failed applier turn would leave
+		// `json.stage.verdict` empty, the flow would release its slot and
+		// finish clean, and the run would look like a completed tick that
+		// simply had nothing to do.
+		//
+		// Authors who genuinely want the walk to continue past a failed
+		// turn already have the supported way to say so — `onError:
+		// continue` on the step — and saying it there records the choice in
+		// the flow rather than hard-coding it for everyone.
+		$answer = $this->scheduleService->runAgentAsOwner(
+			owner: $run->owner,
+			agentId: $run->agentId(),
+			prompt: $this->promptFor(config: $run->config, json: $json),
+			organisation: $run->organisation(),
+			dryRun: false,
+			forceOwner: false,
+			anchor: null
 		);
 
-	}//end render()
+		$json[$run->outputKey()] = $this->decode(config: $run->config, answer: $answer);
+
+		return $this->withSessionPointer(json: $json);
+	}//end answerOnto()
+
+	/**
+	 * Put the session the last turn produced on the item's json, when there is one.
+	 *
+	 * @param array $json The item's record.
+	 *
+	 * @return array The record, with `sessionId` when the turn produced a session.
+	 */
+	private function withSessionPointer(array $json): array {
+		// The conversation this turn produced, so the run log can link to
+		// it. A POINTER, never a copy: the session is the record, and a
+		// copy of its messages in the log would diverge from it the moment
+		// the session gains a reply — and would put the whole reasoning
+		// into a record kept for months.
+		//
+		// Empty on a dry run and on the flag-off legacy path, which produce
+		// no bindable conversation. Written only when there is one, so an
+		// absent key means "no session", not "the link failed".
+		$sessionUuid = $this->scheduleService->lastRunConversationUuid();
+		if ($sessionUuid !== '') {
+			$json['sessionId'] = $sessionUuid;
+		}
+
+		return $json;
+	}//end withSessionPointer()
+
+	/**
+	 * The prompt for one item: the rendered template, plus the JSON instruction when asked.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json   The item's record.
+	 *
+	 * @return string The prompt.
+	 */
+	private function promptFor(array $config, array $json): string {
+		$prompt = (new ItemPlaceholders(json: $json))->render(template: (string)($config['prompt'] ?? ''));
+		if (($config['expectJson'] ?? false) === true) {
+			$prompt .= "\n\n" . self::JSON_INSTRUCTION;
+		}
+
+		return $prompt;
+	}//end promptFor()
 
 	/**
 	 * Parse the answer when JSON was asked for; keep the raw text otherwise.
@@ -395,10 +414,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 			return $answer;
 		}
 
-		$text = trim($answer);
-		if (str_starts_with($text, '```') === true) {
-			$text = trim((string)preg_replace('/^```[a-zA-Z]*\s*|\s*```$/', '', $text));
-		}
+		$text = $this->withoutCodeFence(text: trim($answer));
 
 		$decoded = json_decode($text, true);
 		if (json_last_error() !== JSON_ERROR_NONE || is_array($decoded) === false) {
@@ -414,4 +430,19 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 
 		return $decoded;
 	}//end decode()
+
+	/**
+	 * Strip a markdown code fence around an answer, when it has one.
+	 *
+	 * @param string $text The trimmed answer.
+	 *
+	 * @return string The answer without its fence.
+	 */
+	private function withoutCodeFence(string $text): string {
+		if (str_starts_with($text, '```') === true) {
+			return trim((string)preg_replace('/^```[a-zA-Z]*\s*|\s*```$/', '', $text));
+		}
+
+		return $text;
+	}//end withoutCodeFence()
 }//end class
