@@ -43,6 +43,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -103,14 +104,9 @@ class AgentWebhookController extends Controller {
 	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function create(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$agent = $this->loadOwnedAgent(agentId: $id, uid: $user->getUID());
-		if ($agent === null) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$user = $this->ownerOf(id: $id);
+		if ($user instanceof JSONResponse) {
+			return $user;
 		}
 
 		try {
@@ -122,13 +118,7 @@ class AgentWebhookController extends Controller {
 			return new JSONResponse(['error' => 'Could not create webhook'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-		return new JSONResponse(
-			array_merge(
-				['secret' => $result['secret']],
-				$this->webhookSecretService->status(webhook: $result['object'])
-			),
-			Http::STATUS_CREATED
-		);
+		return new JSONResponse($this->secretWithStatus(result: $result), Http::STATUS_CREATED);
 
 	}//end create()
 
@@ -146,19 +136,9 @@ class AgentWebhookController extends Controller {
 	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function rotate(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$agent = $this->loadOwnedAgent(agentId: $id, uid: $user->getUID());
-		if ($agent === null) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-		}
-
-		$webhook = $this->webhookSecretService->findForAgent(agentId: $id);
-		if ($webhook === null) {
-			return new JSONResponse(['error' => 'No webhook configured for this agent'], Http::STATUS_NOT_FOUND);
+		$webhook = $this->ownedWebhook(id: $id);
+		if ($webhook instanceof JSONResponse) {
+			return $webhook;
 		}
 
 		try {
@@ -168,12 +148,7 @@ class AgentWebhookController extends Controller {
 			return new JSONResponse(['error' => 'Could not rotate webhook'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-		return new JSONResponse(
-			array_merge(
-				['secret' => $result['secret']],
-				$this->webhookSecretService->status(webhook: $result['object'])
-			)
-		);
+		return new JSONResponse($this->secretWithStatus(result: $result));
 
 	}//end rotate()
 
@@ -191,19 +166,9 @@ class AgentWebhookController extends Controller {
 	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function revoke(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$agent = $this->loadOwnedAgent(agentId: $id, uid: $user->getUID());
-		if ($agent === null) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-		}
-
-		$webhook = $this->webhookSecretService->findForAgent(agentId: $id);
-		if ($webhook === null) {
-			return new JSONResponse(['error' => 'No webhook configured for this agent'], Http::STATUS_NOT_FOUND);
+		$webhook = $this->ownedWebhook(id: $id);
+		if ($webhook instanceof JSONResponse) {
+			return $webhook;
 		}
 
 		try {
@@ -230,19 +195,9 @@ class AgentWebhookController extends Controller {
 	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function patch(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$agent = $this->loadOwnedAgent(agentId: $id, uid: $user->getUID());
-		if ($agent === null) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-		}
-
-		$webhook = $this->webhookSecretService->findForAgent(agentId: $id);
-		if ($webhook === null) {
-			return new JSONResponse(['error' => 'No webhook configured for this agent'], Http::STATUS_NOT_FOUND);
+		$webhook = $this->ownedWebhook(id: $id);
+		if ($webhook instanceof JSONResponse) {
+			return $webhook;
 		}
 
 		$fields = $this->request->getParams();
@@ -271,6 +226,27 @@ class AgentWebhookController extends Controller {
 	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function show(string $id): JSONResponse {
+		$user = $this->ownerOf(id: $id);
+		if ($user instanceof JSONResponse) {
+			return $user;
+		}
+
+		$webhook = $this->webhookSecretService->findForAgent(agentId: $id);
+
+		return new JSONResponse($this->webhookSecretService->status(webhook: $webhook));
+	}//end show()
+
+	/**
+	 * Resolve the caller when they own the agent (IDOR guard), or the refusal.
+	 *
+	 * @param string $id The Agent object UUID.
+	 *
+	 * @return IUser|JSONResponse The owning caller, or a 401 (unauthenticated)
+	 *                            or 404 (absent or not owned) response.
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	private function ownerOf(string $id): IUser|JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
@@ -281,10 +257,46 @@ class AgentWebhookController extends Controller {
 			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
 		}
 
-		$webhook = $this->webhookSecretService->findForAgent(agentId: $id);
+		return $user;
+	}//end ownerOf()
 
-		return new JSONResponse($this->webhookSecretService->status(webhook: $webhook));
-	}//end show()
+	/**
+	 * Resolve the agent's webhook once the caller owns the agent, or the refusal.
+	 *
+	 * @param string $id The Agent object UUID.
+	 *
+	 * @return ObjectEntity|JSONResponse The webhook, or the owner refusal, or a
+	 *                                   404 when no webhook is configured.
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	private function ownedWebhook(string $id): ObjectEntity|JSONResponse {
+		$user = $this->ownerOf(id: $id);
+		if ($user instanceof JSONResponse) {
+			return $user;
+		}
+
+		$webhook = $this->webhookSecretService->findForAgent(agentId: $id);
+		if ($webhook === null) {
+			return new JSONResponse(['error' => 'No webhook configured for this agent'], Http::STATUS_NOT_FOUND);
+		}
+
+		return $webhook;
+	}//end ownedWebhook()
+
+	/**
+	 * The one-time plaintext secret merged with the webhook's status.
+	 *
+	 * @param array{secret: string, object: ObjectEntity} $result The create/rotate result.
+	 *
+	 * @return array<string, mixed> The response body.
+	 */
+	private function secretWithStatus(array $result): array {
+		return array_merge(
+			['secret' => $result['secret']],
+			$this->webhookSecretService->status(webhook: $result['object'])
+		);
+	}//end secretWithStatus()
 
 	/**
 	 * Load the agent only if the given user owns it (IDOR guard).

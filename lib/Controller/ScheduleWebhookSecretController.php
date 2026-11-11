@@ -106,14 +106,9 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function create(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-		if ($schedule === null) {
-			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		$schedule = $this->ownedSchedule(id: $id);
+		if ($schedule instanceof JSONResponse) {
+			return $schedule;
 		}
 
 		try {
@@ -125,14 +120,7 @@ class ScheduleWebhookSecretController extends Controller {
 			return new JSONResponse(['error' => 'Could not mint webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-		return new JSONResponse(
-			[
-				'secret' => $result['secret'],
-				'configured' => true,
-				'rotatedAt' => $result['rotatedAt'],
-			],
-			Http::STATUS_CREATED
-		);
+		return new JSONResponse($this->secretBody(result: $result), Http::STATUS_CREATED);
 
 	}//end create()
 
@@ -151,14 +139,9 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function rotate(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-		if ($schedule === null) {
-			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		$schedule = $this->ownedSchedule(id: $id);
+		if ($schedule instanceof JSONResponse) {
+			return $schedule;
 		}
 
 		try {
@@ -170,13 +153,7 @@ class ScheduleWebhookSecretController extends Controller {
 			return new JSONResponse(['error' => 'Could not rotate webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 
-		return new JSONResponse(
-			[
-				'secret' => $result['secret'],
-				'configured' => true,
-				'rotatedAt' => $result['rotatedAt'],
-			]
-		);
+		return new JSONResponse($this->secretBody(result: $result));
 
 	}//end rotate()
 
@@ -195,14 +172,9 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function revoke(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-		if ($schedule === null) {
-			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		$schedule = $this->ownedSchedule(id: $id);
+		if ($schedule instanceof JSONResponse) {
+			return $schedule;
 		}
 
 		try {
@@ -228,6 +200,26 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function show(string $id): JSONResponse {
+		$schedule = $this->ownedSchedule(id: $id);
+		if ($schedule instanceof JSONResponse) {
+			return $schedule;
+		}
+
+		return new JSONResponse($this->scheduleWebhookSecretService->status(schedule: $schedule));
+	}//end show()
+
+	/**
+	 * Resolve the schedule when the caller owns it (IDOR guard), or the refusal.
+	 *
+	 * @param string $id The Schedule object UUID.
+	 *
+	 * @return ObjectEntity|JSONResponse The owned schedule, or a 401
+	 *                                   (unauthenticated) or 404 (absent or not
+	 *                                   owned) response.
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	private function ownedSchedule(string $id): ObjectEntity|JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
@@ -238,8 +230,23 @@ class ScheduleWebhookSecretController extends Controller {
 			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
 		}
 
-		return new JSONResponse($this->scheduleWebhookSecretService->status(schedule: $schedule));
-	}//end show()
+		return $schedule;
+	}//end ownedSchedule()
+
+	/**
+	 * The one-time plaintext secret body of a mint or rotate.
+	 *
+	 * @param array{secret: string, rotatedAt: string} $result The mint/rotate result.
+	 *
+	 * @return array{secret: string, configured: true, rotatedAt: string} The response body.
+	 */
+	private function secretBody(array $result): array {
+		return [
+			'secret' => $result['secret'],
+			'configured' => true,
+			'rotatedAt' => $result['rotatedAt'],
+		];
+	}//end secretBody()
 
 	/**
 	 * Load the schedule only if the given user owns it (IDOR guard).
