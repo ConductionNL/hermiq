@@ -330,6 +330,12 @@ npm run lint            # ESLint
 npm run stylelint       # CSS linting
 ```
 
+### Test coverage
+
+<!-- coverage:start -->
+Measured test coverage: 80.1% of statements (PHP 80.1% of 34,379 statements), at commit `67cc96f` on 2026-11-11. The JavaScript frontend is not in this figure, because it has no coverage measurement yet. The figures come from [`coverage-summary.json`](coverage-summary.json); refresh them with `composer coverage:publish`.
+<!-- coverage:end -->
+
 ### Enable locally
 
 Nextcloud requires the app directory name to match the `<id>` in `appinfo/info.xml` (`hermiq`).

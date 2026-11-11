@@ -71,6 +71,11 @@
             "@phpqa:full"
         ],
         "test:coverage": "./vendor/bin/phpunit --coverage-html=coverage/html --coverage-clover=coverage/clover.xml --colors=always",
+        "coverage:publish": [
+            "@putenv XDEBUG_MODE=coverage",
+            "@php -d pcov.enabled=1 -d pcov.directory=lib vendor/bin/phpunit -c phpunit.xml --do-not-fail-on-risky --coverage-clover=coverage/clover.xml",
+            "@php scripts/coverage-publish.php"
+        ],
         "quality:score": [
             "@quality:phpcs-score",
             "@quality:phpmd-score",
