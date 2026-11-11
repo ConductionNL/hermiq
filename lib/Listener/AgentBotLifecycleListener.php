@@ -117,37 +117,15 @@ class AgentBotLifecycleListener implements IEventListener {
 	 */
 	private function apply(Event $event): void {
 		[$object, $deleted] = $this->resolve(event: $event);
-		if (($object instanceof ObjectEntity) === false) {
+		$agentId = $this->agentIdOf(object: $object);
+		if ($agentId === null) {
 			return;
 		}
-
-		if ($this->agents->isAgent(object: $object) === false) {
-			return;
-		}
-
-		$agentId = (string)$object->getUuid();
-		if ($agentId === '') {
-			return;
-		}
-
-		$data = $object->getObject();
-
-		// 🔴 TRASHED counts as deleted, and this is not a nicety.
-		//
-		// OpenRegister's API delete is a SOFT delete: it does not dispatch
-		// ObjectDeletedEvent (only the hard `MagicMapper::delete()` does) — the
-		// object arrives here as an UPDATE carrying a `deleted` marker, still
-		// holding `talkEnabled: true`. Without this check the listener reads
-		// that as "an ordinary update" and cheerfully RE-INSTALLS the bot of an
-		// agent the user just threw away, leaving it answering in every room it
-		// was enabled in. Verified live: the bot survived the delete until this
-		// was added.
-		$trashed = ($object->getDeleted() !== null && $object->getDeleted() !== []);
 
 		// Talk-disabled, trashed and deleted are the same instruction to spreed:
 		// this agent must stop being addressable. Disabling is not a soft state
 		// that leaves a silent bot in the room.
-		if ($deleted === true || $trashed === true || (($data['talkEnabled'] ?? false) === true) === false) {
+		if ($deleted === true || $this->mustStopAnswering(agent: $object) === true) {
 			$this->installer->uninstallForAgent(agentId: $agentId);
 			return;
 		}
@@ -157,10 +135,60 @@ class AgentBotLifecycleListener implements IEventListener {
 		// also makes this safely idempotent on every unrelated agent update.
 		$this->installer->installForAgent(
 			agentId: $agentId,
-			agentName: (string)($data['name'] ?? '')
+			agentName: (string)(($object->getObject())['name'] ?? '')
 		);
 
 	}//end apply()
+
+	/**
+	 * The uuid of a Hermiq agent object, or null for anything else.
+	 *
+	 * @param mixed $object The event's object.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 */
+	private function agentIdOf(mixed $object): ?string {
+		if (($object instanceof ObjectEntity) === false || $this->agents->isAgent(object: $object) === false) {
+			return null;
+		}
+
+		$agentId = (string)$object->getUuid();
+		if ($agentId === '') {
+			return null;
+		}
+
+		return $agentId;
+	}//end agentIdOf()
+
+	/**
+	 * Whether an agent that still exists must stop answering: it is trashed, or Talk is off for it.
+	 *
+	 * 🔴 TRASHED counts as deleted, and this is not a nicety.
+	 *
+	 * OpenRegister's API delete is a SOFT delete: it does not dispatch
+	 * ObjectDeletedEvent (only the hard `MagicMapper::delete()` does) — the
+	 * object arrives here as an UPDATE carrying a `deleted` marker, still
+	 * holding `talkEnabled: true`. Without this check the listener reads
+	 * that as "an ordinary update" and cheerfully RE-INSTALLS the bot of an
+	 * agent the user just threw away, leaving it answering in every room it
+	 * was enabled in. Verified live: the bot survived the delete until this
+	 * was added.
+	 *
+	 * @param ObjectEntity $agent The agent object.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 */
+	private function mustStopAnswering(ObjectEntity $agent): bool {
+		if ($agent->getDeleted() !== null && $agent->getDeleted() !== []) {
+			return true;
+		}
+
+		return ((($agent->getObject())['talkEnabled'] ?? false) === true) === false;
+	}//end mustStopAnswering()
 
 
 	/**
