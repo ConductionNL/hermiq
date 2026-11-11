@@ -538,6 +538,576 @@ exports[`AiFeatureRegister.doWithdraw > succeeds behind the busy flag 1`] = `
 }
 `;
 
+exports[`SkillDraftReview.doAccept > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acceptSkillDraft(["d-1"])",
+    "error="Accept failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doAccept > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acceptSkillDraft(["d-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doAccept > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acceptSkillDraft(["d-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doAccept > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "acceptSkillDraft(["d-1"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doEditContent > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "updateSkillDraftContent(["d-1","# body"])",
+    "error="Edit failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doEditContent > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "updateSkillDraftContent(["d-1","# body"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doEditContent > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "updateSkillDraftContent(["d-1","# body"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doEditContent > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "updateSkillDraftContent(["d-1","# body"])",
+    "showEditor=false",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doPropose > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "proposeSkillImprovement(["sk-1"])",
+    "error="Propose failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doPropose > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "proposeSkillImprovement(["sk-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doPropose > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "proposeSkillImprovement(["sk-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doPropose > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "proposeSkillImprovement(["sk-1"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doReject > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rejectSkillDraft(["d-1","no",["l-1"]])",
+    "error="Reject failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doReject > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rejectSkillDraft(["d-1","no",["l-1"]])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doReject > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rejectSkillDraft(["d-1","no",["l-1"]])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.doReject > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rejectSkillDraft(["d-1","no",["l-1"]])",
+    "showReject=false",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.load > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillDrafts(["sk-1"])",
+    "error="Could not load the drafts."",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.load > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillDrafts(["sk-1"])",
+    "error="Denied by server"",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.load > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillDrafts(["sk-1"])",
+    "error="Network down"",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillDraftReview.load > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillDrafts(["sk-1"])",
+    "skill={"ok":1}",
+    "drafts={"ok":1}",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal guards > refuses the pasted package "   " 1`] = `[]`;
+
+exports[`SkillFormModal guards > refuses the pasted package "name: x" 1`] = `
+[
+  "pasteError="This does not look like a fenced agentskills.io package (it must start with \\"---\\")."",
+]
+`;
+
+exports[`SkillFormModal guards > stops on an edit the server refused 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveEdit()",
+    "error="Could not save skill"",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.importPastedPackage > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "pasteBusy=true",
+    "pasteError=""",
+    "importSkill(["---\\nname: x"])",
+    "pasteError="Could not import the pasted package."",
+    "pasteBusy=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.importPastedPackage > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "pasteBusy=true",
+    "pasteError=""",
+    "importSkill(["---\\nname: x"])",
+    "pasteError="Denied by server"",
+    "pasteBusy=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.importPastedPackage > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "pasteBusy=true",
+    "pasteError=""",
+    "importSkill(["---\\nname: x"])",
+    "pasteError="Network down"",
+    "pasteBusy=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.importPastedPackage > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "pasteBusy=true",
+    "pasteError=""",
+    "importSkill(["---\\nname: x"])",
+    "applyImportedSkill([{"ok":1}])",
+    "pasteText=""",
+    "pasteBusy=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (edit) > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveEdit()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (edit) > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveEdit()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (edit) > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveEdit()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (edit) > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveEdit()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (new) > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveNew()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (new) > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveNew()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (new) > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveNew()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillFormModal.save (new) > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveNew()",
+    "$emit saved",
+    "handleClose()",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doAttest > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "attesting=true",
+    "attestError=""",
+    "attestSkillL4(["sk-1","seen"])",
+    "attestError="Unknown error"",
+    "attesting=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doAttest > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "attesting=true",
+    "attestError=""",
+    "attestSkillL4(["sk-1","seen"])",
+    "attestError="Denied by server"",
+    "attesting=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doAttest > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "attesting=true",
+    "attestError=""",
+    "attestSkillL4(["sk-1","seen"])",
+    "attestError="Network down"",
+    "attesting=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doAttest > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "attesting=true",
+    "attestError=""",
+    "attestSkillL4(["sk-1","seen"])",
+    "scorecard=[]",
+    "attestNote=""",
+    "fetchSkill()",
+    "attesting=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doQualify > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "qualifying=true",
+    "error=""",
+    "qualifySkill(["sk-1"])",
+    "error="Unknown error"",
+    "qualifying=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doQualify > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "qualifying=true",
+    "error=""",
+    "qualifySkill(["sk-1"])",
+    "error="Denied by server"",
+    "qualifying=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doQualify > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "qualifying=true",
+    "error=""",
+    "qualifySkill(["sk-1"])",
+    "error="Network down"",
+    "qualifying=false",
+  ],
+}
+`;
+
+exports[`SkillMaturityScorecard.doQualify > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "qualifying=true",
+    "error=""",
+    "qualifySkill(["sk-1"])",
+    "scorecard=[]",
+    "fetchSkill()",
+    "qualifying=false",
+  ],
+}
+`;
+
 exports[`SkillRowActions.doApprove > falls back to the translated message 1`] = `
 {
   "emitted": [],
@@ -724,6 +1294,274 @@ exports[`SkillRowActions.doQualify > succeeds behind the busy flag 1`] = `
     "qualifySkill(["sk-2"])",
     "scorecardResult={"ok":1}",
     "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRepublish > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "republishSkill(["sk-1","c-1"])",
+    "error="Republish failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRepublish > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "republishSkill(["sk-1","c-1"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRepublish > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "republishSkill(["sk-1","c-1"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRepublish > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "republishSkill(["sk-1","c-1"])",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRollback > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rollbackSkill(["sk-1","v-2"])",
+    "error="Rollback failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRollback > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rollbackSkill(["sk-1","v-2"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRollback > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rollbackSkill(["sk-1","v-2"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.doRollback > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "rollbackSkill(["sk-1","v-2"])",
+    "diff={}",
+    "diffVersionId=""",
+    "load()",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.load > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillVersions(["sk-1"])",
+    "datasetStore.fetchCollection(["evaldataset"])",
+    "runStore.fetchCollection(["evalrun"])",
+    "error="Could not load the version history."",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.load > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillVersions(["sk-1"])",
+    "datasetStore.fetchCollection(["evaldataset"])",
+    "runStore.fetchCollection(["evalrun"])",
+    "error="Denied by server"",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.load > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillVersions(["sk-1"])",
+    "datasetStore.fetchCollection(["evaldataset"])",
+    "runStore.fetchCollection(["evalrun"])",
+    "error="Network down"",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.load > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "loading=true",
+    "error=""",
+    "skillStore.fetchObject(["agentskill","sk-1"])",
+    "listSkillVersions(["sk-1"])",
+    "datasetStore.fetchCollection(["evaldataset"])",
+    "runStore.fetchCollection(["evalrun"])",
+    "skill={"ok":1}",
+    "versions={"ok":1}",
+    "datasets=[]",
+    "evalRuns=[]",
+    "loading=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.showDiff > falls back to the translated message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "diffSkillVersions(["sk-1","v-2","v-3"])",
+    "error="Diff failed."",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.showDiff > reports the server error 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "diffSkillVersions(["sk-1","v-2","v-3"])",
+    "error="Denied by server"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.showDiff > reports the thrown message 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "diffSkillVersions(["sk-1","v-2","v-3"])",
+    "error="Network down"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`SkillVersionHistory.showDiff > succeeds behind the busy flag 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "diffSkillVersions(["sk-1","v-2","v-3"])",
+    "diff={"ok":1}",
+    "diffVersionId="v-2"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`step failures inside the action > SkillDraftReview.doPropose reports a failing load 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "busy=true",
+    "error=""",
+    "proposeSkillImprovement(["sk-1"])",
+    "load",
+    "error="load broke"",
+    "busy=false",
+  ],
+}
+`;
+
+exports[`step failures inside the action > SkillFormModal.save (new) reports a failing saveNew 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "saving=true",
+    "error=""",
+    "saveNew",
+    "error="saveNew broke"",
+    "saving=false",
+  ],
+}
+`;
+
+exports[`step failures inside the action > SkillMaturityScorecard.doQualify reports a failing fetchSkill 1`] = `
+{
+  "emitted": [],
+  "trace": [
+    "qualifying=true",
+    "error=""",
+    "qualifySkill(["sk-1"])",
+    "scorecard=[]",
+    "fetchSkill",
+    "error="fetchSkill broke"",
+    "qualifying=false",
   ],
 }
 `;
