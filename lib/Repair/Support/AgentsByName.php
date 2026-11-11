@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair\Support;
 
+use OCA\Hermiq\Service\NamedObjectRows;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 
@@ -67,16 +68,6 @@ final class AgentsByName {
 			->setSchema(self::AGENT_SCHEMA)
 			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
+		return NamedObjectRows::first(objects: $objects, name: $name);
 	}//end find()
 }//end class

@@ -47,6 +47,7 @@ namespace OCA\Hermiq\Repair;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\NamedObjectRows;
 use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -724,16 +725,6 @@ class SeedMaturityExampleSkills implements IRepairStep {
 				_multitenancy: false
 			);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return $object;
-			}
-		}
-
-		return null;
+		return NamedObjectRows::first(objects: $objects, name: $name);
 	}//end findByName()
 }//end class
