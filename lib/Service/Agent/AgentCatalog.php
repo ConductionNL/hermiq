@@ -88,24 +88,14 @@ class AgentCatalog {
 	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-an-organisation-admin-sees-every-agent-of-the-organisation-req-agshare-004
 	 */
 	public function page(string $uid, int $limit, int $offset): array {
-		$asAdmin = $this->administers(uid: $uid);
+		$viewer = new CatalogViewer(uid: $uid, asAdmin: $this->administers(uid: $uid));
 		$found = $this->objectService->setRegister(self::REGISTER_SLUG)->setSchema(self::AGENT_SCHEMA)
 			->searchObjectsPaginated(
 				query: ['_limit' => $limit, '_offset' => $offset],
-				_rbac: ($asAdmin === false)
+				_rbac: ($viewer->asAdmin === false)
 			);
 
-		$rows = [];
-		foreach (($found['results'] ?? []) as $agent) {
-			if (($agent instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$row = $this->shape(agent: $agent, uid: $uid, asAdmin: $asAdmin);
-			if ($row !== null) {
-				$rows[] = $row;
-			}
-		}
+		$rows = $this->rowsOf(results: ($found['results'] ?? []), viewer: $viewer);
 
 		return [
 			'results' => $rows,
@@ -129,14 +119,14 @@ class AgentCatalog {
 	 */
 	public function row(ObjectEntity $agent, string $uid): ?array {
 		if ($this->agentAccess->canUserAccessAgent(agent: $agent, userId: $uid) === true) {
-			return $this->shape(agent: $agent, uid: $uid, asAdmin: false);
+			return $this->shape(agent: $agent, viewer: new CatalogViewer(uid: $uid, asAdmin: false));
 		}
 
 		if ($this->availability->mayAdministerOrganisation(organisation: (string)($agent->getOrganisation() ?? ''), uid: $uid) === false) {
 			return null;
 		}
 
-		return $this->shape(agent: $agent, uid: $uid, asAdmin: true);
+		return $this->shape(agent: $agent, viewer: new CatalogViewer(uid: $uid, asAdmin: true));
 
 	}//end row()
 
@@ -182,45 +172,100 @@ class AgentCatalog {
 	}//end administers()
 
 	/**
+	 * The rows of one result page the viewer may see, in page order; a non-object entry is skipped.
+	 *
+	 * @param array<int, mixed> $results The search results.
+	 * @param CatalogViewer     $viewer  Who reads, and whether as organisation admin.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
+	 */
+	private function rowsOf(array $results, CatalogViewer $viewer): array {
+		$rows = [];
+		foreach ($results as $agent) {
+			if (($agent instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$row = $this->shape(agent: $agent, viewer: $viewer);
+			if ($row !== null) {
+				$rows[] = $row;
+			}
+		}
+
+		return $rows;
+
+	}//end rowsOf()
+
+	/**
 	 * The row for one agent, or null when the user may not see it.
 	 *
-	 * @param ObjectEntity $agent   The agent.
-	 * @param string       $uid     The user.
-	 * @param bool         $asAdmin Whether the user reads as organisation admin.
+	 * @param ObjectEntity  $agent  The agent.
+	 * @param CatalogViewer $viewer Who reads, and whether as organisation admin.
 	 *
 	 * @return array<string, mixed>|null The row.
 	 *
-	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Two readers, one shape.
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
 	 */
-	private function shape(ObjectEntity $agent, string $uid, bool $asAdmin): ?array {
+	private function shape(ObjectEntity $agent, CatalogViewer $viewer): ?array {
 		$data = $agent->getObject();
-		$usable = $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $uid);
-		if ($usable === false && $asAdmin === false) {
+		$usable = $this->agentAccess->canUserAccessAgent(agent: $agent, userId: $viewer->uid);
+		if ($usable === false && $viewer->asAdmin === false) {
 			return null;
 		}
 
-		$owner = (string)($agent->getOwner() ?? '');
-		$row = $data;
-		if ($usable === false) {
-			$row = array_intersect_key($data, array_flip(self::REDUCED_FIELDS));
-			$row['visibleBecause'] = self::ADMIN_REASON;
-		}
-
-		return array_merge(
-			$row,
-			[
-				'id' => $agent->getUuid(),
-				'uuid' => $agent->getUuid(),
-				'owner' => $owner,
-				'ownerDisplayName' => ($this->userManager->getDisplayName($owner) ?? $owner),
-				'organisation' => $agent->getOrganisation(),
-				'sharing' => $this->sharing(data: $data),
-				'active' => (($data['active'] ?? true) !== false),
-				'created' => $agent->getCreated()?->format('c'),
-				'updated' => $agent->getUpdated()?->format('c'),
-			]
-		);
+		return array_merge($this->shownFields(data: $data, usable: $usable), $this->catalogFields(agent: $agent, data: $data));
 
 	}//end shape()
+
+	/**
+	 * The agent's own fields: all of them when usable, otherwise the reduced set with the reason.
+	 *
+	 * @param array<string, mixed> $data   The agent payload.
+	 * @param bool                 $usable Whether the reader may use the agent.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
+	 */
+	private function shownFields(array $data, bool $usable): array {
+		if ($usable === true) {
+			return $data;
+		}
+
+		$row = array_intersect_key($data, array_flip(self::REDUCED_FIELDS));
+		$row['visibleBecause'] = self::ADMIN_REASON;
+
+		return $row;
+
+	}//end shownFields()
+
+	/**
+	 * The catalog columns every row carries: identity, owner, organisation, sharing, status and dates.
+	 *
+	 * @param ObjectEntity         $agent The agent.
+	 * @param array<string, mixed> $data  The agent payload.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
+	 */
+	private function catalogFields(ObjectEntity $agent, array $data): array {
+		$owner = (string)($agent->getOwner() ?? '');
+
+		return [
+			'id' => $agent->getUuid(),
+			'uuid' => $agent->getUuid(),
+			'owner' => $owner,
+			'ownerDisplayName' => ($this->userManager->getDisplayName($owner) ?? $owner),
+			'organisation' => $agent->getOrganisation(),
+			'sharing' => $this->sharing(data: $data),
+			'active' => (($data['active'] ?? true) !== false),
+			'created' => $agent->getCreated()?->format('c'),
+			'updated' => $agent->getUpdated()?->format('c'),
+		];
+
+	}//end catalogFields()
 
 }//end class
