@@ -29,6 +29,12 @@ export class BusyFields {
 /** The `busy` flag and `error` message most components use. */
 export const BUSY_FIELDS = new BusyFields('busy', 'error')
 
+/** The `loading` flag and `error` message of the components that load a record. */
+export const LOADING_FIELDS = new BusyFields('loading', 'error')
+
+/** The `saving` flag and `error` message of the form dialogs. */
+export const SAVING_FIELDS = new BusyFields('saving', 'error')
+
 /**
  * The runner for one component's actions.
  *
