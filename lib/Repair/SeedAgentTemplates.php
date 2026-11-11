@@ -36,7 +36,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Service\NamedObjectRows;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -277,16 +277,6 @@ class SeedAgentTemplates implements IRepairStep {
 				_multitenancy: false
 			);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new NamedObjectRows(objects: $objects))->first(name: $name) !== null;
 	}//end nameExists()
 }//end class
