@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 	use LLPhant\Chat\Message as LLPhantMessage;
 	use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+	use OCA\Hermiq\Service\Llm\AnthropicCliRunner;
 	use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 	use OCA\Hermiq\Service\Llm\ProviderFactory;
 	use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
@@ -399,5 +400,180 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 			$factory->assertCliRunnerAvailable();
 		}//end testWithoutAContainerTheRunnerIsUnavailable()
+
+		/**
+		 * The runner, without AppAPI or a container, with or without a scope resolver.
+		 *
+		 * @param CredentialScopeResolver|null $resolver The scope resolver.
+		 *
+		 * @return AnthropicCliRunner
+		 */
+		private function runner(?CredentialScopeResolver $resolver): AnthropicCliRunner {
+			return new AnthropicCliRunner(null, $resolver, null, $this->createMock(LoggerInterface::class), 600, 30);
+		}//end runner()
+
+		/**
+		 * Call a private method on the runner.
+		 *
+		 * @param AnthropicCliRunner $runner The runner.
+		 * @param string             $method The method name.
+		 * @param array              $args   Positional arguments.
+		 *
+		 * @return mixed The method's return value.
+		 */
+		private function callPrivate(AnthropicCliRunner $runner, string $method, array $args = []): mixed {
+			$reflected = new \ReflectionMethod(AnthropicCliRunner::class, $method);
+			$reflected->setAccessible(true);
+
+			return $reflected->invokeArgs($runner, $args);
+		}//end callPrivate()
+
+		/**
+		 * THE 3-SECOND TRAP. AppAPI defaults `timeout` to 3s (guarded by
+		 * `if (!isset($options['timeout']))`) while the runner allows the CLI 120s. Omitting it
+		 * makes the feature 0% functional: every turn fails at 3s while the container runs to
+		 * completion and bills the user's real subscription.
+		 *
+		 * This pins that the option is PRESENT and EXCEEDS the runner's own timeout, so it cannot
+		 * regress to the default and the runner's kill-and-report wins the race.
+		 *
+		 * @return void
+		 *
+		 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+		 */
+		public function testCliDispatchPassesAnExplicitTimeoutExceedingTheRunners(): void {
+			$runner = $this->runner(resolver: null);
+
+			$options = $this->callPrivate($runner, 'cliDispatchOptions');
+
+			$this->assertArrayHasKey('timeout', $options, 'Omitting timeout falls back to AppAPI\'s 3s default.');
+			$this->assertIsInt($options['timeout']);
+			$this->assertGreaterThan(
+				(new \ReflectionClass(AnthropicCliRunner::class))->getConstant('RUNNER_CLI_TIMEOUT_SECONDS'),
+				$options['timeout'],
+				'Hermiq must outwait the runner so the runner reports the real reason.'
+			);
+			$this->assertGreaterThan(3, $options['timeout'], 'This is AppAPI\'s default — the trap.');
+
+		}//end testCliDispatchPassesAnExplicitTimeoutExceedingTheRunners()
+
+		/**
+		 * The system prompt is carried IN-BAND in `messages` for the runner.
+		 *
+		 * The Messages API mapper hoists system turns into a separate top-level `system` field,
+		 * but the runner has NO such field — reusing it would silently drop the agent's entire
+		 * persona on every `cli` turn. The runner renders `ROLE: content`, so the system turn must
+		 * survive as a message.
+		 *
+		 * @return void
+		 *
+		 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
+		 */
+		public function testCliMessageMappingKeepsTheSystemPromptInBand(): void {
+			$runner = $this->runner(resolver: null);
+
+			$messages = $this->callPrivate(
+				$runner,
+				'mapHistoryToCliMessages',
+				[
+					[
+						LLPhantMessage::system('You are a terse assistant.'),
+						LLPhantMessage::user('Hello.'),
+					],
+				]
+			);
+
+			$this->assertCount(2, $messages);
+			$this->assertSame('system', $messages[0]['role']);
+			$this->assertSame('You are a terse assistant.', $messages[0]['content']);
+			$this->assertSame('user', $messages[1]['role']);
+
+		}//end testCliMessageMappingKeepsTheSystemPromptInBand()
+
+		/**
+		 * An organisation-scope credential is REFUSED for `cli`: a Claude Max/Pro subscription is
+		 * PERSONAL-SCOPE ONLY under the Anthropic Terms of Service and serves only its owner.
+		 *
+		 * The broker does NOT enforce this — its Guard 1 deliberately admits any organisation
+		 * MEMBER for an organisation-scope credential — so this is the only enforcement point.
+		 *
+		 * @return void
+		 *
+		 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+		 */
+		public function testCliRefusesAnOrganisationScopeCredential(): void {
+			$resolver = $this->createMock(CredentialScopeResolver::class);
+			$resolver->method('scopeOfCredential')->willReturn('organisation');
+			$runner = $this->runner(resolver: $resolver);
+
+			try {
+				$this->callPrivate(
+					$runner,
+					'assertPersonalScopeCredential',
+					['00000000-0000-0000-0000-000000000000']
+				);
+				$this->fail('An organisation-scope subscription credential must be refused.');
+			} catch (ProviderUnavailableException $e) {
+				$this->assertSame(503, $e->getCode());
+				$this->assertStringContainsStringIgnoringCase('personal', $e->getMessage());
+			}
+
+		}//end testCliRefusesAnOrganisationScopeCredential()
+
+		/**
+		 * A personal-scope credential passes the ToS guard.
+		 *
+		 * @return void
+		 *
+		 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+		 */
+		public function testCliAcceptsAPersonalScopeCredential(): void {
+			$resolver = $this->createMock(CredentialScopeResolver::class);
+			$resolver->method('scopeOfCredential')->willReturn('personal');
+			$runner = $this->runner(resolver: $resolver);
+
+			$this->callPrivate($runner, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
+
+			$this->addToAssertionCount(1);
+
+		}//end testCliAcceptsAPersonalScopeCredential()
+
+		/**
+		 * An unknown credential FAILS CLOSED: a scope that cannot be established is never assumed
+		 * personal.
+		 *
+		 * @return void
+		 *
+		 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+		 */
+		public function testCliFailsClosedWhenTheScopeCannotBeEstablished(): void {
+			$resolver = $this->createMock(CredentialScopeResolver::class);
+			$resolver->method('scopeOfCredential')->willReturn(null);
+			$runner = $this->runner(resolver: $resolver);
+
+			$this->expectException(ProviderUnavailableException::class);
+			$this->expectExceptionCode(503);
+
+			$this->callPrivate($runner, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
+
+		}//end testCliFailsClosedWhenTheScopeCannotBeEstablished()
+
+		/**
+		 * With no `CredentialScopeResolver` the scope cannot be verified, so the turn fails closed
+		 * rather than proceeding with an unverified subscription credential.
+		 *
+		 * @return void
+		 *
+		 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+		 */
+		public function testCliFailsClosedWithoutACredentialResolver(): void {
+			$runner = $this->runner(resolver: null);
+
+			$this->expectException(ProviderUnavailableException::class);
+			$this->expectExceptionCode(503);
+
+			$this->callPrivate($runner, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
+
+		}//end testCliFailsClosedWithoutACredentialResolver()
 	}//end class
 }
