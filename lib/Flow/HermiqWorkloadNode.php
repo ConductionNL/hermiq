@@ -224,9 +224,8 @@ class HermiqWorkloadNode implements IFlowNode {
 		foreach ($call->items as $index => $item) {
 			$slot = new FlowItemSlot(item: $item, index: $index);
 			$json = $slot->json();
-			$json[$outKey] = $this->dispatchFor(
-				run: new WorkloadStageRun(config: $config, owner: $owner, placeholders: new ItemPlaceholders(json: $json))
-			);
+			$run = new WorkloadStageRun(config: $config, placeholders: new ItemPlaceholders(json: $json));
+			$json[$outKey] = $this->dispatchFor(run: $run, owner: $owner);
 			$out[] = $slot->withJson(json: $json);
 		}
 
@@ -309,14 +308,15 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * where every defect in this node has been, sit together and can be read in
 	 * one piece.
 	 *
-	 * @param WorkloadStageRun $run The step configuration, owner and item placeholders.
+	 * @param WorkloadStageRun $run   The step configuration and item placeholders.
+	 * @param string           $owner The resolved run owner.
 	 *
 	 * @return array The stage result, with attribution added.
 	 *
 	 * @throws Throwable When the workload could not be run.
 	 */
-	private function dispatchFor(WorkloadStageRun $run): array {
-		$request = $this->stageRequestFor(run: $run);
+	private function dispatchFor(WorkloadStageRun $run, string $owner): array {
+		$request = $this->stageRequestFor(run: $run, owner: $owner);
 
 		// ASYNC is a whole second transport; see dispatchAsyncFor().
 		if ($run->isAsync() === true) {
@@ -330,11 +330,12 @@ class HermiqWorkloadNode implements IFlowNode {
 	/**
 	 * The stage one item asks for: the rendered target, command and options.
 	 *
-	 * @param WorkloadStageRun $run The step configuration, owner and item placeholders.
+	 * @param WorkloadStageRun $run   The step configuration and item placeholders.
+	 * @param string           $owner The identity the stage acts as.
 	 *
 	 * @return StageRequest The stage.
 	 */
-	private function stageRequestFor(WorkloadStageRun $run): StageRequest {
+	private function stageRequestFor(WorkloadStageRun $run, string $owner): StageRequest {
 		return new StageRequest(
 			repo: $run->rendered(key: 'repo'),
 			ref: $run->rendered(key: 'ref'),
@@ -342,7 +343,7 @@ class HermiqWorkloadNode implements IFlowNode {
 				fn (string $argument): string => $run->placeholders->render(template: $argument),
 				array_values((array)($run->config['command'] ?? []))
 			),
-			uid: $run->owner,
+			uid: $owner,
 			options: $this->stageOptionsFor(run: $run)
 		);
 	}//end stageRequestFor()
@@ -355,7 +356,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * middle of a dispatch; it is kept verbatim below as line comments,
 	 * because one of them contains a path that would close this block.
 	 *
-	 * @param WorkloadStageRun $run The step configuration, owner and item placeholders.
+	 * @param WorkloadStageRun $run The step configuration and item placeholders.
 	 *
 	 * @return StageOptions The options.
 	 */
@@ -441,7 +442,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	/**
 	 * The rendered job key of an async stage; a synchronous stage sends none.
 	 *
-	 * @param WorkloadStageRun $run The step configuration, owner and item placeholders.
+	 * @param WorkloadStageRun $run The step configuration and item placeholders.
 	 *
 	 * @return string The job key, or ''.
 	 */

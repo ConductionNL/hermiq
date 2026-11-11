@@ -1,10 +1,10 @@
 <?php
 
 /**
- * One item's workload stage: the step configuration, the owner and the item.
+ * One item's workload stage: the step configuration and the item.
  *
  * Built per item by the workload step so the helpers that turn the item into a
- * stage request share one owner and one placeholder substitution.
+ * stage request share one placeholder substitution.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -26,7 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Flow;
 
 /**
- * The configuration, owner and placeholders one item's stage is built from.
+ * The configuration and placeholders one item's stage is built from.
  *
  * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
  */
@@ -36,12 +36,10 @@ final class WorkloadStageRun {
 	 * Constructor.
 	 *
 	 * @param array            $config       The step configuration.
-	 * @param string           $owner        The identity the stage acts as.
 	 * @param ItemPlaceholders $placeholders The item's placeholder substitution.
 	 */
 	public function __construct(
 		public readonly array $config,
-		public readonly string $owner,
 		public readonly ItemPlaceholders $placeholders,
 	) {
 	}//end __construct()

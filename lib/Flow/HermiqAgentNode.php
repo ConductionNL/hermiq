@@ -238,12 +238,8 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		// the items unchanged makes the step a silent pass-through. The output
 		// key is then absent, so a downstream router takes its default branch
 		// exactly as though the agent had answered.
-		$run = new AgentStepRun(
-			config: $config,
-			agentId: $this->requiredAgentId(config: $config),
-			owner: $this->actingIdentity(context: $call->context),
-			organisation: (string)($config['organisation'] ?? '')
-		);
+		$this->requiredAgentId(config: $config);
+		$run = new AgentStepRun(config: $config, owner: $this->actingIdentity(context: $call->context));
 
 		$out = [];
 		foreach ($call->items as $index => $item) {
@@ -335,9 +331,9 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		// the flow rather than hard-coding it for everyone.
 		$answer = $this->scheduleService->runAgentAsOwner(
 			owner: $run->owner,
-			agentId: $run->agentId,
+			agentId: $run->agentId(),
 			prompt: $this->promptFor(config: $run->config, json: $json),
-			organisation: $run->organisation,
+			organisation: $run->organisation(),
 			dryRun: false,
 			forceOwner: false,
 			anchor: null
