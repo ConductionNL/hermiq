@@ -742,4 +742,44 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertSame('{"type":"string"}', json_encode($normalise->invoke($controller, ['type' => 'string'])));
 
 	}//end testInputSchemasAreNormalisedRecursively()
+
+	/**
+	 * The listed tools are the catalogue entries the agent's grants resolve to, in
+	 * catalogue order (an entry without an mcpId does not resolve from a wildcard
+	 * grant); a non-array grant list grants nothing.
+	 *
+	 * @return void
+	 */
+	public function testListedToolsFollowTheGrantsInCatalogueOrder(): void {
+		$catalog = $this->catalog();
+		$catalog[] = ['name' => 'openregister.contact.list', 'description' => 'List contacts', 'parameters' => ['type' => 'object']];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturn($catalog);
+
+		$listed = [];
+		foreach ([['openregister.contact.*'], 'openregister.contact.*'] as $grants) {
+			$agent = new ObjectEntity();
+			$agent->setUuid('agent-1');
+			$agent->setObject(['tools' => $grants, 'organisation' => '']);
+			$objects = $this->createMock(ObjectService::class);
+			$objects->method('find')->willReturn($agent);
+
+			$response = $this->controller(
+				'Bearer good',
+				'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}',
+				$this->tokens('good'),
+				$objects,
+				$facade,
+				$this->createMock(ToolLoop::class),
+				$this->createMock(ToolSearchService::class)
+			)->handle();
+			$listed[] = array_column($response->getData()['result']['tools'], 'name');
+		}
+
+		$this->assertSame(
+			[['openregister_contact_search', 'openregister_contact_get'], []],
+			$listed
+		);
+
+	}//end testListedToolsFollowTheGrantsInCatalogueOrder()
 }//end class
