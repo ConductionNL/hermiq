@@ -61,7 +61,6 @@ use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -826,43 +825,7 @@ class SkillController extends Controller {
 	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function collectPublishablePayloads(array $skillIds): array {
-		$payloads = [];
-		$outcomes = [];
-
-		foreach ($skillIds as $skillId) {
-			$id = (string)$skillId;
-
-			try {
-				$skill = $this->skillService->getSkill(skillId: $id);
-			} catch (DoesNotExistException $e) {
-				$outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
-				continue;
-			} catch (Throwable $e) {
-				$this->logger->error(
-					'Hermiq bundle publish: resolving skill "' . $id . '" failed: ' . $e->getMessage(),
-					['exception' => $e]
-				);
-				$outcomes[] = ['name' => $id, 'outcome' => 'failed'];
-				continue;
-			}//end try
-
-			if ($skill === null) {
-				$outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
-				continue;
-			}
-
-			$object = $skill->getObject();
-			$object['files'] = ($this->skillService->publishFileSelection(skillId: $id) ?? []);
-
-			$payloads[] = $object;
-			$outcomes[] = [
-				'name' => (string)($object['name'] ?? ''),
-				'files' => count($object['files']),
-				'outcome' => 'published',
-			];
-		}//end foreach
-
-		return ['payloads' => $payloads, 'outcomes' => $outcomes];
+		return (new PublishableSkills(skillService: $this->skillService, logger: $this->logger))->collect(skillIds: $skillIds);
 	}//end collectPublishablePayloads()
 
 	/**

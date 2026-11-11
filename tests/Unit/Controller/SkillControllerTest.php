@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\SkillSerializer;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -49,6 +50,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use ReflectionMethod;
 use RuntimeException;
 
 /**
@@ -1142,4 +1144,55 @@ class SkillControllerTest extends TestCase {
 		$this->assertSame('triage', $data['agents'][0]['name']);
 
 	}//end testBundleInstallInstallsTheAgentsTheBundleDeclares()
+
+	/**
+	 * The publishable skill payloads and per-skill outcomes, in request order: a
+	 * missing skill (thrown or null) is not_found, any other failure is failed, and a
+	 * found skill carries its publish-time file selection (none is an empty list).
+	 *
+	 * @return void
+	 */
+	public function testPublishablePayloadsAndOutcomesInRequestOrder(): void {
+		$skillService = $this->createMock(originalClassName: SkillService::class);
+		$skillService->method('getSkill')->willReturnCallback(
+			function (string $skillId): ?ObjectEntity {
+				return match ($skillId) {
+					'gone' => throw new DoesNotExistException(msg: 'gone'),
+					'broken' => throw new RuntimeException(message: 'store down'),
+					'null' => null,
+					default => $this->skill(overrides: ['name' => 'Skill ' . $skillId]),
+				};
+			}
+		);
+		$skillService->method('publishFileSelection')->willReturnCallback(
+			static fn (string $skillId): ?array => match ($skillId) {
+				'with-files' => ['a.md' => 'x', 'b.md' => 'y'],
+				default => null,
+			}
+		);
+		$controller = $this->controller(session: $this->session(uid: 'alice'), skillService: $skillService);
+
+		$collect = new ReflectionMethod(objectOrMethod: $controller, method: 'collectPublishablePayloads');
+		$collected = $collect->invoke($controller, ['with-files', 'gone', 7, 'broken', 'null', 'plain']);
+
+		$this->assertSame(
+			expected: [
+				'payloads' => [
+					['id' => 'skill-1', 'name' => 'Skill with-files', 'state' => 'quarantined', 'files' => ['a.md' => 'x', 'b.md' => 'y']],
+					['id' => 'skill-1', 'name' => 'Skill 7', 'state' => 'quarantined', 'files' => []],
+					['id' => 'skill-1', 'name' => 'Skill plain', 'state' => 'quarantined', 'files' => []],
+				],
+				'outcomes' => [
+					['name' => 'Skill with-files', 'files' => 2, 'outcome' => 'published'],
+					['name' => 'gone', 'outcome' => 'not_found'],
+					['name' => 'Skill 7', 'files' => 0, 'outcome' => 'published'],
+					['name' => 'broken', 'outcome' => 'failed'],
+					['name' => 'null', 'outcome' => 'not_found'],
+					['name' => 'Skill plain', 'files' => 0, 'outcome' => 'published'],
+				],
+			],
+			actual: $collected
+		);
+
+	}//end testPublishablePayloadsAndOutcomesInRequestOrder()
 }//end class
