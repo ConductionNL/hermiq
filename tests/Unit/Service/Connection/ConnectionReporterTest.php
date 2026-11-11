@@ -40,6 +40,10 @@ use Psr\Log\LoggerInterface;
 use ReflectionMethod;
 use RuntimeException;
 
+// The integriq event contract is not installed here; its stub is not on the unit
+// autoloader, so load it explicitly or every report reads integriq as absent.
+require_once __DIR__ . '/../../../Stubs/Integriq/Event/ConnectionStatusReportedEvent.php';
+
 /**
  * Unit tests for ConnectionReporter.
  *
