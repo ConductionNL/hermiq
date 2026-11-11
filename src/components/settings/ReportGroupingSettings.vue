@@ -72,6 +72,7 @@ import {
 	getReportSimilaritySettings,
 	setReportSimilaritySettings,
 } from '../../api/reportSimilarity.js'
+import { settingsCall } from './settingsCall.js'
 
 export default {
 	name: 'ReportGroupingSettings',
@@ -82,19 +83,14 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [settingsCall],
+
 	data() {
 		return {
 			upper: '0.85',
 			lower: '0.55',
 			defaultWindowMinutes: 1440,
-			loading: true,
-			busy: false,
-			error: '',
 		}
-	},
-
-	created() {
-		this.load()
 	},
 
 	methods: {
@@ -105,18 +101,12 @@ export default {
 		 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 		 */
 		async load() {
-			this.loading = true
-			this.error = ''
-			try {
+			await this.withFlag('loading', async () => {
 				const data = await getReportSimilaritySettings()
 				this.upper = String(data.upper)
 				this.lower = String(data.lower)
 				this.defaultWindowMinutes = data.defaultWindowMinutes
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.loading = false
-			}
+			})
 		},
 
 		/**
@@ -127,34 +117,14 @@ export default {
 		 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-a-report-must-fall-into-one-of-three-bands-not-two
 		 */
 		async save() {
-			this.busy = true
-			this.error = ''
-			try {
+			await this.withFlag('busy', async () => {
 				const data = await setReportSimilaritySettings({
 					upper: Number(this.upper),
 					lower: Number(this.lower),
 				})
 				this.upper = String(data.upper)
 				this.lower = String(data.lower)
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * The server's own wording where there is one.
-		 *
-		 * @param {object} e The caught error.
-		 * @return {string} The message to show.
-		 */
-		messageFor(e) {
-			return (
-				e?.response?.data?.error
-				|| e?.message
-				|| this.t('hermiq', 'Unknown error')
-			)
+			})
 		},
 	},
 }

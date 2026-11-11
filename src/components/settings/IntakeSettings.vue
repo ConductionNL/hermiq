@@ -50,6 +50,7 @@
 <script>
 import { NcButton, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import { getIntakeSettings, setIntakeSettings } from '../../api/intake.js'
+import { settingsCall } from './settingsCall.js'
 
 export default {
 	name: 'IntakeSettings',
@@ -60,17 +61,12 @@ export default {
 		NcTextField,
 	},
 
+	mixins: [settingsCall],
+
 	data() {
 		return {
 			threshold: '0.8',
-			loading: true,
-			busy: false,
-			error: '',
 		}
-	},
-
-	created() {
-		this.load()
 	},
 
 	methods: {
@@ -81,16 +77,10 @@ export default {
 		 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
 		 */
 		async load() {
-			this.loading = true
-			this.error = ''
-			try {
+			await this.withFlag('loading', async () => {
 				const data = await getIntakeSettings()
 				this.threshold = String(data.abstentionThreshold)
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.loading = false
-			}
+			})
 		},
 
 		/**
@@ -100,30 +90,10 @@ export default {
 		 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
 		 */
 		async save() {
-			this.busy = true
-			this.error = ''
-			try {
+			await this.withFlag('busy', async () => {
 				const data = await setIntakeSettings(Number(this.threshold))
 				this.threshold = String(data.abstentionThreshold)
-			} catch (e) {
-				this.error = this.messageFor(e)
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * The server's own wording where there is one.
-		 *
-		 * @param {object} e The caught error.
-		 * @return {string} The message to show.
-		 */
-		messageFor(e) {
-			return (
-				e?.response?.data?.error
-				|| e?.message
-				|| this.t('hermiq', 'Unknown error')
-			)
+			})
 		},
 	},
 }
