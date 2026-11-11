@@ -109,16 +109,7 @@ class AttachmentStore {
 	 */
 	public function store(string $uid, array $upload): array {
 		$name = $this->cleanName(name: (string)($upload['name'] ?? ''));
-		$size = (int)($upload['size'] ?? 0);
-		$capMb = max(1, $this->appConfig->getValueInt('hermiq', self::CAP_KEY, self::DEFAULT_CAP_MB));
-		if ($size > ($capMb * 1024 * 1024)) {
-			throw new AttachmentRefusedException($this->l10n->t('This file is larger than %s MB.', [$capMb]));
-		}
-
-		$mimeType = $this->mimeTypeDetector->detectPath($name);
-		if (self::isAllowedType(mimeType: $mimeType) === false) {
-			throw new AttachmentRefusedException($this->l10n->t('Hermiq cannot read files of this type.'));
-		}
+		$mimeType = $this->acceptedType(name: $name, size: (int)($upload['size'] ?? 0));
 
 		$bytes = file_get_contents((string)($upload['tmp_name'] ?? ''));
 		if ($bytes === false) {
@@ -137,6 +128,32 @@ class AttachmentStore {
 			'size' => strlen($bytes),
 		];
 	}//end store()
+
+	/**
+	 * The upload's type when its size is within the admin's cap and the type is one Hermiq reads.
+	 *
+	 * @param string $name The cleaned file name.
+	 * @param int    $size The declared size in bytes.
+	 *
+	 * @return string The detected MIME type.
+	 *
+	 * @throws AttachmentRefusedException When the file is too large (checked first) or of a refused type.
+	 *
+	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 */
+	private function acceptedType(string $name, int $size): string {
+		$capMb = max(1, $this->appConfig->getValueInt('hermiq', self::CAP_KEY, self::DEFAULT_CAP_MB));
+		if ($size > ($capMb * 1024 * 1024)) {
+			throw new AttachmentRefusedException($this->l10n->t('This file is larger than %s MB.', [$capMb]));
+		}
+
+		$mimeType = $this->mimeTypeDetector->detectPath($name);
+		if (self::isAllowedType(mimeType: $mimeType) === false) {
+			throw new AttachmentRefusedException($this->l10n->t('Hermiq cannot read files of this type.'));
+		}
+
+		return $mimeType;
+	}//end acceptedType()
 
 	/**
 	 * Whether Hermiq keeps a file of this type: text, the four image types a model can read, PDF, office documents.
