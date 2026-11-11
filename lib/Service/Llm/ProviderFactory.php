@@ -254,6 +254,13 @@ class ProviderFactory {
 	private const CREDENTIAL_SCOPE_PERSONAL = 'personal';
 
 	/**
+	 * The gates a resolved chat driver passes, built on first use.
+	 *
+	 * @var ChatDriverGates|null
+	 */
+	private ?ChatDriverGates $driverGates = null;
+
+	/**
 	 * Tool calls per turn on the Anthropic loop when the caller names no cap: the
 	 * default of Agent.maxToolCalls (agents-switch-off-and-stop). The agent's own cap,
 	 * passed as `maxToolCalls`, replaces it.
@@ -578,39 +585,6 @@ class ProviderFactory {
 	}//end instantiateChatDriver()
 
 	/**
-	 * Resolve an AI feature's own provider and model binding, if it has one.
-	 *
-	 * Step 1 of the order `a-provider-and-a-place-per-ai-feature` specifies. It
-	 * only RESOLVES: the model policy ceiling is applied by the caller, after
-	 * this, so a binding can narrow the policy and never widen it.
-	 *
-	 * Extracted from createChatDriver() unchanged. `featureBound` is true
-	 * whenever a feature and an organisation were both given and a resolver
-	 * exists, INCLUDING when the resolver answered with nothing — that is the
-	 * existing behaviour and the caller depends on it.
-	 *
-	 * @param ChatDriverRequest $request The resolution: its feature slug and organisation, and
-	 *                                   the provider and model resolved so far, which a binding
-	 *                                   replaces.
-	 *
-	 * @return void
-	 *
-	 * @spec exclude extracted verbatim from createChatDriver(); covered by its tests
-	 */
-	private function resolveFeatureBinding(ChatDriverRequest $request): void {
-		if ($request->aiFeature === null || $request->aiFeature === '' || $this->featureResolver === null || $request->organisation === null) {
-			return;
-		}
-
-		$request->featureBound = true;
-		$binding = $this->featureResolver->bindingFor(featureSlug: $request->aiFeature, organisation: $request->organisation);
-		if ($binding['provider'] !== null && $binding['model'] !== null) {
-			$request->chatProvider = $binding['provider'];
-			$request->agentModel = $binding['model'];
-		}
-	}//end resolveFeatureBinding()
-
-	/**
 	 * Resolve the configured `chatProvider` into a ready-to-use ChatDriver.
 	 *
 	 * @param array $llmConfig The `hermiq.llm` configuration
@@ -690,6 +664,23 @@ class ProviderFactory {
 	}//end createChatDriver()
 
 	/**
+	 * The gates a resolved chat driver passes, built on first use.
+	 *
+	 * @return ChatDriverGates
+	 */
+	private function driverGates(): ChatDriverGates {
+		if ($this->driverGates === null) {
+			$this->driverGates = new ChatDriverGates(
+				modelPolicyService: $this->modelPolicyService,
+				featureResolver: $this->featureResolver,
+				dataUseGate: $this->dataUseGate
+			);
+		}
+
+		return $this->driverGates;
+	}//end driverGates()
+
+	/**
 	 * Resolve the driver in the specified order: the feature's own binding, the
 	 * provider's driver, then the gates.
 	 *
@@ -704,7 +695,7 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException When no provider is configured or it cannot be built.
 	 */
 	private function resolveChatDriver(ChatDriverRequest $request): ChatDriver {
-		$this->resolveFeatureBinding(request: $request);
+		$this->driverGates()->resolveFeatureBinding(request: $request);
 
 		if (empty($request->chatProvider) === true) {
 			throw new ProviderUnavailableException(
@@ -714,114 +705,9 @@ class ProviderFactory {
 		}
 
 		$driver = $this->instantiateChatDriver(request: $request);
-		$this->enforceDriverGates(request: $request, driver: $driver);
+		$this->driverGates()->enforceDriverGates(request: $request, driver: $driver);
 		return $driver;
 	}//end resolveChatDriver()
-
-	/**
-	 * Tenant-model-policy: the single enforcement chokepoint, and steps 2 and 3 of
-	 * this change's specified order. Runs AFTER the agent override is applied (the
-	 * driver builders already resolved agentModel ?? providerConfig into
-	 * $driver->model) so a policy cannot be bypassed by leaving the per-agent model
-	 * field blank — see design.md "Decisions". Runs BEFORE any network call: driver
-	 * construction only builds client value objects, it never sends a request.
-	 *
-	 * When the run names an AI feature the resolver applies both gates in order and
-	 * names the one that refuses; with no feature named the model-policy gate alone
-	 * runs, exactly as before, followed by the data-use step (models-no-training-
-	 * guarantee), so a run that names no AI feature cannot reach a provider that
-	 * may train.
-	 *
-	 * @param ChatDriverRequest $request The resolution.
-	 * @param ChatDriver        $driver  The built driver.
-	 *
-	 * @return void
-	 */
-	private function enforceDriverGates(ChatDriverRequest $request, ChatDriver $driver): void {
-		if ($request->featureBound === true && $this->featureResolver !== null && $request->organisation !== null) {
-			$this->enforceFeatureGates(request: $request, driver: $driver);
-			return;
-		}
-
-		$this->enforceModelPolicy(organisation: $request->organisation, provider: $driver->provider, model: $driver->model);
-
-		if ($request->organisation !== null) {
-			$this->dataUseGate?->enforce(organisation: $request->organisation, provider: $driver->provider);
-		}
-	}//end enforceDriverGates()
-
-	/**
-	 * Apply the feature's gates to the run's document and then, one call per file,
-	 * to every attachment, so a redacted first file cannot carry an unredacted
-	 * second one past the gate (chat-attachments-and-images).
-	 *
-	 * @param ChatDriverRequest $request The resolution (feature-bound, with an organisation).
-	 * @param ChatDriver        $driver  The built driver.
-	 *
-	 * @return void
-	 */
-	private function enforceFeatureGates(ChatDriverRequest $request, ChatDriver $driver): void {
-		$this->featureResolver?->enforceForRun(
-			featureSlug: (string)$request->aiFeature,
-			organisation: (string)$request->organisation,
-			provider: $driver->provider,
-			model: $driver->model,
-			documentReference: $request->documentReference
-		);
-
-		foreach ($request->attachmentReferences as $attachmentReference) {
-			$this->featureResolver?->enforceForRun(
-				featureSlug: (string)$request->aiFeature,
-				organisation: (string)$request->organisation,
-				provider: $driver->provider,
-				model: $driver->model,
-				documentReference: (string)$attachmentReference
-			);
-		}
-	}//end enforceFeatureGates()
-
-	/**
-	 * Check a resolved (provider, model) pair against the calling organisation's
-	 * effective ModelPolicy; throw when out of policy. A no-op when either
-	 * `$organisation` is null (caller opted out of enforcement, e.g. a purely
-	 * instance-wide background call) or no policy service was injected
-	 * (backward-compatible default for pre-existing call sites/tests).
-	 *
-	 * @param string|null $organisation The calling organisation, or null to skip the check.
-	 * @param string $provider The resolved provider.
-	 * @param string $model The resolved model id.
-	 *
-	 * @return void
-	 *
-	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
-	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
-	 */
-	private function enforceModelPolicy(?string $organisation, string $provider, string $model): void {
-		if ($organisation === null || $this->modelPolicyService === null) {
-			return;
-		}
-
-		if ($this->modelPolicyService->isAllowed(organisation: $organisation, provider: $provider, model: $model) === true) {
-			return;
-		}
-
-		$orgLabel = $organisation;
-		if ($orgLabel === '') {
-			$orgLabel = '(instance-wide)';
-		}
-
-		throw new ModelPolicyViolationException(
-			sprintf(
-				"Refused by the model-policy check: organisation '%s' does not permit provider '%s' model '%s'.",
-				$orgLabel,
-				$provider,
-				$model
-			),
-			422
-		);
-
-	}//end enforceModelPolicy()
 
 	/**
 	 * Resolve a personal → organisation credential override for a provider,
