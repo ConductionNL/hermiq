@@ -319,16 +319,17 @@ class BudgetController extends Controller {
 			return false;
 		}
 
-		if ($this->groupManager->isAdmin($user->getUID()) === true) {
-			return true;
-		}
-
-		try {
-			$org = $this->organisationMapper->findByUuid($organisation);
-		} catch (Throwable $e) {
-			return false;
-		}
-
-		return (string)($org->getOwner() ?? '') === $user->getUID();
+		return $this->groupManager->isAdmin($user->getUID()) === true
+			|| $this->policyGate()->ownsOrganisation(organisation: $organisation, uid: $user->getUID());
 	}//end mayAdminister()
+
+	/**
+	 * The shared organisation gate over this controller's group manager and
+	 * organisation mapper (owner lookup: an unknown organisation is not owned).
+	 *
+	 * @return OrganisationPolicyGate The gate.
+	 */
+	private function policyGate(): OrganisationPolicyGate {
+		return new OrganisationPolicyGate(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+	}//end policyGate()
 }//end class
