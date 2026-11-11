@@ -158,4 +158,28 @@ class ApprovalVerdictSignerTest extends TestCase {
 		);
 
 	}//end testAnUnreadableSecretRotatesThePair()
+
+	/**
+	 * A readable secret whose stored public half does not belong to it also makes a
+	 * new pair, and the new secret is stored as sensitive.
+	 *
+	 * @return void
+	 */
+	public function testAMismatchedPairRotates(): void {
+		$stale = sodium_crypto_sign_keypair();
+		$other = sodium_crypto_sign_keypair();
+		$this->values[ApprovalVerdictSigner::SECRET_KEY] = base64_encode(sodium_crypto_sign_secretkey($stale));
+		$this->values[ApprovalVerdictSigner::PUBLIC_KEY] = base64_encode(sodium_crypto_sign_publickey($other));
+
+		$signature = base64_decode((new ApprovalVerdictSigner(appConfig: $this->appConfig()))->sign(verdict: $this->verdict()), true);
+		$published = (string)base64_decode($this->values[ApprovalVerdictSigner::PUBLIC_KEY], true);
+
+		$this->assertNotSame(expected: sodium_crypto_sign_publickey($other), actual: $published);
+		$this->assertNotSame(expected: base64_encode(sodium_crypto_sign_secretkey($stale)), actual: $this->values[ApprovalVerdictSigner::SECRET_KEY]);
+		$this->assertTrue(condition: $this->sensitive[ApprovalVerdictSigner::SECRET_KEY]);
+		$this->assertTrue(
+			condition: sodium_crypto_sign_verify_detached((string)$signature, ApprovalVerdictSigner::canonical(verdict: $this->verdict()), $published)
+		);
+
+	}//end testAMismatchedPairRotates()
 }//end class
