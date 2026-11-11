@@ -171,23 +171,9 @@ class OrganisationControlController extends Controller {
 	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	private function mayAdminister(string $organisation, IUser $user): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		return $this->groupManager->isAdmin($user->getUID()) === true
-			|| $this->policyGate()->ownsOrganisation(organisation: $organisation, uid: $user->getUID());
+		$administrators = new OrganisationAdministrators(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
+		return $administrators->mayAdminister(organisation: $organisation, user: $user);
 	}//end mayAdminister()
-
-	/**
-	 * The shared organisation gate over this controller's group manager and
-	 * organisation mapper (owner lookup: an unknown organisation is not owned).
-	 *
-	 * @return OrganisationPolicyGate The gate.
-	 */
-	private function policyGate(): OrganisationPolicyGate {
-		return new OrganisationPolicyGate(groupManager: $this->groupManager, organisationMapper: $this->organisationMapper);
-	}//end policyGate()
 
 	/**
 	 * Shape a TenantControl object (or its absence) into a response payload.
