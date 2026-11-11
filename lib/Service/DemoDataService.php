@@ -164,44 +164,22 @@ class DemoDataService {
 	 * @return integer|null The object count, or null when there is no usable descriptor.
 	 */
 	private function shippedObjectCount(): ?int {
-		$path = $this->descriptorPath();
-		if (is_file($path) === false) {
+		try {
+			return $this->objectCountOf(data: $this->readDescriptor());
+		} catch (RuntimeException $e) {
 			return null;
 		}
-
-		$raw = file_get_contents($path);
-		if ($raw === false) {
-			return null;
-		}
-
-		$data = json_decode($raw, true);
-		if (is_array($data) === false) {
-			return null;
-		}
-
-		$components = ($data['components'] ?? []);
-		if (is_array($components) === false || is_array(($components['objects'] ?? null)) === false) {
-			return 0;
-		}
-
-		return count($components['objects']);
 
 	}//end shippedObjectCount()
 
 	/**
-	 * Import the demo dataset.
-	 *''
-	 * 🔴 THROWS RATHER THAN RETURNING A QUIET FAILURE. The caller reports the
-	 * outcome to an operator who just asked for this, so "nothing happened"
-	 * must not be presentable as success.
+	 * The shipped descriptor, decoded.
 	 *
-	 * @return array{objects: integer, registers: integer, schemas: integer} What was imported.
+	 * @return array The descriptor.
 	 *
-	 * @throws RuntimeException When the descriptor is missing, unreadable, or OpenRegister is absent.
-	 *
-	 * @spec openspec/specs/configuration-initialization/spec.md
+	 * @throws RuntimeException When the descriptor is missing, unreadable or not a JSON object.
 	 */
-	public function install(): array {
+	private function readDescriptor(): array {
 		$path = $this->descriptorPath();
 		if (is_file($path) === false) {
 			throw new RuntimeException('No demo dataset ships with this app (' . self::DESCRIPTOR . ' not found).');
@@ -217,15 +195,46 @@ class DemoDataService {
 			throw new RuntimeException('The demo dataset is not valid JSON: ' . $path);
 		}
 
+		return $data;
+	}//end readDescriptor()
+
+	/**
+	 * How many objects the descriptor ships: 0 when it has no object list.
+	 *
+	 * @param array $data The descriptor.
+	 *
+	 * @return integer
+	 */
+	private function objectCountOf(array $data): int {
+		$components = ($data['components'] ?? []);
+		if (is_array($components) === false || is_array(($components['objects'] ?? null)) === false) {
+			return 0;
+		}
+
+		return count($components['objects']);
+	}//end objectCountOf()
+
+	/**
+	 * Import the demo dataset.
+	 *''
+	 * 🔴 THROWS RATHER THAN RETURNING A QUIET FAILURE. The caller reports the
+	 * outcome to an operator who just asked for this, so "nothing happened"
+	 * must not be presentable as success.
+	 *
+	 * @return array{objects: integer, registers: integer, schemas: integer} What was imported.
+	 *
+	 * @throws RuntimeException When the descriptor is missing, unreadable, or OpenRegister is absent.
+	 *
+	 * @spec openspec/specs/configuration-initialization/spec.md
+	 */
+	public function install(): array {
+		$data = $this->readDescriptor();
+
 		// Counted from the file rather than from the importer's reply, so the
 		// number reported is the number ASKED FOR. A discrepancy between this
 		// and what lands is a real condition an operator should be able to see
 		// — an object whose schema does not resolve is SKIPPED, not errored.
-		$objects = 0;
-		$components = ($data['components'] ?? []);
-		if (is_array($components) === true && is_array(($components['objects'] ?? null)) === true) {
-			$objects = count($components['objects']);
-		}
+		$objects = $this->objectCountOf(data: $data);
 
 		$result = $this->configurationService()->importFromApp(
 			appId: self::CONFIG_APP_ID,
@@ -240,6 +249,19 @@ class DemoDataService {
 			'schemas'   => count((array)($result['schemas'] ?? [])),
 		];
 
+		$this->logImported(imported: $imported);
+
+		return $imported;
+	}//end install()
+
+	/**
+	 * Log what an install imported.
+	 *
+	 * @param array{objects: integer, registers: integer, schemas: integer} $imported The counts.
+	 *
+	 * @return void
+	 */
+	private function logImported(array $imported): void {
 		$this->logger->info(
 			'[DemoDataService] imported demo data: '
 			. $imported['objects'] . ' object(s), '
@@ -247,9 +269,7 @@ class DemoDataService {
 			. $imported['schemas'] . ' schema(s).',
 			['app' => Application::APP_ID]
 		);
-
-		return $imported;
-	}//end install()
+	}//end logImported()
 
 	/**
 	 * Absolute path to the shipped descriptor.
