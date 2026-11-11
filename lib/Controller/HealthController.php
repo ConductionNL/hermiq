@@ -88,25 +88,7 @@ class HealthController extends Controller {
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function index(): JSONResponse {
 		try {
-			$openRegister = $this->settingsService->isOpenRegisterAvailable();
-			$status = 'degraded';
-			$httpStatus = Http::STATUS_SERVICE_UNAVAILABLE;
-			if ($openRegister === true) {
-				$status = 'ok';
-				$httpStatus = Http::STATUS_OK;
-			}
-
-			return new JSONResponse(
-				[
-					'status' => $status,
-					'app' => Application::APP_ID,
-					'version' => '0.1.0',
-					'dependencies' => [
-						'openregister' => $openRegister,
-					],
-				],
-				$httpStatus
-			);
+			return $this->answer(openRegister: $this->settingsService->isOpenRegisterAvailable());
 		} catch (\Throwable $e) {
 			$this->logger->error('Hermiq: health check failed', ['exception' => $e]);
 			return new JSONResponse(
@@ -115,4 +97,34 @@ class HealthController extends Controller {
 			);
 		}//end try
 	}//end index()
+
+	/**
+	 * The health answer: ok (200) when OpenRegister is available, degraded (503) when not.
+	 *
+	 * @param bool $openRegister Whether OpenRegister is available.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/specs/observability/spec.md#REQ-OBS-002
+	 */
+	private function answer(bool $openRegister): JSONResponse {
+		$status = 'degraded';
+		$httpStatus = Http::STATUS_SERVICE_UNAVAILABLE;
+		if ($openRegister === true) {
+			$status = 'ok';
+			$httpStatus = Http::STATUS_OK;
+		}
+
+		return new JSONResponse(
+			[
+				'status' => $status,
+				'app' => Application::APP_ID,
+				'version' => '0.1.0',
+				'dependencies' => [
+					'openregister' => $openRegister,
+				],
+			],
+			$httpStatus
+		);
+	}//end answer()
 }//end class
