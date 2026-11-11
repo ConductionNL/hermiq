@@ -28,18 +28,16 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
+use OCA\Hermiq\Service\Llm\CliRunTokens;
 use OCA\Hermiq\Service\Llm\CliTurn;
-use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
-use OCP\IUserSession;
-use OCP\TaskProcessing\IManager;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use RuntimeException;
 
 /**
@@ -95,9 +93,9 @@ class CliRunTokensTest extends TestCase {
 	 * @param bool $withTokens Whether the run-token service is wired.
 	 * @param bool $withUrls   Whether the URL generator is wired.
 	 *
-	 * @return object
+	 * @return CliRunTokens
 	 */
-	private function subject(bool $withTokens = true, bool $withUrls = true): object {
+	private function subject(bool $withTokens = true, bool $withUrls = true): CliRunTokens {
 		$tokens = null;
 		if ($withTokens === true) {
 			$tokens = $this->tokens;
@@ -108,19 +106,7 @@ class CliRunTokensTest extends TestCase {
 			$urls = $this->urls;
 		}
 
-		return new ProviderFactory(
-			$this->createMock(LlmSettingsHandler::class),
-			$this->createMock(IManager::class),
-			$this->createMock(IUserSession::class),
-			$this->logger,
-			'hermiq',
-			null,
-			null,
-			null,
-			$tokens,
-			$urls,
-			$this->config
-		);
+		return new CliRunTokens($tokens, $urls, $this->config, $this->logger, 630);
 	}//end subject()
 
 	/**
@@ -383,4 +369,169 @@ class CliRunTokensTest extends TestCase {
 		$this->call($subject, 'consumeColdRunToken', [$none]);
 		$this->call($this->subject(withTokens: false), 'consumeColdRunToken', [$cold]);
 	}//end testOnlyAColdTurnsTokenIsConsumed()
+
+	/**
+	 * `mintGovernedRunToken()` fails LOUD (503) when the run-token service is unavailable —
+	 * a tool-requiring turn that cannot be governed is refused, never downgraded text-only.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-requiring-turn-with-an-unreachable-governed-endpoint-raises
+	 */
+	public function testMintGovernedRunTokenFailsLoudWithoutTokenService(): void {
+		$factory = $this->runTokens();
+
+		$this->expectException(ProviderUnavailableException::class);
+		$this->expectExceptionCode(503);
+
+		$this->call($factory, 'mintGovernedRunToken', [$this->turn(agentId: 'agent-uuid-1', uid: 'alice')]);
+
+	}//end testMintGovernedRunTokenFailsLoudWithoutTokenService()
+
+	/**
+	 * `mintGovernedRunToken()` fails LOUD (503) without an agent identity to bind the run to.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 */
+	public function testMintGovernedRunTokenFailsLoudWithoutAgentId(): void {
+		$factory = $this->runTokens(runTokenService: $this->realRunTokenService());
+
+		try {
+			$this->call($factory, 'mintGovernedRunToken', [$this->turn(agentId: null, uid: 'alice')]);
+			$this->fail('A tool-requiring turn without an agent id must fail loud.');
+		} catch (ProviderUnavailableException $e) {
+			$this->assertSame(503, $e->getCode());
+			$this->assertStringContainsStringIgnoringCase('agent identity', $e->getMessage());
+		}
+
+	}//end testMintGovernedRunTokenFailsLoudWithoutAgentId()
+
+	/**
+	 * `mintGovernedRunToken()` fails LOUD (503) without a user context to bind the token to.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 */
+	public function testMintGovernedRunTokenFailsLoudWithoutUser(): void {
+		$factory = $this->runTokens(runTokenService: $this->realRunTokenService());
+
+		try {
+			$this->call($factory, 'mintGovernedRunToken', [$this->turn(agentId: 'agent-uuid-1', uid: null)]);
+			$this->fail('A tool-requiring turn without a user context must fail loud.');
+		} catch (ProviderUnavailableException $e) {
+			$this->assertSame(503, $e->getCode());
+			$this->assertStringContainsStringIgnoringCase('user context', $e->getMessage());
+		}
+
+	}//end testMintGovernedRunTokenFailsLoudWithoutUser()
+
+	/**
+	 * A minted token is bound to (runId, agentId, userId) and the SAME service verifies it —
+	 * the token re-enters an already-authorized run and resolves the run's agent + user.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 */
+	public function testMintGovernedRunTokenBindsAndVerifies(): void {
+		$runTokenService = $this->realRunTokenService();
+		$factory = $this->runTokens(runTokenService: $runTokenService);
+
+		$token = $this->call($factory, 'mintGovernedRunToken', [$this->turn(agentId: 'agent-uuid-1', uid: 'alice')]);
+		$this->assertIsString($token);
+		$this->assertNotSame('', $token);
+
+		$binding = $runTokenService->verify(token: $token);
+		$this->assertIsArray($binding);
+		$this->assertSame('agent-uuid-1', $binding['agentId']);
+		$this->assertSame('alice', $binding['userId']);
+
+	}//end testMintGovernedRunTokenBindsAndVerifies()
+
+	/**
+	 * `buildGovernedMcpConfig()` fails LOUD (503) when the endpoint URL cannot be resolved —
+	 * the MCP config cannot be written, so the turn is refused rather than run tool-less.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 */
+	public function testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator(): void {
+		$factory = $this->runTokens(runTokenService: $this->realRunTokenService());
+
+		$this->expectException(ProviderUnavailableException::class);
+		$this->expectExceptionCode(503);
+
+		$this->call($factory, 'buildGovernedMcpConfig', ['YOUR_RUN_TOKEN_HERE']);
+
+	}//end testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator()
+
+	/**
+	 * `buildGovernedMcpConfig()` produces an `http` MCP server whose headers carry the bearer
+	 * token and `OCS-APIRequest: true` — the exact block the runner writes to a 0600 file.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+	 */
+	public function testBuildGovernedMcpConfigProducesHttpBearerConfig(): void {
+		$urlGenerator = $this->createMock(\OCP\IURLGenerator::class);
+		$urlGenerator->method('linkToRouteAbsolute')
+			->with('hermiq.mcpRun.handle')
+			->willReturn('https://nc.example/apps/hermiq/api/mcp/run');
+
+		$factory = $this->runTokens(runTokenService: $this->realRunTokenService(), urlGenerator: $urlGenerator);
+
+		$config = $this->call($factory, 'buildGovernedMcpConfig', ['RUN-TOKEN-VALUE']);
+
+		$server = $config['mcpServers']['hermiq'];
+		$this->assertSame('http', $server['type']);
+		$this->assertSame('https://nc.example/apps/hermiq/api/mcp/run', $server['url']);
+		$this->assertSame('Bearer RUN-TOKEN-VALUE', $server['headers']['Authorization']);
+		$this->assertSame('true', $server['headers']['OCS-APIRequest']);
+
+	}//end testBuildGovernedMcpConfigProducesHttpBearerConfig()
+
+	/**
+	 * Build the run tokens wired with the governed-MCP collaborators (RunTokenService,
+	 * IURLGenerator), for the governance-helper tests.
+	 *
+	 * @param \OCA\Hermiq\Service\Llm\RunTokenService|null $runTokenService The token service.
+	 * @param \OCP\IURLGenerator|null $urlGenerator The URL generator.
+	 *
+	 * @return CliRunTokens
+	 */
+	private function runTokens(
+		?\OCA\Hermiq\Service\Llm\RunTokenService $runTokenService = null,
+		?\OCP\IURLGenerator $urlGenerator = null,
+	): CliRunTokens {
+		return new CliRunTokens($runTokenService, $urlGenerator, null, new NullLogger(), 630);
+
+	}//end runTokens()
+
+	/**
+	 * A real `RunTokenService` backed by an in-memory store and a deterministic CSPRNG stub,
+	 * so mint→verify round-trips without a live Nextcloud cache.
+	 *
+	 * @return \OCA\Hermiq\Service\Llm\RunTokenService
+	 */
+	private function realRunTokenService(): \OCA\Hermiq\Service\Llm\RunTokenService {
+		$secureRandom = $this->createMock(\OCP\Security\ISecureRandom::class);
+		$counter = 0;
+		$secureRandom->method('generate')->willReturnCallback(
+			static function () use (&$counter): string {
+				$counter++;
+				return str_pad('token' . $counter, 43, 'x');
+			}
+		);
+
+		return new \OCA\Hermiq\Service\Llm\RunTokenService(
+			new \OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore(),
+			$secureRandom,
+			$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class)
+		);
+	}//end realRunTokenService()
 }//end class
