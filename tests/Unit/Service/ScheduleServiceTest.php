@@ -3858,4 +3858,118 @@ class ScheduleServiceTest extends TestCase {
 		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-off', prompt: 'go');
 
 	}//end testRunAgentAsOwnerRefusesASwitchedOffAgent()
+
+	/**
+	 * Call one of ScheduleService's private record-normalisation steps.
+	 *
+	 * @param string $method The private method name.
+	 * @param array<string, mixed> $arguments Its named arguments.
+	 *
+	 * @return mixed The method's return value.
+	 */
+	private function callPrivate(string $method, array $arguments): mixed {
+		$reflection = new \ReflectionMethod(ScheduleService::class, $method);
+		$reflection->setAccessible(true);
+		return $reflection->invokeArgs($this->service, $arguments);
+	}//end callPrivate()
+
+	/**
+	 * Golden: the record written on every persist normalises its dates to
+	 * ISO-8601 UTC, drops a repeat that is not a positive finite count, keeps
+	 * the completed count at 0 or more, and keeps only a well-formed retry state
+	 * (attempt + nextAttemptAt, the date normalised when it parses).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
+	 */
+	public function testSanitizeForSaveNormalisesTheStoredRecord(): void {
+		$cases = [
+			'dates normalised, empty and missing left' => [
+				['nextRun' => '2026-03-01T10:00:00+02:00', 'runAt' => '', 'title' => 't'],
+				['nextRun' => '2026-03-01T08:00:00+00:00', 'runAt' => '', 'title' => 't'],
+			],
+			'unparseable date kept, null date kept' => [
+				['nextRun' => 'not a date', 'runAt' => null],
+				['nextRun' => 'not a date', 'runAt' => null],
+			],
+			'finite repeat kept, negative completed clamped' => [
+				['repeat' => ['times' => '3', 'completed' => -2, 'extra' => 1]],
+				['repeat' => ['times' => 3, 'completed' => 0]],
+			],
+			'repeat completed kept when numeric' => [
+				['repeat' => ['times' => 5, 'completed' => '2']],
+				['repeat' => ['times' => 5, 'completed' => 2]],
+			],
+			'repeat completed defaults to 0' => [
+				['repeat' => ['times' => 5, 'completed' => 'x']],
+				['repeat' => ['times' => 5, 'completed' => 0]],
+			],
+			'infinite repeat dropped' => [
+				['repeat' => ['times' => 0]],
+				['repeat' => null],
+			],
+			'malformed repeat dropped' => [
+				['repeat' => ['times' => 'many']],
+				['repeat' => null],
+			],
+			'non-array repeat dropped' => [
+				['repeat' => 'daily'],
+				['repeat' => null],
+			],
+			'well-formed retry state kept and dated' => [
+				['retryState' => ['attempt' => '2', 'nextAttemptAt' => '2026-03-01T10:00:00+02:00', 'x' => 1]],
+				['retryState' => ['attempt' => 2, 'nextAttemptAt' => '2026-03-01T08:00:00+00:00']],
+			],
+			'retry state with unparseable date kept as given' => [
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => 'soon']],
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => 'soon']],
+			],
+			'malformed retry state dropped' => [
+				['retryState' => ['attempt' => 'x', 'nextAttemptAt' => '2026-03-01']],
+				['retryState' => null],
+			],
+			'retry state without next attempt dropped' => [
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => '']],
+				['retryState' => null],
+			],
+			'non-array retry state dropped' => [
+				['retryState' => 'pending'],
+				['retryState' => null],
+			],
+			'absent repeat and retry state untouched' => [
+				['enabled' => true],
+				['enabled' => true],
+			],
+		];
+
+		foreach ($cases as $name => [$input, $expected]) {
+			$this->assertSame($expected, $this->callPrivate('sanitizeForSave', ['data' => $input]), $name);
+		}
+	}//end testSanitizeForSaveNormalisesTheStoredRecord()
+
+	/**
+	 * Golden: the shared date and retry-state readers the due check and the
+	 * attempt counter use.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
+	 */
+	public function testDateAndRetryStateReaders(): void {
+		$this->assertNull($this->callPrivate('parseDate', ['value' => '']));
+		$this->assertNull($this->callPrivate('parseDate', ['value' => 'not a date']));
+		$this->assertSame(
+			'2026-03-01T08:00:00+00:00',
+			$this->callPrivate('parseDate', ['value' => '2026-03-01T10:00:00+02:00'])->format('c')
+		);
+
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => 'x']));
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => 1]]));
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => 'one', 'nextAttemptAt' => 'a']]));
+		$this->assertSame(
+			['attempt' => 3, 'nextAttemptAt' => '7'],
+			$this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => '3', 'nextAttemptAt' => 7]])
+		);
+	}//end testDateAndRetryStateReaders()
 }//end class
