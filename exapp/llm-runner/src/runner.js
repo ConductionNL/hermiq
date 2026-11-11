@@ -27,6 +27,8 @@ const https = require('https')
 const os = require('os')
 const path = require('path')
 
+const { proxyEnvFor } = require('./proxyEnv')
+
 const DEFAULT_TIMEOUT_MS = Number(process.env.RUNNER_TIMEOUT_MS || '120000')
 const MAX_OUTPUT_BYTES = Number(
 	process.env.RUNNER_MAX_OUTPUT_BYTES || String(8 * 1024 * 1024),
@@ -67,25 +69,7 @@ const EGRESS_PROXY_AUTHORITY = (process.env.EGRESS_PROXY_AUTHORITY || '').trim()
  * @returns {object} Env map to merge into the child's environment.
  */
 function buildEgressProxyEnv(runToken) {
-	if (
-		EGRESS_PROXY_AUTHORITY === ''
-		|| typeof runToken !== 'string'
-		|| runToken === ''
-	) {
-		return {}
-	}
-
-	const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`
-
-	// Both cases: some tools read the lowercase names, some the uppercase.
-	// NO_PROXY is deliberately NOT set — an exemption list here would be a second
-	// policy, and a hole in the only route out.
-	return {
-		HTTPS_PROXY: url,
-		https_proxy: url,
-		HTTP_PROXY: url,
-		http_proxy: url,
-	}
+	return proxyEnvFor(EGRESS_PROXY_AUTHORITY, runToken)
 }
 
 /**
