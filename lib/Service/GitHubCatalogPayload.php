@@ -116,43 +116,70 @@ final class GitHubCatalogPayload {
 	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 	 */
 	public function card(array $base, ?string $contents): array {
-		$unparseable = $base + ['installable' => false, 'unparseable' => true];
-		if ($contents === null) {
-			return $unparseable;
+		$fields = null;
+		if ($contents !== null) {
+			$fields = $this->packageFields(base: $base, contents: $contents);
 		}
 
-		if ($base['kind'] === GitHubTemplateCatalogService::KIND_SKILL) {
-			// An agentskills.io package never fails to parse: a missing fence yields an empty name.
-			$parsed = (new SkillSerializer())->fromPackage(package: $contents);
-			$name = $parsed['name'];
-			if ($name === '') {
-				$name = $base['repo'];
-			}
+		if ($fields === null) {
+			return $base + ['installable' => false, 'unparseable' => true];
+		}
 
-			return $base + [
-				'installable' => true,
-				'unparseable' => false,
-				'name' => $name,
-				'description' => $parsed['description'],
-				'category' => '',
-				'version' => '',
-			];
+		return $base + ['installable' => true, 'unparseable' => false] + $fields;
+
+	}//end card()
+
+	/**
+	 * The name, description, category and version a package file declares.
+	 *
+	 * @param array{owner:string,repo:string,stars:int,kind:string} $base     The card's base fields.
+	 * @param string                                                $contents The package file.
+	 *
+	 * @return array{name:string,description:string,category:string,version:string}|null Null when it does not parse.
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 */
+	private function packageFields(array $base, string $contents): ?array {
+		if ($base['kind'] === GitHubTemplateCatalogService::KIND_SKILL) {
+			return $this->skillFields(repo: $base['repo'], contents: $contents);
 		}
 
 		$decoded = json_decode($contents, true);
 		if (is_array($decoded) === false) {
-			return $unparseable;
+			return null;
 		}
 
-		return $base + [
-			'installable' => true,
-			'unparseable' => false,
+		return [
 			'name' => (string)($decoded['name'] ?? $base['repo']),
 			'description' => (string)($decoded['description'] ?? ''),
 			'category' => (string)($decoded['category'] ?? ''),
 			'version' => (string)($decoded['version'] ?? ''),
 		];
-	}//end card()
+
+	}//end packageFields()
+
+	/**
+	 * The fields of an agentskills.io package, named after the repo when it carries no name.
+	 *
+	 * An agentskills.io package never fails to parse: a missing fence yields an empty name.
+	 *
+	 * @param string $repo     The repo the package came from.
+	 * @param string $contents The SKILL.md package.
+	 *
+	 * @return array{name:string,description:string,category:string,version:string}
+	 *
+	 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 */
+	private function skillFields(string $repo, string $contents): array {
+		$parsed = (new SkillSerializer())->fromPackage(package: $contents);
+		$name = $parsed['name'];
+		if ($name === '') {
+			$name = $repo;
+		}
+
+		return ['name' => $name, 'description' => $parsed['description'], 'category' => '', 'version' => ''];
+
+	}//end skillFields()
 
 	/**
 	 * The file a contents-API body carries, or null when it is absent or unreadable.
