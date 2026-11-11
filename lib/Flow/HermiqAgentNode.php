@@ -202,7 +202,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 * @spec openspec/changes/archive/2026-09-02-consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function validateConfig(array $config): void {
-		$this->requiredAgentId(config: $config);
+		$this->assertNamesAnAgent(config: $config);
 
 	}//end validateConfig()
 
@@ -238,7 +238,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		// the items unchanged makes the step a silent pass-through. The output
 		// key is then absent, so a downstream router takes its default branch
 		// exactly as though the agent had answered.
-		$this->requiredAgentId(config: $config);
+		$this->assertNamesAnAgent(config: $config);
 		$run = new AgentStepRun(config: $config, owner: $this->actingIdentity(context: $call->context));
 
 		$out = [];
@@ -251,22 +251,19 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	}//end execute()
 
 	/**
-	 * The agent the step names, refusing a step that names none.
+	 * Refuse a step that names no agent.
 	 *
 	 * @param array $config The step configuration.
 	 *
-	 * @return string The trimmed agent id.
+	 * @return void
 	 *
 	 * @throws UnexpectedValueException When no agent is named.
 	 */
-	private function requiredAgentId(array $config): string {
-		$agentId = trim((string)($config['agentId'] ?? ($config['agent'] ?? '')));
-		if ($agentId === '') {
+	private function assertNamesAnAgent(array $config): void {
+		if (trim((string)($config['agentId'] ?? ($config['agent'] ?? ''))) === '') {
 			throw new UnexpectedValueException($this->l10n->t('An agent step needs an agent.'));
 		}
-
-		return $agentId;
-	}//end requiredAgentId()
+	}//end assertNamesAnAgent()
 
 	/**
 	 * The identity the turns act as, read from the run context only.
