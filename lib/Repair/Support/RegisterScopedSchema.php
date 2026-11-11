@@ -71,16 +71,46 @@ class RegisterScopedSchema {
 	public function idFor(string $registerSlug, string $schemaSlug): ?string {
 		$ids = $this->schemaIdsOf(registerSlug: $registerSlug);
 
+		$matches = $this->schemasNamed(schemaSlug: $schemaSlug);
+		if ($matches === null) {
+			return null;
+		}
+
+		return $this->firstIn(matches: $matches, ids: $ids);
+	}//end idFor()
+
+	/**
+	 * Every schema with this slug, or null (logged) when the lookup fails.
+	 *
+	 * @param string $schemaSlug The schema slug.
+	 *
+	 * @return iterable<mixed>|null
+	 *
+	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 */
+	private function schemasNamed(string $schemaSlug): ?iterable {
 		try {
 			$mapper = $this->container->get(\OCA\OpenRegister\Db\SchemaMapper::class);
-			$matches = $mapper->findBySlug(slug: $schemaSlug, limit: 50, _rbac: false, _multitenancy: false);
+			return $mapper->findBySlug(slug: $schemaSlug, limit: 50, _rbac: false, _multitenancy: false);
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'[hermiq] could not resolve schema slug "' . $schemaSlug . '": ' . $e->getMessage()
 			);
 			return null;
 		}
+	}//end schemasNamed()
 
+	/**
+	 * The id of the first schema inside the register (any schema when the register lists none), or null.
+	 *
+	 * @param iterable<mixed>   $matches The schemas with the slug.
+	 * @param array<int,string> $ids     The register's schema ids.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 */
+	private function firstIn(iterable $matches, array $ids): ?string {
 		foreach ($matches as $schema) {
 			$id = (string) $schema->getId();
 			if ($ids === [] || in_array($id, $ids, true) === true) {
@@ -89,7 +119,7 @@ class RegisterScopedSchema {
 		}
 
 		return null;
-	}//end idFor()
+	}//end firstIn()
 
 	/**
 	 * The schema ids belonging to a register.
