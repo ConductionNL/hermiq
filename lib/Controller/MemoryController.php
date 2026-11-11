@@ -52,6 +52,21 @@ use Throwable;
  * @spec openspec/changes/agent-memory/tasks.md#3-controller-routes
  */
 class MemoryController extends Controller {
+
+	/**
+	 * The access a read route needs: the agent is accessible to the caller.
+	 *
+	 * @var string
+	 */
+	private const READ = 'read';
+
+	/**
+	 * The access a write route needs: the caller owns the agent.
+	 *
+	 * @var string
+	 */
+	private const WRITE = 'write';
+
 	/**
 	 * Constructor.
 	 *
@@ -86,12 +101,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
 	 */
 	public function memory(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -122,12 +134,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
 	 */
 	public function addMemory(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$text = trim((string)$this->request->getParam('text', ''));
@@ -161,12 +170,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
 	 */
 	public function correctEntry(string $agentId, string $entryId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$text = trim((string)$this->request->getParam('text', ''));
@@ -202,12 +208,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
 	 */
 	public function forgetEntry(string $agentId, string $entryId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -237,12 +240,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
 	 */
 	public function userProfiles(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -268,12 +268,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
 	 */
 	public function sessions(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -300,12 +297,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
 	 */
 	public function consolidate(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$entries = $this->request->getParam('entries');
@@ -344,12 +338,9 @@ class MemoryController extends Controller {
 	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
 	 */
 	public function recall(string $agentId, string $q = ''): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -412,6 +403,33 @@ class MemoryController extends Controller {
 		) !== null;
 
 	}//end requireAgentOwnership()
+
+	/**
+	 * The 401 for an anonymous caller (before any agent lookup), the 404 when the
+	 * caller may not read (`READ`) or modify (`WRITE`) this agent, or null.
+	 *
+	 * @param string $agentId The agent UUID taken off the URL.
+	 * @param string $level   `READ` or `WRITE`.
+	 *
+	 * @return JSONResponse|null
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+	 */
+	private function refusal(string $agentId, string $level): ?JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$allowed = match ($level) {
+			self::WRITE => $this->requireAgentOwnership(agentId: $agentId),
+			default => $this->requireAgentReadAccess(agentId: $agentId),
+		};
+		if ($allowed === false) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		return null;
+	}//end refusal()
 
 	/**
 	 * De-duplicate the current Memory entries by text (default consolidation strategy).
