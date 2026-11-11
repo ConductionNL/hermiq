@@ -342,36 +342,54 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
 	 */
 	private function readSource(ObjectService $objectService, string $schema): array {
-		$rows = [];
+		$rows = $this->liveRows(objectService: $objectService, schema: $schema);
 
+		return array_values($this->withArchivedRows(rows: $rows, schema: $schema));
+	}//end readSource()
+
+	/**
+	 * The live objects of a source schema, by uuid; a failed read is logged and yields none.
+	 *
+	 * @param ObjectService $objectService OpenRegister's object service.
+	 * @param string $schema The source schema slug.
+	 *
+	 * @return array<string, ObjectEntity> The live objects by uuid.
+	 */
+	private function liveRows(ObjectService $objectService, string $schema): array {
 		try {
 			$live = $objectService->setRegister(self::REGISTER_SLUG)->setSchema($schema)
 				->searchObjectsPaginated(query: ['_limit' => 10000]);
-			foreach (($live['results'] ?? []) as $object) {
-				if ($object instanceof ObjectEntity) {
-					$rows[(string) $object->getUuid()] = $object;
-				}
-			}
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'[hermiq] session-data-migration: live read of ' . $schema . ' failed: ' . $e->getMessage()
 			);
+			return [];
 		}
 
-		try {
-			$schemaId = $this->schemas->idFor(registerSlug: self::REGISTER_SLUG, schemaSlug: $schema);
-			$mapper = $this->container->get(\OCA\OpenRegister\Db\MagicMapper::class);
-			$deleted = $mapper->findDeletedAcrossAllMagicTables(limit: 10000, offset: 0);
-			foreach ($deleted as $object) {
-				if (($object instanceof ObjectEntity) === false) {
-					continue;
-				}
-
-				if ($schemaId === null || (string) $object->getSchema() !== $schemaId) {
-					continue;
-				}
-
+		$rows = [];
+		foreach (($live['results'] ?? []) as $object) {
+			if ($object instanceof ObjectEntity) {
 				$rows[(string) $object->getUuid()] = $object;
+			}
+		}
+
+		return $rows;
+
+	}//end liveRows()
+
+	/**
+	 * Add the archived (soft-deleted) objects of the source schema; an archived copy
+	 * replaces a live one with the same uuid in place. A failed read is logged loudly.
+	 *
+	 * @param array<string, ObjectEntity> $rows The objects read so far, by uuid.
+	 * @param string $schema The source schema slug.
+	 *
+	 * @return array<string, ObjectEntity> The objects by uuid.
+	 */
+	private function withArchivedRows(array $rows, string $schema): array {
+		try {
+			foreach ($this->archivedRows(schema: $schema) as $uuid => $object) {
+				$rows[$uuid] = $object;
 			}
 		} catch (Throwable $e) {
 			// Loud, not swallowed: without this read the archived objects are simply
@@ -381,10 +399,34 @@ class MigrateConversationsToSessions implements IRepairStep {
 				'[hermiq] session-data-migration: ARCHIVED read of ' . $schema
 				. ' failed, archived objects were NOT migrated: ' . $e->getMessage()
 			);
-		}//end try
+		}
 
-		return array_values($rows);
-	}//end readSource()
+		return $rows;
+
+	}//end withArchivedRows()
+
+	/**
+	 * The archived objects of the source schema, by uuid; none when the schema is unknown.
+	 *
+	 * @param string $schema The source schema slug.
+	 *
+	 * @return array<string, ObjectEntity> The archived objects by uuid.
+	 */
+	private function archivedRows(string $schema): array {
+		$schemaId = $this->schemas->idFor(registerSlug: self::REGISTER_SLUG, schemaSlug: $schema);
+		$mapper = $this->container->get(\OCA\OpenRegister\Db\MagicMapper::class);
+		$deleted = $mapper->findDeletedAcrossAllMagicTables(limit: 10000, offset: 0);
+
+		$rows = [];
+		foreach ($deleted as $object) {
+			if ($object instanceof ObjectEntity && $schemaId !== null && (string) $object->getSchema() === $schemaId) {
+				$rows[(string) $object->getUuid()] = $object;
+			}
+		}
+
+		return $rows;
+
+	}//end archivedRows()
 
 	/**
 	 * Whether a target object already exists under this uuid.
@@ -671,10 +713,6 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * @spec exclude Local scalar coercion helper; no behavioural spec.
 	 */
 	private function stringOrNull(mixed $value): ?string {
-		if ($value === null) {
-			return null;
-		}
-
 		if ($value instanceof \DateTimeInterface) {
 			return $value->format('c');
 		}
