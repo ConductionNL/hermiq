@@ -40,6 +40,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\FirstOrganisation;
+use OCA\Hermiq\Repair\Support\OrganisationSeed;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -83,6 +85,18 @@ class SeedBudgets implements IRepairStep {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
+	 * The organisation-scoped budget seeded on the first organisation.
+	 *
+	 * @var array{scope: string, period: string, tokenLimit: int, softThresholdPercent: int}
+	 */
+	private const ORGANISATION_BUDGET = [
+		'scope' => 'organisation',
+		'period' => 'monthly',
+		'tokenLimit' => 2000000,
+		'softThresholdPercent' => 80,
+	];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ContainerInterface $container Server container for lazy service resolution
@@ -118,69 +132,109 @@ class SeedBudgets implements IRepairStep {
 	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 	 */
 	public function run(IOutput $output): void {
-		try {
-			$objectService = $this->container->get(ObjectService::class);
-			$organisationMapper = $this->container->get(OrganisationMapper::class);
-			$budgetService = $this->container->get(BudgetService::class);
-		} catch (Throwable $e) {
-			$output->warning('OpenRegister not available — skipping budget seed.');
-			$this->logger->warning('[hermiq] Budget seed skipped: ' . $e->getMessage());
+		$run = $this->startRun(output: $output);
+		if ($run === null) {
 			return;
 		}
 
-		$seeded = 0;
-
-		$organisation = $this->firstOrganisation(organisationMapper: $organisationMapper);
-		if ($organisation === '') {
-			$output->info('No OpenRegister organisation exists yet — org-level budget seed deferred.');
-		}
-
-		if ($organisation !== '') {
-			$seeded += $this->seedIfMissing(
-				objectService: $objectService,
-				budgetService: $budgetService,
-				output: $output,
-				organisation: $organisation,
-				payload: [
-					'scope' => 'organisation',
-					'period' => 'monthly',
-					'tokenLimit' => 2000000,
-					'softThresholdPercent' => 80,
-				]
-			);
-		}
-
+		$seeded = $this->seedOrganisationBudget(run: $run);
 		foreach ($this->agentSeedRows() as $row) {
-			$agent = $this->findAgentByName(objectService: $objectService, name: $row['agentName']);
-			if ($agent === null) {
-				$output->info(sprintf('No agent named "%s" exists yet — its budget seed is deferred.', $row['agentName']));
-				continue;
-			}
-
-			$agentOrganisation = (string)($agent->getOrganisation() ?? '');
-			if ($agentOrganisation === '') {
-				$output->info(sprintf('Agent "%s" has no organisation yet — its budget seed is deferred.', $row['agentName']));
-				continue;
-			}
-
-			$seeded += $this->seedIfMissing(
-				objectService: $objectService,
-				budgetService: $budgetService,
-				output: $output,
-				organisation: $agentOrganisation,
-				payload: [
-					'scope' => 'agent',
-					'agentId' => (string)$agent->getUuid(),
-					'period' => $row['period'],
-					'tokenLimit' => $row['tokenLimit'],
-					'softThresholdPercent' => $row['softThresholdPercent'],
-				]
-			);
-		}//end foreach
+			$seeded += $this->seedAgentBudget(run: $run, row: $row);
+		}
 
 		$output->info('Budget seed complete (' . $seeded . ' new).');
 
 	}//end run()
+
+	/**
+	 * Resolve the OpenRegister services the seed needs, or warn and answer null when
+	 * OpenRegister is not available.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return BudgetSeedRun|null
+	 */
+	private function startRun(IOutput $output): ?BudgetSeedRun {
+		$run = new BudgetSeedRun(output: $output);
+		try {
+			$run->objectService = $this->container->get(ObjectService::class);
+			$run->organisationMapper = $this->container->get(OrganisationMapper::class);
+			$run->budgetService = $this->container->get(BudgetService::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping budget seed.');
+			$this->logger->warning('[hermiq] Budget seed skipped: ' . $e->getMessage());
+			return null;
+		}
+
+		return $run;
+	}//end startRun()
+
+	/**
+	 * Seed the organisation-scoped budget on the first organisation, or defer it when
+	 * no organisation exists yet.
+	 *
+	 * @param BudgetSeedRun $run The seed run.
+	 *
+	 * @return int 1 when a new budget was created, otherwise 0.
+	 */
+	private function seedOrganisationBudget(BudgetSeedRun $run): int {
+		$organisation = (new FirstOrganisation(organisationMapper: $run->organisationMapper))->uuid();
+		if ($organisation === '') {
+			$run->output->info('No OpenRegister organisation exists yet — org-level budget seed deferred.');
+			return 0;
+		}
+
+		return $this->seedIfMissing(
+			run: $run,
+			seed: new OrganisationSeed(organisation: $organisation, payload: self::ORGANISATION_BUDGET)
+		);
+	}//end seedOrganisationBudget()
+
+	/**
+	 * Seed one agent-scoped budget on its agent's organisation, or defer it when the
+	 * agent or its organisation does not exist yet.
+	 *
+	 * @param BudgetSeedRun $run The seed run.
+	 * @param array{agentName: string, period: string, tokenLimit: int, softThresholdPercent: int} $row The seed row.
+	 *
+	 * @return int 1 when a new budget was created, otherwise 0.
+	 */
+	private function seedAgentBudget(BudgetSeedRun $run, array $row): int {
+		$agent = $this->findAgentByName(objectService: $run->objectService, name: $row['agentName']);
+		if ($agent === null) {
+			$run->output->info(sprintf('No agent named "%s" exists yet — its budget seed is deferred.', $row['agentName']));
+			return 0;
+		}
+
+		$agentOrganisation = (string)($agent->getOrganisation() ?? '');
+		if ($agentOrganisation === '') {
+			$run->output->info(sprintf('Agent "%s" has no organisation yet — its budget seed is deferred.', $row['agentName']));
+			return 0;
+		}
+
+		return $this->seedIfMissing(
+			run: $run,
+			seed: new OrganisationSeed(organisation: $agentOrganisation, payload: $this->agentBudget(agent: $agent, row: $row))
+		);
+	}//end seedAgentBudget()
+
+	/**
+	 * The fields of one agent-scoped budget.
+	 *
+	 * @param ObjectEntity $agent The agent the budget is for.
+	 * @param array{agentName: string, period: string, tokenLimit: int, softThresholdPercent: int} $row The seed row.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function agentBudget(ObjectEntity $agent, array $row): array {
+		return [
+			'scope' => 'agent',
+			'agentId' => (string)$agent->getUuid(),
+			'period' => $row['period'],
+			'tokenLimit' => $row['tokenLimit'],
+			'softThresholdPercent' => $row['softThresholdPercent'],
+		];
+	}//end agentBudget()
 
 	/**
 	 * The design.md seed rows for the two agent-scoped budgets.
@@ -199,30 +253,21 @@ class SeedBudgets implements IRepairStep {
 	 * Create the budget through BudgetService::create() when no matching one exists
 	 * yet for this (scope, agentId, period, organisation) tuple.
 	 *
-	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param BudgetService $budgetService The budget write-path.
-	 * @param IOutput $output Repair output channel.
-	 * @param string $organisation The organisation to pin the budget to.
-	 * @param array<string,mixed> $payload The budget fields (scope/agentId/period/limits).
+	 * @param BudgetSeedRun $run The seed run.
+	 * @param OrganisationSeed $seed The organisation to pin the budget to and its fields.
 	 *
 	 * @return int 1 when a new budget was created, 0 when skipped (already exists or failed).
 	 */
-	private function seedIfMissing(
-		ObjectService $objectService,
-		BudgetService $budgetService,
-		IOutput $output,
-		string $organisation,
-		array $payload,
-	): int {
+	private function seedIfMissing(BudgetSeedRun $run, OrganisationSeed $seed): int {
 		try {
-			if ($this->alreadySeeded(objectService: $objectService, organisation: $organisation, payload: $payload) === true) {
+			if ($this->alreadySeeded(objectService: $run->objectService, seed: $seed) === true) {
 				return 0;
 			}
 
-			$budgetService->create(payload: $payload, organisation: $organisation);
+			$run->budgetService->create(payload: $seed->payload, organisation: $seed->organisation);
 			return 1;
 		} catch (Throwable $e) {
-			$output->warning('Could not seed a budget: ' . $e->getMessage());
+			$run->output->warning('Could not seed a budget: ' . $e->getMessage());
 			$this->logger->error('[hermiq] Budget seed failed: ' . $e->getMessage());
 			return 0;
 		}
@@ -234,37 +279,59 @@ class SeedBudgets implements IRepairStep {
 	 * already exists (system-wide read; a repair step runs with no user session).
 	 *
 	 * @param ObjectService $objectService The OpenRegister object service.
-	 * @param string $organisation The organisation to check.
-	 * @param array<string,mixed> $payload The candidate budget fields.
+	 * @param OrganisationSeed $seed The organisation to check and the candidate budget fields.
 	 *
 	 * @return bool
 	 */
-	private function alreadySeeded(ObjectService $objectService, string $organisation, array $payload): bool {
+	private function alreadySeeded(ObjectService $objectService, OrganisationSeed $seed): bool {
 		$objects = $objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::BUDGET_SCHEMA)
 			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
 
 		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getOrganisation() ?? '') !== $organisation) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ((string)($data['scope'] ?? '') === (string)($payload['scope'] ?? '')
-				&& (string)($data['agentId'] ?? '') === (string)($payload['agentId'] ?? '')
-				&& (string)($data['period'] ?? '') === (string)($payload['period'] ?? '')
-			) {
+			if ($this->isBudgetFor(object: $object, seed: $seed) === true) {
 				return true;
 			}
 		}
 
 		return false;
 	}//end alreadySeeded()
+
+	/**
+	 * Whether a stored object is a budget on the seed's organisation with the same
+	 * scope, agentId and period.
+	 *
+	 * @param mixed $object A stored object as findAll() answers it.
+	 * @param OrganisationSeed $seed The candidate budget.
+	 *
+	 * @return bool
+	 */
+	private function isBudgetFor(mixed $object, OrganisationSeed $seed): bool {
+		if (($object instanceof ObjectEntity) === false) {
+			return false;
+		}
+
+		if ((string)($object->getOrganisation() ?? '') !== $seed->organisation) {
+			return false;
+		}
+
+		return $this->sameBudgetKey(data: $object->getObject(), payload: $seed->payload);
+	}//end isBudgetFor()
+
+	/**
+	 * Whether two budgets share scope, agentId and period.
+	 *
+	 * @param array<string, mixed> $data The stored budget fields.
+	 * @param array<string, mixed> $payload The candidate budget fields.
+	 *
+	 * @return bool
+	 */
+	private function sameBudgetKey(array $data, array $payload): bool {
+		return (string)($data['scope'] ?? '') === (string)($payload['scope'] ?? '')
+			&& (string)($data['agentId'] ?? '') === (string)($payload['agentId'] ?? '')
+			&& (string)($data['period'] ?? '') === (string)($payload['period'] ?? '');
+	}//end sameBudgetKey()
 
 	/**
 	 * Find an agent object by its exact display name (system-wide read).
@@ -292,25 +359,4 @@ class SeedBudgets implements IRepairStep {
 
 		return null;
 	}//end findAgentByName()
-
-	/**
-	 * The first available OpenRegister organisation, or '' when none exists yet.
-	 *
-	 * @param OrganisationMapper $organisationMapper The organisation lookup.
-	 *
-	 * @return string
-	 */
-	private function firstOrganisation(OrganisationMapper $organisationMapper): string {
-		try {
-			$organisations = $organisationMapper->findAll(limit: 1);
-		} catch (Throwable $e) {
-			return '';
-		}
-
-		if ($organisations === []) {
-			return '';
-		}
-
-		return (string)($organisations[0]->getUuid() ?? '');
-	}//end firstOrganisation()
 }//end class
