@@ -532,14 +532,10 @@ class EvalRunService {
 
 		// Both halves' usage in ONE audit entry — the EvalRun UUID is already in
 		// BudgetService's scope union, so the spend rolls into the same budgets.
-		$this->writeRunAudit(
-			evalRun: $saved,
-			status: $status,
-			usage: $run['usage'],
-			passRate: $draftPassRate,
-			startedAt: $run['startedAt'],
-			skillsUsed: $run['skillsUsed']
-		);
+		$recorded = $this->recordedRun(evalRun: $saved, run: $run);
+		$recorded->status = $status;
+		$recorded->passRate = $draftPassRate;
+		$this->writeRunAudit(recorded: $recorded);
 
 		return ['evalRunId' => (string)$saved->getUuid(), 'status' => $status, 'draftPassRate' => $draftPassRate, 'activePassRate' => $activePassRate];
 	}//end recordDraftComparison()
@@ -660,15 +656,11 @@ class EvalRunService {
 	 */
 	private function regressionVerdict(array $run, float $passRate): array {
 		$thresholdPercent = $this->regressionThreshold(override: $run['thresholdOverride']);
-		[$regressionGateResult, $previousPassRate] = $this->evaluateRegressionGate(
-			datasetId: $run['datasetId'],
-			agentId: $run['agentId'],
-			passRate: $passRate,
-			thresholdPercent: $thresholdPercent
-		);
+		$previousPassRate = $this->previousPassRate(run: $run);
+		$dropPercentPoints = $this->dropPercentPoints(previousPassRate: $previousPassRate, passRate: $passRate);
 
 		return [
-			'regressionGateResult' => $regressionGateResult,
+			'regressionGateResult' => $this->regressionGateResult(dropPercentPoints: $dropPercentPoints, thresholdPercent: $thresholdPercent),
 			'previousPassRate' => $previousPassRate,
 			'thresholdPercent' => $thresholdPercent,
 		];
@@ -932,28 +924,19 @@ class EvalRunService {
 			extra: ($outcome['paired'] ?? [])
 		);
 
+		$recorded = $this->recordedRun(evalRun: $saved, run: $run);
+		$recorded->status = $outcome['status'];
+		$recorded->passRate = $outcome['passRate'];
+		$recorded->results = $outcome['results'];
+
 		// Every half's usage in the ONE per-run audit entry: BudgetService sums it
 		// into the SAME per-org/per-agent budget a scheduled run uses.
-		$this->writeRunAudit(
-			evalRun: $saved,
-			status: $outcome['status'],
-			usage: $run['usage'],
-			passRate: $outcome['passRate'],
-			startedAt: $run['startedAt'],
-			skillsUsed: $run['skillsUsed']
-		);
+		$this->writeRunAudit(recorded: $recorded);
 
 		// Skill-learnings Decision 8 producer over the (WITH-half) results — the real
 		// configuration — after the audit write (the capture job reads the trace from
 		// that entry), failure-isolated.
-		$this->enqueueEvalFailCaptures(
-			evalRun: $saved,
-			status: $outcome['status'],
-			results: $outcome['results'],
-			skillsUsed: $run['skillsUsed'],
-			agentId: $run['agentId'],
-			organisation: $run['organisation']
-		);
+		$this->enqueueEvalFailCaptures(recorded: $recorded);
 
 		$this->recordPairedEvidence(run: $run, outcome: $outcome);
 
@@ -1269,35 +1252,66 @@ class EvalRunService {
 	}//end caseRunFor()
 
 	/**
-	 * Compare `$passRate` against the immediately preceding completed EvalRun for
-	 * the same dataset+agent.
+	 * The pass rate of the immediately preceding completed EvalRun for the same
+	 * dataset+agent, or null when there is none.
 	 *
-	 * @param string $datasetId The dataset UUID.
-	 * @param string $agentId The agent UUID.
-	 * @param float $passRate This run's aggregate pass-rate.
-	 * @param int $thresholdPercent The effective regression threshold (percentage
-	 *                              points of pass-rate drop).
+	 * @param array<string, mixed> $run The run context (datasetId, agentId).
 	 *
-	 * @return array{0:string,1:?float} `[regressionGateResult, previousPassRate]`.
+	 * @return float|null
 	 *
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-regression-gate-compares-aggregate-pass-rate-against-the-previous-run
 	 */
-	private function evaluateRegressionGate(string $datasetId, string $agentId, float $passRate, int $thresholdPercent): array {
-		$previous = $this->findPreviousCompletedRun(datasetId: $datasetId, agentId: $agentId);
+	private function previousPassRate(array $run): ?float {
+		$previous = $this->findPreviousCompletedRun(datasetId: $run['datasetId'], agentId: $run['agentId']);
 		if ($previous === null) {
-			return ['not_applicable', null];
+			return null;
 		}
 
-		$previousData = $previous->getObject();
-		$previousPassRate = (float)($previousData['passRate'] ?? 0.0);
-		$dropPercentPoints = (($previousPassRate - $passRate) * 100);
+		return (float)($previous->getObject()['passRate'] ?? 0.0);
+
+	}//end previousPassRate()
+
+	/**
+	 * The pass-rate drop against the previous run, in percentage points (null
+	 * without a previous run).
+	 *
+	 * @param float|null $previousPassRate The previous run's pass rate.
+	 * @param float      $passRate         This run's aggregate pass rate.
+	 *
+	 * @return float|null
+	 */
+	private function dropPercentPoints(?float $previousPassRate, float $passRate): ?float {
+		if ($previousPassRate === null) {
+			return null;
+		}
+
+		return (($previousPassRate - $passRate) * 100);
+
+	}//end dropPercentPoints()
+
+	/**
+	 * The regression gate's result: not applicable without a previous run, failed
+	 * when the drop exceeds the threshold, passed otherwise.
+	 *
+	 * @param float|null $dropPercentPoints The pass-rate drop in percentage points.
+	 * @param int        $thresholdPercent  The effective regression threshold.
+	 *
+	 * @return string not_applicable|failed|passed
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-regression-gate-compares-aggregate-pass-rate-against-the-previous-run
+	 */
+	private function regressionGateResult(?float $dropPercentPoints, int $thresholdPercent): string {
+		if ($dropPercentPoints === null) {
+			return 'not_applicable';
+		}
 
 		if ($dropPercentPoints > $thresholdPercent) {
-			return ['failed', $previousPassRate];
+			return 'failed';
 		}
 
-		return ['passed', $previousPassRate];
-	}//end evaluateRegressionGate()
+		return 'passed';
+
+	}//end regressionGateResult()
 
 	/**
 	 * Load the most recent completed EvalRun for the same dataset+agent, system-wide
@@ -1464,13 +1478,9 @@ class EvalRunService {
 			regressionThresholdPercent: 0
 		);
 
-		$this->writeRunAudit(
-			evalRun: $saved,
-			status: $status,
-			usage: [],
-			passRate: 0.0,
-			startedAt: $trigger->startedAt
-		);
+		$recorded = new RecordedEvalRun(evalRun: $saved, startedAt: $trigger->startedAt);
+		$recorded->status = $status;
+		$this->writeRunAudit(recorded: $recorded);
 
 		return [
 			'evalRunId' => (string)$saved->getUuid(),
@@ -1489,76 +1499,115 @@ class EvalRunService {
 	 * scan counts this run's usage toward the same budget total a Schedule's does.
 	 * Non-fatal: an audit-write failure never fails the eval run itself.
 	 *
-	 * @param ObjectEntity $evalRun The persisted EvalRun.
-	 * @param string $status completed|failed|blocked_killswitch|blocked_budget.
-	 * @param array<string,int> $usage Aggregated prompt/completion token usage across
-	 *                                 cases — for a paired run, ALL halves' usage in
-	 *                                 this ONE entry (same budgets, no separate meter).
-	 * @param float $passRate The run's aggregate pass-rate (for the audit summary).
-	 * @param DateTimeImmutable $startedAt When the run began.
-	 * @param array<int,string> $skillsUsed The skill uuids the run-loop seam actually exposed
-	 *                                      across this run's halves (skill-evals; recorded
-	 *                                      for ALL runs — skill-learnings consumes it later).
+	 * @param RecordedEvalRun $recorded The persisted run: its status
+	 *                                  (completed|failed|blocked_killswitch|blocked_budget),
+	 *                                  pass rate, start time, usage (for a paired run, ALL
+	 *                                  halves' usage in this ONE entry — same budgets, no
+	 *                                  separate meter) and exposed skills.
 	 *
 	 * @return void
 	 */
-	private function writeRunAudit(
-		ObjectEntity $evalRun,
-		string $status,
-		array $usage,
-		float $passRate,
-		DateTimeImmutable $startedAt,
-		array $skillsUsed = [],
-	): void {
+	private function writeRunAudit(RecordedEvalRun $recorded): void {
 		try {
-			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-			$summary = sprintf('Eval run %s — pass rate %.2f', $status, $passRate);
-
-			$context = [
-				'status' => $status,
-				// Skill-learnings: the run's own identity INSIDE the context — the
-				// capture pass's trace loader matches entries on `context.runId`
-				// (an EvalRun's audit anchor object IS the run, so uuid = runId).
-				'runId' => (string)$evalRun->getUuid(),
-				'startedAt' => $startedAt->format('c'),
-				'endedAt' => $endedAt->format('c'),
-				'durationMs' => (((int)$endedAt->format('U') - (int)$startedAt->format('U')) * 1000),
-				// Run-analytics/cost-guardrails: the SAME shape ScheduleService::writeRunAudit()
-				// records, so BudgetService's existing `currentUsageTokens()` reader needs no
-				// eval-specific branch.
-				'usage' => $usage,
-				// Skill-evals: which skill uuids the run(s) actually exposed — the same
-				// key ScheduleService::writeRunAudit() records for scheduled runs.
-				'skillsUsed' => $skillsUsed,
-				// Skill-self-improvement: pin each exposed skill's version as of run
-				// start (AuditTrail entry UUID) alongside the existing agent-version
-				// pin. Never fatal — an unresolvable skill is simply absent.
-				'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $skillsUsed),
-				// REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write
-				// (ADR-004). The raw, unredacted per-case output only ever lives on the
-				// EvalRun object itself (tenant/RBAC-scoped like any other Hermiq object).
-				'summary' => $this->redactionService->redact($summary),
-			];
-
-			$this->auditTrailMapper->recordObjectEvent(
-				event: new ObjectAuditEvent(
-					object: $evalRun,
-					action: self::RUN_ACTION,
-					context: $context
-				)
-			);
+			$this->auditTrailMapper->recordObjectEvent(event: $this->runAuditEvent(recorded: $recorded));
 		} catch (Throwable $e) {
 			$this->logger->warning(
-				sprintf(
-					'Hermiq could not write eval-run audit for %s: %s',
-					(string)$evalRun->getUuid(),
-					$e->getMessage()
-				),
+				sprintf('Hermiq could not write eval-run audit for %s: %s', (string)$recorded->evalRun->getUuid(), $e->getMessage()),
 				['exception' => $e]
 			);
-		}//end try
+		}
 
 	}//end writeRunAudit()
+
+	/**
+	 * The redacted `action='run'` audit event on the persisted EvalRun.
+	 *
+	 * @param RecordedEvalRun $recorded The persisted run.
+	 *
+	 * @return ObjectAuditEvent
+	 */
+	private function runAuditEvent(RecordedEvalRun $recorded): ObjectAuditEvent {
+		return new ObjectAuditEvent(
+			object: $recorded->evalRun,
+			action: self::RUN_ACTION,
+			context: $this->runAuditContext(recorded: $recorded)
+		);
+
+	}//end runAuditEvent()
+
+	/**
+	 * The run audit entry's context.
+	 *
+	 * @param RecordedEvalRun $recorded The persisted run.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function runAuditContext(RecordedEvalRun $recorded): array {
+		$summary = sprintf('Eval run %s — pass rate %.2f', $recorded->status, $recorded->passRate);
+
+		return [
+			'status' => $recorded->status,
+			// Skill-learnings: the run's own identity INSIDE the context — the
+			// capture pass's trace loader matches entries on `context.runId`
+			// (an EvalRun's audit anchor object IS the run, so uuid = runId).
+			'runId' => (string)$recorded->evalRun->getUuid(),
+		] + $this->runTiming(startedAt: $recorded->startedAt) + [
+			// Run-analytics/cost-guardrails: the SAME shape ScheduleService::writeRunAudit()
+			// records, so BudgetService's existing `currentUsageTokens()` reader needs no
+			// eval-specific branch.
+			'usage' => $recorded->usage,
+			// Skill-evals: which skill uuids the run(s) actually exposed — the same
+			// key ScheduleService::writeRunAudit() records for scheduled runs.
+			'skillsUsed' => $recorded->skillsUsed,
+			// Skill-self-improvement: pin each exposed skill's version as of run
+			// start (AuditTrail entry UUID) alongside the existing agent-version
+			// pin. Never fatal — an unresolvable skill is simply absent.
+			'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $recorded->skillsUsed),
+			// REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write
+			// (ADR-004). The raw, unredacted per-case output only ever lives on the
+			// EvalRun object itself (tenant/RBAC-scoped like any other Hermiq object).
+			'summary' => $this->redactionService->redact($summary),
+		];
+
+	}//end runAuditContext()
+
+	/**
+	 * The run's start, end (now) and duration, as the audit context records them.
+	 *
+	 * @param DateTimeImmutable $startedAt When the run began.
+	 *
+	 * @return array{startedAt:string,endedAt:string,durationMs:int}
+	 */
+	private function runTiming(DateTimeImmutable $startedAt): array {
+		$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+		return [
+			'startedAt' => $startedAt->format('c'),
+			'endedAt' => $endedAt->format('c'),
+			'durationMs' => (((int)$endedAt->format('U') - (int)$startedAt->format('U')) * 1000),
+		];
+
+	}//end runTiming()
+
+	/**
+	 * The persisted run with the run context's start time, usage, exposed skills
+	 * and agent; the caller sets the outcome's status, pass rate and results.
+	 *
+	 * @param ObjectEntity         $evalRun The persisted EvalRun.
+	 * @param array<string, mixed> $run     The run context.
+	 *
+	 * @return RecordedEvalRun
+	 */
+	private function recordedRun(ObjectEntity $evalRun, array $run): RecordedEvalRun {
+		$recorded = new RecordedEvalRun(evalRun: $evalRun, startedAt: $run['startedAt']);
+		$recorded->usage = $run['usage'];
+		$recorded->skillsUsed = $run['skillsUsed'];
+		$recorded->agentId = $run['agentId'];
+		$recorded->organisation = $run['organisation'];
+
+		return $recorded;
+
+	}//end recordedRun()
 
 	/**
 	 * Skill-learnings design.md Decision 8 PRODUCER: for every FAILING case of a
@@ -1578,69 +1627,80 @@ class EvalRunService {
 	 * cases the first executed job captures and stamps the run id, later jobs
 	 * no-op — one marker per run's candidates, exactly what promotion needs.
 	 *
-	 * @param ObjectEntity $evalRun The persisted EvalRun.
-	 * @param string $status The run's final status.
-	 * @param array<int,array<string,mixed>> $results The run's (with-half) case results.
-	 * @param array<int,string> $skillsUsed Skill uuids the run actually exposed.
-	 * @param string $agentId The run's agent uuid.
-	 * @param string $organisation The run's organisation (budget scope).
+	 * @param RecordedEvalRun $recorded The persisted run: its final status, (with-half)
+	 *                                  case results, exposed skills, agent and
+	 *                                  organisation (budget scope).
 	 *
 	 * @return void
-	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Threaded call-context from the
-	 *   two run paths, not a logic-bearing argument list.
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
 	 */
-	private function enqueueEvalFailCaptures(
-		ObjectEntity $evalRun,
-		string $status,
-		array $results,
-		array $skillsUsed,
-		string $agentId,
-		string $organisation,
-	): void {
-		if ($status !== 'completed' || $skillsUsed === []) {
+	private function enqueueEvalFailCaptures(RecordedEvalRun $recorded): void {
+		if ($recorded->status !== 'completed' || $recorded->skillsUsed === []) {
 			return;
 		}
 
-		$evalRunUuid = (string)$evalRun->getUuid();
-
-		foreach ($results as $result) {
+		foreach ($recorded->results as $result) {
 			// Entries are built in-process by executeCase(), so the shape is
 			// guaranteed — only the pass/fail verdict needs checking.
-			if (($result['passed'] ?? null) !== false) {
-				continue;
+			if (($result['passed'] ?? null) === false) {
+				$this->enqueueEvalFailCapture(recorded: $recorded, caseIndex: (int)($result['caseIndex'] ?? 0));
 			}
-
-			try {
-				$this->jobList->add(
-					SkillLearningsCaptureJob::class,
-					[
-						'runId' => $evalRunUuid,
-						// The trace anchor: the audit entry lives ON the EvalRun
-						// object (same lookup shape a Schedule's runs use).
-						'scheduleUuid' => $evalRunUuid,
-						'agentId' => $agentId,
-						'skillIds' => $skillsUsed,
-						'organisation' => $organisation,
-						'evalFail' => $evalRunUuid . '#' . ((int)($result['caseIndex'] ?? 0)),
-					]
-				);
-			} catch (Throwable $e) {
-				$this->logger->warning(
-					sprintf(
-						'Hermiq could not enqueue eval-fail learnings capture for run %s: %s',
-						$evalRunUuid,
-						$e->getMessage()
-					),
-					['exception' => $e]
-				);
-			}//end try
-		}//end foreach
+		}
 
 	}//end enqueueEvalFailCaptures()
+
+	/**
+	 * Enqueue the learnings capture job for one failing case; a failure is logged
+	 * and swallowed.
+	 *
+	 * @param RecordedEvalRun $recorded  The persisted run.
+	 * @param int             $caseIndex The failing case's index.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
+	 */
+	private function enqueueEvalFailCapture(RecordedEvalRun $recorded, int $caseIndex): void {
+		try {
+			$this->jobList->add(SkillLearningsCaptureJob::class, $this->evalFailCaptureArgument(recorded: $recorded, caseIndex: $caseIndex));
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf(
+					'Hermiq could not enqueue eval-fail learnings capture for run %s: %s',
+					(string)$recorded->evalRun->getUuid(),
+					$e->getMessage()
+				),
+				['exception' => $e]
+			);
+		}
+
+	}//end enqueueEvalFailCapture()
+
+	/**
+	 * The capture job's argument for one failing case.
+	 *
+	 * @param RecordedEvalRun $recorded  The persisted run.
+	 * @param int             $caseIndex The failing case's index.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function evalFailCaptureArgument(RecordedEvalRun $recorded, int $caseIndex): array {
+		$evalRunUuid = (string)$recorded->evalRun->getUuid();
+
+		return [
+			'runId' => $evalRunUuid,
+			// The trace anchor: the audit entry lives ON the EvalRun
+			// object (same lookup shape a Schedule's runs use).
+			'scheduleUuid' => $evalRunUuid,
+			'agentId' => $recorded->agentId,
+			'skillIds' => $recorded->skillsUsed,
+			'organisation' => $recorded->organisation,
+			'evalFail' => $evalRunUuid . '#' . $caseIndex,
+		];
+
+	}//end evalFailCaptureArgument()
 
 	/**
 	 * Write `levelEvidence.l5` on each linked skill after a COMPLETED paired run —
