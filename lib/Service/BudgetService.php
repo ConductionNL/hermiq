@@ -48,6 +48,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -313,38 +314,58 @@ class BudgetService {
 	 */
 	public function status(ObjectEntity $budget): array {
 		$data = $budget->getObject();
-		$scope = (string)($data['scope'] ?? 'organisation');
 		$period = (string)($data['period'] ?? 'monthly');
-		$organisation = (string)($budget->getOrganisation() ?? '');
+		$window = $this->periodWindow(period: $period, now: new DateTimeImmutable('now', new DateTimeZone('UTC')));
+		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $this->loadScheduleUuidsForScope(budget: $budget), window: $window);
+
+		return [
+			'scope' => (string)($data['scope'] ?? 'organisation'),
+			'agentId' => $this->agentIdOrNull(data: $data),
+			'period' => $period,
+			'periodKey' => $window['key'],
+		] + $this->usageFields(data: $data, tokensUsed: $tokensUsed);
+
+	}//end status()
+
+	/**
+	 * A budget's agent id, or null for an organisation budget.
+	 *
+	 * @param array<string, mixed> $data The budget's fields.
+	 *
+	 * @return string|null The agent id, or null.
+	 */
+	private function agentIdOrNull(array $data): ?string {
 		$agentId = (string)($data['agentId'] ?? '');
+		if ($agentId === '') {
+			return null;
+		}
 
-		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-		$window = $this->periodWindow(period: $period, now: $now);
+		return $agentId;
 
-		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
-		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
+	}//end agentIdOrNull()
 
+	/**
+	 * The token and EUR usage of a budget's limits, and whether either reached its
+	 * soft threshold or hard cap.
+	 *
+	 * @param array<string, mixed> $data The budget's fields.
+	 * @param int $tokensUsed The tokens used in the period.
+	 *
+	 * @return array<string, mixed> The tokens, eur, softThresholdReached and hardCapReached fields.
+	 */
+	private function usageFields(array $data, int $tokensUsed): array {
 		$limits = new BudgetLimits(data: $data);
 		$tokens = $limits->tokenUsage(used: $tokensUsed);
 		$eur = $limits->eurUsage(tokensUsed: $tokensUsed, rate: $this->eurRate());
 
-		$agentIdOrNull = null;
-		if ($agentId !== '') {
-			$agentIdOrNull = $agentId;
-		}
-
 		return [
-			'scope' => $scope,
-			'agentId' => $agentIdOrNull,
-			'period' => $period,
-			'periodKey' => $window['key'],
 			'tokens' => $tokens['usage'],
 			'eur' => $eur['usage'],
 			'softThresholdReached' => ($tokens['soft'] || $eur['soft']),
 			'hardCapReached' => ($tokens['hard'] || $eur['hard']),
 		];
 
-	}//end status()
+	}//end usageFields()
 
 
 	/**
@@ -775,38 +796,19 @@ class BudgetService {
 	 * meter (proposal.md Risk 1). Additive: when no EvalRun exists yet (or the
 	 * schema is absent) this returns exactly the Schedule-only UUID set as before.
 	 *
-	 * @param string $scope `organisation`|`agent`.
-	 * @param string $organisation The organisation identifier.
-	 * @param string $agentId The agent UUID (scope=agent only).
+	 * @param ObjectEntity $budget The budget whose scope (organisation, or agent) to match.
 	 *
 	 * @return array<int, string> The matching schedule + eval-run UUIDs.
 	 */
-	private function loadScheduleUuidsForScope(string $scope, string $organisation, string $agentId): array {
-		$uuids = $this->loadInScopeUuidsForSchema(
-			schema: self::SCHEDULE_SCHEMA,
-			scope: $scope,
-			organisation: $organisation,
-			agentId: $agentId
+	private function loadScheduleUuidsForScope(ObjectEntity $budget): array {
+		return array_merge(
+			$this->loadInScopeUuidsForSchema(schema: self::SCHEDULE_SCHEMA, budget: $budget),
+			$this->loadInScopeUuidsForSchema(schema: self::EVALRUN_SCHEMA, budget: $budget),
+			// Skill-self-improvement: consolidation drafts join the union so the
+			// consolidation LLM pass's `action='run'` usage rolls into the SAME budget
+			// total (the agent-evals precedent). Additive: no drafts ⇒ unchanged set.
+			$this->loadInScopeUuidsForSchema(schema: self::SKILLDRAFT_SCHEMA, budget: $budget)
 		);
-
-		$evalRunUuids = $this->loadInScopeUuidsForSchema(
-			schema: self::EVALRUN_SCHEMA,
-			scope: $scope,
-			organisation: $organisation,
-			agentId: $agentId
-		);
-
-		// Skill-self-improvement: consolidation drafts join the union so the
-		// consolidation LLM pass's `action='run'` usage rolls into the SAME budget
-		// total (the agent-evals precedent). Additive: no drafts ⇒ unchanged set.
-		$draftUuids = $this->loadInScopeUuidsForSchema(
-			schema: self::SKILLDRAFT_SCHEMA,
-			scope: $scope,
-			organisation: $organisation,
-			agentId: $agentId
-		);
-
-		return array_merge($uuids, $evalRunUuids, $draftUuids);
 	}//end loadScheduleUuidsForScope()
 
 	/**
@@ -819,46 +821,14 @@ class BudgetService {
 	 * EvalRun share the identical matching logic instead of two near-duplicate loops.
 	 *
 	 * @param string $schema The OpenRegister schema slug to scan.
-	 * @param string $scope `organisation`|`agent`.
-	 * @param string $organisation The organisation identifier.
-	 * @param string $agentId The agent UUID (scope=agent only).
+	 * @param ObjectEntity $budget The budget whose scope to match.
 	 *
 	 * @return array<int, string> The matching object UUIDs.
 	 */
-	private function loadInScopeUuidsForSchema(string $schema, string $scope, string $organisation, string $agentId): array {
-		try {
-			$objects = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema($schema)
-				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
-		} catch (Throwable $e) {
-			// Fails open (empty scope) rather than breaking budget resolution for every
-			// OTHER schema — e.g. an 'evalrun' scan on an instance whose register
-			// re-import has not yet landed the agent-evals schema must never take down
-			// the pre-existing Schedule-only budget gate.
-			$this->logger->warning(
-				sprintf("Hermiq could not load '%s' objects for the budget scope scan: %s", $schema, $e->getMessage()),
-				['exception' => $e]
-			);
-			return [];
-		}
-
+	private function loadInScopeUuidsForSchema(string $schema, ObjectEntity $budget): array {
 		$uuids = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ($scope === 'organisation') {
-				if ($organisation !== '' && (string)($object->getOrganisation() ?? '') === $organisation) {
-					$uuids[] = (string)$object->getUuid();
-				}
-
-				continue;
-			}
-
-			$data = $object->getObject();
-			if ($agentId !== '' && (string)($data['agentId'] ?? '') === $agentId) {
+		foreach ($this->scopeScanObjects(schema: $schema) as $object) {
+			if ($object instanceof ObjectEntity && $this->isInBudgetScope(object: $object, budget: $budget) === true) {
 				$uuids[] = (string)$object->getUuid();
 			}
 		}
@@ -867,16 +837,65 @@ class BudgetService {
 	}//end loadInScopeUuidsForSchema()
 
 	/**
+	 * Every object of one schema in the `hermiq` register, system-wide; a failed read
+	 * is logged and yields none.
+	 *
+	 * Fails open (empty scope) rather than breaking budget resolution for every
+	 * OTHER schema — e.g. an 'evalrun' scan on an instance whose register re-import
+	 * has not yet landed the agent-evals schema must never take down the
+	 * pre-existing Schedule-only budget gate.
+	 *
+	 * @param string $schema The OpenRegister schema slug to scan.
+	 *
+	 * @return array<int, mixed> The objects read.
+	 */
+	private function scopeScanObjects(string $schema): array {
+		try {
+			return $this->objectService
+				->setRegister(self::REGISTER_SLUG)
+				->setSchema($schema)
+				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf("Hermiq could not load '%s' objects for the budget scope scan: %s", $schema, $e->getMessage()),
+				['exception' => $e]
+			);
+			return [];
+		}
+
+	}//end scopeScanObjects()
+
+	/**
+	 * Whether an object falls in a budget's scope: in the budget's organisation for an
+	 * organisation budget, else bound to the budget's agent via its `agentId` field.
+	 *
+	 * @param ObjectEntity $object The scanned object.
+	 * @param ObjectEntity $budget The budget.
+	 *
+	 * @return bool True when the object's usage counts toward the budget.
+	 */
+	private function isInBudgetScope(ObjectEntity $object, ObjectEntity $budget): bool {
+		$data = $budget->getObject();
+		if ((string)($data['scope'] ?? 'organisation') === 'organisation') {
+			$organisation = (string)($budget->getOrganisation() ?? '');
+			return $organisation !== '' && (string)($object->getOrganisation() ?? '') === $organisation;
+		}
+
+		$agentId = (string)($data['agentId'] ?? '');
+		return $agentId !== '' && (string)($object->getObject()['agentId'] ?? '') === $agentId;
+
+	}//end isInBudgetScope()
+
+	/**
 	 * Sum recorded token usage (`action='run'` AuditTrail entries) for a set of
 	 * schedule UUIDs within a period window.
 	 *
 	 * @param array<int, string> $scheduleUuids The in-scope schedule UUIDs.
-	 * @param DateTimeImmutable $start The period start (inclusive, UTC).
-	 * @param DateTimeImmutable $end The period end (exclusive, UTC).
+	 * @param array{start: DateTimeImmutable, end: DateTimeImmutable, key: string} $window The period window.
 	 *
 	 * @return int Total prompt+completion tokens recorded in the window.
 	 */
-	private function currentUsageTokens(array $scheduleUuids, DateTimeImmutable $start, DateTimeImmutable $end): int {
+	private function currentUsageTokens(array $scheduleUuids, array $window): int {
 		if ($scheduleUuids === []) {
 			return 0;
 		}
@@ -886,28 +905,44 @@ class BudgetService {
 
 		$total = 0;
 		foreach ($logs as $log) {
-			$objectUuid = (string)$log->getObjectUuid();
-			if (isset($inScope[$objectUuid]) === false) {
-				continue;
+			if (isset($inScope[(string)$log->getObjectUuid()]) === true && $this->isInWindow(log: $log, window: $window) === true) {
+				$total += $this->runTokens(log: $log);
 			}
-
-			$created = $log->getCreated();
-			if ($created === null || $created < $start || $created >= $end) {
-				continue;
-			}
-
-			$context = ($log->getChanged() ?? []);
-			$usage = ($context['usage'] ?? null);
-			if (is_array($usage) === false) {
-				continue;
-			}
-
-			$total += (int)($usage['promptTokens'] ?? 0);
-			$total += (int)($usage['completionTokens'] ?? 0);
 		}
 
 		return $total;
 	}//end currentUsageTokens()
+
+	/**
+	 * Whether a run entry was created inside a period window (start inclusive, end exclusive).
+	 *
+	 * @param AuditTrail $log The run entry.
+	 * @param array{start: DateTimeImmutable, end: DateTimeImmutable, key: string} $window The period window.
+	 *
+	 * @return bool True when inside the window.
+	 */
+	private function isInWindow(AuditTrail $log, array $window): bool {
+		$created = $log->getCreated();
+		return $created !== null && $created >= $window['start'] && $created < $window['end'];
+
+	}//end isInWindow()
+
+	/**
+	 * The prompt plus completion tokens a run entry recorded; none without a usage record.
+	 *
+	 * @param AuditTrail $log The run entry.
+	 *
+	 * @return int The tokens.
+	 */
+	private function runTokens(AuditTrail $log): int {
+		$usage = (($log->getChanged() ?? [])['usage'] ?? null);
+		if (is_array($usage) === false) {
+			return 0;
+		}
+
+		return (int)($usage['promptTokens'] ?? 0) + (int)($usage['completionTokens'] ?? 0);
+
+	}//end runTokens()
 
 	/**
 	 * Compute the [start, end) UTC window and period key for a period kind, anchored
