@@ -127,16 +127,13 @@ class ConnectionReporter {
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function report(string $key, string $status, string $message=''): bool {
-		if ($this->isValid(key: $key, status: $status) === false) {
-			return false;
-		}
-
-		$eventClass = $this->resolveEventClass(eventClass: self::STATUS_EVENT);
+		$report = new ConnectionStatus(key: $key, status: $status, message: $message);
+		$eventClass = $this->eventClassFor(report: $report);
 		if ($eventClass === null) {
 			return false;
 		}
 
-		return $this->send(key: $key, eventClass: $eventClass, status: $status, message: $message);
+		return $this->send(report: $report, eventClass: $eventClass);
 	}//end report()
 
 	/**
@@ -158,27 +155,14 @@ class ConnectionReporter {
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function reportThrottled(string $key, string $status, string $message=''): bool {
-		if ($this->isValid(key: $key, status: $status) === false) {
-			return false;
-		}
-
-		$eventClass = $this->resolveEventClass(eventClass: self::STATUS_EVENT);
+		$report = new ConnectionStatus(key: $key, status: $status, message: $message);
+		$eventClass = $this->eventClassFor(report: $report);
 		if ($eventClass === null) {
 			return false;
 		}
 
 		try {
-			$now = $this->timeFactory->getTime();
-			if ($this->isDue(key: $key, status: $status, now: $now) === false) {
-				return false;
-			}
-
-			$sent = $this->send(key: $key, eventClass: $eventClass, status: $status, message: $message);
-			if ($sent === true) {
-				$this->appConfig->setValueString(self::APP_ID, self::MEMORY_KEY_PREFIX . $key, $status . '|' . $now, true);
-			}
-
-			return $sent;
+			return $this->sendIfDue(report: $report, eventClass: $eventClass);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[ConnectionReporter] Could not keep the connection report memory',
@@ -187,6 +171,47 @@ class ConnectionReporter {
 			return false;
 		}
 	}//end reportThrottled()
+
+	/**
+	 * The event class to send a valid report with, or null when the report is not valid or integriq is absent.
+	 *
+	 * @param ConnectionStatus $report The report.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function eventClassFor(ConnectionStatus $report): ?string {
+		if ($this->isValid(key: $report->key, status: $report->status) === false) {
+			return null;
+		}
+
+		return $this->resolveEventClass(eventClass: self::STATUS_EVENT);
+	}//end eventClassFor()
+
+	/**
+	 * Send the report when the throttle allows it, and remember what was sent and when.
+	 *
+	 * @param ConnectionStatus $report     The report.
+	 * @param string           $eventClass The resolved event class.
+	 *
+	 * @return bool True when a report was sent.
+	 *
+	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 */
+	private function sendIfDue(ConnectionStatus $report, string $eventClass): bool {
+		$now = $this->timeFactory->getTime();
+		if ($this->isDue(report: $report, now: $now) === false) {
+			return false;
+		}
+
+		$sent = $this->send(report: $report, eventClass: $eventClass);
+		if ($sent === true) {
+			$this->appConfig->setValueString(self::APP_ID, self::MEMORY_KEY_PREFIX . $report->key, $report->status . '|' . $now, true);
+		}
+
+		return $sent;
+	}//end sendIfDue()
 
 	/**
 	 * The event class to instantiate, or null when integriq does not ship it.
@@ -237,21 +262,20 @@ class ConnectionReporter {
 	/**
 	 * Whether the throttle memory allows a report with this status now.
 	 *
-	 * @param string $key    The connection key.
-	 * @param string $status The status observed.
-	 * @param int    $now    The current Unix time.
+	 * @param ConnectionStatus $report The report.
+	 * @param int              $now    The current Unix time.
 	 *
 	 * @return bool
 	 */
-	private function isDue(string $key, string $status, int $now): bool {
-		$memory = $this->appConfig->getValueString(self::APP_ID, self::MEMORY_KEY_PREFIX . $key, '', true);
+	private function isDue(ConnectionStatus $report, int $now): bool {
+		$memory = $this->appConfig->getValueString(self::APP_ID, self::MEMORY_KEY_PREFIX . $report->key, '', true);
 		$parts  = explode('|', $memory, 2);
 		if (count($parts) !== 2 || ctype_digit($parts[1]) === false) {
 			return true;
 		}
 
 		$elapsed = ($now - (int)$parts[1]);
-		if ($parts[0] === $status) {
+		if ($parts[0] === $report->status) {
 			return $elapsed >= self::REPEAT_SECONDS;
 		}
 
@@ -261,20 +285,18 @@ class ConnectionReporter {
 	/**
 	 * Build and dispatch one report event, swallowing anything a listener throws.
 	 *
-	 * @param string $key        The connection key.
-	 * @param string $eventClass The resolved event class.
-	 * @param string $status     The status.
-	 * @param string $message    The message.
+	 * @param ConnectionStatus $report     The report.
+	 * @param string           $eventClass The resolved event class.
 	 *
 	 * @return bool True when the event was dispatched without an exception.
 	 */
-	private function send(string $key, string $eventClass, string $status, string $message): bool {
+	private function send(ConnectionStatus $report, string $eventClass): bool {
 		try {
 			$event = new $eventClass(
 				app: self::APP_ID,
-				key: $key,
-				status: $status,
-				message: $message,
+				key: $report->key,
+				status: $report->status,
+				message: $report->message,
 			);
 			if ($event instanceof Event === false) {
 				return false;
@@ -285,7 +307,7 @@ class ConnectionReporter {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[ConnectionReporter] Could not send a connection report to integriq',
-				context: ['key' => $key, 'exception' => $e->getMessage()]
+				context: ['key' => $report->key, 'exception' => $e->getMessage()]
 			);
 			return false;
 		}
