@@ -35,7 +35,7 @@ use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -328,7 +328,7 @@ final class AgentGitServiceTest extends TestCase {
 			objectService: $objects,
 			serializer: new AgentTemplateSerializer(),
 			contentScanService: $scanner,
-			modelPolicyService: $this->createMock(OrganisationModelPolicyService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
 			skillService: $this->createMock(SkillService::class),
 		);
 

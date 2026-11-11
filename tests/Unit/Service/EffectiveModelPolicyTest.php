@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/organisation-model-policy/tasks.md#task-1-2
+ * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
  */
 
 declare(strict_types=1);
@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -143,11 +144,26 @@ class EffectiveModelPolicyTest extends TestCase {
 	 * @param array<int, mixed> $policies     The stored policies.
 	 * @param string|null       $chatProvider The configured chat provider.
 	 *
-	 * @return object
+	 * @return EffectiveModelPolicy
 	 */
-	private function check(array $policies, ?string $chatProvider = null): object {
-		return $this->service(objects: $this->objectService($policies), chatProvider: $chatProvider);
+	private function check(array $policies, ?string $chatProvider = null): EffectiveModelPolicy {
+		return $this->effective(objects: $this->objectService($policies), chatProvider: $chatProvider);
 	}//end check()
+
+	/**
+	 * The effective policy over a register double.
+	 *
+	 * @param ObjectService $objects      The register double.
+	 * @param string|null   $chatProvider The configured chat provider.
+	 *
+	 * @return EffectiveModelPolicy
+	 */
+	private function effective(ObjectService $objects, ?string $chatProvider = null): EffectiveModelPolicy {
+		$settings = $this->createMock(LlmSettingsHandler::class);
+		$settings->method('getLLMSettingsOnly')->willReturn($chatProvider === null ? [] : ['chatProvider' => $chatProvider]);
+
+		return new EffectiveModelPolicy(objectService: $objects, settingsHandler: $settings);
+	}//end effective()
 
 	/**
 	 * The stored-policy service.
@@ -158,10 +174,7 @@ class EffectiveModelPolicyTest extends TestCase {
 	 * @return OrganisationModelPolicyService
 	 */
 	private function service(ObjectService $objects, ?string $chatProvider = null): OrganisationModelPolicyService {
-		$settings = $this->createMock(LlmSettingsHandler::class);
-		$settings->method('getLLMSettingsOnly')->willReturn($chatProvider === null ? [] : ['chatProvider' => $chatProvider]);
-
-		return new OrganisationModelPolicyService(objectService: $objects, settingsHandler: $settings);
+		return new OrganisationModelPolicyService(objectService: $objects, effectivePolicy: $this->effective(objects: $objects, chatProvider: $chatProvider));
 	}//end service()
 
 	/**

@@ -112,7 +112,7 @@ class ComplianceService {
 	 *                                           retention (existing evidence seams).
 	 * @param ApprovalService $approvalService Human-approval-gate decision records.
 	 * @param OrganisationControlService $tenantControlService Per-org kill-switch (stop mechanism).
-	 * @param OrganisationModelPolicyService $modelPolicyService Per-org model-provider allowlist.
+	 * @param EffectiveModelPolicy $modelPolicyService Per-org model-provider allowlist.
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
 	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
 	 *
@@ -124,7 +124,7 @@ class ComplianceService {
 		private readonly OrganisationOpsService $tenantOpsService,
 		private readonly ApprovalService $approvalService,
 		private readonly OrganisationControlService $tenantControlService,
-		private readonly OrganisationModelPolicyService $modelPolicyService,
+		private readonly EffectiveModelPolicy $modelPolicyService,
 		private readonly AiFeatureService $aiFeatureService,
 		private readonly ?LiteracyReport $literacyReport = null,
 	) {

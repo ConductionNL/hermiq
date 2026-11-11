@@ -42,6 +42,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
@@ -72,6 +73,7 @@ class OrganisationModelPolicyController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param OrganisationModelPolicyService $modelPolicyService The model-policy read/write path.
+	 * @param EffectiveModelPolicy $effectivePolicy The policy that governs an organisation.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup
@@ -84,6 +86,7 @@ class OrganisationModelPolicyController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly OrganisationModelPolicyService $modelPolicyService,
+		private readonly EffectiveModelPolicy $effectivePolicy,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
@@ -114,7 +117,7 @@ class OrganisationModelPolicyController extends Controller {
 
 		try {
 			$organisation = $this->policyGate()->activeOrganisation(uid: $user->getUID(), logger: $this->logger);
-			return new JSONResponse($this->modelPolicyService->effectivePolicyFor(organisation: $organisation));
+			return new JSONResponse($this->effectivePolicy->effectivePolicyFor(organisation: $organisation));
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq model-policy effective read failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Could not load the effective model policy'], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -151,7 +154,7 @@ class OrganisationModelPolicyController extends Controller {
 						$source = 'instance';
 					}
 
-					return $this->modelPolicyService->effectivePolicyFor(organisation: $organisation) + [
+					return $this->effectivePolicy->effectivePolicyFor(organisation: $organisation) + [
 						'id' => (string)($policy->getUuid() ?? ''),
 						'organisation' => $organisation,
 						'source' => $source,

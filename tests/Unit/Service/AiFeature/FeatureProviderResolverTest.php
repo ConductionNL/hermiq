@@ -36,7 +36,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -75,16 +75,16 @@ class FeatureProviderResolverTest extends TestCase {
 	}//end features()
 
 	/**
-	 * A OrganisationModelPolicyService double allowing exactly the given pairs and
+	 * A EffectiveModelPolicy double allowing exactly the given pairs and
 	 * offering the given default.
 	 *
 	 * @param array<int, array{0: string, 1: string}> $allowedPairs The permitted (provider, model) pairs.
 	 * @param array{provider: string, model: string}|null $defaultModel The policy default, when it has one.
 	 *
-	 * @return OrganisationModelPolicyService The double.
+	 * @return EffectiveModelPolicy The double.
 	 */
-	private function policy(array $allowedPairs, ?array $defaultModel = null): OrganisationModelPolicyService {
-		$service = $this->createMock(OrganisationModelPolicyService::class);
+	private function policy(array $allowedPairs, ?array $defaultModel = null): EffectiveModelPolicy {
+		$service = $this->createMock(EffectiveModelPolicy::class);
 		$service->method('isAllowed')->willReturnCallback(
 			static function (string $organisation, string $provider, string $model) use ($allowedPairs): bool {
 				return in_array([$provider, $model], $allowedPairs, true);
@@ -318,7 +318,7 @@ class FeatureProviderResolverTest extends TestCase {
 	private function dataUse(array $declarations): DataUseGate {
 		$config = $this->createMock(IAppConfig::class);
 		$config->method('getValueString')->willReturn((string)json_encode($declarations));
-		$policy = $this->createMock(OrganisationModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('requiresNoTraining')->willReturn(true);
 
 		return new DataUseGate($policy, new ProviderDataUseRegistry($config));

@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\IUser;
@@ -268,10 +269,11 @@ class ProviderFactoryTest extends TestCase {
 
 		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(true);
-		$policy->method('requiresNoTraining')->willReturn(true);
+		$effective = $this->createMock(EffectiveModelPolicy::class);
+		$effective->method('requiresNoTraining')->willReturn(true);
 		$config = $this->createMock(IAppConfig::class);
 		$config->method('getValueString')->willReturn('');
-		$gate = new DataUseGate($policy, new ProviderDataUseRegistry($config));
+		$gate = new DataUseGate($effective, new ProviderDataUseRegistry($config));
 
 		$factory = new ProviderFactory(
 			$settings,

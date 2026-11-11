@@ -137,9 +137,9 @@ class DelegationService {
 	 * @param IAppConfig $appConfig Reads `delegation.maxDepth`/`delegation.maxFanOut`.
 	 * @param DelegationContext $delegationContext Trusted, request-scoped call-stack — the
 	 *                                             ONLY source of depth/ancestry/fan-out/anchor.
-	 * @param OrganisationModelPolicyService $tenantModelPolicyService GATE 4: the target agent's provider/model
-	 *                                                           against the organisation's effective
-	 *                                                           ModelPolicy.
+	 * @param EffectiveModelPolicy $tenantModelPolicyService GATE 4: the target agent's provider/model
+	 *                                                       against the organisation's effective
+	 *                                                       ModelPolicy.
 	 * @param ScheduleService $scheduleService GATE 5 (kill-switch, reused) and the actual
 	 *                                         governed dispatch (`runAgentAsOwner()`,
 	 *                                         `getLastRunId()`).
@@ -165,7 +165,7 @@ class DelegationService {
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
 		private readonly DelegationContext $delegationContext,
-		private readonly OrganisationModelPolicyService $tenantModelPolicyService,
+		private readonly EffectiveModelPolicy $tenantModelPolicyService,
 		private readonly ScheduleService $scheduleService,
 		private readonly BudgetService $budgetService,
 		private readonly AuditTrailMapper $auditTrailMapper,
