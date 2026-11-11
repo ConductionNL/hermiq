@@ -366,8 +366,20 @@ class MigrateConversationsToSessions implements IRepairStep {
 			return [];
 		}
 
+		return $this->entitiesByUuid(objects: ($live['results'] ?? []));
+
+	}//end liveRows()
+
+	/**
+	 * The object entities among the read results, by uuid.
+	 *
+	 * @param iterable<mixed> $objects The read results.
+	 *
+	 * @return array<string, ObjectEntity> The entities by uuid.
+	 */
+	private function entitiesByUuid(iterable $objects): array {
 		$rows = [];
-		foreach (($live['results'] ?? []) as $object) {
+		foreach ($objects as $object) {
 			if ($object instanceof ObjectEntity) {
 				$rows[(string) $object->getUuid()] = $object;
 			}
@@ -375,7 +387,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 
 		return $rows;
 
-	}//end liveRows()
+	}//end entitiesByUuid()
 
 	/**
 	 * Add the archived (soft-deleted) objects of the source schema; an archived copy
