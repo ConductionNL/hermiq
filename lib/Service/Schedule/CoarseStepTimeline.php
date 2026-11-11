@@ -111,7 +111,7 @@ final class CoarseStepTimeline {
 
 	/**
 	 * Chain the timed legs backward from the anchor, each ending where the
-	 * next-later leg started.
+	 * next-later leg started (millisecond precision).
 	 *
 	 * @param array<int, array<string, mixed>> $timedLegs The timed legs, last leg first.
 	 * @param DateTimeImmutable $anchorEnd The moment the agent-turn call returned.
@@ -122,43 +122,31 @@ final class CoarseStepTimeline {
 		$cursor = $anchorEnd;
 		$steps = [];
 		foreach ($timedLegs as $leg) {
-			$steps[] = $this->legStep(timedLeg: $leg, endedAt: $cursor);
-			$cursor = $this->legStart(timedLeg: $leg, endedAt: $cursor);
+			$startedAt = $cursor->modify('-' . $leg['durationMs'] . ' milliseconds');
+			$steps[] = $this->legStep(timedLeg: $leg + ['startedAt' => $startedAt->format('c'), 'endedAt' => $cursor->format('c')]);
+			$cursor = $startedAt;
 		}
 
 		return $steps;
 	}//end chainBackward()
 
 	/**
-	 * The step record of one timed leg ending at the given moment.
+	 * The step record of one timed, placed leg.
 	 *
-	 * @param array<string, mixed> $timedLeg The leg with its `durationMs`.
-	 * @param DateTimeImmutable $endedAt When the leg ended.
+	 * @param array<string, mixed> $timedLeg The leg with its `durationMs`, `startedAt` and `endedAt`.
 	 *
 	 * @return array<string, mixed> The step.
 	 */
-	private function legStep(array $timedLeg, DateTimeImmutable $endedAt): array {
+	private function legStep(array $timedLeg): array {
 		return [
 			'type' => $timedLeg['type'],
 			'name' => $timedLeg['name'],
-			'startedAt' => $this->legStart(timedLeg: $timedLeg, endedAt: $endedAt)->format('c'),
-			'endedAt' => $endedAt->format('c'),
+			'startedAt' => $timedLeg['startedAt'],
+			'endedAt' => $timedLeg['endedAt'],
 			'durationMs' => $timedLeg['durationMs'],
 			'outcome' => 'ok',
 		];
 	}//end legStep()
-
-	/**
-	 * When a timed leg that ended at the given moment started.
-	 *
-	 * @param array<string, mixed> $timedLeg The leg with its `durationMs`.
-	 * @param DateTimeImmutable $endedAt When the leg ended.
-	 *
-	 * @return DateTimeImmutable The leg's start, at millisecond precision.
-	 */
-	private function legStart(array $timedLeg, DateTimeImmutable $endedAt): DateTimeImmutable {
-		return $endedAt->modify('-' . $timedLeg['durationMs'] . ' milliseconds');
-	}//end legStart()
 
 	/**
 	 * Number the steps 0..n-1 in the given order.
