@@ -525,7 +525,7 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
 	 */
 	private function route(string $name, array $arguments): string {
-		if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
+		if ($this->isSearchToolsCall(name: $name) === true) {
 			return $this->handleSearchTools(arguments: $arguments);
 		}
 
@@ -533,16 +533,41 @@ class FacadeToolInvoker {
 		// checked BEFORE the pre-existing grant/approval-gate check below — a
 		// `deny`/`confirm` classification takes precedence over whatever the
 		// tool's write/destructive grant status would otherwise allow.
-		$classification = $this->classifyTool(name: $name);
-		if ($classification === 'deny') {
+		if ($this->classifyTool(name: $name) === 'deny') {
 			return $this->handleDeniedByPolicy(name: $name, arguments: $arguments);
 		}
 
-		// Hydra-console-agent-leaves: an argument-scoped grant's constraints are
-		// checked here — after guardrail `deny` (so a denied tool is still denied
-		// for the usual reason) and before every remaining gate, so a
-		// permitted-but-misparameterised call is refused with its OWN error and
-		// never creates a pointless pending approval for a command it may not make.
+		return $this->routeUndenied(name: $name, arguments: $arguments);
+	}//end route()
+
+	/**
+	 * Whether a call is the tool-search tool and tool search is available.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 *
+	 * @return bool True for a tool-search call.
+	 */
+	private function isSearchToolsCall(string $name): bool {
+		return $this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true;
+
+	}//end isSearchToolsCall()
+
+	/**
+	 * Route a call the organisation does not deny through the grant gates: its
+	 * argument constraints, then the flow owner.
+	 *
+	 * Hydra-console-agent-leaves: an argument-scoped grant's constraints are
+	 * checked here — after guardrail `deny` (so a denied tool is still denied
+	 * for the usual reason) and before every remaining gate, so a
+	 * permitted-but-misparameterised call is refused with its OWN error and
+	 * never creates a pointless pending approval for a command it may not make.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 */
+	private function routeUndenied(string $name, array $arguments): string {
 		$violation = $this->constraintViolationFor(name: $name, arguments: $arguments);
 		if ($violation !== null) {
 			return $this->handleConstraintViolation(
@@ -555,14 +580,29 @@ class FacadeToolInvoker {
 			return $this->handleOwnerUnresolved(name: $name, arguments: $arguments);
 		}
 
-		// Agent-capability-reach: an owner may waive the human confirmation for
-		// ONE grant entry with a `#noapproval` fragment. It is consulted HERE
-		// and nowhere earlier — after `deny` (a waiver never overrides an
-		// organisation's hard refusal), after the constraint check (so the
-		// invocation has already been shown to fall inside the exact grant that
-		// carries the waiver), and after the owner check. Everything a waiver
-		// could weaken has already been decided by the time it is read.
-		if ($classification === 'confirm' && $this->isWaived(name: $name, arguments: $arguments) === false) {
+		return $this->routeGranted(name: $name, arguments: $arguments);
+
+	}//end routeUndenied()
+
+	/**
+	 * Route a granted call through the human gates — `confirm` unless waived, then the
+	 * approval gate — to the facade.
+	 *
+	 * Agent-capability-reach: an owner may waive the human confirmation for
+	 * ONE grant entry with a `#noapproval` fragment. It is consulted HERE
+	 * and nowhere earlier — after `deny` (a waiver never overrides an
+	 * organisation's hard refusal), after the constraint check (so the
+	 * invocation has already been shown to fall inside the exact grant that
+	 * carries the waiver), and after the owner check. Everything a waiver
+	 * could weaken has already been decided by the time it is read.
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return string JSON-encoded tool result for the follow-up LLM turn.
+	 */
+	private function routeGranted(string $name, array $arguments): string {
+		if ($this->classifyTool(name: $name) === 'confirm' && $this->isWaived(name: $name, arguments: $arguments) === false) {
 			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
 		}
 
@@ -571,7 +611,8 @@ class FacadeToolInvoker {
 		}
 
 		return $this->dispatchToFacade(name: $name, arguments: $arguments);
-	}//end route()
+
+	}//end routeGranted()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).
@@ -1128,12 +1169,7 @@ class FacadeToolInvoker {
 			return $arguments;
 		}
 
-		$toolId = $this->resolveToolId(name: $name);
-		if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false
-			&& in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === false
-			&& in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === false
-			&& $toolId !== self::DELEGATE_AGENT_TOOL_ID
-		) {
+		if ($this->needsAgentId(toolId: $this->resolveToolId(name: $name)) === false) {
 			return $arguments;
 		}
 
@@ -1141,6 +1177,22 @@ class FacadeToolInvoker {
 
 		return $arguments;
 	}//end withAgentId()
+
+	/**
+	 * Whether a tool acts for the run's agent: the memory, artefact-write and integriq
+	 * agent tools, and delegation.
+	 *
+	 * @param string $toolId The registry tool id.
+	 *
+	 * @return bool True when the tool receives the agent id.
+	 */
+	private function needsAgentId(string $toolId): bool {
+		return in_array($toolId, self::MEMORY_TOOL_IDS, true) === true
+			|| in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === true
+			|| in_array($toolId, self::INTEGRIQ_AGENT_TOOL_IDS, true) === true
+			|| $toolId === self::DELEGATE_AGENT_TOOL_ID;
+
+	}//end needsAgentId()
 
 	/**
 	 * The pre-existing plain dispatch: forward the call to
@@ -1301,15 +1353,7 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
 	 */
 	private function resolveArtefactDescriptor(mixed $result): array {
-		if (is_array($result) === false || isset($result['artefact']) === false) {
-			return [];
-		}
-
-		$artefact = $result['artefact'];
-		if (is_array($artefact) === false) {
-			return [];
-		}
-
+		$artefact = $this->artefactOf(result: $result);
 		$type = ($artefact['type'] ?? null);
 		$id = ($artefact['id'] ?? null);
 		if (is_scalar($type) === false || is_scalar($id) === false) {
@@ -1318,6 +1362,22 @@ class FacadeToolInvoker {
 
 		return ['artefact' => ['type' => (string)$type, 'id' => (string)$id]];
 	}//end resolveArtefactDescriptor()
+
+	/**
+	 * The `artefact` map a tool result names, or none.
+	 *
+	 * @param mixed $result The tool's result payload.
+	 *
+	 * @return array<string, mixed> The artefact map, empty when the result names none.
+	 */
+	private function artefactOf(mixed $result): array {
+		if (is_array($result) === false || is_array($result['artefact'] ?? null) === false) {
+			return [];
+		}
+
+		return $result['artefact'];
+
+	}//end artefactOf()
 
 	/**
 	 * Reduce a web-research tool call's arguments to its auditable target:
