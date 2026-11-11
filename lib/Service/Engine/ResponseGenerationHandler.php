@@ -575,7 +575,7 @@ class ResponseGenerationHandler {
 	 * path uses (ToolLoop::buildFunctionInfos — one shared FacadeToolInvoker,
 	 * agent/guardrails/approval/redaction/trace/dry-run all applied) via
 	 * FunctionInfo::callWithArguments(). The tool name Claude receives
-	 * (ProviderFactory::buildAnthropicTools) and the FunctionInfo name both
+	 * (AnthropicMessageFormat::buildAnthropicTools) and the FunctionInfo name both
 	 * derive from `$functions['name']`, so they match. Null when there are no
 	 * tools → callAnthropicChat runs text-only (the fail-safe: never advertise a
 	 * tool Hermiq cannot run).
