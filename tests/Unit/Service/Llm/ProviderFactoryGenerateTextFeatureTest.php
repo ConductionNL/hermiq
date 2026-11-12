@@ -52,6 +52,9 @@ use Throwable;
  * @uses \OCA\Hermiq\Service\Llm\ChatDriver
  * @uses \OCA\Hermiq\Service\Llm\ProviderFactory
  * @uses \OCA\Hermiq\Support\FleetAppId
+ * @uses \OCA\Hermiq\Service\AiFeature\FeatureRunCheck
+ * @uses \OCA\Hermiq\Service\AiFeature\ProviderDeclarationStore
+ * @uses \OCA\Hermiq\Service\Llm\ChatDriverRequest
  */
 class ProviderFactoryGenerateTextFeatureTest extends TestCase {
 

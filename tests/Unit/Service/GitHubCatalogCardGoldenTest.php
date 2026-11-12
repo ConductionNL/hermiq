@@ -32,6 +32,7 @@ use PHPUnit\Framework\TestCase;
  * Every card outcome, with its exact fields in their exact order.
  *
  * @covers \OCA\Hermiq\Service\GitHubCatalogPayload
+ * @uses \OCA\Hermiq\Service\SkillSerializer
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
