@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
@@ -72,7 +72,7 @@ use Psr\Log\LoggerInterface;
  * per-object ownership (`userId` on the conversation payload) in the method
  * body — gate-7 no-admin-idor.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Ported chat surface composes the
  * engine facade, the OR object read/write path, session, l10n and logging; each is
@@ -149,7 +149,7 @@ class ChatController extends Controller {
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -273,7 +273,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function sendMessage(): JSONResponse {
 		try {
@@ -380,7 +380,7 @@ class ChatController extends Controller {
 	 *
 	 * @return JSONResponse The error response.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function sendMessageFailureResponse(Exception $exception): JSONResponse {
 		// An exception code outside the HTTP range is not a status — a library
@@ -533,7 +533,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function getHistory(): JSONResponse {
 		try {
@@ -615,7 +615,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function clearHistory(): JSONResponse {
 		try {
@@ -704,7 +704,7 @@ class ChatController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function sendFeedback(string $conversationUuid, string $messageId): JSONResponse {
 		try {
@@ -841,7 +841,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function getChatStats(): JSONResponse {
 		try {
@@ -893,7 +893,7 @@ class ChatController extends Controller {
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
 	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function extractMessageRequestParams(): array {
 		// Extract basic parameters.
@@ -982,7 +982,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array{conversationUuid: string, agentUuid: string, userId: string, context: array}
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	private function turnOf(array $params, string $userId): array {
 		return [
@@ -1003,7 +1003,7 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If both parameters are empty or if entities are not found.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function resolveConversation(array $turn): ObjectEntity {
 		// Load existing conversation by UUID.
@@ -1029,7 +1029,7 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If the conversation is not found (code 404).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findConversation(string $uuid): ObjectEntity {
 		$conversation = $this->objectService->find(
@@ -1058,8 +1058,8 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If the agent is not found (code 404).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
 	private function createNewConversation(array $turn): ObjectEntity {
 		$agentUuid = $turn['agentUuid'];
@@ -1133,8 +1133,8 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If the user does not have access (code 403).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	private function verifyConversationAccess(ObjectEntity $conversation, string $userId): void {
 		if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
@@ -1161,7 +1161,7 @@ class ChatController extends Controller {
 	 *                   successfully" for a conversation that was never
 	 *                   archived.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function archiveConversation(ObjectEntity $conversation, string $userId): void {
 		$data = $conversation->getObject();
@@ -1191,7 +1191,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array<int, ObjectEntity> Message objects.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findMessages(string $conversationId, int $limit, int $offset): array {
 		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
@@ -1221,7 +1221,7 @@ class ChatController extends Controller {
 	 *
 	 * @return int Message count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function countMessages(string $conversationId): int {
 		$paginated = $this->objectService
@@ -1246,7 +1246,7 @@ class ChatController extends Controller {
 	 *
 	 * @return int Object count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function countObjects(string $schema): int {
 		$paginated = $this->objectService
@@ -1265,7 +1265,7 @@ class ChatController extends Controller {
 	 *
 	 * @return ObjectEntity|null The existing feedback object, or null.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findExistingFeedback(string $messageId, string $userId): ?ObjectEntity {
 		$existing = $this->objectService
@@ -1297,7 +1297,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized message.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1329,7 +1329,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized feedback.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function serializeFeedback(ObjectEntity $feedback): array {
 		$data = $feedback->getObject();
@@ -1354,7 +1354,7 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If no user is authenticated (code 401).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function requireUserId(): string {
 		$user = $this->userSession->getUser();

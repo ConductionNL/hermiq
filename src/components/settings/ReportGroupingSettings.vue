@@ -14,7 +14,7 @@
 
   All strings via t(); server data comes from the admin-gated API, never a DOM read.
 
-  @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+  @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 -->
 <template>
 	<div class="report-grouping">
@@ -98,7 +98,7 @@ export default {
 		 * Read both thresholds and the window.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+		 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -114,7 +114,7 @@ export default {
 		 * as a 422 saying why, which is shown rather than swallowed.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-a-report-must-fall-into-one-of-three-bands-not-two
+		 * @spec openspec/specs/report-similarity/spec.md#requirement-a-report-must-fall-into-one-of-three-bands-not-two
 		 */
 		async save() {
 			await this.withFlag('busy', async () => {

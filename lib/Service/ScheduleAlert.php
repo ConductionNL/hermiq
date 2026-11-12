@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use Closure;
 /**
  * One alert to a schedule's owner.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 final class ScheduleAlert {
 

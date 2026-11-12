@@ -20,8 +20,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Psr\Log\LoggerInterface;
  * Handles message storage and conversation history building against the
  * hermiq-register `Message` object.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 class MessageHistoryHandler {
 	use SanitizesForSaveTrait;
@@ -71,7 +71,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -91,7 +91,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return array<int, LLPhantMessage> Array of LLPhant Message objects.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function buildMessageHistory(string $conversationId): array {
 		$messages = $this->recentMessages(conversationId: $conversationId);
@@ -149,7 +149,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return list<ObjectEntity>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	private function recentMessages(string $conversationId): array {
@@ -203,7 +203,7 @@ class MessageHistoryHandler {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Labelling is decided once over the
 	 * whole recent window, so it is handed in rather than recomputed per subset.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	private function toLlmHistory(array $messages, bool $isMultiSpeaker): array {
@@ -279,7 +279,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return array The payload, with authorship attached where applicable.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 */
 	private function withAuthorship(array $payload, string $role, ?string $authorId, ?string $authorDisplayName): array {
 		if ($role !== 'user') {
@@ -308,7 +308,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return bool True when two or more distinct human authors are present.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
 	 */
 	private function hasMultipleHumanAuthors(array $messages): bool {
 		$authors = [];
@@ -343,7 +343,7 @@ class MessageHistoryHandler {
 	 *
 	 * @return string The content, attributed where possible.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
 	 */
 	private function labelWithAuthor(string $content, array $data): string {
 		$label = ($data['authorDisplayName'] ?? null);
@@ -407,9 +407,9 @@ class MessageHistoryHandler {
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function storeMessage(

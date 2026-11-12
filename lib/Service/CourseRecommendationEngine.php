@@ -51,8 +51,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
- * @spec openspec/changes/ai-course-recommendations/tasks.md#2-recommendation-engine-cross-app-read-deterministic-scoring-optional-llm-phrasing
+ * @spec openspec/specs/course-recommendations/spec.md
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#2-recommendation-engine-cross-app-read-deterministic-scoring-optional-llm-phrasing
  */
 
 declare(strict_types=1);
@@ -84,7 +84,7 @@ use Throwable;
  *   two-stage explanation pipeline, persistence) — mirrors the accepted precedent in
  *   `ScheduleService`/`OrganisationOpsService`/`DeliveryService` for governed-pipeline classes.
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 class CourseRecommendationEngine {
 
@@ -223,7 +223,7 @@ class CourseRecommendationEngine {
 	 * @return array<string, mixed> The CourseRecommendation payload (plus `uuid`
 	 *                              when persisted).
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-8
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-8
 	 */
 	public function getOrRegenerate(string $learnerUid): array {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -277,9 +277,9 @@ class CourseRecommendationEngine {
 	 *
 	 * @return array<string, mixed> The persisted (or, on a write failure, in-memory) payload.
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-6
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-7
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-6
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-7
 	 */
 	private function regenerate(
 		string $learnerUid,
@@ -389,8 +389,8 @@ class CourseRecommendationEngine {
 	 *
 	 * @return array{candidateCount: int, recommendations: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-6
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-6
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
 	public function scoreCandidates(
 		array $courses,
@@ -430,8 +430,8 @@ class CourseRecommendationEngine {
 	 * @return array{0: array<int, array<string, mixed>>, 1: string, 2: string|null}
 	 *                                                                               [recommendations-with-explanation, explanationMode, modelUsed]
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-7
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-a-recommendation-is-never-returned-without-an-explanation
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-7
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-a-recommendation-is-never-returned-without-an-explanation
 	 */
 	private function explain(array $recommendations, string $organisation, bool $killSwitchEngaged): array {
 		$driver = null;

@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Seed the `lesson-authoring` AiFeature via ObjectService (idempotent).
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
  */
 class SeedLessonAuthoringFeature implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -86,7 +86,7 @@ class SeedLessonAuthoringFeature implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
 	 */
 	public function getName(): string {
 		return 'Seed the lesson-authoring AI feature (lesson-authoring-ai-delegate)';
@@ -99,7 +99,7 @@ class SeedLessonAuthoringFeature implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
 	 */
 	public function run(IOutput $output): void {
 		try {

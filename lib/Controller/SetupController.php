@@ -125,7 +125,7 @@ class SetupController extends Controller {
 	 *
 	 * @return JSONResponse `{ version, completed, steps: { <id>: { done } } }`.
 	 *
-	 * @spec openspec/changes/wizard-dataset-card-load/specs/first-time-setup/spec.md
+	 * @spec openspec/specs/first-time-setup/spec.md
 	 *
 	 * @no-admin-idor-exempt Availability probe. Takes no caller-supplied object
 	 * id and reads no user or organisation data — it reports whether the
@@ -321,7 +321,7 @@ class SetupController extends Controller {
 	 *
 	 * @return JSONResponse `{ success, message }`.
 	 *
-	 * @spec openspec/changes/wizard-dataset-card-load/specs/first-time-setup/spec.md
+	 * @spec openspec/specs/first-time-setup/spec.md
 	 */
 	private function loadDataset(string $actionId): JSONResponse {
 		$picked = $this->pickedDataset(actionId: $actionId);
@@ -443,7 +443,7 @@ class SetupController extends Controller {
 	 *
 	 * @return JSONResponse|null The refusal, or null when the dataset is known.
 	 *
-	 * @spec openspec/changes/wizard-dataset-card-load/specs/first-time-setup/spec.md
+	 * @spec openspec/specs/first-time-setup/spec.md
 	 */
 	private function refuseDataset(mixed $value): ?JSONResponse {
 		$named = 'that';

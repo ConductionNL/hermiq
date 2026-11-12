@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agent-must-reach-declared-tools-through-a-registration
  */
 
 declare(strict_types=1);
@@ -48,7 +48,7 @@ use Throwable;
 /**
  * Publishes the outside tool surface and runs one governed call.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
  */
 class OutsideAgentController extends Controller {
 
@@ -91,7 +91,7 @@ class OutsideAgentController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-owning-app-declares-hermiq-publishes
 	 */
 	public function tools(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -130,7 +130,7 @@ class OutsideAgentController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
 	 */
 	public function call(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -179,7 +179,7 @@ class OutsideAgentController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-an-outside-agents-calls-must-be-recorded-like-an-internal-agents
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-outside-agents-calls-must-be-recorded-like-an-internal-agents
 	 */
 	private function record(string $principal, string $toolId, string $outcome, string $gate): void {
 		try {

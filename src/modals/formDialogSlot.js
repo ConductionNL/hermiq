@@ -45,7 +45,7 @@ export const formDialogSlot = {
 		 * `close` prop when supplied (CnIndexPage's `#form-dialog` scoped slot).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-4-1
 		 */
 		handleClose() {
 			this.$emit('close')

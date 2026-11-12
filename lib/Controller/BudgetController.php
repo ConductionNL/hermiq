@@ -151,7 +151,7 @@ class BudgetController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/cost-guardrails/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
+	 * @spec openspec/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
 	 *
 	 * @no-admin-idor-exempt the agent lookup runs under OpenRegister's RBAC,
 	 * which is on by default. estimateNextRun() reaches the agent through

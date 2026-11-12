@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-channels/tasks.md#task-3-schedulewebhooksecretcontroller-owner-guarded-crud
+ * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-3-schedulewebhooksecretcontroller-owner-guarded-crud
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Owner-scoped webhook-secret lifecycle endpoints for one schedule.
  *
- * @spec openspec/changes/delivery-channels/tasks.md#task-3-schedulewebhooksecretcontroller-owner-guarded-crud
+ * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-3-schedulewebhooksecretcontroller-owner-guarded-crud
  *
  * @SuppressWarnings(PHPMD.LongVariable) The promoted constructor property
  *   `$scheduleWebhookSecretService` mirrors its collaborator class name
@@ -103,7 +103,7 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function create(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -148,7 +148,7 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function rotate(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -192,7 +192,7 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function revoke(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -225,7 +225,7 @@ class ScheduleWebhookSecretController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	public function show(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -253,7 +253,7 @@ class ScheduleWebhookSecretController extends Controller {
 	 *
 	 * @return ObjectEntity|null The owned schedule, or null when absent/not owned.
 	 *
-	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
 	 */
 	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
 		try {

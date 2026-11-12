@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Seed the instance-default + sample org ModelPolicy objects (idempotent).
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 class SeedModelPolicies implements IRepairStep {
 	/**
@@ -98,7 +98,7 @@ class SeedModelPolicies implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function getName(): string {
 		return 'Seed model policies (tenant-model-policy)';
@@ -113,7 +113,7 @@ class SeedModelPolicies implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function run(IOutput $output): void {
 		$run = $this->startRun(output: $output);

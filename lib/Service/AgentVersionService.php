@@ -36,7 +36,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-versioning/tasks.md#task-1-agentversionservice-list-history-diff-rollback-current-version-lookup
+ * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-1-agentversionservice-list-history-diff-rollback-current-version-lookup
  */
 
 declare(strict_types=1);
@@ -55,7 +55,7 @@ use Throwable;
  * versions across a fixed field allowlist, and rolls an Agent back to a prior
  * version's values via the normal `ObjectService::saveObject()` write-path.
  *
- * @spec openspec/changes/agent-versioning/tasks.md#task-1-agentversionservice-list-history-diff-rollback-current-version-lookup
+ * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-1-agentversionservice-list-history-diff-rollback-current-version-lookup
  */
 class AgentVersionService {
 

@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-memory/tasks.md#2-memoryservice
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#2-memoryservice
  */
 
 declare(strict_types=1);
@@ -52,10 +52,10 @@ use OCP\IUserSession;
  *   independently simple and unit-tested; agent-memory-tools' additions
  *   (forgetEntry/recallEntries/soft-delete helpers) follow the same shape.
  *
- * @spec openspec/changes/agent-memory/tasks.md#2-memoryservice
- * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
- * @spec openspec/changes/agent-memory-tools/tasks.md#task-3
- * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#2-memoryservice
+ * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-2
+ * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
  */
 class MemoryService {
 
@@ -124,7 +124,7 @@ class MemoryService {
 	 *                                  only guard — and `listUserProfiles()` can scope to
 	 *                                  the caller's own `subjectUid`.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-2
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -140,7 +140,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The agent's Memory object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
 	public function getMemory(string $agentId): ObjectEntity {
 		$existing = $this->findOne(schema: self::MEMORY_SCHEMA, filters: ['agentId' => $agentId]);
@@ -169,7 +169,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The UserProfile object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
 	public function getUserProfile(string $agentId, string $subjectUid): ObjectEntity {
 		$existing = $this->findOne(
@@ -209,7 +209,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted Memory object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
 	 */
 	public function appendMemoryEntry(string $agentId, string $text): ObjectEntity {
 		$memory = $this->getMemory(agentId: $agentId);
@@ -225,7 +225,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted UserProfile object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
 	 */
 	public function appendUserProfileEntry(string $agentId, string $subjectUid, string $text): ObjectEntity {
 		$profile = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
@@ -244,7 +244,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted Memory object.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-3
 	 */
 	public function consolidateMemory(string $agentId, array $entries): ObjectEntity {
 		$memory = $this->getMemory(agentId: $agentId);
@@ -294,7 +294,7 @@ class MemoryService {
 	 *
 	 * @return array<int, ObjectEntity> The CALLER's own Session objects for this agent.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-4
 	 */
 	public function listSessions(string $agentId): array {
 		$user = $this->userSession->getUser();
@@ -327,7 +327,7 @@ class MemoryService {
 	 *
 	 * @return array<int, ObjectEntity> The CALLER's own UserProfile object(s) for this agent.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
 	 */
 	public function listUserProfiles(string $agentId): array {
 		$user = $this->userSession->getUser();
@@ -363,7 +363,7 @@ class MemoryService {
 	 *
 	 * @return array<int, ObjectEntity> The matching SessionTurn objects (tenant-scoped).
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-5
 	 */
 	public function recallSessions(string $agentId, string $query, int $limit = 20): array {
 		$user = $this->userSession->getUser();
@@ -413,7 +413,7 @@ class MemoryService {
 	 *
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
 	 */
 	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20): array {
 		$memoryEntries = [];
@@ -459,7 +459,7 @@ class MemoryService {
 	 * @return array{found: bool, scope: (string|null)} Whether a match was found, and
 	 *                                                  in which object ('memory'|'userProfile') when it was.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
 	 */
 	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId): array {
 		if (trim($entryId) === '') {
@@ -592,7 +592,7 @@ class MemoryService {
 	 *
 	 * @return ObjectEntity The persisted object.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-memory-writes-are-redacted-before-persist
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-memory-writes-are-redacted-before-persist
 	 */
 	private function appendEntry(ObjectEntity $object, string $schema, string $text, int $defaultBudget): ObjectEntity {
 		$data = $object->getObject();
@@ -778,7 +778,7 @@ class MemoryService {
 	 *
 	 * @return string The generated UUID v4.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/design.md#decision-2-entry-level-id--deletedat-not-a-separate-or-object-per-entry
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/design.md#decision-2-entry-level-id--deletedat-not-a-separate-or-object-per-entry
 	 */
 	private function generateEntryId(): string {
 		$data = random_bytes(16);

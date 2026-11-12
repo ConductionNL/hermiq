@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Seed the 5 starter AgentTemplate objects via ObjectService (idempotent, by name).
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
  */
 class SeedAgentTemplates implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -84,7 +84,7 @@ class SeedAgentTemplates implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
+	 * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
 	 */
 	public function getName(): string {
 		return 'Seed starter agent templates (agent-template-gallery)';
@@ -99,7 +99,7 @@ class SeedAgentTemplates implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
+	 * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
 	 */
 	public function run(IOutput $output): void {
 		try {
