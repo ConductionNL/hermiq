@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#5-seed-data-adr-001-adr-003-single-write-path
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#5-seed-data-adr-001-adr-003-single-write-path
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Seed the realistic AiFeature governance objects via ObjectService (idempotent).
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
  */
 class SeedAiFeatures implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -77,7 +77,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	public function getName(): string {
 		return 'Seed AI-feature governance register (ai-feature-governance-register)';
@@ -90,7 +90,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -154,7 +154,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	private function seedFeatures(): array {
 		return [
@@ -218,7 +218,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return bool True when a matching object exists.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	private function slugExists(ObjectService $objectService, string $slug): bool {
 		$objects = $objectService

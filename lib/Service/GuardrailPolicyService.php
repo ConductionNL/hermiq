@@ -46,10 +46,10 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
  */
 
 declare(strict_types=1);
@@ -70,7 +70,7 @@ use RuntimeException;
  *   surface (policy CRUD, resolution chain, input/output filtering, tool-risk checks)
  *   so the policy-application invariants stay in a single place.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
  */
 class GuardrailPolicyService {
 
@@ -158,7 +158,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return ObjectEntity|null The policy object, or null when none exists at this scope.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function getForOrganisation(string $organisation): ?ObjectEntity {
 		$objects = $this->objectService
@@ -188,7 +188,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return ObjectEntity|null The policy, or null when not found.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function findById(string $uuid): ?ObjectEntity {
 		if ($uuid === '') {
@@ -210,7 +210,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return array<int, ObjectEntity> Every policy object.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function listAll(): array {
 		$objects = $this->objectService
@@ -232,7 +232,7 @@ class GuardrailPolicyService {
 	 * @return array{source:string,inputFilters:array{piiAction:string,promptInjectionAction:string},outputFilters:array{piiAction:string},toolPolicy:list<array{toolId:string,classification:string}>,enabled:bool}
 	 *                                                                                                                                                                                                               The effective, shaped policy.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function effectivePolicyFor(string $organisation): array {
 		if ($organisation !== '') {
@@ -257,7 +257,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return array{source:string,inputFilters:array{piiAction:string,promptInjectionAction:string},outputFilters:array{piiAction:string},toolPolicy:list<array{toolId:string,classification:string}>,enabled:bool}
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	private function fallbackPolicy(): array {
 		return [
@@ -294,7 +294,7 @@ class GuardrailPolicyService {
 	 *                                                        whether the turn must be refused (the caller decides what "refused"
 	 *                                                        means at its own boundary — Engine throws, ScheduleService fails the run).
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
 	 */
 	public function filterInput(array $policy, string $text): array {
 		$inputFilters = (array)($policy['inputFilters'] ?? []);
@@ -321,7 +321,7 @@ class GuardrailPolicyService {
 	 * @return array{text:string,blocked:bool,reason:?string} The filtered (possibly
 	 *                                                        placeholder) text.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function filterOutput(array $policy, string $text): array {
 		$outputFilters = (array)($policy['outputFilters'] ?? []);
@@ -341,7 +341,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return string One of `auto`, `confirm`, `deny`.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	public function classifyTool(array $policy, string $toolId): string {
 		foreach (($policy['toolPolicy'] ?? []) as $entry) {
@@ -424,7 +424,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function withheldPlaceholder(): string {
 		return 'This response was withheld because it contained sensitive content blocked by the organisation\'s guardrail policy.';
@@ -444,7 +444,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return mixed The value to show in its place.
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function filterOutputValue(array $policy, mixed $value): mixed {
 		$outputFilters = (array)($policy['outputFilters'] ?? []);
@@ -486,7 +486,7 @@ class GuardrailPolicyService {
 	 *
 	 * @throws InvalidArgumentException When the payload fails validation.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function upsertForOrganisation(string $organisation, array $payload): array {
 		$inputFilters = $this->normaliseInputFilters(raw: ($payload['inputFilters'] ?? []));
@@ -543,7 +543,7 @@ class GuardrailPolicyService {
 	 * @throws RuntimeException When the policy cannot be found.
 	 * @throws InvalidArgumentException When the merged payload fails validation.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function update(string $uuid, array $payload): array {
 		$existing = $this->findById(uuid: $uuid);

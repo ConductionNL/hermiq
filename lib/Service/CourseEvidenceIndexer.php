@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  *     gaps: array<string, true>
  * }
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 class CourseEvidenceIndexer {
 
@@ -66,7 +66,7 @@ class CourseEvidenceIndexer {
 	 *
 	 * @psalm-return Evidence
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
 	public function index(array $learner, DateTimeImmutable $now): array {
 		$courses = $this->indexByUuid(courses: $learner['courses']);

@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md
+ * @spec openspec/specs/lesson-authoring/spec.md
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * Gate-then-execute lesson authoring via the configured LLM provider.
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md
+ * @spec openspec/specs/lesson-authoring/spec.md
  */
 class LessonAuthoringEngine {
 
@@ -163,7 +163,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array<string, mixed> The success envelope plus `draftText`, or the unavailable envelope.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
 	 */
 	public function draftOutline(array $goalTitles, string $lessonText, string $language, string $userId): array {
 		$goals = $this->cleanTitles(titles: $goalTitles);
@@ -199,7 +199,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array<string, mixed> The success envelope plus `questions`, or the unavailable envelope.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
 	 */
 	public function suggestQuestions(
 		string $lessonText,
@@ -243,7 +243,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array<string, mixed> The success envelope plus `draftText` and `readingLevel`, or the unavailable envelope.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
 	 */
 	public function simplify(string $lessonText, string $readingLevel, string $userId): array {
 		$level = self::DEFAULT_READING_LEVEL;
@@ -284,7 +284,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array<string, mixed> The success envelope plus `suggestedGoals`, or the unavailable envelope.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
 	 */
 	public function suggestGoals(string $lessonText, array $goalTitles, string $userId): array {
 		$original = array_values($goalTitles);
@@ -322,10 +322,10 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array<string, mixed> The success or unavailable envelope.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-003-every-result-is-marked-as-a-draft
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-008-a-provider-failure-or-unusable-output-degrades-to-unavailable
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-011-the-model-runs-through-the-hermiq-provider-factory
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-001-lesson-authoring-is-gated-by-a-disabled-by-default-aifeature
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-003-every-result-is-marked-as-a-draft
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-008-a-provider-failure-or-unusable-output-degrades-to-unavailable
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-011-the-model-runs-through-the-hermiq-provider-factory
 	 */
 	private function execute(string $action, string $userId, string $prompt, array $sizes, callable $parse): array {
 		// Gate (REQ-001): zero provider footprint when missing or not enabled.
@@ -397,7 +397,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-009-every-call-is-logged-without-its-content
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-009-every-call-is-logged-without-its-content
 	 */
 	private function logCall(string $action, string $outcome, string $userId, string $provider, array $sizes): void {
 		$this->logger->info(
@@ -503,7 +503,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array{questions: array<int, string>}|null Null when no question survives.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
 	 */
 	private function parseQuestions(string $raw, int $limit): ?array {
 		$lines = preg_split('/\R/u', $raw);
@@ -538,7 +538,7 @@ class LessonAuthoringEngine {
 	 *
 	 * @return array{suggestedGoals: array<int, array{index: int, title: string}>}|null
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
 	 */
 	private function parseGoalIndexes(string $raw, array $goals, array $original): ?array {
 		preg_match_all('/\d+/', $raw, $matches);

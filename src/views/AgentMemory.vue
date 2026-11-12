@@ -14,9 +14,9 @@
   this page is the operator management surface. Every NcSelect carries an inputLabel
   (ADR-004, WCAG 2.1 AA).
 
-  @spec openspec/changes/agent-memory/tasks.md#task-4-1
-  @spec openspec/changes/agent-memory/specs/agent-memory/spec.md
-  @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+  @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
+  @spec openspec/specs/agent-memory/spec.md
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 -->
 <template>
 	<div class="agent-memory">
@@ -95,7 +95,7 @@ export default {
 		 * The agents as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
-		 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 		 */
 		agentOptions() {
 			return this.agents.map((agent) => ({
@@ -106,7 +106,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 	 */
 	created() {
 		this.agentStore = useAgentStore()
@@ -120,7 +120,7 @@ export default {
 		 * first one.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 		 */
 		async loadAgents() {
 			this.loading = true

@@ -49,7 +49,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
  */
 
 declare(strict_types=1);
@@ -98,7 +98,7 @@ use Throwable;
  *   method handlers (initialize, tools/list, tools/call) plus their per-branch
  *   governance guards — a dispatch surface, not one tangled algorithm.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
  */
 class McpRunController extends Controller {
 
@@ -215,8 +215,8 @@ class McpRunController extends Controller {
 	 * @return Response The JSON-RPC response (200), a 202 for a notification, or a
 	 *                  400/401 transport error.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -301,7 +301,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return JSONResponse The fail-closed 401.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	private function refuseToken(string $token): JSONResponse {
 		// Same run-token action as EgressAuthorizeController on purpose: an
@@ -340,7 +340,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return JSONResponse The initialize result, with the session-id header.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
 	 */
 	private function handleInitialize(mixed $id, array $params): JSONResponse {
 		$protocolVersion = (string)($params['protocolVersion'] ?? '');
@@ -373,7 +373,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return Response The JSON-RPC response.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
 	 */
 	private function dispatch(mixed $id, string $method, array $params, string $agentId, string $conversationId = ''): Response {
 		if ($method === 'tools/list') {
@@ -404,7 +404,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return array<int, array<string, mixed>> The MCP tool list.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-only-granted-tools-are-listed
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-only-granted-tools-are-listed
 	 */
 	private function resolveMcpTools(string $agentId): array {
 		$tools = [];
@@ -464,7 +464,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return Response The JSON-RPC response (200; tool-level errors carry isError).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
 	 */
 	private function handleToolCall(mixed $id, array $params, string $agentId, string $conversationId = ''): Response {
 		$name = (string)($params['name'] ?? '');
@@ -669,7 +669,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return mixed
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	private function shownInChat(?array $policy, mixed $value): mixed {
 		if ($policy === null || $this->guardrailService === null) {
@@ -692,7 +692,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	private function shownResult(?array $policy, string $resultJson): string {
 		$decoded = json_decode($resultJson, true);
@@ -721,7 +721,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return array<string,mixed>|null
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 * @spec openspec/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
 	 */
 	private function chatPolicy(string $conversationId): ?array {
 		if ($this->guardrailService === null) {
@@ -744,7 +744,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 * @spec openspec/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
 	 */
 	private function conversationOrganisation(string $conversationId): ?string {
 		if ($conversationId === '') {
@@ -780,7 +780,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function organisationOf(?ObjectEntity $agent): string {
 		if ($agent === null) {
@@ -952,7 +952,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return string The raw request body, or '' when unreadable.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');

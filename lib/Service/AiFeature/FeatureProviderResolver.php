@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use OCA\Hermiq\Service\OrganisationModelPolicyService;
 /**
  * Resolves which provider a feature's run uses, and refuses it before the call.
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
 class FeatureProviderResolver {
 
@@ -109,7 +109,7 @@ class FeatureProviderResolver {
 	 * @return array{provider: string|null, model: string|null, requiredResidency: string|null, requiresRedaction: bool, source: string}
 	 *         The resolved binding.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
 	 */
 	public function bindingFor(string $featureSlug, string $organisation): array {
 		$data = $this->featureData(featureSlug: $featureSlug);
@@ -204,8 +204,8 @@ class FeatureProviderResolver {
 	 * @throws ResidencyViolationException When the provider runs somewhere the feature forbids.
 	 * @throws RedactionRequiredException When the document has not been redacted and the feature requires it.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
 	 */
 	public function enforceForRun(
 		string $featureSlug,
@@ -238,8 +238,8 @@ class FeatureProviderResolver {
 	 * @throws ResidencyViolationException When the provider runs somewhere the feature forbids.
 	 * @throws RedactionRequiredException When the document has not been redacted and the feature requires it.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-feature-binding-narrows-the-policy-and-is-re-checked-on-every-turn
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-feature-may-require-a-residency-and-a-run-outside-it-is-refused-before-the-call
 	 */
 	public function enforce(FeatureRunCheck $check): array {
 		$this->enforceModelPolicy(check: $check);
@@ -333,8 +333,8 @@ class FeatureProviderResolver {
 	 *
 	 * @throws RedactionRequiredException When the document has no redaction to show.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-missing-redaction-client-must-fail-closed
+	 * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
+	 * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-a-missing-redaction-client-must-fail-closed
 	 */
 	private function enforceRedaction(FeatureRunCheck $check, bool $requiresRedaction): array {
 		$reference = $check->documentReference();
@@ -414,7 +414,7 @@ class FeatureProviderResolver {
 	 * @return array<string, mixed>
 	 *         The disclosure to copy onto the run.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-every-run-must-record-the-feature-the-provider-and-the-residency-in-force
 	 */
 	public function disclosureFor(string $featureSlug, string $provider, string $model): array {
 		return $this->disclosure(

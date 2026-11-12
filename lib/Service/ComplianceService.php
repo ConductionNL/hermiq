@@ -38,8 +38,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
  */
 
 declare(strict_types=1);
@@ -64,7 +64,7 @@ use Throwable;
  *   framework/evidence seam contributes its own small status branch; the sum crosses the
  *   class-wide threshold without any single method being complex.
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
  */
 class ComplianceService {
 
@@ -139,7 +139,7 @@ class ComplianceService {
 	 *
 	 * @return array<string, mixed> `{ frameworks: [...], gaps: [...] }`.
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
 	 */
 	public function dashboard(string $organisation): array {
 		$byFramework = [];
@@ -202,7 +202,7 @@ class ComplianceService {
 	 *
 	 * @return array<string, mixed> `{ auditTrail, complianceCoverage, generatedAt }`.
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
 	 */
 	public function auditorPack(string $organisation): array {
 		return [
@@ -222,7 +222,7 @@ class ComplianceService {
 	 *
 	 * @return array<string, mixed>|null The factsheet, or null when the agent does not exist.
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
 	 */
 	public function factsheet(string $agentId): ?array {
 		$agent = $this->findAgent(agentId: $agentId);
@@ -264,7 +264,7 @@ class ComplianceService {
 	 *
 	 * @return ObjectEntity|null The agent, or null when absent.
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
 	 */
 	public function findAgent(string $agentId): ?ObjectEntity {
 		if ($agentId === '') {
@@ -291,7 +291,7 @@ class ComplianceService {
 	 *
 	 * @return array{status: string, detail: string} The computed status + explanation.
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
 	 */
 	private function computeControlStatus(array $control, string $organisation): array {
 		return match ($control['evidenceSource'] ?? '') {

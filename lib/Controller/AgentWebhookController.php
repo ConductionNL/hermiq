@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * Owner-scoped webhook-secret lifecycle endpoints for one agent.
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
  */
 class AgentWebhookController extends Controller {
 
@@ -100,7 +100,7 @@ class AgentWebhookController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function create(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -143,7 +143,7 @@ class AgentWebhookController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function rotate(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -188,7 +188,7 @@ class AgentWebhookController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function revoke(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -227,7 +227,7 @@ class AgentWebhookController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function patch(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -268,7 +268,7 @@ class AgentWebhookController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	public function show(string $id): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -298,7 +298,7 @@ class AgentWebhookController extends Controller {
 	 *
 	 * @return ObjectEntity|null The owned agent, or null when absent/not owned.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
 	 */
 	private function loadOwnedAgent(string $agentId, string $uid): ?ObjectEntity {
 		try {

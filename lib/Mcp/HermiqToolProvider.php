@@ -639,7 +639,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return string The app slug (matches info.xml `<id>`).
 	 *
-	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-1
 	 */
 	public function getAppId(): string {
 		return Application::APP_ID;
@@ -650,7 +650,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<int, array<string, mixed>> The tool descriptors.
 	 *
-	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-1
 	 */
 	public function getTools(): array {
 		// The five nc-native-write-tools descriptors live in their own class so
@@ -783,7 +783,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The JSON-encodable result.
 	 *
-	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-7
+	 * @spec openspec/changes/archive/2026-09-06-nc-native-tools/tasks.md#task-1-7
 	 */
 	public function invokeTool(string $toolId, array $arguments): array {
 		$user = $this->userSession->getUser();
@@ -1208,7 +1208,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
 	 */
 	private function webSearch(string $uid, string $query): array {
 		if (trim($query) === '') {
@@ -1227,7 +1227,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
 	 */
 	private function webFetch(string $url): array {
 		if (trim($url) === '') {
@@ -1250,7 +1250,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-a-delegated-sub-agent-runs-in-an-isolated-conversation
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-a-delegated-sub-agent-runs-in-an-isolated-conversation
 	 */
 	private function delegateAgent(array $arguments): array {
 		$callerAgentId = trim((string)($arguments['agentId'] ?? ''));

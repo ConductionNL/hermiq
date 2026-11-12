@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+ * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Read and set the intake abstention threshold.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
+ * @spec openspec/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
  */
 class IntakeSettingsController extends Controller {
 
@@ -69,7 +69,7 @@ class IntakeSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The settings.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -90,7 +90,7 @@ class IntakeSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored settings, or 422 when the value is outside 0 to 1.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {

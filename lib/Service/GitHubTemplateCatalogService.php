@@ -536,7 +536,7 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array<int, array{name: string, content: string}> The auxiliary files.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function fetchAuxFiles(
 		string $kind,
@@ -575,7 +575,7 @@ class GitHubTemplateCatalogService {
 	 *
 	 * @return array<int, array{name: string, content: string}> The auxiliary files.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	private function auxFilesOf(CatalogFetch $fetch): array {
 		if ($fetch->truncated === true) {
@@ -750,7 +750,7 @@ class GitHubTemplateCatalogService {
 	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
 	 *                                                               or null when the repo is not a bundle / unreachable.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function fetchBundle(
 		string $owner,
@@ -809,7 +809,7 @@ class GitHubTemplateCatalogService {
 	 * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
 	 *                                                               or null when the repo has no readable manifest.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function fetchBundlePerFile(CatalogFetch $fetch): ?array {
 		$manifest = $this->fetchFileContents(fetch: $fetch, path: self::BUNDLE_MANIFEST_FILE);

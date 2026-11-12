@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use Throwable;
  * MigrateConversationsToSessions already reads through it. Idempotent: a
  * request the system already owns is not written.
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */
 class AssignToolAccessRequestsToSystem implements IRepairStep {
 
@@ -72,7 +72,7 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function getName(): string {
 		return 'Give every tool-access request the system owner';
@@ -85,7 +85,7 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function run(IOutput $output): void {
 		$run = $this->prepare(output: $output);
@@ -103,7 +103,7 @@ class AssignToolAccessRequestsToSystem implements IRepairStep {
 	 *
 	 * @return RequestOwnerRun|null
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	private function prepare(IOutput $output): ?RequestOwnerRun {
 		try {

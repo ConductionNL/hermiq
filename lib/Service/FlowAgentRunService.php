@@ -44,7 +44,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
  */
 
 declare(strict_types=1);
@@ -67,7 +67,7 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/Hermiq services.
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
  */
 class FlowAgentRunService {
 	/**
@@ -129,7 +129,7 @@ class FlowAgentRunService {
 	 *   authorisation input (normal dispatch vs. an already-approved occurrence),
 	 *   mirroring ScheduleService::runNow()'s identical parameter.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	public function run(array $payload, bool $bypassApprovalGate = false): bool {
 		try {
@@ -159,7 +159,7 @@ class FlowAgentRunService {
 	 *   (subject identity, kill-switch, budget, approval) — the spec's own decision
 	 *   points, kept together so the ordering stays auditable.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	private function dispatch(array $payload, bool $bypassApprovalGate): bool {
 		$subjectUuid = (string)($payload['subjectUuid'] ?? '');
@@ -253,8 +253,8 @@ class FlowAgentRunService {
 	 *
 	 * @return bool Whether the run completed successfully (result written).
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
 	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 	 */
@@ -340,7 +340,7 @@ class FlowAgentRunService {
 	 *
 	 * @return Agent|null The resolved agent, or null when unresolvable.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	private function resolveAgent(string $ref): ?Agent {
 		if ($ref === '') {
@@ -368,7 +368,7 @@ class FlowAgentRunService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	private function writeResultField(
 		string $resultField,
@@ -419,7 +419,7 @@ class FlowAgentRunService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	private function writeRunAudit(
 		ObjectEntity $object,

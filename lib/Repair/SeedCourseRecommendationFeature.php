@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#5-seed-the-aifeature-governance-data-not-schema
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#5-seed-the-aifeature-governance-data-not-schema
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Seed the `course-recommendations` AiFeature via ObjectService (idempotent).
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-5-1
  */
 class SeedCourseRecommendationFeature implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -87,7 +87,7 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-5-1
 	 */
 	public function getName(): string {
 		return 'Seed the course-recommendations AI feature (ai-course-recommendations)';
@@ -100,7 +100,7 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-5-1
 	 */
 	public function run(IOutput $output): void {
 		try {

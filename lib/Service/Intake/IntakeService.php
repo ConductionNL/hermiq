@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md
+ * @spec openspec/specs/conversational-intake/spec.md
  */
 
 declare(strict_types=1);
@@ -65,7 +65,7 @@ use Throwable;
  *   conversation store, the declared tool grant, the threshold setting and the audit
  *   trail — each a distinct single-responsibility collaborator.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md
+ * @spec openspec/specs/conversational-intake/spec.md
  */
 class IntakeService {
 
@@ -189,7 +189,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed> The conversation as it now stands.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-starting-by-e-mail-and-continuing-in-the-portal
 	 */
 	public function receive(
 		string $person,
@@ -240,7 +240,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed>|null The conversation, or null when there is no such conversation.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-deterministic-score-wins
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-the-deterministic-score-wins
 	 */
 	public function scoreEscalation(string $conversationId, ?array $deterministic, ?array $model = null): ?array {
 		$conversation = $this->find(conversationId: $conversationId);
@@ -287,7 +287,7 @@ class IntakeService {
 	 *
 	 * @throws IntakeRefusedException When the grant does not cover the tool.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-a-verdict-travels-into-the-conversation-with-its-author
 	 */
 	public function review(
 		string $conversationId,
@@ -334,7 +334,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed>|null The conversation in its terminal state, or null when absent.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-an-uncertain-intake-does-not-guess
 	 */
 	public function conclude(
 		string $conversationId,
@@ -432,7 +432,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed>|null The conversation, or null.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-no-conversation-must-dead-end
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-no-conversation-must-dead-end
 	 */
 	public function conversation(string $conversationId): ?array {
 		$conversation = $this->find(conversationId: $conversationId);
@@ -453,7 +453,7 @@ class IntakeService {
 	 *
 	 * @return array<string, mixed> The conversation data, handed over.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-an-unhelpable-conversation-reaches-a-person
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-an-unhelpable-conversation-reaches-a-person
 	 */
 	private function handOver(array $data, string $reason, DateTimeImmutable $at): array {
 		$data['state'] = self::STATE_HANDOVER;
@@ -499,7 +499,7 @@ class IntakeService {
 	 *
 	 * @return ObjectEntity|null The conversation, or null.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-one-conversation-must-span-the-channels-a-person-uses
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-one-conversation-must-span-the-channels-a-person-uses
 	 */
 	private function openConversationFor(string $person, string $subject): ?ObjectEntity {
 		try {
@@ -605,7 +605,7 @@ class IntakeService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-intake-must-be-registered-as-an-ai-feature-with-its-own-risk-category
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-intake-must-be-registered-as-an-ai-feature-with-its-own-risk-category
 	 */
 	private function record(string $conversationId, array $data): void {
 		try {

@@ -17,7 +17,7 @@
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). All strings via
   t(); server data is fetched through the tenant-scoped API (no DOM reads).
 
-  @spec openspec/changes/ai-feature-governance-register/tasks.md#task-4-2
+  @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-4-2
   @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-register-lists-the-tenants-high-risk-ai-features
 -->
 <template>
@@ -279,7 +279,7 @@ export default {
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		columns() {
 			return [
@@ -303,7 +303,7 @@ export default {
 		 *
 		 * @return {Array<object>} The table rows.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		rows() {
 			const residencyBySlug = {}
@@ -335,7 +335,7 @@ export default {
 		 * Load the tenant's AI features.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async load() {
 			this.loading = true
@@ -361,7 +361,7 @@ export default {
 		 *
 		 * @param {object} [row] The residency row for this feature, when there is one.
 		 * @return {object} The provider fields for the table row.
-		 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
 		 */
 		runsOn(row) {
 			return {
@@ -391,7 +391,7 @@ export default {
 		 *
 		 * @param {object} row The table row.
 		 * @return {string} The provider and model, or the fallback wording.
-		 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
 		 */
 		providerLabel(row) {
 			if (!row.provider) {
@@ -406,7 +406,7 @@ export default {
 		 *
 		 * @param {string} residency The residency label.
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 		 */
 		residencyLabel(residency) {
 			const labels = {
@@ -423,7 +423,7 @@ export default {
 		 *
 		 * @param {string} category The risk category.
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		riskLabel(category) {
 			const labels = {
@@ -440,7 +440,7 @@ export default {
 		 *
 		 * @param {string} state The lifecycle state.
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		lifecycleLabel(state) {
 			const labels = {
@@ -456,7 +456,7 @@ export default {
 		 * @param {string} status The publication status.
 		 * @return {string} The localised label.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		algoritmeregisterLabel(status) {
 			const labels = {
@@ -475,7 +475,7 @@ export default {
 		 * @param {object} row The table row.
 		 * @return {boolean} True when the feature appears ready to publish.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 		 */
 		publishReady(row) {
 			return this.missingConditions(row).length === 0
@@ -487,7 +487,7 @@ export default {
 		 * @param {object} row The table row.
 		 * @return {Array<string>} The failing condition labels.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 		 */
 		missingConditions(row) {
 			const feature = row.feature || {}
@@ -519,7 +519,7 @@ export default {
 		 * @param {object} row The table row.
 		 * @return {string} The explanation.
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 		 */
 		publishBlockedReason(row) {
 			return this.t('hermiq', 'Cannot publish yet — missing: {conditions}', {
@@ -533,7 +533,7 @@ export default {
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doPublish(feature) {
 			this.busy = true
@@ -566,7 +566,7 @@ export default {
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doWithdraw(feature) {
 			this.busy = true
@@ -586,7 +586,7 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doAcknowledge(feature) {
 			this.busy = true
@@ -606,7 +606,7 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doEnable(feature) {
 			this.busy = true
@@ -626,7 +626,7 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+		 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doDisable(feature) {
 			this.busy = true

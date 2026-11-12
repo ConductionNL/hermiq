@@ -26,9 +26,9 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/multi-tenant-ops/tasks.md#2-controller-routes
- * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
- * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+ * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#2-controller-routes
+ * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+ * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * Tenant-scoped quota + AI Act audit-export + agent-lifecycle-governance endpoints.
  *
- * @spec openspec/changes/multi-tenant-ops/tasks.md#2-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#2-controller-routes
  */
 class OrganisationOpsController extends Controller {
 	/**
@@ -66,7 +66,7 @@ class OrganisationOpsController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: distinct collaborators.
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-2-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -86,7 +86,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-2-1
 	 */
 	public function quota(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -110,7 +110,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-2-1
 	 */
 	public function auditExport(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -137,7 +137,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function reviewList(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -163,7 +163,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function attestReview(string $uuid): JSONResponse {
 		$uid = $this->authorise(action: 'tenantops.attest-review');
@@ -192,7 +192,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-5-tenantopscontroller-access-review-reassign-endpoints
 	 */
 	public function reassignAgent(string $uuid): JSONResponse {
 		$uid = $this->authorise(action: 'tenantops.reassign-agent');
@@ -226,7 +226,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function incidents(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -250,7 +250,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function createIncident(): JSONResponse {
 		$uid = $this->authorise(action: 'tenantops.create-incident');
@@ -338,7 +338,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function retention(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -363,7 +363,7 @@ class OrganisationOpsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-7-tenantopscontroller-incidents-retention-endpoints
 	 */
 	public function updateRetention(): JSONResponse {
 		$uid = $this->authorise(action: 'tenantops.update-retention');

@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-a-group-must-carry-the-reasons-its-members-were-grouped
+ * @spec openspec/specs/report-similarity/spec.md#requirement-a-group-must-carry-the-reasons-its-members-were-grouped
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ namespace OCA\Hermiq\Service\ReportSimilarity;
 /**
  * Scores two report texts and names the terms they share.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+ * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
  */
 class TermOverlapScorer {
 
@@ -78,7 +78,7 @@ class TermOverlapScorer {
 	 *
 	 * @return array{score: float, terms: array<int, string>, scorer: string} The judgement.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	public function score(string $left, string $right): array {
 		$a = $this->terms(text: $left);

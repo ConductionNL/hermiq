@@ -40,7 +40,7 @@ use OCP\IUserSession;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Provides the kill-switch capability
  *   initial-state, which needs instance-admin + OpenRegister organisation resolution.
  *
- * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
  */
 class DashboardController extends Controller {
 	/**
@@ -86,7 +86,7 @@ class DashboardController extends Controller {
 	 * @return TemplateResponse
 	 *
 	 * @spec openspec/specs/dashboard-page/spec.md#REQ-DASH-001
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	public function page(): TemplateResponse {
 		$this->provideKillSwitchCapability();
@@ -108,7 +108,7 @@ class DashboardController extends Controller {
 	 * assembly (admin/ownership/fallback branches); splitting would separate the
 	 * checks from the payload they guard.
 	 *
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	private function provideKillSwitchCapability(): void {
 		$organisations = [];
