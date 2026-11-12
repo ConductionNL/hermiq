@@ -306,7 +306,7 @@ class GuardrailPolicyService {
 
 		$piiAction = (string)($inputFilters['piiAction'] ?? 'off');
 
-		return $this->applyPiiAction(text: $text, action: $piiAction, boundary: 'input');
+		return $this->applyPiiAction(text: $text, action: $piiAction);
 	}//end filterInput()
 
 	/**
@@ -327,7 +327,12 @@ class GuardrailPolicyService {
 		$outputFilters = (array)($policy['outputFilters'] ?? []);
 		$piiAction = (string)($outputFilters['piiAction'] ?? 'off');
 
-		return $this->applyPiiAction(text: $text, action: $piiAction, boundary: 'output');
+		$result = $this->applyPiiAction(text: $text, action: $piiAction);
+		if ($result['blocked'] === true) {
+			$result['text'] = $this->withheldPlaceholder();
+		}
+
+		return $result;
 	}//end filterOutput()
 
 	/**
@@ -389,31 +394,26 @@ class GuardrailPolicyService {
 	 * DIFFING `RedactionService::redact()`'s output against its input (design.md
 	 * Decision 2) — zero new pattern set.
 	 *
+	 * A blocked text is withheld as `''`; the output boundary replaces it with the
+	 * withheld-response placeholder (see `filterOutput()`).
+	 *
 	 * @param string $text The text to filter.
 	 * @param string $action `off`|`redact`|`block`.
-	 * @param string $boundary `input`|`output` — selects the block placeholder shape.
 	 *
 	 * @return array{text:string,blocked:bool,reason:?string}
 	 */
-	private function applyPiiAction(string $text, string $action, string $boundary): array {
+	private function applyPiiAction(string $text, string $action): array {
 		if ($action === 'off' || $text === '') {
 			return ['text' => $text, 'blocked' => false, 'reason' => null];
 		}
 
 		$redacted = $this->redactionService->redact($text);
-		$hasSensitive = ($redacted !== $text);
-
-		if ($hasSensitive === false) {
+		if ($redacted === $text) {
 			return ['text' => $text, 'blocked' => false, 'reason' => null];
 		}
 
 		if ($action === 'block') {
-			$placeholder = '';
-			if ($boundary === 'output') {
-				$placeholder = $this->withheldPlaceholder();
-			}
-
-			return ['text' => $placeholder, 'blocked' => true, 'reason' => 'sensitive_content'];
+			return ['text' => '', 'blocked' => true, 'reason' => 'sensitive_content'];
 		}
 
 		return ['text' => $redacted, 'blocked' => false, 'reason' => null];
