@@ -77,7 +77,7 @@ class WebhookTriggerController extends Controller {
 	 *
 	 * @var string
 	 */
-	private const SECRET_HEADER = 'X-Hermiq-Webhook-Secret';
+	private const SHARED_CREDENTIAL_HEADER = 'X-Hermiq-Webhook-Secret';
 
 	/**
 	 * Hard payload-size cap in bytes (64 KiB, design.md API Design).
@@ -133,7 +133,7 @@ class WebhookTriggerController extends Controller {
 			return $this->tooLargeResponse();
 		}
 
-		$secret = (string)$this->request->getHeader(self::SECRET_HEADER);
+		$secret = (string)$this->request->getHeader(self::SHARED_CREDENTIAL_HEADER);
 		$webhook = $this->webhookSecretService->verifyAndLoad(agentId: $id, providedSecret: $secret);
 		if ($webhook === null) {
 			// Enumeration-safe: identical for unknown agent / no webhook / disabled / wrong secret.
