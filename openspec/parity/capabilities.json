@@ -7268,7 +7268,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json:1357-1370 FlowDetail page, type:'flow' (the shared CnFlowEditorPage over CnFlowDetail canvas, per its _note: 'the same canvas every other app uses'); openspec/specs/flow-canvas/spec.md (status: done) defines node cards, ports, connections and requires the engine's own connectivity verdict be shown, not recomputed; engine itself is OpenRegister's per that spec's own Purpose line.",
-				"spec": "openspec/specs/flow-canvas"
+				"spec": "openspec/specs/flow-canvas",
+				"requirement": [
+					"openspec/specs/flow-authoring :: Connections are made between ports (REQ-FA-004)",
+					"openspec/specs/flow-canvas :: A node dragged on the canvas keeps where it was put"
+				]
 			},
 			"reachedOn": "/flows FlowIndex -> row -> /flows/:id FlowDetail canvas",
 			"note": "The canvas component is the shared nextcloud-vue widget; the flow engine and storage are OpenRegister's (or-flow-consumer spec, status retired: hermiq's own flow engine was deleted and it now only contributes node types).",
@@ -7305,7 +7309,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Flow/HermiqAgentNode.php:70 implements OpenRegister's IFlowNode + IFlowNodeLogActions; lib/AppInfo/Application.php:156-159 listens for OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent via HermiqFlowNodeListener to register it into the palette (guarded by class_exists so it degrades cleanly without OpenRegister's flow engine).",
-				"spec": "openspec/specs/flow-canvas"
+				"spec": "openspec/specs/flow-canvas",
+				"requirement": "openspec/specs/flow-agent-listener :: Listener enqueues a governed run for an async agent-run request"
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> Agent node",
 			"provider": "hermiq",
@@ -7416,7 +7421,11 @@
 				"state": "built",
 				"owner": "ConductionNL/openregister",
 				"evidence": "Sibling checkout apps-extra/openregister/lib/Service/Flow/Nodes/SwitchNode.php:45 'Send the flow down one of several branches, chosen by the condition on each' (a pass-through node whose outgoing edges carry the routing conditions); openspec/specs/flow-canvas/spec.md:50-64 (hermiq's own spec) requires the canvas expose one named out-port per branch and record the branch on connection.",
-				"spec": "openspec/specs/flow-canvas"
+				"spec": "openspec/specs/flow-canvas",
+				"requirement": [
+					"openspec/specs/flow-canvas :: A routing node exposes one NAMED out-port per branch",
+					"openspec/specs/flow-canvas :: Connecting from a branch port records the branch"
+				]
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> Switch node",
 			"note": "Rated partly from the OpenRegister sibling checkout, which may be stale.",
@@ -7453,7 +7462,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/specs/flow-canvas/spec.md:146 'Requirement: The flow list shows last run and status'; line 159 'Requirement: Selecting a run replays its path on the canvas' (both status: done).",
-				"spec": "openspec/specs/flow-canvas"
+				"spec": "openspec/specs/flow-canvas",
+				"requirement": [
+					"openspec/specs/flow-canvas :: Selecting a run replays its path on the canvas",
+					"openspec/specs/flow-canvas :: The flow list shows last run and status"
+				]
 			},
 			"reachedOn": "/flows FlowIndex list (last run/status per row) -> FlowDetail canvas -> select a run to replay its path",
 			"note": "Run data itself comes from OpenRegister's flow engine; hermiq's canvas only renders it.",
@@ -7490,7 +7503,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Repair/SeedHydraTriageFlow.php + lib/Repair/SeedHydraTriageAgent.php seed a starter 'Hydra Triage' flow and its agent on install/upgrade.",
-				"spec": "openspec/specs/flow-authoring"
+				"spec": "openspec/specs/flow-authoring",
+				"requirement": "openspec/specs/hydra-flow-application-slug :: The seeded Hydra Triage flow declares its owning application (REQ-001)"
 			},
 			"reachedOn": "/flows FlowIndex shows the seeded 'Hydra Triage' flow after a fresh install/repair run",
 			"provider": "hermiq",
@@ -7526,7 +7540,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n. Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/flows-hand-off-and-wait"
+				"change": "openspec/changes/flows-hand-off-and-wait",
+				"requirement": "openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs :: A webhook workflow returns its result to a one-time address (REQ-HANDOFF-004)"
 			},
 			"reachedOn": "nothing",
 			"note": "The n8n delegation described in ADR-001/app-config.json is architectural intent, not implemented code; only the reverse direction (an outside system, for-instance n8n, triggering hermiq) exists.",
@@ -7563,7 +7578,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Listed every node file in the sibling apps-extra/openregister/lib/Service/Flow/Nodes/ directory (AwaitSignalNode, DecisionTableNode, EndNode, ExplodeNode, FilterNode, FlowStateNode, IterateNode, LockObjectNode, LoopNode, MapNode, MergeNode, ObjectReadNode, ObjectWriteNode, PortalTaskNode, RouterNode, SendEmailNode, SendNotificationNode, SendTalkMessageNode, SetFieldsNode, SubFlowNode, SwitchNode, TriggerManualNode, TriggerObjectNode, TriggerScheduleNode, UnlockObjectNode, UserTaskNode, WaitNode): none execute arbitrary custom code. Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-code-sandbox"
+				"change": "openspec/changes/tools-code-sandbox",
+				"requirement": "openspec/changes/tools-code-sandbox/specs/code-sandbox :: A flow can run a code step over each item (REQ-SANDBOX-003)"
 			},
 			"reachedOn": "nothing",
 			"note": "Rated from the OpenRegister sibling checkout's node list, which may be stale or incomplete; no code/script node was found there or in hermiq's own lib/Flow/.",
@@ -7638,7 +7654,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/specs/flow-canvas/spec.md:131-133 'Requirement: Saving warns about a dead end; it never refuses'; 'A save MUST succeed and then report the engine's connectivity verdict, taken from the save response's warnings (reason node-dead-end). The editor MUST NOT recompute that verdict itself.' Status: done.",
-				"spec": "openspec/specs/flow-canvas"
+				"spec": "openspec/specs/flow-canvas",
+				"requirement": [
+					"openspec/specs/flow-canvas :: Saving warns about a dead end; it never refuses",
+					"openspec/specs/flow-canvas :: A flow MUST have a trigger and an end"
+				]
 			},
 			"reachedOn": "FlowDetail canvas -> Save -> connectivity warning surfaced from the engine's response",
 			"note": "The verdict is computed by OpenRegister's flow engine; hermiq's canvas only displays it, by explicit design (never recomputed locally).",
@@ -7714,7 +7734,8 @@
 				"evidence": "On the agent page, Save as template (POST /api/agent-templates/from-agent/{agentId}, AgentTemplateController::saveFromAgent, AgentTemplateService::saveAgentAsTemplate) turns the agent into an active local template in the Store with derivedFrom set to the agent; owner only (404 unreadable, 403 not the owner). Proven in tests/Unit/Service/AgentTemplateSaveFromAgentTest.php (real AgentTemplate fragment with Opis) and AgentTemplateControllerTest::testSaveFromAgent*.",
 				"reachedOn": "Agent page: Save as template",
 				"change": "openspec/changes/archive/2026-10-01-agents-export-import-and-git-sync",
-				"readOn": "2026-10-01"
+				"readOn": "2026-10-01",
+				"requirement": "openspec/specs/agent-template-gallery :: An agent can be saved as a reusable template (REQ-AGEXP-003)"
 			},
 			"reachedOn": "Agent page: Save as template",
 			"note": "Built 2026-10-01 by agents-export-import-and-git-sync. History: re-rated yes to no on 2026-09-26 because the from-agent wrapper had no caller.",
@@ -7751,7 +7772,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:414-415 agentTemplate#githubSearch/githubInstall; :442 agentTemplate#publishGithub; src/widgets/AgentTemplateGithubStore.vue (below-header widget on /store) searches/installs via src/api/agentTemplates.js:166-227; src/modals/AgentTemplatePublishModal.vue:75,175 publishes via publish-github and resolves a broker credential from /apps/openregister/api/credentials; row action in src/widgets/AgentTemplateRowActions.vue.",
-				"spec": "openspec/specs/agent-template-github-store"
+				"spec": "openspec/specs/agent-template-github-store",
+				"requirement": [
+					"openspec/specs/agent-template-github-store :: The system MUST provide a server-backed search for hermiq-agent-template repos",
+					"openspec/specs/agent-template-github-store :: The system MUST install a discovered template through the existing quarantine gate",
+					"openspec/specs/agent-template-github-store :: The system MUST let a template owner publish it to a new tagged GitHub repository"
+				]
 			},
 			"reachedOn": "/store page -> agent-template-github-store widget (search+install) and agent-template-row-actions -> Publish to GitHub",
 			"provider": "hermiq",
@@ -7787,7 +7813,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:428-431 agentTemplate#approve POST /api/agent-templates/{id}/approve; src/api/agentTemplates.js:130-133 approveAgentTemplate(); src/manifest.json Store page note: 'Approve is NEVER a declarative object-op, since it gates through ActionAuthService::requireAction(\"agenttemplate.approve-quarantined\") server-side'; row action lives in agent-template-row-actions widget.",
-				"spec": "openspec/specs/agent-template-github-store"
+				"spec": "openspec/specs/agent-template-github-store",
+				"requirement": [
+					"openspec/specs/agent-template-gallery :: Importing a template from an external source lands quarantined and content-scanned",
+					"openspec/specs/agent-template-gallery :: Approving a quarantined template requires action authorization"
+				]
 			},
 			"reachedOn": "/store page -> agent-template-row-actions -> Approve (for a quarantined/GitHub-installed template)",
 			"provider": "hermiq",
@@ -7823,7 +7853,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:172-176 agentVersion#index/diff/rollback '/api/agents/{id}/versions', '/versions/diff', '/versions/{versionId}/rollback'; src/dialogs/agents/AgentVersionHistoryDialog.vue:158 and src/dialogs/AgentVersionDiffDialog.vue:73 call src/api/agents.js; registered as a v2 modal in src/registry.js:41,127-134 (mounts AgentVersionDiffDialog internally).",
-				"spec": "openspec/specs/agent-versioning"
+				"spec": "openspec/specs/agent-versioning",
+				"requirement": [
+					"openspec/specs/agent-versioning :: List an Agent's version history",
+					"openspec/specs/agent-versioning :: Diff two agent versions across the versioned-config field set",
+					"openspec/specs/agent-versioning :: Roll back an agent to a previous version without mutating history"
+				]
 			},
 			"reachedOn": "AgentDetail (/agents/:id) header action -> Version history -> Compare / Rollback",
 			"provider": "hermiq",
@@ -7859,7 +7894,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json pages EvalDatasets (/evals, index) and EvalDatasetDetail (/evals/:id, detail) with the eval-run-panel widget; appinfo/routes.php:96 evalRun#run POST /api/evals/{datasetId}/run; src/widgets/EvalRunPanelWidget.vue:15,244-245 calls src/api/evals.js and src/api/skills.js; menu entry 'Evaluations' order 101.",
-				"spec": "openspec/specs/agent-evals"
+				"spec": "openspec/specs/agent-evals",
+				"requirement": [
+					"openspec/specs/agent-evals :: EvalDataset CRUD as a plain OpenRegister object",
+					"openspec/specs/agent-evals :: An EvalRun executes each case through the agent's real engine path",
+					"openspec/specs/agent-evals :: Deterministic scoring"
+				]
 			},
 			"reachedOn": "menu -> Evaluations (/evals) -> a dataset -> Run",
 			"provider": "hermiq",
@@ -7895,7 +7935,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/specs/skill-self-improvement/spec.md:9-24 'pre-qualification ... paired draft-vs-active eval reusing skill-evals paired mode, strictly-worse auto-discarded'; lib/Settings/hermiq_register.json SkillDraft.evalEvidence carries draftPassRate/activePassRate/delta, computed BEFORE human acceptance; src/widgets/SkillDraftReview.vue:340-345 reads pendingDraft.evalEvidence.draftPassRate/activePassRate and renders them side by side; registered as a widget in src/registry.js:78,590.",
-				"spec": "openspec/specs/skill-self-improvement"
+				"spec": "openspec/specs/skill-self-improvement",
+				"requirement": "openspec/specs/skill-self-improvement :: A paired draft-vs-active eval gates the draft, and a worse draft is auto-discarded"
 			},
 			"reachedOn": "/skills page -> pending draft review -> SkillDraftReview.vue shows draft vs active pass rate before Accept",
 			"note": "This compares a proposed SKILL version (which carries the prompt/frontmatter/body the skill contributes) against its active baseline before a human accepts/promotes it; there is no equivalent baseline-compare for a bare AssistantPrompt or Agent-level system prompt edit (those have no version/diff/baseline path at all).",
@@ -7932,7 +7973,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:384-390 skillMarketplace#installFromSource/approve/publish/githubPublish; openspec/specs/skills-marketplace/spec.md:7,309 'as a skill author, I want to publish my skill to ClawHub or skills.sh so that the wider community can use it'; src/widgets/SkillRowActions.vue:13-14,84-93 renders both 'Publish' (OpenConnector hub route, structured error when no hub configured) and 'Publish to GitHub' (primary path) buttons; src/widgets/AgentTemplateGithubStore.vue covers the agent-template half of the same GitHub discovery.",
-				"spec": "openspec/specs/skills-marketplace"
+				"spec": "openspec/specs/skills-marketplace",
+				"requirement": "openspec/specs/skills-marketplace :: Publish to and consume from external hubs"
 			},
 			"reachedOn": "/skills page -> SkillRowActions -> Publish / Publish to GitHub; /store page -> agent-template-github-store search+install",
 			"note": "The GitHub path (search/install/publish) works standalone; the 'hub' publish path additionally needs an OpenConnector (integriq) connector configured, else it returns a structured error rather than throwing.",
@@ -8139,7 +8181,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/architecture ADR-001 multi-tenancy (organisation UUID scoping); every controller opened in this review that reads cross-object data explicitly tenant-scopes via OpenRegister ObjectService/RBAC and organisation filters (e.g. lib/Controller/AnalyticsController.php:9, lib/Controller/TenantOpsController.php:11, lib/Controller/AiFeatureController.php:10, lib/Controller/TenantControlController.php organisation-owner guard).",
-				"spec": "openspec/specs/multi-tenant-ops"
+				"spec": "openspec/specs/multi-tenant-ops",
+				"requirement": "openspec/specs/multi-tenant-ops :: Strict per-tenant isolation across all object types"
 			},
 			"reachedOn": "Every tenant-scoped page (Runs, Dashboard, Tenant ops, Compliance, AI features) reads only the caller's own organisation's data",
 			"note": "Data-layer isolation is OpenRegister's job per ADR-023 Rule 1; hermiq consumes it rather than re-implementing it.",
@@ -8176,7 +8219,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:254 tenantOps#quota GET /api/tenant-ops/quota; lib/Controller/TenantOpsController.php:92-104 quota() -> tenantOpsService->quotaStatus(); src/views/TenantOps.vue reads it (also src/manifest.json Dashboard tiles at lines 904,923 read '/apps/hermiq/api/tenant-ops/quota').",
-				"spec": "openspec/specs/multi-tenant-ops"
+				"spec": "openspec/specs/multi-tenant-ops",
+				"requirement": "openspec/specs/multi-tenant-ops :: Per-organisation agent and schedule quotas"
 			},
 			"reachedOn": "Settings -> Tenant ops (/tenant-ops) and Dashboard (/) quota tiles",
 			"provider": "hermiq",
@@ -8212,7 +8256,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json menu entry 'TenantOps' route /tenant-ops section 'settings' order 40; src/views/TenantOps.vue:320-322 imports budgets.js/modelPolicy.js/tenantOps.js and renders quota, budgets, model policy and access-review sections in one page.",
-				"spec": "openspec/specs/multi-tenant-ops"
+				"spec": "openspec/specs/multi-tenant-ops",
+				"requirement": [
+					"openspec/specs/inapp-settings-section :: Tenant ops MUST retain only true per-organisation operational controls",
+					"openspec/specs/multi-tenant-ops :: Per-organisation agent and schedule quotas"
+				]
 			},
 			"reachedOn": "Settings menu -> Tenant ops (/tenant-ops)",
 			"note": "Incidents/audit-export/retention were split off onto the /compliance page's compliance-operations widget (see co-incident/co-audit-export/co-retention); TenantOps.vue itself now covers quota, budgets, model policy and access review.",
@@ -8287,7 +8335,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Credential/CredentialScopeResolver.php reads OpenRegister's credential-broker register directly; lib/Service/Llm/BrokerHttpClient.php and lib/Service/GitHubTemplatePushService.php proxy every outbound call through the broker so a secret 'is sent once to OpenRegister and never returned or displayed again' (openspec/specs/agent-credentials/spec.md); frontend forms (src/modals/LlmProviderModal.vue:470, AgentTemplatePublishModal.vue:175, SkillGithubPublishModal.vue:177, WebResearchSettingsModal.vue:366) all resolve credentials via '/apps/openregister/api/credentials', never storing a raw key on the Agent object.",
-				"spec": "openspec/specs/agent-credentials"
+				"spec": "openspec/specs/agent-credentials",
+				"requirement": [
+					"openspec/specs/agent-credentials :: Personal and organisation credential management surfaces",
+					"openspec/specs/agent-engine-port :: Hermiq holds no LLM API key"
+				]
 			},
 			"reachedOn": "hermiq Settings -> Agent credentials (personal and organisation-scope CnCredentials surfaces)",
 			"provider": "openregister",
@@ -8325,7 +8377,8 @@
 				"evidence": "Agent schema credentialIds (lib/Settings/hermiq_register.json, provider -> broker credential uuid). CredentialScopeResolver::resolve(pinned:) uses a pin for the turn's provider before the personal and organisation credentials; usablePin() applies the broker's tests and throws PinnedCredentialRefusedException instead of trying another. ProviderFactory::createChatDriver(agentCredentialIds:) from ResponseGenerationHandler; ChatController and ChatStreamController show 'The credential pinned to this agent cannot be used for this run.' (errorCode pinned_credential_refused). src/modals/AgentFormModal.vue 'Credentials' picks one per provider (openai, fireworks). Tests: CredentialScopeResolverTest, ProviderFactoryTest (real resolver), AgentCredentialIdsSchemaTest (real Agent schema, Opis), ResponseGenerationHandlerTest, ChatControllerTest, tests/agent-credentials.spec.js.",
 				"change": "openspec/changes/archive/2026-09-29-operations-a-credential-per-agent",
 				"reachedOn": "Agent form -> Credentials",
-				"readOn": "2026-09-29"
+				"readOn": "2026-09-29",
+				"requirement": "openspec/specs/agent-credentials :: An agent can carry its own credential per provider (REQ-AGCRED-001)"
 			},
 			"reachedOn": "Agent form -> Credentials",
 			"note": "Credentials are scoped to the acting user or the organisation, never to an individual agent instance, so two agents run by the same user in the same org always share the same resolved credential.",
@@ -8362,7 +8415,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Settings/AdminSettings.php + appinfo/info.xml <settings> registration; src/views/AdminRoot.vue mounts LlmProviderModal-backed settings (src/api/llm.js), WebResearchSettingsModal (src/api/webResearch.js), and AiFeatureRegister.vue, all under Nextcloud's own admin-settings framework.",
-				"spec": "openspec/specs/admin-ui"
+				"spec": "openspec/specs/admin-ui",
+				"requirement": [
+					"openspec/specs/admin-ui :: REQ-UI-001: Register the admin section (IIconSection)",
+					"openspec/specs/admin-ui :: REQ-UI-002: Render the admin settings form (ISettings)"
+				]
 			},
 			"reachedOn": "Nextcloud Administration settings -> Hermiq section -> AdminRoot.vue",
 			"provider": "hermiq",
@@ -8509,7 +8566,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Corrected 2026-09-27 (OpenSpec pass): flow, webhook and Talk runs are QueuedJobs that Nextcloud runs on several workers at once (lib/BackgroundJob/AgentRunRequestedJob.php:43, lib/BackgroundJob/WebhookAgentRunJob.php:44, lib/BackgroundJob/TalkTurnJob.php:45); scheduled runs are one TimedJob that never runs in parallel (lib/BackgroundJob/ScheduleTask.php:48,80). Before: lib/BackgroundJob/ScheduleTask.php:1-40 docblock: 'Hermiq registers exactly one job class; internal polling ... keeps the primitive idiomatic (ADR-002)' and explicitly 'Runs every 5 minutes, time-sensitive, never in parallel.' One TimedJob polls all due Schedule objects and dispatches them sequentially in a single PHP process/tick; no worker pool, queue fan-out, or multi-process dispatch was found. Specified in openspec/changes/operations-parallel-run-workers/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/operations-parallel-run-workers"
+				"change": "openspec/changes/operations-parallel-run-workers",
+				"requirement": [
+					"openspec/changes/operations-parallel-run-workers/specs/agent-schedule :: Each occurrence is claimed once, whatever the number of workers (REQ-PRUN-001)",
+					"openspec/changes/operations-parallel-run-workers/specs/agent-schedule :: An administrator limits how many runs go at once (REQ-PRUN-003)"
+				]
 			},
 			"reachedOn": "nothing (the dispatcher is deliberately single-threaded)",
 			"note": "Matches the hint's 'Context Agent: no scaling' branch, not Hermes's 8 parallel workers. Rating corrected to partial on 2026-09-27 in the OpenSpec pass; built.evidence says why.",
@@ -8546,7 +8607,12 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:646-647 outsideAgent#tools/call '/api/outside-agent/tools' and '/call'; lib/Controller/OutsideAgentController.php:1-50 delegates to OutsideToolSurface/OutsideAgentGateway, authenticating the outside agent as an ordinary Nextcloud user (app password) with no separate credential of its own; lib/Settings/hermiq_register.json declares an OutsideAgentRegistration schema (components.schemas.OutsideAgentRegistration). Searched src/ for 'OutsideAgent'/'outside-agent': zero hits; no manifest page or widget manages an OutsideAgentRegistration object.",
-				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library"
+				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library",
+				"requirement": [
+					"openspec/specs/agent-tool-governance :: An outside agent MUST reach declared tools through a registration",
+					"openspec/specs/agent-tool-governance :: Every outside call MUST be authorised as the calling principal",
+					"openspec/specs/agent-tool-governance :: A registration MAY narrow what a tool response carries"
+				]
 			},
 			"reachedOn": "Machine side: POST /apps/hermiq/api/outside-agent/call (authenticated, tool-surface-gated). Admin side: nothing; no hermiq page creates/edits a registration.",
 			"note": "The calling/enforcement machinery is real and gated, but a person can only create/limit a registration via a raw OpenRegister object write, not through any hermiq screen.",
@@ -8640,7 +8706,11 @@
 				"evidence": "lib/Service/AiFeature/ProviderDataUseRegistry.php holds an administered data-use statement per provider (zero-retention, no-training, may-train, undeclared) with terms reference, declaredBy and declaredAt, set through PUT /api/settings/provider-data-use/{provider} (admin only) and the provider form (src/components/ProviderDeclarations.vue in LlmProviderModal.vue). ModelPolicy.requireNoTraining (register 0.38.0, switch on /tenant-ops listing the providers it refuses). DataUseGate refuses before any request on both ProviderFactory::createChatDriver() paths with step data-use (DataUseViolationException). The term is copied onto every run's providerDisclosure, written on the run record by ScheduleService and shown on the Runs page. Proven in tests/Unit/Service/AiFeature/ProviderDataUseTest.php, ProviderFactoryTest, FeatureProviderResolverTest, ScheduleServiceTest, AnalyticsServiceTest, ChatControllerTest.",
 				"reachedOn": "Admin settings, AI provider, Configure provider: What it does with your data; /tenant-ops Model policy: Only use providers that never train on our data; /runs AI provider column",
 				"change": "openspec/changes/archive/2026-09-30-models-no-training-guarantee",
-				"readOn": "2026-09-30"
+				"readOn": "2026-09-30",
+				"requirement": [
+					"openspec/specs/provider-data-use :: A configured provider states what it does with data (REQ-NOTRAIN-001)",
+					"openspec/specs/provider-data-use :: An organisation can require providers that never train on its data (REQ-NOTRAIN-002)"
+				]
 			},
 			"feature": "model-policy",
 			"reachedOn": "/tenant-ops -> Model policy",
@@ -8677,7 +8747,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:266-288 each answer lists its RAG sources with match score, :384-396 'Used tool: {tool}' steps while streaming; src/widgets/AgentRunHistoryWidget.vue per-run trace -> src/api/agents.js:125 getRunTrace -> appinfo/routes.php:56-59 runHistory#trace; src/manifest.json AiOversight page records the human decision on AI suggestions. Searched 'explain|explanation|rationale' in src/ lib/Service: no plain-language account Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-how-an-answer-came-about"
+				"change": "openspec/changes/chat-how-an-answer-came-about",
+				"requirement": "openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency :: A person can read how an answer came about in plain language (REQ-ATRN-002)"
 			},
 			"feature": "explainable-ai",
 			"reachedOn": "/chat -> answer Sources and tool steps; /agents/:id -> Run history -> trace; /ai-oversight",
@@ -8714,7 +8785,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/AgentFormModal.vue:223-240 'Ground responses in your data (RAG)' and source count; lib/Service/Engine/ContextRetrievalHandler.php:134-138,321-339 retrieval scoped to the agent's views; lib/Service/Engine/ResponseGenerationHandler.php:357-358 prompt says 'If the context doesn't contain relevant information, say so honestly. Always cite which sources'. Searched 'validated|strictRag|sourcesOnly' in lib/Service: no enforced sources-only mode or validated flag Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/memory-retrieval-scope"
+				"change": "openspec/changes/memory-retrieval-scope",
+				"requirement": [
+					"openspec/changes/memory-retrieval-scope/specs/retrieval-scope :: Validated documents carry a restricted Nextcloud tag (REQ-RSCOPE-002)",
+					"openspec/changes/memory-retrieval-scope/specs/retrieval-scope :: An agent in validated mode refuses without asking the model when nothing validated matches (REQ-RSCOPE-003)"
+				]
 			},
 			"feature": "knowledge-bases",
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal) -> RAG settings",
@@ -8791,7 +8866,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json EvalDatasets /evals and EvalDatasetDetail; src/widgets/EvalRunPanelWidget.vue:424 runEval -> src/api/evals.js:37 -> appinfo/routes.php:96 evalRun#run; lib/Service/EvalScoringService.php header: contains, notContains, jsonPathEquals and an LLM-judge rubric; lib/Service/EvalRunService.php:1293 stores each EvalRun. Searched 'bias|fairness' in lib/ src/: none; no background job schedules evals (lib/BackgroundJob/) Specified in openspec/changes/reuse-scheduled-bias-evals/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/reuse-scheduled-bias-evals"
+				"change": "openspec/changes/reuse-scheduled-bias-evals",
+				"requirement": [
+					"openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals :: A dataset can run against an agent on a schedule (REQ-BIASEVAL-003)",
+					"openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals :: The latest bias check is visible as evidence (REQ-BIASEVAL-004)"
+				]
 			},
 			"feature": "versions-and-evals",
 			"reachedOn": "/evals -> dataset -> Run evaluation (EvalRunPanelWidget)",
@@ -8857,7 +8936,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:182-238 'Set a goal' opens src/modals/GoalFormModal.vue, the goal shows above the thread with 'Stop goal'; lib/Controller/GoalController.php routes goal#show/create/stop (appinfo/routes.php:629-631); lib/Service/GoalService.php:203-294 run() takes each due goal's turn in the same session through the scheduled-run gates (called from lib/BackgroundJob/ScheduleTask.php:71) and checks it with lib/Service/GoalCheckService.php",
 				"change": "openspec/changes/agents-standing-goal",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": [
+					"openspec/changes/agents-standing-goal/specs/agent-schedule :: A person can give an agent a standing goal with a check (REQ-AGGOAL-001)",
+					"openspec/changes/agents-standing-goal/specs/agent-schedule :: Goal turns continue the same session through the scheduled-run gates (REQ-AGGOAL-002)"
+				]
 			},
 			"feature": "agent-builder",
 			"note": "Open in agents-standing-goal: the Playwright run for set and stop, and a live check that an objectCount goal reaches its target. The example-goal seed was not built (design.md, Seed data).",
@@ -8892,7 +8975,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched whole-word 'moa|mixture|ensemble' in lib/, src/ and exapp/llm-runner/src at 5277c0d: none; one run calls one resolved provider (lib/Service/Engine/ResponseGenerationHandler.php:229) Specified in openspec/changes/models-several-models-per-turn/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/models-several-models-per-turn"
+				"change": "openspec/changes/models-several-models-per-turn",
+				"requirement": [
+					"openspec/changes/models-several-models-per-turn/specs/model-ensemble :: An agent owner can switch on ensemble answers (REQ-MENS-001)",
+					"openspec/changes/models-several-models-per-turn/specs/model-ensemble :: Reference models answer without tools and the agent's own model merges (REQ-MENS-002)"
+				]
 			},
 			"feature": "model-reliability",
 			"screen": {
@@ -8956,7 +9043,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup Specified in openspec/changes/operations-backup-and-restore/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/operations-backup-and-restore"
+				"change": "openspec/changes/operations-backup-and-restore",
+				"requirement": [
+					"openspec/changes/operations-backup-and-restore/specs/backup-restore :: An administrator can back up an organisation's hermiq data to Files on a schedule (REQ-BKUP-001)",
+					"openspec/changes/operations-backup-and-restore/specs/backup-restore :: A restore starts with a preview of what will change (REQ-BKUP-002)"
+				]
 			},
 			"feature": "setup-and-admin",
 			"reachedOn": "/agents/:id AgentDetail -> Version history (AgentVersionHistoryDialog) -> Roll back",
@@ -8991,7 +9082,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/flows-hand-off-and-wait"
+				"change": "openspec/changes/flows-hand-off-and-wait",
+				"requirement": [
+					"openspec/changes/flows-hand-off-and-wait/specs/remote-agents :: An admin registers a remote agent through an integriq source (REQ-A2A-001)",
+					"openspec/changes/flows-hand-off-and-wait/specs/remote-agents :: A remote task travels through integriq and may finish later (REQ-A2A-003)"
+				]
 			},
 			"feature": "multi-agent",
 			"screen": {
@@ -9090,7 +9185,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/MemoryService.php:137 memory is one object per agent, tenant-scoped; a separate agent per project gives separate memory but there is no project scope and no shared layer beside it (lib/Settings/hermiq_register.json Memory schema has no project or scope property) Specified in openspec/changes/memory-project-scopes/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/memory-project-scopes"
+				"change": "openspec/changes/memory-project-scopes",
+				"requirement": [
+					"openspec/changes/memory-project-scopes/specs/agent-memory :: An agent has one shared memory and a memory per project (REQ-PMEM-001)",
+					"openspec/changes/memory-project-scopes/specs/agent-memory :: Recall in a project reads the project and the shared memory only (REQ-PMEM-002)"
+				]
 			},
 			"feature": "agent-memory",
 			"reachedOn": "/agents/:id -> Memory widget (AgentMemory)",
@@ -9112,7 +9211,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "Talk to Chat page continuity is partly there: a bound session lists on /chat (SessionController::index) but is titled 'Talk conversation' (TalkRoomBinding::createBound), and a turn sent on /chat never reaches the room (ChatController and ChatStreamController do not call Talk). The change specifies the mirror, the room title, the doors and the per-turn channel.",
 				"change": "openspec/changes/chat-carry-a-conversation-across-channels",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": [
+					"openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity :: A session begun in Talk can be continued on the Chat page (REQ-SCHAN-001)",
+					"openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity :: A turn typed on the Chat page reaches the bound room (REQ-SCHAN-002)"
+				]
 			},
 			"feature": "chat",
 			"nextcloud-assistant": "no",
@@ -9162,7 +9265,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/ScheduleService.php:1814 records the agent's current version id on each run; lib/Service/AgentVersionService.php header: versions are audit-trail entries used for rollback; runs read the live agent config (lib/Service/Engine/ResponseGenerationHandler.php:327) and skillInstalls holds skill uuids, not versions (lib/Settings/hermiq_register.json:2609-2618). Searched 'snapshot|pinned|frozen' in lib/Service: no frozen build per published agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
+				"change": "openspec/changes/tools-agent-workspace-and-installed-tools",
+				"requirement": [
+					"openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning :: An agent owner can publish a build that pins files and installed tools (REQ-BUILD-001)",
+					"openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning :: Runs of a published agent start from its pinned build (REQ-BUILD-002)"
+				]
 			},
 			"feature": "code-and-workspace",
 			"reachedOn": "none",
@@ -9198,7 +9305,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'npm install|pip install|apt-get|installTool|package registry' in lib/ src/ exapp/: none. Agent turns run with shell tools denied (exapp/llm-runner/src/providers.js:140-142 DISALLOWED_BUILTIN_TOOLS includes Bash); the flow workload step runs only allowlisted commands (exapp/llm-runner/src/stage.js:137-141 RUNNER_STAGE_COMMANDS default 'scripts/run-hydra-gates.sh,claude'), set by the operator's container environment, not by the agent Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
+				"change": "openspec/changes/tools-agent-workspace-and-installed-tools",
+				"requirement": [
+					"openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace :: An agent installs command line tools only from an allowlisted registry, without install scripts (REQ-WKSP-004)",
+					"openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace :: An installed tool runs with an argument list and no shell (REQ-WKSP-005)"
+				]
 			},
 			"feature": "code-and-workspace",
 			"reachedOn": "none",
@@ -9234,7 +9345,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "the only place code runs is the hermiq-llm-runner ExApp on the instance's own AppAPI daemon (exapp/llm-runner/README.md 'Hardening guarantees'; lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step dispatches to it via lib/Service/StageDispatchService.php); agent chat turns have no shell. Searched 'e2b|daytona|cloud sandbox|sandbox' in lib/ src/ exapp/: no hosted sandbox option and no per-agent choice Specified in openspec/changes/tools-code-sandbox/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-code-sandbox"
+				"change": "openspec/changes/tools-code-sandbox",
+				"requirement": "openspec/changes/tools-code-sandbox/specs/code-sandbox :: The admin chooses where code runs (REQ-SANDBOX-004)"
 			},
 			"feature": "code-and-workspace",
 			"reachedOn": "none",
@@ -9270,7 +9382,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:182-184 GET /api/approvals, POST /api/approvals/{id}/approve and /deny -> lib/Controller/ApprovalController.php:112,149 (@NoCSRFRequired, reviewer-checked), callable by any client with an app password; lib/Service/Approval/ApprovalTaskBridge.php mirrors each pending approval as an OpenRegister task and lib/Listener/TaskTerminalListener.php (registered lib/AppInfo/Application.php:265-266) applies a completed task as approve or deny",
-				"spec": "openspec/specs/human-approval-gate"
+				"spec": "openspec/specs/human-approval-gate",
+				"requirement": [
+					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Approving an approval executes the gated run",
+					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Denying an approval prevents the gated run"
+				]
 			},
 			"feature": "human-approval",
 			"reachedOn": "/approvals (ApprovalInbox) and the same endpoints from another program; OpenRegister task inbox",
@@ -9306,7 +9422,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/ScheduleFormModal.vue:169-182 Reviewer type (user or group) and reviewer id, mounted from src/widgets/AgentRunOperationsWidget.vue:293; lib/Service/ApprovalService.php:220-233 stores the resolved reviewer on the Approval; :1218-1228 isReviewer admits only that user, members of that group, or an instance admin; lib/Controller/ApprovalController.php:200 refuses anyone else; Talk reactions are checked against the same reviewer (lib/Listener/TalkApprovalReactionListener.php:14)",
-				"spec": "openspec/specs/human-approval-gate"
+				"spec": "openspec/specs/human-approval-gate",
+				"requirement": [
+					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Dispatcher blocks a gated run and creates a pending Approval",
+					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Approving an approval executes the gated run"
+				]
 			},
 			"feature": "human-approval",
 			"reachedOn": "/agents/:id -> Run operations -> Schedule (ScheduleFormModal) -> Reviewer",
@@ -9341,7 +9461,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'context.?window|contextUsage|tokens used|token' in src/views/Chat.vue, src/components/CnAgentChatTab/ and src/api/chat.js: no readout of how full the context is (only request tokens); the one hit, src/views/TenantOps.vue, is an organisation budget page. The memory panel's character budget bar (src/registry.js agent-memory note) measures memory, not the context window Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-how-an-answer-came-about"
+				"change": "openspec/changes/chat-how-an-answer-came-about",
+				"requirement": "openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency :: A person sees how full the model's context is (REQ-ATRN-004)"
 			},
 			"feature": "chat",
 			"reachedOn": "none",
@@ -9409,7 +9530,11 @@
 				"evidence": "GET /api/runs/compare (appinfo/routes.php analytics#compare) -> AnalyticsController::compare -> AnalyticsService::compareRuns -> RunCompareService compares two run audit entries only when both agents are in the run list's visible set (else 404 per side), aligning steps with RunComparator (LCS; the replay diff uses the same alignment). src/views/Runs.vue ticks two runs (a third is refused) and opens src/views/RunCompare.vue (/runs/compare); AgentRunHistoryWidget 'Compare with…'. src/views/FlowRunCompare.vue (/flow-runs/compare) reads two flow runs from OpenRegister's /api/flow-runs as the person and lines nodes up by id, flagging a flow version difference. Tests: tests/Unit/Service/RunCompareTest.php, RunComparatorTest.php, AnalyticsControllerTest compare*, tests/run-compare.spec.js (check:specs), tests/e2e/spec-coverage/run-compare.spec.ts.",
 				"change": "openspec/changes/archive/2026-09-29-observability-compare-two-runs",
 				"reachedOn": "/runs -> tick two runs -> Compare; /runs -> Compare flow runs",
-				"readOn": "2026-09-29"
+				"readOn": "2026-09-29",
+				"requirement": [
+					"openspec/specs/run-replay-and-dry-run :: A person can compare two runs of a flow node by node (REQ-RCMP-003)",
+					"openspec/specs/run-replay-and-dry-run :: A person can compare any two runs they may see (REQ-RCMP-001)"
+				]
 			},
 			"feature": "runs-and-traces",
 			"reachedOn": "/runs -> tick two runs -> Compare",
@@ -9475,7 +9600,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:468,490 hermiq.webSearch and hermiq.webFetch agent tools, enabled in src/modals/WebResearchSettingsModal.vue (AdminRoot); :514 hermiq.delegateAgent sub-agents; lib/Service/Engine/ResponseGenerationHandler.php:358 'Always cite which sources you used'; lib/Service/Llm/ProviderFactory.php:219 at most 10 tool rounds per turn. Searched 'deep.?research' in lib/ src/: no research mode or report Specified in openspec/changes/tools-deep-research-report/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-deep-research-report"
+				"change": "openspec/changes/tools-deep-research-report",
+				"requirement": [
+					"openspec/changes/tools-deep-research-report/specs/deep-research :: A user can start deep research and sees the plan (REQ-RESEARCH-001)",
+					"openspec/changes/tools-deep-research-report/specs/deep-research :: The report is saved in the user's Files and marked as agent-authored (REQ-RESEARCH-004)"
+				]
 			},
 			"feature": "web-research",
 			"reachedOn": "/chat with an agent granted webSearch/webFetch; Admin settings -> Web research",
@@ -9608,7 +9737,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Llm/ProviderFactory.php:762 OpenAI-compatible calls post to {baseUrl}/chat/completions, :888 Anthropic to /v1/messages, :470 ollama native; searched 'responses api|/responses|responsesApi' in lib/ src/ exapp/: none Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/models-provider-connections"
+				"change": "openspec/changes/models-provider-connections",
+				"requirement": "openspec/changes/models-provider-connections/specs/llm-provider-connections :: A provider can run in Responses API mode with governed tools (REQ-PCONN-004)"
 			},
 			"feature": "model-providers",
 			"reachedOn": "none",
@@ -9644,7 +9774,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'cache_control|prompt.?cach' in lib/ src/ exapp/: none; lib/Service/Llm/ProviderFactory.php:1009-1023 builds each Anthropic payload with model, max_tokens, messages, system and tools only, no cache breakpoints Specified in openspec/changes/models-prompt-and-answer-cache/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/models-prompt-and-answer-cache"
+				"change": "openspec/changes/models-prompt-and-answer-cache",
+				"requirement": "openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching :: Anthropic requests carry cache breakpoints by default (REQ-PCACHE-001)"
 			},
 			"feature": "model-reliability",
 			"reachedOn": "none",
@@ -9680,7 +9811,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "docs/approvals.md:24-33 scheduled, flow, webhook and confirm-classified tool calls pause for a person; src/views/ApprovalInbox.vue:90 approve, deny with a reason; lib/Service/ApprovalService.php:1231-1240 approval resumes the gated run. Searched 'ask_user|askUser|clarif|suggest' in lib/ src/: the only hit is exapp/llm-runner/src/providers.js:175 which DENIES the CLI's AskUserQuestion tool Specified in openspec/changes/oversight-ask-and-hold/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/oversight-ask-and-hold"
+				"change": "openspec/changes/oversight-ask-and-hold",
+				"requirement": "openspec/changes/oversight-ask-and-hold/specs/human-approval-gate :: An agent can ask a person a question with suggested answers (REQ-ASKHOLD-001)"
 			},
 			"feature": "human-approval",
 			"reachedOn": "/approvals (ApprovalInbox)",
@@ -9717,7 +9849,8 @@
 				"evidence": "An agent owner declares up to ten questions (short text, long text, choice, number, date; optional or required) on the agent form (src/components/StartFieldsEditor.vue, Agent.startFields). The chat page asks them above the composer of a new session and keeps Send disabled until the required ones are answered (src/components/StartFieldsForm.vue); the answers are stored once on the session (PUT /api/sessions/{uuid}/start-values, checked and filtered server-side), shown in the session header and used as {{field.<key>}}. A schedule may set its own values; otherwise defaults apply. Proven in StartFieldsTest, InstructionVariablesServiceTest, ScheduleServiceTest and tests/agent-instruction-variables.spec.js.",
 				"reachedOn": "Agent form: Questions before a conversation; Chat: the questions above the composer",
 				"change": "openspec/changes/archive/2026-10-02-agents-instruction-variables",
-				"readOn": "2026-10-02"
+				"readOn": "2026-10-02",
+				"requirement": "openspec/specs/agent-management-ui :: An agent can ask for fields before a conversation starts (REQ-AGVAR-002)"
 			},
 			"feature": "agent-builder",
 			"reachedOn": "none",
@@ -9752,7 +9885,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'fork|branch|regenerat|edit message' in src/views/Chat.vue and src/api/chat.js: none; session routes are CRUD, archive, restore and permanent delete (appinfo/routes.php:566-587) with no copy-from-message Specified in openspec/changes/chat-fork-and-share-link/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-fork-and-share-link"
+				"change": "openspec/changes/chat-fork-and-share-link",
+				"requirement": "openspec/changes/chat-fork-and-share-link/specs/session-fork :: The owner can fork a session at an answer (REQ-SFORK-001)"
 			},
 			"feature": "chat",
 			"reachedOn": "none",
@@ -9819,7 +9953,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/RedactionService.php:221-222 redact() always masks API keys, auth headers, private keys, JWTs, DSN passwords and phone numbers before any audit write, used by ScheduleService.php:1120,1202, FlowAgentRunService, WebhookAgentRunService, ApprovalService and DeliveryService; :198 instance toggle for the non-forced pass; src/views/GuardrailPolicySettings.vue:52,341 per-organisation input and output filters with a Redact action; appinfo/routes.php:56 redacted run trace",
-				"spec": "openspec/specs/run-audit-log"
+				"spec": "openspec/specs/run-audit-log",
+				"requirement": "openspec/specs/run-audit-log :: Sensitive data is redacted before persistence [MVP]"
 			},
 			"feature": "audit-trail",
 			"reachedOn": "/guardrail-policy (GuardrailPolicySettings); run traces on /agents/:id",
@@ -9855,7 +9990,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Flow/HermiqWorkloadNode.php:116-117 hermiq.workload-step clones a ref into a throwaway checkout where the model with a shell can edit files (exapp/llm-runner/src/stage.js:31,161 scratch tree removed on exit), lib/Flow/HermiqWorkloadCollectNode.php collects the result and files, or a push phase commits them; chat and scheduled agent runs have no workspace, only tools into the user's own Files and Notes Specified in openspec/changes/tools-agent-workspace-and-installed-tools/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-agent-workspace-and-installed-tools"
+				"change": "openspec/changes/tools-agent-workspace-and-installed-tools",
+				"requirement": [
+					"openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace :: An agent can keep a workspace for the whole conversation (REQ-WKSP-001)",
+					"openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace :: The user sees the workspace and can keep a file (REQ-WKSP-003)"
+				]
 			},
 			"feature": "code-and-workspace",
 			"reachedOn": "/flows/:id -> Hermiq workload step node",
@@ -9891,7 +10030,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Llm/AttachmentPartBuilder.php:75 maps application/pdf to the pdf capability and sends the file as a native part when lib/Service/Llm/ModelCapabilityRegistry.php says the model reads PDFs and the driver can carry it (anthropic and openai); the administrator declares 'Reads PDFs' per model in the LLM settings (GET/PATCH /api/settings/llm modelCapabilities)",
 				"change": "openspec/changes/chat-attachments-and-images",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": "openspec/changes/chat-attachments-and-images/specs/chat-attachments :: A model that reads images or PDFs natively gets them natively (REQ-CATT-004)"
 			},
 			"feature": "chat-files-and-images",
 			"reachedOn": "none",
@@ -9927,7 +10067,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:490 hermiq.webFetch fetches a page over HTTP (lib/Service/WebResearch/WebFetchService.php) and returns readable text; searched 'browser|playwright|puppeteer|selenium|click' in lib/ exapp/: no browser the agent can drive, and the runner denies the CLI's built-in tools (exapp/llm-runner/src/providers.js:140) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-browser-and-computer-use"
+				"change": "openspec/changes/tools-browser-and-computer-use",
+				"requirement": [
+					"openspec/changes/tools-browser-and-computer-use/specs/browser-use :: Pages reach the model as untrusted content (REQ-BROWSE-002)",
+					"openspec/changes/tools-browser-and-computer-use/specs/browser-use :: Clicking and filling are default-denied, approval-gated under policy, and never type a password (REQ-BROWSE-003)"
+				]
 			},
 			"feature": "web-research",
 			"reachedOn": "none",
@@ -9965,7 +10109,8 @@
 				"evidence": "Agent.maxToolCalls (1 to 100, default 10) on the agent form; enforced per turn by TurnGuard in FacadeToolInvoker (LLPhant providers), by ProviderFactory::callAnthropicChat maxToolCalls (Anthropic http) and by RunToolCallCounter per run id in McpRunController (Anthropic cli); the run trace records Tool call limit reached for this turn. Proven in FacadeToolInvokerStopTest, ProviderFactoryUsageTest::testAnthropicLoopStopsAtTheAgentsToolCallCap, RunToolCallCounterTest, McpRunControllerTest::testToolsCallPastTheRunsCapIsRefusedWithoutRunning.",
 				"reachedOn": "/agents/:id Edit agent: Maximum tool calls per answer",
 				"change": "openspec/changes/archive/2026-09-30-agents-switch-off-and-stop",
-				"readOn": "2026-09-30"
+				"readOn": "2026-09-30",
+				"requirement": "openspec/specs/agent-tool-governance :: An agent stops after the tool calls its owner allows (REQ-AGOFF-005)"
 			},
 			"feature": "kill-switch",
 			"reachedOn": "/agents/:id Edit agent: Maximum tool calls per answer",
@@ -10001,7 +10146,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/FacadeToolInvoker.php:1236-1238 the tool facade returns a {result, isError} envelope instead of throwing, :1271-1276 which is JSON-encoded back to the model as the tool result; refusals come back the same way (:751 tool_denied_by_policy, :885 approval_required); lib/Mcp/HermiqToolProvider.php header 'invokeTool() never throws: every failure returns a structured error'",
 				"spec": "openspec/specs/agent-tool-governance",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": "openspec/specs/agent-tool-governance :: A failed tool call goes back to the agent as a result, and the turn carries on"
 			},
 			"feature": "tool-access",
 			"reachedOn": "/chat and every agent run (engine behaviour)",
@@ -10037,7 +10183,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/credentials.json:24-31 personal credentials anthropic-oauth and anthropic-cli for a Claude Max subscription, declared to the credential broker from src/App.vue:153; src/modals/LlmProviderModal.vue:131-150,251 'Claude Max subscription (OAuth)' auth mode, personal only; lib/Service/Llm/ProviderFactory.php:876 oauth beta header on the http path, :1622 the cli path runs the official claude CLI in exapp/llm-runner with that token Specified in openspec/changes/models-provider-connections/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/models-provider-connections"
+				"change": "openspec/changes/models-provider-connections",
+				"requirement": "openspec/changes/models-provider-connections/specs/agent-credentials :: A user can sign in with a Claude subscription (REQ-SIGNIN-001)"
 			},
 			"feature": "model-providers",
 			"reachedOn": "Personal settings credential (anthropic-cli) plus Admin settings -> LLM provider -> Claude subscription",
@@ -10103,7 +10250,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/components/ToolGrantMatrix.vue keeps and shows an agent's {app}.{schema}.* (read) and {app}.{schema}.*:write grants, mounted from src/widgets/AgentToolGovernanceWidget.vue; lib/Service/Engine/ToolLoop.php:195 resolves them through OpenRegister's ToolRegistryFacade, and lib/Service/Engine/FacadeToolInvoker.php:1238 runs search, get, create and update on the register objects",
-				"spec": "openspec/specs/agent-tool-governance"
+				"spec": "openspec/specs/agent-tool-governance",
+				"requirement": "openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools"
 			},
 			"feature": "knowledge-bases",
 			"reachedOn": "/agents/:id -> Tool governance (ToolGrantMatrix)",
@@ -10138,7 +10286,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:461 SessionDeleteModal deletes one session (src/modals/SessionDeleteModal.vue:69 deleteSessionPermanent); appinfo/routes.php:576,584-587 DELETE /api/sessions/{uuid} and /permanent take one uuid; lib/Controller/ChatController.php:539-567 clearHistory archives one conversationId. Searched 'bulk|selected|deleteMany|select all' in src/views/Chat.vue: none Specified in openspec/changes/chat-session-search-and-bulk-delete/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-session-search-and-bulk-delete"
+				"change": "openspec/changes/chat-session-search-and-bulk-delete",
+				"requirement": "openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface :: A person can archive, restore or delete several sessions in one action (REQ-SSRCH-002)"
 			},
 			"feature": "chat",
 			"reachedOn": "none",
@@ -10175,7 +10324,8 @@
 				"evidence": "Placeholders in an agent's instructions are filled in per turn for the person taking it: {{user.displayName}}, {{user.id}}, {{user.language}}, {{organisation.name}}, {{today}}, {{now}} in the person's time zone, {{agent.name}}, {{app.id}} and {{field.<key>}} (lib/Service/Engine/PromptVariableResolver.php, wired in Engine::processMessage() and ResponseGenerationHandler on Agent.prompt only). The agent form has an Insert placeholder menu and a Preview (POST /api/agents/{id}/prompt-preview, owner only). Proven in PromptVariableResolverTest, EnginePromptVariablesTest and InstructionVariablesServiceTest.",
 				"reachedOn": "Agent form: Insert placeholder, Preview",
 				"change": "openspec/changes/archive/2026-10-02-agents-instruction-variables",
-				"readOn": "2026-10-02"
+				"readOn": "2026-10-02",
+				"requirement": "openspec/specs/agent-management-ui :: Placeholders in an agent's instructions are filled in per turn (REQ-AGVAR-001)"
 			},
 			"feature": "agent-builder",
 			"reachedOn": "none",
@@ -10345,7 +10495,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'reasoning|thinking' in src/ and lib/ (php, js, vue): no hit outside a code comment; src/views/Chat.vue renders the answer, sources and tool steps only (:266-288, :384-396) Specified in openspec/changes/chat-how-an-answer-came-about/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-how-an-answer-came-about"
+				"change": "openspec/changes/chat-how-an-answer-came-about",
+				"requirement": "openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency :: The model's reasoning is shown only when the owner allows it and the provider returns it (REQ-ATRN-003)"
 			},
 			"feature": "explainable-ai",
 			"reachedOn": "none",
@@ -10381,7 +10532,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/AgentFormModal.vue:256-304 dictation engine and 'Allow speaking with this agent' (reply spoken back); lib/Controller/SpeechController.php transcribe and synthesise over lib/Service/Speech/SpeechClient.php (appinfo/routes.php:540-542); lib/TaskProcessing/AudioToTextProvider.php:68-69 and TextToSpeechProvider.php for other apps. Searched 'translat' in lib/ src/ exapp/speech-runner: no translate step Specified in openspec/changes/chat-translate-a-recording/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/chat-translate-a-recording"
+				"change": "openspec/changes/chat-translate-a-recording",
+				"requirement": "openspec/changes/chat-translate-a-recording/specs/speech-services :: A person can translate a recording and hear the result (REQ-STRN-001)"
 			},
 			"feature": "speech",
 			"reachedOn": "/chat with a voice-enabled agent (microphone and spoken reply)",
@@ -10448,7 +10600,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:343-378 a turn's attachments show in the thread, images as thumbnails; lib/Service/Llm/AttachmentPartBuilder.php sends an attached image natively to a model declared to read images; the engine stores images a tool made on the answer and the final frame carries them (lib/Controller/ChatImageController.php, ImageGenerationService::asAttachment, hermiq#1099)",
 				"change": "openspec/changes/chat-attachments-and-images",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": [
+					"openspec/changes/chat-attachments-and-images/specs/chat-attachments :: A model that reads images or PDFs natively gets them natively (REQ-CATT-004)",
+					"openspec/changes/chat-attachments-and-images/specs/image-generation :: A created image shows in the answer (REQ-CIMG-004)"
+				]
 			},
 			"feature": "chat-files-and-images",
 			"reachedOn": "none",
@@ -10484,7 +10640,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "searched 'computer.?use|screenshot|pyautogui|xdotool|mouse|click|vnc|rdp|desktop|windows' in lib/, src/ and exapp/llm-runner/src: no screen-reading or desktop-control tool; the runner executes repo stages and MCP tools (exapp/llm-runner/src/runner.js), and hits are UI copy only (lib/Listener/TalkApprovalReactionListener.php:10 one-click approval) Specified in openspec/changes/tools-browser-and-computer-use/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/tools-browser-and-computer-use"
+				"change": "openspec/changes/tools-browser-and-computer-use",
+				"requirement": [
+					"openspec/changes/tools-browser-and-computer-use/specs/computer-use :: An admin registers a machine reached only through integriq (REQ-COMPUTER-001)",
+					"openspec/changes/tools-browser-and-computer-use/specs/computer-use :: Every computer action passes the approval gate (REQ-COMPUTER-003)"
+				]
 			},
 			"feature": "web-research",
 			"reachedOn": "nowhere",
@@ -10642,7 +10802,11 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/flows-hand-off-and-wait"
+				"change": "openspec/changes/flows-hand-off-and-wait",
+				"requirement": [
+					"openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs :: A flow started by an agent closes its handoff when the flow run ends (REQ-HANDOFF-003)",
+					"openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs :: A finished handoff returns its result as a new turn in the same conversation (REQ-HANDOFF-002)"
+				]
 			},
 			"feature": "flows",
 			"reachedOn": "Flows page (/flows), workload step with async: true",
@@ -10678,7 +10842,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:735-749 a draft made in chat with the seeded builder opens in the full agent form (AgentFormModal with draft and draftFindings), so nothing is retyped; the schedule the draft names opens in ScheduleFormModal after save; src/utils/agentDraft.js turns the checked draft into form values",
 				"change": "openspec/changes/agents-plain-language-builder",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": "openspec/changes/agents-plain-language-builder/specs/agent-management-ui :: A draft opens in the full agent form after a check (REQ-AGBUILD-002)"
 			},
 			"feature": "agent-builder",
 			"reachedOn": "nowhere",
@@ -10715,7 +10880,8 @@
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/Chat.vue:848-867 chat search is scoped per agent to OpenRegister views (saved object filters) plus on/off for files and objects, sent to OpenRegister chat; lib/Settings/hermiq_register.json:3026-3044 Context bundles pin named file paths and object queries with equality filters, resolved in lib/Service/Engine/ContextAssembler.php:354,394; no filter on files by owner, file name or modified date Specified in openspec/changes/memory-retrieval-scope/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/memory-retrieval-scope"
+				"change": "openspec/changes/memory-retrieval-scope",
+				"requirement": "openspec/changes/memory-retrieval-scope/specs/retrieval-scope :: An owner can limit file retrieval by owner, file name and modified date (REQ-RSCOPE-001)"
 			},
 			"feature": "knowledge-bases",
 			"reachedOn": "Chat page (/chat) agent settings; Context bundles via the generic objects API only",
@@ -10751,7 +10917,11 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "docs/features/evaluations.md:41-42 documents POST /apps/hermiq/api/evals/{id}/run; appinfo/routes.php:96 -> lib/Controller/EvalRunController.php:127-139 NoCSRFRequired so an app-password client can call it, runs synchronously and returns regressionGateResult (lib/Service/EvalRunService.php:1149-1163 'failed' when the pass rate drops more than the threshold, overridable per call via regressionThresholdPercent)",
-				"spec": "openspec/specs/agent-evals"
+				"spec": "openspec/specs/agent-evals",
+				"requirement": [
+					"openspec/specs/agent-evals :: Regression gate compares aggregate pass-rate against the previous run",
+					"openspec/specs/agent-evals :: Run-trigger endpoint is owner-guarded (IDOR)"
+				]
 			},
 			"feature": "versions-and-evals",
 			"reachedOn": "Evaluations page (/evals/:id, eval-run-panel) and the documented REST endpoint",
@@ -10789,7 +10959,11 @@
 				"evidence": "Keep in git on the agent page (src/modals/AgentGitModal.vue): Publish to GitHub creates a repository and stamps gitOwner and gitRepo on the agent; Push changes goes to the stamped repository only; Pull from git shows a field diff, content-scans the prompt (a dangerous verdict refuses it) and on confirm saves the package fields as a new version of the same agent, never sharing, schedules or credentials (AgentGitService, AgentGitController, register 0.46.0). Proven in tests/Unit/Service/Agent/AgentGitServiceTest.php, tests/Unit/Controller/AgentGitControllerTest.php and tests/agent-git.spec.js.",
 				"reachedOn": "Agent page: Keep in git",
 				"change": "openspec/changes/archive/2026-10-01-agents-export-import-and-git-sync",
-				"readOn": "2026-10-01"
+				"readOn": "2026-10-01",
+				"requirement": [
+					"openspec/specs/agent-template-github-store :: An agent owner can keep an agent in a git repository (REQ-AGEXP-004)",
+					"openspec/specs/agent-template-github-store :: Edits made in git come back into the same agent after a diff (REQ-AGEXP-005)"
+				]
 			},
 			"feature": "agent-templates",
 			"reachedOn": "Agent page: Keep in git",
