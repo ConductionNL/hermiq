@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
+use OCA\Hermiq\Middleware\ApiContractMiddleware;
 use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
 use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
@@ -99,6 +100,10 @@ class Application extends App implements IBootstrap {
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	public function register(IRegistrationContext $context): void {
+		// The API contract (version header, deprecation of unversioned paths,
+		// problem details). Registered first: Nextcloud runs afterController in
+		// reverse order, so it sees the final response of every other middleware.
+		$context->registerMiddleware(class: ApiContractMiddleware::class);
 		// Load the app's own composer autoloader so bundled dependencies (e.g.
 		// dragonmantank/cron-expression, used by ScheduleService) resolve at
 		// runtime — Nextcloud does not auto-load an app's vendor/autoload.php.
