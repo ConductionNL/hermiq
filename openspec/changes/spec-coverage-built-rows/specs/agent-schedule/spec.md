@@ -39,3 +39,17 @@ Rows: `sc-timezone`. No screen: computed on the server at every run.
 - **GIVEN** an owner without a time zone and an instance default of `Europe/Amsterdam`
 - **WHEN** the next run is computed
 - **THEN** it is computed in `Europe/Amsterdam`
+
+### Requirement: A schedule does not start a new run while its last run is still going (REQ-SPCOV-014)
+
+The dispatcher SHALL run due schedules one tick at a time and SHALL NOT start a tick while the
+previous tick is still running. A schedule whose run is still going SHALL therefore not start a
+second run, and its next due run SHALL start on the first tick after the running one has ended.
+
+Row: `sc-overlap`. Board: `hermiq/HmPlanning`.
+
+#### Scenario: A long run is not doubled
+- **GIVEN** a schedule that runs every five minutes, and a run that started at 08:00 and takes twelve minutes
+- **WHEN** the dispatcher's next ticks come due at 08:05 and 08:10
+- **THEN** no second run of that schedule starts before 08:12
+- **AND** run history shows one run starting at 08:00 and the next one after 08:12
