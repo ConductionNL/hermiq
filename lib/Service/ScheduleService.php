@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -2021,31 +2022,14 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
 	 */
 	private function stepsIncludeToolCall(array $steps): bool {
-		foreach ($steps as $step) {
-			if (($step['type'] ?? null) === 'tool') {
-				return true;
-			}
-		}
-
-		return false;
+		return (new CoarseStepTimeline())->includesToolCall(steps: $steps);
 	}//end stepsIncludeToolCall()
 
 	/**
-	 * Build coarse context/history/llm steps from the agent-turn call's already-
-	 * returned `timings` bucket (a formatted-seconds string per leg, e.g. `"0.18s"`)
-	 * — the ONLY step source available on the default OpenRegister `ChatService`
-	 * path (Hermiq does not instrument OR's internal tool loop, so no `tool` step
-	 * is ever produced here).
+	 * The coarse context/history/llm steps of a turn on the ChatService path
+	 * (see CoarseStepTimeline::fromTimings()).
 	 *
-	 * Each leg's real DURATION is known but not its absolute wall-clock start/end,
-	 * so the three legs are chained backward from `$anchorEnd` (the moment the
-	 * agent-turn call returned) in call order (context, history, llm) — a
-	 * contiguous, honest synthetic timeline. A leg that is absent or does not
-	 * parse as `<number>s` is skipped entirely rather than fabricated (proposal
-	 * Risk 1 / tasks.md task 3 acceptance).
-	 *
-	 * @param array<string, mixed> $timings The `timings` bucket (`context`/`history`/`llm`/`total`
-	 *                                      formatted-seconds strings), or malformed/absent.
+	 * @param array<string, mixed> $timings The `timings` bucket, or malformed/absent.
 	 * @param DateTimeImmutable $anchorEnd The moment the agent-turn call returned.
 	 *
 	 * @return array<int, array<string, mixed>> The coarse steps, oldest leg first, `seq` 0..n-1.
@@ -2053,67 +2037,8 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
 	 */
 	private function buildCoarseStepsFromTimings(array $timings, DateTimeImmutable $anchorEnd): array {
-		// Chained backward from $anchorEnd; legs are appended in call order below
-		// (context, history, llm) so the final array is already in call order.
-		$legs = [
-			['type' => 'llm', 'name' => 'LLM generation', 'key' => 'llm'],
-			['type' => 'history', 'name' => 'History build', 'key' => 'history'],
-			['type' => 'context', 'name' => 'Context retrieval', 'key' => 'context'],
-		];
-
-		$cursor = $anchorEnd;
-		$backwardSteps = [];
-		foreach ($legs as $leg) {
-			$durationMs = $this->parseTimingSeconds(value: ($timings[$leg['key']] ?? null));
-			if ($durationMs === null) {
-				continue;
-			}
-
-			$endedAt = $cursor;
-			$startedAt = $endedAt->modify('-' . $durationMs . ' milliseconds');
-
-			$backwardSteps[] = [
-				'type' => $leg['type'],
-				'name' => $leg['name'],
-				'startedAt' => $startedAt->format('c'),
-				'endedAt' => $endedAt->format('c'),
-				'durationMs' => $durationMs,
-				'outcome' => 'ok',
-			];
-
-			$cursor = $startedAt;
-		}//end foreach
-
-		$steps = array_reverse($backwardSteps);
-
-		$seq = 0;
-		return array_map(
-			static function (array $step) use (&$seq): array {
-				$step['seq'] = $seq++;
-				return $step;
-			},
-			$steps
-		);
-
+		return (new CoarseStepTimeline())->fromTimings(timings: $timings, anchorEnd: $anchorEnd);
 	}//end buildCoarseStepsFromTimings()
-
-	/**
-	 * Parse a `timings` leg value (`"0.18s"`) into a millisecond duration.
-	 *
-	 * @param mixed $value The raw timing value.
-	 *
-	 * @return int|null The duration in milliseconds, or null when absent/malformed
-	 *                  (never fabricated — proposal Risk 1).
-	 *
-	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
-	 */
-	private function parseTimingSeconds(mixed $value): ?int {
-		if (is_string($value) === false || preg_match('~^(\d+(?:\.\d+)?)s$~', $value, $matches) !== 1) {
-			return null;
-		}
-
-		return (int)round(((float)$matches[1]) * 1000);
-	}//end parseTimingSeconds()
 
 	/**
 	 * Compute the next run time for a schedule, anchored to the owner's timezone.
