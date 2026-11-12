@@ -74,15 +74,6 @@ class AgentVersionService {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
-	 * AuditTrail actions that represent a version (create + every update);
-	 * every OTHER action Hermiq writes against an Agent object (e.g. a future
-	 * agent-scoped audit action) is deliberately excluded from the timeline.
-	 *
-	 * @var array<int, string>
-	 */
-	private const VERSION_ACTIONS = ['create', 'update'];
-
-	/**
 	 * The fixed "agent config"/"capability profile" field allowlist this
 	 * capability diffs and rolls back — matches `lib/Settings/hermiq_register.json`'s
 	 * `agent` schema. Deliberately excludes identity/visibility/quota/
@@ -114,6 +105,13 @@ class AgentVersionService {
 	];
 
 	/**
+	 * The AuditTrail version timeline over this service's versioned fields.
+	 *
+	 * @var AuditTrailVersionHistory
+	 */
+	private readonly AuditTrailVersionHistory $versionHistory;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (by object_uuid — see
@@ -131,6 +129,10 @@ class AgentVersionService {
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly ObjectService $objectService,
 	) {
+		$this->versionHistory = new AuditTrailVersionHistory(
+			auditTrailMapper: $auditTrailMapper,
+			versionedFields: self::VERSIONED_FIELDS
+		);
 	}//end __construct()
 
 	/**
@@ -147,7 +149,7 @@ class AgentVersionService {
 		$entries = $this->fetchVersionEntries(agentUuid: $agentUuid);
 
 		return array_map(
-			fn (AuditTrail $entry): array => $this->toVersionRecord(entry: $entry),
+			fn (AuditTrail $entry): array => $this->versionHistory->toVersionRecord(entry: $entry),
 			$entries
 		);
 
@@ -182,21 +184,7 @@ class AgentVersionService {
 		$fromState = $this->reconstructAsOf(entries: $entries, targetIndex: $fromIndex, liveData: $live);
 		$toState = $this->reconstructAsOf(entries: $entries, targetIndex: $toIndex, liveData: $live);
 
-		$changed = [];
-		foreach (self::VERSIONED_FIELDS as $field) {
-			$oldValue = ($fromState[$field] ?? null);
-			$newValue = ($toState[$field] ?? null);
-			if ($oldValue === $newValue) {
-				continue;
-			}
-
-			$changed[$field] = [
-				'old' => $oldValue,
-				'new' => $newValue,
-			];
-		}
-
-		return $changed;
+		return $this->versionHistory->changedBetween(fromState: $fromState, toState: $toState);
 	}//end diff()
 
 	/**
@@ -295,38 +283,7 @@ class AgentVersionService {
 	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
 	 */
 	private function fetchVersionEntries(string $agentUuid): array {
-		// NOTE: AuditTrailMapper::findAll() string-casts every filter value — an
-		// ARRAY value becomes the literal string "Array" and matches ZERO rows
-		// (green-but-dead). Its multi-value contract is a comma-separated STRING
-		// ("create,update"), which it explodes into an IN() itself.
-		$logs = $this->auditTrailMapper->findAll(
-			filters: [
-				'object_uuid' => $agentUuid,
-				'action' => implode(',', self::VERSION_ACTIONS),
-			]
-		);
-
-		$entries = [];
-		foreach ($logs as $log) {
-			// Defensive: findAll() filters by action already, but guard anyway
-			// (mirrors RunHistoryService::getRunHistory()).
-			if (in_array($log->getAction(), self::VERSION_ACTIONS, true) === false) {
-				continue;
-			}
-
-			$entries[] = $log;
-		}
-
-		usort(
-			$entries,
-			static function (AuditTrail $entryA, AuditTrail $entryB): int {
-				$timeA = ($entryA->getCreated()?->getTimestamp() ?? 0);
-				$timeB = ($entryB->getCreated()?->getTimestamp() ?? 0);
-				return ($timeB <=> $timeA);
-			}
-		);
-
-		return $entries;
+		return $this->versionHistory->entriesFor(objectUuid: $agentUuid);
 	}//end fetchVersionEntries()
 
 	/**
@@ -340,13 +297,7 @@ class AgentVersionService {
 	 * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
 	 */
 	private function findEntryIndex(array $entries, string $versionId): ?int {
-		foreach ($entries as $index => $entry) {
-			if ($entry->getUuid() === $versionId) {
-				return $index;
-			}
-		}
-
-		return null;
+		return $this->versionHistory->indexOf(entries: $entries, versionId: $versionId);
 	}//end findEntryIndex()
 
 	/**
@@ -411,28 +362,4 @@ class AgentVersionService {
 
 		return $agent->getObject();
 	}//end liveAgentData()
-
-	/**
-	 * Map one AuditTrail entry into a version record.
-	 *
-	 * @param AuditTrail $entry The version's AuditTrail entry.
-	 *
-	 * @return array<string, mixed> The version record.
-	 *
-	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
-	 */
-	private function toVersionRecord(AuditTrail $entry): array {
-		$changed = ($entry->getChanged() ?? []);
-		$changedFields = array_values(array_intersect(array_keys($changed), self::VERSIONED_FIELDS));
-		$created = $entry->getCreated();
-
-		return [
-			'id' => $entry->getUuid(),
-			'timestamp' => $created?->format('c'),
-			'user' => $entry->getUser(),
-			'action' => $entry->getAction(),
-			'changedFields' => $changedFields,
-		];
-
-	}//end toVersionRecord()
 }//end class
