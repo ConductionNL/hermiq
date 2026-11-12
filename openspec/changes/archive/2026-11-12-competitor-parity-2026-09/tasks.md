@@ -9,13 +9,13 @@
 
 ## Per change, done inside that change
 
-- [ ] `a-provider-and-a-place-per-ai-feature`
-- [ ] `what-the-model-reads-and-what-is-kept`
-- [ ] `the-declared-tool-surface-and-the-prompt-library`
-- [ ] `a-conversational-intake-that-files-for-the-citizen`
-- [ ] `identical-reports-collapse-into-one`
+- [x] `a-provider-and-a-place-per-ai-feature`
+- [x] `what-the-model-reads-and-what-is-kept`
+- [x] `the-declared-tool-surface-and-the-prompt-library`
+- [x] `a-conversational-intake-that-files-for-the-citizen`
+- [x] `identical-reports-collapse-into-one`
 
 ## Closing
 
-- [ ] Archive this umbrella only after the five changes under it are archived, so the
+- [x] Archive this umbrella only after the five changes under it are archived, so the
       trail from a candidate id to a merged requirement stays readable.
