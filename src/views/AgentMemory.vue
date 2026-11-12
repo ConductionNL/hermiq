@@ -68,6 +68,7 @@ import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
 import { useAgentStore } from '../store/store.js'
 import { errorMessage } from '../utils/errorMessage.js'
+import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 export default {
 	name: 'AgentMemory',
@@ -98,10 +99,7 @@ export default {
 		 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 	},
 
