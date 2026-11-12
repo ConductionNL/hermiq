@@ -990,7 +990,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return bool
 	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::waives()` is a PURE
+	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::waivedBy()` / `waives()` is a PURE
 	 *   decision over the grant grammar, exactly like `violationFor()` beside it.
 	 *
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
@@ -1000,11 +1000,17 @@ class FacadeToolInvoker {
 			return false;
 		}
 
-		return ToolGrantResolver::waives(
-			$this->waivedConstraintSets,
-			$this->resolveToolId(name: $name),
-			$arguments
-		);
+		$toolId = $this->resolveToolId(name: $name);
+		// OpenRegister releases up to v2.1.0 ship waives(); main renamed it to
+		// waivedBy(), which takes the invoked tool's alternatives directly.
+		if (method_exists(ToolGrantResolver::class, 'waivedBy') === true) {
+			return ToolGrantResolver::waivedBy(
+				($this->waivedConstraintSets[$toolId] ?? []),
+				$arguments
+			);
+		}
+
+		return ToolGrantResolver::waives($this->waivedConstraintSets, $toolId, $arguments);
 
 	}//end isWaived()
 
