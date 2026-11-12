@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
+use Error;
 use OCA\Hermiq\Controller\ScheduleWebhookSecretController;
 use OCA\Hermiq\Service\ScheduleWebhookSecretService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -298,4 +299,58 @@ class ScheduleWebhookSecretControllerTest extends TestCase {
 		$this->assertArrayNotHasKey('secret', $response->getData());
 
 	}//end testShowReportsStatusForOwner()
+
+	/**
+	 * Every refusal carries its exact body: 401 Unauthenticated and 404
+	 * "Schedule not found" for a non-owner, on each endpoint.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testRefusalBodiesOnEveryEndpoint(): void {
+		$this->objectService->method('find')->willReturn($this->schedule('alice'));
+		$this->scheduleWebhookSecretService->expects($this->never())->method('mint');
+		$this->scheduleWebhookSecretService->expects($this->never())->method('rotate');
+		$this->scheduleWebhookSecretService->expects($this->never())->method('revoke');
+
+		$anonymous = $this->controller($this->session(null));
+		$stranger = $this->controller($this->session('mallory'));
+		foreach (['create', 'rotate', 'revoke', 'show'] as $action) {
+			$this->assertSame(['error' => 'Unauthenticated'], $anonymous->$action('sched-1')->getData());
+			$this->assertSame(['error' => 'Schedule not found'], $stranger->$action('sched-1')->getData());
+		}
+
+	}//end testRefusalBodiesOnEveryEndpoint()
+
+	/**
+	 * Mint and rotate answer the same secret body (201 and 200), and a
+	 * failing service call is a 500 with a generic message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testOwnerMintAndRotateBodiesAndGenericFailure(): void {
+		$schedule = $this->schedule('alice');
+		$this->objectService->method('find')->willReturn($schedule);
+		$minted = ['secret' => 'hws_new', 'rotatedAt' => '2026-07-13T00:00:00+00:00', 'extra' => 'dropped'];
+		$this->scheduleWebhookSecretService->method('mint')->with($schedule)->willReturn($minted);
+		$this->scheduleWebhookSecretService->method('rotate')->with($schedule)->willReturn($minted);
+		$this->scheduleWebhookSecretService->method('revoke')->willThrowException(new Error('db down'));
+
+		$owner = $this->controller($this->session('alice'));
+		$expected = ['secret' => 'hws_new', 'configured' => true, 'rotatedAt' => '2026-07-13T00:00:00+00:00'];
+
+		$created = $owner->create('sched-1');
+		$this->assertSame(Http::STATUS_CREATED, $created->getStatus());
+		$this->assertSame($expected, $created->getData());
+		$rotated = $owner->rotate('sched-1');
+		$this->assertSame(Http::STATUS_OK, $rotated->getStatus());
+		$this->assertSame($expected, $rotated->getData());
+		$failed = $owner->revoke('sched-1');
+		$this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $failed->getStatus());
+		$this->assertSame(['error' => 'Could not revoke webhook secret'], $failed->getData());
+
+	}//end testOwnerMintAndRotateBodiesAndGenericFailure()
 }//end class

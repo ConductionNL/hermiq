@@ -283,4 +283,82 @@ class AgentWebhookControllerTest extends TestCase {
 		$this->assertSame(['configured' => false], $response->getData());
 
 	}//end testShowReportsUnconfiguredForOwnerWithNoWebhook()
+
+	/**
+	 * Every refusal carries its exact body: 401 Unauthenticated, 404 for a
+	 * non-owner, and 404 "No webhook configured" once the owner passes but no
+	 * webhook exists — on each endpoint that needs one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testRefusalBodiesOnEveryEndpoint(): void {
+		$anonymous = $this->controller($this->session(null));
+		$this->assertSame(['error' => 'Unauthenticated'], $anonymous->revoke('agent-1')->getData());
+
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$this->webhookSecretService->method('findForAgent')->willReturn(null);
+		$this->webhookSecretService->expects($this->never())->method('revoke');
+		$this->webhookSecretService->expects($this->never())->method('patch');
+
+		$stranger = $this->controller($this->session('mallory'));
+		$this->assertSame(['error' => 'Agent not found'], $stranger->patch('agent-1')->getData());
+
+		$owner = $this->controller($this->session('alice'));
+		foreach (['rotate', 'revoke', 'patch'] as $action) {
+			$response = $owner->$action('agent-1');
+			$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+			$this->assertSame(['error' => 'No webhook configured for this agent'], $response->getData());
+		}
+
+	}//end testRefusalBodiesOnEveryEndpoint()
+
+	/**
+	 * The owner with a configured webhook can rotate (secret plus status),
+	 * revoke and patch (status), each on the agent's own webhook.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testOwnerCanRotateRevokeAndPatchWebhook(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$webhook = new ObjectEntity();
+		$updated = new ObjectEntity();
+		$this->webhookSecretService->method('findForAgent')->with('agent-1')->willReturn($webhook);
+		$this->webhookSecretService->method('rotate')->with($webhook)
+			->willReturn(['secret' => 'hwh_rotated', 'object' => $updated]);
+		$this->webhookSecretService->method('revoke')->with($webhook)->willReturn($updated);
+		$this->webhookSecretService->method('patch')->with($webhook, [])->willReturn($updated);
+		$this->webhookSecretService->method('status')->with($updated)->willReturn(['configured' => true]);
+
+		$owner = $this->controller($this->session('alice'));
+
+		$rotated = $owner->rotate('agent-1');
+		$this->assertSame(Http::STATUS_OK, $rotated->getStatus());
+		$this->assertSame(['secret' => 'hwh_rotated', 'configured' => true], $rotated->getData());
+		$this->assertSame(['configured' => true], $owner->revoke('agent-1')->getData());
+		$this->assertSame(['configured' => true], $owner->patch('agent-1')->getData());
+
+	}//end testOwnerCanRotateRevokeAndPatchWebhook()
+
+	/**
+	 * A failing service call is a 500 with a generic message, never the cause.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testServiceFailureIsGeneric500(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$this->webhookSecretService->method('findForAgent')->willReturn(new ObjectEntity());
+		$this->webhookSecretService->method('revoke')->willThrowException(new RuntimeException('db down'));
+
+		$response = $this->controller($this->session('alice'))->revoke('agent-1');
+
+		$this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $response->getStatus());
+		$this->assertSame(['error' => 'Could not revoke webhook'], $response->getData());
+
+	}//end testServiceFailureIsGeneric500()
 }//end class
