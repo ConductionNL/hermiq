@@ -7713,7 +7713,7 @@
 				"owner": "ConductionNL/openregister",
 				"evidence": "Sibling checkout apps-extra/openregister/lib/Service/Flow/Nodes/SubFlowNode.php exists as a registered IFlowNode-implementing node type, available on the same shared canvas hermiq's FlowDetail page uses.",
 				"change": "openregister/openspec/changes/or-flow-sub-flow",
-				"requirement": "openregister:openspec/changes/or-flow-sub-flow/specs/flow-sub-flow :: A flow can run another flow as a step (REQ-SF-001)"
+				"requirement": "openregister:openspec/specs/flow-sub-flow :: A flow can run another flow as a step (REQ-SF-001)"
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> Sub-flow node",
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale.",
