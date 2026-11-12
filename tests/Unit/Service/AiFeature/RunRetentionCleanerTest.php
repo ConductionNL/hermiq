@@ -311,4 +311,48 @@ class RunRetentionCleanerTest extends TestCase {
 
 		$cleaner->clean(now: new DateTimeImmutable('2026-06-01T00:00:00+00:00'));
 	}//end testTheCleanupRecordsWhatItDid()
+
+	/**
+	 * An entry whose update fails is logged and not counted; the others still are.
+	 *
+	 * @return void
+	 */
+	public function testAFailedTombstoneIsLoggedAndNotCounted(): void {
+		$expiry = ['summary' => 'gone', 'retentionExpiresAt' => '2026-01-01T00:00:00+00:00'];
+		$entries = [$this->entry(uuid: 'run-1', changed: $expiry), $this->entry(uuid: 'run-2', changed: $expiry)];
+		$mapper = $this->createMock(originalClassName: AuditTrailMapper::class);
+		$mapper->method('findAll')->willReturnCallback(
+			static function (?int $limit = null, ?int $offset = null, ?array $filters = []) use ($entries): array {
+				if (($filters['action'] ?? '') === 'run') {
+					return $entries;
+				}
+
+				return [];
+			}
+		);
+		$mapper->method('update')->willReturnCallback(
+			static function (AuditTrail $entry): AuditTrail {
+				if ($entry->getUuid() === 'run-1') {
+					throw new \RuntimeException(message: 'locked');
+				}
+
+				return $entry;
+			}
+		);
+		$logger = $this->createMock(originalClassName: \Psr\Log\LoggerInterface::class);
+		$logger->expects($this->once())
+			->method('warning')
+			->with(
+				'Hermiq could not tombstone an expired run entry: locked',
+				$this->callback(callback: static fn (array $context): bool => $context['entry'] === 'run-1')
+			);
+		$policy = $this->createMock(originalClassName: RunRetentionPolicy::class);
+		$policy->expects($this->once())->method('recordCleanup')->with(1, $this->anything());
+
+		$cleaner = new RunRetentionCleaner(auditTrailMapper: $mapper, policy: $policy, logger: $logger);
+		$removed = $cleaner->clean(now: new DateTimeImmutable('2026-06-01T00:00:00+00:00'));
+
+		$this->assertSame(expected: 1, actual: $removed);
+
+	}//end testAFailedTombstoneIsLoggedAndNotCounted()
 }//end class

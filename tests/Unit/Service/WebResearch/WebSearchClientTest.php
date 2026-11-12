@@ -286,4 +286,70 @@ class WebSearchClientTest extends TestCase {
 		$this->assertSame('search_failed', $result['error']['code']);
 
 	}//end testUnparsableResponseReturnsStructuredError()
+	/**
+	 * Characterisation of the direct request: the URL for a generic-json endpoint
+	 * that already carries a query, the options, and a failed request.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-admin-configures-a-self-hosted-searxng-instance
+	 */
+	public function testTheDirectRequestAndItsFailure(): void {
+		$seen = [];
+		$client = $this->createMock(IClient::class);
+		$client->method('get')->willReturnCallback(
+			function (string $url, array $options) use (&$seen): IResponse {
+				$seen[] = [$url, $options];
+				throw new \RuntimeException('down');
+			}
+		);
+		$clientService = $this->createMock(IClientService::class);
+		$clientService->method('newClient')->willReturn($client);
+
+		$search = new WebSearchClient(
+			$clientService,
+			$this->settings(['searchProvider' => 'generic-json', 'searchEndpoint' => ' https://search.example/api?key=1/ ', 'timeoutSeconds' => 3]),
+			$this->allowingGuard(),
+			new NullLogger()
+		);
+		$result = $search->search(query: 'a b');
+
+		$this->assertSame(['error' => ['code' => 'search_failed', 'message' => 'The search request failed.']], $result);
+		$this->assertSame('https://search.example/api?key=1&q=a+b', $seen[0][0]);
+		$this->assertSame(['timeout' => 3, 'connect_timeout' => 3, 'allow_redirects' => false, 'nextcloud' => ['allow_local_address' => true]], $seen[0][1]);
+
+	}//end testTheDirectRequestAndItsFailure()
+
+	/**
+	 * Characterisation of the broker route: with a credential configured the
+	 * path and query go to the broker with the acting user, and no direct call
+	 * is made.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-admin-configures-a-self-hosted-searxng-instance
+	 */
+	public function testACredentialRoutesThroughTheBroker(): void {
+		$broker = $this->createMock(\OCA\OpenRegister\Service\Credential\CredentialBrokerService::class);
+		$broker->expects($this->once())->method('request')
+			->with('cred-1', 'hermiq', 'GET', '/search?q=x&format=json', [], null, 'alice')
+			->willReturn(['body' => (string)json_encode(['results' => [['title' => 'T', 'url' => 'https://u', 'content' => 'S']]])]);
+		$container = $this->createMock(\Psr\Container\ContainerInterface::class);
+		$container->method('get')->willReturn($broker);
+		$clientService = $this->createMock(IClientService::class);
+		$clientService->expects($this->never())->method('newClient');
+
+		$search = new WebSearchClient(
+			$clientService,
+			$this->settings(['searchProvider' => 'searxng', 'searchEndpoint' => 'https://searx.local', 'searchCredentialId' => ' cred-1 ']),
+			$this->allowingGuard(),
+			new NullLogger(),
+			$container
+		);
+		$result = $search->search(query: 'x', actingUserId: 'alice');
+
+		$this->assertSame('x', $result['query']);
+		$this->assertSame('T', $result['results'][0]['title']);
+
+	}//end testACredentialRoutesThroughTheBroker()
 }//end class

@@ -97,30 +97,93 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
 	 */
 	public function open(string $runKey, string $cloneUrl, string $repository, string $ref, int $depth): array {
+		$checkout = new CheckoutRequest(repository: $repository, ref: $ref);
+		$checkout->cloneUrl = $cloneUrl;
+		$checkout->depth = $depth;
+
 		$dir = $this->dirFor(runKey: $runKey);
 		$meta = $this->readMeta(dir: $dir);
 		if ($meta !== null) {
-			if ($meta['repository'] !== $repository || $meta['ref'] !== $ref) {
-				throw new WorkspaceException(
-					errorCode: WorkspaceException::INVALID_ARGUMENT,
-					message: 'This run already has a workspace on another repository or ref. One run works on one checkout.'
-				);
-			}
-
+			$this->assertSameCheckout(meta: $meta, checkout: $checkout);
 			$this->touch(dir: $dir, meta: $meta);
 			return $this->summary(runKey: $runKey, dir: $dir, meta: $meta);
 		}
 
+		return $this->summary(runKey: $runKey, dir: $dir, meta: $this->checkOut(dir: $dir, checkout: $checkout));
+	}//end open()
+
+	/**
+	 * Refuse a second checkout in one run: the existing workspace must be on the same repository and ref.
+	 *
+	 * @param array<string, mixed> $meta     The existing workspace's metadata.
+	 * @param CheckoutRequest      $checkout The checkout asked for.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException invalid_argument when the repository or the ref differs.
+	 */
+	private function assertSameCheckout(array $meta, CheckoutRequest $checkout): void {
+		if ($meta['repository'] !== $checkout->repository || $meta['ref'] !== $checkout->ref) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::INVALID_ARGUMENT,
+				message: 'This run already has a workspace on another repository or ref. One run works on one checkout.'
+			);
+		}
+	}//end assertSameCheckout()
+
+	/**
+	 * Clone into a fresh directory, check the budget and record the workspace.
+	 *
+	 * @param string          $dir      The workspace directory (a leftover one is replaced).
+	 * @param CheckoutRequest $checkout The checkout asked for.
+	 *
+	 * @return array<string, mixed> The new workspace's metadata.
+	 *
+	 * @throws WorkspaceException git_failed when the clone fails, workspace_quota when the tree is over budget.
+	 */
+	private function checkOut(string $dir, CheckoutRequest $checkout): array {
 		if (is_dir($dir) === true) {
 			$this->removeTree(path: $dir);
 		}
 
 		mkdir($dir, 0700, true);
+		$this->cloneInto(dir: $dir, checkout: $checkout);
+		$this->assertWithinBudget(dir: $dir);
+
+		$meta = $this->freshMeta(checkout: $checkout);
+		$this->writeMeta(dir: $dir, meta: $meta);
+		return $meta;
+	}//end checkOut()
+
+	/**
+	 * The metadata of a just-cloned workspace: what it holds, created and last used now.
+	 *
+	 * @param CheckoutRequest $checkout The checkout cloned.
+	 *
+	 * @return array{repository: string, ref: string, createdAt: int, lastUsedAt: int}
+	 */
+	private function freshMeta(CheckoutRequest $checkout): array {
+		return [
+			'repository' => $checkout->repository,
+			'ref' => $checkout->ref,
+			'createdAt' => $this->time->getTime(),
+			'lastUsedAt' => $this->time->getTime(),
+		];
+	}//end freshMeta()
+
+	/**
+	 * Clone the ref; a failed clone leaves nothing behind.
+	 *
+	 * @param string          $dir      The workspace directory.
+	 * @param CheckoutRequest $checkout The checkout asked for.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException git_failed when the clone fails.
+	 */
+	private function cloneInto(string $dir, CheckoutRequest $checkout): void {
 		$result = $this->git->run(
-			arguments: [
-				'clone', '--quiet', '--no-tags', '--single-branch',
-				'--depth', (string)max(1, min($depth, 500)), '--branch', $ref, '--', $cloneUrl, $dir . '/repo',
-			],
+			arguments: $this->cloneArguments(dir: $dir, checkout: $checkout),
 			workingDir: $dir,
 			timeoutSeconds: self::CLONE_TIMEOUT_SECONDS
 		);
@@ -131,18 +194,39 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 				message: 'The repository could not be opened. Check the repository name and the ref.'
 			);
 		}
+	}//end cloneInto()
 
+	/**
+	 * The clone arguments: one branch, no tags, the history clamped to 1..500 commits, into `repo`.
+	 *
+	 * @param string          $dir      The workspace directory.
+	 * @param CheckoutRequest $checkout The checkout asked for.
+	 *
+	 * @return array<int, string>
+	 */
+	private function cloneArguments(string $dir, CheckoutRequest $checkout): array {
+		return [
+			'clone', '--quiet', '--no-tags', '--single-branch',
+			'--depth', (string)max(1, min($checkout->depth, 500)), '--branch', $checkout->ref, '--', $checkout->cloneUrl, $dir . '/repo',
+		];
+	}//end cloneArguments()
+
+	/**
+	 * Refuse a cloned tree over the byte or file budget; nothing of it stays.
+	 *
+	 * @param string $dir The workspace directory.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException workspace_quota when the tree is over budget.
+	 */
+	private function assertWithinBudget(string $dir): void {
 		$usage = $this->usage(root: $dir . '/repo');
 		if ($usage['bytes'] > $this->maxBytes() || $usage['files'] > $this->maxFiles()) {
 			$this->removeTree(path: $dir);
 			throw $this->quota();
 		}
-
-		$meta = ['repository' => $repository, 'ref' => $ref, 'createdAt' => $this->time->getTime(), 'lastUsedAt' => $this->time->getTime()];
-		$this->writeMeta(dir: $dir, meta: $meta);
-
-		return $this->summary(runKey: $runKey, dir: $dir, meta: $meta);
-	}//end open()
+	}//end assertWithinBudget()
 
 	/**
 	 * The opaque workspace id for a run key: an HMAC, so the run id is not recoverable.

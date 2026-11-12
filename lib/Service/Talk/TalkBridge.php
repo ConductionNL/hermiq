@@ -284,12 +284,7 @@ class TalkBridge {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkBridge] Could not post the agent answer into the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
 			);
 			return null;
 		}//end try
@@ -320,12 +315,7 @@ class TalkBridge {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkBridge] Could not resolve the room type; treating it as a group room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
 			);
 			return false;
 		}//end try
@@ -355,26 +345,44 @@ class TalkBridge {
 			$participants = $this->container->get('OCA\\Talk\\Service\\ParticipantService')
 				->getParticipantUserIds($room);
 
-			$uids = [];
-			foreach ($participants as $uid) {
-				if (is_string($uid) === true && $uid !== '' && in_array($uid, $uids, true) === false) {
-					$uids[] = $uid;
-				}
-			}
-
-			return $uids;
+			return $this->uniqueUserIds(participants: $participants);
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkBridge] Could not resolve room participants',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
 			);
 			return [];
 		}//end try
 
 	}//end roomUserIds()
+
+	/**
+	 * Each non-empty string uid once, in the order spreed listed them.
+	 *
+	 * @param iterable<mixed> $participants The participant uids as spreed returned them.
+	 *
+	 * @return string[] The uids.
+	 */
+	private function uniqueUserIds(iterable $participants): array {
+		$uids = [];
+		foreach ($participants as $uid) {
+			if (is_string($uid) === true && $uid !== '' && in_array($uid, $uids, true) === false) {
+				$uids[] = $uid;
+			}
+		}
+
+		return $uids;
+	}//end uniqueUserIds()
+
+	/**
+	 * A room call's failure context: where it was logged, the room, then the error.
+	 *
+	 * @param string    $roomToken The Talk room token.
+	 * @param Throwable $error     The failure.
+	 *
+	 * @return array<string, mixed> The context.
+	 */
+	private function roomFailure(string $roomToken, Throwable $error): array {
+		return ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $error->getMessage()];
+	}//end roomFailure()
 }//end class

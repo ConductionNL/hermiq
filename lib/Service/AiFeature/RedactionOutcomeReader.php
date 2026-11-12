@@ -139,26 +139,29 @@ class RedactionOutcomeReader {
 			return $this->unavailable(reason: 'the redaction outcome could not be read from ' . self::REDACTION_APP);
 		}
 
+		return $this->outcomeAmong(objects: $objects, documentReference: $documentReference);
+
+	}//end outcomeFor()
+
+	/**
+	 * The outcome of the first link for the document, or "none recorded".
+	 *
+	 * @param iterable $objects The links read for the document.
+	 * @param string $documentReference The document's Nextcloud file id, as a string.
+	 *
+	 * @return array{available: bool, redacted: bool, status: string, redactedAt: string, reason: string}
+	 */
+	private function outcomeAmong(iterable $objects, string $documentReference): array {
 		foreach ($objects as $object) {
 			if (($object instanceof ObjectEntity) === false) {
 				continue;
 			}
 
 			$data = $object->getObject();
-			if ((string)($data['sourceFileId'] ?? '') !== trim($documentReference)) {
-				continue;
+			if ((string)($data['sourceFileId'] ?? '') === trim($documentReference)) {
+				return $this->linkOutcome(data: $data);
 			}
-
-			$status = strtolower(trim((string)($data['status'] ?? '')));
-
-			return [
-				'available' => true,
-				'redacted' => in_array($status, self::REDACTED_STATUSES, true),
-				'status' => $status,
-				'redactedAt' => (string)($data['anonymizedAt'] ?? ''),
-				'reason' => '',
-			];
-		}//end foreach
+		}
 
 		return [
 			'available' => true,
@@ -167,8 +170,27 @@ class RedactionOutcomeReader {
 			'redactedAt' => '',
 			'reason' => 'no redaction has been recorded for this document',
 		];
+	}//end outcomeAmong()
 
-	}//end outcomeFor()
+	/**
+	 * What one anonymisation link says: its status, and whether that status is a
+	 * redaction.
+	 *
+	 * @param array<string, mixed> $data The link's data.
+	 *
+	 * @return array{available: bool, redacted: bool, status: string, redactedAt: string, reason: string}
+	 */
+	private function linkOutcome(array $data): array {
+		$status = strtolower(trim((string)($data['status'] ?? '')));
+
+		return [
+			'available' => true,
+			'redacted' => in_array($status, self::REDACTED_STATUSES, true),
+			'status' => $status,
+			'redactedAt' => (string)($data['anonymizedAt'] ?? ''),
+			'reason' => '',
+		];
+	}//end linkOutcome()
 
 	/**
 	 * The shape returned when nothing can be said about a document, which is never

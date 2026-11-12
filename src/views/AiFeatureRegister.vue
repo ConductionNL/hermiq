@@ -230,6 +230,7 @@ import {
 	publishAiFeature,
 	withdrawAiFeature,
 } from '../api/aiFeatures.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
 const MANDATORY_ALGORITMEKADER_FIELDS = [
@@ -347,10 +348,7 @@ export default {
 				this.features = features
 				this.residencyRows = residencyRows
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -577,10 +575,7 @@ export default {
 				await withdrawAiFeature(feature.uuid)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -600,10 +595,7 @@ export default {
 				await acknowledgeAiFeature(feature.slug)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -623,10 +615,7 @@ export default {
 				await enableAiFeature(feature.uuid)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -646,10 +635,7 @@ export default {
 				await disableAiFeature(feature.uuid)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}

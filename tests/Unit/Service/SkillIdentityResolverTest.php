@@ -157,6 +157,39 @@ class SkillIdentityResolverTest extends TestCase {
 	}//end testMirrorHostResolvesToTheCanonicalOne()
 
 	/**
+	 * Without a source url only the name fallback runs; a blank name matches nothing;
+	 * the first match in the list wins.
+	 *
+	 * @return void
+	 */
+	public function testTheFallbackOrderAndBlankInputs(): void {
+		$existing = [
+			['id' => 'url', 'name' => 'Lint Code', 'sourceUrl' => self::URL],
+			['id' => 'first', 'name' => ' lint code '],
+			['id' => 'second', 'name' => 'Lint Code', 'sourceUrl' => ''],
+			['id' => 'blank', 'name' => ''],
+		];
+
+		$answers = [
+			$this->resolver->resolve(sourceUrl: '', name: 'LINT CODE', existing: $existing),
+			$this->resolver->resolve(sourceUrl: '', name: '  ', existing: $existing),
+			$this->resolver->resolve(sourceUrl: 'https://elsewhere.example/x', name: 'lint-code', existing: $existing),
+			$this->resolver->resolve(sourceUrl: self::URL, name: '', existing: $existing),
+		];
+
+		self::assertSame(
+			expected: [
+				['first', SkillIdentityResolver::MATCH_NAME_FALLBACK],
+				[null, SkillIdentityResolver::MATCH_NONE],
+				['first', SkillIdentityResolver::MATCH_NAME_FALLBACK],
+				['url', SkillIdentityResolver::MATCH_SOURCE_URL],
+			],
+			actual: array_map(static fn (array $answer): array => [$answer['match']['id'] ?? null, $answer['matchedBy']], $answers)
+		);
+
+	}//end testTheFallbackOrderAndBlankInputs()
+
+	/**
 	 * A genuinely new skill matches nothing.
 	 *
 	 * @return void

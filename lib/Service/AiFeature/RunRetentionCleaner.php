@@ -109,28 +109,45 @@ class RunRetentionCleaner {
 
 		foreach (self::RUN_ACTIONS as $action) {
 			foreach ($this->entriesFor(action: $action) as $entry) {
-				if ($this->isExpired(entry: $entry, at: $at) === false) {
-					continue;
-				}
-
-				$entry->setChanged($this->tombstone(changed: (array)$entry->getChanged(), at: $at));
-
-				try {
-					$this->auditTrailMapper->update($entry);
+				if ($this->tombstoneIfExpired(entry: $entry, at: $at) === true) {
 					$removed++;
-				} catch (Throwable $e) {
-					$this->logger->warning(
-						'Hermiq could not tombstone an expired run entry: ' . $e->getMessage(),
-						['exception' => $e, 'entry' => (string)$entry->getUuid()]
-					);
 				}
-			}//end foreach
-		}//end foreach
+			}
+		}
 
 		$this->policy->recordCleanup(removed: $removed, at: $at);
 
 		return $removed;
 	}//end clean()
+
+	/**
+	 * Tombstone one entry when its retention has expired, logging a failed update.
+	 *
+	 * @param AuditTrail        $entry The run entry.
+	 * @param DateTimeImmutable $at    The moment of the cleanup.
+	 *
+	 * @return bool True when the entry was tombstoned and stored.
+	 *
+	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
+	 */
+	private function tombstoneIfExpired(AuditTrail $entry, DateTimeImmutable $at): bool {
+		if ($this->isExpired(entry: $entry, at: $at) === false) {
+			return false;
+		}
+
+		$entry->setChanged($this->tombstone(changed: (array)$entry->getChanged(), at: $at));
+
+		try {
+			$this->auditTrailMapper->update($entry);
+			return true;
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not tombstone an expired run entry: ' . $e->getMessage(),
+				['exception' => $e, 'entry' => (string)$entry->getUuid()]
+			);
+			return false;
+		}
+	}//end tombstoneIfExpired()
 
 	/**
 	 * Build the tombstone that replaces a run's payload: what happened, when, under

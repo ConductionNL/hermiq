@@ -62,6 +62,7 @@
 <script>
 import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { getAnalytics, listLowRatings } from '../api/analytics.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AgentRatingsWidget',
@@ -148,10 +149,7 @@ export default {
 				this.feedback = metrics?.feedback || this.feedback
 				this.lowRatings = lowRatings
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}

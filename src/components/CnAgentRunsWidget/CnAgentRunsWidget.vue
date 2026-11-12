@@ -161,6 +161,19 @@ function refusalSentence(reason) {
 	}
 }
 
+/**
+ * Whether an audit-trail entry records an agent run.
+ *
+ * @param {object} e The audit-trail entry.
+ * @return {boolean} True for an agent run.
+ * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+ */
+function isAgentRunEntry(e) {
+	return e.action === 'agent-run'
+		|| (e?.context?.status !== undefined
+			&& e?.action === 'agent-run')
+}
+
 export default {
 	name: 'CnAgentRunsWidget',
 	components: { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect },
@@ -275,9 +288,7 @@ export default {
 						id: this.objectId,
 					},
 				)
-				const res = await fetch(url, {
-					headers: { requesttoken: getRequestToken() },
-				})
+				const res = await this.getWithToken(url)
 				this.summaryStatus = res.ok ? await res.json() : null
 			} catch {
 				this.summaryStatus = null
@@ -296,20 +307,8 @@ export default {
 			this.summaryWriting = true
 			this.summaryError = ''
 			try {
-				const res = await fetch(
+				const res = await this.postObjectRef(
 					generateUrl('/apps/hermiq/api/assistant/summarise'),
-					{
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							requesttoken: getRequestToken(),
-						},
-						body: JSON.stringify({
-							register: this.register,
-							schema: this.schema,
-							objectId: this.objectId,
-						}),
-					},
 				)
 				const body = await res.json().catch(() => ({}))
 				if (res.ok) {
@@ -342,9 +341,7 @@ export default {
 			}
 			this.loadingAgents = true
 			try {
-				const res = await fetch(generateUrl('/apps/hermiq/api/agents'), {
-					headers: { requesttoken: getRequestToken() },
-				})
+				const res = await this.getWithToken(generateUrl('/apps/hermiq/api/agents'))
 				if (!res.ok) {
 					return
 				}
@@ -379,23 +376,14 @@ export default {
 						id: this.objectId,
 					},
 				)
-				const res = await fetch(url, {
-					headers: { requesttoken: getRequestToken() },
-				})
+				const res = await this.getWithToken(url)
 				if (!res.ok) {
 					this.runs = []
 					return
 				}
 				const body = await res.json()
 				const entries = Array.isArray(body) ? body : body?.results || []
-				this.runs = entries
-					.filter(
-						(e) =>
-							e.action === 'agent-run'
-							|| (e?.context?.status !== undefined
-								&& e?.action === 'agent-run'),
-					)
-					.map((e) => this.toRun(e))
+				this.runs = entries.filter(isAgentRunEntry).map((e) => this.toRun(e))
 			} catch {
 				this.runs = []
 			} finally {
@@ -426,44 +414,85 @@ export default {
 			this.dispatching = true
 			this.notice = ''
 			try {
-				const url = generateUrl(
-					'/apps/hermiq/api/agents/{id}/run-on-object',
-					{ id: this.selectedAgent.id },
+				const res = await this.postObjectRef(
+					generateUrl('/apps/hermiq/api/agents/{id}/run-on-object', { id: this.selectedAgent.id }),
 				)
-				const res = await fetch(url, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						requesttoken: getRequestToken(),
-					},
-					body: JSON.stringify({
-						register: this.register,
-						schema: this.schema,
-						objectId: this.objectId,
-					}),
-				})
 				const body = await res.json().catch(() => ({}))
-				if (res.status === 202) {
-					this.noticeType = 'success'
-					this.notice = t(
-						'hermiq',
-						'Run queued. It will appear in the history shortly.',
-					)
-					await this.loadHistory()
-				} else if (res.status === 404) {
-					this.noticeType = 'error'
-					this.notice = t('hermiq', 'Object or agent not found.')
-				} else {
-					this.noticeType = 'error'
-					this.notice =
-						body?.error || t('hermiq', 'Could not start the run.')
-				}
+				await this.showRunOutcome(res.status, body)
 			} catch {
-				this.noticeType = 'error'
-				this.notice = t('hermiq', 'The agent service is unreachable.')
+				this.showNotice('error', t('hermiq', 'The agent service is unreachable.'))
 			} finally {
 				this.dispatching = false
 			}
+		},
+
+		/**
+		 * Show what became of a run request; a queued run reloads the history.
+		 *
+		 * @param {number} status The response status.
+		 * @param {object} body The response body.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		async showRunOutcome(status, body) {
+			if (status === 202) {
+				this.showNotice('success', t('hermiq', 'Run queued. It will appear in the history shortly.'))
+				await this.loadHistory()
+				return
+			}
+			if (status === 404) {
+				this.showNotice('error', t('hermiq', 'Object or agent not found.'))
+				return
+			}
+			this.showNotice('error', body?.error || t('hermiq', 'Could not start the run.'))
+		},
+
+		/**
+		 * Show a notice.
+		 *
+		 * @param {string} type The notice type (success|error).
+		 * @param {string} text The translated text.
+		 * @return {void}
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		showNotice(type, text) {
+			this.noticeType = type
+			this.notice = text
+		},
+
+		/**
+		 * GET a Hermiq or OpenRegister endpoint with the request token.
+		 *
+		 * @param {string} url The generated URL.
+		 * @return {Promise<Response>} The response.
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		getWithToken(url) {
+			return fetch(url, {
+				headers: { requesttoken: getRequestToken() },
+			})
+		},
+
+		/**
+		 * POST this object's reference (register, schema, object id) as JSON.
+		 *
+		 * @param {string} url The generated URL.
+		 * @return {Promise<Response>} The response.
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
+		postObjectRef(url) {
+			return fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					requesttoken: getRequestToken(),
+				},
+				body: JSON.stringify({
+					register: this.register,
+					schema: this.schema,
+					objectId: this.objectId,
+				}),
+			})
 		},
 	},
 }

@@ -76,6 +76,7 @@ import {
 } from '@nextcloud/vue'
 import AlertOctagon from 'vue-material-design-icons/AlertOctagon.vue'
 import { getKillSwitch, toggleKillSwitch } from '../api/approvals.js'
+import { errorMessage } from '../utils/errorMessage.js'
 import { organisationPicker } from '../utils/organisationPicker.js'
 
 export default {
@@ -135,10 +136,7 @@ export default {
 				this.engaged = state?.engaged === true
 				this.reason = state?.reason || ''
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -162,10 +160,7 @@ export default {
 				this.engaged = state?.engaged === true
 				this.reason = state?.reason || ''
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 				// Reflect the server's actual state on failure.
 				await this.load()
 			} finally {

@@ -36,6 +36,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use Closure;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 use OCP\Security\ISecureRandom;
@@ -153,42 +154,38 @@ class TalkBotInstaller {
 			return false;
 		}
 
-		try {
-			$eventClass = self::INSTALL_EVENT;
-
-			$event = new $eventClass(
-				TalkBridge::BOT_NAME,
-				$this->secret(),
-				TalkBridge::BOT_URL,
-				'Converse with a Hermiq agent from this conversation.',
-				self::FEATURES
-			);
-
-			$this->dispatcher->dispatchTyped($event);
-
-			$this->logger->info(
-				message: '[TalkBotInstaller] Hermiq Talk bot installed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'url' => TalkBridge::BOT_URL,
-				]
-			);
-
-			return true;
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[TalkBotInstaller] Could not install the Hermiq Talk bot',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-			return false;
-		}//end try
+		return $this->attempt(
+			action: $this->installShared(...),
+			failure: new BotFailure(message: '[TalkBotInstaller] Could not install the Hermiq Talk bot')
+		);
 
 	}//end install()
+
+	/**
+	 * Dispatch the shared bot's install event and log it.
+	 *
+	 * @return void
+	 *
+	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
+	 */
+	private function installShared(): void {
+		$eventClass = self::INSTALL_EVENT;
+
+		$event = new $eventClass(
+			TalkBridge::BOT_NAME,
+			$this->secret(),
+			TalkBridge::BOT_URL,
+			'Converse with a Hermiq agent from this conversation.',
+			self::FEATURES
+		);
+
+		$this->dispatcher->dispatchTyped($event);
+
+		$this->logger->info(
+			message: '[TalkBotInstaller] Hermiq Talk bot installed',
+			context: ['file' => __FILE__, 'line' => __LINE__, 'url' => TalkBridge::BOT_URL]
+		);
+	}//end installShared()
 
 	/**
 	 * Remove the bot, stopping all inbound dispatch.
@@ -204,33 +201,33 @@ class TalkBotInstaller {
 			return false;
 		}
 
-		try {
-			$eventClass = self::UNINSTALL_EVENT;
-
-			// 🔴 (secret, url) — NOT (url, secret). BotUninstallEvent takes the
-			// secret FIRST, and this call had the two swapped since it was
-			// written, so it never uninstalled anything: spreed looked up
-			// url_hash=sha1(secret) AND secret=url, missed, threw
-			// DoesNotExistException — and its handler swallows that silently.
-			// A no-op that reports success. Verified live against spreed 24.0.1.
-			$event = new $eventClass($this->secret(), TalkBridge::BOT_URL);
-
-			$this->dispatcher->dispatchTyped($event);
-
-			return true;
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[TalkBotInstaller] Could not remove the Hermiq Talk bot',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
-			);
-			return false;
-		}//end try
+		return $this->attempt(
+			action: $this->uninstallShared(...),
+			failure: new BotFailure(message: '[TalkBotInstaller] Could not remove the Hermiq Talk bot')
+		);
 
 	}//end uninstall()
+
+	/**
+	 * Dispatch the shared bot's uninstall event.
+	 *
+	 * @return void
+	 *
+	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
+	 */
+	private function uninstallShared(): void {
+		$eventClass = self::UNINSTALL_EVENT;
+
+		// 🔴 (secret, url) — NOT (url, secret). BotUninstallEvent takes the
+		// secret FIRST, and this call had the two swapped since it was
+		// written, so it never uninstalled anything: spreed looked up
+		// url_hash=sha1(secret) AND secret=url, missed, threw
+		// DoesNotExistException — and its handler swallows that silently.
+		// A no-op that reports success. Verified live against spreed 24.0.1.
+		$event = new $eventClass($this->secret(), TalkBridge::BOT_URL);
+
+		$this->dispatcher->dispatchTyped($event);
+	}//end uninstallShared()
 
 	/**
 	 * Install or rename the bot that carries ONE agent's identity in Talk.
@@ -268,42 +265,48 @@ class TalkBotInstaller {
 			return false;
 		}
 
-		// Talk stores the name in a 64-char column, and an empty name would
-		// leave the agent rendering as its raw actor id.
+		$name = $this->botName(agentName: $agentName);
+
+		$failure = new BotFailure(message: '[TalkBotInstaller] Could not install or rename the agent bot');
+		$failure->context = ['agentId' => $agentId];
+
+		return $this->attempt(
+			action: function () use ($agentId, $name): void {
+				$eventClass = self::INSTALL_EVENT;
+				$this->dispatcher->dispatchTyped(
+					new $eventClass(
+						$name,
+						$this->secretForAgent(agentId: $agentId),
+						TalkBridge::botUrlFor(agentId: $agentId),
+						'Converse with this Hermiq agent from this conversation.',
+						self::FEATURES
+					)
+				);
+			},
+			failure: $failure
+		);
+
+	}//end installForAgent()
+
+	/**
+	 * The name an agent's bot shows in Talk: the trimmed agent name, Hermiq when
+	 * that is empty, at most 64 characters.
+	 *
+	 * Talk stores the name in a 64-char column, and an empty name would leave the
+	 * agent rendering as its raw actor id.
+	 *
+	 * @param string $agentName The agent's display name.
+	 *
+	 * @return string The bot name.
+	 */
+	private function botName(string $agentName): string {
 		$name = trim($agentName);
 		if ($name === '') {
 			$name = TalkBridge::BOT_NAME;
 		}
 
-		$name = mb_substr($name, 0, 64);
-
-		try {
-			$eventClass = self::INSTALL_EVENT;
-			$this->dispatcher->dispatchTyped(
-				new $eventClass(
-					$name,
-					$this->secretForAgent(agentId: $agentId),
-					TalkBridge::botUrlFor(agentId: $agentId),
-					'Converse with this Hermiq agent from this conversation.',
-					self::FEATURES
-				)
-			);
-
-			return true;
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[TalkBotInstaller] Could not install or rename the agent bot',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'agentId' => $agentId,
-					'error' => $e->getMessage(),
-				]
-			);
-			return false;
-		}//end try
-
-	}//end installForAgent()
+		return mb_substr($name, 0, 64);
+	}//end botName()
 
 	/**
 	 * Remove one agent's bot, stopping all inbound dispatch for it.
@@ -329,27 +332,20 @@ class TalkBotInstaller {
 			return false;
 		}
 
-		try {
-			$eventClass = self::UNINSTALL_EVENT;
-			$this->dispatcher->dispatchTyped(
-				// (secret, url) — see uninstall() for why this order is not the
-				// one it looks like it should be.
-				new $eventClass($this->secretForAgent(agentId: $agentId), TalkBridge::botUrlFor(agentId: $agentId))
-			);
+		$failure = new BotFailure(message: '[TalkBotInstaller] Could not remove the agent bot');
+		$failure->context = ['agentId' => $agentId];
 
-			return true;
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[TalkBotInstaller] Could not remove the agent bot',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'agentId' => $agentId,
-					'error' => $e->getMessage(),
-				]
-			);
-			return false;
-		}//end try
+		return $this->attempt(
+			action: function () use ($agentId): void {
+				$eventClass = self::UNINSTALL_EVENT;
+				$this->dispatcher->dispatchTyped(
+					// (secret, url) — see uninstall() for why this order is not the
+					// one it looks like it should be.
+					new $eventClass($this->secretForAgent(agentId: $agentId), TalkBridge::botUrlFor(agentId: $agentId))
+				);
+			},
+			failure: $failure
+		);
 
 	}//end uninstallForAgent()
 
@@ -386,42 +382,89 @@ class TalkBotInstaller {
 			return false;
 		}
 
-		try {
-			$botMapper = $this->container->get(self::BOT_SERVER_MAPPER);
-			$conversationMapper = $this->container->get(self::BOT_CONVERSATION_MAPPER);
+		$failure = new BotFailure(message: '[TalkBotInstaller] Could not enable the agent bot in the room');
+		$failure->context = ['agentId' => $agentId, 'roomToken' => $roomToken];
 
-			$bot = $botMapper->findByUrl(TalkBridge::botUrlFor(agentId: $agentId));
-			$botId = (int)$bot->getId();
+		return $this->attempt(
+			action: function () use ($agentId, $roomToken): void {
+				$this->enable(agentId: $agentId, roomToken: $roomToken);
+			},
+			failure: $failure
+		);
 
-			foreach ($conversationMapper->findForToken($roomToken) as $enabled) {
-				if ((int)$enabled->getBotId() === $botId) {
-					return true;
-				}
+	}//end enableInRoom()
+
+	/**
+	 * Write the bot's enabled row for the room, unless the bot is already enabled there.
+	 *
+	 * @param string $agentId The agent whose bot to enable.
+	 * @param string $roomToken The room to enable it in.
+	 *
+	 * @return void
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) See installForAgent().
+	 */
+	private function enable(string $agentId, string $roomToken): void {
+		$botMapper = $this->container->get(self::BOT_SERVER_MAPPER);
+		$conversationMapper = $this->container->get(self::BOT_CONVERSATION_MAPPER);
+
+		$bot = $botMapper->findByUrl(TalkBridge::botUrlFor(agentId: $agentId));
+		$botId = (int)$bot->getId();
+
+		foreach ($conversationMapper->findForToken($roomToken) as $enabled) {
+			if ((int)$enabled->getBotId() === $botId) {
+				return;
 			}
+		}
 
-			$conversationClass = self::BOT_CONVERSATION;
-			$row = new $conversationClass();
-			$row->setBotId($botId);
-			$row->setToken($roomToken);
-			$row->setState(self::BOT_STATE_ENABLED);
-			$conversationMapper->insert($row);
+		$conversationMapper->insert($this->enabledRow(botId: $botId, roomToken: $roomToken));
+	}//end enable()
+
+	/**
+	 * A new bot-conversation row: this bot, this room, enabled.
+	 *
+	 * @param int    $botId     The bot's id.
+	 * @param string $roomToken The room.
+	 *
+	 * @return object The row.
+	 *
+	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
+	 */
+	private function enabledRow(int $botId, string $roomToken): object {
+		$conversationClass = self::BOT_CONVERSATION;
+		$row = new $conversationClass();
+		$row->setBotId($botId);
+		$row->setToken($roomToken);
+		$row->setState(self::BOT_STATE_ENABLED);
+
+		return $row;
+	}//end enabledRow()
+
+	/**
+	 * Run one spreed call: true when it completes, false with a warning when it throws.
+	 *
+	 * @param Closure    $action  The call.
+	 * @param BotFailure $failure What to log when it throws.
+	 *
+	 * @return bool True when the call completed.
+	 */
+	private function attempt(Closure $action, BotFailure $failure): bool {
+		try {
+			$action();
 
 			return true;
 		} catch (Throwable $e) {
 			$this->logger->warning(
-				message: '[TalkBotInstaller] Could not enable the agent bot in the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'agentId' => $agentId,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				message: $failure->message,
+				context: array_merge(
+					['file' => __FILE__, 'line' => __LINE__],
+					$failure->context,
+					['error' => $e->getMessage()]
+				)
 			);
 			return false;
-		}//end try
-
-	}//end enableInRoom()
+		}
+	}//end attempt()
 
 	/**
 	 * The per-agent bot secret: unique to the agent, stable for its lifetime.

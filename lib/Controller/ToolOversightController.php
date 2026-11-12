@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\ToolAccessDecision;
 use OCA\Hermiq\Service\ToolInvocationRows;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
 use OCA\OpenRegister\Db\AuditTrail;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
@@ -108,18 +109,9 @@ class ToolOversightController extends Controller {
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
 	 */
 	public function toolCatalog(string $agentId): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$agent = $this->services->agents->find(agentId: $agentId);
-		if ($agent === null) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-		}
-
-		if ($this->services->agents->canAccess(agent: $agent, userId: $user->getUID()) === false) {
-			return new JSONResponse(['error' => 'Access denied to this agent'], Http::STATUS_FORBIDDEN);
+		$agent = $this->viewableAgent(agentId: $agentId);
+		if ($agent instanceof JSONResponse) {
+			return $agent;
 		}
 
 		try {
@@ -168,42 +160,77 @@ class ToolOversightController extends Controller {
 		// An EMPTY uid never owns anything, even an agent whose stored owner is
 		// also empty: otherwise the two compare equal and an unowned agent
 		// becomes everyone's.
-		$notYours = new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
 		if ($agent === null || $user->getUID() === '' || $agent->getOwner() !== $user->getUID()) {
-			return $notYours;
+			return $this->requestNotFound();
 		}
 
-		$decision = (string)$this->request->getParam('decision', '');
-		if (in_array($decision, ['granted', 'refused'], true) === false) {
+		$resolution = new ToolAccessResolution(agentId: $agentId, requestId: $requestId, agent: $agent, decidedBy: $user->getUID());
+		$refusal = $this->decisionRefusal(resolution: $resolution);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		return $this->writeDecision(resolution: $resolution);
+
+	}//end resolveToolAccessRequest()
+
+	/**
+	 * Read the decision and the stored request onto the resolution, or the refusal:
+	 * 400 for an unknown decision, the shared 404 for no such request, 409 when the
+	 * request is no longer the one the owner was shown.
+	 *
+	 * @param ToolAccessResolution $resolution The resolution, past the owner check.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function decisionRefusal(ToolAccessResolution $resolution): ?JSONResponse {
+		$resolution->decision = (string)$this->request->getParam('decision', '');
+		if (in_array($resolution->decision, ['granted', 'refused'], true) === false) {
 			return new JSONResponse(['error' => "decision must be 'granted' or 'refused'"], Http::STATUS_BAD_REQUEST);
 		}
 
-		$data = $this->services->grants->findAccessRequest(requestId: $requestId, agentId: $agentId);
+		$data = $this->services->grants->findAccessRequest(requestId: $resolution->requestId, agentId: $resolution->agentId);
 		if ($data === null) {
-			return $notYours;
+			return $this->requestNotFound();
 		}
 
-		$toolId = (string)($data['toolId'] ?? '');
+		$resolution->data = $data;
 		$conflict = (new ToolAccessDecision())->conflict(stored: $data, shownToolId: (string)$this->request->getParam('toolId', ''));
 		if ($conflict !== null) {
 			return new JSONResponse(['error' => $conflict], Http::STATUS_CONFLICT);
 		}
 
-		// From here the method WRITES. Every call below reaches storage or the
-		// notification bus, and an escaping Throwable would leave the caller an
-		// HTML error page in place of the JSON its client parses — so the write
-		// half is translated, while the guards above deliberately are not.
+		return null;
+	}//end decisionRefusal()
+
+	/**
+	 * Write the decision: grant the requested tool (when granted) and record the
+	 * decided request.
+	 *
+	 * From here the resolution WRITES. Every call below reaches storage or the
+	 * notification bus, and an escaping Throwable would leave the caller an HTML
+	 * error page in place of the JSON its client parses — so the write half is
+	 * translated, while the guards before it deliberately are not.
+	 *
+	 * @param ToolAccessResolution $resolution The resolution, past every guard.
+	 *
+	 * @return JSONResponse
+	 */
+	private function writeDecision(ToolAccessResolution $resolution): JSONResponse {
+		$data = $resolution->data;
+		$toolId = (string)($data['toolId'] ?? '');
+
 		try {
-			$data['status'] = $decision;
-			$data['decidedBy'] = $user->getUID();
+			$data['status'] = $resolution->decision;
+			$data['decidedBy'] = $resolution->decidedBy;
 			$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
 
-			$this->services->grants->grantRequestedTool(agent: $agent, data: $data);
-			$this->services->grants->saveDecision(data: $data, requestId: $requestId);
+			$this->services->grants->grantRequestedTool(agent: $resolution->agent, data: $data);
+			$this->services->grants->saveDecision(data: $data, requestId: $resolution->requestId);
 		} catch (Throwable $e) {
 			$this->logger->error(
 				'Hermiq tool-access request resolution failed: ' . $e->getMessage(),
-				['exception' => $e, 'agentId' => $agentId, 'requestId' => $requestId]
+				['exception' => $e, 'agentId' => $resolution->agentId, 'requestId' => $resolution->requestId]
 			);
 			return new JSONResponse(
 				['error' => 'Could not resolve the tool-access request'],
@@ -211,9 +238,17 @@ class ToolOversightController extends Controller {
 			);
 		}//end try
 
-		return new JSONResponse(['status' => $decision, 'toolId' => $toolId, 'agentId' => $agentId]);
+		return new JSONResponse(['status' => $resolution->decision, 'toolId' => $toolId, 'agentId' => $resolution->agentId]);
+	}//end writeDecision()
 
-	}//end resolveToolAccessRequest()
+	/**
+	 * The one refusal for "no such agent", "not yours" and "no such request".
+	 *
+	 * @return JSONResponse
+	 */
+	private function requestNotFound(): JSONResponse {
+		return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+	}//end requestNotFound()
 
 	/**
 	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
@@ -231,17 +266,65 @@ class ToolOversightController extends Controller {
 	 * @NoAdminRequired
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
+	 */
+	public function updateToolGrants(string $agentId): JSONResponse {
+		$agent = $this->modifiableAgent(agentId: $agentId);
+		if ($agent instanceof JSONResponse) {
+			return $agent;
+		}
+
+		$rawGrants = $this->request->getParam('grants');
+		if (is_array($rawGrants) === false) {
+			return new JSONResponse(['error' => 'grants must be an array or a grant structure'], Http::STATUS_BAD_REQUEST);
+		}
+
+		return $this->saveGrants(
+			agent: $agent,
+			update: new ToolGrantUpdate(agentId: $agentId, grants: $this->services->grants->storableGrants(rawGrants: $rawGrants))
+		);
+
+	}//end updateToolGrants()
+
+	/**
+	 * Write the agent's new grants, translating a scope mismatch to 404 and any other
+	 * failure to 500.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, 404,
-	 *   owner-only IDOR check, grants-shape validation, per-entry string filter)
-	 *   each add a branch on one linear write path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   early-return guards multiply paths without nested logic.
+	 * @param ObjectEntity $agent The agent, owned by the caller.
+	 * @param ToolGrantUpdate $update The agent in the path and its storable grants.
+	 *
+	 * @return JSONResponse
+	 */
+	private function saveGrants(ObjectEntity $agent, ToolGrantUpdate $update): JSONResponse {
+		try {
+			$savedTools = $this->services->grants->saveAgent(
+				payload: $this->services->grants->grantWritePayload(agent: $agent, grants: $update->grants),
+				agentId: $update->agentId
+			);
+
+			return new JSONResponse(['agentId' => $update->agentId, 'tools' => $savedTools]);
+		} catch (DoesNotExistException $e) {
+			// ObjectService::saveObject() re-throws DoesNotExistException on a
+			// tenant/scope mismatch — translate to 404 (never a raw 500 on the
+			// defended path; gate-49 / opencatalogi#86 lesson).
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq tool-grants update failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not update tool grants'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
+	}//end saveGrants()
+
+	/**
+	 * The agent when the signed-in user owns it, otherwise the refusal: 401 with no
+	 * user, 404 for no such agent, 403 when it is not theirs to modify.
+	 *
+	 * @param string $agentId Agent UUID.
+	 *
+	 * @return ObjectEntity|JSONResponse
 	 *
 	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getUID() as
 	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.
 	 */
-	public function updateToolGrants(string $agentId): JSONResponse {
+	private function modifiableAgent(string $agentId): ObjectEntity|JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
@@ -261,31 +344,8 @@ class ToolOversightController extends Controller {
 			);
 		}
 
-		$rawGrants = $this->request->getParam('grants');
-		if (is_array($rawGrants) === false) {
-			return new JSONResponse(['error' => 'grants must be an array or a grant structure'], Http::STATUS_BAD_REQUEST);
-		}
-
-		$grants = $this->services->grants->storableGrants(rawGrants: $rawGrants);
-
-		try {
-			$savedTools = $this->services->grants->saveAgent(
-				payload: $this->services->grants->grantWritePayload(agent: $agent, grants: $grants),
-				agentId: $agentId
-			);
-
-			return new JSONResponse(['agentId' => $agentId, 'tools' => $savedTools]);
-		} catch (DoesNotExistException $e) {
-			// ObjectService::saveObject() re-throws DoesNotExistException on a
-			// tenant/scope mismatch — translate to 404 (never a raw 500 on the
-			// defended path; gate-49 / opencatalogi#86 lesson).
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-		} catch (Throwable $e) {
-			$this->logger->error('Hermiq tool-grants update failed: ' . $e->getMessage(), ['exception' => $e]);
-			return new JSONResponse(['error' => 'Could not update tool grants'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
-
-	}//end updateToolGrants()
+		return $agent;
+	}//end modifiableAgent()
 
 	/**
 	 * The per-agent oversight read (EU AI Act art.12/14): recorded tool
@@ -305,6 +365,72 @@ class ToolOversightController extends Controller {
 	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
 	 */
 	public function toolInvocations(string $agentId, string $format = 'json', string $from = '', string $to = ''): JSONResponse|DataDownloadResponse {
+		$agent = $this->viewableAgent(agentId: $agentId);
+		if ($agent instanceof JSONResponse) {
+			return $agent;
+		}
+
+		$export = new ToolInvocationExport(agentId: $agentId, format: $format, from: $from, to: $to);
+
+		try {
+			$payload = $this->invocationsPayload(agent: $agent, export: $export);
+
+			if ($export->format === 'csv') {
+				return new DataDownloadResponse(
+					data: $this->services->invocations->toCsv(rows: $payload['rows']),
+					filename: 'hermiq-tool-invocations-' . $agentId . '.csv',
+					contentType: 'text/csv'
+				);
+			}
+
+			return new JSONResponse($payload);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq tool-invocations read failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load tool invocations'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
+
+	}//end toolInvocations()
+
+	/**
+	 * The oversight payload: the rich MCP-invocation audit when this OpenRegister
+	 * records it, otherwise the run audit log, over the requested window.
+	 *
+	 * @param ObjectEntity $agent The agent, visible to the caller.
+	 * @param ToolInvocationExport $export The request.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function invocationsPayload(ObjectEntity $agent, ToolInvocationExport $export): array {
+		$available = $this->richAuditAvailable();
+		$ownerUids = $this->services->invocations->correlatedOwnerUids(agentId: $export->agentId, agent: $agent);
+
+		$window = (new ToolInvocationRows())->window(from: $export->from, to: $export->to);
+
+		$source = 'run-audit-log';
+		$rows = $this->services->invocations->degradedRows(agentId: $export->agentId, window: $window);
+		if ($available === true) {
+			$source = 'or-mcp-invocation-audit';
+			$rows = $this->services->invocations->richRows(ownerUids: $ownerUids, window: $window);
+		}
+
+		return [
+			'agentId' => $export->agentId,
+			'available' => $available,
+			'source' => $source,
+			'retention' => "Retention follows OpenRegister's AuditTrail policy.",
+			'rows' => $rows,
+		];
+	}//end invocationsPayload()
+
+	/**
+	 * The agent when the signed-in user may see it, otherwise the refusal: 401 with no
+	 * user, 404 for no such agent, 403 when the agent is not theirs to see.
+	 *
+	 * @param string $agentId Agent UUID.
+	 *
+	 * @return ObjectEntity|JSONResponse
+	 */
+	private function viewableAgent(string $agentId): ObjectEntity|JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
@@ -319,42 +445,8 @@ class ToolOversightController extends Controller {
 			return new JSONResponse(['error' => 'Access denied to this agent'], Http::STATUS_FORBIDDEN);
 		}
 
-		try {
-			$available = $this->richAuditAvailable();
-			$ownerUids = $this->services->invocations->correlatedOwnerUids(agentId: $agentId, agent: $agent);
-
-			$window = (new ToolInvocationRows())->window(from: $from, to: $to);
-
-			$source = 'run-audit-log';
-			$rows = $this->services->invocations->degradedRows(agentId: $agentId, window: $window);
-			if ($available === true) {
-				$source = 'or-mcp-invocation-audit';
-				$rows = $this->services->invocations->richRows(ownerUids: $ownerUids, window: $window);
-			}
-
-			$payload = [
-				'agentId' => $agentId,
-				'available' => $available,
-				'source' => $source,
-				'retention' => "Retention follows OpenRegister's AuditTrail policy.",
-				'rows' => $rows,
-			];
-
-			if ($format === 'csv') {
-				return new DataDownloadResponse(
-					data: $this->services->invocations->toCsv(rows: $rows),
-					filename: 'hermiq-tool-invocations-' . $agentId . '.csv',
-					contentType: 'text/csv'
-				);
-			}
-
-			return new JSONResponse($payload);
-		} catch (Throwable $e) {
-			$this->logger->error('Hermiq tool-invocations read failed: ' . $e->getMessage(), ['exception' => $e]);
-			return new JSONResponse(['error' => 'Could not load tool invocations'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
-
-	}//end toolInvocations()
+		return $agent;
+	}//end viewableAgent()
 
 	/**
 	 * Whether OpenRegister's richer per-invocation MCP audit shape

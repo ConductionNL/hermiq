@@ -99,7 +99,7 @@
   },
   "src/modals/LlmProviderModal.vue": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 3
+      "count": 2
     }
   },
   "src/modals/ScheduleFormModal.vue": {
@@ -110,9 +110,6 @@
   "src/modals/ScheduleWebhookSecretDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/modals/SkillDraftEditModal.vue": {
@@ -164,7 +161,7 @@
       "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 3
+      "count": 2
     },
     "vue/no-useless-v-bind": {
       "count": 1
@@ -172,9 +169,6 @@
   },
   "src/modals/WebhookSecretDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },

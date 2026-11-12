@@ -109,7 +109,6 @@ use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
@@ -153,8 +152,8 @@ use Throwable;
  *   class's lines, `TOOL_DESCRIPTORS` alone is ~346 — a declarative table of tool
  *   metadata (id, reach, description, inputSchema, hints) with no control flow in it
  *   at all. The rule is counting a data literal. The table is deliberately adjacent to
- *   the `invokeTool()` switch that dispatches it, because a descriptor whose id no
- *   longer matches a case is a tool that advertises itself and then fails to run;
+ *   the `invokeTool()` lookups that dispatch it, because a descriptor whose id no
+ *   longer matches a handler is a tool that advertises itself and then fails to run;
  *   keeping the two in one file is what makes that mismatch visible in review.
  */
 class HermiqToolProvider implements IMcpToolProvider {
@@ -784,10 +783,6 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed> The JSON-encodable result.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) A single dispatch switch over the tool
-	 *   catalogue — the branch count tracks the number of registered tools, not incidental
-	 *   complexity; each case delegates to its own single-responsibility handler.
-	 *
 	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-7
 	 */
 	public function invokeTool(string $toolId, array $arguments): array {
@@ -796,96 +791,165 @@ class HermiqToolProvider implements IMcpToolProvider {
 			return $this->error(code: 'unauthenticated', message: 'No authenticated user.');
 		}
 
-		$uid = $user->getUID();
-		// Run-injected by FacadeToolInvoker for the tools whose ADR-088 mark
-		// records an authoring agent; never a value the LLM supplies for itself.
-		$agentId = (string)($arguments['agentId'] ?? '');
+		$call = new NativeToolCall(user: $user, arguments: $arguments);
 
-		$routed = $this->routed(toolId: $toolId, uid: $uid, arguments: $arguments);
-		if ($routed !== null) {
-			return $routed;
-		}
+		return $this->routed(toolId: $toolId, uid: $call->uid, arguments: $arguments)
+			?? $this->runNative(toolId: $toolId, call: $call);
+	}//end invokeTool()
 
+	/**
+	 * Run one of this class's own tools; a failure becomes the `tool_failed` envelope.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed> The tool's result, or an error envelope.
+	 */
+	private function runNative(string $toolId, NativeToolCall $call): array {
 		try {
-			switch ($toolId) {
-				case Application::APP_ID . '.listFiles':
-					return $this->listFiles(uid: $uid, path: (string)($arguments['path'] ?? ''));
-				case Application::APP_ID . '.readFile':
-					return $this->readFile(uid: $uid, path: (string)($arguments['path'] ?? ''));
-				case Application::APP_ID . '.searchContacts':
-					return $this->searchContacts(query: (string)($arguments['query'] ?? ''));
-				case Application::APP_ID . '.listCalendarEvents':
-					return $this->listCalendarEvents(uid: $uid, days: (int)($arguments['days'] ?? 7));
-				case Application::APP_ID . '.sendMail':
-					return $this->sendMail(user: $user, arguments: $arguments);
-				case Application::APP_ID . '.listDeckBoards':
-					return $this->listDeckBoards();
-				case Application::APP_ID . '.createCalendarEvent':
-					return $this->writeService->createCalendarEvent(uid: $uid, arguments: $arguments, agentId: $agentId);
-				case Application::APP_ID . '.upsertContact':
-					return $this->writeService->upsertContact(uid: $uid, arguments: $arguments, agentId: $agentId);
-				case Application::APP_ID . '.listNotes':
-					return $this->writeService->listNotes(uid: $uid);
-				case Application::APP_ID . '.createNote':
-					// No agentId: a note is marked with a system tag, which cannot
-					// carry per-agent data — attribution lives in the run trace.
-					return $this->writeService->createNote(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.updateNote':
-					return $this->writeService->updateNote(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.listMailAccounts':
-					return $this->mailReadService->listAccounts(uid: $uid);
-				case Application::APP_ID . '.listMailMessages':
-					return $this->mailReadService->listMessages(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.readMailMessage':
-					return $this->mailReadService->readMessage(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.recommendCourses':
-					return $this->courseEngine->getOrRegenerate(learnerUid: $uid);
-				case Application::APP_ID . '.rememberMemory':
-					return $this->rememberMemory(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.recallMemory':
-					return $this->recallMemory(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.forgetMemory':
-					return $this->forgetMemory(uid: $uid, arguments: $arguments);
-				case Application::APP_ID . '.webSearch':
-					return $this->webSearch(uid: $uid, query: (string)($arguments['query'] ?? ''));
-				case Application::APP_ID . '.webFetch':
-					return $this->webFetch(url: (string)($arguments['url'] ?? ''));
-				case Application::APP_ID . '.delegateAgent':
-					return $this->delegateAgent(arguments: $arguments);
-				case Application::APP_ID . '.listAvailableTools':
-					return $this->accessRequests->listAvailable(
-						uid: $uid,
-						agentId: $agentId,
-						query: (string)($arguments['query'] ?? '')
-					);
-				case Application::APP_ID . '.requestToolAccess':
-					return $this->accessRequests->request(
-						uid: $uid,
-						agentId: $agentId,
-						toolId: (string)($arguments['toolId'] ?? ''),
-						reason: (string)($arguments['reason'] ?? '')
-					);
-				case Application::APP_ID . '.searchTools':
-					// Defensive fallback only — the Hermiq engine short-circuits this
-					// call directly to ToolSearchService before it ever reaches the
-					// facade (see class docblock). A caller that bypasses the engine
-					// gets a clear error instead of a silent no-op.
-					return $this->error(
-						code: 'internal_only',
-						message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
-					);
-				default:
-					return $this->error(
-						code: 'unknown_tool',
-						message: "Unknown tool id '" . $toolId . "'. Available: " . implode(', ', array_column(self::TOOL_DESCRIPTORS, 'id')) . '.'
-					);
-			}//end switch
+			return $this->invokeFileOrPimTool(toolId: $toolId, call: $call)
+				?? $this->invokeNoteOrMailTool(toolId: $toolId, call: $call)
+				?? $this->invokeAttributedWriteTool(toolId: $toolId, call: $call)
+				?? (new AgentMemoryTools(memoryService: $this->memoryService))->invoke(toolId: $toolId, call: $call)
+				?? $this->invokeLookupOrDelegationTool(toolId: $toolId, call: $call)
+				?? $this->invokeToolAccessTool(toolId: $toolId, call: $call)
+				?? $this->unknownToolError(toolId: $toolId);
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq nc-native tool failed: ' . $e->getMessage(), ['exception' => $e, 'tool' => $toolId]);
 			return $this->error(code: 'tool_failed', message: 'The tool call failed.');
 		}//end try
+	}//end runNative()
 
-	}//end invokeTool()
+	/**
+	 * The error envelope for a tool id this provider does not know.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 *
+	 * @return array<string, mixed> The `unknown_tool` error envelope.
+	 */
+	private function unknownToolError(string $toolId): array {
+		return $this->error(
+			code: 'unknown_tool',
+			message: "Unknown tool id '" . $toolId . "'. Available: " . implode(', ', array_column(self::TOOL_DESCRIPTORS, 'id')) . '.'
+		);
+	}//end unknownToolError()
+
+	/**
+	 * Files, contacts, calendar listing and outbound mail tools.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeFileOrPimTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			Application::APP_ID . '.listFiles' => $this->listFiles(uid: $call->uid, path: $call->text(name: 'path')),
+			Application::APP_ID . '.readFile' => $this->readFile(uid: $call->uid, path: $call->text(name: 'path')),
+			Application::APP_ID . '.searchContacts' => $this->searchContacts(query: $call->text(name: 'query')),
+			Application::APP_ID . '.listCalendarEvents' => $this->listCalendarEvents(uid: $call->uid, days: (int)($call->arguments['days'] ?? 7)),
+			Application::APP_ID . '.sendMail' => $this->sendMail(user: $call->user, arguments: $call->arguments),
+			default => null,
+		};
+	}//end invokeFileOrPimTool()
+
+	/**
+	 * Note tools and mail reads.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeNoteOrMailTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			Application::APP_ID . '.listNotes' => $this->writeService->listNotes(uid: $call->uid),
+			// No agentId: a note is marked with a system tag, which cannot
+			// carry per-agent data — attribution lives in the run trace.
+			Application::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
+			Application::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			Application::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
+			Application::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
+			Application::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
+			default => null,
+		};
+	}//end invokeNoteOrMailTool()
+
+	/**
+	 * Calendar and contact writes that record the authoring agent.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeAttributedWriteTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			Application::APP_ID . '.createCalendarEvent' => $this->writeService->createCalendarEvent(
+				uid: $call->uid,
+				arguments: $call->arguments,
+				agentId: $call->agentId
+			),
+			Application::APP_ID . '.upsertContact' => $this->writeService->upsertContact(
+				uid: $call->uid,
+				arguments: $call->arguments,
+				agentId: $call->agentId
+			),
+			default => null,
+		};
+	}//end invokeAttributedWriteTool()
+
+	/**
+	 * Deck, course recommendation, web research, delegation and tool listing.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeLookupOrDelegationTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			Application::APP_ID . '.listDeckBoards' => $this->listDeckBoards(),
+			Application::APP_ID . '.recommendCourses' => $this->courseEngine->getOrRegenerate(learnerUid: $call->uid),
+			Application::APP_ID . '.webSearch' => $this->webSearch(uid: $call->uid, query: $call->text(name: 'query')),
+			Application::APP_ID . '.webFetch' => $this->webFetch(url: $call->text(name: 'url')),
+			Application::APP_ID . '.delegateAgent' => $this->delegateAgent(arguments: $call->arguments),
+			Application::APP_ID . '.listAvailableTools' => $this->accessRequests->listAvailable(
+				uid: $call->uid,
+				agentId: $call->agentId,
+				query: $call->text(name: 'query')
+			),
+			default => null,
+		};
+	}//end invokeLookupOrDelegationTool()
+
+	/**
+	 * The tool-access request and the internal-only searchTools fallback.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 * @param NativeToolCall $call The acting user and arguments.
+	 *
+	 * @return array<string, mixed>|null The result, or null when $toolId is not one of these.
+	 */
+	private function invokeToolAccessTool(string $toolId, NativeToolCall $call): ?array {
+		return match ($toolId) {
+			Application::APP_ID . '.requestToolAccess' => $this->accessRequests->request(
+				uid: $call->uid,
+				agentId: $call->agentId,
+				toolId: $call->text(name: 'toolId'),
+				reason: $call->text(name: 'reason')
+			),
+			// Defensive fallback only — the Hermiq engine short-circuits this
+			// call directly to ToolSearchService before it ever reaches the
+			// facade (see class docblock). A caller that bypasses the engine
+			// gets a clear error instead of a silent no-op.
+			Application::APP_ID . '.searchTools' => $this->error(
+				code: 'internal_only',
+				message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
+			),
+			default => null,
+		};
+	}//end invokeToolAccessTool()
 
 	/**
 	 * List files in the acting user's folder at $path (IDOR: user folder only).
@@ -1090,189 +1154,6 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end sendMail()
 
 	/**
-	 * Append a durable fact to the agent's own Memory (`scope: agent`) or to the
-	 * acting user's UserProfile for this agent (`scope: user`) — agent-memory-tools'
-	 * self-service write. Delegates verbatim to `MemoryService::appendMemoryEntry()`/
-	 * `appendUserProfileEntry()`, which redacts `content` before persist
-	 * (`MemoryService::appendEntry()`).
-	 *
-	 * @param string $uid The acting user id (IDOR: `scope: user`
-	 *                    only ever writes to THIS user's own
-	 *                    UserProfile, never a caller-supplied
-	 *                    `subjectUid`).
-	 * @param array<string, mixed> $arguments The tool arguments (`content`, `scope`,
-	 *                                        plus the run-injected `agentId` — see
-	 *                                        `FacadeToolInvoker::withAgentId()`).
-	 *
-	 * @return array<string, mixed> The result, or an error envelope.
-	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
-	 */
-	private function rememberMemory(string $uid, array $arguments): array {
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		if ($agentId === '') {
-			return $this->noAgentContextError();
-		}
-
-		$content = trim((string)($arguments['content'] ?? ''));
-		if ($content === '') {
-			return $this->error(code: 'invalid_argument', message: 'A non-empty content is required.');
-		}
-
-		$scope = (string)($arguments['scope'] ?? '');
-		if (in_array($scope, ['agent', 'user'], true) === false) {
-			return $this->error(code: 'invalid_argument', message: 'scope must be "agent" or "user".');
-		}
-
-		if ($scope === 'user') {
-			$memory = $this->memoryService->appendUserProfileEntry(agentId: $agentId, subjectUid: $uid, text: $content);
-			return $this->rememberedResult(scope: $scope, memory: $memory);
-		}
-
-		$memory = $this->memoryService->appendMemoryEntry(agentId: $agentId, text: $content);
-		return $this->rememberedResult(scope: $scope, memory: $memory);
-	}//end rememberMemory()
-
-	/**
-	 * Shape a persisted Memory/UserProfile object into `rememberMemory`'s result
-	 * payload, surfacing the newly-appended entry's id.
-	 *
-	 * @param string $scope The scope the entry was appended to (`agent`|`user`).
-	 * @param ObjectEntity $memory The persisted Memory/UserProfile object.
-	 *
-	 * @return array<string, mixed> The result payload.
-	 */
-	private function rememberedResult(string $scope, ObjectEntity $memory): array {
-		$data = $memory->getObject();
-		$entries = (array)($data['entries'] ?? []);
-		$newest = end($entries);
-
-		$entryId = null;
-		if (is_array($newest) === true) {
-			$entryId = ($newest['id'] ?? null);
-		}
-
-		return [
-			'remembered' => true,
-			'scope' => $scope,
-			'entryId' => $entryId,
-			'needsConsolidation' => (bool)($data['needsConsolidation'] ?? false),
-		];
-
-	}//end rememberedResult()
-
-	/**
-	 * Search the agent's own Memory/UserProfile entries and past SessionTurns for a
-	 * query — agent-memory-tools' self-service recall. Reuses the SAME OpenRegister
-	 * search substrate `recallSessions()` already uses (`MemoryService::recallEntries()`
-	 * + `recallSessions()`, merged into one result) — no second search index.
-	 *
-	 * @param string $uid The acting user id (whose own UserProfile
-	 *                    is also searched).
-	 * @param array<string, mixed> $arguments The tool arguments (`query`, plus the
-	 *                                        run-injected `agentId`).
-	 *
-	 * @return array<string, mixed> The combined result, or an error envelope.
-	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
-	 */
-	private function recallMemory(string $uid, array $arguments): array {
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		if ($agentId === '') {
-			return $this->noAgentContextError();
-		}
-
-		$query = trim((string)($arguments['query'] ?? ''));
-		if ($query === '') {
-			return $this->error(code: 'invalid_argument', message: 'A non-empty query is required.');
-		}
-
-		$entries = $this->memoryService->recallEntries(agentId: $agentId, subjectUid: $uid, query: $query);
-		$turns = $this->memoryService->recallSessions(agentId: $agentId, query: $query);
-
-		$sessionTurns = [];
-		foreach ($turns as $turn) {
-			$sessionTurns[] = $this->shapeSessionTurn(turn: $turn);
-		}
-
-		return [
-			'query' => $query,
-			'memoryEntries' => $entries['memoryEntries'],
-			'userProfileEntries' => $entries['userProfileEntries'],
-			'sessionTurns' => $sessionTurns,
-		];
-
-	}//end recallMemory()
-
-	/**
-	 * Soft-delete one memory entry by id — agent-memory-tools' self-service forget.
-	 * Scoped to the agent's own Memory and the ACTING user's own UserProfile only
-	 * (IDOR: never a caller-supplied `subjectUid`). Never a hard delete
-	 * (`MemoryService::forgetEntry()`); an unknown id is a structured not-found
-	 * result, never a thrown error.
-	 *
-	 * @param string $uid The acting user id.
-	 * @param array<string, mixed> $arguments The tool arguments (`id`, plus the
-	 *                                        run-injected `agentId`).
-	 *
-	 * @return array<string, mixed> The result, or an error envelope.
-	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
-	 */
-	private function forgetMemory(string $uid, array $arguments): array {
-		$agentId = trim((string)($arguments['agentId'] ?? ''));
-		if ($agentId === '') {
-			return $this->noAgentContextError();
-		}
-
-		$entryId = trim((string)($arguments['id'] ?? ''));
-		if ($entryId === '') {
-			return $this->error(code: 'invalid_argument', message: 'A non-empty id is required.');
-		}
-
-		$result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: $uid, entryId: $entryId);
-
-		if ($result['found'] === false) {
-			return ['found' => false, 'message' => 'No memory entry with that id was found.'];
-		}
-
-		return ['found' => true, 'scope' => $result['scope']];
-	}//end forgetMemory()
-
-	/**
-	 * Shape a SessionTurn ObjectEntity into the recall result's turn payload.
-	 *
-	 * @param ObjectEntity $turn The SessionTurn object.
-	 *
-	 * @return array<string, string> The shaped turn.
-	 */
-	private function shapeSessionTurn(ObjectEntity $turn): array {
-		$data = $turn->getObject();
-
-		return [
-			'role' => (string)($data['role'] ?? ''),
-			'content' => (string)($data['content'] ?? ''),
-			'createdAt' => (string)($data['createdAt'] ?? ''),
-		];
-
-	}//end shapeSessionTurn()
-
-	/**
-	 * The error envelope for a memory tool called with no agent context
-	 * (agent-less chat — `FacadeToolInvoker::withAgentId()` never injects an
-	 * `agentId` when the run has none).
-	 *
-	 * @return array<string, mixed> The error envelope.
-	 */
-	private function noAgentContextError(): array {
-		return $this->error(
-			code: 'no_agent_context',
-			message: 'This tool requires an agent context and cannot be called outside an agent run.'
-		);
-
-	}//end noAgentContextError()
-
-	/**
 	 * List the acting user's Deck boards (lazy dependency; error when Deck is absent).
 	 *
 	 * @return array<string, mixed> The boards, or an error envelope.
@@ -1374,7 +1255,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	private function delegateAgent(array $arguments): array {
 		$callerAgentId = trim((string)($arguments['agentId'] ?? ''));
 		if ($callerAgentId === '') {
-			return $this->noAgentContextError();
+			return (new ToolErrorEnvelope())->noAgentContext();
 		}
 
 		$targetAgentId = trim((string)($arguments['targetAgentId'] ?? ''));

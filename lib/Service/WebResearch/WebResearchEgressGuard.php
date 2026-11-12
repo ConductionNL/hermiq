@@ -116,41 +116,57 @@ class WebResearchEgressGuard {
 		array $denylist = [],
 		bool $allowInsecureHttp = false,
 	): array {
-		$parts = parse_url($url);
+		$request = new EgressRequest(url: $url, adminEndpoint: $isAdminConfiguredEndpoint);
+		$request->allowlist = $allowlist;
+		$request->denylist = $denylist;
+		$request->allowInsecureHttp = $allowInsecureHttp;
+
+		return $this->verdict(request: $request);
+	}//end assertSafe()
+
+	/**
+	 * The verdict for one request: parse, scheme, lists, then the resolved addresses, first rejection wins.
+	 *
+	 * @param EgressRequest $request The check's inputs.
+	 *
+	 * @return array{allowed: bool, code: ?string, message: ?string} The verdict.
+	 */
+	private function verdict(EgressRequest $request): array {
+		$parts = parse_url($request->url);
 		if (is_array($parts) === false || empty($parts['host']) === true || empty($parts['scheme']) === true) {
 			return $this->rejected(code: 'invalid_url', message: 'The URL could not be parsed.');
 		}
 
-		$scheme = strtolower((string)$parts['scheme']);
 		$host = strtolower((string)$parts['host']);
+		return $this->rejectionForScheme(scheme: strtolower((string)$parts['scheme']), allowInsecureHttp: $request->allowInsecureHttp)
+			?? $this->rejectionForAllowDenyLists(host: $host, request: $request)
+			?? $this->rejectionForResolvedHost(host: $host, isAdminConfiguredEndpoint: $request->adminEndpoint)
+			?? ['allowed' => true, 'code' => null, 'message' => null];
+	}//end verdict()
 
-		$verdict = $this->rejectionForScheme(scheme: $scheme, allowInsecureHttp: $allowInsecureHttp);
-		if ($verdict !== null) {
-			return $verdict;
-		}
-
-		$verdict = $this->rejectionForAllowDenyLists(
-			host: $host,
-			isAdminConfiguredEndpoint: $isAdminConfiguredEndpoint,
-			allowlist: $allowlist,
-			denylist: $denylist
-		);
-		if ($verdict !== null) {
-			return $verdict;
-		}
-
+	/**
+	 * Resolve the host (failing closed when it does not resolve) and check every address it resolves to.
+	 *
+	 * @param string $host                      The lowercased host.
+	 * @param bool   $isAdminConfiguredEndpoint Whether the private-address block is lifted.
+	 *
+	 * @return array{allowed: bool, code: ?string, message: ?string}|null A rejection, or null when the host passes.
+	 */
+	private function rejectionForResolvedHost(string $host, bool $isAdminConfiguredEndpoint): ?array {
 		$addresses = $this->resolveAddresses(host: $host);
 		if ($addresses === []) {
 			return $this->rejected(code: 'dns_resolution_failed', message: "Host '{$host}' could not be resolved.");
 		}
 
-		$verdict = $this->rejectionForAddresses(host: $host, addresses: $addresses, isAdminConfiguredEndpoint: $isAdminConfiguredEndpoint);
-		if ($verdict !== null) {
-			return $verdict;
+		// The cloud-metadata block applies always, even to the search endpoint; the
+		// private-address block is skipped for it.
+		$metadata = $this->rejectionForMetadata(addresses: $addresses);
+		if ($metadata !== null || $isAdminConfiguredEndpoint === true) {
+			return $metadata;
 		}
 
-		return ['allowed' => true, 'code' => null, 'message' => null];
-	}//end assertSafe()
+		return $this->rejectionForPrivate(host: $host, addresses: $addresses);
+	}//end rejectionForResolvedHost()
 
 	/**
 	 * The scheme check: HTTPS is always allowed; HTTP only with the explicit opt-in;
@@ -177,41 +193,47 @@ class WebResearchEgressGuard {
 	 * The denylist/allowlist check — skipped entirely for the admin-configured
 	 * search endpoint (design.md: these lists govern `web.fetch` targets only).
 	 *
-	 * @param string $host The lowercased host.
-	 * @param bool $isAdminConfiguredEndpoint Whether the denylist/allowlist should be skipped.
-	 * @param string[] $allowlist Exact-hostname allowlist.
-	 * @param string[] $denylist Exact-hostname denylist.
+	 * @param string        $host    The lowercased host.
+	 * @param EgressRequest $request The check's inputs (endpoint tier, allowlist, denylist).
 	 *
 	 * @return array{allowed: bool, code: ?string, message: ?string}|null A rejection, or null when the host passes.
 	 */
-	private function rejectionForAllowDenyLists(string $host, bool $isAdminConfiguredEndpoint, array $allowlist, array $denylist): ?array {
-		if ($isAdminConfiguredEndpoint === true) {
+	private function rejectionForAllowDenyLists(string $host, EgressRequest $request): ?array {
+		if ($request->adminEndpoint === true) {
 			return null;
 		}
 
-		if ($this->matchesHostList(host: $host, list: $denylist) === true) {
+		if ($this->matchesHostList(host: $host, list: $request->denylist) === true) {
 			return $this->rejected(code: 'denylisted_host', message: "Host '{$host}' is on the configured denylist.");
 		}
 
-		if ($allowlist !== [] && $this->matchesHostList(host: $host, list: $allowlist) === false) {
-			return $this->rejected(code: 'not_allowlisted', message: "Host '{$host}' is not on the configured allowlist.");
-		}
-
-		return null;
+		return $this->rejectionForAllowlist(host: $host, allowlist: $request->allowlist);
 	}//end rejectionForAllowDenyLists()
 
 	/**
-	 * The resolved-address checks: the cloud-metadata block (always, even for the
-	 * search endpoint) and the private/loopback/link-local/RFC1918/ULA block
-	 * (skipped for the search endpoint).
+	 * The allowlist check: an empty allowlist admits every host.
 	 *
-	 * @param string $host The lowercased host (for the error message).
-	 * @param string[] $addresses The resolved addresses.
-	 * @param bool $isAdminConfiguredEndpoint Whether the private-address block should be skipped.
+	 * @param string   $host      The lowercased host.
+	 * @param string[] $allowlist Exact-hostname allowlist.
 	 *
-	 * @return array{allowed: bool, code: ?string, message: ?string}|null A rejection, or null when every address passes.
+	 * @return array{allowed: bool, code: ?string, message: ?string}|null A rejection, or null when the host passes.
 	 */
-	private function rejectionForAddresses(string $host, array $addresses, bool $isAdminConfiguredEndpoint): ?array {
+	private function rejectionForAllowlist(string $host, array $allowlist): ?array {
+		if ($allowlist === [] || $this->matchesHostList(host: $host, list: $allowlist) === true) {
+			return null;
+		}
+
+		return $this->rejected(code: 'not_allowlisted', message: "Host '{$host}' is not on the configured allowlist.");
+	}//end rejectionForAllowlist()
+
+	/**
+	 * The cloud-metadata block: any resolved address in the metadata range rejects.
+	 *
+	 * @param string[] $addresses The resolved addresses.
+	 *
+	 * @return array{allowed: bool, code: ?string, message: ?string}|null A rejection, or null when no address is a metadata one.
+	 */
+	private function rejectionForMetadata(array $addresses): ?array {
 		foreach ($addresses as $address) {
 			if ($this->isCloudMetadataAddress(address: $address) === true) {
 				return $this->rejected(
@@ -221,10 +243,18 @@ class WebResearchEgressGuard {
 			}
 		}
 
-		if ($isAdminConfiguredEndpoint === true) {
-			return null;
-		}
+		return null;
+	}//end rejectionForMetadata()
 
+	/**
+	 * The private/loopback/link-local/RFC1918/ULA block.
+	 *
+	 * @param string   $host      The lowercased host (for the error message).
+	 * @param string[] $addresses The resolved addresses.
+	 *
+	 * @return array{allowed: bool, code: ?string, message: ?string}|null A rejection, or null when every address is public.
+	 */
+	private function rejectionForPrivate(string $host, array $addresses): ?array {
 		foreach ($addresses as $address) {
 			if ($this->isPrivateOrReservedAddress(address: $address) === true) {
 				return $this->rejected(
@@ -235,7 +265,7 @@ class WebResearchEgressGuard {
 		}
 
 		return null;
-	}//end rejectionForAddresses()
+	}//end rejectionForPrivate()
 
 	/**
 	 * Whether `$host` exactly matches (case-insensitive) an entry in `$list`.
@@ -278,21 +308,33 @@ class WebResearchEgressGuard {
 		$addresses = [];
 		foreach ([DNS_A, DNS_AAAA] as $type) {
 			$records = $this->dnsGetRecord(hostname: $host, type: $type);
-			if ($records === false) {
-				continue;
-			}
-
-			foreach ($records as $record) {
-				if (isset($record['ip']) === true) {
-					$addresses[] = (string)$record['ip'];
-				} elseif (isset($record['ipv6']) === true) {
-					$addresses[] = (string)$record['ipv6'];
-				}
+			if ($records !== false) {
+				$addresses = array_merge($addresses, $this->recordAddresses(records: $records));
 			}
 		}
 
 		return $addresses;
 	}//end resolveAddresses()
+
+	/**
+	 * The address of each DNS record: its `ip`, else its `ipv6`; a record with neither is skipped.
+	 *
+	 * @param array<int, array<string, mixed>> $records The `dns_get_record()` result.
+	 *
+	 * @return string[]
+	 */
+	private function recordAddresses(array $records): array {
+		$addresses = [];
+		foreach ($records as $record) {
+			if (isset($record['ip']) === true) {
+				$addresses[] = (string)$record['ip'];
+			} elseif (isset($record['ipv6']) === true) {
+				$addresses[] = (string)$record['ipv6'];
+			}
+		}
+
+		return $addresses;
+	}//end recordAddresses()
 
 	/**
 	 * Thin wrapper over `dns_get_record()` — overridable in tests.

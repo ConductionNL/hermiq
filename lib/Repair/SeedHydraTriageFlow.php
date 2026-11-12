@@ -229,6 +229,18 @@ class SeedHydraTriageFlow implements IRepairStep {
 			return null;
 		}
 
+		return $this->configuredOrganisationUuid(organisations: $organisations)
+			?? $this->ensuredOrganisationUuid(organisations: $organisations);
+	}//end defaultOrganisationUuid()
+
+	/**
+	 * The configured default organisation's UUID — a plain app-config read — or null.
+	 *
+	 * @param OrganisationService $organisations The organisation service.
+	 *
+	 * @return string|null
+	 */
+	private function configuredOrganisationUuid(OrganisationService $organisations): ?string {
 		try {
 			$uuid = $organisations->getDefaultOrganisationUuid();
 			if (is_string($uuid) === true && $uuid !== '') {
@@ -238,6 +250,17 @@ class SeedHydraTriageFlow implements IRepairStep {
 			$this->logger->debug('[hermiq] Default organisation not yet configured: ' . $e->getMessage());
 		}
 
+		return null;
+	}//end configuredOrganisationUuid()
+
+	/**
+	 * The UUID of the default organisation, created when none exists yet, or null.
+	 *
+	 * @param OrganisationService $organisations The organisation service.
+	 *
+	 * @return string|null
+	 */
+	private function ensuredOrganisationUuid(OrganisationService $organisations): ?string {
 		try {
 			$uuid = $organisations->ensureDefaultOrganisation()->getUuid();
 			if (is_string($uuid) === true && $uuid !== '') {
@@ -248,7 +271,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 		}
 
 		return null;
-	}//end defaultOrganisationUuid()
+	}//end ensuredOrganisationUuid()
 
 	/**
 	 * Record how this seed ended, where something other than a log tail can read it.
@@ -320,102 +343,181 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
 	 */
 	public function run(IOutput $output): void {
+		$run = $this->startRun(output: $output);
+		if ($run === null) {
+			return;
+		}
+
+		try {
+			$this->seed(run: $run);
+		} catch (Throwable $e) {
+			$this->reportSeedFailure(error: $e, output: $output);
+		}
+
+	}//end run()
+
+	/**
+	 * Resolve the flow store, or warn, log and record `unavailable` when OpenRegister
+	 * is not there.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return FlowSeedRun|null
+	 */
+	private function startRun(IOutput $output): ?FlowSeedRun {
 		try {
 			$mapper = $this->container->get(FlowMapper::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available — skipping Hydra Triage flow seed.');
 			$this->logger->warning('[hermiq] Hydra Triage flow seed skipped: ' . $e->getMessage());
 			$this->recordOutcome(outcome: 'unavailable', detail: $e::class . ': ' . $e->getMessage());
+			return null;
+		}
+
+		return new FlowSeedRun(mapper: $mapper, output: $output);
+	}//end startRun()
+
+	/**
+	 * Backfill an existing flow, or insert a new one on the default organisation.
+	 *
+	 * @param FlowSeedRun $run The seed run.
+	 *
+	 * @return void
+	 */
+	private function seed(FlowSeedRun $run): void {
+		$existing = $this->findExisting(mapper: $run->mapper);
+		if ($existing !== null) {
+			$this->backfillApplicationSlug(run: $run, flow: $existing);
+			$this->recordOutcome(outcome: 'present');
 			return;
 		}
 
-		try {
-			$existing = $this->findExisting(mapper: $mapper);
-			if ($existing !== null) {
-				$this->backfillApplicationSlug(mapper: $mapper, flow: $existing, output: $output);
-				$this->recordOutcome(outcome: 'present');
-				return;
-			}
+		$flow = $this->newFlow();
 
-			$data = $this->flowObject();
+		// 🔴 ORGANISATION is not optional the way OWNER is (hermiq#140).
+		//
+		// Every flow read is organisation-scoped —
+		// `FlowService::findAll()` resolves the caller's active
+		// organisation and `FlowMapper::findAllFlows()` adds
+		// `WHERE organisation = :org`. A row written with a NULL
+		// organisation therefore matches no equality predicate and is
+		// invisible to EVERY tenant, permanently.
+		//
+		// Worse, it is self-sealing: `findExisting()` below reads the mapper
+		// directly, with no organisation filter. It finds the orphan,
+		// concludes the flow is already present, and never re-seeds — so
+		// neither a reinstall nor an upgrade repairs it. That is precisely
+		// how this shipped silently, and why two investigations read
+		// "the store is empty" as "the write failed" when it was the
+		// opposite: the write succeeded and the row was unreachable.
+		//
+		// Ownerless is a deliberate design choice; org-less is a bug.
+		$organisation = $this->organisationOrRefusal(output: $run->output);
+		if ($organisation === null) {
+			return;
+		}
 
-			$flow = new Flow();
-			$flow->setUuid($this->newUuid());
-			$flow->setApp(Application::APP_ID);
-			$flow->setName(self::FLOW_NAME);
-			$flow->setDescription((string)($data['description'] ?? ''));
-			$flow->setTrigger((string)($data['trigger'] ?? ''));
-			$flow->setTriggerRegister(($data['triggerRegister'] ?? null));
-			$flow->setTriggerSchema(($data['triggerSchema'] ?? null));
-			$flow->setCron(($data['cron'] ?? null));
-			$flow->setNodes((array)($data['nodes'] ?? []));
-			$flow->setEdges((array)($data['edges'] ?? []));
-			$flow->setLimits((array)($data['limits'] ?? []));
-			$flow->setApplicationSlug(self::APPLICATION_SLUG);
-			$flow->setCreated(new DateTime());
-			$flow->setUpdated(new DateTime());
+		$flow->setOrganisation($organisation);
 
-			// Seeded DISABLED and OWNERLESS, deliberately. A repair step runs with
-			// no user session, so there is no identity to attribute the flow to,
-			// and a flow with no owner cannot dispatch. Seeding it enabled would
-			// mean picking an owner for a graph that runs agents — a privilege
-			// decision nobody made. Enabling it is a human act that supplies one.
-			$flow->setEnabled(false);
-			$flow->setOwner(null);
+		$run->mapper->insert($flow);
+		$run->output->info('Hydra Triage flow seeded (disabled — enable it to supply its owner).');
+		$this->recordOutcome(outcome: 'seeded');
+	}//end seed()
 
-			// 🔴 ORGANISATION is not optional the way OWNER is (hermiq#140).
-			//
-			// Every flow read is organisation-scoped —
-			// `FlowService::findAll()` resolves the caller's active
-			// organisation and `FlowMapper::findAllFlows()` adds
-			// `WHERE organisation = :org`. A row written with a NULL
-			// organisation therefore matches no equality predicate and is
-			// invisible to EVERY tenant, permanently.
-			//
-			// Worse, it is self-sealing: `findExisting()` below reads the mapper
-			// directly, with no organisation filter. It finds the orphan,
-			// concludes the flow is already present, and never re-seeds — so
-			// neither a reinstall nor an upgrade repairs it. That is precisely
-			// how this shipped silently, and why two investigations read
-			// "the store is empty" as "the write failed" when it was the
-			// opposite: the write succeeded and the row was unreachable.
-			//
-			// Ownerless is a deliberate design choice; org-less is a bug.
-			$organisation = $this->defaultOrganisationUuid();
-			if ($organisation === null) {
-				// Refuse to write an unreachable row. An absent flow is
-				// recoverable — the next run seeds it. An orphan is NOT: it
-				// blocks its own re-seed forever while looking like a success.
-				$output->warning(
-					'No default organisation is resolvable — skipping the Hydra Triage flow seed '
-					. 'rather than writing a row no tenant could ever see.'
-				);
-				$this->recordOutcome(
-					outcome: 'unavailable',
-					detail: 'no default organisation resolvable; refused to write an org-less orphan'
-				);
-				return;
-			}
+	/**
+	 * The flow to insert, built from `flowObject()`, disabled and without an owner.
+	 *
+	 * @return Flow
+	 */
+	private function newFlow(): Flow {
+		$flow = $this->flowFrom(data: $this->flowObject());
+		$flow->setCreated(new DateTime());
+		$flow->setUpdated(new DateTime());
 
-			$flow->setOrganisation($organisation);
+		// Seeded DISABLED and OWNERLESS, deliberately. A repair step runs with
+		// no user session, so there is no identity to attribute the flow to,
+		// and a flow with no owner cannot dispatch. Seeding it enabled would
+		// mean picking an owner for a graph that runs agents — a privilege
+		// decision nobody made. Enabling it is a human act that supplies one.
+		$flow->setEnabled(false);
+		$flow->setOwner(null);
 
-			$mapper->insert($flow);
-			$output->info('Hydra Triage flow seeded (disabled — enable it to supply its owner).');
-			$this->recordOutcome(outcome: 'seeded');
-		} catch (Throwable $e) {
-			$output->warning('Could not seed the Hydra Triage flow: ' . $e->getMessage());
-			// The CLASS as well as the message: hermiq#140 has twice been
-			// narrowed to "something in here threw" because the message alone
-			// did not say whether it was a missing table, a constraint, or a
-			// container resolution.
-			$this->logger->error(
-				'[hermiq] Hydra Triage flow seed failed: ' . $e::class . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-			$this->recordOutcome(outcome: 'failed', detail: $e::class . ': ' . $e->getMessage());
-		}//end try
+		return $flow;
+	}//end newFlow()
 
-	}//end run()
+	/**
+	 * A new flow entity carrying the seeded object's identity, trigger and graph.
+	 *
+	 * @param array<string, mixed> $data The seeded agentflow object.
+	 *
+	 * @return Flow
+	 */
+	private function flowFrom(array $data): Flow {
+		$flow = new Flow();
+		$flow->setUuid($this->newUuid());
+		$flow->setApp(Application::APP_ID);
+		$flow->setName(self::FLOW_NAME);
+		$flow->setDescription((string)($data['description'] ?? ''));
+		$flow->setTrigger((string)($data['trigger'] ?? ''));
+		$flow->setTriggerRegister(($data['triggerRegister'] ?? null));
+		$flow->setTriggerSchema(($data['triggerSchema'] ?? null));
+		$flow->setCron(($data['cron'] ?? null));
+		$flow->setNodes((array)($data['nodes'] ?? []));
+		$flow->setEdges((array)($data['edges'] ?? []));
+		$flow->setLimits((array)($data['limits'] ?? []));
+		$flow->setApplicationSlug(self::APPLICATION_SLUG);
+
+		return $flow;
+	}//end flowFrom()
+
+	/**
+	 * The default organisation's UUID, or null after warning and recording that none is
+	 * resolvable, so nothing is written.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return string|null
+	 */
+	private function organisationOrRefusal(IOutput $output): ?string {
+		$organisation = $this->defaultOrganisationUuid();
+		if ($organisation !== null) {
+			return $organisation;
+		}
+
+		// Refuse to write an unreachable row. An absent flow is
+		// recoverable — the next run seeds it. An orphan is NOT: it
+		// blocks its own re-seed forever while looking like a success.
+		$output->warning(
+			'No default organisation is resolvable — skipping the Hydra Triage flow seed '
+			. 'rather than writing a row no tenant could ever see.'
+		);
+		$this->recordOutcome(
+			outcome: 'unavailable',
+			detail: 'no default organisation resolvable; refused to write an org-less orphan'
+		);
+		return null;
+	}//end organisationOrRefusal()
+
+	/**
+	 * Warn, log and record a seed that threw.
+	 *
+	 * @param Throwable $error What was thrown.
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 */
+	private function reportSeedFailure(Throwable $error, IOutput $output): void {
+		$output->warning('Could not seed the Hydra Triage flow: ' . $error->getMessage());
+		// The CLASS as well as the message: hermiq#140 has twice been
+		// narrowed to "something in here threw" because the message alone
+		// did not say whether it was a missing table, a constraint, or a
+		// container resolution.
+		$this->logger->error(
+			'[hermiq] Hydra Triage flow seed failed: ' . $error::class . ': ' . $error->getMessage(),
+			['exception' => $error]
+		);
+		$this->recordOutcome(outcome: 'failed', detail: $error::class . ': ' . $error->getMessage());
+	}//end reportSeedFailure()
 
 	/**
 	 * The seeded agentflow object.
@@ -487,90 +589,126 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 */
 	private function nodes(): array {
 		return [
-			[
-				'id' => 'triage',
-				'position' => ['x' => 0, 'y' => 0],
-				'type' => 'hermiq.agent-step',
-				'config' => [
-					// ⚠️ A UUID, not a name. `AgentMapper::findByUuid()` matches the
-					// `uuid` COLUMN, so the seeded agent's NAME — which this carried —
-					// resolves to nothing at all. Since hermiq#89 that fails the step
-					// loudly instead of being swallowed into an empty answer, but a seed
-					// that can never resolve is still a seed that never runs. It is
-					// filled in at seed time from the agent seed, and left EMPTY when
-					// that lookup fails, because an empty agent is refused at both
-					// validate and execute time — which is the honest outcome.
-					'agentId' => $this->triageAgentUuid(),
-					'output' => self::TRIAGE_OUTPUT_KEY,
-					'expectJson' => true,
-					'prompt' => 'Triage this pipeline finding and reply as JSON with two keys: '
-						. '"summary" (one sentence on what is blocking the work) and "label" (the single '
-						. 'state-machine label that would move it forward, or an empty string if you are not '
-						. 'confident). Finding: {{json.title}} — {{json.description}}',
-				],
-			],
-			[
-				'id' => 'gate',
-				'position' => ['x' => 260, 'y' => 0],
-				'type' => 'openregister.route',
-				'config' => [
-					// The router tags each item with the OUTPUT it selected, and the
-					// engine delivers an item only to the place matching its tag.
-					//
-					// ⚠️ Post-inversion an output names the TARGET NODE, not the old
-					// place. `FlowGraph::inPlace()` returns the node id UNPREFIXED
-					// precisely so that `FlowItemPlacement::itemsForOutput()` can compare
-					// an item's tag against the output place name — and its docblock says
-					// so: "a routing step tags an item with the NODE it is routing to".
-					// These read `command`/`no-result` (the old places) until the dual;
-					// left that way they would match no place at all and every routed
-					// item would be dropped into an empty branch, with no error.
-					'rules' => [
-						[
-							'output' => 'command-stop',
-							// Truthy only when the agent actually proposed a label.
-							// A turn that FAILS no longer arrives here at all (hermiq#89
-							// fails the step, and its onError policy ends the run); what
-							// this still guards is a turn that succeeded and proposed
-							// nothing, which must not reach a pipeline command.
-							'condition' => ['!!' => ['var' => 'json.' . self::TRIAGE_OUTPUT_KEY . '.label']],
-						],
-					],
-					'default' => 'no-result-stop',
-				],
-			],
-			[
-				'id' => 'command-stop',
-				'position' => ['x' => 520, 'y' => -80],
-				// Built-in end while the OpenConnector-backed command step is not
-				// wired up — see the class docblock. Swapping this `type` is the whole
-				// change needed when that upstream half ships.
-				//
-				// ⚠️ `openregister.end`, NOT `openregister.stop`. The old spelling still
-				// resolves through `FlowNodeRegistry`'s alias map (`:76`), but it is an
-				// ALIAS on its way out — hydra moved all eleven of its flows off it in
-				// #533 "before the alias expires". `EndNode::getId()` is the canonical id
-				// and it is registered TERMINAL, which is also why this sink needs no
-				// `exit: true` mark under the connectivity rule.
-				'type' => 'openregister.end',
-				'config' => [
-					'error' => false,
-					'message' => 'A label was proposed and recorded. No forge write was attempted: this flow '
-						. 'has no command step wired up yet.',
-				],
-			],
-			[
-				'id' => 'no-result-stop',
-				'position' => ['x' => 520, 'y' => 80],
-				'type' => 'openregister.end',
-				'config' => [
-					'error' => false,
-					'message' => 'The agent proposed no label — the flow stops before the command step.',
-				],
-			],
+			$this->triageNode(),
+			$this->gateNode(),
+			$this->commandStopNode(),
+			$this->noResultStopNode(),
 		];
 
 	}//end nodes()
+
+	/**
+	 * The agent step that proposes the next state-machine label.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function triageNode(): array {
+		return [
+			'id' => 'triage',
+			'position' => ['x' => 0, 'y' => 0],
+			'type' => 'hermiq.agent-step',
+			'config' => [
+				// ⚠️ A UUID, not a name. `AgentMapper::findByUuid()` matches the
+				// `uuid` COLUMN, so the seeded agent's NAME — which this carried —
+				// resolves to nothing at all. Since hermiq#89 that fails the step
+				// loudly instead of being swallowed into an empty answer, but a seed
+				// that can never resolve is still a seed that never runs. It is
+				// filled in at seed time from the agent seed, and left EMPTY when
+				// that lookup fails, because an empty agent is refused at both
+				// validate and execute time — which is the honest outcome.
+				'agentId' => $this->triageAgentUuid(),
+				'output' => self::TRIAGE_OUTPUT_KEY,
+				'expectJson' => true,
+				'prompt' => 'Triage this pipeline finding and reply as JSON with two keys: '
+					. '"summary" (one sentence on what is blocking the work) and "label" (the single '
+					. 'state-machine label that would move it forward, or an empty string if you are not '
+					. 'confident). Finding: {{json.title}} — {{json.description}}',
+			],
+		];
+	}//end triageNode()
+
+	/**
+	 * The router that sends a proposed label to the command branch and anything else to the stop.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function gateNode(): array {
+		return [
+			'id' => 'gate',
+			'position' => ['x' => 260, 'y' => 0],
+			'type' => 'openregister.route',
+			'config' => [
+				// The router tags each item with the OUTPUT it selected, and the
+				// engine delivers an item only to the place matching its tag.
+				//
+				// ⚠️ Post-inversion an output names the TARGET NODE, not the old
+				// place. `FlowGraph::inPlace()` returns the node id UNPREFIXED
+				// precisely so that `FlowItemPlacement::itemsForOutput()` can compare
+				// an item's tag against the output place name — and its docblock says
+				// so: "a routing step tags an item with the NODE it is routing to".
+				// These read `command`/`no-result` (the old places) until the dual;
+				// left that way they would match no place at all and every routed
+				// item would be dropped into an empty branch, with no error.
+				'rules' => [
+					[
+						'output' => 'command-stop',
+						// Truthy only when the agent actually proposed a label.
+						// A turn that FAILS no longer arrives here at all (hermiq#89
+						// fails the step, and its onError policy ends the run); what
+						// this still guards is a turn that succeeded and proposed
+						// nothing, which must not reach a pipeline command.
+						'condition' => ['!!' => ['var' => 'json.' . self::TRIAGE_OUTPUT_KEY . '.label']],
+					],
+				],
+				'default' => 'no-result-stop',
+			],
+		];
+	}//end gateNode()
+
+	/**
+	 * The end the command branch reaches while no command step is wired up.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function commandStopNode(): array {
+		return [
+			'id' => 'command-stop',
+			'position' => ['x' => 520, 'y' => -80],
+			// Built-in end while the OpenConnector-backed command step is not
+			// wired up — see the class docblock. Swapping this `type` is the whole
+			// change needed when that upstream half ships.
+			//
+			// ⚠️ `openregister.end`, NOT `openregister.stop`. The old spelling still
+			// resolves through `FlowNodeRegistry`'s alias map (`:76`), but it is an
+			// ALIAS on its way out — hydra moved all eleven of its flows off it in
+			// #533 "before the alias expires". `EndNode::getId()` is the canonical id
+			// and it is registered TERMINAL, which is also why this sink needs no
+			// `exit: true` mark under the connectivity rule.
+			'type' => 'openregister.end',
+			'config' => [
+				'error' => false,
+				'message' => 'A label was proposed and recorded. No forge write was attempted: this flow '
+					. 'has no command step wired up yet.',
+			],
+		];
+	}//end commandStopNode()
+
+	/**
+	 * The end a turn without a proposed label reaches.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function noResultStopNode(): array {
+		return [
+			'id' => 'no-result-stop',
+			'position' => ['x' => 520, 'y' => 80],
+			'type' => 'openregister.end',
+			'config' => [
+				'error' => false,
+				'message' => 'The agent proposed no label — the flow stops before the command step.',
+			],
+		];
+	}//end noResultStopNode()
 
 	/**
 	 * The flow's edges — pure SEQUENCE, and deliberately typeless.
@@ -641,16 +779,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 					_multitenancy: false
 				);
 
-			foreach ($agents as $agent) {
-				if (($agent instanceof ObjectEntity) === false) {
-					continue;
-				}
-
-				$uuid = trim((string)$agent->getUuid());
-				if ($uuid !== '') {
-					return $uuid;
-				}
-			}
+			return $this->firstAgentUuid(agents: $agents);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'[hermiq] Could not resolve the Hydra Triage agent uuid for the flow seed: ' . $e->getMessage()
@@ -659,6 +788,28 @@ class SeedHydraTriageFlow implements IRepairStep {
 
 		return '';
 	}//end triageAgentUuid()
+
+	/**
+	 * The uuid of the first agent object that has one, or ''.
+	 *
+	 * @param iterable $agents The agent objects found by name.
+	 *
+	 * @return string
+	 */
+	private function firstAgentUuid(iterable $agents): string {
+		foreach ($agents as $agent) {
+			if (($agent instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$uuid = trim((string)$agent->getUuid());
+			if ($uuid !== '') {
+				return $uuid;
+			}
+		}
+
+		return '';
+	}//end firstAgentUuid()
 
 	/**
 	 * The existing agentflow with the seeded name, or null when none exists yet
@@ -691,26 +842,25 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 * did not exist yet); there is no operator value to protect on that path.
 	 * Once set, it is protected exactly like every other field.
 	 *
-	 * @param FlowMapper $mapper The flow store.
+	 * @param FlowSeedRun $run The seed run.
 	 * @param Flow $flow The existing flow, read back from `findExisting()`.
-	 * @param IOutput $output Repair output channel.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
 	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten-req-003
 	 */
-	private function backfillApplicationSlug(FlowMapper $mapper, Flow $flow, IOutput $output): void {
+	private function backfillApplicationSlug(FlowSeedRun $run, Flow $flow): void {
 		$current = trim((string)($flow->getApplicationSlug() ?? ''));
 		if ($current !== '') {
-			$output->info('Hydra Triage flow already present — skipped.');
+			$run->output->info('Hydra Triage flow already present — skipped.');
 			return;
 		}
 
 		try {
 			$flow->setApplicationSlug(self::APPLICATION_SLUG);
-			$mapper->update($flow);
-			$output->info('Hydra Triage flow already present — applicationSlug backfilled.');
+			$run->mapper->update($flow);
+			$run->output->info('Hydra Triage flow already present — applicationSlug backfilled.');
 		} catch (Throwable $e) {
 			// Non-fatal: the flow itself is unchanged and fully functional without
 			// this field. A failed backfill simply retries on the next repair run.

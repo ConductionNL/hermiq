@@ -30,7 +30,6 @@ namespace OCA\Hermiq\Service\AiFeature;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCP\IAppConfig;
 
@@ -98,12 +97,7 @@ class ProviderDataUseRegistry {
 	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function all(): array {
-		$out = [];
-		foreach (array_keys($this->stored()) as $provider) {
-			$out[(string)$provider] = $this->forProvider(provider: (string)$provider);
-		}
-
-		return $out;
+		return $this->store()->each(read: fn (string $provider): array => $this->forProvider(provider: $provider));
 	}//end all()
 
 	/**
@@ -116,7 +110,7 @@ class ProviderDataUseRegistry {
 	 * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
 	 */
 	public function forProvider(string $provider): array {
-		$entry = ($this->stored()[$provider] ?? null);
+		$entry = ($this->store()->stored()[$provider] ?? null);
 		if (is_array($entry) === false) {
 			$entry = [];
 		}
@@ -177,36 +171,26 @@ class ProviderDataUseRegistry {
 			);
 		}
 
-		$stored = $this->stored();
-		$stored[$provider] = [
-			'dataUse' => $dataUse,
-			'termsReference' => trim($termsReference),
-			'declaredBy' => $declaredBy,
-			'declaredAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DATE_ATOM),
-		];
-
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
+		$this->store()->put(
+			provider: $provider,
+			entry: [
+				'dataUse' => $dataUse,
+				'termsReference' => trim($termsReference),
+				'declaredBy' => $declaredBy,
+				'declaredAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DATE_ATOM),
+			]
+		);
 
 		return $this->forProvider(provider: $provider);
 	}//end declare()
 
 	/**
-	 * The raw stored map, or an empty map when nothing has been declared.
+	 * This registry's stored declarations.
 	 *
-	 * @return array<string, mixed> The stored declarations.
+	 * @return ProviderDeclarationStore
 	 */
-	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
-		if ($raw === '') {
-			return [];
-		}
-
-		$decoded = json_decode($raw, true);
-		if (is_array($decoded) === false) {
-			return [];
-		}
-
-		return $decoded;
-	}//end stored()
+	private function store(): ProviderDeclarationStore {
+		return new ProviderDeclarationStore(appConfig: $this->appConfig, key: self::CONFIG_KEY);
+	}//end store()
 
 }//end class

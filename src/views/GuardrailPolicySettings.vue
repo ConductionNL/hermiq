@@ -174,7 +174,9 @@ import {
 	listGuardrailPolicies,
 	updateGuardrailPolicy,
 } from '../api/guardrailPolicy.js'
+import { errorMessage } from '../utils/errorMessage.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
+import { draftFromPolicy, filtersFromDraft, parseToolPolicy, policySummary } from './guardrailPolicyForm.js'
 
 export default {
 	name: 'GuardrailPolicySettings',
@@ -317,10 +319,7 @@ export default {
 			try {
 				this.guardrailPolicies = await listGuardrailPolicies()
 			} catch (e) {
-				this.guardrailPolicyError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.guardrailPolicyError = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			}
 		},
 
@@ -343,35 +342,7 @@ export default {
 		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		guardrailPolicySummary(policy) {
-			const input = policy.inputFilters || {}
-			const output = policy.outputFilters || {}
-			const toolPolicy = Array.isArray(policy.toolPolicy)
-				? policy.toolPolicy
-				: []
-			const piiLabel = this.t('hermiq', 'PII')
-			const inputPii = input.piiAction || 'off'
-			const inputInjection = input.promptInjectionAction || 'off'
-			const outputPii = output.piiAction || 'off'
-			const inputSummary =
-				this.t('hermiq', 'Input')
-				+ ': '
-				+ piiLabel
-				+ ' '
-				+ inputPii
-				+ ', '
-				+ this.t('hermiq', 'prompt injection')
-				+ ' '
-				+ inputInjection
-			const outputSummary =
-				this.t('hermiq', 'Output') + ': ' + piiLabel + ' ' + outputPii
-			const parts = [inputSummary, outputSummary]
-			if (toolPolicy.length > 0) {
-				parts.push(toolPolicy.length + ' ' + this.t('hermiq', 'tool rules'))
-			}
-			if (policy.enabled === false) {
-				return this.t('hermiq', 'Disabled') + ' — ' + parts.join(' · ')
-			}
-			return parts.join(' · ')
+			return policySummary(policy)
 		},
 
 		/**
@@ -382,18 +353,7 @@ export default {
 		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		parseToolPolicyDraft() {
-			return this.guardrailPolicyDraft.toolPolicyText
-				.split('\n')
-				.map((line) => line.trim())
-				.filter((line) => line !== '')
-				.map((line) => {
-					const [toolId, classification] = line.split(':')
-					return {
-						toolId: (toolId || '').trim(),
-						classification: (classification || 'auto').trim(),
-					}
-				})
-				.filter((entry) => entry.toolId !== '')
+			return parseToolPolicy(this.guardrailPolicyDraft.toolPolicyText)
 		},
 
 		/**
@@ -425,36 +385,20 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
-		async saveNewGuardrailPolicy() {
-			this.guardrailPolicySaving = true
-			try {
-				await createGuardrailPolicy({
-					organisation: this.createOrganisation,
-					inputFilters: {
-						piiAction: this.guardrailPolicyDraft.inputPiiAction,
-						promptInjectionAction:
-							this.guardrailPolicyDraft.inputPromptInjectionAction,
-					},
-					outputFilters: {
-						piiAction: this.guardrailPolicyDraft.outputPiiAction,
-					},
-					toolPolicy: this.parseToolPolicyDraft(),
-					enabled: true,
-				})
-				showSuccess(this.t('hermiq', 'Guardrail policy created.'))
-				this.creatingPolicy = false
-				await this.loadGuardrailPolicies()
-			} catch (e) {
-				showError(
-					e?.response?.data?.error
-						|| this.t(
-							'hermiq',
-							'Could not create the guardrail policy.',
-						),
-				)
-			} finally {
-				this.guardrailPolicySaving = false
-			}
+		saveNewGuardrailPolicy() {
+			return this.runPolicySave(
+				async () => {
+					await createGuardrailPolicy({
+						organisation: this.createOrganisation,
+						...filtersFromDraft(this.guardrailPolicyDraft),
+						toolPolicy: this.parseToolPolicyDraft(),
+						enabled: true,
+					})
+					showSuccess(this.t('hermiq', 'Guardrail policy created.'))
+					this.creatingPolicy = false
+				},
+				this.t('hermiq', 'Could not create the guardrail policy.'),
+			)
 		},
 
 		/**
@@ -472,26 +416,7 @@ export default {
 				this.editingGuardrailPolicyId = null
 				return
 			}
-			const toolPolicy = Array.isArray(policy.toolPolicy)
-				? policy.toolPolicy
-				: []
-			this.guardrailPolicyDraft = {
-				inputPiiAction:
-					(policy.inputFilters && policy.inputFilters.piiAction) || 'off',
-
-				inputPromptInjectionAction:
-					(policy.inputFilters
-						&& policy.inputFilters.promptInjectionAction)
-					|| 'off',
-
-				outputPiiAction:
-					(policy.outputFilters && policy.outputFilters.piiAction)
-					|| 'off',
-
-				toolPolicyText: toolPolicy
-					.map((entry) => `${entry.toolId}: ${entry.classification}`)
-					.join('\n'),
-			}
+			this.guardrailPolicyDraft = draftFromPolicy(policy)
 			this.editingGuardrailPolicyId = policy.id
 		},
 
@@ -503,41 +428,38 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
-		async saveGuardrailPolicy(policy) {
-			const toolPolicy = this.guardrailPolicyDraft.toolPolicyText
-				.split('\n')
-				.map((line) => line.trim())
-				.filter((line) => line !== '')
-				.map((line) => {
-					const [toolId, classification] = line.split(':')
-					return {
-						toolId: (toolId || '').trim(),
-						classification: (classification || 'auto').trim(),
-					}
-				})
-				.filter((entry) => entry.toolId !== '')
+		saveGuardrailPolicy(policy) {
+			const toolPolicy = this.parseToolPolicyDraft()
+			return this.runPolicySave(
+				async () => {
+					await updateGuardrailPolicy(policy.id, {
+						...filtersFromDraft(this.guardrailPolicyDraft),
+						toolPolicy,
+						enabled: policy.enabled !== false,
+					})
+					showSuccess(this.t('hermiq', 'Guardrail policy saved.'))
+					this.editingGuardrailPolicyId = null
+				},
+				this.t('hermiq', 'Could not save the guardrail policy.'),
+			)
+		},
+
+		/**
+		 * Run one policy write with the saving flag set, then reload the list; a
+		 * failure shows the server's error, or the fallback.
+		 *
+		 * @param {function(): Promise<void>} write The write and its success steps.
+		 * @param {string} failure The translated fallback error.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+		 */
+		async runPolicySave(write, failure) {
 			this.guardrailPolicySaving = true
 			try {
-				await updateGuardrailPolicy(policy.id, {
-					inputFilters: {
-						piiAction: this.guardrailPolicyDraft.inputPiiAction,
-						promptInjectionAction:
-							this.guardrailPolicyDraft.inputPromptInjectionAction,
-					},
-					outputFilters: {
-						piiAction: this.guardrailPolicyDraft.outputPiiAction,
-					},
-					toolPolicy,
-					enabled: policy.enabled !== false,
-				})
-				showSuccess(this.t('hermiq', 'Guardrail policy saved.'))
-				this.editingGuardrailPolicyId = null
+				await write()
 				await this.loadGuardrailPolicies()
 			} catch (e) {
-				showError(
-					e?.response?.data?.error
-						|| this.t('hermiq', 'Could not save the guardrail policy.'),
-				)
+				showError(e?.response?.data?.error || failure)
 			} finally {
 				this.guardrailPolicySaving = false
 			}

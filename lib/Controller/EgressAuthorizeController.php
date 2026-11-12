@@ -136,32 +136,79 @@ class EgressAuthorizeController extends Controller {
 			return $this->refuseToken(token: $token);
 		}
 
+		$destination = $this->requestedDestination();
+		if ($destination === null) {
+			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+		}
+
+		$forgeRefusal = $this->forgeRefusal(host: $destination['host'], agentId: (string)$binding['agentId']);
+		if ($forgeRefusal !== null) {
+			return $forgeRefusal;
+		}
+
+		return $this->policyVerdict(host: $destination['host'], port: $destination['port']);
+
+	}//end authorize()
+
+	/**
+	 * The policy denial for the forge, when the destination is the forge and the run's
+	 * agent holds no grant for a tool that needs it; null otherwise.
+	 *
+	 * Hermiq-runner-git-capability: the forge is reachable only for a run whose
+	 * agent holds a resolving grant for a tool that needs it, decided from the
+	 * run's own token binding. A denial is a policy code, never a timeout.
+	 *
+	 * @param string $host The destination host.
+	 * @param string $agentId The agent the run's token is bound to.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function forgeRefusal(string $host, string $agentId): ?JSONResponse {
+		if ($this->forgePolicy->isForgeHost(host: $host) === false
+			|| $this->forgePolicy->permits(agentId: $agentId) === true
+		) {
+			return null;
+		}
+
+		return new JSONResponse(
+			[
+				'allowed' => false,
+				'code' => 'egress_denied',
+				'message' => 'This run holds no grant for a workspace tool that needs the forge.',
+			]
+		);
+	}//end forgeRefusal()
+
+	/**
+	 * The host and port the request body names, or null when the body is not a JSON
+	 * object or names no host or no positive port.
+	 *
+	 * @return array{host: string, port: int}|null
+	 */
+	private function requestedDestination(): ?array {
 		$body = json_decode($this->readRawBody(), true);
 		if (is_array($body) === false) {
-			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+			return null;
 		}
 
 		$host = trim((string)($body['host'] ?? ''));
 		$port = (int)($body['port'] ?? 0);
 		if ($host === '' || $port <= 0) {
-			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+			return null;
 		}
 
-		// Hermiq-runner-git-capability: the forge is reachable only for a run whose
-		// agent holds a resolving grant for a tool that needs it, decided from the
-		// run's own token binding. A denial is a policy code, never a timeout.
-		if ($this->forgePolicy->isForgeHost(host: $host) === true
-			&& $this->forgePolicy->permits(agentId: (string)$binding['agentId']) === false
-		) {
-			return new JSONResponse(
-				[
-					'allowed' => false,
-					'code' => 'egress_denied',
-					'message' => 'This run holds no grant for a workspace tool that needs the forge.',
-				]
-			);
-		}
+		return ['host' => $host, 'port' => $port];
+	}//end requestedDestination()
 
+	/**
+	 * The SSRF guard's verdict on the destination, under the web-research policy.
+	 *
+	 * @param string $host The destination host.
+	 * @param int $port The destination port.
+	 *
+	 * @return JSONResponse
+	 */
+	private function policyVerdict(string $host, int $port): JSONResponse {
 		// The ONE destination this policy cannot judge: Hermiq's own governed MCP
 		// endpoint. The runner reaches its governance through this same proxy, and
 		// on a container deployment that endpoint is deliberately a private address
@@ -190,8 +237,7 @@ class EgressAuthorizeController extends Controller {
 				'message' => $verdict['message'],
 			]
 		);
-
-	}//end authorize()
+	}//end policyVerdict()
 
 	/**
 	 * Refuse a token that failed verification, and count it with the brute-force

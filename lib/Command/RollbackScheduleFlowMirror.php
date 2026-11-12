@@ -113,69 +113,123 @@ class RollbackScheduleFlowMirror extends Command {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-in-flight-schedules-migrate-and-roll-back
 	 */
 	protected function execute(InputInterface $input, OutputInterface $output): int {
-		$dryRun = ((bool)$input->getOption('dry-run') === true);
+		$run = new MirrorRollbackRun(output: $output, dryRun: ((bool)$input->getOption('dry-run') === true));
 
 		try {
-			$objects = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::SCHEMA_SLUG)
-				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+			$objects = $this->readSchedules();
 		} catch (Throwable $e) {
 			$output->writeln('<error>Could not read schedules: ' . $e->getMessage() . '</error>');
 
 			return 1;
 		}
 
-		$rolledBack = 0;
-		$failed = [];
 		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
+			$this->rollBackSchedule(run: $run, object: $object);
+		}
 
-			$flowId = trim((string)($object->getObject()['engineFlowId'] ?? ''));
-			if ($flowId === '') {
-				continue;
-			}
+		return $this->summarise(run: $run);
 
-			$scheduleUuid = (string)$object->getUuid();
-			if ($dryRun === true) {
-				$output->writeln('Would roll back schedule ' . $scheduleUuid . ' (flow ' . $flowId . ').');
-				$rolledBack++;
-				continue;
-			}
+	}//end execute()
 
-			try {
-				// Marker first, flow second: from the marker write on, the
-				// local dispatcher owns the clock; a crash before the delete
-				// leaves a mirror whose delegation check refuses to fire.
-				$this->scheduleService->clearEngineDelegation(schedule: $object);
-				$this->flowBridge->deleteFlow(flowId: $flowId);
-				$rolledBack++;
-				$output->writeln('Rolled back schedule ' . $scheduleUuid . ' (flow ' . $flowId . ').');
-			} catch (Throwable $e) {
-				$failed[] = $scheduleUuid;
-				$this->logger->warning(
-					'RollbackScheduleFlowMirror could not roll back schedule '
-					. $scheduleUuid . ': ' . $e->getMessage(),
-					['exception' => $e]
-				);
-				$output->writeln(
-					'<error>Could not roll back schedule ' . $scheduleUuid
-					. ': ' . $e->getMessage() . '</error>'
-				);
-			}//end try
-		}//end foreach
-
-		$output->writeln(
-			sprintf('Rollback: %d schedules rolled back, %d failed.', $rolledBack, count($failed))
+	/**
+	 * Report the counts and answer the exit code: one when any schedule failed.
+	 *
+	 * @param MirrorRollbackRun $run The finished run.
+	 *
+	 * @return int
+	 */
+	private function summarise(MirrorRollbackRun $run): int {
+		$run->output->writeln(
+			sprintf('Rollback: %d schedules rolled back, %d failed.', $run->rolledBack, count($run->failed))
 		);
 
-		if ($failed !== []) {
+		if ($run->failed !== []) {
 			return 1;
 		}
 
 		return 0;
+	}//end summarise()
 
-	}//end execute()
+	/**
+	 * Every schedule object (system-wide read).
+	 *
+	 * @return array<int, mixed>
+	 */
+	private function readSchedules(): array {
+		return $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SCHEMA_SLUG)
+			->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+	}//end readSchedules()
+
+	/**
+	 * Roll back one schedule when it is delegated, or say it would in a dry run.
+	 *
+	 * @param MirrorRollbackRun $run The run.
+	 * @param mixed $object A stored schedule object.
+	 *
+	 * @return void
+	 */
+	private function rollBackSchedule(MirrorRollbackRun $run, mixed $object): void {
+		if (($object instanceof ObjectEntity) === false) {
+			return;
+		}
+
+		$run->flowId = trim((string)($object->getObject()['engineFlowId'] ?? ''));
+		if ($run->flowId === '') {
+			return;
+		}
+
+		$run->scheduleUuid = (string)$object->getUuid();
+		if ($run->dryRun === true) {
+			$run->output->writeln('Would roll back schedule ' . $run->scheduleUuid . ' (flow ' . $run->flowId . ').');
+			$run->rolledBack++;
+			return;
+		}
+
+		$this->rollBack(run: $run, schedule: $object);
+	}//end rollBackSchedule()
+
+	/**
+	 * Clear the schedule's marker, then delete its mirror flow.
+	 *
+	 * @param MirrorRollbackRun $run The run, on the schedule in hand.
+	 * @param ObjectEntity $schedule The schedule in hand.
+	 *
+	 * @return void
+	 */
+	private function rollBack(MirrorRollbackRun $run, ObjectEntity $schedule): void {
+		try {
+			// Marker first, flow second: from the marker write on, the
+			// local dispatcher owns the clock; a crash before the delete
+			// leaves a mirror whose delegation check refuses to fire.
+			$this->scheduleService->clearEngineDelegation(schedule: $schedule);
+			$this->flowBridge->deleteFlow(flowId: $run->flowId);
+			$run->rolledBack++;
+			$run->output->writeln('Rolled back schedule ' . $run->scheduleUuid . ' (flow ' . $run->flowId . ').');
+		} catch (Throwable $e) {
+			$this->reportFailure(run: $run, error: $e);
+		}
+	}//end rollBack()
+
+	/**
+	 * Count, log and report a schedule that could not be rolled back.
+	 *
+	 * @param MirrorRollbackRun $run The run, on the schedule in hand.
+	 * @param Throwable $error What went wrong.
+	 *
+	 * @return void
+	 */
+	private function reportFailure(MirrorRollbackRun $run, Throwable $error): void {
+		$run->failed[] = $run->scheduleUuid;
+		$this->logger->warning(
+			'RollbackScheduleFlowMirror could not roll back schedule '
+			. $run->scheduleUuid . ': ' . $error->getMessage(),
+			['exception' => $error]
+		);
+		$run->output->writeln(
+			'<error>Could not roll back schedule ' . $run->scheduleUuid
+			. ': ' . $error->getMessage() . '</error>'
+		);
+	}//end reportFailure()
 }//end class

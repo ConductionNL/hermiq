@@ -116,6 +116,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { createBudget, updateBudget } from '../api/budgets.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'BudgetFormModal',
@@ -348,10 +349,7 @@ export default {
 				this.$emit('saved', saved)
 				this.$emit('close')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.saving = false
 			}

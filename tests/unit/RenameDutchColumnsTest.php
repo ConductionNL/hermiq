@@ -585,4 +585,40 @@ class RenameDutchColumnsTest extends TestCase {
 		$this->assertStringContainsString('1 renamed', $summary);
 		$this->assertStringContainsString('1 back-filled', $summary);
 	}//end testSummaryReportsCounts()
+
+	/**
+	 * Across two shards of two registers: the exact statements in order, a failed
+	 * statement left out of the counts, and the exact summary line.
+	 *
+	 * @return void
+	 */
+	public function testExactStatementsAndSummaryAcrossShards(): void {
+		$a = 'oc_openregister_table_7_1';
+		$b = 'oc_openregister_table_9_3';
+		$step = $this->step(
+			[7, 9],
+			[$a, 'oc_other', $b],
+			[
+				$a => ['id', 'soort', 'referentie', 'reference', 'organisatie'],
+				$b => ['verantwoordelijke', 'wettelijke_grondslag', 'statutory_basis'],
+			],
+			'"wettelijke_grondslag" IS NOT NULL'
+		);
+		$step->run($this->repairOutput());
+
+		$this->assertSame(
+			[
+				'ALTER TABLE "oc_openregister_table_7_1" RENAME COLUMN "organisatie" TO "organisation"',
+				'UPDATE "oc_openregister_table_7_1" SET "reference" = "referentie" WHERE "reference" IS NULL AND "referentie" IS NOT NULL',
+				'ALTER TABLE "oc_openregister_table_7_1" RENAME COLUMN "soort" TO "kind"',
+				'ALTER TABLE "oc_openregister_table_9_3" RENAME COLUMN "verantwoordelijke" TO "responsible"',
+			],
+			$this->executed
+		);
+		$this->assertSame(
+			['RenameDutchColumns: 3 renamed, 1 back-filled, 0 refused, across 2 shard table(s).'],
+			$this->info
+		);
+		$this->assertSame(['RenameDutchColumns: statement failed; leaving the column as it was.'], $this->warnings);
+	}//end testExactStatementsAndSummaryAcrossShards()
 }//end class

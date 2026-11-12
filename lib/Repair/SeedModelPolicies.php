@@ -34,6 +34,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\FirstOrganisation;
+use OCA\Hermiq\Repair\Support\OrganisationSeed;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\Migration\IOutput;
@@ -48,6 +50,36 @@ use Throwable;
  * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
  */
 class SeedModelPolicies implements IRepairStep {
+	/**
+	 * The instance-default policy: every provider allowed, no default model.
+	 *
+	 * @var array{allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: null}
+	 */
+	private const INSTANCE_DEFAULT_POLICY = [
+		'allowed' => [
+			['provider' => 'openai', 'models' => []],
+			['provider' => 'ollama', 'models' => []],
+			['provider' => 'fireworks', 'models' => []],
+			['provider' => 'nextcloud', 'models' => []],
+		],
+		'defaultModel' => null,
+	];
+
+	/**
+	 * The sample organisation policy: Ollama only, defaulting to qwen2.5.
+	 *
+	 * @var array{allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: array{provider: string, model: string}}
+	 */
+	private const SAMPLE_ORGANISATION_POLICY = [
+		'allowed' => [
+			['provider' => 'ollama', 'models' => []],
+		],
+		'defaultModel' => [
+			'provider' => 'ollama',
+			'model' => 'qwen2.5',
+		],
+	];
+
 	/**
 	 * Constructor.
 	 *
@@ -84,108 +116,86 @@ class SeedModelPolicies implements IRepairStep {
 	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
 	 */
 	public function run(IOutput $output): void {
-		try {
-			$policyService = $this->container->get(OrganisationModelPolicyService::class);
-			$organisationMapper = $this->container->get(OrganisationMapper::class);
-		} catch (Throwable $e) {
-			$output->warning('OpenRegister not available — skipping model-policy seed.');
-			$this->logger->warning('[hermiq] Model-policy seed skipped: ' . $e->getMessage());
+		$run = $this->startRun(output: $output);
+		if ($run === null) {
 			return;
 		}
 
-		$seeded = 0;
-
-		$seeded += $this->seedIfMissing(
-			policyService: $policyService,
-			output: $output,
-			organisation: '',
-			payload: [
-				'allowed' => [
-					['provider' => 'openai', 'models' => []],
-					['provider' => 'ollama', 'models' => []],
-					['provider' => 'fireworks', 'models' => []],
-					['provider' => 'nextcloud', 'models' => []],
-				],
-				'defaultModel' => null,
-			]
+		$seeded = $this->seedIfMissing(
+			run: $run,
+			seed: new OrganisationSeed(organisation: '', payload: self::INSTANCE_DEFAULT_POLICY)
 		);
-
-		$organisation = $this->firstOrganisation(organisationMapper: $organisationMapper);
-		if ($organisation === '') {
-			$output->info('No OpenRegister organisation exists yet — sample org model-policy seed deferred.');
-		}
-
-		if ($organisation !== '') {
-			$seeded += $this->seedIfMissing(
-				policyService: $policyService,
-				output: $output,
-				organisation: $organisation,
-				payload: [
-					'allowed' => [
-						['provider' => 'ollama', 'models' => []],
-					],
-					'defaultModel' => [
-						'provider' => 'ollama',
-						'model' => 'qwen2.5',
-					],
-				]
-			);
-		}
+		$seeded += $this->seedSampleOrganisationPolicy(run: $run);
 
 		$output->info('Model-policy seed complete (' . $seeded . ' new).');
 
 	}//end run()
 
 	/**
+	 * Resolve the services the seed needs, or warn and answer null when OpenRegister
+	 * is not available.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return ModelPolicySeedRun|null
+	 */
+	private function startRun(IOutput $output): ?ModelPolicySeedRun {
+		$run = new ModelPolicySeedRun(output: $output);
+		try {
+			$run->policyService = $this->container->get(OrganisationModelPolicyService::class);
+			$run->organisationMapper = $this->container->get(OrganisationMapper::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping model-policy seed.');
+			$this->logger->warning('[hermiq] Model-policy seed skipped: ' . $e->getMessage());
+			return null;
+		}
+
+		return $run;
+	}//end startRun()
+
+	/**
+	 * Seed the sample policy on the first organisation, or defer it when no
+	 * organisation exists yet.
+	 *
+	 * @param ModelPolicySeedRun $run The seed run.
+	 *
+	 * @return int 1 when a new policy was created, otherwise 0.
+	 */
+	private function seedSampleOrganisationPolicy(ModelPolicySeedRun $run): int {
+		$organisation = (new FirstOrganisation(organisationMapper: $run->organisationMapper))->uuid();
+		if ($organisation === '') {
+			$run->output->info('No OpenRegister organisation exists yet — sample org model-policy seed deferred.');
+			return 0;
+		}
+
+		return $this->seedIfMissing(
+			run: $run,
+			seed: new OrganisationSeed(organisation: $organisation, payload: self::SAMPLE_ORGANISATION_POLICY)
+		);
+	}//end seedSampleOrganisationPolicy()
+
+	/**
 	 * Create the policy when the organisation has none yet; never overwrite an
 	 * existing one (admin edits must survive upgrades).
 	 *
-	 * @param OrganisationModelPolicyService $policyService The policy write-path.
-	 * @param IOutput $output Repair output channel.
-	 * @param string $organisation The organisation ('' = instance default).
-	 * @param array<string,mixed> $payload The policy fields (allowed/defaultModel).
+	 * @param ModelPolicySeedRun $run The seed run.
+	 * @param OrganisationSeed $seed The organisation ('' = instance default) and the policy fields.
 	 *
 	 * @return int 1 when a new policy was created, 0 when skipped (exists or failed).
 	 */
-	private function seedIfMissing(
-		OrganisationModelPolicyService $policyService,
-		IOutput $output,
-		string $organisation,
-		array $payload,
-	): int {
+	private function seedIfMissing(ModelPolicySeedRun $run, OrganisationSeed $seed): int {
 		try {
-			if ($policyService->getForOrganisation(organisation: $organisation) !== null) {
+			if ($run->policyService->getForOrganisation(organisation: $seed->organisation) !== null) {
 				return 0;
 			}
 
-			$policyService->upsertForOrganisation(organisation: $organisation, payload: $payload);
+			$run->policyService->upsertForOrganisation(organisation: $seed->organisation, payload: $seed->payload);
 			return 1;
 		} catch (Throwable $e) {
-			$output->warning('Could not seed a model policy: ' . $e->getMessage());
+			$run->output->warning('Could not seed a model policy: ' . $e->getMessage());
 			$this->logger->error('[hermiq] Model-policy seed failed: ' . $e->getMessage());
 			return 0;
 		}
 
 	}//end seedIfMissing()
-
-	/**
-	 * The first available OpenRegister organisation, or '' when none exists yet.
-	 *
-	 * @param OrganisationMapper $organisationMapper The organisation lookup.
-	 *
-	 * @return string
-	 */
-	private function firstOrganisation(OrganisationMapper $organisationMapper): string {
-		try {
-			$organisations = $organisationMapper->findAll(limit: 1);
-		} catch (Throwable $e) {
-			return '';
-		}
-
-		if ($organisations === []) {
-			return '';
-		}
-
-		return (string)($organisations[0]->getUuid() ?? '');
-	}//end firstOrganisation()
 }//end class

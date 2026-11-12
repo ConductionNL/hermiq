@@ -139,22 +139,41 @@ class TalkApprovalReactionListener implements IEventListener {
 		}
 
 		// 🔴 The check this whole listener rests on. Same question the inbox asks.
-		if ($this->approvalService->isReviewer($approval, $decision['reactor']) === false) {
-			$this->logger->info(
-				message: '[TalkApprovalReactionListener] Reaction from a non-reviewer ignored',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'approval' => (string)$approval->getUuid(),
-					'reactor' => $decision['reactor'],
-				]
-			);
+		if ($this->fromReviewer(approval: $approval, reactor: $decision['reactor']) === false) {
 			return;
 		}
 
 		$this->decide(approval: $approval, decision: $decision);
 
 	}//end handleReaction()
+
+	/**
+	 * Whether the reactor reviews this approval; a reaction from anyone else is logged and ignored.
+	 *
+	 * @param ObjectEntity $approval The approval the reaction targets.
+	 * @param string       $reactor  The reacting user's bare uid.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 */
+	private function fromReviewer(ObjectEntity $approval, string $reactor): bool {
+		if ($this->approvalService->isReviewer($approval, $reactor) === true) {
+			return true;
+		}
+
+		$this->logger->info(
+			message: '[TalkApprovalReactionListener] Reaction from a non-reviewer ignored',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'approval' => (string)$approval->getUuid(),
+				'reactor' => $reactor,
+			]
+		);
+		return false;
+
+	}//end fromReviewer()
 
 	/**
 	 * Read the actionable parts of a reaction, or null when it is not one.
@@ -241,12 +260,7 @@ class TalkApprovalReactionListener implements IEventListener {
 			return;
 		}
 
-		$this->applyDecision(
-			approval: $approval,
-			reactor: $decision['reactor'],
-			emoji: $decision['emoji'],
-			roomToken: $roomToken
-		);
+		$this->applyDecision(approval: $approval, decision: $decision);
 
 	}//end decide()
 
@@ -254,46 +268,72 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * Apply an authorized decision and confirm it in the room.
 	 *
 	 * @param ObjectEntity $approval The pending approval.
-	 * @param string $reactor The deciding reviewer's uid.
-	 * @param string $emoji The decision emoji.
-	 * @param string $roomToken The room to confirm in.
+	 * @param array        $decision The decision inputs from `readDecision()`.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
-	private function applyDecision(ObjectEntity $approval, string $reactor, string $emoji, string $roomToken): void {
-		$uuid = (string)$approval->getUuid();
-		// Confirm under the same agent that asked, so the exchange reads as one
-		// conversation with one agent rather than two different speakers.
-		$agentId = (string)(($approval->getObject())['agentId'] ?? '');
-		if ($agentId === '') {
-			// No agent on the approval — fall back to the shared bot rather
-			// than skipping the confirmation, which is the reviewer's only
-			// feedback that their reaction landed.
-			$agentId = null;
-		}
+	private function applyDecision(ObjectEntity $approval, array $decision): void {
+		$data = $approval->getObject();
+		$roomToken = (string)($data['talkRoomToken'] ?? '');
+		$agentId = $this->confirmingAgent(data: $data);
 
-		if ($emoji === self::APPROVE) {
-			$this->approvalService->approve(approval: $approval, deciderUid: $reactor);
-			$this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
-			$this->bridge->postToRoom(
-				roomToken: $roomToken,
-				message: '✅ Approved — the run has been released.',
-				agentId: $agentId
-			);
-			return;
-		}
-
-		$this->approvalService->deny(approval: $approval, deciderUid: $reactor, reason: 'Denied by reaction in Talk');
-		$this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
 		$this->bridge->postToRoom(
 			roomToken: $roomToken,
-			message: '🚫 Denied — the run will not execute.',
+			message: $this->recordDecision(approval: $approval, decision: $decision),
 			agentId: $agentId
 		);
 
 	}//end applyDecision()
+
+	/**
+	 * The agent that confirms the decision: the one that asked, or null for the shared bot.
+	 *
+	 * Confirm under the same agent that asked, so the exchange reads as one
+	 * conversation with one agent rather than two different speakers. With no agent
+	 * on the approval, fall back to the shared bot rather than skipping the
+	 * confirmation, which is the reviewer's only feedback that their reaction landed.
+	 *
+	 * @param array<string, mixed> $data The approval payload.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 */
+	private function confirmingAgent(array $data): ?string {
+		$agentId = (string)($data['agentId'] ?? '');
+		if ($agentId === '') {
+			return null;
+		}
+
+		return $agentId;
+
+	}//end confirmingAgent()
+
+	/**
+	 * Approve or deny, record that it was decided by reaction, and answer the confirmation.
+	 *
+	 * @param ObjectEntity $approval The pending approval.
+	 * @param array        $decision The decision inputs from `readDecision()`.
+	 *
+	 * @return string The confirmation to post.
+	 *
+	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 */
+	private function recordDecision(ObjectEntity $approval, array $decision): string {
+		$uuid = (string)$approval->getUuid();
+		if ($decision['emoji'] === self::APPROVE) {
+			$this->approvalService->approve(approval: $approval, deciderUid: $decision['reactor']);
+			$this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
+			return '✅ Approved — the run has been released.';
+		}
+
+		$this->approvalService->deny(approval: $approval, deciderUid: $decision['reactor'], reason: 'Denied by reaction in Talk');
+		$this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
+		return '🚫 Denied — the run will not execute.';
+
+	}//end recordDecision()
 
 	/**
 	 * Read a reaction payload belonging to our bot, or null.

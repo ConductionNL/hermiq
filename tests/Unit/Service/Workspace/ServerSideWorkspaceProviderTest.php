@@ -158,6 +158,52 @@ final class ServerSideWorkspaceProviderTest extends TestCase {
 		$this->assertAbsent(provider: $provider, runKey: 'run-a');
 	}//end testAFailedCloneLeavesNothingAndSaysNoPath()
 
+	public function testASecondOpenOnAnotherRepositoryOrRefIsRefusedAndKeepsTheWorkspace(): void {
+		$provider = $this->provider();
+		$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+		file_put_contents($provider->root(runKey: 'run-a') . '/scratch.txt', 'kept');
+
+		foreach ([['other-org/other-app', 'development'], ['example-org/example-app', 'main']] as [$repository, $ref]) {
+			try {
+				$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: $repository, ref: $ref, depth: 5);
+				self::fail('A second checkout in one run was accepted.');
+			} catch (WorkspaceException $e) {
+				self::assertSame(WorkspaceException::INVALID_ARGUMENT, $e->getErrorCode());
+				self::assertSame('This run already has a workspace on another repository or ref. One run works on one checkout.', $e->getMessage());
+			}
+		}
+
+		self::assertFileExists($provider->root(runKey: 'run-a') . '/scratch.txt');
+	}//end testASecondOpenOnAnotherRepositoryOrRefIsRefusedAndKeepsTheWorkspace()
+
+	public function testALeftoverDirectoryWithoutMetadataIsReplacedByAFreshClone(): void {
+		$provider = $this->provider();
+		$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+		$root = $provider->root(runKey: 'run-a');
+		$dir = dirname($root);
+		file_put_contents($root . '/scratch.txt', 'stale');
+		foreach (glob($dir . '/*') ?: [] as $entry) {
+			if (is_file($entry) === true) {
+				unlink($entry);
+			}
+		}
+
+		$result = $provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 5);
+
+		self::assertSame(2, $result['fileCount']);
+		self::assertFileDoesNotExist($provider->root(runKey: 'run-a') . '/scratch.txt');
+	}//end testALeftoverDirectoryWithoutMetadataIsReplacedByAFreshClone()
+
+	public function testTheCloneDepthIsClampedToAtLeastOne(): void {
+		file_put_contents($this->forge . '/README.md', "second\n");
+		self::git($this->forge, '-c', 'user.name=Forge', '-c', 'user.email=forge@example.invalid', 'commit', '-q', '-am', 'second');
+		$provider = $this->provider();
+
+		$provider->open(runKey: 'run-a', cloneUrl: 'file://' . $this->forge, repository: 'example-org/example-app', ref: 'development', depth: 0);
+
+		self::assertSame('1', self::git($provider->root(runKey: 'run-a'), 'rev-list', '--count', 'HEAD'));
+	}//end testTheCloneDepthIsClampedToAtLeastOne()
+
 	/**
 	 * The provider under test.
 	 */

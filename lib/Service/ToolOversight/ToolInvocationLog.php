@@ -29,6 +29,7 @@ namespace OCA\Hermiq\Service\ToolOversight;
 
 use OCA\Hermiq\Service\ToolInvocationRows;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -97,21 +98,7 @@ class ToolInvocationLog {
 			$owners[$agentOwner] = true;
 		}
 
-		$schedules = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::SCHEDULE_SCHEMA)
-			->findAll(config: ['limit' => 1000]);
-
-		foreach ($schedules as $schedule) {
-			if (($schedule instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $schedule->getObject();
-			if ((string)($data['agentId'] ?? '') !== $agentId) {
-				continue;
-			}
-
+		foreach ($this->agentSchedules(agentId: $agentId) as $schedule) {
 			$owner = (string)($schedule->getOwner() ?? '');
 			if ($owner !== '') {
 				$owners[$owner] = true;
@@ -176,14 +163,7 @@ class ToolInvocationLog {
 		foreach ($this->auditTrailMapper->findAll(filters: ['action' => 'run']) as $log) {
 			$occurredAt = $shape->occurredAt(log: $log);
 			if (isset($scheduleUuids[(string)$log->getObjectUuid()]) === true && $shape->inWindow(occurredAt: $occurredAt, window: $window) === true) {
-				$rows[] = [
-					'at' => $occurredAt,
-					'toolId' => null,
-					'actingUser' => $log->getUser(),
-					'paramsDigest' => null,
-					'resultSummary' => ['status' => (($log->getChanged() ?? [])['status'] ?? 'unknown')],
-					'dataTouched' => [],
-				];
+				$rows[] = $this->degradedRow(log: $log, occurredAt: $occurredAt);
 			}
 		}
 
@@ -200,16 +180,9 @@ class ToolInvocationLog {
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
 	 */
 	private function agentScheduleUuids(string $agentId): array {
-		$schedules = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::SCHEDULE_SCHEMA)
-			->findAll(config: ['limit' => 1000]);
-
 		$uuids = [];
-		foreach ($schedules as $schedule) {
-			if (($schedule instanceof ObjectEntity) === true && (string)($schedule->getObject()['agentId'] ?? '') === $agentId) {
-				$uuids[(string)$schedule->getUuid()] = true;
-			}
+		foreach ($this->agentSchedules(agentId: $agentId) as $schedule) {
+			$uuids[(string)$schedule->getUuid()] = true;
 		}
 
 		return $uuids;
@@ -236,20 +209,7 @@ class ToolInvocationLog {
 		fputcsv($handle, ['at', 'toolId', 'actingUser', 'paramsDigest', 'resultSummary', 'dataTouched'], ',', '"', '\\');
 
 		foreach ($rows as $row) {
-			fputcsv(
-				$handle,
-				[
-					(string)($row['at'] ?? ''),
-					(string)($row['toolId'] ?? ''),
-					(string)($row['actingUser'] ?? ''),
-					(string)($row['paramsDigest'] ?? ''),
-					(string)json_encode($row['resultSummary'] ?? null),
-					(string)json_encode($row['dataTouched'] ?? []),
-				],
-				',',
-				'"',
-				'\\'
-			);
+			fputcsv($handle, $this->csvFields(row: $row), ',', '"', '\\');
 		}
 
 		rewind($handle);
@@ -262,4 +222,64 @@ class ToolInvocationLog {
 
 		return $csv;
 	}//end toCsv()
+
+	/**
+	 * The agent's schedules: the schedule objects (one read, capped at 1000) whose agentId is the agent's.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, ObjectEntity> The schedules.
+	 */
+	private function agentSchedules(string $agentId): array {
+		$schedules = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SCHEDULE_SCHEMA)
+			->findAll(config: ['limit' => 1000]);
+
+		$matching = [];
+		foreach ($schedules as $schedule) {
+			if (($schedule instanceof ObjectEntity) === true && (string)($schedule->getObject()['agentId'] ?? '') === $agentId) {
+				$matching[] = $schedule;
+			}
+		}
+
+		return $matching;
+	}//end agentSchedules()
+
+	/**
+	 * A coarse run entry as an invocation row: when, who, and the run's status; no tool, digest or data.
+	 *
+	 * @param AuditTrail  $log        The audit trail entry.
+	 * @param string|null $occurredAt When it happened (ISO-8601), or null.
+	 *
+	 * @return array<string, mixed> The row.
+	 */
+	private function degradedRow(AuditTrail $log, ?string $occurredAt): array {
+		return [
+			'at' => $occurredAt,
+			'toolId' => null,
+			'actingUser' => $log->getUser(),
+			'paramsDigest' => null,
+			'resultSummary' => ['status' => (($log->getChanged() ?? [])['status'] ?? 'unknown')],
+			'dataTouched' => [],
+		];
+	}//end degradedRow()
+
+	/**
+	 * One row's CSV fields, in the header's order; the summary and data as JSON.
+	 *
+	 * @param array<string, mixed> $row The row.
+	 *
+	 * @return array<int, string> The fields.
+	 */
+	private function csvFields(array $row): array {
+		return [
+			(string)($row['at'] ?? ''),
+			(string)($row['toolId'] ?? ''),
+			(string)($row['actingUser'] ?? ''),
+			(string)($row['paramsDigest'] ?? ''),
+			(string)json_encode($row['resultSummary'] ?? null),
+			(string)json_encode($row['dataTouched'] ?? []),
+		];
+	}//end csvFields()
 }//end class

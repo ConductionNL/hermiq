@@ -216,6 +216,7 @@ import {
 	forgetMemoryEntry,
 	getMemory,
 } from '../api/memory.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AgentMemoryPanel',
@@ -375,10 +376,7 @@ export default {
 					needsConsolidation: false,
 				}
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -401,10 +399,7 @@ export default {
 				this.memory = await addMemory(this.agentId, text)
 				this.newEntry = ''
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -425,10 +420,7 @@ export default {
 			try {
 				this.memory = await consolidateMemory(this.agentId)
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -475,10 +467,7 @@ export default {
 				this.memory = await correctMemoryEntry(this.agentId, entry.id, text)
 				this.cancelCorrection()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -503,10 +492,7 @@ export default {
 				)
 				this.forgetTarget = null
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}

@@ -1,0 +1,35 @@
+{
+    "bundle": {
+        "hermiq-skills.json": "{\n    \"formatVersion\": \"1.1\",\n    \"skills\": [\n        {\n            \"name\": \"lint\",\n            \"files\": 1\n        },\n        {\n            \"name\": \"ns-lint\",\n            \"files\": 0\n        }\n    ],\n    \"agents\": [\n        {\n            \"name\": \"triage\"\n        }\n    ]\n}\n",
+        "skills/lint/SKILL.md": "---\nname: lint\n---\nDo it.",
+        "skills/lint/references/a.md": "A",
+        "skills/ns-lint/SKILL.md": "---\nname: ns:lint\n---\ny",
+        "agents/triage.json": "{\n    \"name\": \"Triage\",\n    \"prompt\": \"Sort\"\n}\n"
+    },
+    "dropped": [
+        {
+            "name": "..",
+            "reason": "invalid_name"
+        },
+        {
+            "name": "ns-lint",
+            "reason": "duplicate_directory_name"
+        }
+    ],
+    "droppedAgents": [
+        {
+            "name": "",
+            "reason": "invalid_name"
+        },
+        {
+            "name": "triage",
+            "reason": "duplicate_directory_name"
+        }
+    ],
+    "log": [
+        "warning Hermiq skill bundle: rejected entry \u2014 not a valid bundled skill name. {\"entry\":\"..\"}",
+        "warning Hermiq skill bundle: rejected entry \u2014 skill path name \"ns-lint\" already taken in this bundle. {\"entry\":\"ns-lint\"}",
+        "warning Hermiq skill bundle: rejected entry \u2014 not a valid bundled agent name. {\"entry\":\"\"}",
+        "warning Hermiq skill bundle: rejected entry \u2014 agent path name \"triage\" already taken in this bundle. {\"entry\":\"triage\"}"
+    ]
+}

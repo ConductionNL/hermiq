@@ -133,6 +133,7 @@ import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ApprovalInbox',
@@ -195,10 +196,7 @@ export default {
 				)
 				this.agentMap = this.byUuid(Array.isArray(agents) ? agents : [])
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -302,10 +300,7 @@ export default {
 				await approveApproval(approval.id)
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.actioningId = ''
 			}

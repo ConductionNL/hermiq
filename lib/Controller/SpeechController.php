@@ -124,6 +124,38 @@ class SpeechController extends Controller {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 120, period: 60)]
 	public function transcribe(): JSONResponse {
+		$bytes = $this->uploadedAudio();
+		if ($bytes instanceof JSONResponse) {
+			return $bytes;
+		}
+
+		try {
+			$result = $this->speech->transcribe(
+				audio: $bytes,
+				language: (string)$this->request->getParam(key: 'language', default: '')
+			);
+		} catch (Throwable $e) {
+			// The engine and the failure, never the audio.
+			$this->logger->warning(
+				message: '[SpeechController] Transcription failed',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'exception' => $e]
+			);
+			return new JSONResponse(data: ['error' => 'The speech service is unavailable.'], statusCode: 502);
+		}
+
+		$this->logTranscription(result: $result, bytes: $bytes);
+
+		return new JSONResponse(data: $result, statusCode: 200);
+
+	}//end transcribe()
+
+	/**
+	 * The uploaded clip's bytes, or the 400 for no upload, a failed or oversized
+	 * upload, or an empty clip.
+	 *
+	 * @return string|JSONResponse
+	 */
+	private function uploadedAudio(): string|JSONResponse {
 		$upload = $this->request->getUploadedFile(key: 'audio');
 
 		// ⚠️ NO `is_array()` GUARD HERE. `getUploadedFile()` is declared to return
@@ -144,20 +176,18 @@ class SpeechController extends Controller {
 			return new JSONResponse(data: ['error' => 'No audio was uploaded.'], statusCode: 400);
 		}
 
-		try {
-			$result = $this->speech->transcribe(
-				audio: $bytes,
-				language: (string)$this->request->getParam(key: 'language', default: '')
-			);
-		} catch (Throwable $e) {
-			// The engine and the failure, never the audio.
-			$this->logger->warning(
-				message: '[SpeechController] Transcription failed',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'exception' => $e]
-			);
-			return new JSONResponse(data: ['error' => 'The speech service is unavailable.'], statusCode: 502);
-		}
+		return $bytes;
+	}//end uploadedAudio()
 
+	/**
+	 * Record that a transcription completed: engine, language, size and user only.
+	 *
+	 * @param array $result The transcription result.
+	 * @param string $bytes The clip that was transcribed.
+	 *
+	 * @return void
+	 */
+	private function logTranscription(array $result, string $bytes): void {
 		// ⚠️ THE TRANSCRIPT IS NEVER LOGGED. An oversight record that quotes the
 		// dictated text becomes a second copy of the conversation somewhere with
 		// different access rules — the exact thing routing speech locally was
@@ -171,10 +201,7 @@ class SpeechController extends Controller {
 				'user' => $this->currentUserId(),
 			]
 		);
-
-		return new JSONResponse(data: $result, statusCode: 200);
-
-	}//end transcribe()
+	}//end logTranscription()
 
 	/**
 	 * Speak a reply.
@@ -193,14 +220,9 @@ class SpeechController extends Controller {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 120, period: 60)]
 	public function synthesise(): JSONResponse|DataDownloadResponse {
-		$text = trim(string: (string)$this->request->getParam(key: 'text', default: ''));
-
-		if ($text === '') {
-			return new JSONResponse(data: ['error' => 'No text was supplied.'], statusCode: 400);
-		}
-
-		if (mb_strlen(string: $text) > self::MAX_SPEAK_CHARS) {
-			return new JSONResponse(data: ['error' => 'Text is too long to speak.'], statusCode: 400);
+		$text = $this->requestedText();
+		if ($text instanceof JSONResponse) {
+			return $text;
 		}
 
 		try {
@@ -216,14 +238,7 @@ class SpeechController extends Controller {
 			return new JSONResponse(data: ['error' => 'The speech service is unavailable.'], statusCode: 502);
 		}
 
-		$this->logger->info(
-			message: '[SpeechController] Synthesis completed',
-			context: [
-				'engine' => ($result['engine'] ?? ''),
-				'chars' => mb_strlen(string: $text),
-				'user' => $this->currentUserId(),
-			]
-		);
+		$this->logSynthesis(result: $result, text: $text);
 
 		return new DataDownloadResponse(
 			data: (string)($result['audio'] ?? ''),
@@ -232,6 +247,44 @@ class SpeechController extends Controller {
 		);
 
 	}//end synthesise()
+
+	/**
+	 * The text to speak, trimmed, or the 400 for none or for text too long to speak.
+	 *
+	 * @return string|JSONResponse
+	 */
+	private function requestedText(): string|JSONResponse {
+		$text = trim(string: (string)$this->request->getParam(key: 'text', default: ''));
+
+		if ($text === '') {
+			return new JSONResponse(data: ['error' => 'No text was supplied.'], statusCode: 400);
+		}
+
+		if (mb_strlen(string: $text) > self::MAX_SPEAK_CHARS) {
+			return new JSONResponse(data: ['error' => 'Text is too long to speak.'], statusCode: 400);
+		}
+
+		return $text;
+	}//end requestedText()
+
+	/**
+	 * Record that a synthesis completed: engine, length and user only.
+	 *
+	 * @param array $result The synthesis result.
+	 * @param string $text The text that was spoken.
+	 *
+	 * @return void
+	 */
+	private function logSynthesis(array $result, string $text): void {
+		$this->logger->info(
+			message: '[SpeechController] Synthesis completed',
+			context: [
+				'engine' => ($result['engine'] ?? ''),
+				'chars' => mb_strlen(string: $text),
+				'user' => $this->currentUserId(),
+			]
+		);
+	}//end logSynthesis()
 
 	/**
 	 * Whether local speech can actually be performed here.

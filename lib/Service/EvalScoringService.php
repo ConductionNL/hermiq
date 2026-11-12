@@ -102,7 +102,7 @@ class EvalScoringService {
 		}
 
 		if ($expectationType === 'rubric') {
-			return $this->scoreRubric(case: $case, actualOutput: $actualOutput, organisation: $organisation);
+			return $this->scoreRubric(case: $case, output: new JudgedOutput(actualOutput: $actualOutput, organisation: $organisation));
 		}
 
 		return $this->result(
@@ -236,29 +236,58 @@ class EvalScoringService {
 	 *
 	 * @param array<string,mixed> $case The EvalCase (must carry `rubric`; MAY
 	 *                                  carry `rubricPassThreshold`).
-	 * @param string $actualOutput The agent's real output.
-	 * @param string|null $organisation The triggering agent's organisation,
-	 *                                  threaded to the judge call.
+	 * @param JudgedOutput $output The agent's real output and the organisation
+	 *                             threaded to the judge call.
 	 *
 	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
 	 *
 	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
 	 */
-	private function scoreRubric(array $case, string $actualOutput, ?string $organisation): array {
+	private function scoreRubric(array $case, JudgedOutput $output): array {
 		$rubric = (string)($case['rubric'] ?? '');
 		if ($rubric === '') {
 			return $this->result(passed: false, errorMessage: 'Case is missing rubric.');
 		}
 
-		$threshold = self::DEFAULT_RUBRIC_THRESHOLD;
-		if (isset($case['rubricPassThreshold']) === true && is_numeric($case['rubricPassThreshold']) === true) {
-			$threshold = (float)$case['rubricPassThreshold'];
+		$prompt = $this->buildJudgePrompt(rubric: $rubric, prompt: (string)($case['prompt'] ?? ''), actualOutput: $output->actualOutput);
+		$judgeResponse = $this->askJudge(prompt: $prompt, organisation: $output->organisation);
+		if (is_array($judgeResponse) === true) {
+			return $judgeResponse;
 		}
 
-		$prompt = $this->buildJudgePrompt(rubric: $rubric, prompt: (string)($case['prompt'] ?? ''), actualOutput: $actualOutput);
+		return $this->verdict(response: $judgeResponse, threshold: $this->rubricThreshold(case: $case));
+	}//end scoreRubric()
 
+	/**
+	 * The case's pass threshold: its numeric `rubricPassThreshold`, or the default.
+	 *
+	 * @param array<string,mixed> $case The EvalCase.
+	 *
+	 * @return float
+	 *
+	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 */
+	private function rubricThreshold(array $case): float {
+		if (isset($case['rubricPassThreshold']) === true && is_numeric($case['rubricPassThreshold']) === true) {
+			return (float)$case['rubricPassThreshold'];
+		}
+
+		return self::DEFAULT_RUBRIC_THRESHOLD;
+	}//end rubricThreshold()
+
+	/**
+	 * The judge's raw answer, or the failed result when the judge call fails.
+	 *
+	 * @param string      $prompt       The judge prompt.
+	 * @param string|null $organisation The organisation the judge call runs for.
+	 *
+	 * @return string|array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
+	 *
+	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 */
+	private function askJudge(string $prompt, ?string $organisation): string|array {
 		try {
-			$judgeResponse = $this->providerFactory->generateText(
+			return $this->providerFactory->generateText(
 				prompt: $prompt,
 				userId: null,
 				allowNextcloud: true,
@@ -269,8 +298,20 @@ class EvalScoringService {
 		} catch (Throwable $e) {
 			return $this->result(passed: false, errorMessage: 'Judge call failed: ' . $e->getMessage());
 		}
+	}//end askJudge()
 
-		[$score, $rationale] = $this->parseJudgeResponse(response: $judgeResponse);
+	/**
+	 * The result of a judge's answer against the pass threshold.
+	 *
+	 * @param string $response  The judge's raw answer.
+	 * @param float  $threshold The pass threshold.
+	 *
+	 * @return array{passed:bool,errorMessage:?string,score:?float,judgeRationale:?string}
+	 *
+	 * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
+	 */
+	private function verdict(string $response, float $threshold): array {
+		[$score, $rationale] = $this->parseJudgeResponse(response: $response);
 		if ($score === null) {
 			return $this->result(
 				passed: false,
@@ -280,7 +321,7 @@ class EvalScoringService {
 		}
 
 		return $this->result(passed: ($score >= $threshold), score: $score, judgeRationale: $rationale);
-	}//end scoreRubric()
+	}//end verdict()
 
 	/**
 	 * Build the judge prompt: the rubric, the case's original input, and the

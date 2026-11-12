@@ -111,34 +111,14 @@ class PruneRetiredAgentFlowSchemas implements IRepairStep {
 	 * @spec openspec/specs/flow-authoring/spec.md#requirement-a-flow-is-stored-once-by-openregister-req-fa-002
 	 */
 	public function run(IOutput $output): void {
-		try {
-			$schemaMapper = $this->container->get(SchemaMapper::class);
-			$registerMapper = $this->container->get(RegisterMapper::class);
-			$deletionService = $this->container->get(SchemaDeletionService::class);
-		} catch (Throwable $e) {
-			// OpenRegister absent, or too old to carry the deletion service.
-			// Recoverable either way: the step re-runs on the next upgrade.
-			$output->info('OpenRegister schema pruning unavailable — skipping the agentflow prune.');
-			$this->logger->info('[hermiq] Agentflow schema prune skipped: ' . $e->getMessage());
+		$run = $this->startRun(output: $output);
+		if ($run === null) {
 			return;
 		}
 
 		foreach (self::RETIRED_SLUGS as $slug) {
 			try {
-				$schema = $schemaMapper->findByApplicationAndSlug(slug: $slug, application: Application::APP_ID);
-				if ($schema === null) {
-					// Already pruned, or never imported. This is the idempotent path.
-					$output->info('Retired schema "' . $slug . '" is not present — nothing to prune.');
-					continue;
-				}
-
-				$this->unlinkFromRegisters(registerMapper: $registerMapper, schema: $schema, output: $output);
-
-				$result = $deletionService->cascadeDeleteSchema(schema: $schema);
-				$output->info(
-					'Pruned retired schema "' . $slug . '" (objects removed: '
-					. (int)$result['deletedCount'] . ').'
-				);
+				$this->prune(run: $run, slug: $slug);
 			} catch (Throwable $e) {
 				// Reported, not raised — see the class docblock.
 				$this->logger->warning(
@@ -147,10 +127,60 @@ class PruneRetiredAgentFlowSchemas implements IRepairStep {
 					['exception' => $e]
 				);
 				$output->warning('Could not prune retired schema "' . $slug . '": ' . $e->getMessage());
-			}//end try
-		}//end foreach
+			}
+		}
 
 	}//end run()
+
+	/**
+	 * Resolve the OpenRegister stores, or report and answer null when OpenRegister is
+	 * absent or too old to carry the deletion service.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return SchemaPruneRun|null
+	 */
+	private function startRun(IOutput $output): ?SchemaPruneRun {
+		try {
+			return new SchemaPruneRun(
+				schemaMapper: $this->container->get(SchemaMapper::class),
+				registerMapper: $this->container->get(RegisterMapper::class),
+				deletionService: $this->container->get(SchemaDeletionService::class),
+				output: $output
+			);
+		} catch (Throwable $e) {
+			// OpenRegister absent, or too old to carry the deletion service.
+			// Recoverable either way: the step re-runs on the next upgrade.
+			$output->info('OpenRegister schema pruning unavailable — skipping the agentflow prune.');
+			$this->logger->info('[hermiq] Agentflow schema prune skipped: ' . $e->getMessage());
+			return null;
+		}
+	}//end startRun()
+
+	/**
+	 * Prune one retired schema: unlink it from every register, then cascade-delete it.
+	 *
+	 * @param SchemaPruneRun $run The run.
+	 * @param string $slug The retired schema's slug.
+	 *
+	 * @return void
+	 */
+	private function prune(SchemaPruneRun $run, string $slug): void {
+		$schema = $run->schemaMapper->findByApplicationAndSlug(slug: $slug, application: Application::APP_ID);
+		if ($schema === null) {
+			// Already pruned, or never imported. This is the idempotent path.
+			$run->output->info('Retired schema "' . $slug . '" is not present — nothing to prune.');
+			return;
+		}
+
+		$this->unlinkFromRegisters(run: $run, schema: $schema);
+
+		$result = $run->deletionService->cascadeDeleteSchema(schema: $schema);
+		$run->output->info(
+			'Pruned retired schema "' . $slug . '" (objects removed: '
+			. (int)$result['deletedCount'] . ').'
+		);
+	}//end prune()
 
 	/**
 	 * Drop the schema's id from every register that references it.
@@ -160,42 +190,52 @@ class PruneRetiredAgentFlowSchemas implements IRepairStep {
 	 * wrote them, so `"74"` and `74` are the same reference and both go, while
 	 * non-numeric entries are preserved untouched.
 	 *
-	 * @param RegisterMapper $registerMapper The register store.
+	 * @param SchemaPruneRun $run The run.
 	 * @param Schema $schema The schema being pruned.
-	 * @param IOutput $output Repair output channel.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/flow-authoring/spec.md#requirement-a-flow-is-stored-once-by-openregister-req-fa-002
 	 */
-	private function unlinkFromRegisters(RegisterMapper $registerMapper, Schema $schema, IOutput $output): void {
+	private function unlinkFromRegisters(SchemaPruneRun $run, Schema $schema): void {
 		$schemaId = (int)$schema->getId();
 
-		foreach ($registerMapper->findAll(_rbac: false, _multitenancy: false) as $register) {
-			$remaining = [];
-			$changed = false;
-			foreach ($register->getSchemas() as $ref) {
-				if ((is_int($ref) === true || (is_string($ref) === true && is_numeric($ref) === true))
-					&& (int)$ref === $schemaId
-				) {
-					$changed = true;
-					continue;
-				}
-
-				$remaining[] = $ref;
-			}
-
-			if ($changed === false) {
+		foreach ($run->registerMapper->findAll(_rbac: false, _multitenancy: false) as $register) {
+			$remaining = $this->refsWithout(refs: $register->getSchemas(), schemaId: $schemaId);
+			if (count($remaining) === count($register->getSchemas())) {
 				continue;
 			}
 
 			$register->setSchemas($remaining);
-			$registerMapper->update($register);
-			$output->info(
+			$run->registerMapper->update($register);
+			$run->output->info(
 				'Unlinked retired schema id ' . $schemaId . ' from register "'
 				. (string)$register->getSlug() . '".'
 			);
-		}//end foreach
+		}
 
 	}//end unlinkFromRegisters()
+
+	/**
+	 * A register's schema references without every stored form of one schema id.
+	 *
+	 * @param array $refs The register's schema references.
+	 * @param int $schemaId The schema id to drop.
+	 *
+	 * @return array The remaining references, in order.
+	 */
+	private function refsWithout(array $refs, int $schemaId): array {
+		$remaining = [];
+		foreach ($refs as $ref) {
+			if ((is_int($ref) === true || (is_string($ref) === true && is_numeric($ref) === true))
+				&& (int)$ref === $schemaId
+			) {
+				continue;
+			}
+
+			$remaining[] = $ref;
+		}
+
+		return $remaining;
+	}//end refsWithout()
 }//end class

@@ -321,6 +321,8 @@ import {
 	rotateWebhookSecret,
 } from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
+import { dateOrDash } from '../utils/displayDate.js'
+import { stepTypeLabel } from './runStepLabels.js'
 
 export default {
 	name: 'AgentRunOperationsWidget',
@@ -408,6 +410,9 @@ export default {
 	},
 
 	methods: {
+		formatDate: dateOrDash,
+		stepTypeLabel,
+
 		/**
 		 * Load the attached schedule, cost estimate, budget status and webhook status.
 		 *
@@ -608,40 +613,6 @@ export default {
 		async onScheduleSaved() {
 			await this.load()
 			emit('cn:page:refresh', {})
-		},
-
-		/**
-		 * Human label for a trace step's type.
-		 *
-		 * @param {string} type The step type (gate_wait|context|history|llm|tool|delivery).
-		 * @return {string} The localised label.
-		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
-		 */
-		stepTypeLabel(type) {
-			const labels = {
-				gate_wait: this.t('hermiq', 'Awaiting approval'),
-				context: this.t('hermiq', 'Context'),
-				history: this.t('hermiq', 'History'),
-				llm: this.t('hermiq', 'LLM'),
-				tool: this.t('hermiq', 'Tool'),
-				delivery: this.t('hermiq', 'Delivery'),
-			}
-			return labels[type] || type || '—'
-		},
-
-		/**
-		 * Format an ISO date for display, or a dash when absent/invalid.
-		 *
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The localised date, or '—'.
-		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 		},
 	},
 }

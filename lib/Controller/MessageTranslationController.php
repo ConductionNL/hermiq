@@ -136,21 +136,17 @@ class MessageTranslationController extends Controller {
 	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	private function readInput(): array|string {
-		$sourceText = $this->request->getParam('sourceText');
-		if (is_string($sourceText) === false || $sourceText === '') {
+		$sourceText = $this->requiredParam(name: 'sourceText');
+		if ($sourceText === null) {
 			return 'sourceText is required';
 		}
 
-		$targetLanguage = $this->request->getParam('targetLanguage');
-		if (is_string($targetLanguage) === false || $targetLanguage === '') {
+		$targetLanguage = $this->requiredParam(name: 'targetLanguage');
+		if ($targetLanguage === null) {
 			return 'targetLanguage is required';
 		}
 
-		$sourceLanguage = $this->request->getParam('sourceLanguage');
-		if ($sourceLanguage === '') {
-			$sourceLanguage = null;
-		}
-
+		$sourceLanguage = $this->sourceLanguageParam();
 		$originalRef = ($this->request->getParam('originalRef') ?? '');
 
 		$error = $this->provenanceError(
@@ -162,19 +158,58 @@ class MessageTranslationController extends Controller {
 			return $error;
 		}
 
-		$glossary = $this->request->getParam('glossary', []);
-		if (is_array($glossary) === false) {
-			$glossary = [];
-		}
-
 		return [
 			'sourceText'     => $sourceText,
 			'targetLanguage' => $targetLanguage,
 			'sourceLanguage' => $sourceLanguage,
 			'originalRef'    => $originalRef,
-			'glossary'       => $glossary,
+			'glossary'       => $this->glossaryParam(),
 		];
 	}//end readInput()
+
+	/**
+	 * A request param that must be a non-empty string, or null when it is not.
+	 *
+	 * @param string $name The param name.
+	 *
+	 * @return string|null
+	 */
+	private function requiredParam(string $name): ?string {
+		$value = $this->request->getParam($name);
+		if (is_string($value) === false || $value === '') {
+			return null;
+		}
+
+		return $value;
+	}//end requiredParam()
+
+	/**
+	 * The `sourceLanguage` param as given, or null when it is empty.
+	 *
+	 * @return mixed
+	 */
+	private function sourceLanguageParam(): mixed {
+		$sourceLanguage = $this->request->getParam('sourceLanguage');
+		if ($sourceLanguage === '') {
+			return null;
+		}
+
+		return $sourceLanguage;
+	}//end sourceLanguageParam()
+
+	/**
+	 * The `glossary` param, or [] when it is not a list.
+	 *
+	 * @return array
+	 */
+	private function glossaryParam(): array {
+		$glossary = $this->request->getParam('glossary', []);
+		if (is_array($glossary) === false) {
+			return [];
+		}
+
+		return $glossary;
+	}//end glossaryParam()
 
 	/**
 	 * Check the fields that reach a prompt or the response as provenance. Both

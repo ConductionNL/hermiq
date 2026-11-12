@@ -77,58 +77,17 @@ class AssistantController extends Controller {
 	 */
 	public function converse(): JSONResponse {
 		try {
-			$userId = $this->requireUserId();
-
-			$sessionId = $this->request->getParam('sessionId');
-			if (is_string($sessionId) === false || $sessionId === '') {
-				$sessionId = null;
-			}
-
-			$message = (string)$this->request->getParam('message', '');
-
-			$contextParam = $this->request->getParam('context');
-			$context = [];
-			if (is_array($contextParam) === true) {
-				$context = $contextParam;
-			}
-
 			$result = $this->assistantService->converse(
-				userId: $userId,
-				sessionId: $sessionId,
-				message: $message,
-				context: $context
+				userId: $this->requireUserId(),
+				sessionId: $this->sessionIdParam(),
+				message: (string)$this->request->getParam('message', ''),
+				context: $this->contextParam()
 			);
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
-			$statusCode = (int)$e->getCode();
-			if ($statusCode < 400 || $statusCode >= 600) {
-				$statusCode = 500;
-			}
-
-			$this->logConverseFailure(exception: $e, statusCode: $statusCode);
-
-			$errorType = match ($statusCode) {
-				400 => $this->l10n->t('Invalid request'),
-				401 => $this->l10n->t('Authentication required'),
-				403 => $this->l10n->t('Access denied'),
-				404 => $this->l10n->t('Session not found'),
-				422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
-				503 => $this->l10n->t('AI service not configured'),
-				default => $this->l10n->t('Failed to process message'),
-			};
-
-			$data = [
-				'error' => $errorType,
-				'message' => $e->getMessage(),
-			];
-
-			if ($e instanceof GuardrailBlockedException) {
-				$data['errorCode'] = 'guardrail_blocked';
-			}
-
-			return new JSONResponse(data: $data, statusCode: $statusCode);
-		}//end try
+			return $this->failure(exception: $e, errorTypeFor: $this->converseErrorType(...));
+		}
 	}//end converse()
 
 	/**
@@ -144,52 +103,112 @@ class AssistantController extends Controller {
 	 */
 	public function detectPii(): JSONResponse {
 		try {
-			$userId = $this->requireUserId();
-
-			$text = (string)$this->request->getParam('text', '');
-
-			$contextParam = $this->request->getParam('context');
-			$context = [];
-			if (is_array($contextParam) === true) {
-				$context = $contextParam;
-			}
-
 			$result = $this->assistantService->detectPii(
-				userId: $userId,
-				text: $text,
-				context: $context
+				userId: $this->requireUserId(),
+				text: (string)$this->request->getParam('text', ''),
+				context: $this->contextParam()
 			);
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
-			$statusCode = (int)$e->getCode();
-			if ($statusCode < 400 || $statusCode >= 600) {
-				$statusCode = 500;
-			}
-
-			$this->logConverseFailure(exception: $e, statusCode: $statusCode);
-
-			$errorType = match ($statusCode) {
-				400 => $this->l10n->t('Invalid request'),
-				401 => $this->l10n->t('Authentication required'),
-				422 => $this->l10n->t('Text blocked by the organisation\'s guardrail policy'),
-				502 => $this->l10n->t('AI response could not be parsed'),
-				503 => $this->l10n->t('AI service not configured'),
-				default => $this->l10n->t('Failed to process text'),
-			};
-
-			$data = [
-				'error' => $errorType,
-				'message' => $e->getMessage(),
-			];
-
-			if ($e instanceof GuardrailBlockedException) {
-				$data['errorCode'] = 'guardrail_blocked';
-			}
-
-			return new JSONResponse(data: $data, statusCode: $statusCode);
-		}//end try
+			return $this->failure(exception: $e, errorTypeFor: $this->detectPiiErrorType(...));
+		}
 	}//end detectPii()
+
+	/**
+	 * The `sessionId` request param, or null when it is absent or not a non-empty string.
+	 *
+	 * @return string|null
+	 */
+	private function sessionIdParam(): ?string {
+		$sessionId = $this->request->getParam('sessionId');
+		if (is_string($sessionId) === false || $sessionId === '') {
+			return null;
+		}
+
+		return $sessionId;
+	}//end sessionIdParam()
+
+	/**
+	 * The `context` request param, or [] when it is not an array.
+	 *
+	 * @return array
+	 */
+	private function contextParam(): array {
+		$contextParam = $this->request->getParam('context');
+		if (is_array($contextParam) === true) {
+			return $contextParam;
+		}
+
+		return [];
+	}//end contextParam()
+
+	/**
+	 * The error response for a failed call: the exception's code clamped to 400-599
+	 * (else 500), logged at its level, with the endpoint's error type and the
+	 * guardrail code when a guardrail blocked it.
+	 *
+	 * @param Exception $exception The caught exception.
+	 * @param callable(int): string $errorTypeFor The endpoint's status => error type map.
+	 *
+	 * @return JSONResponse
+	 */
+	private function failure(Exception $exception, callable $errorTypeFor): JSONResponse {
+		$statusCode = (int)$exception->getCode();
+		if ($statusCode < 400 || $statusCode >= 600) {
+			$statusCode = 500;
+		}
+
+		$this->logConverseFailure(exception: $exception, statusCode: $statusCode);
+
+		$data = [
+			'error' => $errorTypeFor($statusCode),
+			'message' => $exception->getMessage(),
+		];
+
+		if ($exception instanceof GuardrailBlockedException) {
+			$data['errorCode'] = 'guardrail_blocked';
+		}
+
+		return new JSONResponse(data: $data, statusCode: $statusCode);
+	}//end failure()
+
+	/**
+	 * The error type a failed conversational turn reports for its status.
+	 *
+	 * @param int $statusCode The resolved HTTP status code.
+	 *
+	 * @return string
+	 */
+	private function converseErrorType(int $statusCode): string {
+		return match ($statusCode) {
+			400 => $this->l10n->t('Invalid request'),
+			401 => $this->l10n->t('Authentication required'),
+			403 => $this->l10n->t('Access denied'),
+			404 => $this->l10n->t('Session not found'),
+			422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
+			503 => $this->l10n->t('AI service not configured'),
+			default => $this->l10n->t('Failed to process message'),
+		};
+	}//end converseErrorType()
+
+	/**
+	 * The error type a failed PII detection reports for its status.
+	 *
+	 * @param int $statusCode The resolved HTTP status code.
+	 *
+	 * @return string
+	 */
+	private function detectPiiErrorType(int $statusCode): string {
+		return match ($statusCode) {
+			400 => $this->l10n->t('Invalid request'),
+			401 => $this->l10n->t('Authentication required'),
+			422 => $this->l10n->t('Text blocked by the organisation\'s guardrail policy'),
+			502 => $this->l10n->t('AI response could not be parsed'),
+			503 => $this->l10n->t('AI service not configured'),
+			default => $this->l10n->t('Failed to process text'),
+		};
+	}//end detectPiiErrorType()
 
 	/**
 	 * Log a converse() failure at the level matching its severity.

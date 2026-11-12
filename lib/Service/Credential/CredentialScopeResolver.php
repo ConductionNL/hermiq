@@ -131,55 +131,107 @@ class CredentialScopeResolver {
 	 *
 	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
 	 *
-	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) The personal-scope predicate closure
-	 *   must keep `$_data`: `firstMatch()`'s callable contract is (ObjectEntity, array)
-	 *   even when a predicate only inspects the entity.
-	 *
 	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function resolve(string $provider, ?string $actingUserId, ?string $organisation, ?array $pinned = null): ?string {
-		$candidates = $this->loadCandidates();
+		$lookup = new CredentialLookup(
+			provider: $provider,
+			actor: new CredentialActor(userId: $actingUserId, organisation: $organisation)
+		);
 
+		return $this->resolveLookup(lookup: $lookup, pin: $this->pinFor(pinned: $pinned, provider: $provider));
+	}//end resolve()
+
+	/**
+	 * Resolve a lookup over every stored credential: the pin when there is one, and
+	 * nothing else; otherwise personal, then organisation.
+	 *
+	 * @param CredentialLookup $lookup The provider and actor.
+	 * @param string|null $pin The trimmed pinned uuid, or null when none is pinned.
+	 *
+	 * @return string|null The resolved credential uuid, or null.
+	 *
+	 * @throws PinnedCredentialRefusedException When the pin cannot be used.
+	 */
+	private function resolveLookup(CredentialLookup $lookup, ?string $pin): ?string {
+		$candidates = $this->loadCandidates();
+		if ($pin !== null) {
+			return $this->usablePin(pinned: $this->candidateWithUuid(candidates: $candidates, uuid: $pin), lookup: $lookup);
+		}
+
+		return $this->personalMatch(candidates: $candidates, lookup: $lookup)
+			?? $this->organisationMatch(candidates: $candidates, lookup: $lookup);
+	}//end resolveLookup()
+
+	/**
+	 * The trimmed credential uuid pinned for `$provider`, or null when there is none.
+	 *
+	 * @param array<string, mixed>|null $pinned The agent's own credential per provider.
+	 * @param string $provider The provider of the turn.
+	 *
+	 * @return string|null The pin.
+	 */
+	private function pinFor(?array $pinned, string $provider): ?string {
 		$pin = $pinned[$provider] ?? null;
 		if (is_string($pin) === true && trim($pin) !== '') {
-			return $this->usablePin(
-				candidates: $candidates,
-				pin: trim($pin),
-				provider: $provider,
-				actingUserId: $actingUserId,
-				organisation: $organisation
-			);
-		}
-
-		if ($actingUserId !== null && $actingUserId !== '') {
-			$personal = $this->firstMatch(
-				candidates: $candidates,
-				provider: $provider,
-				scope: self::SCOPE_PERSONAL,
-				predicate: static fn (ObjectEntity $candidate, array $_data): bool => $candidate->getOwner() === $actingUserId
-			);
-
-			if ($personal !== null) {
-				return $personal;
-			}
-		}
-
-		if ($organisation !== null && $organisation !== '') {
-			$organisationMatch = $this->firstMatch(
-				candidates: $candidates,
-				provider: $provider,
-				scope: self::SCOPE_ORGANISATION,
-				predicate: static fn (ObjectEntity $candidate, array $data): bool => (string)($data['organisation'] ?? '') === $organisation
-			);
-
-			if ($organisationMatch !== null) {
-				return $organisationMatch;
-			}
+			return trim($pin);
 		}
 
 		return null;
-	}//end resolve()
+	}//end pinFor()
+
+	/**
+	 * The acting user's own personal credential for the provider, when there is an acting user.
+	 *
+	 * @param array<int, ObjectEntity> $candidates Every brokered-credential object.
+	 * @param CredentialLookup $lookup The provider and actor.
+	 *
+	 * @return string|null The credential uuid, or null.
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) The personal-scope predicate closure
+	 *   must keep `$_data`: `firstMatch()`'s callable contract is (ObjectEntity, array)
+	 *   even when a predicate only inspects the entity.
+	 */
+	private function personalMatch(array $candidates, CredentialLookup $lookup): ?string {
+		if ($lookup->actor->hasUser() === false) {
+			return null;
+		}
+
+		$actingUserId = $lookup->actor->userId;
+		return $this->firstMatch(
+			candidates: $candidates,
+			provider: $lookup->provider,
+			scope: self::SCOPE_PERSONAL,
+			predicate: static fn (ObjectEntity $candidate, array $_data): bool => $candidate->getOwner() === $actingUserId
+		);
+	}//end personalMatch()
+
+	/**
+	 * The agent's organisation's credential for the provider, when there is an organisation.
+	 *
+	 * @param array<int, ObjectEntity> $candidates Every brokered-credential object.
+	 * @param CredentialLookup $lookup The provider and actor.
+	 *
+	 * @return string|null The credential uuid, or null.
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) The organisation-scope predicate closure
+	 *   must keep `$candidate`: `firstMatch()`'s callable contract is (ObjectEntity, array)
+	 *   even when a predicate only inspects the data.
+	 */
+	private function organisationMatch(array $candidates, CredentialLookup $lookup): ?string {
+		if ($lookup->actor->hasOrganisation() === false) {
+			return null;
+		}
+
+		$organisation = $lookup->actor->organisation;
+		return $this->firstMatch(
+			candidates: $candidates,
+			provider: $lookup->provider,
+			scope: self::SCOPE_ORGANISATION,
+			predicate: static fn (ObjectEntity $candidate, array $data): bool => (string)($data['organisation'] ?? '') === $organisation
+		);
+	}//end organisationMatch()
 
 	/**
 	 * Resolve the scope of ONE known credential id.
@@ -248,11 +300,8 @@ class CredentialScopeResolver {
 	 * broker still re-runs its own guards on use; this check is what keeps a refusal
 	 * from ever reaching another credential.
 	 *
-	 * @param array<int, ObjectEntity> $candidates   Every brokered-credential object.
-	 * @param string                   $pin          The pinned credential uuid.
-	 * @param string                   $provider     The provider of the turn.
-	 * @param string|null              $actingUserId The acting user's uid.
-	 * @param string|null              $organisation The agent's organisation.
+	 * @param ObjectEntity|null $pinned The first credential with the pinned uuid, or null.
+	 * @param CredentialLookup $lookup The provider and actor.
 	 *
 	 * @return string The pinned uuid.
 	 *
@@ -260,27 +309,65 @@ class CredentialScopeResolver {
 	 *
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
-	private function usablePin(array $candidates, string $pin, string $provider, ?string $actingUserId, ?string $organisation): string {
-		foreach ($candidates as $candidate) {
-			if ((string)$candidate->getUuid() !== $pin) {
-				continue;
-			}
+	private function usablePin(?ObjectEntity $pinned, CredentialLookup $lookup): string {
+		if ($pinned !== null && $this->admitsPin(candidate: $pinned, lookup: $lookup) === true) {
+			return (string)$pinned->getUuid();
+		}
 
-			$data = $candidate->getObject();
-			$ownerOrMember = ($candidate->getOwner() === $actingUserId && ($actingUserId ?? '') !== '');
-			if ($this->scopeOf(data: $data) === self::SCOPE_ORGANISATION) {
-				$ownerOrMember = ((string)($data['organisation'] ?? '') === (string)$organisation && ($organisation ?? '') !== '');
-			}
-
-			if (($data['provider'] ?? null) === $provider && $this->allowsHermiq(data: $data) === true && $ownerOrMember === true) {
-				return $pin;
-			}
-
-			break;
-		}//end foreach
-
-		throw new PinnedCredentialRefusedException(provider: $provider);
+		throw new PinnedCredentialRefusedException(provider: $lookup->provider);
 	}//end usablePin()
+
+	/**
+	 * The first candidate with the given uuid; only that one is ever considered for a pin.
+	 *
+	 * @param array<int, ObjectEntity> $candidates Every brokered-credential object.
+	 * @param string $uuid The pinned uuid.
+	 *
+	 * @return ObjectEntity|null The candidate, or null when none has that uuid.
+	 */
+	private function candidateWithUuid(array $candidates, string $uuid): ?ObjectEntity {
+		foreach ($candidates as $candidate) {
+			if ((string)$candidate->getUuid() === $uuid) {
+				return $candidate;
+			}
+		}
+
+		return null;
+	}//end candidateWithUuid()
+
+	/**
+	 * Whether the broker would admit this pinned credential for the lookup.
+	 *
+	 * @param ObjectEntity $candidate The pinned credential.
+	 * @param CredentialLookup $lookup The provider and actor.
+	 *
+	 * @return bool True when it is for the provider, allows hermiq, and is the actor's.
+	 */
+	private function admitsPin(ObjectEntity $candidate, CredentialLookup $lookup): bool {
+		$data = $candidate->getObject();
+
+		return ($data['provider'] ?? null) === $lookup->provider
+			&& $this->allowsHermiq(data: $data) === true
+			&& $this->belongsToActor(candidate: $candidate, actor: $lookup->actor) === true;
+	}//end admitsPin()
+
+	/**
+	 * Whether a credential is the actor's: the acting user's own personal key, or a
+	 * key of the agent's organisation.
+	 *
+	 * @param ObjectEntity $candidate The credential.
+	 * @param CredentialActor $actor The acting user and organisation.
+	 *
+	 * @return bool True when the credential belongs to the actor.
+	 */
+	private function belongsToActor(ObjectEntity $candidate, CredentialActor $actor): bool {
+		$data = $candidate->getObject();
+		if ($this->scopeOf(data: $data) === self::SCOPE_ORGANISATION) {
+			return (string)($data['organisation'] ?? '') === (string)$actor->organisation && $actor->hasOrganisation() === true;
+		}
+
+		return $candidate->getOwner() === $actor->userId && $actor->hasUser() === true;
+	}//end belongsToActor()
 
 	/**
 	 * Load every brokered-credential object, system-wide — the same small,

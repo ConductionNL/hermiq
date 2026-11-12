@@ -67,6 +67,9 @@ namespace OCA\Hermiq\Flow;
 
 use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\StageDispatchService;
+use OCA\Hermiq\Service\StageOptions;
+use OCA\Hermiq\Service\StageRequest;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -197,9 +200,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * shapes: a downstream router cannot tell "the gates found nothing" from
 	 * "the gates never ran", and both look like a clean tick.
 	 *
-	 * @param array $items The input items.
-	 * @param array $config The step configuration.
-	 * @param array $context Run-level metadata (carries the triggering user).
+	 * @param FlowNodeCall $call The input items, the step configuration and the run context.
 	 *
 	 * @return array The items, each with the workload's result added.
 	 *
@@ -207,7 +208,8 @@ class HermiqWorkloadNode implements IFlowNode {
 	 *
 	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md#requirement-a-command-that-ran-and-failed-is-data-not-a-step-failure
 	 */
-	public function execute(array $items, array $config, array $context): array {
+	public function execute(FlowNodeCall $call): array {
+		$config = $call->config;
 		// `validateConfig()` only runs when a flow is SAVED — a flow imported
 		// or seeded through another path reaches `execute()` unvalidated, and
 		// returning the items unchanged would make the step a silent
@@ -216,6 +218,33 @@ class HermiqWorkloadNode implements IFlowNode {
 		$this->assertConfigured(config: $config);
 
 		$outKey = (string)($config['output'] ?? 'stage');
+		$owner = $this->attributableOwner(context: $call->context);
+
+		$out = [];
+		foreach ($call->items as $index => $item) {
+			$slot = new FlowItemSlot(item: $item, index: $index);
+			$json = $slot->json();
+			$run = new WorkloadStageRun(config: $config, placeholders: new ItemPlaceholders(json: $json));
+			$json[$outKey] = $this->dispatchFor(run: $run, owner: $owner);
+			$out[] = $slot->withJson(json: $json);
+		}
+
+		return $out;
+	}//end execute()
+
+	/**
+	 * The identity the stages act as, refusing a run that records none.
+	 *
+	 * The identity comes from the run context only, never from the step
+	 * configuration; the reasoning is kept verbatim below as line comments.
+	 *
+	 * @param array $context The run context.
+	 *
+	 * @return string The trimmed owner.
+	 *
+	 * @throws UnexpectedValueException When neither `runAs` nor `triggeredBy` names one.
+	 */
+	private function attributableOwner(array $context): string {
 		// 🔴 The flow document does NOT get to name the identity.
 		//
 		// This read used to be `$config['owner'] ?? $context['triggeredBy']`, and
@@ -268,34 +297,70 @@ class HermiqWorkloadNode implements IFlowNode {
 			);
 		}
 
-		$out = [];
-		foreach ($items as $index => $item) {
-			$json = (array)($item['json'] ?? []);
-			$json[$outKey] = $this->dispatchFor(config: $config, json: $json, owner: $owner);
-
-			$out[] = [
-				'json' => $json,
-				'binary' => (array)($item['binary'] ?? []),
-				'pairedItem' => ['item' => $index],
-			];
-		}
-
-		return $out;
-	}//end execute()
+		return $owner;
+	}//end attributableOwner()
 
 	/**
-	 * Render the TWO forge credentials, which could never have been one.
+	 * Turn ONE item into one stage call, and attribute the result.
 	 *
+	 * Split out of `execute()` so the loop states what it does — one stage per
+	 * item, attributed — while the rendering and credential decisions, which are
+	 * where every defect in this node has been, sit together and can be read in
+	 * one piece.
+	 *
+	 * @param WorkloadStageRun $run   The step configuration and item placeholders.
+	 * @param string           $owner The resolved run owner.
+	 *
+	 * @return array The stage result, with attribution added.
+	 *
+	 * @throws Throwable When the workload could not be run.
+	 */
+	private function dispatchFor(WorkloadStageRun $run, string $owner): array {
+		$request = $this->stageRequestFor(run: $run, owner: $owner);
+
+		// ASYNC is a whole second transport; see dispatchAsyncFor().
+		if ($run->isAsync() === true) {
+			return $this->attribute(result: $this->dispatchAsyncFor(request: $request), request: $request);
+		}
+
+		return $this->attribute(result: $this->stages->dispatchStage(request: $request), request: $request);
+
+	}//end dispatchFor()
+
+	/**
+	 * The stage one item asks for: the rendered target, command and options.
+	 *
+	 * @param WorkloadStageRun $run   The step configuration and item placeholders.
+	 * @param string           $owner The identity the stage acts as.
+	 *
+	 * @return StageRequest The stage.
+	 */
+	private function stageRequestFor(WorkloadStageRun $run, string $owner): StageRequest {
+		return new StageRequest(
+			repo: $run->rendered(key: 'repo'),
+			ref: $run->rendered(key: 'ref'),
+			command: array_map(
+				fn (string $argument): string => $run->placeholders->render(template: $argument),
+				array_values((array)($run->config['command'] ?? []))
+			),
+			uid: $owner,
+			options: $this->stageOptionsFor(run: $run)
+		);
+	}//end stageRequestFor()
+
+	/**
+	 * The stage's options: credentials, tool tree, push, model credential, collect, job key.
+	 *
+	 * The two forge credentials are RENDERED, which could never have been one.
 	 * The reasoning is long and belongs with the concept rather than in the
 	 * middle of a dispatch; it is kept verbatim below as line comments,
 	 * because one of them contains a path that would close this block.
 	 *
-	 * @param array $config The step configuration.
-	 * @param array $json The item's record.
+	 * @param WorkloadStageRun $run The step configuration and item placeholders.
 	 *
-	 * @return array{0: string, 1: string} The clone credential, then the push credential.
+	 * @return StageOptions The options.
 	 */
-	private function credentialsFor(array $config, array $json): array {
+	private function stageOptionsFor(WorkloadStageRun $run): StageOptions {
 		// RENDERED, like every other configured value, and rendered PER ITEM
 		// because a fan-out may carry a different credential per repository.
 		//
@@ -331,74 +396,31 @@ class HermiqWorkloadNode implements IFlowNode {
 		// Absent, it falls back to `credentialId`, so every read-only stage that
 		// shipped before this behaves exactly as it did.
 
-		return [
-			trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json)),
-			trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json)),
-		];
-	}//end credentialsFor()
-
-	/**
-	 * Turn ONE item into one stage call, and attribute the result.
-	 *
-	 * Split out of `execute()` so the loop states what it does — one stage per
-	 * item, attributed — while the rendering and credential decisions, which are
-	 * where every defect in this node has been, sit together and can be read in
-	 * one piece.
-	 *
-	 * @param array $config The step configuration.
-	 * @param array $json The item's record.
-	 * @param string $owner The resolved run owner.
-	 *
-	 * @return array The stage result, with attribution added.
-	 *
-	 * @throws Throwable When the workload could not be run.
-	 */
-	private function dispatchFor(array $config, array $json, string $owner): array {
-		[$credentialId, $pushCredentialId] = $this->credentialsFor(config: $config, json: $json);
-
-		// ASYNC is a whole second transport; see dispatchAsyncFor().
-		if (($config['async'] ?? false) === true) {
-			return $this->dispatchAsyncFor(
-				config: $config,
-				json: $json,
-				owner: $owner,
-				credentialId: $credentialId,
-				pushCredentialId: $pushCredentialId,
-			);
-		}
-
-		$result = $this->stages->dispatch(
-			repo: $this->render(template: (string)$config['repo'], json: $json),
-			ref: $this->render(template: (string)$config['ref'], json: $json),
-			command: array_map(
-				fn (string $argument): string => $this->render(template: $argument, json: $json),
-				array_values((array)$config['command'])
-			),
-			uid: $owner,
-			credentialId: $credentialId,
-			timeoutMs: (int)($config['timeoutMs'] ?? 0),
+		return new StageOptions(
+			credentialId: $run->trimmed(key: 'credentialId'),
+			timeoutMs: (int)($run->config['timeoutMs'] ?? 0),
 			// The tool tree, when the command does not live in the tree it runs
 			// over. hydra's gate runner is that case: it takes the app to gate
 			// as an argument and finds its own helpers beside itself, so gating
 			// an app needs hydra's scripts AND the app's tree. The alternative
 			// is every app vendoring 3,599 lines of gate runner, which would
 			// drift the day after it was copied.
-			toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
-			toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
+			toolRepo: $run->rendered(key: 'toolRepo'),
+			toolRef: $run->rendered(key: 'toolRef'),
 			// THE WRITE DECLARATION. Its PRESENCE is the switch: the runner
 			// withholds the forge credential from the command child and
 			// performs the push itself, behind `pushGuard`. A stage that omits
 			// it is exactly as read-only as every stage that shipped before this
 			// key existed.
-			push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
-			pushCredentialId: $pushCredentialId,
+			push: $this->renderPush(push: ($run->config['push'] ?? []), placeholders: $run->placeholders),
+			pushCredentialId: $run->trimmed(key: 'pushCredentialId'),
 			// THE MODEL CREDENTIAL. A third credential rather than a reuse of
 			// either above, because it is a different vendor: the forge token
 			// clones the tree, this one lets the command talk to a model. A
 			// stage that names none runs without one, which is every stage that
 			// existed before this key.
-			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
-			collect: $this->collectFor(config: $config),
+			llmCredentialId: $run->trimmed(key: 'llmCredentialId'),
+			collect: $this->collectFor(config: $run->config),
 			// ASYNC. The stage is STARTED and a handle comes back, instead of
 			// the run holding the queue worker for the whole thing.
 			//
@@ -413,16 +435,24 @@ class HermiqWorkloadNode implements IFlowNode {
 			// async dispatch writes `job: {id, status}` and NO `exitCode`, so
 			// nothing downstream can read an acknowledgement as a verdict. Pair
 			// it with a wait and a `hermiq.workload-collect`.
+			jobKey: $this->jobKeyFor(run: $run),
 		);
+	}//end stageOptionsFor()
 
-		return $this->attribute(
-			result: $result,
-			owner: $owner,
-			credentialId: $credentialId,
-			pushCredentialId: $pushCredentialId
-		);
+	/**
+	 * The rendered job key of an async stage; a synchronous stage sends none.
+	 *
+	 * @param WorkloadStageRun $run The step configuration and item placeholders.
+	 *
+	 * @return string The job key, or ''.
+	 */
+	private function jobKeyFor(WorkloadStageRun $run): string {
+		if ($run->isAsync() === false) {
+			return '';
+		}
 
-	}//end dispatchFor()
+		return $run->trimmed(key: 'jobKey');
+	}//end jobKeyFor()
 
 	/**
 	 * What the stage PRODUCED, read out of the clone before it is discarded.
@@ -464,56 +494,20 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * hold that much at once, and this branch is a second transport rather than
 	 * a variation on the first.
 	 *
-	 * @param array $config The step configuration.
-	 * @param array $json The item's record.
-	 * @param string $owner The resolved run owner.
-	 * @param string $credentialId The rendered broker credential.
-	 * @param string $pushCredentialId The rendered injectable push credential.
+	 * @param StageRequest $request The rendered stage, with its job key.
 	 *
-	 * @return array The handle, attributed.
+	 * @return array The handle.
 	 *
 	 * @throws UnexpectedValueException When no async transport is available.
 	 */
-	private function dispatchAsyncFor(
-		array $config,
-		array $json,
-		string $owner,
-		string $credentialId,
-		string $pushCredentialId,
-	): array {
+	private function dispatchAsyncFor(StageRequest $request): array {
 		if ($this->asyncStages === null) {
-			// Refuse rather than silently running synchronously: a step that
-			// asked for a handle and got a blocking call back would hold the
-			// queue worker for its whole duration while the flow waits for a
-			// `job` key that never arrives.
 			throw new UnexpectedValueException(
 				$this->l10n->t('This step asks for an asynchronous dispatch, but no async transport is available.')
 			);
 		}
 
-		return $this->attribute(
-			result: $this->asyncStages->dispatchAsync(
-				repo: $this->render(template: (string)($config['repo'] ?? ''), json: $json),
-				ref: $this->render(template: (string)($config['ref'] ?? ''), json: $json),
-				command: array_map(
-					fn (string $argument): string => $this->render(template: $argument, json: $json),
-					array_values((array)($config['command'] ?? []))
-				),
-				uid: $owner,
-				credentialId: $credentialId,
-				timeoutMs: (int)($config['timeoutMs'] ?? 0),
-				toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
-				toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
-				push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
-				pushCredentialId: $pushCredentialId,
-				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
-				jobKey: trim($this->render(template: (string)($config['jobKey'] ?? ''), json: $json)),
-				collect: $this->collectFor(config: $config)
-			),
-			owner: $owner,
-			credentialId: $credentialId,
-			pushCredentialId: $pushCredentialId
-		);
+		return $this->asyncStages->dispatchStageAsync(request: $request);
 	}//end dispatchAsyncFor()
 
 
@@ -536,27 +530,22 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * attribution exists for — in the unattributed bucket. The name records
 	 * which id was used, not which config key held it.
 	 *
-	 * @param array $result The stage result.
-	 * @param string $owner The resolved run owner.
-	 * @param string $credentialId The broker credential, or ''.
-	 * @param string $pushCredentialId The injectable credential, or ''.
+	 * @param array        $result  The stage result.
+	 * @param StageRequest $request The stage it came from: its owner and credentials.
 	 *
 	 * @return array The result, with attribution added.
 	 */
-	private function attribute(array $result, string $owner, string $credentialId, string $pushCredentialId): array {
-		$usedCredential = $credentialId;
-		if ($pushCredentialId !== '') {
-			$usedCredential = $pushCredentialId;
-		}
+	private function attribute(array $result, StageRequest $request): array {
+		$usedCredential = $request->options->injectCredentialId();
 
 		$credentialOwner = null;
 		$credentialName = null;
 		if ($usedCredential !== '') {
-			$credentialOwner = $owner;
+			$credentialOwner = $request->uid;
 			$credentialName = $usedCredential;
 		}
 
-		$result['owner'] = $owner;
+		$result['owner'] = $request->uid;
 		$result['credential_owner'] = $credentialOwner;
 		$result['credential_name'] = $credentialName;
 
@@ -585,8 +574,7 @@ class HermiqWorkloadNode implements IFlowNode {
 			throw new UnexpectedValueException($this->l10n->t('A workload step needs a ref.'));
 		}
 
-		$command = ($config['command'] ?? null);
-		if (is_array($command) === false || $command === [] || trim((string)($command[0] ?? '')) === '') {
+		if ($this->namesACommand(command: ($config['command'] ?? null)) === false) {
 			// An argv ARRAY rather than a command string, so nothing here has
 			// to parse a shell. The runner allowlists the first token; a string
 			// would invite splitting it here and getting quoting wrong.
@@ -598,6 +586,17 @@ class HermiqWorkloadNode implements IFlowNode {
 		$this->assertPushConfigured(config: $config);
 
 	}//end assertConfigured()
+
+	/**
+	 * Whether a configured command is a non-empty argv array with a first token.
+	 *
+	 * @param mixed $command The configured command.
+	 *
+	 * @return boolean True when the command can be run.
+	 */
+	private function namesACommand(mixed $command): bool {
+		return is_array($command) === true && $command !== [] && trim((string)($command[0] ?? '')) !== '';
+	}//end namesACommand()
 
 	/**
 	 * Assert a `push` declaration the runner can actually fence.
@@ -633,6 +632,21 @@ class HermiqWorkloadNode implements IFlowNode {
 			);
 		}
 
+		$this->assertPushNamesItsFence(push: $push);
+		$this->assertPushScopeIsAList(push: $push);
+
+	}//end assertPushConfigured()
+
+	/**
+	 * Assert the push names the branch and the issue its allowlist is built from.
+	 *
+	 * @param array $push The push declaration.
+	 *
+	 * @return void
+	 *
+	 * @throws UnexpectedValueException When the branch or the issue is missing.
+	 */
+	private function assertPushNamesItsFence(array $push): void {
 		if (trim((string)($push['branch'] ?? '')) === '') {
 			throw new UnexpectedValueException(
 				$this->l10n->t('A workload step that pushes must name the branch to push to.')
@@ -650,13 +664,25 @@ class HermiqWorkloadNode implements IFlowNode {
 			);
 		}
 
+	}//end assertPushNamesItsFence()
+
+	/**
+	 * Assert a declared push `scope` is a list of path prefixes.
+	 *
+	 * @param array $push The push declaration.
+	 *
+	 * @return void
+	 *
+	 * @throws UnexpectedValueException When `scope` is present and not a list.
+	 */
+	private function assertPushScopeIsAList(array $push): void {
 		if (isset($push['scope']) === true && is_array($push['scope']) === false) {
 			throw new UnexpectedValueException(
 				$this->l10n->t('A workload step\'s push "scope" must be a list of path prefixes.')
 			);
 		}
 
-	}//end assertPushConfigured()
+	}//end assertPushScopeIsAList()
 
 	/**
 	 * Render the push declaration's placeholders against one item.
@@ -671,12 +697,12 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * runner's contract is flat and quietly passing a shape it ignores is the
 	 * dead-config failure this repository keeps meeting.
 	 *
-	 * @param mixed $push The configured push declaration.
-	 * @param array $json The item's record.
+	 * @param mixed            $push         The configured push declaration.
+	 * @param ItemPlaceholders $placeholders The item's placeholder substitution.
 	 *
 	 * @return array The rendered declaration, or [] when there is none.
 	 */
-	private function renderPush(mixed $push, array $json): array {
+	private function renderPush(mixed $push, ItemPlaceholders $placeholders): array {
 		if (is_array($push) === false || $push === []) {
 			return [];
 		}
@@ -684,50 +710,30 @@ class HermiqWorkloadNode implements IFlowNode {
 		$out = [];
 		foreach ($push as $key => $value) {
 			if (is_array($value) === true) {
-				$out[$key] = array_values(
-					array_map(
-						fn (mixed $entry): string => $this->render(template: (string)$entry, json: $json),
-						array_filter($value, static fn (mixed $entry): bool => is_array($entry) === false)
-					)
-				);
+				$out[$key] = $this->renderPushList(list: $value, placeholders: $placeholders);
 				continue;
 			}
 
-			$out[$key] = $this->render(template: (string)$value, json: $json);
+			$out[$key] = $placeholders->render(template: (string)$value);
 		}
 
 		return $out;
 	}//end renderPush()
 
 	/**
-	 * Substitute `{{dotted.path}}` placeholders from the item's json.
+	 * Render a list value of the push declaration element-wise, dropping nested lists.
 	 *
-	 * @param string $template The template.
-	 * @param array $json The item's record.
+	 * @param array            $list         The list value.
+	 * @param ItemPlaceholders $placeholders The item's placeholder substitution.
 	 *
-	 * @return string The rendered string.
+	 * @return array<int, string> The rendered list.
 	 */
-	private function render(string $template, array $json): string {
-		return (string)preg_replace_callback(
-			'/\{\{\s*([A-Za-z0-9_@.]+)\s*\}\}/',
-			static function (array $matches) use ($json): string {
-				$value = $json;
-				foreach (explode('.', $matches[1]) as $segment) {
-					if (is_array($value) === false || array_key_exists($segment, $value) === false) {
-						return '';
-					}
-
-					$value = $value[$segment];
-				}
-
-				if (is_array($value) === true) {
-					return (string)json_encode($value);
-				}
-
-				return (string)$value;
-			},
-			$template
+	private function renderPushList(array $list, ItemPlaceholders $placeholders): array {
+		return array_values(
+			array_map(
+				fn (mixed $entry): string => $placeholders->render(template: (string)$entry),
+				array_filter($list, static fn (mixed $entry): bool => is_array($entry) === false)
+			)
 		);
-
-	}//end render()
+	}//end renderPushList()
 }//end class

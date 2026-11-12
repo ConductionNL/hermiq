@@ -356,6 +356,7 @@ import {
 	updateModelPolicy,
 } from '../api/modelPolicy.js'
 import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
+import { dateOrDash } from '../utils/displayDate.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 import { organisationPicker } from '../utils/organisationPicker.js'
 
@@ -496,6 +497,8 @@ export default {
 	},
 
 	methods: {
+		formatDate: dateOrDash,
+
 		// Shared org-id → label lookup (src/utils/organisationLabel.js) —
 		// registered as a plain method so the template can call it directly.
 		organisationLabel,
@@ -731,21 +734,6 @@ export default {
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not delete the budget.'))
 			}
-		},
-
-		/**
-		 * Human-readable date, or an em-dash when absent/unparseable.
-		 *
-		 * @param {string} value An ISO-8601 timestamp.
-		 * @return {string} The formatted date.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 		},
 
 		/**

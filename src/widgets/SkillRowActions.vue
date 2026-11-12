@@ -142,6 +142,7 @@ import {
 	publishSkill,
 	qualifySkill,
 } from '../api/skills.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillRowActions',
@@ -232,10 +233,7 @@ export default {
 				await approveSkill(this.skillId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -256,10 +254,7 @@ export default {
 				this.scorecardResult = await qualifySkill(this.skillId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}
@@ -277,10 +272,7 @@ export default {
 				this.exportedPackage = await exportSkill(this.skillId())
 				this.showExport = true
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			}
 		},
 
@@ -302,10 +294,7 @@ export default {
 						|| this.t('hermiq', 'Publishing is not available.')
 				}
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.busy = false
 			}

@@ -103,6 +103,7 @@
 <script>
 import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { useSkillStore } from '../store/store.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'SkillProvenance',
@@ -235,10 +236,7 @@ export default {
 					(await this.skillStore.fetchObject('agentskill', this.skillId))
 					|| null
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the skill.')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not load the skill.'))
 			} finally {
 				this.loading = false
 			}

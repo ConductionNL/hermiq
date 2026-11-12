@@ -102,6 +102,20 @@ import SkillProvenance from './widgets/SkillProvenance.vue'
 import SkillRowActions from './widgets/SkillRowActions.vue'
 import SkillVersionHistory from './widgets/SkillVersionHistory.vue'
 
+/**
+ * The props schema of a modal opened with nothing but its `show` flag.
+ *
+ * @return {object} A fresh schema object.
+ */
+function showOnlyProps() {
+	return {
+		type: 'object',
+		properties: {
+			show: { type: 'boolean' },
+		},
+	}
+}
+
 export default {
 	// -------------------------------------------------------------------------
 	// kind: "modal" — opened via actions[].type: "open-modal"
@@ -120,12 +134,7 @@ export default {
 	'agent-form': {
 		kind: 'modal',
 		component: AgentFormModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -137,12 +146,7 @@ export default {
 	'agent-version-history': {
 		kind: 'modal',
 		component: AgentVersionHistoryDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -153,12 +157,7 @@ export default {
 	'agent-availability': {
 		kind: 'modal',
 		component: AgentAvailabilityDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -169,12 +168,7 @@ export default {
 	'agent-factsheet': {
 		kind: 'modal',
 		component: AgentFactsheetDialog,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -195,12 +189,7 @@ export default {
 	'agent-git': {
 		kind: 'modal',
 		component: AgentGitModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	/**
@@ -239,12 +228,7 @@ export default {
 	EvalDatasetFormModal: {
 		kind: 'modal',
 		component: EvalDatasetFormModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				show: { type: 'boolean' },
-			},
-		},
+		propsSchema: showOnlyProps(),
 	},
 
 	// -------------------------------------------------------------------------

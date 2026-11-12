@@ -145,32 +145,39 @@ class TalkRoomGrouping {
 			$participants = $this->container->get(self::PARTICIPANT_SERVICE)->getParticipantUserIds($room);
 
 			foreach ($participants as $uid) {
-				if (is_string($uid) === false || $uid === '') {
-					continue;
-				}
-
-				if ($this->isEnabledFor(uid: $uid) === false) {
-					continue;
-				}
-
-				if ($this->fileForUser(room: $room, uid: $uid) === true) {
+				if ($this->fileIfEnabled(room: $room, uid: $uid) === true) {
 					$filed++;
 				}
 			}
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkRoomGrouping] Could not group the room (chat is unaffected)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: $this->failureContext(identifiers: ['roomToken' => $roomToken], error: $e)
 			);
 		}//end try
 
 		return $filed;
 	}//end groupRoom()
+
+	/**
+	 * File the room for one participant, when they are a user who left grouping enabled.
+	 *
+	 * @param object $room The resolved spreed Room.
+	 * @param mixed  $uid  The participant's user id, as spreed listed it.
+	 *
+	 * @return bool True when the room is filed for this participant.
+	 */
+	private function fileIfEnabled(object $room, mixed $uid): bool {
+		if (is_string($uid) === false || $uid === '') {
+			return false;
+		}
+
+		if ($this->isEnabledFor(uid: $uid) === false) {
+			return false;
+		}
+
+		return $this->fileForUser(room: $room, uid: $uid);
+	}//end fileIfEnabled()
 
 	/**
 	 * Whether a user has left Hermiq's tag grouping enabled.
@@ -225,12 +232,7 @@ class TalkRoomGrouping {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkRoomGrouping] Could not file the room for this user',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uid' => $uid,
-					'error' => $e->getMessage(),
-				]
+				context: $this->failureContext(identifiers: ['uid' => $uid], error: $e)
 			);
 			return false;
 		}//end try
@@ -252,14 +254,8 @@ class TalkRoomGrouping {
 			return [];
 		}
 
-		$decoded = json_decode($raw, true);
-		if (is_array($decoded) === false) {
-			// Spreed has also stored these as a comma-separated list; tolerate both.
-			$decoded = explode(',', $raw);
-		}
-
 		$ids = [];
-		foreach ($decoded as $id) {
+		foreach ($this->decodedTagIds(raw: $raw) as $id) {
 			$id = trim((string)$id);
 			if ($id !== '' && in_array($id, $ids, true) === false) {
 				$ids[] = $id;
@@ -268,6 +264,23 @@ class TalkRoomGrouping {
 
 		return $ids;
 	}//end currentTagIds()
+
+	/**
+	 * The stored tag ids as a list: JSON, or the comma-separated form spreed has also stored.
+	 *
+	 * @param string $raw The stored value.
+	 *
+	 * @return array<int|string, mixed> The ids, untrimmed.
+	 */
+	private function decodedTagIds(string $raw): array {
+		$decoded = json_decode($raw, true);
+		if (is_array($decoded) === false) {
+			// Spreed has also stored these as a comma-separated list; tolerate both.
+			$decoded = explode(',', $raw);
+		}
+
+		return $decoded;
+	}//end decodedTagIds()
 
 	/**
 	 * Resolve the user's Hermiq tag, creating it on first use.
@@ -296,26 +309,34 @@ class TalkRoomGrouping {
 
 			return (string)$created->getId();
 		} catch (Throwable $e) {
-			// Most likely a uniqueness conflict from a concurrent create —
-			// re-read rather than fail.
-			$recheck = $this->findTag(uid: $uid);
-			if ($recheck !== null) {
-				return $recheck;
-			}
-
-			$this->logger->debug(
-				message: '[TalkRoomGrouping] Could not create the Hermiq tag',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uid' => $uid,
-					'error' => $e->getMessage(),
-				]
-			);
-			return null;
+			return $this->racedTag(uid: $uid, error: $e);
 		}//end try
 
 	}//end ensureTag()
+
+	/**
+	 * After a failed create: the tag a concurrent create made, or null with the failure logged.
+	 *
+	 * Most likely the failure is a uniqueness conflict from a concurrent create,
+	 * so the tag is re-read rather than the create failing.
+	 *
+	 * @param string    $uid   The user id.
+	 * @param Throwable $error Why the create failed.
+	 *
+	 * @return string|null The tag id, or null when there is none.
+	 */
+	private function racedTag(string $uid, Throwable $error): ?string {
+		$recheck = $this->findTag(uid: $uid);
+		if ($recheck !== null) {
+			return $recheck;
+		}
+
+		$this->logger->debug(
+			message: '[TalkRoomGrouping] Could not create the Hermiq tag',
+			context: $this->failureContext(identifiers: ['uid' => $uid], error: $error)
+		);
+		return null;
+	}//end racedTag()
 
 	/**
 	 * Find an existing Hermiq tag for a user.
@@ -336,15 +357,22 @@ class TalkRoomGrouping {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkRoomGrouping] Could not list the user\'s conversation tags',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'uid' => $uid,
-					'error' => $e->getMessage(),
-				]
+				context: $this->failureContext(identifiers: ['uid' => $uid], error: $e)
 			);
 		}
 
 		return null;
 	}//end findTag()
+
+	/**
+	 * A debug line's context: where it was logged, the identifiers, then the error.
+	 *
+	 * @param array<string, string> $identifiers The room or user the failure was about.
+	 * @param Throwable             $error       The failure.
+	 *
+	 * @return array<string, mixed> The context.
+	 */
+	private function failureContext(array $identifiers, Throwable $error): array {
+		return array_merge(['file' => __FILE__, 'line' => __LINE__], $identifiers, ['error' => $error->getMessage()]);
+	}//end failureContext()
 }//end class

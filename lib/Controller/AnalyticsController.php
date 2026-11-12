@@ -163,16 +163,6 @@ class AnalyticsController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$scopedAgent = null;
-		if (trim($agentId) !== '') {
-			$scopedAgent = $agentId;
-		}
-
-		$scopedStatus = null;
-		if (trim($status) !== '') {
-			$scopedStatus = $status;
-		}
-
 		// Clamped rather than trusted. `limit` reaches this from a query string, and an
 		// unbounded one turns a list endpoint into a way to pull every audit row the
 		// caller can see in a single request.
@@ -182,8 +172,8 @@ class AnalyticsController extends Controller {
 		try {
 			return new JSONResponse(
 				$this->analyticsService->listRuns(
-					agentId: $scopedAgent,
-					status: $scopedStatus,
+					agentId: $this->optionalFilter(value: $agentId),
+					status: $this->optionalFilter(value: $status),
 					limit: $safeLimit,
 					offset: $safeOffset
 				)
@@ -194,6 +184,21 @@ class AnalyticsController extends Controller {
 		}
 
 	}//end runs()
+
+	/**
+	 * A filter param as given, or null when it is blank.
+	 *
+	 * @param string $value The param.
+	 *
+	 * @return string|null
+	 */
+	private function optionalFilter(string $value): ?string {
+		if (trim($value) === '') {
+			return null;
+		}
+
+		return $value;
+	}//end optionalFilter()
 	/**
 	 * Compare two runs the caller may see.
 	 *

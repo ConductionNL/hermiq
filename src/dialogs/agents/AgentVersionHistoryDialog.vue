@@ -157,6 +157,7 @@ import {
 import AgentVersionDiffDialog from './AgentVersionDiffDialog.vue'
 import { listAgentVersions, rollbackAgentVersion } from '../../api/agents.js'
 import { useAgentStore } from '../../store/store.js'
+import { agentModalTarget } from '../agentModalTarget.js'
 
 export default {
 	name: 'AgentVersionHistoryDialog',
@@ -170,26 +171,9 @@ export default {
 		NcNoteCard,
 	},
 
+	mixins: [agentModalTarget],
+
 	props: {
-		/** Whether the dialog is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
-		/**
-		 * The Agent UUID whose version history is shown. Optional — when
-		 * opened as the registry `agent-version-history` open-modal target
-		 * (manifest-driven-pages), no prop is available (open-modal action
-		 * props are static JSON, not resolved against the current object),
-		 * so it self-resolves from the route's `:id` param instead (see
-		 * `resolvedAgentId`).
-		 */
-		agentId: {
-			type: String,
-			default: '',
-		},
-
 		/**
 		 * Whether the current user may roll back this agent (owner-only).
 		 * `null` (default) means "auto-resolve": self-fetch the agent and
@@ -218,17 +202,6 @@ export default {
 	},
 
 	computed: {
-		/**
-		 * The agent uuid — the `agentId` prop when explicitly supplied, else
-		 * the current route's `:id` param.
-		 *
-		 * @return {string} The resolved agent uuid.
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
-		 */
-		resolvedAgentId() {
-			return this.agentId || this.$route?.params?.id || ''
-		},
-
 		/**
 		 * Whether rollback is offered — the explicit `canRollback` prop when
 		 * set, else the self-fetched agent's owner compared to the current user.

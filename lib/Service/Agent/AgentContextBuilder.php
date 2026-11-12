@@ -82,21 +82,34 @@ class AgentContextBuilder {
 
 		$context = [];
 		foreach ($allowlist as $property => $caps) {
-			if (array_key_exists($property, $objectData) === false) {
-				// A listed property absent on the instance is omitted, not an error.
-				continue;
+			if ($this->hasValue(objectData: $objectData, property: $property) === true) {
+				$context[$property] = $this->applyCaps(value: $objectData[$property], caps: $caps);
 			}
-
-			$value = $objectData[$property];
-			if ($value === null || $value === '') {
-				continue;
-			}
-
-			$context[$property] = $this->applyCaps(value: $value, caps: $caps);
 		}
 
 		return $context;
 	}//end build()
+
+	/**
+	 * Whether the instance carries a non-empty value for a listed property.
+	 *
+	 * A listed property absent on the instance is omitted, not an error; a null or
+	 * empty-string value is omitted too.
+	 *
+	 * @param array<string, mixed> $objectData The object's data.
+	 * @param int|string           $property   The listed property.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-1
+	 */
+	private function hasValue(array $objectData, int|string $property): bool {
+		if (array_key_exists($property, $objectData) === false) {
+			return false;
+		}
+
+		return ($objectData[$property] !== null && $objectData[$property] !== '');
+	}//end hasValue()
 
 	/**
 	 * Normalise the raw allowlist spec into a `property => caps[]` map.

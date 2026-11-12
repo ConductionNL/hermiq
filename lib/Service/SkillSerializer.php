@@ -163,21 +163,37 @@ class SkillSerializer {
 		}
 
 		foreach ($files as $file) {
-			if (is_array($file) === false) {
-				continue;
+			$name = $this->auxName(file: $file);
+			if ($name !== null) {
+				$out[$name] = (string)($file['content'] ?? '');
 			}
-
-			$name = (string)($file['name'] ?? '');
-			if ($name === self::SKILL_FILE || $this->isSafeAuxPath(path: $name) === false) {
-				$this->rejectPath(path: $name, direction: 'serialise');
-				continue;
-			}
-
-			$out[$name] = (string)($file['content'] ?? '');
 		}
 
 		return $out;
 	}//end toPackageFiles()
+
+	/**
+	 * The path of an auxiliary file entry that may be written, or null (an unsafe path is logged).
+	 *
+	 * @param mixed $file One auxiliary file entry.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 */
+	private function auxName(mixed $file): ?string {
+		if (is_array($file) === false) {
+			return null;
+		}
+
+		$name = (string)($file['name'] ?? '');
+		if ($name === self::SKILL_FILE || $this->isSafeAuxPath(path: $name) === false) {
+			$this->rejectPath(path: $name, direction: 'serialise');
+			return null;
+		}
+
+		return $name;
+	}//end auxName()
 
 	/**
 	 * Parse a DIRECTORY-form package into skill fields, including `files`.

@@ -522,6 +522,61 @@ final class TaskWriteServiceTest extends TestCase {
 	}//end testWithoutTheDavBackendCompleteIsNotOffered()
 
 	/**
+	 * Completing needs a uid; a found task whose object is gone is not found; an
+	 * object without a task to complete is not marked and so not changed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-complete-a-task-without-losing-what-the-user-wrote-req-nctask-003
+	 */
+	public function testCompleteRefusesAMissingUidAGoneObjectAndAnObjectWithoutATask(): void {
+		$own = [$this->row(uid: 'gone', summary: 'Gone'), $this->row(uid: 'plain', summary: 'Plain')];
+		$backend = $this->backend(
+			$this->standardComponents(),
+			['id-werkvoorraad-burgerzaken/plain.ics' => "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"]
+		);
+		$service = $this->service($this->standardCalendars($own), $backend);
+
+		$missing = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => '  ']);
+		$this->assertSame('invalid_argument', $missing['error']['code'] ?? null);
+		$this->assertSame('The task uid is required; take it from listTasks.', $missing['error']['message'] ?? null);
+
+		$gone = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => 'gone']);
+		$this->assertSame('task_not_found', $gone['error']['code'] ?? null);
+
+		$plain = $service->invoke(uid: 'alice', toolId: 'hermiq.completeTask', arguments: ['uid' => 'plain']);
+		$this->assertSame('artefact_not_marked', $plain['error']['code'] ?? null, json_encode($plain));
+		$this->assertSame('The task could not be marked, so it was not changed.', $plain['error']['message'] ?? null);
+		$this->assertSame([], $backend->updates);
+
+	}//end testCompleteRefusesAMissingUidAGoneObjectAndAnObjectWithoutATask()
+
+	/**
+	 * A created task reports its uid, trimmed summary, list and artefact, and the
+	 * stored object carries that uid.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-an-agent-can-create-a-task-in-the-users-own-list-marked-as-agent-authored-req-nctask-002
+	 */
+	public function testCreateReportsTheStoredTask(): void {
+		$service = $this->service($this->standardCalendars(), $this->backend($this->standardComponents()));
+
+		$result = $service->invoke(uid: 'alice', toolId: 'hermiq.createTask', arguments: ['summary' => '  Bel terug  ', 'agentId' => 'agent-7']);
+
+		$this->assertSame(['created', 'uid', 'summary', 'list', 'listName', 'artefact'], array_keys($result), json_encode($result));
+		$this->assertTrue($result['created']);
+		$this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $result['uid']);
+		$this->assertSame('Bel terug', $result['summary']);
+		$this->assertSame('werkvoorraad-burgerzaken', $result['list']);
+		$this->assertSame(['type' => 'task', 'id' => 'werkvoorraad-burgerzaken/' . $result['uid']], $result['artefact']);
+		[$name, $ics] = $this->stored['werkvoorraad-burgerzaken'][0];
+		$this->assertStringContainsString("\r\nUID:" . $result['uid'] . "\r\n", $ics);
+		$this->assertMatchesRegularExpression('/^hermiq-[0-9a-f]{16}\.ics$/', $name);
+
+	}//end testCreateReportsTheStoredTask()
+
+	/**
 	 * A failing calendar never throws across the tool boundary.
 	 *
 	 * @return void
