@@ -2,6 +2,8 @@
 kind: code
 ---
 
+> Superseded by the decided-no on row `tl-request-access` (build-all pass, 28 Sep 2026; applied under decision 399). The built half (discovery, `hermiq.requestToolAccess`, the owner grant in `ToolOversightController`) stays in code; the two open tasks (capability-change alert, justification view) are not built. Reversible: reopen the row and restore this change.
+
 ## Why
 
 `tool-scope-security-default` made an unconfigured agent tool-less, deliberately and

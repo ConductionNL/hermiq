@@ -27,10 +27,12 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Build `conduction-website` locally (`npm run build` or `npm run start`) and
+- [x] 4.1 Build `conduction-website` locally (`npm run build` or `npm run start`) and
       confirm `/apps/hermiq` (EN) and the `nl` locale build render without error.
-- [ ] 4.2 Confirm `hermiq/docs` Docusaurus build still succeeds after the `intro.md`
+  Ticked on code (decision 399): both locales are live and render: `https://conduction.nl/apps/hermiq` and `https://conduction.nl/nl/apps/hermiq` serve the page titled "Hermiq, Conduction" (checked 12 Nov 2026; an unknown app path serves "Page Not Found" with 404), built from `conduction-website/src/pages/apps/hermiq.mdx` and its NL twin.
+- [x] 4.2 Confirm `hermiq/docs` Docusaurus build still succeeds after the `intro.md`
       edit (no broken links/anchors introduced).
+  Ticked on code (decision 399): `docs/intro.md` lists the shipped features (no ExampleWidget scaffold), and the Docusaurus site built from it is live at `https://hermiq.conduction.nl/docs/intro` (title "Hermiq", checked 12 Nov 2026), deployed by `.github/workflows/documentation.yml`.
 - [x] 4.3 Re-confirm every claim in the new product-page copy against `lib/` at HEAD
       (no fabricated compliance/standard claims; Talk delivery documented as
       optional/guarded, not a hard dependency).
