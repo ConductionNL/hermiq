@@ -2219,7 +2219,11 @@
 			"dify": "unknown",
 			"n8n": "unknown",
 			"open-webui": "unknown",
-			"note": "Row added in the closing round of 12 November (decision 395): the change covered no row. Competitor columns are not rated yet."
+			"note": "Row added in the closing round of 12 November (decision 395): the change covered no row. Competitor columns are not rated yet.",
+			"screen": {
+				"canvas": "design-system",
+				"board": null
+			}
 		},
 		{
 			"id": "ch-image-gen",
