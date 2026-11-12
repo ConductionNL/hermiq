@@ -156,6 +156,16 @@ class ToolGrantResolver {
 	}
 
 	/**
+	 * @param array $alternatives The invoked tool's waived constraint sets.
+	 * @param array $arguments    The invocation arguments.
+	 *
+	 * @return boolean Whether the invocation is waived.
+	 */
+	public static function waivedBy(array $alternatives, array $arguments): bool {
+		self::refuse();
+	}
+
+	/**
 	 * @param array  $waivedSets The waived sets.
 	 * @param string $toolId     The tool id.
 	 * @param array  $arguments  The invocation arguments.
