@@ -34,7 +34,9 @@ use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
 use OCA\Hermiq\Service\Engine\AppRegisterScope;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
@@ -153,7 +155,18 @@ final class RecordSummaryServiceTest extends TestCase {
 		);
 		$objects->method('findAll')->willReturnCallback(fn (): array => $this->stored);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true): ObjectEntity {
+			function (
+				array|ObjectEntity $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
+				[
+					'register' => $register,
+					'schema' => $schema,
+					'uuid' => $uuid,
+				] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$this->saved[] = ['object' => $object, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid, '_rbac' => $_rbac];
 				$entity = new ObjectEntity();
 				$entity->setUuid('summary-new');

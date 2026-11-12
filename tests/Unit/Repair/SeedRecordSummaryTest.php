@@ -29,8 +29,10 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 use OCA\Hermiq\Repair\SeedRecordSummary;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use Opis\JsonSchema\Validator;
@@ -109,21 +111,12 @@ final class SeedRecordSummaryTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
 			): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				if ($this->failWrites === true) {
 					throw new RuntimeException('register unavailable');
 				}

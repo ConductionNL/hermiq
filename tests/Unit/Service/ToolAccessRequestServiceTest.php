@@ -30,8 +30,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCP\Notification\IManager as INotificationManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -111,15 +113,21 @@ class ToolAccessRequestServiceTest extends TestCase {
 			}
 
 			/**
-			 * @param array<string, mixed> $object   The payload.
-			 * @param mixed                $register The register.
-			 * @param mixed                $schema   The schema.
-			 * @param bool                 $_rbac    Whether the save runs under the caller's RBAC.
-			 * @param bool                 $_unowned Whether the system, not the caller, owns the object.
+			 * @param array<string, mixed> $object        The payload.
+			 * @param ObjectSaveOptions    $options       The target, uuid, extend, files, policy and actor.
+			 * @param bool                 $_rbac         Whether the save runs under the caller's RBAC.
+			 * @param bool                 $_multitenancy Whether the save runs under organisation scoping.
 			 *
 			 * @return array<string, mixed>
 			 */
-			public function saveObject(array $object, mixed $register = null, mixed $schema = null, bool $_rbac = true, bool $_unowned = false): array {
+			public function saveObject(
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true,
+			): array {
+				['schema' => $schema, '_unowned' => $_unowned] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$this->writes[] = [(string)$schema, $object, $_rbac, $_unowned];
 
 				return ($object + ['id' => 'req-new']);

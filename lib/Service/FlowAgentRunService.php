@@ -58,6 +58,8 @@ use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -397,9 +399,10 @@ class FlowAgentRunService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: $subjectRegister,
-			schema: $subjectSchema,
-			uuid: $subjectUuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: $subjectRegister, schema: $subjectSchema),
+				uuid: $subjectUuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

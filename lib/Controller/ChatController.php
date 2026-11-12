@@ -57,6 +57,8 @@ use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -783,9 +785,10 @@ class ChatController extends Controller {
 			// sessionId check above are the guard, and `userId` is the caller.
 			$feedback = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::FEEDBACK_SCHEMA,
-				uuid: $feedbackUuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::FEEDBACK_SCHEMA),
+					uuid: $feedbackUuid
+				),
 				_rbac: false
 			);
 
@@ -1099,8 +1102,9 @@ class ChatController extends Controller {
 					context: $turn['context']
 				)
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			),
 			_rbac: false
 		);
 
@@ -1176,9 +1180,10 @@ class ChatController extends Controller {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: (string)$conversation->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
 		);
 	}//end archiveConversation()
 

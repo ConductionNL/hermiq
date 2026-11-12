@@ -31,7 +31,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use OCA\Hermiq\Repair\SeedPairedEvalDataset;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
@@ -120,25 +122,12 @@ class SeedPairedEvalDatasetTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion.
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				// Added by openregister (duplicate detection), seen 2026-09-16.
-				bool $_dedupOverride = false,
-				?string $_owner = null,
 			): ObjectEntity {
+				['schema' => $schema] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				if ($this->failWrites === true) {
 					throw new RuntimeException('register unavailable');
 				}

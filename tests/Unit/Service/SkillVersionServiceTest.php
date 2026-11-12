@@ -32,9 +32,11 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTime;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -79,7 +81,19 @@ class SkillVersionServiceTest extends TestCase {
 		$this->savedObjects = [];
 
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
+				[
+					'extend' => $extend,
+					'register' => $register,
+					'schema' => $schema,
+					'uuid' => $uuid,
+				] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				unset($extend, $register);
 				$this->savedObjects[] = [
 					(string)$schema,

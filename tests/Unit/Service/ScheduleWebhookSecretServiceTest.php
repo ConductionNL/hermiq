@@ -33,7 +33,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ScheduleWebhookSecretService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -132,7 +134,9 @@ class ScheduleWebhookSecretServiceTest extends TestCase {
 		$this->saved = [];
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, mixed $register = null, mixed $schema = null, ?string $uuid = null) {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true, bool $_multitenancy = true) {
+				['uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$this->saved[] = $object;
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'sched-1');

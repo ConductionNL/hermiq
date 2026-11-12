@@ -26,6 +26,7 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -124,48 +125,17 @@ class ObjectService {
 	 * Persist an object.
 	 *
 	 * @param array|ObjectEntity $object The object payload or entity.
-	 * @param array|null $extend Extend config.
-	 * @param mixed $register Register context.
-	 * @param mixed $schema Schema context.
-	 * @param string|null $uuid Target UUID.
+	 * @param ObjectSaveOptions $options The target, uuid, extend, files, policy and actor.
 	 * @param bool $_rbac Whether RBAC applies.
 	 * @param bool $_multitenancy Whether multi-tenancy applies.
-	 * @param bool $silent Whether to skip event dispatch (mirrors the real service).
-	 * @param bool $_validation Whether schema validation applies (mirrors the real service).
-	 * @param array|null $uploadedFiles Uploaded files to attach (mirrors the real service).
-	 * @param \OCP\IUser|null $currentUser Acting user override (mirrors the real service).
 	 *
 	 * @return ObjectEntity
 	 */
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
 		bool $_multitenancy = true,
-		bool $silent = false,
-		// Position matters: the real service declares `$_validation` BETWEEN
-		// `$silent` and `$uploadedFiles`. A double that drifts from the real
-		// signature is a FATAL, not a failed assertion — PHP refuses to declare
-		// any subclass and the whole suite dies at load time, before it runs.
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		// openregister#2211 (insert-only saves) added this. A double that
-		// drifts from the real signature is a FATAL, not a failed
-		// assertion: PHP refuses to declare the class and the whole
-		// suite dies before it runs.
-		bool $failIfExists = false,
-		// openregister added this (stamp the SYSTEM identity as owner even when a
-		// user session exists). This stub is what CI loads — the real class is
-		// absent there — so a drift here is invisible in CI and only fatals when
-		// the suite runs inside a booted Nextcloud, where the real class wins.
-		bool $_unowned = false,
-		// Added by openregister (duplicate detection), seen 2026-09-16.
-		bool $_dedupOverride = false,
-		?string $_owner = null,
 	): ObjectEntity {
 		return new ObjectEntity();
 	}//end saveObject()

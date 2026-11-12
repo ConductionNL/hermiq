@@ -30,6 +30,8 @@ namespace OCA\Hermiq\Service\Engine;
 
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -456,8 +458,9 @@ class MessageHistoryHandler {
 		// checks). OpenRegister still stamps `_owner` from the user session.
 		$stored = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $payload),
-			register: self::REGISTER_SLUG,
-			schema: self::MESSAGE_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA)
+			),
 			_rbac: false
 		);
 

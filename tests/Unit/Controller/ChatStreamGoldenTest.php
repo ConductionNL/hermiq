@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Service\ObjectService;
@@ -491,7 +492,11 @@ class ChatStreamGoldenTest extends TestCase {
 		);
 		$service->method('saveObject')->willReturnCallback(
 			function (...$args): ObjectEntity {
-				$named = $this->named(method: 'saveObject', args: $args);
+				$named = SaveCallShape::passed(args: $args);
+				if ($named['object'] instanceof ObjectEntity) {
+					$named['object'] = ['entity' => $named['object']->getUuid()];
+				}
+
 				$this->events[] = ['saveObject' => $named];
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-new');

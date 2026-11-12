@@ -23,7 +23,9 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\GoalCheckService;
 use OCA\Hermiq\Service\GoalService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -88,21 +90,12 @@ class GoalServiceTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
 			): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$this->writes++;
 				$id = $uuid ?? sprintf('00000000-0000-4000-8000-%012d', $this->writes);
 				$entity = $this->objects[(string)$schema][$id] ?? new ObjectEntity();

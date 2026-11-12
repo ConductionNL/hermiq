@@ -25,7 +25,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use LLPhant\Chat\Enums\ChatRole;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -70,7 +72,14 @@ class MessageHistoryHandlerTest extends TestCase {
 		$saved = [];
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null) use (&$saved): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$saved): ObjectEntity {
+				['register' => $register, 'schema' => $schema] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$saved[] = [
 					'object' => $object,
 					'register' => $register,
@@ -140,6 +149,7 @@ class MessageHistoryHandlerTest extends TestCase {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				$entity = new ObjectEntity();
 				$entity->setUuid('msg-1');

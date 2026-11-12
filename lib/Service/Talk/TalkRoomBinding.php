@@ -34,6 +34,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -209,9 +211,10 @@ class TalkRoomBinding {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: (string)$conversation->getUuid()
+				)
 			);
 
 			return true;
@@ -341,9 +344,10 @@ class TalkRoomBinding {
 
 			return $this->objectService->saveObject(
 				object: $payload,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: (string)$conversation->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -398,8 +402,9 @@ class TalkRoomBinding {
 					'talkRoomToken' => $roomToken,
 					'participants' => $roster,
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				)
 			);
 
 			$this->logger->info(

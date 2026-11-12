@@ -36,6 +36,8 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IUserManager;
@@ -268,9 +270,10 @@ class OrganisationOpsService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $this->shapeAgentForReview(agent: $saved, scheduleUuids: []);
@@ -309,9 +312,10 @@ class OrganisationOpsService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $this->shapeAgentForReview(agent: $saved, scheduleUuids: []);
@@ -373,8 +377,9 @@ class OrganisationOpsService {
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::INCIDENT_SCHEMA
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::INCIDENT_SCHEMA)
+			)
 		);
 
 		return $this->shapeIncident(incident: $saved);
@@ -438,9 +443,10 @@ class OrganisationOpsService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::TENANT_CONTROL_SCHEMA,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::TENANT_CONTROL_SCHEMA),
+				uuid: $uuid
+			)
 		);
 
 		return $months;

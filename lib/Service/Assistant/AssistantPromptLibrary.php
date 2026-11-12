@@ -44,6 +44,8 @@ use DateTimeZone;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -262,9 +264,10 @@ class AssistantPromptLibrary {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $uuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $uuid
+			)
 		);
 
 		$result = $stored->getObject();
@@ -305,9 +308,10 @@ class AssistantPromptLibrary {
 			try {
 				$this->objectService->saveObject(
 					object: $data,
-					register: self::REGISTER_SLUG,
-					schema: self::SCHEMA_SLUG,
-					uuid: (string)$object->getUuid()
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+						uuid: (string)$object->getUuid()
+					)
 				);
 				$disabled++;
 			} catch (Throwable $e) {

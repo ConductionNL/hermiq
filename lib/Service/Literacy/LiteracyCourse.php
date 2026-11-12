@@ -31,6 +31,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -135,8 +137,9 @@ class LiteracyCourse {
 				'completedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DATE_ATOM),
 				'@self' => ['organisation' => $organisation, 'owner' => $uid],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::COMPLETION_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::COMPLETION_SCHEMA)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

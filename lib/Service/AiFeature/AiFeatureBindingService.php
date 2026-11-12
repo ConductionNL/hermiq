@@ -33,6 +33,8 @@ use InvalidArgumentException;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 
 /**
@@ -131,9 +133,10 @@ class AiFeatureBindingService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end bind()

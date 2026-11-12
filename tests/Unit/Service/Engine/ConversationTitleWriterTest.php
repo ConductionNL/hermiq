@@ -29,6 +29,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Engine\ConversationTitleWriter;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -322,7 +323,12 @@ class ConversationTitleWriterTest extends TestCase {
 		$objectService->expects($this->once())
 			->method('saveObject')
 			->willReturnCallback(
-				function (array $object, mixed $extend = null, mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+				function (
+					array $object,
+					ObjectSaveOptions $options = new ObjectSaveOptions(),
+					bool $_rbac = true,
+					bool $_multitenancy = true
+				) use (&$saved): ObjectEntity {
 					$saved = $object;
 					return new ObjectEntity();
 				}

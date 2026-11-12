@@ -43,6 +43,8 @@ use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -240,9 +242,10 @@ class RecordSummaryService {
 		// one reader, and it checked the record above as the caller.
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SUMMARY_SCHEMA,
-			uuid: $stored?->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SUMMARY_SCHEMA),
+				uuid: $stored?->getUuid()
+			),
 			_rbac: false
 		);
 

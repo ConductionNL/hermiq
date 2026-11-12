@@ -34,10 +34,12 @@ use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -133,7 +135,19 @@ class SkillLearningsCaptureServiceTest extends TestCase {
 		}
 
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
+				[
+					'extend' => $extend,
+					'register' => $register,
+					'schema' => $schema,
+					'uuid' => $uuid,
+				] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				unset($extend, $register);
 				$this->savedObjects[] = [
 					(string)$schema,

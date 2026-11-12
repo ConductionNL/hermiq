@@ -49,6 +49,8 @@ use DateTimeZone;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -436,9 +438,10 @@ class SkillLearningsCaptureService {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

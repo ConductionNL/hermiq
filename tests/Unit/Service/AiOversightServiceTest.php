@@ -17,6 +17,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AiOversightService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -105,6 +106,7 @@ class AiOversightServiceTest extends TestCase {
             ->method('saveObject')
             ->willReturnCallback(
                 function (...$args) use (&$captured, $entity) {
+                    $args = SaveCallShape::flat(args: $args);
                     $captured = $args[0];
                     return $entity;
                 }

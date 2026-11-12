@@ -36,8 +36,10 @@ use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\AppTemplateOffers;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use OCP\EventDispatcher\Event;
@@ -422,21 +424,12 @@ final class AppTemplateOffersTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
 				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
-				?string $_owner = null,
 			): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$payload = is_array($object) ? $object : $object->getObject();
 				$uuid = ($uuid ?? ('uuid-' . (count($this->store) + 1)));
 				$this->savedBySchema[(string)$schema][] = $payload;

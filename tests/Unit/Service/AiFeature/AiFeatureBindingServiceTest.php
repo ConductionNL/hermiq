@@ -32,6 +32,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -110,7 +111,12 @@ class AiFeatureBindingServiceTest extends TestCase {
 	private function objectService(): ObjectService {
 		$service = $this->createMock(ObjectService::class);
 		$service->method('saveObject')->willReturnCallback(
-			function (array $object, ...$rest): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
 				$this->written = $object;
 
 				$entity = new ObjectEntity();

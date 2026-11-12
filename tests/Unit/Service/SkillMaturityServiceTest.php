@@ -32,6 +32,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Repair\SeedMaturityExampleSkills;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 
@@ -427,7 +428,12 @@ class SkillMaturityServiceTest extends TestCase {
 		$objectService->expects($this->once())
 			->method('saveObject')
 			->willReturnCallback(
-				function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+				function (
+					array $object,
+					ObjectSaveOptions $options = new ObjectSaveOptions(),
+					bool $_rbac = true,
+					bool $_multitenancy = true
+				) use (&$saved): ObjectEntity {
 					$saved = $object;
 					return new ObjectEntity();
 				}
@@ -486,7 +492,12 @@ class SkillMaturityServiceTest extends TestCase {
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('saveObject')
 			->willReturnCallback(
-				function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+				function (
+					array $object,
+					ObjectSaveOptions $options = new ObjectSaveOptions(),
+					bool $_rbac = true,
+					bool $_multitenancy = true
+				) use (&$saved): ObjectEntity {
 					$saved = $object;
 					return new ObjectEntity();
 				}

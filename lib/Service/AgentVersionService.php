@@ -46,6 +46,8 @@ namespace OCA\Hermiq\Service;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 use Throwable;
@@ -246,9 +248,10 @@ class AgentVersionService {
 
 		return $this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			uuid: $agentUuid
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				uuid: $agentUuid
+			)
 		);
 
 	}//end rollback()

@@ -53,6 +53,8 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\TaskProcessing\Exception\ProcessingException;
@@ -321,8 +323,9 @@ class ContextAgentInteractionService {
 				'title' => 'Assistant agent chat',
 				'metadata' => ['source' => 'contextagent'],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			),
 			_rbac: false
 		);
 

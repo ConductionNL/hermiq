@@ -34,6 +34,8 @@ use OCA\Hermiq\Event\CollectAgentTemplatesEvent;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -266,9 +268,10 @@ class AppTemplateOffers {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: AgentTemplateService::REGISTER_SLUG,
-			schema: AgentTemplateService::TEMPLATE_SCHEMA,
-			uuid: $replaceUuid,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: AgentTemplateService::REGISTER_SLUG, schema: AgentTemplateService::TEMPLATE_SCHEMA),
+				uuid: $replaceUuid
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

@@ -28,7 +28,9 @@ use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -253,7 +255,14 @@ class ConversationManagementHandlerTest extends TestCase {
 		$objectService->method('setSchema')->willReturnSelf();
 		$objectService->method('findAll')->willReturn($messages);
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$savedPayload): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use (&$savedPayload): ObjectEntity {
+				['uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$savedPayload = ['object' => $object, 'uuid' => $uuid];
 				return new ObjectEntity();
 			}

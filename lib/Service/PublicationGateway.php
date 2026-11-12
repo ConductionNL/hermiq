@@ -41,6 +41,8 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 
@@ -121,8 +123,9 @@ class PublicationGateway {
 
 		$saved = $this->objectService->saveObject(
 			object: $publication,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA)
+			)
 		);
 
 		return (string)$saved->getUuid();
@@ -162,9 +165,10 @@ class PublicationGateway {
 
 		$this->objectService->saveObject(
 			object: $data,
-			register: self::PUBLICATION_REGISTER,
-			schema: self::PUBLICATION_SCHEMA,
-			uuid: $reference
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::PUBLICATION_REGISTER, schema: self::PUBLICATION_SCHEMA),
+				uuid: $reference
+			)
 		);
 
 		return true;

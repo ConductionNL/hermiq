@@ -53,6 +53,8 @@ use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
@@ -843,9 +845,10 @@ class SkillConsolidationService {
 
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)($draftData['skillId'] ?? ''),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)($draftData['skillId'] ?? '')
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1915,9 +1918,10 @@ class SkillConsolidationService {
 		try {
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

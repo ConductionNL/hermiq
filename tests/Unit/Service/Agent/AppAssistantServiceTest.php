@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Agent;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\Agent\AppAssistantService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
@@ -67,7 +68,12 @@ final class AppAssistantServiceTest extends TestCase {
 
 		$objects->method('findAll')->willReturnCallback(fn (array $config = []): array => array_slice($all, (int)($config['offset'] ?? 0), (int)($config['limit'] ?? 100)));
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ...$rest): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
 				$this->saved[] = $object;
 				return $this->agent(self::AGENT, 'org-1', $object);
 			}

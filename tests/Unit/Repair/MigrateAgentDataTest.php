@@ -26,7 +26,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use OCA\Hermiq\Repair\MigrateAgentData;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\DB\IResult;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -512,7 +514,9 @@ class MigrateAgentDataTest extends TestCase {
 			}
 		);
 		$objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true, bool $_multitenancy = true) {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$this->saved[] = ['schema' => (string)$schema, 'uuid' => (string)$uuid, 'data' => (array)$object];
 				return new ObjectEntity();
 			}

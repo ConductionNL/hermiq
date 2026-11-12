@@ -50,6 +50,8 @@ use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -550,8 +552,9 @@ class SessionController extends Controller {
 					'metadata' => $start['metadata'],
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			),
 			_rbac: false
 		);
 
@@ -649,9 +652,10 @@ class SessionController extends Controller {
 
 			$updated = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $uuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $uuid
+				)
 			);
 
 			if (($data['title'] ?? null) !== null) {
@@ -805,9 +809,10 @@ class SessionController extends Controller {
 
 			$restored = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $uuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $uuid
+				)
 			);
 
 			$this->logger->info(
@@ -1019,9 +1024,10 @@ class SessionController extends Controller {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: (string)$conversation->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
 		);
 	}//end setArchiveMarker()
 

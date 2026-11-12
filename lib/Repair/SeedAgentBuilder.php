@@ -34,6 +34,8 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -172,8 +174,9 @@ class SeedAgentBuilder implements IRepairStep {
 			if ($skill === null) {
 				$skill = $objectService->saveObject(
 					object: $this->freshness->stampFresh(seed: $this->skillObject()),
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
+					),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -188,8 +191,9 @@ class SeedAgentBuilder implements IRepairStep {
 			$skillUuid = (string)$skill->getUuid();
 			$agent = $objectService->saveObject(
 				object: $this->agentObject(skillUuid: $skillUuid),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -198,9 +202,10 @@ class SeedAgentBuilder implements IRepairStep {
 			$skillData['installedOn'] = array_values(array_unique(array_merge((array)($skillData['installedOn'] ?? []), [(string)$agent->getUuid()])));
 			$objectService->saveObject(
 				object: $skillData,
-				register: self::REGISTER_SLUG,
-				schema: self::SKILL_SCHEMA,
-				uuid: $skillUuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+					uuid: $skillUuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

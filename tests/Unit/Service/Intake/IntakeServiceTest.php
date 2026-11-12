@@ -33,12 +33,14 @@ use OCA\Hermiq\Service\Intake\IntakeRefusedException;
 use OCA\Hermiq\Service\Intake\IntakeService;
 use OCA\Hermiq\Service\Intake\IntakeSettings;
 use OCA\Hermiq\Service\Intake\IntakeToolGrant;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -114,7 +116,14 @@ class IntakeServiceTest extends TestCase {
 			}
 		);
 		$service->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (
+				array|ObjectEntity $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			): ObjectEntity {
+				['uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$key = ($uuid ?? ('conversation-' . (count($this->conversations) + 1)));
 				$this->conversations[$key] = (array)$object;
 

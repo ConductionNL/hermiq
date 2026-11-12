@@ -44,6 +44,9 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
+use OCA\OpenRegister\Service\Object\SaveActor;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use Psr\Log\LoggerInterface;
@@ -571,8 +574,9 @@ class AssistantService {
 					'metadata' => ['surface' => self::SURFACE_MARKER],
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			),
 			_rbac: false
 		);
 	}//end resolveConversation()
@@ -662,10 +666,11 @@ class AssistantService {
 					'active' => true,
 				]
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA,
-			_rbac: false,
-			_unowned: true
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+				actor: new SaveActor(unowned: true)
+			),
+			_rbac: false
 		);
 	}//end provisionAgent()
 

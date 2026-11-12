@@ -42,6 +42,8 @@ use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -373,9 +375,10 @@ class AgentGitService {
 	private function save(ObjectEntity $agent, array $data): ObjectEntity {
 		return $this->objectService->saveObject(
 			object: $data,
-			register: 'hermiq',
-			schema: 'agent',
-			uuid: (string)$agent->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: 'hermiq', schema: 'agent'),
+				uuid: (string)$agent->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

@@ -47,6 +47,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
@@ -612,9 +614,10 @@ class ContextAssembler {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::CONTEXT_SCHEMA,
-				uuid: (string)$context->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONTEXT_SCHEMA),
+					uuid: (string)$context->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

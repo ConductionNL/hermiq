@@ -50,6 +50,8 @@ use OCA\OpenRegister\Mcp\Db\Conversation;
 use OCA\OpenRegister\Mcp\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\ChatService;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -710,9 +712,10 @@ class ScheduleService {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -2771,8 +2774,9 @@ class ScheduleService {
 		$conversation = $this->continuedSession(sessionUuid: (string)$continueSessionUuid, owner: $owner, dryRun: $dryRun)
 			?? $this->objectService->saveObject(
 				object: $this->runSession(title: $title, owner: $owner, agent: $agent, startValues: $startValues),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				)
 			);
 
 		// Remember which conversation this run produced so a Talk-room delivery
@@ -3175,9 +3179,10 @@ class ScheduleService {
 	private function persist(ObjectEntity $schedule, array $data): void {
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: (string)$schedule->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: (string)$schedule->getUuid()
+			),
 			_rbac: false,
 			_multitenancy: false
 		);

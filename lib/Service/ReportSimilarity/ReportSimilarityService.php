@@ -46,6 +46,8 @@ use DateTimeZone;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -210,9 +212,10 @@ class ReportSimilarityService {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: $groupId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: $groupId
+			)
 		);
 
 		return $this->shape(group: $stored);
@@ -335,8 +338,9 @@ class ReportSimilarityService {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG)
+			)
 		);
 
 		return array_merge(
@@ -400,9 +404,10 @@ class ReportSimilarityService {
 
 		$stored = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SCHEMA_SLUG,
-			uuid: (string)$group->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
+				uuid: (string)$group->getUuid()
+			)
 		);
 
 		return array_merge(

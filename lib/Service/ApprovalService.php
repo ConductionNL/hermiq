@@ -91,6 +91,8 @@ use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -1936,9 +1938,10 @@ class ApprovalService {
 		try {
 			$saved = $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: $uuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: $uuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -1989,9 +1992,10 @@ class ApprovalService {
 
 			return $this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
-				uuid: (string)$approval->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA),
+					uuid: (string)$approval->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

@@ -31,9 +31,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -336,7 +338,18 @@ class AgentVersionServiceTest extends TestCase {
 		$objectService->expects($this->once())
 			->method('saveObject')
 			->willReturnCallback(
-				function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $rbac = true, bool $multitenancy = true) use (&$savedPayload): ObjectEntity {
+				function (
+					array $object,
+					ObjectSaveOptions $options = new ObjectSaveOptions(),
+					bool $rbac = true,
+					bool $multitenancy = true
+				) use (&$savedPayload): ObjectEntity {
+					[
+						'register' => $register,
+						'schema' => $schema,
+						'uuid' => $uuid,
+					] = SaveCallShape::named(args: [$object, $options, $rbac, $multitenancy]);
+
 					$savedPayload = $object;
 					$this->assertSame('hermiq', $register);
 					$this->assertSame('agent', $schema);

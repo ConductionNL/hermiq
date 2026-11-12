@@ -29,6 +29,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Repair\SeedMaturityExampleSkills;
 use OCA\Hermiq\Service\SeedFreshnessService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -143,13 +144,11 @@ class SeedLearningsUpgradeGoldenTest extends TestCase {
 	 */
 	private function upgrade(array $stored, string $mode): array {
 		$saved = [];
-		$names = array_map(
-			static fn ($parameter): string => $parameter->getName(),
-			(new ReflectionMethod(ObjectService::class, 'saveObject'))->getParameters()
-		);
+		$names = SaveCallShape::oldNames();
 		$objectService = $this->createMock(originalClassName: ObjectService::class);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (...$args) use (&$saved, $names): ObjectEntity {
+				$args = SaveCallShape::flat(args: $args);
 				$named = [];
 				foreach ($args as $position => $value) {
 					$key = $position;

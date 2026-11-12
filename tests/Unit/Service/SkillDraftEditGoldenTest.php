@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -269,7 +270,7 @@ class SkillDraftEditGoldenTest extends TestCase {
 		);
 		$objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$args) use (&$calls, $failSave): ObjectEntity {
-				$passed = $this->passed(class: ObjectService::class, method: 'saveObject', args: $args);
+				$passed = SaveCallShape::passed(args: $args);
 				$calls[] = ['saveObject', $passed];
 				if ($failSave === true) {
 					throw new RuntimeException('draft write refused');

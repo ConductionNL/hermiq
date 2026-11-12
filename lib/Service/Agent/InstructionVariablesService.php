@@ -41,6 +41,8 @@ use OCA\Hermiq\Service\Engine\PromptVariableResolver;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
@@ -172,9 +174,10 @@ class InstructionVariablesService {
 
 		return $this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA,
-			uuid: $sessionId
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SESSION_SCHEMA),
+				uuid: $sessionId
+			)
 		);
 	}//end answer()
 

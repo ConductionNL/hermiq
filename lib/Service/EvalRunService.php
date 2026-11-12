@@ -61,6 +61,8 @@ use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -1376,8 +1378,9 @@ class EvalRunService {
 
 		return $this->objectService->saveObject(
 			object: $evalRunData,
-			register: self::REGISTER_SLUG,
-			schema: self::EVALRUN_SCHEMA,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::EVALRUN_SCHEMA)
+			),
 			_rbac: false,
 			_multitenancy: false
 		);
@@ -1663,9 +1666,10 @@ class EvalRunService {
 
 				$this->objectService->saveObject(
 					object: $data,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
-					uuid: $skillId,
+					options: new ObjectSaveOptions(
+						target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+						uuid: $skillId
+					),
 					_rbac: false,
 					_multitenancy: false
 				);

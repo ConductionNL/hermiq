@@ -23,7 +23,9 @@ use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\ToolOversight\ToolGrantWrites;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightAgents;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use PHPUnit\Framework\TestCase;
@@ -70,7 +72,14 @@ class ToolGrantWritesTest extends TestCase {
 	private function objects(?ObjectEntity $saved = null): ObjectService {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true) use ($saved): ObjectEntity {
+			function (
+				array $object,
+				ObjectSaveOptions $options = new ObjectSaveOptions(),
+				bool $_rbac = true,
+				bool $_multitenancy = true
+			) use ($saved): ObjectEntity {
+				['schema' => $schema, 'uuid' => $uuid] = SaveCallShape::named(args: [$object, $options, $_rbac, $_multitenancy]);
+
 				$this->saves[] = ['object' => $object, 'schema' => $schema, 'uuid' => $uuid, 'rbac' => $_rbac];
 				return ($saved ?? new ObjectEntity());
 			}

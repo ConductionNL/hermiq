@@ -32,6 +32,8 @@ use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -151,8 +153,9 @@ class SeedRecordSummary implements IRepairStep {
 					'outputsLabelled' => true,
 					'outputLabelling' => self::OUTPUT_LABELLING,
 				],
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

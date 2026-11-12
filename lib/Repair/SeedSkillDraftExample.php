@@ -40,6 +40,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IURLGenerator;
 use OCP\Migration\IOutput;
@@ -185,8 +187,9 @@ class SeedSkillDraftExample implements IRepairStep {
 
 			$draft = $objectService->saveObject(
 				object: $this->draftPayload(skill: $skill),
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -196,8 +199,9 @@ class SeedSkillDraftExample implements IRepairStep {
 			// payload — inbox-approving it exercises the real apply path.
 			$approval = $objectService->saveObject(
 				object: $this->approvalPayload(draft: $draft, skillId: $skillId),
-				register: self::REGISTER_SLUG,
-				schema: self::APPROVAL_SCHEMA,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::APPROVAL_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -208,9 +212,10 @@ class SeedSkillDraftExample implements IRepairStep {
 
 			$objectService->saveObject(
 				object: $draftData,
-				register: self::REGISTER_SLUG,
-				schema: self::DRAFT_SCHEMA,
-				uuid: (string)$draft->getUuid(),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::DRAFT_SCHEMA),
+					uuid: (string)$draft->getUuid()
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

@@ -38,6 +38,7 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Tests\Unit\Support\SaveCallShape;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -513,6 +514,7 @@ class ChatStreamControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$args = $passed;
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
@@ -700,6 +702,7 @@ class ChatStreamControllerTest extends TestCase {
 		);
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$passed = SaveCallShape::flat(args: $passed);
 				$saved = $passed[0];
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
