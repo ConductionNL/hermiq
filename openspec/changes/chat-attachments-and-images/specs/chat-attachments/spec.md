@@ -63,6 +63,12 @@ Hermiq MUST let an administrator declare, per provider and model, which of `imag
 - THEN the provider request carries the photo as an image part next to the question
 - @e2e exclude the request body sent to the provider is not visible to a browser; covered by PHPUnit per driver
 
+#### Scenario: A PDF reaches a model that reads PDFs as a document
+- GIVEN an administrator has declared `pdf` for the model the agent uses
+- WHEN a person attaches `jaarverslag-2025.pdf` and asks for the total costs
+- THEN the provider request carries the PDF as a document part next to the question, and no text was extracted from it first
+- @e2e exclude the request body sent to the provider is not visible to a browser; covered by PHPUnit per driver
+
 ### Requirement: A model without the capability gets the text, and the person is told (REQ-CATT-005)
 
 For an attachment the model cannot read natively, hermiq MUST use the file's text when it can extract it and MUST leave the file out when it cannot. In both cases the answer MUST carry a notice in plain language that names the file and what was done. The notice MUST travel inside the existing `final` event and MUST NOT add an SSE event type.

@@ -3,11 +3,11 @@ kind: spec
 depends_on: []
 ---
 
-# Write down fifteen built capabilities that no requirement says yet
+# Write down eighteen built capabilities that no requirement says yet
 
 ## Why
 
-The coverage matrix records, per row, the requirement that says it. For fifteen rows the
+The coverage matrix records, per row, the requirement that says it. For eighteen rows the
 spec the row cites has requirements, but none of their scenarios says what the row says.
 The capability works, so the gap is in the spec, not in the code.
 
@@ -28,6 +28,8 @@ The capability works, so the gap is in the spec, not in the code.
 | `dl-target-pref` | Choose where my agents deliver by default. | Talk delivery setting, `/api/preferences/delivertarget` |
 | `op-health` | See whether chat and its model provider are ready. | `GET /api/chat/health` |
 | `op-setup-wizard` | Get guided through setting up the first provider and agent. | Manifest `setup` steps and the `hermiq:getting-started` walkthrough |
+| `sc-overlap` | Stop a schedule from starting a new run while the last one is still going. | `ScheduleTask` runs with parallel runs off, so a tick never starts while the last one runs |
+| `tl-register`, `dm-builtin-table` | Let an agent query and update records held in OpenRegister. | `ToolLoop` resolves the schema grants, `FacadeToolInvoker` calls OpenRegister's object tools |
 
 ## What changes
 

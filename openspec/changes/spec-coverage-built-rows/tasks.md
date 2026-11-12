@@ -7,3 +7,7 @@
       Verify: a unit test refuses a path outside `getUserFolder($uid)`.
 - [ ] 1.3 Add e2e coverage for the REQ-SPCOV scenarios that have a screen, or a reasoned
       `@e2e exclude` for the server-side ones (gate 19).
+- [ ] 1.4 Cover REQ-SPCOV-014 and REQ-SPCOV-015, added in the closing round of 12 November: a
+      unit test that `ScheduleTask` keeps parallel runs off, and a test that a register update
+      without a write grant is refused while a granted one goes through. Verify: both tests
+      fail when the guard is removed.
