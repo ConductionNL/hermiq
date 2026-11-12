@@ -41,7 +41,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
@@ -233,17 +232,7 @@ class SkillBundleInstaller {
 				_multitenancy: false
 			);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new NamedObjectRows(objects: $objects))->first(name: $name) !== null;
 	}//end agentExists()
 
 	/**
