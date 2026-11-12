@@ -2222,7 +2222,7 @@
 			"note": "Row added in the closing round of 12 November (decision 395): the change covered no row. Competitor columns are not rated yet.",
 			"screen": {
 				"canvas": "design-system",
-				"board": null
+				"board": "HmPlakkenOmInTeVullen"
 			}
 		},
 		{
@@ -4342,8 +4342,8 @@
 				"copilot-studio": "docs-only: https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-manage searched the Copilot Studio docs tree (413 pages, 2026-09-26) for \"version|history|rollback|curat|maturity|GitHub|improv|learn\" in the four skills pages: no scheduled merge or archive of skills; makers delete skills by hand."
 			},
 			"screen": {
-				"board": null,
-				"reason": "Een dagelijkse achtergrondtaak, zonder eigen scherm."
+				"board": "HmSkills",
+				"canvas": "design-system"
 			}
 		},
 		{
