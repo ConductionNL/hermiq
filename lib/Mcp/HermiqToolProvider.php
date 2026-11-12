@@ -746,32 +746,41 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * user; GraphTools never throws.
 	 *
 	 * @param string $toolId The namespaced tool id.
-	 * @param string $uid The session user.
-	 * @param array<string, mixed> $arguments The tool arguments.
+	 * @param NativeToolCall $call The session user and the tool arguments.
 	 *
 	 * @return array<string, mixed>|null The result, or null when not routed here.
 	 *
 	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
 	 */
-	private function routed(string $toolId, string $uid, array $arguments): ?array {
-		if (in_array($toolId, GraphToolDescriptors::IDS, true) === true) {
-			return $this->container->get(GraphTools::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
-		}
-
-		if (in_array($toolId, NcTaskToolDescriptors::IDS, true) === true) {
-			return $this->container->get(TaskWriteService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
-		}
-
-		if (in_array($toolId, ImageToolDescriptors::IDS, true) === true) {
-			return $this->container->get(ImageGenerationService::class)->invoke(uid: $uid, toolId: $toolId, arguments: $arguments);
+	private function routed(string $toolId, NativeToolCall $call): ?array {
+		$service = $this->userScopedServiceFor(toolId: $toolId);
+		if ($service !== null) {
+			return $this->container->get($service)->invoke(uid: $call->uid, toolId: $toolId, arguments: $call->arguments);
 		}
 
 		if (in_array($toolId, WorkspaceToolDescriptors::IDS, true) === true) {
-			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $arguments);
+			return $this->container->get($this->workspaceHalf(toolId: $toolId))->invoke(toolId: $toolId, arguments: $call->arguments);
 		}
 
 		return null;
 	}//end routed()
+
+	/**
+	 * The service that owns a graph, Nextcloud task or image tool, checked in that order.
+	 *
+	 * @param string $toolId The namespaced tool id.
+	 *
+	 * @return string|null The owning service's class, or null for any other tool.
+	 */
+	private function userScopedServiceFor(string $toolId): ?string {
+		return match (true) {
+			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphTools::class,
+			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteService::class,
+			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationService::class,
+			default => null,
+		};
+
+	}//end userScopedServiceFor()
 
 	/**
 	 * Invoke a tool by id — authorises (scopes to the acting user) BEFORE any data access.
@@ -793,7 +802,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 
 		$call = new NativeToolCall(user: $user, arguments: $arguments);
 
-		return $this->routed(toolId: $toolId, uid: $call->uid, arguments: $arguments)
+		return $this->routed(toolId: $toolId, call: $call)
 			?? $this->runNative(toolId: $toolId, call: $call);
 	}//end invokeTool()
 
