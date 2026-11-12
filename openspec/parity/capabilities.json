@@ -1653,7 +1653,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json:9-14 Chat page type:custom component Chat; src/views/Chat.vue composer (textarea :422) + sendViaPost/sendViaStream (:1141-1230); src/api/chat.js:233 CHAT_BASE/send; routes.php:520 chat#sendMessage POST /api/chat/send.",
 				"spec": "openspec/specs/agent-engine-port",
-				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)"
+				"requirement": "openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port :: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)",
+				"change": "openspec/changes/agent-engine-schemas"
 			},
 			"reachedOn": "/chat Chat page",
 			"provider": "hermiq",
@@ -1730,7 +1731,8 @@
 				"requirement": [
 					"openspec/specs/session-surface :: Session row actions MUST live in an action menu",
 					"openspec/specs/session-surface :: A session row MUST identify its agent and its time"
-				]
+				],
+				"change": "openspec/changes/agent-data-migration"
 			},
 			"reachedOn": "/chat Chat page session list",
 			"provider": "hermiq",
@@ -1917,7 +1919,10 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/AppInfo/Application.php registers \\OCP\\Util::addInitScript(self::APP_ID, self::APP_ID . '-companion') unconditionally on every page load; src/companion.js:1-20 docblock: 'Hermiq AI companion, mounted on EVERY Nextcloud page', deliberately not mounted on hermiq's own pages (CnAppRoot already renders one there).",
-				"change": "openspec/changes/companion-everywhere",
+				"change": [
+					"openspec/changes/companion-everywhere",
+					"openspec/changes/hermiq-domain-mcp-tools"
+				],
 				"requirement": "openspec/changes/companion-everywhere/specs/companion-everywhere :: The companion MUST be available on every page, including third-party apps"
 			},
 			"reachedOn": "every Nextcloud page except hermiq's own (companion.js init script)",
@@ -1955,7 +1960,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/integration-leaf.js registers the 'hermiq-agent' integration via registerIntegration(), mounting CnAgentChatTab.vue against POST /api/assistant/converse (also src/components/CnAgentChatTab/CnAgentChatTab.vue:290); lib/AppInfo/Application.php registers RegisterAgentLeafListener on OpenRegister's RegisterLeafProvidersEvent and addInitScript('hermiq-agent-leaf'); routes.php:556 assistant#converse.",
 				"spec": "openspec/specs/agent-object-leaf",
-				"requirement": "openspec/specs/agent-object-leaf :: Object-scoped agent chat reuses the tool-free surface"
+				"requirement": "openspec/specs/agent-object-leaf :: Object-scoped agent chat reuses the tool-free surface",
+				"change": [
+					"openspec/changes/session-entity-links",
+					"openspec/changes/hydra-console-agent-leaves"
+				]
 			},
 			"reachedOn": "any OpenRegister object's leaf/tab in an OpenBuild app (e.g. a case record) -> Agent tab (CnAgentChatTab.vue)",
 			"provider": "openregister",
@@ -2178,6 +2187,37 @@
 			}
 		},
 		{
+			"id": "ch-smart-paste",
+			"area": "chat",
+			"name": "Paste text into a form and have its fields proposed as a draft.",
+			"source": "demand-derived",
+			"hermiq": "no",
+			"built": {
+				"state": "specified",
+				"owner": "ConductionNL/hermiq",
+				"evidence": "Not built: no form-fill endpoint or seeded form-fill AI feature exists in lib/ yet (forms-smart-paste-fill, 8 open tasks). Requested by buildiq ai-smart-paste-into-forms and the nextcloud-vue form renderer.",
+				"spec": "openspec/changes/forms-smart-paste-fill/specs/form-fill",
+				"requirement": [
+					"openspec/changes/forms-smart-paste-fill/specs/form-fill :: A signed-in user asks for proposals (REQ-FFILL-002)",
+					"openspec/changes/forms-smart-paste-fill/specs/form-fill :: Proposals fit the allowed fields (REQ-FFILL-003)",
+					"openspec/changes/forms-smart-paste-fill/specs/form-fill :: Form fill is off until an admin acknowledges it (REQ-FFILL-001)"
+				],
+				"plan": "openspec/changes/forms-smart-paste-fill"
+			},
+			"reachedOn": "A form in a built app (nextcloud-vue form renderer): \"Paste to fill\"; the endpoint is POST /apps/hermiq/api/assistant/form-fill",
+			"provider": "hermiq",
+			"providerHow": "read-from-spec",
+			"feature": "assistant-everywhere",
+			"featureConfidence": "medium",
+			"nextcloud-assistant": "unknown",
+			"hermes-agent": "unknown",
+			"copilot-studio": "unknown",
+			"dify": "unknown",
+			"n8n": "unknown",
+			"open-webui": "unknown",
+			"note": "Row added in the closing round of 12 November (decision 395): the change covered no row. Competitor columns are not rated yet."
+		},
+		{
 			"id": "ch-image-gen",
 			"area": "chat",
 			"name": "Generate an image from a description.",
@@ -2346,7 +2386,8 @@
 				"requirement": [
 					"openspec/specs/agent-schedule :: Define a schedule for an agent [MVP]",
 					"openspec/specs/agent-schedule :: Fire due schedules and run the agent [MVP]"
-				]
+				],
+				"change": "openspec/changes/schedules-onto-engine-triggers"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
@@ -3316,7 +3357,8 @@
 				"requirement": [
 					"openspec/specs/agent-tool-governance :: An outside agent MUST reach declared tools through a registration",
 					"openspec/specs/agent-tool-governance :: Every outside call MUST be authorised as the calling principal"
-				]
+				],
+				"change": "openspec/changes/hermiq-mcp-adoption"
 			},
 			"reachedOn": "POST /apps/hermiq/api/mcp/run (governed CLI transport) and POST /apps/hermiq/api/outside-agent/call",
 			"provider": "hermiq",
@@ -3390,7 +3432,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/components/ToolGrantMatrix.vue (cluster/subject/verb grant matrix), wired into src/modals/AgentFormModal.vue:343 (imports ../api/toolOversight.js); appinfo/routes.php:226-236 toolOversight#toolCatalog (GET) / updateToolGrants (PUT).",
 				"spec": "openspec/specs/agent-tool-governance",
-				"requirement": "openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools"
+				"requirement": "openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools",
+				"change": [
+					"openspec/changes/tool-scope-security-default",
+					"openspec/changes/structured-tool-grants"
+				]
 			},
 			"reachedOn": "Agent editor (AgentFormModal) -> tool grant matrix -> PUT /api/agents/{agentId}/tool-grants",
 			"provider": "hermiq",
@@ -3501,7 +3547,10 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Workspace/: WorkspaceToolset serves 13 governed MCP tools (lib/Mcp/WorkspaceToolDescriptors.php) over a run-scoped server-side checkout (ServerSideWorkspaceProvider, WorkspacePathGuard). WorkspaceEditor writes, patches, branches and commits as the run owner; WorkspaceWriteAuthoriser requires a run-scoped Approval (sourceType workspace-run); WorkspacePusher pushes with the owner's personal forge credential (ForgeCredentialResolver) only from a grant pinning repository and branch (RepoEffectingGrants); WorkspaceAuditor writes a workspace-write audit record per write. Proven against real git in tests/Unit/Service/Workspace/WorkspaceToolsetWriteTest.php (push into a file:// forge).",
 				"reachedOn": "Agent tool list: grant hermiq.workspaceOpen and friends; the agent uses them in a governed CLI run",
-				"change": "openspec/changes/archive/2026-09-30-hermiq-runner-git-capability",
+				"change": [
+					"openspec/changes/archive/2026-09-30-hermiq-runner-git-capability",
+					"openspec/changes/exapp-stage-workload"
+				],
 				"readOn": "2026-09-30",
 				"requirement": [
 					"openspec/specs/agent-workspace-git-tools :: Workspace and git capability is exposed only as a closed, named MCP tool surface",
@@ -3621,7 +3670,8 @@
 				"requirement": [
 					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq declares its outside connections in one static file (REQ-HERMIQ-CONN-001)",
 					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq reports what only it can observe (REQ-HERMIQ-CONN-003)"
-				]
+				],
+				"change": "openspec/changes/adopt-connection-registry"
 			},
 			"reachedOn": "/settings/integrations Integrations page",
 			"provider": "hermiq",
@@ -4071,7 +4121,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:340 skill#install POST /api/skills/{id}/install/{agentId} (also :341-346 skill#uninstall DELETE); src/modals/SkillInstallModal.vue:55 calls '../api/skills.js' (install/{id}/{agentId}, skills.js:74,90).",
 				"spec": "openspec/specs/skills-catalog",
-				"requirement": "openspec/specs/skills-catalog :: Browse and install skills into an agent"
+				"requirement": "openspec/specs/skills-catalog :: Browse and install skills into an agent",
+				"change": "openspec/changes/skill-install-idempotency"
 			},
 			"reachedOn": "SkillsCatalog row action -> SkillInstallModal -> POST /api/skills/{id}/install/{agentId}",
 			"provider": "hermiq",
@@ -4368,7 +4419,8 @@
 				"requirement": [
 					"openspec/specs/skills-marketplace :: A skill can be published to a tagged GitHub repository as the primary path",
 					"openspec/specs/agent-template-github-store :: The system MUST install a discovered skill through the skill quarantine gate"
-				]
+				],
+				"change": "openspec/changes/store-through-federated-config"
 			},
 			"reachedOn": "Store page -> AgentTemplateGithubStore/SkillGithubPublishModal -> GitHub search/install/publish",
 			"provider": "hermiq",
@@ -4482,6 +4534,10 @@
 				"requirement": [
 					"openspec/specs/skills-marketplace :: Quarantine + security scan on install",
 					"openspec/specs/skills-marketplace :: Publish to and consume from external hubs"
+				],
+				"change": [
+					"openspec/changes/skill-install-idempotency",
+					"openspec/changes/skill-source-identity-schema"
 				]
 			},
 			"reachedOn": "SkillsCatalog -> Import skill button -> SkillImportModal -> install-from-source",
@@ -4709,7 +4765,10 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/AppInfo/Application.php:350-352 registers Text2TextProvider, Text2TextSummaryProvider, Text2TextHeadlineProvider via $context->registerTaskProcessingProvider(); lib/TaskProcessing/Text2TextProvider.php implements the provider.",
-				"change": "openspec/changes/taskprocessing-provide-text2text",
+				"change": [
+					"openspec/changes/taskprocessing-provide-text2text",
+					"openspec/changes/raise-nc-minversion-taskprocessing"
+				],
 				"requirement": "openspec/changes/taskprocessing-provide-text2text/specs/taskprocessing-provide-text2text :: Hermiq provides the text2text task-type family to the whole instance"
 			},
 			"reachedOn": "nothing (machine surface: any Nextcloud TaskProcessing consumer, e.g. Assistant, can pick 'Hermiq' as a text2text provider once registered)",
@@ -4941,6 +5000,12 @@
 				"requirement": [
 					"openspec/specs/governed-cli-mcp-transport :: Hermiq serves a governed MCP endpoint scoped to a single run",
 					"openspec/specs/governed-cli-mcp-transport :: The CLI is locked to Hermiq's governance by its invocation flags"
+				],
+				"change": [
+					"openspec/changes/persistent-llm-process",
+					"openspec/changes/llm-cli-runner-exapp",
+					"openspec/changes/cli-runner-credential-declaration",
+					"openspec/changes/cli-runner-text-turn-dispatch"
 				]
 			},
 			"reachedOn": "nothing on a screen; reachable only by PATCH /apps/hermiq/api/settings/llm with anthropicConfig.executionMode='cli' sent directly, since LlmSettingsController#update does not restrict which anthropicConfig keys it merges",
@@ -5134,7 +5199,8 @@
 				"requirement": [
 					"openspec/specs/talk-chat-bridge :: A room message becomes a turn on the bound session and is answered in the room",
 					"openspec/specs/talk-chat-bridge :: An agent is reachable from Talk without any client-side work"
-				]
+				],
+				"change": "openspec/changes/instant-talk"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> TalkBridgeSettings.vue (mounted src/views/AdminRoot.vue:160), which calls src/api/talkBridge.js",
 			"provider": "hermiq",
@@ -5623,7 +5689,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/ApprovalInbox.vue:20-100 lists every pending approval routed to the current reviewer in one table (schedule, agent, prompt, requested-at) with Approve/Deny actions; backed by approval#index GET /api/approvals.",
 				"spec": "openspec/specs/human-approval-gate",
-				"requirement": "openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui :: Reviewer approval inbox lists pending approvals routed to the user"
+				"requirement": "openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui :: Reviewer approval inbox lists pending approvals routed to the user",
+				"change": "openspec/changes/approval-task-convergence"
 			},
 			"reachedOn": "/approvals nav page (src/manifest.json id 'ApprovalInbox')",
 			"provider": "hermiq",
@@ -6046,7 +6113,8 @@
 				"requirement": [
 					"openspec/specs/woo-llm-anonymisation :: Structured PII span detection endpoint",
 					"openspec/specs/woo-llm-anonymisation :: A feature MAY require that a document was redacted before it is read"
-				]
+				],
+				"change": "openspec/changes/ai-feature-run-on-a-document"
 			},
 			"reachedOn": "Machine surface: an owning app such as filinq/dossiq calls POST /api/assistant/detect-pii before handing a document's text to a model",
 			"note": "No page inside hermiq itself calls this; it exists to be called by another app before that app's own model read.",
@@ -6084,7 +6152,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json:1387-1542 AiOversight (dashboard) and AiOversightDetail pages, rowRoute wired; lib/Service/AiOversightService.php + lib/Event/AiOversightRecordedEvent.php + lib/Listener/AiOversightRecordedListener.php (registered lib/AppInfo/Application.php:136-137) record oversight-worthy AI decisions after the fact.",
 				"spec": "openspec/specs/reports",
-				"requirement": "openspec/specs/reports :: The AI oversight report counts and lists advisory decisions"
+				"requirement": "openspec/specs/reports :: The AI oversight report counts and lists advisory decisions",
+				"change": "openspec/changes/ai-oversight-advisory-approvals"
 			},
 			"reachedOn": "/ai-oversight AiOversight page -> row -> AiOversightDetail",
 			"provider": "hermiq",
@@ -6231,7 +6300,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:255 tenantOps#auditExport GET /api/tenant-ops/audit-export; lib/Controller/TenantOpsController.php:116-130 auditExport() streams tenantOpsService->exportAuditTrail() with a Content-Disposition attachment header; src/widgets/ComplianceOperations.vue:252-256 exportAudit() calls getAuditExport() from src/api/tenantOps.js:32.",
 				"spec": "openspec/specs/multi-tenant-ops",
-				"requirement": "openspec/specs/multi-tenant-ops :: Per-tenant sovereignty — local inference + AI-Act export"
+				"requirement": "openspec/specs/multi-tenant-ops :: Per-tenant sovereignty — local inference + AI-Act export",
+				"change": "openspec/changes/ai-oversight-subject-export"
 			},
 			"reachedOn": "/compliance page -> compliance-operations widget (ComplianceOperations.vue) -> Export button -> exportAudit()",
 			"provider": "hermiq",
@@ -6899,7 +6969,8 @@
 				"requirement": [
 					"openspec/specs/run-analytics :: Dashboard metrics derived from AuditTrail/SearchTrail",
 					"openspec/specs/run-analytics :: Per-agent and per-tenant breakdown"
-				]
+				],
+				"change": "openspec/changes/analytics-unbounded-audit-scan"
 			},
 			"reachedOn": "/ (Dashboard) stat tiles and analytics-breakdown widget",
 			"note": "useEndpointSource dedupes the four Dashboard stat tiles reading the same /api/analytics endpoint into one request, per src/manifest.json:1084's own comment.",
@@ -7509,7 +7580,8 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Repair/SeedHydraTriageFlow.php + lib/Repair/SeedHydraTriageAgent.php seed a starter 'Hydra Triage' flow and its agent on install/upgrade.",
 				"spec": "openspec/specs/flow-authoring",
-				"requirement": "openspec/specs/hydra-flow-application-slug :: The seeded Hydra Triage flow declares its owning application (REQ-001)"
+				"requirement": "openspec/specs/hydra-flow-application-slug :: The seeded Hydra Triage flow declares its owning application (REQ-001)",
+				"change": "openspec/changes/hermiq-seed-hydra-flows"
 			},
 			"reachedOn": "/flows FlowIndex shows the seeded 'Hydra Triage' flow after a fresh install/repair run",
 			"provider": "hermiq",
@@ -7782,7 +7854,8 @@
 					"openspec/specs/agent-template-github-store :: The system MUST provide a server-backed search for hermiq-agent-template repos",
 					"openspec/specs/agent-template-github-store :: The system MUST install a discovered template through the existing quarantine gate",
 					"openspec/specs/agent-template-github-store :: The system MUST let a template owner publish it to a new tagged GitHub repository"
-				]
+				],
+				"change": "openspec/changes/store-through-federated-config"
 			},
 			"reachedOn": "/store page -> agent-template-github-store widget (search+install) and agent-template-row-actions -> Publish to GitHub",
 			"provider": "hermiq",
