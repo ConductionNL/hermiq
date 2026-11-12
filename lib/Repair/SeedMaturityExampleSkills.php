@@ -86,6 +86,22 @@ class SeedMaturityExampleSkills implements IRepairStep {
 	private const SEED_ATTESTED_AT = '2026-01-15T09:00:00+00:00';
 
 	/**
+	 * The state every seeded example skill starts in: active, local (never
+	 * imported), unscanned, not quarantined, created by nobody and installed on
+	 * no agent. Spread into each seed row between its `files` and its levels.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private const LOCAL_SEED_STATE = [
+		'state' => 'active',
+		'source' => 'local',
+		'quarantineReason' => null,
+		'scanReport' => null,
+		'createdBy' => '',
+		'installedOn' => [],
+	];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
@@ -264,12 +280,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			'frontmatter' => $frontmatter,
 			'body' => $body,
 			'files' => [],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 1,
 			'targetLevel' => 2,
 		];
@@ -351,12 +362,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 			'frontmatter' => $frontmatter,
 			'body' => $body,
 			'files' => [],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 2,
 			'targetLevel' => 3,
 		];
@@ -466,12 +472,7 @@ class SeedMaturityExampleSkills implements IRepairStep {
 					'content' => self::seedCandidatesContent(),
 				],
 			],
-			'state' => 'active',
-			'source' => 'local',
-			'quarantineReason' => null,
-			'scanReport' => null,
-			'createdBy' => '',
-			'installedOn' => [],
+			...self::LOCAL_SEED_STATE,
 			'maturityLevel' => 4,
 			'targetLevel' => 5,
 			'levelEvidence' => [
