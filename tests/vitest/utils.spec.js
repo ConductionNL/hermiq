@@ -102,6 +102,7 @@ describe('toolTaxonomy', () => {
 		expect(taxonomy.joinKey(null)).toBe('')
 		expect(['entries', 'boxes', 'matches', 'objects', 'class', 'keys'].map(taxonomy.singularise))
 			.toEqual(['entry', 'box', 'match', 'object', 'class', 'key'])
+		expect(taxonomy.singularise('aies')).toBe('aie')
 	})
 
 	it('classifies a verb as canonical through its alias, or as special', () => {
@@ -151,6 +152,7 @@ describe('buildAgentContext', () => {
 	it('leaves a value whose cap does not apply untouched', () => {
 		const schema = { [AGENT_CONTEXT_KEYWORD]: { count: { maxLength: 1 }, title: { maxLength: 0 } } }
 		expect(buildAgentContext({ count: 12345, title: 'abc' }, schema)).toEqual({ count: 12345, title: 'abc' })
+		expect(buildAgentContext({ title: 'abcd' }, { [AGENT_CONTEXT_KEYWORD]: { title: { maxLength: 4 } } })).toEqual({ title: 'abcd' })
 	})
 })
 

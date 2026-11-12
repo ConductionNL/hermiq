@@ -389,6 +389,8 @@ describe('ScheduleFormModal', () => {
 		expect(once).not.toHaveProperty('retryEnabled')
 		w.vm.form.kind = 'cron'
 		expect(w.vm.buildPayload().cronExpr).toBe('0 8 * * *')
+		w.vm.form.repeatTimes = '1'
+		expect(w.vm.buildPayload().repeat).toEqual({ times: 1, completed: 0 })
 	})
 
 	it('saves and closes, or shows why it could not', async () => {

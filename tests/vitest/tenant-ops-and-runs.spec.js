@@ -209,6 +209,7 @@ describe('TenantOps access review', () => {
 		expect(two.reviewState).toMatch(/\(admin\)$/)
 		expect(two.reassignmentFlag).toBe(false)
 		expect(w.vm.capabilitySummary({})).toBe('No tools')
+		expect(w.vm.capabilitySummary({ tools: ['mail.send'] })).toBe('mail.send')
 		expect(w.vm.reviewColumns.map((c) => c.key)).toEqual(['name', 'owner', 'actingUser', 'lastRunAt', 'capabilities', 'reviewState', 'reassignmentFlag'])
 	})
 
