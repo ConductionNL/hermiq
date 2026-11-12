@@ -216,6 +216,7 @@ import {
 	forgetMemoryEntry,
 	getMemory,
 } from '../api/memory.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -393,16 +394,10 @@ export default {
 			if (!text || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await addMemory(this.agentId, text)
 				this.newEntry = ''
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -415,15 +410,9 @@ export default {
 			if (!this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await consolidateMemory(this.agentId)
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -461,16 +450,10 @@ export default {
 			if (!text || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await correctMemoryEntry(this.agentId, entry.id, text)
 				this.cancelCorrection()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -483,19 +466,13 @@ export default {
 			if (!this.forgetTarget || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await forgetMemoryEntry(
 					this.agentId,
 					this.forgetTarget.id,
 				)
 				this.forgetTarget = null
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
