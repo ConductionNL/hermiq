@@ -635,4 +635,40 @@ class LessonAuthoringEngineTest extends TestCase {
 		$this->assertStringNotContainsString('Breuken vergelijken', $logged, 'Goal titles must never reach the log.');
 
 	}//end testASuccessfulCallIsLoggedWithoutItsContent()
+	/**
+	 * Golden: goal suggestions over every answer shape (numbers in any order,
+	 * repeats, out of range, zero, NONE in any case and as a word, empty, prose)
+	 * and goal lists with blank and non-text entries return and prompt exactly
+	 * what was recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testGoalSuggestionVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/lesson-goal-suggestions.json';
+		$answers = ['3, 1, 7, 1', 'NONE', 'none of them', 'nonetheless', '0, 9', '', '2 and 2', 'Goal 1; none', '1,2,3'];
+		$goalLists = [
+			['Breuken vergelijken', 'Procenten berekenen', "Breuken\n op een getallenlijn"],
+			['Eerste', '   ', 'Derde'],
+			[5 => 'Eerste', 9 => 42, 3 => 'Derde'],
+		];
+		$actual = [];
+		foreach ($goalLists as $list => $goals) {
+			foreach ($answers as $answer) {
+				$this->prompt = null;
+				$engine = $this->engine(feature: $this->feature(lifecycle: 'enabled'), providerFactory: $this->answering(answer: $answer));
+				$result = $engine->suggestGoals(lessonText: self::LESSON, goalTitles: $goals, userId: 'teacher1');
+				$actual[$list . ':' . $answer] = ['result' => $result, 'prompt' => $this->prompt];
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testGoalSuggestionVariantsMatchTheRecordedFixture()
 }//end class

@@ -288,28 +288,40 @@ class LessonAuthoringEngine {
 	 */
 	public function suggestGoals(string $lessonText, array $goalTitles, string $userId): array {
 		$original = array_values($goalTitles);
-		$goals = $this->cleanTitles(titles: $original);
+		$candidates = new GoalCandidates(original: $original, goals: $this->cleanTitles(titles: $original));
 
+		return $this->execute(
+			action: self::ACTION_GOAL_SUGGESTIONS,
+			userId: $userId,
+			prompt: $this->goalSuggestionPrompt(lessonText: $lessonText, goals: $candidates->goals),
+			sizes: $this->sizes(lessonText: $lessonText, goalCount: count($candidates->goals)),
+			parse: fn (string $raw): ?array => $this->parseGoalIndexes(raw: $raw, candidates: $candidates)
+		);
+	}//end suggestGoals()
+
+	/**
+	 * The goal-suggestion prompt: the goals numbered from one, then the fenced lesson text.
+	 *
+	 * @param string             $lessonText The lesson text.
+	 * @param array<int, string> $goals      The cleaned goals, keyed by position.
+	 *
+	 * @return string The prompt.
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-002-only-lesson-text-and-goal-titles-reach-the-model
+	 */
+	private function goalSuggestionPrompt(string $lessonText, array $goals): string {
 		$numbered = [];
 		foreach ($goals as $position => $title) {
 			$numbered[] = ($position + 1) . '. ' . $title;
 		}
 
-		$prompt = 'You help a teacher link a lesson to learning goals. Below is a numbered list of learning '
+		return 'You help a teacher link a lesson to learning goals. Below is a numbered list of learning '
 			. 'goals and a lesson text. Decide which goals the lesson text covers. Answer with only the numbers '
 			. 'of the covered goals, separated by commas, for example "1, 3". If the lesson covers none of '
 			. 'them, answer NONE. Do not explain. ' . self::PRIVACY_INSTRUCTION . ' ' . self::MATERIAL_INSTRUCTION
 			. "\n\nLearning goals:\n" . implode("\n", $numbered)
 			. "\n\n" . $this->fence(text: $lessonText);
-
-		return $this->execute(
-			action: self::ACTION_GOAL_SUGGESTIONS,
-			userId: $userId,
-			prompt: $prompt,
-			sizes: $this->sizes(lessonText: $lessonText, goalCount: count($goals)),
-			parse: fn (string $raw): ?array => $this->parseGoalIndexes(raw: $raw, goals: $goals, original: $original)
-		);
-	}//end suggestGoals()
+	}//end goalSuggestionPrompt()
 
 	/**
 	 * Gate, call the provider, parse, log once, and build the envelope.
@@ -532,26 +544,53 @@ class LessonAuthoringEngine {
 	 * An answer naming only numbers outside the list, or holding neither a number
 	 * nor NONE, is unusable (null), so garbage never reads as "no goals covered".
 	 *
-	 * @param string $raw The model output.
-	 * @param array<int, string> $goals The goals the prompt listed, keyed by 0-based position.
-	 * @param array<int, mixed> $original The caller's titles as sent, so a title comes back verbatim.
+	 * @param string         $raw        The model output.
+	 * @param GoalCandidates $candidates The goals the prompt listed, keyed by 0-based position,
+	 *                                   and the caller's titles as sent, so a title comes back verbatim.
 	 *
 	 * @return array{suggestedGoals: array<int, array{index: int, title: string}>}|null
 	 *
 	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
 	 */
-	private function parseGoalIndexes(string $raw, array $goals, array $original): ?array {
+	private function parseGoalIndexes(string $raw, GoalCandidates $candidates): ?array {
 		preg_match_all('/\d+/', $raw, $matches);
-		$numbers = $matches[0];
+		if ($matches[0] === []) {
+			return $this->noneAnswer(raw: $raw);
+		}
 
-		if ($numbers === []) {
-			if (preg_match('/\bnone\b/i', $raw) === 1) {
-				return ['suggestedGoals' => []];
-			}
-
+		$indexes = $this->coveredIndexes(numbers: $matches[0], goals: $candidates->goals);
+		if ($indexes === []) {
 			return null;
 		}
 
+		return ['suggestedGoals' => $this->suggestedGoals(indexes: $indexes, original: $candidates->original)];
+	}//end parseGoalIndexes()
+
+	/**
+	 * An answer without numbers: NONE (as a word, any case) is the empty answer,
+	 * anything else is unusable.
+	 *
+	 * @param string $raw The model's raw answer.
+	 *
+	 * @return array{suggestedGoals: array<int, mixed>}|null
+	 */
+	private function noneAnswer(string $raw): ?array {
+		if (preg_match('/\bnone\b/i', $raw) === 1) {
+			return ['suggestedGoals' => []];
+		}
+
+		return null;
+	}//end noneAnswer()
+
+	/**
+	 * The 0-based positions the answer's numbers name among the sent goals, sorted.
+	 *
+	 * @param array<int, string> $numbers The numbers in the answer.
+	 * @param array<int, string> $goals   The goals as sent, keyed by position.
+	 *
+	 * @return array<int, int> The positions.
+	 */
+	private function coveredIndexes(array $numbers, array $goals): array {
 		$indexes = [];
 		foreach ($numbers as $number) {
 			$index = ((int)$number) - 1;
@@ -560,17 +599,25 @@ class LessonAuthoringEngine {
 			}
 		}
 
-		if ($indexes === []) {
-			return null;
-		}
-
 		ksort($indexes);
 
+		return array_keys($indexes);
+	}//end coveredIndexes()
+
+	/**
+	 * The covered goals with the caller's own titles.
+	 *
+	 * @param array<int, int>   $indexes  The covered positions, sorted.
+	 * @param array<int, mixed> $original The goals in the caller's order.
+	 *
+	 * @return array<int, array{index: int, title: string}>
+	 */
+	private function suggestedGoals(array $indexes, array $original): array {
 		$suggested = [];
-		foreach (array_keys($indexes) as $index) {
+		foreach ($indexes as $index) {
 			$suggested[] = ['index' => $index, 'title' => (string)$original[$index]];
 		}
 
-		return ['suggestedGoals' => $suggested];
-	}//end parseGoalIndexes()
+		return $suggested;
+	}//end suggestedGoals()
 }//end class
