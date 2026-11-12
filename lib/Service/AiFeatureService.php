@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
 use OCA\OpenRegister\Service\ObjectService;
@@ -106,12 +107,14 @@ class AiFeatureService {
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IAppConfig $appConfig App config holding the authoritative DPO acknowledgement.
+	 * @param AiFeatureLookup $lookup Finds a feature by slug.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
+		private readonly AiFeatureLookup $lookup,
 	) {
 	}//end __construct()
 
@@ -170,16 +173,7 @@ class AiFeatureService {
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	public function findBySlug(string $slug): ?ObjectEntity {
-		if ($slug === '') {
-			return null;
-		}
-
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200]);
-
-		return $this->firstWithSlug(objects: $objects, slug: $slug);
+		return $this->lookup->findBySlug(slug: $slug);
 	}//end findBySlug()
 
 	/**
@@ -199,39 +193,8 @@ class AiFeatureService {
 	 * @spec openspec/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
 	 */
 	public function findBySlugForGate(string $slug): ?ObjectEntity {
-		if ($slug === '') {
-			return null;
-		}
-
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200], _rbac: false);
-
-		return $this->firstWithSlug(objects: $objects, slug: $slug);
+		return $this->lookup->findBySlugForGate(slug: $slug);
 	}//end findBySlugForGate()
-
-	/**
-	 * The first object in `$objects` whose slug is exactly `$slug`.
-	 *
-	 * @param iterable<mixed> $objects The candidates.
-	 * @param string $slug The slug to match.
-	 *
-	 * @return ObjectEntity|null The match, or null.
-	 */
-	private function firstWithSlug(iterable $objects, string $slug): ?ObjectEntity {
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === $slug) {
-				return $object;
-			}
-		}
-
-		return null;
-	}//end firstWithSlug()
 
 	/**
 	 * Record the DPO acknowledgement for a feature and stamp the object.

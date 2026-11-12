@@ -48,6 +48,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Literacy\LiteracyReport;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -114,6 +115,7 @@ class ComplianceService {
 	 * @param OrganisationControlService $tenantControlService Per-org kill-switch (stop mechanism).
 	 * @param OrganisationModelPolicyService $modelPolicyService Per-org model-provider allowlist.
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
+	 * @param AiFeatureLookup $aiFeatureLookup Finds the AI feature an agent type names.
 	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -126,6 +128,7 @@ class ComplianceService {
 		private readonly OrganisationControlService $tenantControlService,
 		private readonly OrganisationModelPolicyService $modelPolicyService,
 		private readonly AiFeatureService $aiFeatureService,
+		private readonly AiFeatureLookup $aiFeatureLookup,
 		private readonly ?LiteracyReport $literacyReport = null,
 	) {
 	}//end __construct()
@@ -625,7 +628,7 @@ class ComplianceService {
 			return null;
 		}
 
-		$feature = $this->aiFeatureService->findBySlug(slug: $agentType);
+		$feature = $this->aiFeatureLookup->findBySlug(slug: $agentType);
 		if ($feature === null) {
 			return null;
 		}

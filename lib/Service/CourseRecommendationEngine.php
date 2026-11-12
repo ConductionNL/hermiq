@@ -62,6 +62,7 @@ namespace OCA\Hermiq\Service;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -185,7 +186,7 @@ class CourseRecommendationEngine {
 	 * @param ObjectService $objectService OpenRegister read/write (single write-path).
 	 * @param LearnerSignalRegister $signalRegister Tells "app or register absent" from "no data".
 	 * @param LearnerSignalReader $signalReader Reads the learner signals from the resolved register.
-	 * @param AiFeatureService $aiFeatureService The AiFeature DPO-ack gate (2.2).
+	 * @param AiFeatureLookup $aiFeatureLookup The AiFeature DPO-ack gate (2.2).
 	 * @param ScheduleService $scheduleService The tenant kill-switch (2.3/Stage 2).
 	 * @param ProviderFactory $providerFactory Credential-broker-backed LLM call.
 	 * @param OrganisationMapper $organisationMapper Resolves the caller's own organisation.
@@ -197,7 +198,7 @@ class CourseRecommendationEngine {
 		private readonly ObjectService $objectService,
 		private readonly LearnerSignalRegister $signalRegister,
 		private readonly LearnerSignalReader $signalReader,
-		private readonly AiFeatureService $aiFeatureService,
+		private readonly AiFeatureLookup $aiFeatureLookup,
 		private readonly ScheduleService $scheduleService,
 		private readonly ProviderFactory $providerFactory,
 		private readonly OrganisationMapper $organisationMapper,
@@ -230,7 +231,7 @@ class CourseRecommendationEngine {
 
 		// Gate 1 (2.2): the AiFeature DPO-ack gate — zero Scholiq/LLM footprint
 		// when missing or not enabled.
-		$feature = $this->aiFeatureService->findBySlug(slug: self::AIFEATURE_SLUG);
+		$feature = $this->aiFeatureLookup->findBySlug(slug: self::AIFEATURE_SLUG);
 		if ($feature === null || (string)($feature->getObject()['lifecycle'] ?? '') !== 'enabled') {
 			return $this->unavailableResult(learnerUid: $learnerUid, reason: self::REASON_FEATURE_NOT_ENABLED);
 		}

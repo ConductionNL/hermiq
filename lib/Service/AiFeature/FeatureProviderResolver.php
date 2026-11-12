@@ -35,7 +35,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AiFeature;
 
-use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 
@@ -71,7 +70,7 @@ class FeatureProviderResolver {
 	/**
 	 * Constructor.
 	 *
-	 * @param AiFeatureService $features Reads the AiFeature register.
+	 * @param AiFeatureLookup $features Reads the AiFeature register.
 	 * @param OrganisationModelPolicyService $modelPolicy The ceiling a binding narrows within.
 	 * @param ProviderResidencyRegistry $residency Where each provider runs, as administered.
 	 * @param RedactionOutcomeReader|null $redaction Reads filinq's redaction outcome for a
@@ -85,7 +84,7 @@ class FeatureProviderResolver {
 	 *                                  disclosure (models-no-training-guarantee).
 	 */
 	public function __construct(
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly OrganisationModelPolicyService $modelPolicy,
 		private readonly ProviderResidencyRegistry $residency,
 		private readonly ?RedactionOutcomeReader $redaction = null,
