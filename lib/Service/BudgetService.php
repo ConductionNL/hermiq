@@ -232,22 +232,35 @@ class BudgetService {
 		}
 
 		foreach ($budgets as $budget) {
-			try {
-				$recipient = $this->recordWarningIfDue(budget: $budget);
-				if ($recipient === null || $recipient === '') {
-					continue;
-				}
-
-				$this->deliveryService->deliverBudgetWarning(budget: $budget, recipientUids: [$recipient]);
-			} catch (Throwable $e) {
-				$this->logger->warning(
-					'Hermiq could not deliver a budget soft-threshold warning: ' . $e->getMessage(),
-					['exception' => $e]
-				);
-			}
+			$this->deliverWarningIfDue(budget: $budget);
 		}
 
 	}//end checkAndDeliverWarnings()
+
+	/**
+	 * Deliver one budget's soft-threshold warning when it is due; a failure is logged,
+	 * never thrown.
+	 *
+	 * @param ObjectEntity $budget The budget.
+	 *
+	 * @return void
+	 */
+	private function deliverWarningIfDue(ObjectEntity $budget): void {
+		try {
+			$recipient = $this->recordWarningIfDue(budget: $budget);
+			if ($recipient === null || $recipient === '') {
+				return;
+			}
+
+			$this->deliveryService->deliverBudgetWarning(budget: $budget, recipientUids: [$recipient]);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not deliver a budget soft-threshold warning: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+
+	}//end deliverWarningIfDue()
 
 	/**
 	 * Idempotently (once per period) record + return the recipient for a Budget that
@@ -630,6 +643,23 @@ class BudgetService {
 	 * @throws InvalidArgumentException When scope/agentId/period/limits are invalid.
 	 */
 	private function validatePayload(array $payload): void {
+		$this->validateScope(payload: $payload);
+		$this->validatePeriod(payload: $payload);
+		$this->validateLimits(payload: $payload);
+
+	}//end validatePayload()
+
+	/**
+	 * Refuse a scope other than `organisation` or `agent`, and an agent scope without
+	 * an agentId.
+	 *
+	 * @param array<string, mixed> $payload The budget payload.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When the scope is invalid.
+	 */
+	private function validateScope(array $payload): void {
 		$scope = (string)($payload['scope'] ?? '');
 		if (in_array($scope, ['organisation', 'agent'], true) === false) {
 			throw new InvalidArgumentException('scope must be "organisation" or "agent"');
@@ -639,20 +669,54 @@ class BudgetService {
 			throw new InvalidArgumentException('agentId is required when scope=agent');
 		}
 
+	}//end validateScope()
+
+	/**
+	 * Refuse a period other than daily, weekly or monthly.
+	 *
+	 * @param array<string, mixed> $payload The budget payload.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When the period is invalid.
+	 */
+	private function validatePeriod(array $payload): void {
 		$period = (string)($payload['period'] ?? '');
 		if (in_array($period, ['daily', 'weekly', 'monthly'], true) === false) {
 			throw new InvalidArgumentException('period must be "daily", "weekly" or "monthly"');
 		}
 
-		$tokenLimit = ($payload['tokenLimit'] ?? null);
-		$eurLimit = ($payload['eurLimit'] ?? null);
-		$hasToken = ($tokenLimit !== null && $tokenLimit !== '');
-		$hasEur = ($eurLimit !== null && $eurLimit !== '');
+	}//end validatePeriod()
+
+	/**
+	 * Refuse a payload that sets neither a token nor a EUR limit.
+	 *
+	 * @param array<string, mixed> $payload The budget payload.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When no limit is set.
+	 */
+	private function validateLimits(array $payload): void {
+		$hasToken = $this->isLimitSet(limit: ($payload['tokenLimit'] ?? null));
+		$hasEur = $this->isLimitSet(limit: ($payload['eurLimit'] ?? null));
 		if ($hasToken === false && $hasEur === false) {
 			throw new InvalidArgumentException('At least one of tokenLimit or eurLimit is required');
 		}
 
-	}//end validatePayload()
+	}//end validateLimits()
+
+	/**
+	 * Whether a limit value is set: anything but null or the empty string (zero counts).
+	 *
+	 * @param mixed $limit The limit value.
+	 *
+	 * @return bool True when set.
+	 */
+	private function isLimitSet(mixed $limit): bool {
+		return ($limit !== null && $limit !== '');
+
+	}//end isLimitSet()
 
 	/**
 	 * Load enabled budgets matching a scope, system-wide (dispatch-path posture).
@@ -663,6 +727,25 @@ class BudgetService {
 	 * @return array<int, ObjectEntity> The matching, enabled budgets.
 	 */
 	private function matchingBudgetsSystemWide(string $organisation, ?string $agentId): array {
+		$budgets = $this->enabledBudgetsSystemWide();
+
+		$scopes = new BudgetScopes();
+		$matches = [];
+		foreach ($budgets as $budget) {
+			if ($scopes->matches(budget: $budget, organisation: $organisation, agentId: $agentId) === true) {
+				$matches[] = $budget;
+			}
+		}
+
+		return $matches;
+	}//end matchingBudgetsSystemWide()
+
+	/**
+	 * Every enabled budget, system-wide (RBAC and multitenancy off), in read order.
+	 *
+	 * @return array<int, ObjectEntity> The enabled budgets.
+	 */
+	private function enabledBudgetsSystemWide(): array {
 		$objects = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
 			->setSchema(self::BUDGET_SCHEMA)
@@ -672,27 +755,28 @@ class BudgetService {
 				_multitenancy: false
 			);
 
-		$scopes = new BudgetScopes();
-		$matches = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
+		return array_values(array_filter($objects, fn (mixed $object): bool => $this->isEnabledBudget(object: $object)));
 
-			// Defensive re-check in PHP (mirrors loadEngagedOrganisations()'s own
-			// pattern): the 'enabled' filter above is an OR-side hint, not a guarantee.
-			$data = $object->getObject();
-			if (($data['enabled'] ?? true) === false) {
-				continue;
-			}
+	}//end enabledBudgetsSystemWide()
 
-			if ($scopes->matches(budget: $object, organisation: $organisation, agentId: $agentId) === true) {
-				$matches[] = $object;
-			}
+	/**
+	 * Whether a read object is a budget that is not switched off.
+	 *
+	 * A defensive re-check in PHP (mirrors loadEngagedOrganisations()'s own pattern):
+	 * the 'enabled' filter on the read is an OR-side hint, not a guarantee.
+	 *
+	 * @param mixed $object One read object.
+	 *
+	 * @return bool True for an enabled budget.
+	 */
+	private function isEnabledBudget(mixed $object): bool {
+		if (($object instanceof ObjectEntity) === false) {
+			return false;
 		}
 
-		return $matches;
-	}//end matchingBudgetsSystemWide()
+		return ($object->getObject()['enabled'] ?? true) !== false;
+
+	}//end isEnabledBudget()
 
 	/**
 	 * Find the caller's own budget for a scope, tenant-scoped (RBAC/multitenancy ON).
