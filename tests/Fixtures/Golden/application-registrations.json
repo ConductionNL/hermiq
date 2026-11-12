@@ -1,6 +1,11 @@
 {
     "registrations": [
         [
+            "registerMiddleware",
+            "OCA\\Hermiq\\Middleware\\ApiContractMiddleware",
+            false
+        ],
+        [
             "registerEventListener",
             "OCA\\OpenRegister\\Event\\AgentRunRequestedEvent",
             "OCA\\Hermiq\\Listener\\AgentRunRequestedListener",
