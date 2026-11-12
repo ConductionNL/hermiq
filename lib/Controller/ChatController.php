@@ -383,26 +383,11 @@ class ChatController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function sendMessageFailureResponse(Exception $exception): JSONResponse {
-		// An exception code outside the HTTP range is not a status — a library
-		// throwing code 0 or 23 would otherwise become a nonsense response.
-		$statusCode = (int)$exception->getCode();
-		if ($statusCode < 400 || $statusCode >= 600) {
-			$statusCode = 500;
-		}
-
+		$statusCode = $this->failureStatusCode(exception: $exception);
 		$this->logSendMessageFailure(exception: $exception, statusCode: $statusCode);
 
 		$data = [
-			'error' => match ($statusCode) {
-				400 => $this->l10n->t('Missing conversation or agentUuid'),
-				401 => $this->l10n->t('Authentication required'),
-				403 => $this->l10n->t('Access denied'),
-				404 => $this->l10n->t('Conversation not found'),
-				409 => $this->l10n->t('This agent is switched off.'),
-				422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
-				503 => $this->l10n->t('AI service not configured'),
-				default => $this->l10n->t('Failed to process message'),
-			},
+			'error' => $this->failureError(statusCode: $statusCode),
 			'message' => $exception->getMessage(),
 		];
 
@@ -413,42 +398,133 @@ class ChatController extends Controller {
 			$data['errorCode'] = 'guardrail_blocked';
 		}
 
-		// A refused pinned credential stops the turn; the person reads why
-		// (operations-a-credential-per-agent), not the engine's wrapped text.
+		return new JSONResponse(data: $this->withRefusalSentence(data: $data, exception: $exception), statusCode: $statusCode);
+	}//end sendMessageFailureResponse()
+
+	/**
+	 * The HTTP status for a failed turn: the exception code when it is an HTTP error
+	 * status. A code outside that range is not a status — a library throwing code 0
+	 * or 23 would otherwise become a nonsense response — so it becomes 500.
+	 *
+	 * @param Exception $exception The failure.
+	 *
+	 * @return int The status code.
+	 */
+	private function failureStatusCode(Exception $exception): int {
+		$statusCode = (int)$exception->getCode();
+		if ($statusCode < 400 || $statusCode >= 600) {
+			return 500;
+		}
+
+		return $statusCode;
+
+	}//end failureStatusCode()
+
+	/**
+	 * The error sentence for a failed turn's status.
+	 *
+	 * @param int $statusCode The status code.
+	 *
+	 * @return string The translated error sentence.
+	 */
+	private function failureError(int $statusCode): string {
+		return match ($statusCode) {
+			400 => $this->l10n->t('Missing conversation or agentUuid'),
+			401 => $this->l10n->t('Authentication required'),
+			403 => $this->l10n->t('Access denied'),
+			404 => $this->l10n->t('Conversation not found'),
+			409 => $this->l10n->t('This agent is switched off.'),
+			422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
+			503 => $this->l10n->t('AI service not configured'),
+			default => $this->l10n->t('Failed to process message'),
+		};
+
+	}//end failureError()
+
+	/**
+	 * Replace the failure's message and code with the sentence of the first known
+	 * refusal in its cause chain, so the person reads why rather than the engine's
+	 * wrapped text.
+	 *
+	 * @param array<string, mixed> $data The failure response data.
+	 * @param Exception $exception The failure.
+	 *
+	 * @return array<string, mixed> The response data.
+	 */
+	private function withRefusalSentence(array $data, Exception $exception): array {
 		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
-			if ($cause instanceof PinnedCredentialRefusedException) {
-				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
-				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
-				break;
-			}
-
-			// The agent is switched off (agents-switch-off-and-stop): no answer, the sentence.
-			if ($cause instanceof AgentSwitchedOffException) {
-				$data['message'] = $this->l10n->t('This agent is switched off.');
-				$data['errorCode'] = AgentSwitchedOffException::ERROR_CODE;
-				break;
-			}
-
-			// The organisation requires the course Working with AI first
-			// (compliance-ai-literacy): the person gets the message and the link.
-			if ($cause instanceof LiteracyRequiredException) {
-				$data['message'] = $this->l10n->t('Finish the short course Working with AI first.');
-				$data['errorCode'] = LiteracyRequiredException::ERROR_CODE;
-				$data['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
-				break;
-			}
-
-			// The organisation only allows providers that never train on its data
-			// (models-no-training-guarantee); the person reads that, not the step text.
-			if ($cause instanceof DataUseViolationException) {
-				$data['message'] = $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.');
-				$data['errorCode'] = DataUseViolationException::ERROR_CODE;
-				break;
+			$sentence = $this->refusalSentence(cause: $cause);
+			if ($sentence !== null) {
+				return array_merge($data, $sentence);
 			}
 		}
 
-		return new JSONResponse(data: $data, statusCode: $statusCode);
-	}//end sendMessageFailureResponse()
+		return $data;
+
+	}//end withRefusalSentence()
+
+	/**
+	 * The message, stable code and (for the literacy course) link of a known refusal.
+	 *
+	 * @param \Throwable $cause One exception in the failure's cause chain.
+	 *
+	 * @return array<string, string>|null The fields to set, or null for any other exception.
+	 */
+	private function refusalSentence(\Throwable $cause): ?array {
+		$errorCode = $this->refusalCode(cause: $cause);
+		if ($errorCode === null) {
+			return null;
+		}
+
+		$fields = ['message' => $this->refusalMessages()[$errorCode], 'errorCode' => $errorCode];
+		if ($errorCode === LiteracyRequiredException::ERROR_CODE) {
+			$fields['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
+		}
+
+		return $fields;
+
+	}//end refusalSentence()
+
+	/**
+	 * The stable code of a known refusal, checked in this order.
+	 *
+	 * @param \Throwable $cause One exception in the failure's cause chain.
+	 *
+	 * @return string|null The refusal's code, or null for any other exception.
+	 */
+	private function refusalCode(\Throwable $cause): ?string {
+		return match (true) {
+			$cause instanceof PinnedCredentialRefusedException => PinnedCredentialRefusedException::ERROR_CODE,
+			$cause instanceof AgentSwitchedOffException => AgentSwitchedOffException::ERROR_CODE,
+			$cause instanceof LiteracyRequiredException => LiteracyRequiredException::ERROR_CODE,
+			$cause instanceof DataUseViolationException => DataUseViolationException::ERROR_CODE,
+			default => null,
+		};
+
+	}//end refusalCode()
+
+	/**
+	 * The sentence the person reads for each known refusal, keyed by its code.
+	 *
+	 * A refused pinned credential stops the turn (operations-a-credential-per-agent);
+	 * a switched-off agent gives no answer, only the sentence (agents-switch-off-and-stop);
+	 * the organisation may require the course Working with AI first
+	 * (compliance-ai-literacy); and it may only allow providers that never train on its
+	 * data (models-no-training-guarantee).
+	 *
+	 * @return array<string, string> The translated sentences.
+	 */
+	private function refusalMessages(): array {
+		return [
+			PinnedCredentialRefusedException::ERROR_CODE => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+			AgentSwitchedOffException::ERROR_CODE => $this->l10n->t('This agent is switched off.'),
+			LiteracyRequiredException::ERROR_CODE => $this->l10n->t('Finish the short course Working with AI first.'),
+			DataUseViolationException::ERROR_CODE => $this->l10n->t(
+				'This assistant cannot answer: your organisation only allows AI providers that never train on its data.'
+			),
+		];
+
+	}//end refusalMessages()
 
 	/**
 	 * The answer for a failure caused by a refused attachment: its status (400, or
@@ -896,60 +972,53 @@ class ChatController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function extractMessageRequestParams(): array {
-		// Extract basic parameters.
-		$conversationUuid = (string)$this->request->getParam('conversation');
-		$agentUuid = (string)$this->request->getParam('agentUuid');
-		$message = (string)$this->request->getParam('message');
+		return [
+			'conversationUuid' => (string)$this->request->getParam('conversation'),
+			'agentUuid' => (string)$this->request->getParam('agentUuid'),
+			'message' => (string)$this->request->getParam('message'),
+			// Chat-attachments-and-images: the files the turn names; the engine reads
+			// each one as the speaker, so nothing here is trusted beyond its shape.
+			'attachments' => array_values($this->arrayParam(key: 'attachments')),
+			'selectedViews' => $this->arrayParam(key: 'views'),
+			'selectedTools' => $this->arrayParam(key: 'tools'),
+			'ragSettings' => $this->ragSettingsParam(),
+			// Optional CnAiContext snapshot; anything that is not an array is
+			// silently dropped (missing context is fine).
+			'context' => $this->arrayParam(key: 'context'),
+		];
+	}//end extractMessageRequestParams()
 
-		// Extract selectedViews array.
-		$viewsParam = $this->request->getParam('views');
-		$selectedViews = [];
-		if ($viewsParam !== null && is_array($viewsParam) === true) {
-			$selectedViews = $viewsParam;
+	/**
+	 * A request parameter when it is an array, `[]` otherwise.
+	 *
+	 * @param string $key The parameter name.
+	 *
+	 * @return array<mixed> The parameter value.
+	 */
+	private function arrayParam(string $key): array {
+		$value = $this->request->getParam($key);
+		if (is_array($value) === true) {
+			return $value;
 		}
 
-		// Extract selectedTools array.
-		$toolsParam = $this->request->getParam('tools');
-		$selectedTools = [];
-		if ($toolsParam !== null && is_array($toolsParam) === true) {
-			$selectedTools = $toolsParam;
-		}
+		return [];
 
-		// Extract RAG configuration settings.
-		$ragSettings = [
+	}//end arrayParam()
+
+	/**
+	 * The turn's RAG configuration, each setting defaulted when absent.
+	 *
+	 * @return array<string, mixed> The RAG settings.
+	 */
+	private function ragSettingsParam(): array {
+		return [
 			'includeObjects' => ($this->request->getParam('includeObjects') ?? true),
 			'includeFiles' => ($this->request->getParam('includeFiles') ?? true),
 			'numSourcesFiles' => ($this->request->getParam('numSourcesFiles') ?? 5),
 			'numSourcesObjects' => ($this->request->getParam('numSourcesObjects') ?? 5),
 		];
 
-		// Extract optional CnAiContext snapshot; anything that is not an
-		// associative array is silently dropped (missing context is fine).
-		$contextParam = $this->request->getParam('context');
-		$context = [];
-		if (is_array($contextParam) === true) {
-			$context = $contextParam;
-		}
-
-		// Chat-attachments-and-images: the files the turn names; the engine reads
-		// each one as the speaker, so nothing here is trusted beyond its shape.
-		$attachmentsParam = $this->request->getParam('attachments');
-		$attachments = [];
-		if (is_array($attachmentsParam) === true) {
-			$attachments = array_values($attachmentsParam);
-		}
-
-		return [
-			'conversationUuid' => $conversationUuid,
-			'agentUuid' => $agentUuid,
-			'message' => $message,
-			'attachments' => $attachments,
-			'selectedViews' => $selectedViews,
-			'selectedTools' => $selectedTools,
-			'ragSettings' => $ragSettings,
-			'context' => $context,
-		];
-	}//end extractMessageRequestParams()
+	}//end ragSettingsParam()
 
 	/**
 	 * The agent a new conversation starts with: the one the request names, else
