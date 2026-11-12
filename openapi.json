@@ -1,0 +1,371 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "hermiq",
+        "version": "0.2.17-unstable.20261103233000",
+        "description": "The Hermiq API for the endpoints this document covers: the health check, the run history of a schedule and this document. Hermiq serves more endpoints than are described here (agents, sessions, chat, skills, approvals and the admin settings); they are not part of this document yet. The document is served at `/api/openapi.json`, where `info.version` is the installed app version. Every response of an `/api/` endpoint carries that version in the `API-Version` header.",
+        "contact": {
+            "name": "Conduction B.V.",
+            "email": "info@conduction.nl",
+            "url": "https://conduction.nl"
+        },
+        "license": {
+            "name": "EUPL-1.2",
+            "url": "https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12"
+        }
+    },
+    "servers": [
+        {
+            "url": "https://{host}/index.php/apps/hermiq/api",
+            "description": "The Hermiq API on a Nextcloud instance.",
+            "variables": {
+                "host": {
+                    "default": "localhost",
+                    "description": "The host name of the Nextcloud instance."
+                }
+            }
+        }
+    ],
+    "tags": [
+        {
+            "name": "health",
+            "description": "Whether Hermiq and the apps it depends on are available."
+        },
+        {
+            "name": "runs",
+            "description": "The runs of a scheduled agent."
+        },
+        {
+            "name": "open-api",
+            "description": "This document."
+        }
+    ],
+    "security": [
+        {
+            "basic_auth": []
+        }
+    ],
+    "paths": {
+        "/openapi.json": {
+            "get": {
+                "operationId": "open-api-show",
+                "summary": "The OpenAPI document of this API",
+                "description": "Returns this document. It needs no authentication and can be read from any origin.",
+                "tags": [
+                    "open-api"
+                ],
+                "security": [],
+                "responses": {
+                    "200": {
+                        "description": "The OpenAPI document.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The document is not installed.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "operationId": "health-show",
+                "summary": "Health check",
+                "description": "Whether Hermiq is up and OpenRegister, which stores its agents, schedules and runs, is available. It needs no authentication.",
+                "tags": [
+                    "health"
+                ],
+                "security": [],
+                "responses": {
+                    "200": {
+                        "description": "Hermiq and OpenRegister are available (`status` is `ok`).",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Health"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "The health check itself failed (`status` is `error`).",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthError"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "OpenRegister is not available (`status` is `degraded`).",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Health"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/schedules/{scheduleId}/runs": {
+            "parameters": [
+                {
+                    "name": "scheduleId",
+                    "in": "path",
+                    "required": true,
+                    "description": "The uuid of the schedule.",
+                    "schema": {
+                        "type": "string"
+                    }
+                }
+            ],
+            "get": {
+                "operationId": "schedule-runs-list",
+                "summary": "The runs of a schedule",
+                "description": "The runs of a schedule the caller owns, newest first. A schedule the caller does not own answers 404, so its existence is not disclosed.",
+                "tags": [
+                    "runs"
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "The number of runs to return.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "description": "The number of runs to skip.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of runs.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RunPage"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No schedule with this uuid that the caller owns.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "The run history could not be loaded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "basic_auth": {
+                "type": "http",
+                "scheme": "basic",
+                "description": "A Nextcloud user name and password or app password."
+            }
+        },
+        "headers": {
+            "API-Version": {
+                "description": "The version of the API that answered: the installed Hermiq version.",
+                "schema": {
+                    "type": "string",
+                    "example": "0.2.17"
+                }
+            }
+        },
+        "schemas": {
+            "Error": {
+                "type": "object",
+                "required": [
+                    "error"
+                ],
+                "properties": {
+                    "error": {
+                        "type": "string",
+                        "description": "What went wrong."
+                    }
+                }
+            },
+            "Health": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "app",
+                    "version",
+                    "dependencies"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ok",
+                            "degraded"
+                        ],
+                        "description": "`ok` when every dependency is available, else `degraded`."
+                    },
+                    "app": {
+                        "type": "string",
+                        "example": "hermiq"
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "The version of the health check format.",
+                        "example": "0.1.0"
+                    },
+                    "dependencies": {
+                        "type": "object",
+                        "required": [
+                            "openregister"
+                        ],
+                        "properties": {
+                            "openregister": {
+                                "type": "boolean",
+                                "description": "Whether OpenRegister is available."
+                            }
+                        }
+                    }
+                }
+            },
+            "Run": {
+                "type": "object",
+                "description": "A compact record of one run of the schedule's agent, read from the schedule's audit trail.",
+                "additionalProperties": true
+            },
+            "RunPage": {
+                "type": "object",
+                "required": [
+                    "results",
+                    "total"
+                ],
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Run"
+                        }
+                    },
+                    "total": {
+                        "type": "integer",
+                        "description": "The number of runs in `results`."
+                    }
+                }
+            },
+            "HealthError": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "message"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "error"
+                        ]
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Health check failed"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -49,6 +49,8 @@ return [
         ['name' => 'metrics#index', 'url' => '/api/metrics', 'verb' => 'GET'],
         // Health check endpoint.
         ['name' => 'health#index', 'url' => '/api/health', 'verb' => 'GET'],
+        // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
+        ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
 
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
