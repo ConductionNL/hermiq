@@ -9,7 +9,7 @@
  */
 
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const store = vi.hoisted(() => ({ calls: [], fetchObject: null }))
 
@@ -54,8 +54,14 @@ function open(component) {
 }
 
 beforeEach(() => {
+	// The last capture renders through toLocaleString, so the snapshots pin the zone.
+	vi.stubEnv('TZ', 'UTC')
 	store.calls = []
 	store.fetchObject = async () => skill
+})
+
+afterEach(() => {
+	vi.unstubAllEnvs()
 })
 
 describe.each(Object.entries(widgets))('%s', (name, component) => {
