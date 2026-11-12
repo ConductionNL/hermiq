@@ -1339,7 +1339,7 @@
 				"requirement": "openspec/specs/agent-management-ui :: An agent can be switched off and on without deleting it (REQ-AGOFF-001)"
 			},
 			"reachedOn": "/agents/:id header action Switch off or on; /agents column Switched on",
-			"note": "active is displayed read-only on AgentDetail's Configuration card; no button, toggle or form anywhere sets it, so a user cannot switch an agent off without deleting it today.",
+			"note": "The owner, an instance admin or the organisation owner switches an agent off or on from the agent page header (AgentAvailabilityDialog.vue, POST /api/agents/{id}/availability), off only with a reason. Updated 12 Nov: the earlier note said no switch existed.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-builder",
@@ -1374,7 +1374,10 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/dialogs/AgentFactsheetDialog.vue:68 dd factsheet.agent.owner; src/views/TenantOps.vue:228-229 access review table lists owner/actingUser per agent (admin-only page).",
 				"spec": "openspec/specs/agent-management-ui",
-				"requirement": "openspec/specs/agent-management-ui :: Only an agent's owner may change it"
+				"requirement": [
+					"openspec/specs/agent-management-ui :: Only an agent's owner may change it",
+					"openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui :: The agent catalog shows owner, sharing and status (REQ-AGSHARE-003)"
+				]
 			},
 			"reachedOn": "/agents/:id AgentDetail -> View compliance factsheet; /tenant-ops access review",
 			"note": "Owner is the OpenRegister object owner (whoever created it), read-only and shown on the factsheet and the admin access review; there is no separate 'assign an owner' field.",
@@ -1574,7 +1577,7 @@
 				"requirement": "openspec/specs/agent-management-ui :: Deleting an agent removes its schedules (REQ-AGOFF-004)"
 			},
 			"reachedOn": "/agents row action Delete",
-			"note": "Deleting an agent works, but its schedules are not stopped or cleaned up with it.",
+			"note": "Deleting an agent deletes its schedules through Schedule.agentId onDelete CASCADE, and the delete dialog says how many. Updated 12 Nov: the earlier note said schedules were left behind.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-builder",
@@ -2047,7 +2050,7 @@
 				"spec": "openspec/specs/speech-services"
 			},
 			"reachedOn": "hermiq's /chat page composer (microphone beside Send) and the nextcloud-vue AI companion microphone",
-			"note": "Re-rated no to partial on 2026-09-26: speaking to an agent works through the companion panel from nextcloud-vue 2.55.1, backed by hermiq's transcription endpoint. hermiq's own chat page still has no microphone.",
+			"note": "Hermiq's chat page has a dictate button beside Send (DictateButton.vue), and the companion panel offers the same. Updated 12 Nov: the earlier note said the chat page had no microphone.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "speech",
@@ -2087,7 +2090,7 @@
 				"requirement": "openspec/specs/speech-services :: The chat page reads answers aloud (REQ-CHVOICE-002)"
 			},
 			"reachedOn": "hermiq's /chat page (\"Read aloud\" on each answer) and the nextcloud-vue AI companion read-aloud control",
-			"note": "Re-rated no to partial on 2026-09-26: read-aloud works through the companion panel from nextcloud-vue 2.55.1; hermiq's own chat page still has no speaker control.",
+			"note": "Hermiq's chat page has a read-aloud button on each answer (ReadAloudButton.vue), and the companion panel offers the same. Updated 12 Nov: the earlier note said the chat page had no speaker control.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "speech",
@@ -3808,7 +3811,7 @@
 				]
 			},
 			"reachedOn": "/memory page and the agent detail Memory widget (view + add only)",
-			"note": "A human can see what the agent remembers and add a new fact, but cannot correct or delete an existing one; only the agent itself can soft-delete via hermiq.forgetMemory, which the panel does not expose.",
+			"note": "The owner corrects or forgets a single memory entry from the memory panel (AgentMemoryPanel.vue, memory#correctEntry and memory#forgetEntry). Updated 12 Nov: the earlier note said only the agent could delete.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "agent-memory",
@@ -6236,11 +6239,12 @@
 			"source": "own-code",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/components/ToolInvocationTable.vue lists every tool invocation for an agent with a CSV/JSON export (exportAs(), line 272), mounted via src/widgets/AgentToolActivityWidget.vue; backed by lib/Controller/ToolOversightController.php toolInvocations() (/api/agents/{agentId}/tool-invocations).",
+				"evidence": "Not built: the oversight view lists and exports tool calls, but nothing lets an operator mark a call as misuse (task 1.1 of verify-row-scenarios) (decision 389, verify 12 Nov). Was: src/components/ToolInvocationTable.vue lists every tool invocation for an agent with a CSV/JSON export (exportAs(), line 272), mounted via src/widgets/AgentToolActivityWidget.vue; backed by lib/Controller/ToolOversightController.php toolInvocations() (/api/agents/{agentId}/tool-invocations).",
 				"spec": "openspec/specs/agent-tool-governance",
-				"requirement": "openspec/specs/agent-tool-governance :: Per-agent tool-invocation oversight surface (AI Act art.12/14)"
+				"requirement": "openspec/specs/agent-tool-governance :: Per-agent tool-invocation oversight surface (AI Act art.12/14)",
+				"plan": "openspec/changes/verify-row-scenarios"
 			},
 			"reachedOn": "AgentDetail -> agent-tool-activity widget (src/manifest.json widgetId 'agent-tool-activity')",
 			"note": "This is a review/audit list and export, not an automated misuse-flagging system: grep for flag/misuse/anomaly in the controller and table component found nothing.",
@@ -7405,7 +7409,10 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Flow/HermiqAgentNode.php:70 implements OpenRegister's IFlowNode + IFlowNodeLogActions; lib/AppInfo/Application.php:156-159 listens for OCA\\OpenRegister\\Service\\Flow\\RegisterFlowNodesEvent via HermiqFlowNodeListener to register it into the palette (guarded by class_exists so it degrades cleanly without OpenRegister's flow engine).",
 				"spec": "openspec/specs/flow-canvas",
-				"requirement": "openspec/specs/flow-agent-listener :: Listener enqueues a governed run for an async agent-run request"
+				"requirement": [
+					"openspec/specs/flow-agent-listener :: Listener enqueues a governed run for an async agent-run request",
+					"openspec/specs/flow-agent-listener :: The agent's output is written to the configured resultField"
+				]
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> Agent node",
 			"provider": "hermiq",
@@ -7792,7 +7799,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json page 'Store' route /store type index over hermiq/agenttemplate, headerActions 'Import template', slots row-actions=agent-template-row-actions and below-header=agent-template-github-store; appinfo/routes.php:436-441 agentTemplate#instantiate POST /api/agent-templates/{id}/instantiate; src/api/agentTemplates.js:147-150 instantiateAgentTemplate() ('Use this template').",
 				"spec": "openspec/specs/agent-template-github-store",
-				"requirement": "openspec/specs/agent-template-github-store :: A single unified Store page replaces the Agent templates gallery"
+				"requirement": [
+					"openspec/specs/agent-template-github-store :: A single unified Store page replaces the Agent templates gallery",
+					"openspec/specs/agent-template-gallery :: A fresh install ships seeded starter templates",
+					"openspec/specs/agent-template-gallery :: Instantiating a template never silently violates the caller's model policy"
+				]
 			},
 			"reachedOn": "footer menu -> Store (/store) -> row action 'Use this template'",
 			"provider": "hermiq",
@@ -8381,7 +8392,10 @@
 			},
 			"screen": {
 				"canvas": "design-system",
-				"board": "HmTenantOps"
+				"board": [
+					"HmTenantOps",
+					"HmCompliance"
+				]
 			}
 		},
 		{
@@ -8586,15 +8600,16 @@
 			"source": "own-code",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:529 chatHealth#health GET /api/chat/health (#[PublicPage] per lib/Controller/ChatHealthController.php docblock); the controller reads hermiq.llm app-config to report whether the chat backend is configured and reachable, 'ported route-for-route from OpenRegister's ChatHealthController' for the shared nextcloud-vue AI companion widget to probe at mount. The one page is the Integrations page: lib/Settings/connections.json declares the AI provider, web search and other connections, and hermiq reports their state (tl-integrations-page).",
+				"evidence": "Not built: GET /api/chat/health exists, but no page shows chat health with its dependencies (task 1.5 of spec-coverage-built-rows) (decision 389, verify 12 Nov). Was: appinfo/routes.php:529 chatHealth#health GET /api/chat/health (#[PublicPage] per lib/Controller/ChatHealthController.php docblock); the controller reads hermiq.llm app-config to report whether the chat backend is configured and reachable, 'ported route-for-route from OpenRegister's ChatHealthController' for the shared nextcloud-vue AI companion widget to probe at mount. The one page is the Integrations page: lib/Settings/connections.json declares the AI provider, web search and other connections, and hermiq reports their state (tl-integrations-page).",
 				"spec": "openspec/specs/observability",
 				"requirement": [
 					"openspec/changes/spec-coverage-built-rows/specs/observability :: Chat reports whether its model provider is ready (REQ-SPCOV-012)",
 					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq declares its outside connections in one static file (REQ-HERMIQ-CONN-001)",
 					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq reports what only it can observe (REQ-HERMIQ-CONN-003)"
-				]
+				],
+				"plan": "openspec/changes/spec-coverage-built-rows"
 			},
 			"reachedOn": "The shared nextcloud-vue AI companion widget probes GET /apps/hermiq/api/chat/health at mount time on any Nextcloud page",
 			"note": "Did not find hermiq's own src/companion.js calling this route explicitly; the route and its documented purpose (probed by the shared companion widget) are confirmed, but the exact call site in the companion bundle was not located.",
@@ -11454,7 +11469,10 @@
 				"evidence": "lib/Controller/OutsideAgentController.php:90-134 tools()/call(), both @NoAdminRequired @NoCSRFRequired; appinfo/routes.php outsideAgent#tools GET /api/outside-agent/tools, outsideAgent#call POST /api/outside-agent/call; lib/Controller/ChatController.php:261-266 sendMessage() same auth attributes, POST /api/chat/send.",
 				"change": "openspec/changes/archive/2026-10-07-the-declared-tool-surface-and-the-prompt-library",
 				"spec": "openspec/specs/agent-tool-governance",
-				"requirement": "openspec/specs/agent-tool-governance :: An outside agent MUST reach declared tools through a registration"
+				"requirement": [
+					"openspec/specs/agent-tool-governance :: An outside agent MUST reach declared tools through a registration",
+					"openspec/specs/agent-webhook-trigger :: The public trigger endpoint authenticates by secret, not session"
+				]
 			},
 			"reachedOn": "Machine surface: an authenticated program (app password, no CSRF token needed) calls GET /api/outside-agent/tools then POST /api/outside-agent/call, or POST /api/chat/send directly",
 			"note": "No published OpenAPI/API doc page was found in docs/ describing these endpoints for third-party integrators; reachability is real, discoverability from outside the codebase is not verified. Moved from pending 2026-10-30: The outside-agent API (outsideAgent#tools, outsideAgent#call) is registered and governed on the MCP tools page, as for op-outside-agent.",
@@ -11478,7 +11496,10 @@
 			},
 			"screen": {
 				"canvas": "design-system",
-				"board": "HmMcpTools"
+				"board": [
+					"HmAgent",
+					"HmMcpTools"
+				]
 			}
 		},
 		{
