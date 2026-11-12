@@ -273,40 +273,64 @@ class SkillLearningsPromotionService {
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
 	 */
 	private function sortCandidates(array $candidates): array {
-		$kept = [];
-		$promoted = [];
-		$dropped = 0;
+		$sorted = ['kept' => [], 'promoted' => [], 'dropped' => 0];
 
 		foreach ($candidates as $candidate) {
-			if ($candidate['raw'] !== null) {
-				// Unparseable/legacy line: never destroyed by promotion, but it ages
-				// out via the same expiry rule when a loose date is extractable.
-				if ($this->rawLineExpired(line: (string)$candidate['raw']) === true) {
-					$dropped++;
-					continue;
-				}
-
-				$kept[] = $candidate;
+			$bucket = $this->candidateBucket(candidate: $candidate);
+			if ($bucket === 'dropped') {
+				$sorted['dropped']++;
 				continue;
 			}
 
-			$distinctRuns = count(array_unique($candidate['runs']));
+			$sorted[$bucket][] = $candidate;
+		}
 
-			if ($distinctRuns >= self::CONFIRMATION_THRESHOLD || $candidate['evalFail'] !== '') {
-				$promoted[] = $candidate;
-				continue;
-			}
-
-			if ($this->isExpired(date: $candidate['date']) === true) {
-				$dropped++;
-				continue;
-			}
-
-			$kept[] = $candidate;
-		}//end foreach
-
-		return ['kept' => $kept, 'promoted' => $promoted, 'dropped' => $dropped];
+		return $sorted;
 	}//end sortCandidates()
+
+	/**
+	 * The bucket one candidate lands in: `promoted`, `dropped` or `kept`.
+	 *
+	 * A parsed candidate is promoted on enough distinct confirming runs or an eval
+	 * failure, before expiry is considered; otherwise it is dropped once expired.
+	 *
+	 * @param array<string, mixed> $candidate One candidate.
+	 *
+	 * @return string The bucket.
+	 */
+	private function candidateBucket(array $candidate): string {
+		if ($candidate['raw'] !== null) {
+			return $this->rawLineBucket(line: (string)$candidate['raw']);
+		}
+
+		if (count(array_unique($candidate['runs'])) >= self::CONFIRMATION_THRESHOLD || $candidate['evalFail'] !== '') {
+			return 'promoted';
+		}
+
+		if ($this->isExpired(date: $candidate['date']) === true) {
+			return 'dropped';
+		}
+
+		return 'kept';
+
+	}//end candidateBucket()
+
+	/**
+	 * The bucket of an unparseable/legacy line: never destroyed by promotion, but it
+	 * ages out via the same expiry rule when a loose date is extractable.
+	 *
+	 * @param string $line The raw line.
+	 *
+	 * @return string `dropped` when expired, `kept` otherwise.
+	 */
+	private function rawLineBucket(string $line): string {
+		if ($this->rawLineExpired(line: $line) === true) {
+			return 'dropped';
+		}
+
+		return 'kept';
+
+	}//end rawLineBucket()
 
 	/**
 	 * Append promoted candidates to `learnings.md` under their tagged sections,
