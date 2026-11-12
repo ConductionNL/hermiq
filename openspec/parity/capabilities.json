@@ -1410,7 +1410,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Listener/UserLifecycleListener.php:53,85 handles UserDeletedEvent/UserChangedEvent, calls ScheduleService::pauseForUser(); lib/Service/ScheduleService.php:647-660 flagAgentForReassignment() sets reassignmentFlag; src/views/TenantOps.vue:256-287 renders the flag + a Reassign input/button per row, :788 reassign() calls reassignAgent(); routes.php tenantOps#reassignAgent POST /api/tenant-ops/access-review/{uuid}/reassign.",
+				"evidence": "lib/Listener/UserLifecycleListener.php:53,85 handles UserDeletedEvent/UserChangedEvent, calls ScheduleService::pauseForUser(); lib/Service/ScheduleService.php:647-660 flagAgentForReassignment() sets reassignmentFlag; src/views/TenantOps.vue:256-287 renders the flag + a Reassign input/button per row, :788 reassign() calls reassignAgent(); routes.php organisationOps#reassignAgent POST /api/tenant-ops/access-review/{uuid}/reassign.",
 				"spec": "openspec/specs/agent-lifecycle-governance",
 				"requirement": "openspec/specs/agent-lifecycle-governance :: Org-admin reassignment flow for flagged agents"
 			},
@@ -2156,11 +2156,15 @@
 			"source": "competitor-derived",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "nextcloud/server",
-				"evidence": "lib/AppInfo/Application.php:350-352 registers Text2TextProvider, Text2TextSummaryProvider, Text2TextHeadlineProvider as TaskProcessing providers (lib/TaskProcessing/Text2Text*.php).",
+				"evidence": "Not built: hermiq provides only core:text2text, :summary and :headline, so a one-click summary works but reformulate and translate have no hermiq provider (tasks 4.1 and 4.2 of taskprocessing-provide-text2text, decision 389). (12 Nov) Was: lib/AppInfo/Application.php:350-352 registers Text2TextProvider, Text2TextSummaryProvider, Text2TextHeadlineProvider as TaskProcessing providers (lib/TaskProcessing/Text2Text*.php).",
 				"spec": "openspec/specs/nc-native-tools",
-				"requirement": "openspec/changes/taskprocessing-provide-text2text/specs/taskprocessing-provide-text2text :: Hermiq provides the text2text task-type family to the whole instance"
+				"requirement": [
+					"openspec/changes/taskprocessing-provide-text2text/specs/taskprocessing-provide-text2text :: Hermiq provides the text2text task-type family to the whole instance",
+					"openspec/changes/taskprocessing-provide-text2text/specs/taskprocessing-provide-text2text :: Text can be reformulated or translated in one click through hermiq (REQ-T2T-003)"
+				],
+				"plan": "openspec/changes/taskprocessing-provide-text2text"
 			},
 			"reachedOn": "Nextcloud Assistant's text-task menu (summarise/headline/free-form text2text) -> hermiq's Text2Text providers",
 			"provider": "hermiq",
@@ -2344,7 +2348,8 @@
 				"change": "openspec/changes/chat-fork-and-share-link",
 				"requirement": [
 					"openspec/changes/chat-fork-and-share-link/specs/session-sharing :: The owner shares a session with named users or groups (REQ-SSHARE-001)",
-					"openspec/changes/chat-fork-and-share-link/specs/session-sharing :: A share recipient can read and do nothing else (REQ-SSHARE-002)"
+					"openspec/changes/chat-fork-and-share-link/specs/session-sharing :: A share recipient can read and do nothing else (REQ-SSHARE-002)",
+					"openspec/changes/chat-fork-and-share-link/specs/session-sharing :: The owner can copy a link to a shared session (REQ-SSHARE-004)"
 				]
 			},
 			"reachedOn": "nothing",
@@ -2875,12 +2880,15 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/ScheduleService.php:1385-1395 runDue() commits the advanced nextRun (startOccurrence + persist) BEFORE invoking the agent, with an explicit 'CRASH-SAFETY INVARIANT (task 4.2)' comment describing commit-before-run so a schedule cannot be re-selected as due while its own turn is still in flight; findDueSchedules() (:823-860) re-reads nextRun from storage on every tick.",
+				"evidence": "lib/BackgroundJob/ScheduleTask.php:84 setAllowParallelRuns(false): Nextcloud never starts a dispatcher tick while the previous one runs, and ScheduleService::run() runs each due schedule inline, so a schedule cannot start a second run while its last one is going. ScheduleService::runDue() also commits the advanced nextRun before invoking the agent, so an occurrence is never fired twice.",
 				"spec": "openspec/specs/agent-schedule",
-				"requirement": "openspec/specs/agent-schedule :: Fire due schedules and run the agent [MVP]"
+				"requirement": [
+					"openspec/specs/agent-schedule :: Fire due schedules and run the agent [MVP]",
+					"openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule does not start a new run while its last run is still going (REQ-SPCOV-014)"
+				]
 			},
 			"reachedOn": "n/a (server-side dispatcher invariant, no screen)",
-			"note": "No explicit named 'lock', but commit-before-run has the same effect: nextRun moves into the future before the agent turn starts, so the next tick will not re-fire the same occurrence.",
+			"note": "The guard is the background job's no-parallel-runs flag plus commit-before-run, not a named lock (checked 12 Nov).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "schedules",
@@ -3285,7 +3293,10 @@
 				"owner": "ConductionNL/openregister",
 				"evidence": "lib/Controller/AgentsController.php:125-134,604 and lib/Controller/McpRunController.php:137-155 both consume OpenRegister's ToolRegistryFacade::listTools(), the same catalog ToolGrantMatrix.vue and the chat engine's ToolLoop draw from. lib/Service/ToolAccessRequestService.php:78,477 name OpenRegister's own get_object/search_objects/list_registers tools as part of that same enumerated, grantable catalog.",
 				"spec": "openspec/specs/agent-tool-governance",
-				"requirement": "openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools"
+				"requirement": [
+					"openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools",
+					"openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: An agent reads and updates register records within its grant (REQ-SPCOV-015)"
+				]
 			},
 			"reachedOn": "Agent tool grant (any OR object/schema tool) -> chat or scheduled run -> ToolRegistryFacade",
 			"provider": "openregister",
@@ -4414,7 +4425,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:328-329 skill#githubSearch (GET) / skill#githubInstall (POST); appinfo/routes.php:389-394 skillMarketplace#githubPublish; src/widgets/SkillGithubPublishModal.vue:75,177 call '../api/skills.js' and read/write GitHub credentials via /apps/openregister/api/credentials.",
+				"evidence": "appinfo/routes.php:328-329 skill#githubSearch (GET) / skill#githubInstall (POST); appinfo/routes.php:389-394 skillMarketplace#githubPublish; src/modals/SkillGithubPublishModal.vue:75,177 call '../api/skills.js' and read/write GitHub credentials via /apps/openregister/api/credentials.",
 				"spec": "openspec/specs/skills-marketplace",
 				"requirement": [
 					"openspec/specs/skills-marketplace :: A skill can be published to a tagged GitHub repository as the primary path",
@@ -4613,7 +4624,7 @@
 				"evidence": "src/modals/LlmProviderModal.vue:255-260 lists provider options openai/anthropic/ollama/fireworks/nextcloud; lib/Service/Llm/LlmSettingsHandler.php:51 ALLOWED_CHAT_PROVIDERS = ['openai','ollama','fireworks','nextcloud','anthropic']; lib/Controller/Settings/LlmSettingsController.php:118-131 validates and persists the choice.",
 				"change": "openspec/changes/taskprocessing-consume-ui",
 				"requirement": [
-					"openspec/changes/archive/2026-09-06-anthropic-agent-provider/specs/anthropic-agent-provider :: Anthropic is a selectable chat provider",
+					"openspec/specs/anthropic-agent-provider :: Anthropic is a selectable chat provider",
 					"openspec/changes/taskprocessing-consume-ui/specs/taskprocessing-consume-ui :: Admins can select any supported chat provider, including nextcloud"
 				]
 			},
@@ -4842,7 +4853,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/TenantModelPolicyController.php:1-33 docblock: any authenticated org member may READ the effective policy, but create()/update() are admitted only for an instance admin (IGroupManager::isAdmin) or the Organisation's owner; appinfo/routes.php tenantModelPolicy#effective/#index/#create/#update (/api/model-policy...); src/views/TenantOps.vue:320-322 imports modelPolicy.js and tenantOps.js.",
+				"evidence": "lib/Controller/OrganisationModelPolicyController.php docblock: any authenticated org member may READ the effective policy, but create()/update() are admitted only for an instance admin (IGroupManager::isAdmin) or the Organisation's owner; appinfo/routes.php organisationModelPolicy#effective/#index/#create/#update (/api/model-policy...); src/views/TenantOps.vue:320-322 imports modelPolicy.js and tenantOps.js.",
 				"spec": "openspec/specs/tenant-model-policy",
 				"requirement": [
 					"openspec/specs/tenant-model-policy :: Per-organisation model policy object",
@@ -4889,7 +4900,7 @@
 				"requirement": "openspec/specs/ai-feature-governance :: An administrator chooses the provider of one AI feature (REQ-AIBIND-001)"
 			},
 			"reachedOn": "Admin settings -> Hermiq -> AI-feature governance register (AiFeatureRegister.vue, mounted via AdminRoot.vue) shows the residency table read-only",
-			"note": "grep -rn 'bindAiFeature(' src/ finds only the export in aiFeatures.js, no caller anywhere in src/views, src/modals or src/components: the write endpoint exists server-side with no UI control to invoke it.",
+			"note": "The Change provider button on the AI-feature register opens AiFeatureBindingModal.vue, which calls bindAiFeature() (checked 12 Nov; the earlier no-caller note was stale).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "model-providers",
@@ -5121,7 +5132,11 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Repair/SeedModelPolicies.php seeds a sample organisation ModelPolicy restricted to ollama-only 'to demonstrate the sovereignty use case'; lib/Service/Llm/ProviderFactory.php:672-696 enforceModelPolicy() throws ModelPolicyViolationException at runtime when a resolved provider/model pair falls outside the organisation's effective policy (not just a UI filter); lib/Controller/Settings/ProviderResidencySettingsController.php:69-127 get/declareResidency for per-provider EU/outside-EU/undeclared residency, read by src/views/AiFeatureRegister.vue.",
 				"spec": "openspec/specs/multi-tenant-ops",
-				"requirement": "openspec/specs/multi-tenant-ops :: Per-tenant sovereignty — local inference + AI-Act export"
+				"requirement": [
+					"openspec/specs/tenant-model-policy :: Per-organisation model policy object",
+					"openspec/specs/ai-feature-governance :: A feature MAY require a residency, and a run outside it is refused before the call",
+					"openspec/specs/multi-tenant-ops :: Per-tenant sovereignty — local inference + AI-Act export"
+				]
 			},
 			"reachedOn": "TenantOps.vue (tenant model policy editor) to restrict an org to ollama-only; Admin settings -> AI-feature governance register for residency declarations",
 			"note": "Enforcement is at the provider/model-pair level (e.g. 'only ollama'), which achieves on-premise; there is no separate hard 'EU-only' geofence beyond the self-declared residency labels.",
@@ -5576,7 +5591,7 @@
 				"spec": "openspec/specs/speech-services"
 			},
 			"reachedOn": "nothing; src/modals/AgentFormModal.vue:252-297 lets an admin pick a per-agent 'voice input engine' preference, but no page ever records audio to send to the transcribe endpoint",
-			"note": "The per-agent voice-engine setting is stored but has no consumer: the actual composer mic capture UI does not exist in src/.",
+			"note": "The chat composer records with DictateButton.vue and posts to /api/speech/transcriptions (checked 12 Nov; the earlier note that no mic capture UI exists was stale).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "speech",
@@ -5689,7 +5704,7 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/ApprovalInbox.vue:20-100 lists every pending approval routed to the current reviewer in one table (schedule, agent, prompt, requested-at) with Approve/Deny actions; backed by approval#index GET /api/approvals.",
 				"spec": "openspec/specs/human-approval-gate",
-				"requirement": "openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui :: Reviewer approval inbox lists pending approvals routed to the user",
+				"requirement": "openspec/specs/human-approval-gate :: Reviewer approval inbox lists pending approvals routed to the user",
 				"change": "openspec/changes/approval-task-convergence"
 			},
 			"reachedOn": "/approvals nav page (src/manifest.json id 'ApprovalInbox')",
@@ -5880,7 +5895,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Controller/TenantControlController.php show()/toggle() (appinfo/routes.php:188-199 GET/POST /api/tenant-control/{organisation}[/toggle]); src/components/KillSwitchToggle.vue:5-11 halts every run for an organisation on the next dispatch tick, rendered only for a caller with can_manage_killswitch.",
+				"evidence": "lib/Controller/OrganisationControlController.php show()/toggle() (appinfo/routes.php:188-199 GET/POST /api/tenant-control/{organisation}[/toggle]); src/components/KillSwitchToggle.vue:5-11 halts every run for an organisation on the next dispatch tick, rendered only for a caller with can_manage_killswitch.",
 				"spec": "openspec/specs/human-approval-gate",
 				"requirement": "openspec/specs/human-approval-gate :: Org-level kill-switch halts all runs"
 			},
@@ -6298,7 +6313,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:255 tenantOps#auditExport GET /api/tenant-ops/audit-export; lib/Controller/TenantOpsController.php:116-130 auditExport() streams tenantOpsService->exportAuditTrail() with a Content-Disposition attachment header; src/widgets/ComplianceOperations.vue:252-256 exportAudit() calls getAuditExport() from src/api/tenantOps.js:32.",
+				"evidence": "appinfo/routes.php:255 organisationOps#auditExport GET /api/tenant-ops/audit-export; lib/Controller/OrganisationOpsController.php auditExport() streams tenantOpsService->exportAuditTrail() with a Content-Disposition attachment header; src/widgets/ComplianceOperations.vue:252-256 exportAudit() calls getAuditExport() from src/api/tenantOps.js:32.",
 				"spec": "openspec/specs/multi-tenant-ops",
 				"requirement": "openspec/specs/multi-tenant-ops :: Per-tenant sovereignty — local inference + AI-Act export",
 				"change": "openspec/changes/ai-oversight-subject-export"
@@ -6336,7 +6351,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/info.xml background-jobs block registers OCA\\Hermiq\\BackgroundJob\\RunRetentionCleanupJob; appinfo/routes.php:275-276 tenantOps#retention GET/PUT /api/tenant-ops/retention; lib/Controller/TenantOpsController.php:327-376 retention()/updateRetention() (rejects <6 months, Art. 12 floor); src/widgets/ComplianceOperations.vue:159-166,359-381 retention section calls src/api/runRetention or tenantOps retention.",
+				"evidence": "appinfo/info.xml background-jobs block registers OCA\\Hermiq\\BackgroundJob\\RunRetentionCleanupJob; appinfo/routes.php:275-276 organisationOps#retention GET/PUT /api/tenant-ops/retention; lib/Controller/OrganisationOpsController.php retention()/updateRetention() (rejects <6 months, Art. 12 floor); src/widgets/ComplianceOperations.vue:159-166,359-381 retention section calls src/api/runRetention or tenantOps retention.",
 				"spec": "openspec/specs/agent-lifecycle-governance",
 				"requirement": [
 					"openspec/specs/multi-tenant-ops :: Per-organisation retention period configuration",
@@ -6597,7 +6612,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:273-274 tenantOps#incidents GET/POST /api/tenant-ops/incidents; lib/Controller/TenantOpsController.php:244-315 incidents()/createIncident() (description/impact/actionsTaken required, action-auth-gated, links agentId+runIds); src/dialogs/CreateIncidentDialog.vue:85 calls src/api/tenantOps.js; mounted from src/widgets/ComplianceOperations.vue:174,192.",
+				"evidence": "appinfo/routes.php:273-274 organisationOps#incidents GET/POST /api/tenant-ops/incidents; lib/Controller/OrganisationOpsController.php incidents()/createIncident() (description/impact/actionsTaken required, action-auth-gated, links agentId+runIds); src/dialogs/CreateIncidentDialog.vue:85 calls src/api/tenantOps.js; mounted from src/widgets/ComplianceOperations.vue:174,192.",
 				"spec": "openspec/specs/agent-lifecycle-governance",
 				"requirement": "openspec/specs/agent-lifecycle-governance :: Incident records linked to runs and agents"
 			},
@@ -6666,7 +6681,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:260-269 tenantOps#reviewList/attestReview/reassignAgent; lib/Controller/TenantOpsController.php:143-232 (action-auth-gated attest/reassign); src/views/TenantOps.vue:322,768,795 imports attestReviewed/getAccessReview/reassignAgent from src/api/tenantOps.js and calls them from row actions.",
+				"evidence": "appinfo/routes.php:260-269 organisationOps#reviewList/attestReview/reassignAgent; lib/Controller/OrganisationOpsController.php (action-auth-gated attest/reassign); src/views/TenantOps.vue:322,768,795 imports attestReviewed/getAccessReview/reassignAgent from src/api/tenantOps.js and calls them from row actions.",
 				"spec": "openspec/specs/agent-lifecycle-governance",
 				"requirement": [
 					"openspec/specs/agent-lifecycle-governance :: Periodic access review with capability summary",
@@ -6778,7 +6793,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php TenantControlController routes (approvals.js TENANT_CONTROL_BASE '/apps/hermiq/api/tenant-control'); lib/Controller/TenantControlController.php:1-90 show()/toggle() halt every agent run for an OpenRegister organisation (Art. 14 stop mechanism), guarded to instance admin or the organisation's owner; src/components/KillSwitchToggle.vue reads/toggles via src/api/approvals.js, mounted in src/views/ApprovalInbox.vue:28.",
+				"evidence": "appinfo/routes.php OrganisationControlController routes (approvals.js TENANT_CONTROL_BASE '/apps/hermiq/api/tenant-control'); lib/Controller/OrganisationControlController.php show()/toggle() halt every agent run for an OpenRegister organisation (Art. 14 stop mechanism), guarded to instance admin or the organisation's owner; src/components/KillSwitchToggle.vue reads/toggles via src/api/approvals.js, mounted in src/views/ApprovalInbox.vue:28.",
 				"spec": "openspec/specs/human-approval-gate",
 				"requirement": "openspec/specs/human-approval-gate :: Org-level kill-switch halts all runs"
 			},
@@ -7184,8 +7199,8 @@
 				"evidence": "appinfo/routes.php:49 metrics#index GET /api/metrics (admin-auth, Prometheus text/plain 0.0.4 per ADR-006, lib/Controller/MetricsController.php:41-104); appinfo/routes.php:51 health#index GET /api/health (#[PublicPage] + #[NoCSRFRequired], lib/Controller/HealthController.php:45-78).",
 				"spec": "openspec/specs/observability",
 				"requirement": [
-					"openspec/specs/observability :: REQ-OBS-001: Prometheus metrics endpoint (admin only)",
-					"openspec/specs/observability :: REQ-OBS-002: Health check endpoint (public)"
+					"openspec/specs/observability :: Prometheus metrics endpoint (admin only) (REQ-OBS-001)",
+					"openspec/specs/observability :: Health check endpoint (public) (REQ-OBS-002)"
 				]
 			},
 			"reachedOn": "GET /apps/hermiq/api/metrics (admin auth) and GET /apps/hermiq/api/health (public); machine/monitoring-system callers, no UI page",
@@ -7423,7 +7438,7 @@
 				"owner": "ConductionNL/openregister",
 				"evidence": "Sibling checkout apps-extra/openregister/lib/Service/Flow/Nodes/UserTaskNode.php:97 implements IFlowNode/IFlowNodeConfigKeys/IFlowNodeConfigForm/IFlowNodeTaxonomy; its docblock at lines 25-41 explicitly describes it as the approvals a municipal case is made of. hermiq's own lib/Flow/ contributes no approval-specific node itself; grep for 'approval' across lib/Flow/*.php in hermiq found nothing.",
 				"change": "openregister/openspec/changes/archive/2026-10-05-flow-user-task-node",
-				"requirement": "openregister/openspec/specs/flow-user-task-node :: A user-task step creates exactly one task and suspends the run"
+				"requirement": "openregister:openspec/specs/flow-user-task-node :: A user-task step creates exactly one task and suspends the run"
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> User task node (OpenRegister-provided, available on any flow authored from hermiq's shared canvas)",
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale; hermiq itself contributes no approval node, the capability comes entirely from the shared engine.",
@@ -7694,7 +7709,7 @@
 				"owner": "ConductionNL/openregister",
 				"evidence": "Sibling checkout apps-extra/openregister/lib/Service/Flow/Nodes/SubFlowNode.php exists as a registered IFlowNode-implementing node type, available on the same shared canvas hermiq's FlowDetail page uses.",
 				"change": "openregister/openspec/changes/or-flow-sub-flow",
-				"requirement": "openregister/openspec/changes/or-flow-sub-flow/specs/flow-sub-flow :: A flow can run another flow as a step (REQ-SF-001)"
+				"requirement": "openregister:openspec/changes/or-flow-sub-flow/specs/flow-sub-flow :: A flow can run another flow as a step (REQ-SF-001)"
 			},
 			"reachedOn": "FlowDetail canvas -> node palette -> Sub-flow node",
 			"note": "Rated from the OpenRegister sibling checkout, which may be stale.",
@@ -7930,7 +7945,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:172-176 agentVersion#index/diff/rollback '/api/agents/{id}/versions', '/versions/diff', '/versions/{versionId}/rollback'; src/dialogs/agents/AgentVersionHistoryDialog.vue:158 and src/dialogs/AgentVersionDiffDialog.vue:73 call src/api/agents.js; registered as a v2 modal in src/registry.js:41,127-134 (mounts AgentVersionDiffDialog internally).",
+				"evidence": "appinfo/routes.php:172-176 agentVersion#index/diff/rollback '/api/agents/{id}/versions', '/versions/diff', '/versions/{versionId}/rollback'; src/dialogs/agents/AgentVersionHistoryDialog.vue:158 and src/dialogs/agents/AgentVersionDiffDialog.vue:73 call src/api/agents.js; registered as a v2 modal in src/registry.js:41,127-134 (mounts AgentVersionDiffDialog internally).",
 				"spec": "openspec/specs/agent-versioning",
 				"requirement": [
 					"openspec/specs/agent-versioning :: List an Agent's version history",
@@ -8088,7 +8103,7 @@
 			"built": {
 				"state": "decided-no",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (dify), no demand row; outside the core area. Code reading before the decision: Grepped lib/ and src/ for 'transfer', 'cross-tenant', 'another organisation': every hit in controllers (AgentsController.php:569, TenantOpsController.php:11, AnalyticsController.php:9, SkillMarketplaceController.php:10, AiFeatureController.php:284,364, etc.) is about DENYING cross-tenant access/leaks, never about moving an object's own organisation. No endpoint changes an Agent/AgentTemplate/Skill's organisation field."
+				"evidence": "decided-no on 2026-09-28 (build-all pass, reversible): single competitor (dify), no demand row; outside the core area. Code reading before the decision: Grepped lib/ and src/ for 'transfer', 'cross-tenant', 'another organisation': every hit in controllers (AgentsController.php:569, OrganisationOpsController.php, AnalyticsController.php:9, SkillMarketplaceController.php:10, AiFeatureController.php:284,364, etc.) is about DENYING cross-tenant access/leaks, never about moving an object's own organisation. No endpoint changes an Agent/AgentTemplate/Skill's organisation field."
 			},
 			"reachedOn": "nothing",
 			"note": "Publishing a template/skill to GitHub and having another organisation install it from there (re-template-github, re-community) is the closest workaround, but that creates a new, separately-owned copy rather than transferring the original automation's ownership.",
@@ -8221,7 +8236,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "LICENSE file (root) is the full EUPL v1.2 text; REUSE.toml documents SPDX EUPL-1.2 headers as the project-wide convention; every PHP file opened during this review (e.g. TenantOpsController.php, ComplianceController.php) carries 'SPDX-License-Identifier: EUPL-1.2'; the repo is public at ConductionNL/hermiq.",
+				"evidence": "LICENSE file (root) is the full EUPL v1.2 text; REUSE.toml documents SPDX EUPL-1.2 headers as the project-wide convention; every PHP file opened during this review (e.g. OrganisationOpsController.php, ComplianceController.php) carries 'SPDX-License-Identifier: EUPL-1.2'; the repo is public at ConductionNL/hermiq.",
 				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
 				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: hermiq SHALL be distributed under the EUPL 1.2 (REQ-PLAT-004)"
 			},
@@ -8258,7 +8273,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/architecture ADR-001 multi-tenancy (organisation UUID scoping); every controller opened in this review that reads cross-object data explicitly tenant-scopes via OpenRegister ObjectService/RBAC and organisation filters (e.g. lib/Controller/AnalyticsController.php:9, lib/Controller/TenantOpsController.php:11, lib/Controller/AiFeatureController.php:10, lib/Controller/TenantControlController.php organisation-owner guard).",
+				"evidence": "openspec/architecture ADR-001 multi-tenancy (organisation UUID scoping); every controller opened in this review that reads cross-object data explicitly tenant-scopes via OpenRegister ObjectService/RBAC and organisation filters (e.g. lib/Controller/AnalyticsController.php:9, lib/Controller/OrganisationOpsController.php, lib/Controller/AiFeatureController.php:10, lib/Controller/OrganisationControlController.php organisation-owner guard).",
 				"spec": "openspec/specs/multi-tenant-ops",
 				"requirement": "openspec/specs/multi-tenant-ops :: Strict per-tenant isolation across all object types"
 			},
@@ -8296,7 +8311,7 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:254 tenantOps#quota GET /api/tenant-ops/quota; lib/Controller/TenantOpsController.php:92-104 quota() -> tenantOpsService->quotaStatus(); src/views/TenantOps.vue reads it (also src/manifest.json Dashboard tiles at lines 904,923 read '/apps/hermiq/api/tenant-ops/quota').",
+				"evidence": "appinfo/routes.php:254 organisationOps#quota GET /api/tenant-ops/quota; lib/Controller/OrganisationOpsController.php quota() -> tenantOpsService->quotaStatus(); src/views/TenantOps.vue reads it (also src/manifest.json Dashboard tiles at lines 904,923 read '/apps/hermiq/api/tenant-ops/quota').",
 				"spec": "openspec/specs/multi-tenant-ops",
 				"requirement": "openspec/specs/multi-tenant-ops :: Per-organisation agent and schedule quotas"
 			},
@@ -8374,7 +8389,7 @@
 			"built": {
 				"state": "built",
 				"owner": "nextcloud/server",
-				"evidence": "Every hermiq controller resolves the caller exclusively through OCP\\IUserSession (e.g. every controller read in this review: TenantOpsController, ComplianceController, AiFeatureController), so hermiq has no login path of its own; it inherits whatever authentication backend the Nextcloud instance is configured with (LDAP/SAML/OIDC apps).",
+				"evidence": "Every hermiq controller resolves the caller exclusively through OCP\\IUserSession (e.g. every controller read in this review: OrganisationOpsController, ComplianceController, AiFeatureController), so hermiq has no login path of its own; it inherits whatever authentication backend the Nextcloud instance is configured with (LDAP/SAML/OIDC apps).",
 				"spec": "openspec/changes/platform-sign-in-hosting-and-licence",
 				"requirement": "openspec/changes/platform-sign-in-hosting-and-licence/specs/app-runtime-requirements :: Sign-in and single sign-on SHALL be Nextcloud's (REQ-PLAT-001)"
 			},
@@ -8459,7 +8474,7 @@
 				"requirement": "openspec/specs/agent-credentials :: An agent can carry its own credential per provider (REQ-AGCRED-001)"
 			},
 			"reachedOn": "Agent form -> Credentials",
-			"note": "Credentials are scoped to the acting user or the organisation, never to an individual agent instance, so two agents run by the same user in the same org always share the same resolved credential.",
+			"note": "An agent can pin its own credential per provider (Agent.credentialIds); the pin goes first and is never bypassed (REQ-AGCRED-002). Without a pin, the acting user's and then the organisation's credential apply (checked 12 Nov; the earlier note that credentials are never per agent was stale).",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "credentials",
@@ -8495,8 +8510,8 @@
 				"evidence": "lib/Settings/AdminSettings.php + appinfo/info.xml <settings> registration; src/views/AdminRoot.vue mounts LlmProviderModal-backed settings (src/api/llm.js), WebResearchSettingsModal (src/api/webResearch.js), and AiFeatureRegister.vue, all under Nextcloud's own admin-settings framework.",
 				"spec": "openspec/specs/admin-ui",
 				"requirement": [
-					"openspec/specs/admin-ui :: REQ-UI-001: Register the admin section (IIconSection)",
-					"openspec/specs/admin-ui :: REQ-UI-002: Render the admin settings form (ISettings)"
+					"openspec/specs/admin-ui :: Register the admin section (IIconSection) (REQ-UI-001)",
+					"openspec/specs/admin-ui :: Render the admin settings form (ISettings) (REQ-UI-002)"
 				]
 			},
 			"reachedOn": "Nextcloud Administration settings -> Hermiq section -> AdminRoot.vue",
@@ -8569,9 +8584,13 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php:529 chatHealth#health GET /api/chat/health (#[PublicPage] per lib/Controller/ChatHealthController.php docblock); the controller reads hermiq.llm app-config to report whether the chat backend is configured and reachable, 'ported route-for-route from OpenRegister's ChatHealthController' for the shared nextcloud-vue AI companion widget to probe at mount.",
+				"evidence": "appinfo/routes.php:529 chatHealth#health GET /api/chat/health (#[PublicPage] per lib/Controller/ChatHealthController.php docblock); the controller reads hermiq.llm app-config to report whether the chat backend is configured and reachable, 'ported route-for-route from OpenRegister's ChatHealthController' for the shared nextcloud-vue AI companion widget to probe at mount. The one page is the Integrations page: lib/Settings/connections.json declares the AI provider, web search and other connections, and hermiq reports their state (tl-integrations-page).",
 				"spec": "openspec/specs/observability",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/observability :: Chat reports whether its model provider is ready (REQ-SPCOV-012)"
+				"requirement": [
+					"openspec/changes/spec-coverage-built-rows/specs/observability :: Chat reports whether its model provider is ready (REQ-SPCOV-012)",
+					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq declares its outside connections in one static file (REQ-HERMIQ-CONN-001)",
+					"openspec/changes/adopt-connection-registry/specs/app-connections :: Hermiq reports what only it can observe (REQ-HERMIQ-CONN-003)"
+				]
 			},
 			"reachedOn": "The shared nextcloud-vue AI companion widget probes GET /apps/hermiq/api/chat/health at mount time on any Nextcloud page",
 			"note": "Did not find hermiq's own src/companion.js calling this route explicitly; the route and its documented purpose (probed by the shared companion widget) are confirmed, but the exact call site in the companion bundle was not located.",
@@ -9462,8 +9481,8 @@
 				"evidence": "appinfo/routes.php:182-184 GET /api/approvals, POST /api/approvals/{id}/approve and /deny -> lib/Controller/ApprovalController.php:112,149 (@NoCSRFRequired, reviewer-checked), callable by any client with an app password; lib/Service/Approval/ApprovalTaskBridge.php mirrors each pending approval as an OpenRegister task and lib/Listener/TaskTerminalListener.php (registered lib/AppInfo/Application.php:265-266) applies a completed task as approve or deny",
 				"spec": "openspec/specs/human-approval-gate",
 				"requirement": [
-					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Approving an approval executes the gated run",
-					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Denying an approval prevents the gated run"
+					"openspec/specs/human-approval-gate :: Approving an approval executes the gated run",
+					"openspec/specs/human-approval-gate :: Denying an approval prevents the gated run"
 				]
 			},
 			"feature": "human-approval",
@@ -9502,8 +9521,8 @@
 				"evidence": "src/modals/ScheduleFormModal.vue:169-182 Reviewer type (user or group) and reviewer id, mounted from src/widgets/AgentRunOperationsWidget.vue:293; lib/Service/ApprovalService.php:220-233 stores the resolved reviewer on the Approval; :1218-1228 isReviewer admits only that user, members of that group, or an instance admin; lib/Controller/ApprovalController.php:200 refuses anyone else; Talk reactions are checked against the same reviewer (lib/Listener/TalkApprovalReactionListener.php:14)",
 				"spec": "openspec/specs/human-approval-gate",
 				"requirement": [
-					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Dispatcher blocks a gated run and creates a pending Approval",
-					"openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/specs/human-approval-gate-enforcement :: Approving an approval executes the gated run"
+					"openspec/specs/human-approval-gate :: Dispatcher blocks a gated run and creates a pending Approval",
+					"openspec/specs/human-approval-gate :: Approving an approval executes the gated run"
 				]
 			},
 			"feature": "human-approval",
@@ -10329,7 +10348,10 @@
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/components/ToolGrantMatrix.vue keeps and shows an agent's {app}.{schema}.* (read) and {app}.{schema}.*:write grants, mounted from src/widgets/AgentToolGovernanceWidget.vue; lib/Service/Engine/ToolLoop.php:195 resolves them through OpenRegister's ToolRegistryFacade, and lib/Service/Engine/FacadeToolInvoker.php:1238 runs search, get, create and update on the register objects",
 				"spec": "openspec/specs/agent-tool-governance",
-				"requirement": "openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools"
+				"requirement": [
+					"openspec/specs/agent-tool-governance :: Schema-scoped whitelist grants with default-deny for write/destructive tools",
+					"openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: An agent reads and updates register records within its grant (REQ-SPCOV-015)"
+				]
 			},
 			"feature": "knowledge-bases",
 			"reachedOn": "/agents/:id -> Tool governance (ToolGrantMatrix)",
@@ -11577,10 +11599,13 @@
 			"built": {
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); TenantControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
+				"evidence": "openspec/architecture/adr-023-action-authorization.md: an admin-configurable action-to-group matrix, separate from OpenRegister's data RBAC; lib/Service/ActionAuthService.php:21-159 (matrix defaults to admin-only per action, an admin can broaden any action to any group, e.g. aifeature.acknowledge to a DPO group); OrganisationControlController.php mayAdminister() additionally distinguishes instance-admin vs organisation-owner vs plain member for the kill-switch.",
 				"spec": "openspec/changes/action-matrix-screen/specs/action-authorization",
 				"readOn": "2026-10-07",
-				"requirement": "openspec/changes/action-matrix-screen/specs/action-authorization :: An administrator edits the action matrix on the tenant management page (REQ-ACTMX-001)",
+				"requirement": [
+					"openspec/specs/action-authorization :: A governance action runs only for an administrator or a group the matrix names",
+					"openspec/specs/action-authorization :: The builder of an agent changes it, the people it is shared with use it"
+				],
 				"change": "openspec/changes/action-matrix-screen"
 			},
 			"reachedOn": "Every action-auth-gated endpoint in the app (compliance.*, tenantops.*, aifeature.*, agenttemplate.approve-quarantined, etc.); the matrix itself is admin-configured (not directly observed which UI edits it)",
