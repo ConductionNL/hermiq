@@ -969,24 +969,56 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed> The listing, or an error envelope.
 	 */
 	private function listFiles(string $uid, string $path): array {
-		$userFolder = $this->rootFolder->getUserFolder($uid);
-
-		$target = $userFolder;
-		if (trim($path, '/') !== '') {
-			if ($userFolder->nodeExists($path) === false) {
-				return $this->error(code: 'not_found', message: 'Path not found in your files.');
-			}
-
-			$node = $userFolder->get($path);
-			if (($node instanceof Folder) === false) {
-				return $this->error(code: 'not_a_folder', message: 'Path is not a folder.');
-			}
-
-			$target = $node;
+		$target = $this->listingTarget(userFolder: $this->rootFolder->getUserFolder($uid), path: $path);
+		if (($target instanceof Folder) === false) {
+			return $target;
 		}
 
+		$reportedPath = '/';
+		if ($path !== '') {
+			$reportedPath = $path;
+		}
+
+		return ['path' => $reportedPath, 'entries' => $this->folderEntries(folder: $target)];
+	}//end listFiles()
+
+	/**
+	 * The folder a listing reads: the user's root for an empty path, else the folder
+	 * at the path, or the error for a missing path or one that is not a folder.
+	 *
+	 * @param Folder $userFolder The acting user's folder.
+	 * @param string $path The requested path.
+	 *
+	 * @return Folder|array<string, mixed> The folder, or an error envelope.
+	 */
+	private function listingTarget(Folder $userFolder, string $path): Folder|array {
+		if (trim($path, '/') === '') {
+			return $userFolder;
+		}
+
+		if ($userFolder->nodeExists($path) === false) {
+			return $this->error(code: 'not_found', message: 'Path not found in your files.');
+		}
+
+		$node = $userFolder->get($path);
+		if (($node instanceof Folder) === false) {
+			return $this->error(code: 'not_a_folder', message: 'Path is not a folder.');
+		}
+
+		return $node;
+
+	}//end listingTarget()
+
+	/**
+	 * Each entry of a folder with its name, type (file or folder) and size.
+	 *
+	 * @param Folder $folder The folder.
+	 *
+	 * @return array<int, array<string, mixed>> The entries.
+	 */
+	private function folderEntries(Folder $folder): array {
 		$entries = [];
-		foreach ($target->getDirectoryListing() as $node) {
+		foreach ($folder->getDirectoryListing() as $node) {
 			$type = 'file';
 			if (($node instanceof Folder) === true) {
 				$type = 'folder';
@@ -999,13 +1031,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 			];
 		}
 
-		$reportedPath = '/';
-		if ($path !== '') {
-			$reportedPath = $path;
-		}
+		return $entries;
 
-		return ['path' => $reportedPath, 'entries' => $entries];
-	}//end listFiles()
+	}//end folderEntries()
 
 	/**
 	 * Read a text file from the acting user's folder (IDOR: user folder only; size-capped).
@@ -1134,33 +1162,76 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @return array<string, mixed> The send result, or an error envelope.
 	 */
 	private function sendMail(\OCP\IUser $user, array $arguments): array {
-		$to = trim((string)($arguments['to'] ?? ''));
-		$subject = (string)($arguments['subject'] ?? '');
-		$body = (string)($arguments['body'] ?? '');
-
-		if ($to === '' || $subject === '' || $body === '') {
-			return $this->error(code: 'invalid_argument', message: 'to, subject and body are all required.');
+		$mail = $this->requestedMail(arguments: $arguments);
+		$refusal = $this->mailRefusal(mail: $mail);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
-		if ($this->mailer->validateMailAddress($to) === false) {
-			return $this->error(code: 'invalid_argument', message: 'The recipient address is not a valid email.');
-		}
-
-		$from = $user->getEMailAddress();
-		if ($from === null || $from === '') {
+		$mail['from'] = (string)$user->getEMailAddress();
+		if ($mail['from'] === '') {
 			return $this->error(code: 'no_sender', message: 'Your account has no email address to send from.');
 		}
 
+		return $this->deliverMail(mail: $mail, senderName: $user->getDisplayName());
+	}//end sendMail()
+
+	/**
+	 * The mail the tool call asks for: a trimmed recipient, the subject and the body.
+	 *
+	 * @param array<string, mixed> $arguments The tool arguments.
+	 *
+	 * @return array{to: string, subject: string, body: string} The requested mail.
+	 */
+	private function requestedMail(array $arguments): array {
+		return [
+			'to' => trim((string)($arguments['to'] ?? '')),
+			'subject' => (string)($arguments['subject'] ?? ''),
+			'body' => (string)($arguments['body'] ?? ''),
+		];
+
+	}//end requestedMail()
+
+	/**
+	 * Refuse a mail without a recipient, subject or body, or to an invalid address.
+	 *
+	 * @param array{to: string, subject: string, body: string} $mail The requested mail.
+	 *
+	 * @return array<string, mixed>|null The error envelope, or null when the mail may be sent.
+	 */
+	private function mailRefusal(array $mail): ?array {
+		if (in_array('', [$mail['to'], $mail['subject'], $mail['body']], true) === true) {
+			return $this->error(code: 'invalid_argument', message: 'to, subject and body are all required.');
+		}
+
+		if ($this->mailer->validateMailAddress($mail['to']) === false) {
+			return $this->error(code: 'invalid_argument', message: 'The recipient address is not a valid email.');
+		}
+
+		return null;
+
+	}//end mailRefusal()
+
+	/**
+	 * Compose and send a plain-text mail from the acting user.
+	 *
+	 * @param array{to: string, subject: string, body: string, from: string} $mail The mail.
+	 * @param string $senderName The sender's display name.
+	 *
+	 * @return array{sent: bool, failedRecipients: array<int, string>} The send outcome.
+	 */
+	private function deliverMail(array $mail, string $senderName): array {
 		$message = $this->mailer->createMessage();
-		$message->setFrom([$from => $user->getDisplayName()]);
-		$message->setTo([$to]);
-		$message->setSubject($subject);
-		$message->setPlainBody($body);
+		$message->setFrom([$mail['from'] => $senderName]);
+		$message->setTo([$mail['to']]);
+		$message->setSubject($mail['subject']);
+		$message->setPlainBody($mail['body']);
 
 		$failed = $this->mailer->send($message);
 
 		return ['sent' => ($failed === []), 'failedRecipients' => $failed];
-	}//end sendMail()
+
+	}//end deliverMail()
 
 	/**
 	 * List the acting user's Deck boards (lazy dependency; error when Deck is absent).
@@ -1181,31 +1252,73 @@ class HermiqToolProvider implements IMcpToolProvider {
 			return $this->error(code: 'deck_unavailable', message: 'Could not read Deck boards.');
 		}
 
+		return ['boards' => $this->boardTitles(boards: $boards)];
+	}//end listDeckBoards()
+
+	/**
+	 * The scalar titles of the readable boards, in order.
+	 *
+	 * @param iterable<mixed> $boards The boards Deck returned.
+	 *
+	 * @return array<int, array{title: string}> The titles.
+	 */
+	private function boardTitles(iterable $boards): array {
 		$results = [];
 		foreach ($boards as $board) {
-			// 🔴 Was `method_exists($board, 'getTitle')`, which is false for every getter
-			// reached through `Entity::__call()`, so this listed NOTHING for its whole
-			// life. `property_exists()` is what `Entity::getter()` itself consults;
-			// `is_callable()` would only invert the silence. See DeckBoardMagicAccessorTest.
-			if (is_object($board) === false || property_exists($board, 'title') === false) {
-				continue;
+			$title = $this->boardTitle(board: $board);
+			if ($title !== null) {
+				$results[] = ['title' => $title];
 			}
+		}
 
-			try {
-				// Dynamic because it IS dynamic — `__call()` materialises the method.
-				$title = call_user_func([$board, 'getTitle']);
-			} catch (Throwable $e) {
-				$this->logger->warning('Hermiq skipped an unreadable Deck board: ' . $e->getMessage());
-				continue;
-			}
+		return $results;
 
-			if (is_scalar($title) === true) {
-				$results[] = ['title' => (string)$title];
-			}
-		}//end foreach
+	}//end boardTitles()
 
-		return ['boards' => $results];
-	}//end listDeckBoards()
+	/**
+	 * Whether a value is a Deck board entity carrying a title.
+	 *
+	 * @param mixed $board One board.
+	 *
+	 * @return bool True for a board with a title.
+	 */
+	private function isDeckBoard(mixed $board): bool {
+		return is_object($board) === true && property_exists($board, 'title') === true;
+
+	}//end isDeckBoard()
+
+	/**
+	 * One board's title; a board that is not a Deck entity, cannot be read, or has a
+	 * non-scalar title yields none.
+	 *
+	 * @param mixed $board One board.
+	 *
+	 * @return string|null The title, or null.
+	 */
+	private function boardTitle(mixed $board): ?string {
+		// 🔴 Was `method_exists($board, 'getTitle')`, which is false for every getter
+		// reached through `Entity::__call()`, so this listed NOTHING for its whole
+		// life. `property_exists()` is what `Entity::getter()` itself consults;
+		// `is_callable()` would only invert the silence. See DeckBoardMagicAccessorTest.
+		if ($this->isDeckBoard(board: $board) === false) {
+			return null;
+		}
+
+		try {
+			// Dynamic because it IS dynamic — `__call()` materialises the method.
+			$title = call_user_func([$board, 'getTitle']);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq skipped an unreadable Deck board: ' . $e->getMessage());
+			return null;
+		}
+
+		if (is_scalar($title) === true) {
+			return (string)$title;
+		}
+
+		return null;
+
+	}//end boardTitle()
 
 	/**
 	 * Search the configured web-research backend (web-research-tool). The acting
