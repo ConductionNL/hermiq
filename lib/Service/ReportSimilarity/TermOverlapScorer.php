@@ -125,25 +125,34 @@ class TermOverlapScorer {
 
 		$terms = [];
 		foreach ($tokens as $token) {
-			if (mb_strlen($token) < self::MINIMUM_TERM_LENGTH) {
-				continue;
+			if ($this->isSignificant(token: $token) === true) {
+				$terms[$token] = true;
 			}
-
-			if (in_array($token, self::STOPWORDS, true) === true) {
-				continue;
-			}
-
-			// A run of digits is an identifier, not a word: a telephone number, a
-			// burgerservicenummer, a case number. It is no use as evidence that two
-			// reports describe one event, and a group is read by handlers and kept
-			// as a reason, so it has no business being in one.
-			if (preg_match('/^\d+$/', $token) === 1) {
-				continue;
-			}
-
-			$terms[$token] = true;
 		}
 
 		return array_keys($terms);
 	}//end terms()
+
+	/**
+	 * Whether a token counts as a term: long enough, not a stop word, not a digit run.
+	 *
+	 * @param string $token The lower-cased token.
+	 *
+	 * @return boolean True when it is a significant term.
+	 */
+	private function isSignificant(string $token): bool {
+		if (mb_strlen($token) < self::MINIMUM_TERM_LENGTH) {
+			return false;
+		}
+
+		if (in_array($token, self::STOPWORDS, true) === true) {
+			return false;
+		}
+
+		// A run of digits is an identifier, not a word: a telephone number, a
+		// burgerservicenummer, a case number. It is no use as evidence that two
+		// reports describe one event, and a group is read by handlers and kept
+		// as a reason, so it has no business being in one.
+		return preg_match('/^\d+$/', $token) !== 1;
+	}//end isSignificant()
 }//end class
