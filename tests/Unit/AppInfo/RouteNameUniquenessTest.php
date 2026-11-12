@@ -141,4 +141,42 @@ class RouteNameUniquenessTest extends TestCase {
 
 	}//end testEveryEntryCarriesAControllerHashActionName()
 
+
+	/**
+	 * Every /api/ route also answers under /api/v1/ (the OpenAPI server URL),
+	 * with the same controller method, verb, requirements and defaults, except
+	 * the deprecated 'legacy' aliases; and the SPA catch-all stays last, so it
+	 * cannot answer a versioned path first.
+	 *
+	 * @return void
+	 */
+	public function testEveryApiRouteAnswersUnderTheVersionedBase(): void {
+		$entries = $this->routeFile()['routes'];
+
+		$plain     = [];
+		$versioned = [];
+		foreach ($entries as $entry) {
+			$key = ($entry['verb'] ?? 'GET').' '.$entry['url'];
+			if (str_starts_with($entry['url'], '/api/v1/') === true && str_ends_with(($entry['postfix'] ?? ''), 'V1') === true) {
+				$versioned[$key] = $entry;
+			} else if (str_starts_with($entry['url'], '/api/') === true && ($entry['postfix'] ?? '') !== 'legacy') {
+				$plain[$key] = $entry;
+			}
+		}
+
+		$this->assertNotEmpty($plain);
+		$this->assertCount(count($plain), $versioned);
+		foreach ($plain as $key => $entry) {
+			[$verb, $url] = explode(' ', $key, 2);
+			$twin         = ($versioned[$verb.' /api/v1/'.substr($url, 5)] ?? null);
+			$this->assertNotNull($twin, $key.' has no /api/v1/ twin');
+			$this->assertSame($entry['name'], $twin['name']);
+			$this->assertSame(($entry['postfix'] ?? '').'V1', $twin['postfix']);
+			$this->assertSame(($entry['requirements'] ?? null), ($twin['requirements'] ?? null));
+			$this->assertSame(($entry['defaults'] ?? null), ($twin['defaults'] ?? null));
+		}
+
+		$this->assertArrayNotHasKey('GET /api/v1/conversations', $versioned);
+		$this->assertSame('dashboard#catchAll', end($entries)['name']);
+	}//end testEveryApiRouteAnswersUnderTheVersionedBase()
 }//end class

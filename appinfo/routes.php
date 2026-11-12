@@ -18,7 +18,7 @@
 
 declare(strict_types=1);
 
-return [
+$routes = [
     'routes' => [
         // Dashboard + Settings.
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
@@ -807,3 +807,27 @@ return [
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
     ],
 ];
+
+// The versioned API base (NL API Design Rules, /core/uri-version): every /api/ route
+// also answers under /api/v1/, the server URL the OpenAPI document names. The unversioned
+// route stays, so existing clients and the URLs the app generates keep working. Each
+// copy gets its own route name through 'postfix', and the copies go before the SPA
+// catch-all, which would otherwise answer /api/v1/ paths first. The deprecated
+// /api/conversations aliases of the session routes (postfix 'legacy', see
+// SessionController::noteDeprecatedAlias) get no versioned copy: new clients use
+// /api/v1/sessions.
+$versioned = [];
+foreach ($routes['routes'] as $route) {
+    if (str_starts_with($route['url'], '/api/') === false || ($route['postfix'] ?? '') === 'legacy') {
+        continue;
+    }
+
+    $route['url']     = '/api/v1/'.substr($route['url'], strlen('/api/'));
+    $route['postfix'] = ($route['postfix'] ?? '').'V1';
+    $versioned[]      = $route;
+}
+
+$catchAll = array_search('dashboard#catchAll', array_column($routes['routes'], 'name'), true);
+array_splice($routes['routes'], ($catchAll === false ? count($routes['routes']) : $catchAll), 0, $versioned);
+
+return $routes;
