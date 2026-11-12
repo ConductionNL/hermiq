@@ -2908,11 +2908,12 @@
 			"source": "own-code",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Mcp/HermiqToolProvider.php:166-201 (listFiles/readFile descriptors) and :775-850 (implementation) scope strictly to IRootFolder::getUserFolder(uid), the acting user's own folder.",
+				"evidence": "Not built: agents can only list and read files; no createFile or moveFile tool exists in lib/ (task 1.2 of spec-coverage-built-rows, decision 389). (12 Nov) Was: lib/Mcp/HermiqToolProvider.php:166-201 (listFiles/readFile descriptors) and :775-850 (implementation) scope strictly to IRootFolder::getUserFolder(uid), the acting user's own folder.",
 				"spec": "openspec/specs/nc-native-tools",
-				"requirement": "openspec/changes/spec-coverage-built-rows/specs/nc-native-tools :: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)"
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/nc-native-tools :: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)",
+				"plan": "openspec/changes/spec-coverage-built-rows"
 			},
 			"reachedOn": "Agent tool grant (ToolGrantMatrix) -> chat/schedule run -> hermiq.listFiles / hermiq.readFile via FacadeToolInvoker",
 			"provider": "hermiq",
@@ -4248,10 +4249,12 @@
 			"source": "own-code",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/info.xml:52-58 registers SkillCuratorTask, SkillLearningsPromotionTask and SkillConsolidationTask in <background-jobs>. openspec/specs/skills-marketplace/spec.md describes SkillCuratorTask as a daily TimedJob doing active->stale->archived transitions and states it 'NEVER hard-deletes'.",
-				"spec": "openspec/specs/skills-marketplace"
+				"evidence": "Not built: the curator only moves skills from active to stale to archived; decision 390 adds merging duplicates. (12 Nov) Was: appinfo/info.xml:52-58 registers SkillCuratorTask, SkillLearningsPromotionTask and SkillConsolidationTask in <background-jobs>. openspec/specs/skills-marketplace/spec.md describes SkillCuratorTask as a daily TimedJob doing active->stale->archived transitions and states it 'NEVER hard-deletes'.",
+				"spec": "openspec/specs/skills-marketplace",
+				"requirement": "openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace :: The curator SHALL propose merging duplicate skills",
+				"plan": "openspec/changes/skills-curator-merges-duplicates"
 			},
 			"reachedOn": "Automatic daily TimedJob (SkillCuratorTask), no page action needed",
 			"provider": "hermiq",
@@ -7187,11 +7190,13 @@
 			"source": "own-code",
 			"hermiq": "partial",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json page 'Reports' route /reports, type 'reports', one card ('AI oversight' -> route AiOversight); menu entry 'ReportsMenu' section footer order 95; the AiOversight page itself (type dashboard) reads Approval objects (sourceType=advisory) via stats-block/object-table widgets, no bespoke controller.",
+				"evidence": "Not built: every report is read on demand (reports spec Purpose); decision 390 adds reports on a schedule. (12 Nov) Was: src/manifest.json page 'Reports' route /reports, type 'reports', one card ('AI oversight' -> route AiOversight); menu entry 'ReportsMenu' section footer order 95; the AiOversight page itself (type dashboard) reads Approval objects (sourceType=advisory) via stats-block/object-table widgets, no bespoke controller.",
 				"spec": "openspec/specs/reports",
-				"readOn": "2026-10-07"
+				"readOn": "2026-10-07",
+				"requirement": "openspec/changes/reports-on-a-schedule/specs/reports :: A person SHALL receive a report on a schedule they choose",
+				"plan": "openspec/changes/reports-on-a-schedule"
 			},
 			"reachedOn": "footer menu -> Reports (/reports) -> AI oversight card -> /ai-oversight",
 			"note": "Re-rated yes to partial on 2026-10-07: there is one report, AI oversight, read on demand; nothing produces reports on a schedule, which the row asks for. The Reports page is specified after the fact in openspec/specs/reports; the oversight report itself in openspec/changes/ai-oversight-advisory-approvals (open, 16 of 18 tasks done), which round 1 did not link.",
