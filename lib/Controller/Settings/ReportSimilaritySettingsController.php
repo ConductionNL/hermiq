@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+ * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Read and set the grouping thresholds and windows.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
+ * @spec openspec/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
  */
 class ReportSimilaritySettingsController extends Controller {
 
@@ -70,7 +70,7 @@ class ReportSimilaritySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The settings.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -91,7 +91,7 @@ class ReportSimilaritySettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored settings, or 422 naming what was wrong.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {

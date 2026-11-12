@@ -46,7 +46,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+ * @spec openspec/specs/session-data-migration/spec.md
  */
 
 declare(strict_types=1);
@@ -66,7 +66,7 @@ use Throwable;
 /**
  * Copies conversation/message objects onto the session/session-turn schemas.
  *
- * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+ * @spec openspec/specs/session-data-migration/spec.md
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) A one-shot data migration touches both
  *   worlds by design: OpenRegister's object layer and its mapper for the archived read,
@@ -171,7 +171,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	public function run(IOutput $output): void {
 		// Ask before reaching. Every OpenRegister class this step uses is resolved
@@ -213,7 +213,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function runInner(ObjectService $objectService, IOutput $output): void {
 		$sessions = $this->migrateFamily(
@@ -261,7 +261,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return array{copied: int, present: int, failed: int} The per-family counts.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function migrateFamily(
 		ObjectService $objectService,
@@ -339,7 +339,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return array<int, ObjectEntity> Source objects, live first then archived.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function readSource(ObjectService $objectService, string $schema): array {
 		$rows = [];
@@ -394,7 +394,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return bool True when it exists.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function objectExists(string $schema, string $uuid): bool {
 		try {
@@ -451,7 +451,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return bool True when the write succeeded.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function persist(
 		ObjectService $objectService,
@@ -527,7 +527,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function carryProvenance(string $sourceSchema, string $targetSchema, string $uuid): void {
 		try {
@@ -638,7 +638,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return array<string, mixed> The `@self` block, or [] when nothing is worth carrying.
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function buildSelf(ObjectEntity $source): array {
 		$self = [];
@@ -699,7 +699,7 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-data-migration/specs/session-data-migration/spec.md
+	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
 	private function recordOutcome(string $outcome, string $detail = ''): void {
 		try {

@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-hermiq-must-answer-which-group-a-report-belongs-to-and-must-not-act-on-the-answer
+ * @spec openspec/specs/report-similarity/spec.md#requirement-hermiq-must-answer-which-group-a-report-belongs-to-and-must-not-act-on-the-answer
  */
 
 declare(strict_types=1);
@@ -53,7 +53,7 @@ use Throwable;
 /**
  * Answers which group an incoming report belongs to, and why.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md
+ * @spec openspec/specs/report-similarity/spec.md
  */
 class ReportSimilarityService {
 
@@ -128,7 +128,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The group, the score, what decided, and why.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
 	 */
 	public function evaluate(
 		string $reportId,
@@ -187,7 +187,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed>|null The group as it now stands, or null when there is no such group.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-pulling-one-report-out-costs-nothing
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-pulling-one-report-out-costs-nothing
 	 */
 	public function removeMember(string $groupId, string $reportId): ?array {
 		$group = $this->find(groupId: $groupId);
@@ -226,7 +226,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed>|null The group, or null.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	public function group(string $groupId): ?array {
 		$group = $this->find(groupId: $groupId);
@@ -248,7 +248,7 @@ class ReportSimilarityService {
 	 * @return array{group: ObjectEntity, score: float, terms: array<int, string>, scorer: string, decidedBy: string}|null
 	 *         The match, or null when the report starts its own group.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-key-decides-where-it-can
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-key-decides-where-it-can
 	 */
 	private function bestMatch(array $candidates, string $text, string $deterministicKey): ?array {
 		if ($deterministicKey !== '') {
@@ -301,7 +301,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The answer.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-a-clearly-separate-report-stands-alone
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-a-clearly-separate-report-stands-alone
 	 */
 	private function startGroup(
 		string $reportId,
@@ -360,7 +360,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The answer.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-a-near-duplicate-is-visible-not-buried
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-a-near-duplicate-is-visible-not-buried
 	 */
 	private function joinGroup(
 		ObjectEntity $group,
@@ -420,7 +420,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The group.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	private function shape(ObjectEntity $group): array {
 		$data = $group->getObject();
@@ -458,7 +458,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<int, ObjectEntity> The candidate groups.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
 	 */
 	private function openGroups(string $reportType, int $windowMinutes, DateTimeImmutable $at): array {
 		$cutoff = $at->modify(sprintf('-%d minutes', $windowMinutes));
@@ -585,7 +585,7 @@ class ReportSimilarityService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-each-judgement-is-on-the-audit-trail
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-each-judgement-is-on-the-audit-trail
 	 */
 	private function record(string $reportId, string $reportType, array $answer, int $windowMinutes): void {
 		try {

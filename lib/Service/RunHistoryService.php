@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#3-run-history-read-surface
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#3-run-history-read-surface
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use Throwable;
 /**
  * Reads and shapes a schedule's OpenRegister run audit entries as run records.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#3-run-history-read-surface
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#3-run-history-read-surface
  */
 class RunHistoryService {
 
@@ -62,7 +62,7 @@ class RunHistoryService {
 	 * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (by object_uuid — see getRunHistory).
 	 * @param IURLGenerator $urlGenerator Builds the schedule deep link per run record.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-1
 	 */
 	public function __construct(
 		private readonly AuditTrailMapper $auditTrailMapper,
@@ -95,7 +95,7 @@ class RunHistoryService {
 	 *
 	 * @return array<int, array<string, mixed>> The run records, newest-first.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-1
 	 */
 	public function getRunHistory(string $scheduleUuid, int $limit = 20, int $offset = 0): array {
 		$runs = $this->runRecordsNewestFirst(scheduleUuid: $scheduleUuid);
@@ -182,7 +182,7 @@ class RunHistoryService {
 	 *
 	 * @return array<string, mixed>|null The run's trace record, or null when not found.
 	 *
-	 * @spec openspec/changes/run-trace-observability/tasks.md#task-4-runhistoryservicegetruntrace-trace-read-gate-wait-reconstruction
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-4-runhistoryservicegetruntrace-trace-read-gate-wait-reconstruction
 	 */
 	public function getRunTrace(string $scheduleUuid, string $runId): ?array {
 		$logs = $this->runEntriesOldestFirst(scheduleUuid: $scheduleUuid);
@@ -486,8 +486,8 @@ class RunHistoryService {
 	 *
 	 * @return array<string, mixed> The run record.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-1
-	 * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-1
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
 	 */
 	private function toRunRecord(string $scheduleUuid, AuditTrail $log): array {
 		$context = ($log->getChanged() ?? []);
@@ -559,7 +559,7 @@ class RunHistoryService {
 	 *
 	 * @return string The absolute URL.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-3-1
 	 */
 	private function buildScheduleLink(string $uuid): string {
 		try {

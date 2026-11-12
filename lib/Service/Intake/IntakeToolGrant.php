@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
+ * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-conversation-must-be-able-to-file-on-its-own-surface
  * @spec openspec/specs/conversational-intake/spec.md#requirement-an-intake-tool-is-recognised-by-its-mark-and-its-declared-create-taxonomy
  */
 
@@ -46,7 +46,7 @@ use Throwable;
 /**
  * Resolves the create-only intake tools and the declared reviews.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+ * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
  */
 class IntakeToolGrant {
 
@@ -101,7 +101,7 @@ class IntakeToolGrant {
 	 *
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
 	 */
 	public function intakeTools(): array {
 		return $this->annotated(annotation: self::INTAKE_ANNOTATION, createOnly: true);
@@ -114,7 +114,7 @@ class IntakeToolGrant {
 	 *
 	 * @return array<int, array<string, mixed>> The descriptors.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-an-external-review-must-be-a-declared-tool-whose-verdict-is-recorded
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-an-external-review-must-be-a-declared-tool-whose-verdict-is-recorded
 	 */
 	public function reviewTools(): array {
 		return $this->annotated(annotation: self::REVIEW_ANNOTATION, createOnly: false);
@@ -127,7 +127,7 @@ class IntakeToolGrant {
 	 *
 	 * @return bool True when it is a declared intake or review tool.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-intake-cannot-touch-an-existing-record
 	 */
 	public function permits(string $toolId): bool {
 		foreach (array_merge($this->intakeTools(), $this->reviewTools()) as $descriptor) {
@@ -176,7 +176,7 @@ class IntakeToolGrant {
 	 *
 	 * @throws IntakeRefusedException When the grant does not cover this tool.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-a-conversation-ends-in-a-filed-request
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-a-conversation-ends-in-a-filed-request
 	 */
 	public function call(string $toolId, array $arguments): array {
 		if ($this->permits(toolId: $toolId) === false) {

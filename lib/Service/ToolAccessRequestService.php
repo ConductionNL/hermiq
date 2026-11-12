@@ -31,7 +31,7 @@
  *
  * @link https://hermiq.conduction.nl
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
  */
 
 declare(strict_types=1);
@@ -128,7 +128,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<string, mixed> Tool metadata — never anything dispatchable.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function listAvailable(string $uid, ?string $agentId, string $query = ''): array {
 		$catalog = $this->catalog();
@@ -343,7 +343,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<string, mixed> The pending request, or an error.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function request(string $uid, ?string $agentId, string $toolId, string $reason): array {
 		if ($agentId === null || $agentId === '') {
@@ -612,7 +612,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<int, array<string, mixed>> Pending approvals, oldest first.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function pendingApprovals(?string $agentId): array {
 		if ($agentId === null || $agentId === '') {
@@ -746,7 +746,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function notifyOwner(string $agentId, string $toolId, string $subject): void {
 		$agent = $this->loadAgent(agentId: $agentId);

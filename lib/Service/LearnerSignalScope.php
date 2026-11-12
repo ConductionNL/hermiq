@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
  */
 
 declare(strict_types=1);
@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Service;
 /**
  * Who the signals are read for, and where.
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
  */
 final class LearnerSignalScope {
 
@@ -39,7 +39,7 @@ final class LearnerSignalScope {
 	 * @param string $learnerUid The learner's NC user id.
 	 * @param string $register   The RESOLVED register slug, from {@see LearnerSignalRegister}.
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	public function __construct(
 		public readonly string $learnerUid,
@@ -54,7 +54,7 @@ final class LearnerSignalScope {
 	 *
 	 * @return array<string, string>
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
 	 */
 	public function filtersOn(?string $field): array {
 		if ($field === null) {

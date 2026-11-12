@@ -26,8 +26,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
- * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-07-16-woo-llm-anonymisation/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Psr\Log\LoggerInterface;
 /**
  * AssistantService orchestrates a single tool-free, context-grounded chat turn.
  *
- * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-1-1
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Composes the same handler set
  * Engine::processMessage() does, minus the two RAG-specific handlers this
@@ -126,7 +126,7 @@ class AssistantService {
 	 *
 	 * @var int
 	 *
-	 * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-07-16-woo-llm-anonymisation/tasks.md#task-1-1
 	 */
 	private const MAX_DETECT_TEXT_LENGTH = 12000;
 
@@ -157,7 +157,7 @@ class AssistantService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -186,7 +186,7 @@ class AssistantService {
 	 *                   session (403), or a downstream LLM/provider failure.
 	 * @throws GuardrailBlockedException When the input is refused by the effective GuardrailPolicy.
 	 *
-	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-1-1
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
 	 */
 	public function converse(string $userId, ?string $sessionId, string $message, array $context): array {
@@ -312,7 +312,7 @@ class AssistantService {
 	 *                                   effective GuardrailPolicy's
 	 *                                   prompt-injection filter.
 	 *
-	 * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-07-16-woo-llm-anonymisation/tasks.md#task-1-2
 	 */
 	public function detectPii(string $userId, string $text, array $context): array {
 		$this->validateDetectText(text: $text);
@@ -388,7 +388,7 @@ class AssistantService {
 	 *
 	 * @return ObjectEntity The Agent object.
 	 *
-	 * @spec openspec/changes/woo-llm-anonymisation/design.md#decision-3
+	 * @spec openspec/changes/archive/2026-07-16-woo-llm-anonymisation/design.md#decision-3
 	 */
 	private function findOrCreateDetectorAgent(string $app): ObjectEntity {
 		return $this->provisionAgent(
@@ -584,7 +584,7 @@ class AssistantService {
 	 *
 	 * @return ObjectEntity The Agent object.
 	 *
-	 * @spec openspec/changes/case-assistant-surface/design.md#decision-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/design.md#decision-1
 	 */
 	private function findOrCreateAgent(string $app): ObjectEntity {
 		return $this->provisionAgent(
@@ -628,7 +628,7 @@ class AssistantService {
 	 *
 	 * @throws Exception (code 400) When `$app` is not an installed, enabled app.
 	 *
-	 * @spec openspec/changes/case-assistant-surface/design.md#decision-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/design.md#decision-1
 	 */
 	private function provisionAgent(string $app, string $name, string $description, string $prompt): ObjectEntity {
 		if ($this->appManager->isEnabledForUser($app) === false) {

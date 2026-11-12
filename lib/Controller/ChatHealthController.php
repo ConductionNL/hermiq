@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
  * {status:"config_error"} when the config read itself fails, which IS the app
  * being broken.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 class ChatHealthController extends Controller {
 	/**
@@ -59,7 +59,7 @@ class ChatHealthController extends Controller {
 	 * @param LlmSettingsHandler $llmSettings Reads the `hermiq.llm` provider configuration.
 	 * @param LoggerInterface $logger PSR-3 logger for surfacing config errors.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -94,7 +94,7 @@ class ChatHealthController extends Controller {
 	 * short interval, and a ceiling that trips on a normal probe cadence turns
 	 * the health check into the outage it was meant to detect.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {

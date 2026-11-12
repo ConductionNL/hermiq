@@ -119,14 +119,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
- * @spec openspec/changes/run-trace-observability/tasks.md#task-2-thread-the-collector-through-enginetoolloopfacadetoolinvoker
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
- * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
- * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
- * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
- * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-enginetoolloopfacadetoolinvoker
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+ * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+ * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+ * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-argument-constraints-on-a-grant-are-enforced-at-invocation
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-a-flow-invoked-as-an-agent-tool-is-attributed-to-an-owning-uid
  */
@@ -169,7 +169,7 @@ use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
  *   where it does, which is the only place that reasoning is recorded. Splitting the class
  *   to satisfy the metric would create the second dispatch path this class exists to prevent.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 class FacadeToolInvoker {
 
@@ -428,12 +428,12 @@ class FacadeToolInvoker {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
 	 *   is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $facade,
@@ -494,12 +494,12 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 */
 	public function __call(string $name, array $arguments): string {
 		// Agents-switch-off-and-stop: before anything else, the turn may be over.
@@ -520,9 +520,9 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
 	 */
 	private function route(string $name, array $arguments): string {
 		if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
@@ -750,7 +750,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string One of `auto`, `confirm`, `deny`.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function classifyTool(string $name): string {
 		if ($this->toolPolicy === []) {
@@ -817,7 +817,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded outcome for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
 	 */
 	private function handleConfirmClassifiedInvocation(string $name, array $arguments): string {
 		$call = new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments);
@@ -889,7 +889,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded `{matches, count}`.
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
 	 */
 	private function handleSearchTools(array $arguments): string {
 		$query = (string)($arguments['query'] ?? '');
@@ -938,7 +938,7 @@ class FacadeToolInvoker {
 	 *
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
 	 */
 	private function requiresApprovalGate(string $name): bool {
 		if ($this->approvalService === null || $this->agentId === null || $this->toolSearchService === null) {
@@ -993,7 +993,7 @@ class FacadeToolInvoker {
 	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::waivedBy()` / `waives()` is a PURE
 	 *   decision over the grant grammar, exactly like `violationFor()` beside it.
 	 *
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
 	 */
 	private function isWaived(string $name, array $arguments): bool {
 		if ($this->waivedConstraintSets === []) {
@@ -1047,8 +1047,8 @@ class FacadeToolInvoker {
 	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver::resolve()` is a PURE
 	 *   classification function — see `requiresApprovalGate()`.
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+	 * @spec openspec/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
 	 */
 	private function handleGatedInvocation(string $name, array $arguments): string {
 		$toolId = $this->resolveToolId(name: $name);
@@ -1125,8 +1125,8 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> Arguments, with `agentId` set when applicable.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-5
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-hermiq-passes-the-acting-agent-to-integriqs-agent-tools-req-apver-003
 	 */
 	private function withAgentId(string $name, array $arguments): array {
@@ -1165,8 +1165,8 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
 	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
@@ -1262,7 +1262,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> `['target' => string]` and/or `['artefact' => ...]`, or `[]`.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 */
 	private function traceExtraFor(string $name, array $arguments, mixed $result = null): array {
 		$toolId = $this->resolveToolId(name: $name);
@@ -1304,7 +1304,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> The trace extra fragment.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
+	 * @spec openspec/changes/archive/2026-08-15-nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
 	 */
 	private function resolveArtefactDescriptor(mixed $result): array {
 		if (is_array($result) === false || isset($result['artefact']) === false) {
@@ -1338,7 +1338,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string|null The target, or null when the relevant argument is absent/empty.
 	 *
-	 * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 */
 	private function resolveWebResearchTarget(string $toolId, array $arguments): ?string {
 		if ($toolId === 'hermiq.webFetch') {
@@ -1385,7 +1385,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 */
 	private function isSideEffecting(string $name): bool {
 		if ($this->classifier === null) {
@@ -1413,8 +1413,8 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded preview envelope for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
 	private function recordWouldHaveCalled(string $name, array $arguments, ?int $traceToken): string {
 		$toolId = $this->resolveToolId(name: $name);
@@ -1466,7 +1466,7 @@ class FacadeToolInvoker {
 	 *                              placeholder key when redaction could not be
 	 *                              round-tripped as JSON — never the raw values).
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
 	private function redactArguments(array $arguments): array {
 		if ($this->redactionService === null) {

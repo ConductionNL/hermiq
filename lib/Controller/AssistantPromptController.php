@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Read, administer and switch off the assistant's prompts.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-disabling-every-prompt-must-be-one-recorded-act
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-disabling-every-prompt-must-be-one-recorded-act
  */
 class AssistantPromptController extends Controller {
 
@@ -75,7 +75,7 @@ class AssistantPromptController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
 	 */
 	public function index(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -111,7 +111,7 @@ class AssistantPromptController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
 	 */
 	public function save(?string $id = null): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -152,7 +152,7 @@ class AssistantPromptController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
 	 */
 	public function disableAll(): JSONResponse {
 		$user = $this->userSession->getUser();

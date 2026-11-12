@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @psalm-api
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
 class WebhookAgentRunJob extends QueuedJob {
 	/**
@@ -64,7 +64,7 @@ class WebhookAgentRunJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
 	 */
 	protected function run($argument): void {
 		$context = $argument;

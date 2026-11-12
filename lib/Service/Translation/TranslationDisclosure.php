@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service\Translation;
 /**
  * Builds the fixed AI-translation disclosure sentence for a language pair.
  *
- * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
  */
 class TranslationDisclosure {
 
@@ -192,7 +192,7 @@ class TranslationDisclosure {
 	 *
 	 * @return bool True for a well-shaped tag.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	public function isLanguageTag(mixed $tag): bool {
 		return is_string($tag) === true && preg_match(self::LANGUAGE_TAG_PATTERN, $tag) === 1;
@@ -205,7 +205,7 @@ class TranslationDisclosure {
 	 *
 	 * @return string The primary subtag.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
 	 */
 	public function primarySubtag(string $tag): string {
 		return strtolower(explode('-', $tag)[0]);
@@ -220,7 +220,7 @@ class TranslationDisclosure {
 	 *
 	 * @return array{disclosure: string, disclosureLanguage: string} The sentence and its language.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
 	 */
 	public function forLanguages(string $sourceLanguage, string $targetLanguage): array {
 		$language = $this->primarySubtag(tag: $targetLanguage);
@@ -248,7 +248,7 @@ class TranslationDisclosure {
 	 *
 	 * @return string The name.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
 	 */
 	public function languageName(string $tag, string $inLanguage): string {
 		$primary = $this->primarySubtag(tag: $tag);
@@ -269,7 +269,7 @@ class TranslationDisclosure {
 	 *
 	 * @return bool True when `locale_get_display_language()` exists.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-009-the-disclosure-is-written-in-the-target-language-or-says-which-language-it-is-in
 	 */
 	protected function intlAvailable(): bool {
 		return function_exists('locale_get_display_language');

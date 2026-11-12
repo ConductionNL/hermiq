@@ -31,8 +31,8 @@
   mirrors AgentTemplateRowActions' publish-to-GitHub form exactly.
 
   @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
-  @spec openspec/changes/skills-catalog/specs/skills-catalog/spec.md
-  @spec openspec/changes/skills-marketplace/tasks.md
+  @spec openspec/specs/skills-catalog/spec.md
+  @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md
   @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 -->
 <template>

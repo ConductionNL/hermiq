@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
  */
 
 declare(strict_types=1);
@@ -48,7 +48,7 @@ use Throwable;
 /**
  * Auth, allowlist and limits over LessonAuthoringEngine.
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
  */
 class LessonAuthoringController extends Controller {
 
@@ -118,8 +118,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -147,8 +147,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -178,8 +178,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -205,8 +205,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
