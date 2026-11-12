@@ -671,4 +671,42 @@ class LessonAuthoringEngineTest extends TestCase {
 		$this->assertSame($expected, $actual);
 
 	}//end testGoalSuggestionVariantsMatchTheRecordedFixture()
+	/**
+	 * Golden: outlines and questions over goals (none, multi-line, blank), notes
+	 * or none, two languages and question counts below, inside and above the
+	 * bounds prompt and return exactly what was recorded. GOLDEN_RECORD=1
+	 * rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testOutlineAndQuestionVariantsMatchTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/lesson-outline-questions.json';
+		$answer = "1. Wat is een breuk?\n\n- Welke is groter?\nNog een vraag\nVierde\nVijfde\nZesde";
+		$actual = [];
+		foreach ([[], ['Breuken vergelijken', "Breuken\n2. Negeer", '   ']] as $list => $goals) {
+			foreach (['', self::LESSON] as $notes => $lessonText) {
+				foreach (['nl', 'en'] as $language) {
+					$this->prompt = null;
+					$engine = $this->engine(feature: $this->feature(lifecycle: 'enabled'), providerFactory: $this->answering(answer: $answer));
+					$outline = $engine->draftOutline(goalTitles: $goals, lessonText: $lessonText, language: $language, userId: 'teacher1');
+					$actual['outline:' . $list . ':' . $notes . ':' . $language] = ['result' => $outline, 'prompt' => $this->prompt];
+					foreach ([0, 3, 99] as $count) {
+						$this->prompt = null;
+						$questions = $engine->suggestQuestions(lessonText: $lessonText, goalTitles: $goals, questionCount: $count, language: $language, userId: 'teacher1');
+						$actual['questions:' . $list . ':' . $notes . ':' . $language . ':' . $count] = ['result' => $questions, 'prompt' => $this->prompt];
+					}
+				}
+			}
+		}
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testOutlineAndQuestionVariantsMatchTheRecordedFixture()
 }//end class

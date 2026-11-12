@@ -166,27 +166,55 @@ class LessonAuthoringEngine {
 	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
 	 */
 	public function draftOutline(array $goalTitles, string $lessonText, string $language, string $userId): array {
-		$goals = $this->cleanTitles(titles: $goalTitles);
+		$request = new LessonDraftRequest(lessonText: $lessonText, language: $language);
+		$request->goals = $this->cleanTitles(titles: $goalTitles);
+		$request->userId = $userId;
 
-		$prompt = 'You help a teacher prepare a lesson. Draft a lesson outline that serves the learning goals '
-			. 'below. Write the outline in the language with BCP-47 tag "' . $language . '". Give one outline '
-			. 'item per line: the phase of the lesson and what happens in it. Output only the outline, with no '
-			. 'preamble, no explanation and no markdown. ' . self::PRIVACY_INSTRUCTION
-			. "\n\nLearning goals:\n" . $this->bulletList(items: $goals);
+		return $this->outline(request: $request);
+	}//end draftOutline()
 
-		if (trim($lessonText) !== '') {
-			$prompt .= "\n\nBuild on these existing notes. " . self::MATERIAL_INSTRUCTION
-				. "\n" . $this->fence(text: $lessonText);
-		}
-
+	/**
+	 * Ask the model for the outline and parse it as text.
+	 *
+	 * @param LessonDraftRequest $request The outline request.
+	 *
+	 * @return array<string, mixed> The success envelope plus `draftText`, or the unavailable envelope.
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
+	 */
+	private function outline(LessonDraftRequest $request): array {
 		return $this->execute(
 			action: self::ACTION_OUTLINE,
-			userId: $userId,
-			prompt: $prompt,
-			sizes: $this->sizes(lessonText: $lessonText, goalCount: count($goals)),
+			userId: $request->userId,
+			prompt: $this->outlinePrompt(request: $request),
+			sizes: $this->sizes(lessonText: $request->lessonText, goalCount: count($request->goals)),
 			parse: fn (string $raw): ?array => $this->parseText(raw: $raw)
 		);
-	}//end draftOutline()
+	}//end outline()
+
+	/**
+	 * The outline prompt: the goals, the language, and any existing notes fenced.
+	 *
+	 * @param LessonDraftRequest $request The outline request.
+	 *
+	 * @return string The prompt.
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-002-only-lesson-text-and-goal-titles-reach-the-model
+	 */
+	private function outlinePrompt(LessonDraftRequest $request): string {
+		$prompt = 'You help a teacher prepare a lesson. Draft a lesson outline that serves the learning goals '
+			. 'below. Write the outline in the language with BCP-47 tag "' . $request->language . '". Give one outline '
+			. 'item per line: the phase of the lesson and what happens in it. Output only the outline, with no '
+			. 'preamble, no explanation and no markdown. ' . self::PRIVACY_INSTRUCTION
+			. "\n\nLearning goals:\n" . $this->bulletList(items: $request->goals);
+
+		if (trim($request->lessonText) !== '') {
+			$prompt .= "\n\nBuild on these existing notes. " . self::MATERIAL_INSTRUCTION
+				. "\n" . $this->fence(text: $request->lessonText);
+		}
+
+		return $prompt;
+	}//end outlinePrompt()
 
 	/**
 	 * Suggest questions a teacher can ask about a lesson.
@@ -208,28 +236,56 @@ class LessonAuthoringEngine {
 		string $language,
 		string $userId
 	): array {
-		$count = max(self::MIN_QUESTIONS, min(self::MAX_QUESTIONS, $questionCount));
-		$goals = $this->cleanTitles(titles: $goalTitles);
+		$request = new LessonDraftRequest(lessonText: $lessonText, language: $language);
+		$request->goals = $this->cleanTitles(titles: $goalTitles);
+		$request->userId = $userId;
 
+		return $this->questions(request: $request, count: max(self::MIN_QUESTIONS, min(self::MAX_QUESTIONS, $questionCount)));
+	}//end suggestQuestions()
+
+	/**
+	 * Ask the model for the questions and keep at most the asked count.
+	 *
+	 * @param LessonDraftRequest $request The questions request.
+	 * @param int                $count   How many questions, already clamped.
+	 *
+	 * @return array<string, mixed> The success envelope plus `questions`, or the unavailable envelope.
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
+	 */
+	private function questions(LessonDraftRequest $request, int $count): array {
+		return $this->execute(
+			action: self::ACTION_QUESTIONS,
+			userId: $request->userId,
+			prompt: $this->questionPrompt(request: $request, count: $count),
+			sizes: $this->sizes(lessonText: $request->lessonText, goalCount: count($request->goals)),
+			parse: fn (string $raw): ?array => $this->parseQuestions(raw: $raw, limit: $count)
+		);
+	}//end questions()
+
+	/**
+	 * The questions prompt: the count, the language, any goals to focus on, and the
+	 * fenced lesson text.
+	 *
+	 * @param LessonDraftRequest $request The questions request.
+	 * @param int                $count   How many questions.
+	 *
+	 * @return string The prompt.
+	 *
+	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-002-only-lesson-text-and-goal-titles-reach-the-model
+	 */
+	private function questionPrompt(LessonDraftRequest $request, int $count): string {
 		$prompt = 'You help a teacher check what pupils understood. Write exactly ' . $count . ' questions '
-			. 'about the lesson text below. Write them in the language with BCP-47 tag "' . $language . '". '
+			. 'about the lesson text below. Write them in the language with BCP-47 tag "' . $request->language . '". '
 			. 'Output one question per line, with no numbering, no answers, no preamble and no markdown. '
 			. self::PRIVACY_INSTRUCTION . ' ' . self::MATERIAL_INSTRUCTION;
 
-		if ($goals !== []) {
-			$prompt .= "\n\nFocus the questions on these learning goals:\n" . $this->bulletList(items: $goals);
+		if ($request->goals !== []) {
+			$prompt .= "\n\nFocus the questions on these learning goals:\n" . $this->bulletList(items: $request->goals);
 		}
 
-		$prompt .= "\n\n" . $this->fence(text: $lessonText);
-
-		return $this->execute(
-			action: self::ACTION_QUESTIONS,
-			userId: $userId,
-			prompt: $prompt,
-			sizes: $this->sizes(lessonText: $lessonText, goalCount: count($goals)),
-			parse: fn (string $raw): ?array => $this->parseQuestions(raw: $raw, limit: $count)
-		);
-	}//end suggestQuestions()
+		return $prompt . "\n\n" . $this->fence(text: $request->lessonText);
+	}//end questionPrompt()
 
 	/**
 	 * Rewrite a text at a lower reading level, keeping its language and meaning.
