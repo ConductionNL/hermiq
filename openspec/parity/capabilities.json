@@ -1513,7 +1513,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "openspec/specs/agent-capability-profile/spec.md (status active, DONE 12/12 tasks); src/manifest.json:203-527 AgentDetail page combines agent-skills (skillInstalls), agent-tool-governance (tools grant matrix) and agent-core (data incl. model/provider) widgets on the one page; registry.js:280-343 registers both widgets.",
-				"spec": "openspec/specs/agent-capability-profile"
+				"spec": "openspec/specs/agent-capability-profile",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-management-ui :: The agent page shows what an agent may use (REQ-SPCOV-001)"
 			},
 			"reachedOn": "/agents/:id AgentDetail",
 			"note": "Skills, tool grants and core config are three widgets on the same AgentDetail page rather than one merged panel, but they are all visible together without navigating away.",
@@ -2336,7 +2337,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/ScheduleFormModal.vue:88-89 intervalMinutes field when kind==='interval', :303 'Interval' option; lib/Settings/hermiq_register.json Schedule.intervalMinutes.",
-				"spec": "openspec/specs/agent-schedule"
+				"spec": "openspec/specs/agent-schedule",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule can repeat on an interval or run once (REQ-SPCOV-003)"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
@@ -2372,7 +2374,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/ScheduleFormModal.vue:95-96 runAt datetime field when kind==='once', :302 'Once' option; ScheduleService.php nextRun-from-runAt path (one-shots do not recur, per computeNextRun() docblock at :2039-2043).",
-				"spec": "openspec/specs/agent-schedule"
+				"spec": "openspec/specs/agent-schedule",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule can repeat on an interval or run once (REQ-SPCOV-003)"
 			},
 			"reachedOn": "/agents/:id AgentDetail -> agent-run-operations widget -> Attach/Edit schedule (ScheduleFormModal.vue)",
 			"provider": "hermiq",
@@ -2444,7 +2447,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/ScheduleService.php:2039-2071 computeNextRun() anchors the cron/interval computation to resolveTimezone($owner) then converts back to UTC; :3317-3328 resolveTimezone() reads the owner's Nextcloud core.timezone user config, falling back to the instance default_timezone, then UTC.",
-				"spec": "openspec/specs/agent-schedule"
+				"spec": "openspec/specs/agent-schedule",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-schedule :: A schedule keeps its local time across daylight saving changes (REQ-SPCOV-004)"
 			},
 			"reachedOn": "n/a (server-side computation, no dedicated screen; timezone is inherited from the schedule owner's Nextcloud profile setting)",
 			"provider": "hermiq",
@@ -2846,7 +2850,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:166-201 (listFiles/readFile descriptors) and :775-850 (implementation) scope strictly to IRootFolder::getUserFolder(uid), the acting user's own folder.",
-				"spec": "openspec/specs/nc-native-tools"
+				"spec": "openspec/specs/nc-native-tools",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/nc-native-tools :: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)"
 			},
 			"reachedOn": "Agent tool grant (ToolGrantMatrix) -> chat/schedule run -> hermiq.listFiles / hermiq.readFile via FacadeToolInvoker",
 			"provider": "hermiq",
@@ -2882,7 +2887,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Mcp/HermiqToolProvider.php:226-241,890-906 (listCalendarEvents) and lib/Mcp/NcNativeWriteToolDescriptors.php:56-95 (createCalendarEvent descriptor), dispatched at HermiqToolProvider.php:700-701 to NcNativeWriteService::createCalendarEvent.",
-				"spec": "openspec/specs/nc-native-tools"
+				"spec": "openspec/specs/nc-native-tools",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/nc-native-tools :: An agent can read the calendar and create events (REQ-SPCOV-006)"
 			},
 			"reachedOn": "Agent tool grant -> hermiq.listCalendarEvents / hermiq.createCalendarEvent",
 			"provider": "hermiq",
@@ -3270,7 +3276,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/McpTools.vue:1-75 lists tools from GET /api/agents/tools (appinfo/routes.php:504 agents#tools), grouped by source app, with an empty state when none are installed.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/specs/agent-engine-port",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: The tool catalogue lists every installed app's tools (REQ-SPCOV-007)"
 			},
 			"reachedOn": "/mcp-tools McpTools nav page",
 			"provider": "hermiq",
@@ -3670,7 +3677,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:205-210 memory#consolidate; lib/Controller/MemoryController.php:223-266; src/components/AgentMemoryPanel.vue:59-68 renders the needsConsolidation nudge with a Consolidate button.",
-				"spec": "openspec/specs/agent-memory"
+				"spec": "openspec/specs/agent-memory",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-memory :: An owner can have an agent tidy its memory (REQ-SPCOV-008)"
 			},
 			"reachedOn": "/memory page -> over-budget nudge -> Consolidate button -> POST /api/agents/{agentId}/memory/consolidate",
 			"provider": "hermiq",
@@ -3775,7 +3783,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "lib/Service/Engine/ConversationManagementHandler.php:77-91 (token threshold + keep-count constants), :265-352 checkAndSummarize() generates and stores a running summary; called automatically from lib/Service/Engine/Engine.php:402 on every chat turn.",
-				"spec": "openspec/specs/agent-engine-port"
+				"spec": "openspec/specs/agent-engine-port",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-engine-port :: A long conversation is summarised so it can continue (REQ-SPCOV-009)"
 			},
 			"reachedOn": "Any chat/session turn -> Engine::processMessage -> ConversationManagementHandler::checkAndSummarize (automatic, no user action)",
 			"provider": "hermiq",
@@ -4309,7 +4318,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:324 skill#export GET /api/skills/{id}/export; src/widgets/SkillRowActions.vue:141,277 calls exportSkill(this.skillId()) and offers the resulting package for download.",
-				"spec": "openspec/specs/skills-catalog"
+				"spec": "openspec/specs/skills-catalog",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/skills-catalog :: A person can export a skill to a file (REQ-SPCOV-010)"
 			},
 			"reachedOn": "SkillsCatalog row actions -> Export",
 			"provider": "hermiq",
@@ -5149,7 +5159,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/components/TalkDeliverySettings.vue mounted in src/App.vue; lib/Service/DeliveryService.php:1429-1483 reads the owner's 'delivertarget' preference (DELIVER_TARGET_PREF constant at line 163) set from Personal settings, used by resolveDefaultRoom() at line 1441; src/api/talk.js:56-68 getDeliveryTarget/setDeliveryTarget hit /apps/hermiq/api/preferences/delivertarget.",
-				"spec": "openspec/specs/talk-delivery"
+				"spec": "openspec/specs/talk-delivery",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/talk-delivery :: A person chooses where their agents deliver by default (REQ-SPCOV-011)"
 			},
 			"reachedOn": "In-app Hermiq settings (src/App.vue) -> Talk delivery default room picker",
 			"provider": "hermiq",
@@ -8153,7 +8164,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/manifest.json 'setup' block (enabled:true, steps: welcome -> demo-data choice -> load-demo-data -> llm-endpoint config-fields (Ollama) -> test-llm run-action) and a separate 'walkthrough' block (tour 'hermiq:getting-started', trigger 'first-visit', steps guiding Dashboard -> Agents -> Skills etc.).",
-				"spec": "openspec/specs/app-manifest"
+				"spec": "openspec/specs/app-manifest",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/first-time-setup :: The setup wizard guides an administrator to a first working provider and agent (REQ-SPCOV-013)"
 			},
 			"reachedOn": "First-run setup wizard + the 'Getting started' walkthrough tour triggered on first visit",
 			"provider": "hermiq",
@@ -8189,7 +8201,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "appinfo/routes.php:529 chatHealth#health GET /api/chat/health (#[PublicPage] per lib/Controller/ChatHealthController.php docblock); the controller reads hermiq.llm app-config to report whether the chat backend is configured and reachable, 'ported route-for-route from OpenRegister's ChatHealthController' for the shared nextcloud-vue AI companion widget to probe at mount.",
-				"spec": "openspec/specs/observability"
+				"spec": "openspec/specs/observability",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/observability :: Chat reports whether its model provider is ready (REQ-SPCOV-012)"
 			},
 			"reachedOn": "The shared nextcloud-vue AI companion widget probes GET /apps/hermiq/api/chat/health at mount time on any Nextcloud page",
 			"note": "Did not find hermiq's own src/companion.js calling this route explicitly; the route and its documented purpose (probed by the shared companion widget) are confirmed, but the exact call site in the companion bundle was not located.",
@@ -8807,7 +8820,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/modals/AgentFormModal.vue:161-165 Temperature (0-2) field, mounted via src/customComponents.js:28,114 as the agents index form-dialog; lib/Service/Engine/ResponseGenerationHandler.php:237-239,286 reads agent.temperature and applies it to the provider call",
-				"spec": "openspec/specs/agent-management-ui"
+				"spec": "openspec/specs/agent-management-ui",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-management-ui :: An agent answers with the temperature its owner sets (REQ-SPCOV-002)"
 			},
 			"feature": "agent-builder",
 			"reachedOn": "/agents -> New or Edit agent (AgentFormModal, form-dialog slot) -> Temperature field",
@@ -10030,7 +10044,8 @@
 				"state": "built",
 				"owner": "ConductionNL/hermiq",
 				"evidence": "src/views/McpTools.vue:6-12,25-28 lists tools from 'every app that registers an IMcpToolProvider', read from src/api/agents.js:67 -> appinfo/routes.php:504 agents#tools; lib/Service/Engine/ToolLoop.php:195 listAgentFunctions takes them from OpenRegister's ToolRegistryFacade and lib/Service/Engine/FacadeToolInvoker.php:1238 invokes them, so an installed app's tools reach the agent with no hermiq change",
-				"spec": "openspec/specs/agent-tool-governance"
+				"spec": "openspec/specs/agent-tool-governance",
+				"requirement": "openspec/changes/spec-coverage-built-rows/specs/agent-tool-governance :: The tool catalogue lists every installed app's tools (REQ-SPCOV-007)"
 			},
 			"feature": "nextcloud-tools",
 			"reachedOn": "/mcp-tools; /agents -> Edit agent tool picker; /agents/:id -> Tool governance",
