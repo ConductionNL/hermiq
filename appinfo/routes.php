@@ -52,6 +52,10 @@ $routes = [
         // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
         ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
 
+        // Plain words to a schedule rule, with readback and the next three runs
+        // (scheduling-overview-and-start-choice D3). Before the {scheduleId} routes.
+        ['name' => 'scheduleWhen#parse', 'url' => '/api/schedules/parse-when', 'verb' => 'POST'],
+
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
 

@@ -216,6 +216,10 @@
             "description": "Owner-scoped \"Run now\" endpoint that fires a schedule via ScheduleService."
         },
         {
+            "name": "schedule-when",
+            "description": "Reading when a schedule runs from plain English or Dutch."
+        },
+        {
             "name": "schedule-webhook-secret",
             "description": "Owner-scoped webhook-secret lifecycle endpoints for one schedule."
         },
@@ -6440,6 +6444,107 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/schedules/parse-when": {
+            "post": {
+                "operationId": "schedule-when-parse",
+                "summary": "Read a plain English or Dutch description of when a schedule runs",
+                "description": "Turns text such as \"every weekday at eight\" or \"elke maandag om negen uur\" into a schedule rule, with a readback and the next three runs. Stores nothing. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "schedule-when"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "text"
+                                ],
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "maxLength": 200,
+                                        "description": "What the person typed."
+                                    },
+                                    "locale": {
+                                        "type": "string",
+                                        "description": "The readback language; nl for Dutch, otherwise English.",
+                                        "example": "en"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                                "cron",
+                                                "interval",
+                                                "once"
+                                            ]
+                                        },
+                                        "cronExpr": {
+                                            "type": "string",
+                                            "example": "0 8 * * 1-5"
+                                        },
+                                        "intervalMinutes": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "runAt": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "readback": {
+                                            "type": "string",
+                                            "example": "Every weekday at 08:00, Europe/Amsterdam"
+                                        },
+                                        "nextRuns": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "format": "date-time"
+                                            }
+                                        },
+                                        "source": {
+                                            "type": "string",
+                                            "enum": [
+                                                "rules",
+                                                "model"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
