@@ -544,4 +544,32 @@ class ConversationTitleWriterTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testAMissingConversationIsANoOp()
+
+	/**
+	 * A conversation whose read throws (deleted, or no longer readable) is a
+	 * no-op too, and the owner's session is still released.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testAConversationThatCannotBeReadIsANoOp(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->once())->method('find')
+			->with('gone', [], false, 'hermiq', 'agentsession')
+			->willThrowException(new \RuntimeException('Object not found'));
+		$objectService->expects($this->never())->method('saveObject');
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->never())->method('generateConversationTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'gone',
+			userMessage: 'anything',
+			userId: 'alice'
+		);
+
+		$this->assertSame(['setUser:alice', 'setUser:null'], $this->calls);
+
+	}//end testAConversationThatCannotBeReadIsANoOp()
 }//end class
