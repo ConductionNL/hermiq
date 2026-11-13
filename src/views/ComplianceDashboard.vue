@@ -168,6 +168,7 @@ import { CnDataTable } from '@conduction/nextcloud-vue'
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getComplianceDashboard, getComplianceExport } from '../api/compliance.js'
+import { downloadJson } from '../utils/downloadJson.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -267,27 +268,7 @@ export default {
 			}
 		},
 
-		/**
-		 * Trigger a client-side download of a JSON object (mirrors TenantOps.vue).
-		 *
-		 * @param {object} data The payload to download.
-		 * @param {string} filename The download filename.
-		 * @return {void}
-		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
-		 */
-		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], {
-				type: 'application/json',
-			})
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = filename
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-		},
+		downloadJson,
 
 		/**
 		 * Human label for a computed control status.
