@@ -237,7 +237,7 @@ import {
 	updateSkillDraftContent,
 } from '../api/skills.js'
 import { useSkillStore } from '../store/store.js'
-import { errorMessage } from '../utils/errorMessage.js'
+import { BUSY_FIELDS, busyAction, LOADING_FIELDS } from '../utils/busyAction.js'
 
 export default {
 	name: 'SkillDraftReview',
@@ -397,20 +397,14 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async load() {
-			this.loading = true
-			this.error = ''
-			try {
+			await busyAction(this, LOADING_FIELDS)(async () => {
 				const [skill, drafts] = await Promise.all([
 					this.skillStore.fetchObject('agentskill', this.skillId),
 					listSkillDrafts(this.skillId),
 				])
 				this.skill = skill || null
 				this.drafts = drafts
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Could not load the drafts.'))
-			} finally {
-				this.loading = false
-			}
+			}, () => this.t('hermiq', 'Could not load the drafts.'))
 		},
 
 		/**
@@ -420,16 +414,10 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doPropose() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await proposeSkillImprovement(this.skillId)
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Propose failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Propose failed.'))
 		},
 
 		/**
@@ -440,20 +428,14 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doAccept() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await acceptSkillDraft(this.pendingDraft.uuid)
 				await this.load()
 				// The accept applied a NEW skill version: the page's other surfaces
 				// (body display, version history) must refetch too — same pattern
 				// as SkillRowActions' qualify.
 				emit('cn:page:refresh', {})
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Accept failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Accept failed.'))
 		},
 
 		/**
@@ -474,17 +456,11 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doEditContent(content) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await updateSkillDraftContent(this.pendingDraft.uuid, content)
 				this.showEditor = false
 				await this.load()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Edit failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Edit failed.'))
 		},
 
 		/**
@@ -495,9 +471,7 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doReject(decision) {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await rejectSkillDraft(
 					this.pendingDraft.uuid,
 					decision.note,
@@ -508,11 +482,7 @@ export default {
 				// The decision changed the draft's lifecycle — refresh the page's
 				// other surfaces (same pattern as doAccept).
 				emit('cn:page:refresh', {})
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Reject failed.'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Reject failed.'))
 		},
 	},
 }

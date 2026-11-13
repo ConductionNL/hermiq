@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ namespace OCA\Hermiq\Service\Redaction;
 /**
  * The header, token, key-block and credential-URL passes of the redaction pipeline.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-2
  */
 final class CredentialRedactor {
 
@@ -54,7 +54,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with transport credentials masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text, bool $codeFile): string {
 		$text = $this->redactAuthHeaders(text: $text);
@@ -75,7 +75,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with header credentials masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactAuthHeaders(string $text): string {
 		if (stripos($text, 'uthorization') === false) {
@@ -100,7 +100,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with API-key header values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactApiKeyHeaders(string $text): string {
 		if (str_contains($text, ':') === false) {
@@ -127,7 +127,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with Telegram tokens masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactTelegram(string $text): string {
 		if (str_contains($text, ':') === false) {
@@ -152,7 +152,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with private-key blocks replaced.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactPrivateKeys(string $text): string {
 		if (str_contains($text, 'BEGIN') === false || str_contains($text, '-----') === false) {
@@ -177,7 +177,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with DSN passwords masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactDbConnStrings(string $text, bool $codeFile): string {
 		if (str_contains($text, '://') === false) {
@@ -218,7 +218,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with bare URL tokens masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactUrlBareToken(string $text): string {
 		if (str_contains($text, '://') === false) {
@@ -243,7 +243,7 @@ final class CredentialRedactor {
 	 *
 	 * @return string The text with JWTs masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactJwt(string $text): string {
 		if (str_contains($text, 'eyJ') === false) {

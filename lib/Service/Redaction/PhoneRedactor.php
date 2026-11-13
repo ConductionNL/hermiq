@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\Redaction;
 /**
  * The phone-number pass of the redaction pipeline.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
  */
 final class PhoneRedactor {
 
@@ -44,7 +44,7 @@ final class PhoneRedactor {
 	 *
 	 * @return string The text with phone numbers masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text): string {
 		if (str_contains($text, '+') === false) {

@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\Redaction;
 /**
  * Masks one matched token (port of redact.py `_mask_token`).
  *
- * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
  */
 final class TokenMasker {
 
@@ -44,7 +44,7 @@ final class TokenMasker {
 	 *
 	 * @return string The masked token.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function mask(string $token): string {
 		if ($token === '' || strlen($token) < 18) {

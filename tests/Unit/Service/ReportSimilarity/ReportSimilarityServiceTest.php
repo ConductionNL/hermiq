@@ -534,4 +534,48 @@ class ReportSimilarityServiceTest extends TestCase {
 		$this->assertArrayHasKey('score', $this->audits[1]['context']);
 		$this->assertArrayHasKey('windowMinutes', $this->audits[1]['context']);
 	}//end testEachJudgementIsOnTheAuditTrail()
+	/**
+	 * Golden: a sequence of reports over two types, with and without keys, inside
+	 * and outside the window, against pre-existing groups whose members carry an
+	 * unreadable, empty or missing join time, answers, stores and audits exactly
+	 * what was recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testAReportSequenceMatchesTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../../Fixtures/Golden/report-similarity-sequence.json';
+		$service = $this->service(['windows' => ['melding' => 60]]);
+		$this->groups = [
+			'stale' => ['reportType' => 'melding', 'deterministicKey' => 'k-1', 'terms' => ['stroomstoring', 'kerkstraat'], 'members' => [['reportId' => 'x', 'joinedAt' => 'not a time'], ['reportId' => 'y', 'joinedAt' => ''], 'junk', ['reportId' => 'z']]],
+			'other-type' => ['reportType' => 'klacht', 'terms' => ['stroomstoring', 'kerkstraat'], 'members' => [['reportId' => 'w', 'joinedAt' => '2026-03-01T09:59:00+00:00']]],
+			'not-a-melding' => ['reportType' => 'bezwaar', 'terms' => ['lantaarnpaal'], 'members' => [['reportId' => 'v', 'joinedAt' => '2026-03-01T09:59:00+00:00']]],
+		];
+		$steps = [
+			['r-1', 'melding', 'Stroomstoring in de Kerkstraat sinds vanochtend', '', '2026-03-01T10:00:00+00:00'],
+			['r-2', 'melding', 'Stroomstoring Kerkstraat nog steeds', '', '2026-03-01T10:05:00+00:00'],
+			['r-3', 'melding', 'Kerkstraat stroom weg en lantaarnpaal kapot', '', '2026-03-01T10:10:00+00:00'],
+			['r-4', 'melding', 'Iets heel anders over afval', 'k-2', '2026-03-01T10:15:00+00:00'],
+			['r-5', 'melding', 'Geen overlap hier', 'k-2', '2026-03-01T10:20:00+00:00'],
+			['r-6', 'melding', 'Stroomstoring Kerkstraat', 'k-1', '2026-03-01T10:25:00+00:00'],
+			['r-7', 'klacht', 'Stroomstoring Kerkstraat', '', '2026-03-01T10:30:00+00:00'],
+			['r-8', 'melding', 'Stroomstoring Kerkstraat', '', '2026-03-01T13:00:00+00:00'],
+			['r-9', 'klacht', 'Stroomstoring Kerkstraat en Dorpsplein donker', '', '2026-03-01T13:05:00+00:00'],
+			['r-10', 'klacht', 'Stroomstoring Kerkstraat Dorpsplein', '', '2026-03-01T13:10:00+00:00'],
+			['r-11', 'klacht', 'Kerkstraat stroomstoring weer', '', '2026-03-01T13:15:00+00:00'],
+		];
+		$answers = [];
+		foreach ($steps as [$reportId, $type, $text, $key, $at]) {
+			$answers[$reportId] = $service->evaluate(reportId: $reportId, reportType: $type, text: $text, deterministicKey: $key, now: new DateTimeImmutable($at));
+		}
+
+		$actual = json_decode(json_encode(['answers' => $answers, 'groups' => $this->groups, 'audits' => $this->audits], JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testAReportSequenceMatchesTheRecordedFixture()
 }//end class

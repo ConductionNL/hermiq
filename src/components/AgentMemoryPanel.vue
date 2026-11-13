@@ -12,7 +12,7 @@
   add-a-fact input, and the entry list. All reads/writes go through the tenant-scoped
   MemoryController endpoints (src/api/memory.js).
 
-  @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 -->
 <template>
 	<div class="agent-memory-panel">
@@ -160,7 +160,7 @@
 							</span>
 							<span class="agent-memory-panel__entry-date">{{
 								/**
-								 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+								 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 								 */
 								formatDate(entry.createdAt)
 							}}</span>
@@ -216,6 +216,7 @@ import {
 	forgetMemoryEntry,
 	getMemory,
 } from '../api/memory.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
@@ -261,7 +262,7 @@ export default {
 		 * The current memory entries.
 		 *
 		 * @return {Array<object>} The entry list.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		entries() {
 			return Array.isArray(this.memory.entries) ? this.memory.entries : []
@@ -303,7 +304,7 @@ export default {
 		 * excludes soft-deleted entries from the budget.
 		 *
 		 * @return {number} The summed length.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		charCount() {
 			return this.entries
@@ -315,7 +316,7 @@ export default {
 		 * The configured character budget.
 		 *
 		 * @return {number} The budget.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		charBudget() {
 			return Number(this.memory.charBudget) || 8000
@@ -325,7 +326,7 @@ export default {
 		 * The budget-bar fill percentage (capped at 100).
 		 *
 		 * @return {number} The percentage.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		budgetPct() {
 			if (this.charBudget <= 0) {
@@ -342,7 +343,7 @@ export default {
 		agentId: {
 			immediate: true,
 			/**
-			 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+			 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 			 */
 			handler() {
 				this.load()
@@ -355,7 +356,7 @@ export default {
 		 * Load the agent's memory.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async load() {
 			if (!this.agentId) {
@@ -386,44 +387,32 @@ export default {
 		 * Append a fact to the agent's memory.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async addFact() {
 			const text = this.newEntry.trim()
 			if (!text || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await addMemory(this.agentId, text)
 				this.newEntry = ''
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
 		 * Consolidate the agent's memory (server de-duplicates when no strategy supplied).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async consolidate() {
 			if (!this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await consolidateMemory(this.agentId)
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -461,16 +450,10 @@ export default {
 			if (!text || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await correctMemoryEntry(this.agentId, entry.id, text)
 				this.cancelCorrection()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -483,19 +466,13 @@ export default {
 			if (!this.forgetTarget || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await forgetMemoryEntry(
 					this.agentId,
 					this.forgetTarget.id,
 				)
 				this.forgetTarget = null
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -503,7 +480,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		formatDate(value) {
 			if (!value) {

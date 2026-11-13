@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\Redaction;
 /**
  * The form-body pass of the redaction pipeline.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
  */
 final class FormBodyRedactor {
 
@@ -78,7 +78,7 @@ final class FormBodyRedactor {
 	 *
 	 * @return string The text (the trimmed body when it was redacted).
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text): string {
 		if (str_contains($text, '&') === false || str_contains($text, '=') === false) {
@@ -106,7 +106,7 @@ final class FormBodyRedactor {
 	 *
 	 * @return string The query string with sensitive values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactQueryString(string $query): string {
 		if ($query === '') {

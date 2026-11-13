@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-hermiq-must-answer-which-group-a-report-belongs-to-and-must-not-act-on-the-answer
+ * @spec openspec/specs/report-similarity/spec.md#requirement-hermiq-must-answer-which-group-a-report-belongs-to-and-must-not-act-on-the-answer
  */
 
 declare(strict_types=1);
@@ -53,7 +53,7 @@ use Throwable;
 /**
  * Answers which group an incoming report belongs to, and why.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md
+ * @spec openspec/specs/report-similarity/spec.md
  */
 class ReportSimilarityService {
 
@@ -128,7 +128,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The group, the score, what decided, and why.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
 	 */
 	public function evaluate(
 		string $reportId,
@@ -137,45 +137,50 @@ class ReportSimilarityService {
 		string $deterministicKey = '',
 		?DateTimeImmutable $now = null,
 	): array {
-		$at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
-		$windowMinutes = $this->settings->windowMinutes(reportType: $reportType);
+		$evaluation = new ReportEvaluation(reportId: $reportId, text: $text);
+		$evaluation->reportType = $reportType;
+		$evaluation->deterministicKey = $deterministicKey;
+		$evaluation->at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
 
-		$candidates = $this->openGroups(reportType: $reportType, windowMinutes: $windowMinutes, at: $at);
+		return $this->evaluateReport(evaluation: $evaluation);
+	}//end evaluate()
 
-		$match = $this->bestMatch(
-			candidates: $candidates,
-			text: $text,
-			deterministicKey: $deterministicKey
-		);
+	/**
+	 * Judge the report against the open groups of its type in the window, join the
+	 * best match or start a group, and record the judgement.
+	 *
+	 * @param ReportEvaluation $evaluation The report under evaluation.
+	 *
+	 * @return array<string, mixed> The group, the score, what decided, and why.
+	 *
+	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
+	 */
+	private function evaluateReport(ReportEvaluation $evaluation): array {
+		$evaluation->windowMinutes = $this->settings->windowMinutes(reportType: $evaluation->reportType);
 
-		$answer = null;
-		if ($match === null) {
-			$answer = $this->startGroup(
-				reportId: $reportId,
-				reportType: $reportType,
-				text: $text,
-				deterministicKey: $deterministicKey,
-				windowMinutes: $windowMinutes,
-				at: $at
-			);
-		}
+		$match = $this->bestMatch(candidates: $this->openGroups(evaluation: $evaluation), evaluation: $evaluation);
 
-		if ($match !== null) {
-			$answer = $this->joinGroup(
-				group: $match['group'],
-				reportId: $reportId,
-				score: $match['score'],
-				terms: $match['terms'],
-				scorer: $match['scorer'],
-				decidedBy: $match['decidedBy'],
-				at: $at
-			);
-		}
-
-		$this->record(reportId: $reportId, reportType: $reportType, answer: $answer, windowMinutes: $windowMinutes);
+		$answer = $this->answerFor(evaluation: $evaluation, match: $match);
+		$this->record(evaluation: $evaluation, answer: $answer);
 
 		return $answer;
-	}//end evaluate()
+	}//end evaluateReport()
+
+	/**
+	 * Join the matched group, or start one when nothing matched.
+	 *
+	 * @param ReportEvaluation          $evaluation The report under evaluation.
+	 * @param array<string, mixed>|null $match      The best match, or null.
+	 *
+	 * @return array<string, mixed> The answer.
+	 */
+	private function answerFor(ReportEvaluation $evaluation, ?array $match): array {
+		if ($match === null) {
+			return $this->startGroupFor(evaluation: $evaluation);
+		}
+
+		return $this->joinGroupFor(evaluation: $evaluation, match: $match);
+	}//end answerFor()
 
 	/**
 	 * Take one report out of a group. It stands alone again, unchanged, and the
@@ -187,7 +192,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed>|null The group as it now stands, or null when there is no such group.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-pulling-one-report-out-costs-nothing
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-pulling-one-report-out-costs-nothing
 	 */
 	public function removeMember(string $groupId, string $reportId): ?array {
 		$group = $this->find(groupId: $groupId);
@@ -226,7 +231,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed>|null The group, or null.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	public function group(string $groupId): ?array {
 		$group = $this->find(groupId: $groupId);
@@ -242,52 +247,157 @@ class ReportSimilarityService {
 	 * otherwise the highest similarity at or above the lower threshold.
 	 *
 	 * @param array<int, ObjectEntity> $candidates The open groups in the window.
-	 * @param string $text The incoming report's text.
-	 * @param string $deterministicKey The owning app's key, when it has one.
+	 * @param ReportEvaluation         $evaluation The report under evaluation.
 	 *
 	 * @return array{group: ObjectEntity, score: float, terms: array<int, string>, scorer: string, decidedBy: string}|null
 	 *         The match, or null when the report starts its own group.
 	 *
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-key-decides-where-it-can
+	 */
+	private function bestMatch(array $candidates, ReportEvaluation $evaluation): ?array {
+		return ($this->keyMatch(candidates: $candidates, deterministicKey: $evaluation->deterministicKey)
+			?? $this->scoredMatch(candidates: $candidates, text: $evaluation->text));
+	}//end bestMatch()
+
+	/**
+	 * The first open group carrying the report's deterministic key, or null.
+	 *
+	 * @param array<int, ObjectEntity> $candidates       The open groups in the window.
+	 * @param string                   $deterministicKey The owning app's key, '' when it has none.
+	 *
+	 * @return array{group: ObjectEntity, score: float, terms: array<int, string>, scorer: string, decidedBy: string}|null
+	 *
 	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-key-decides-where-it-can
 	 */
-	private function bestMatch(array $candidates, string $text, string $deterministicKey): ?array {
-		if ($deterministicKey !== '') {
-			foreach ($candidates as $candidate) {
-				if ((string)($candidate->getObject()['deterministicKey'] ?? '') === $deterministicKey) {
-					return [
-						'group' => $candidate,
-						'score' => 1.0,
-						'terms' => [],
-						'scorer' => self::DECIDED_BY_KEY,
-						'decidedBy' => self::DECIDED_BY_KEY,
-					];
-				}
+	private function keyMatch(array $candidates, string $deterministicKey): ?array {
+		if ($deterministicKey === '') {
+			return null;
+		}
+
+		foreach ($candidates as $candidate) {
+			if ((string)($candidate->getObject()['deterministicKey'] ?? '') === $deterministicKey) {
+				return $this->keyedMatch(candidate: $candidate);
 			}
 		}
 
+		return null;
+	}//end keyMatch()
+
+	/**
+	 * A match the deterministic key decided: full score, no shared terms.
+	 *
+	 * @param ObjectEntity $candidate The group carrying the key.
+	 *
+	 * @return array{group: ObjectEntity, score: float, terms: array<int, string>, scorer: string, decidedBy: string}
+	 */
+	private function keyedMatch(ObjectEntity $candidate): array {
+		return [
+			'group' => $candidate,
+			'score' => 1.0,
+			'terms' => [],
+			'scorer' => self::DECIDED_BY_KEY,
+			'decidedBy' => self::DECIDED_BY_KEY,
+		];
+	}//end keyedMatch()
+
+	/**
+	 * The open group most similar to the text, at or above the lower threshold;
+	 * on a tie the first such group wins.
+	 *
+	 * @param array<int, ObjectEntity> $candidates The open groups in the window.
+	 * @param string                   $text       The incoming report's text.
+	 *
+	 * @return array{group: ObjectEntity, score: float, terms: array<int, string>, scorer: string, decidedBy: string}|null
+	 *
+	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-model-covers-what-the-key-misses
+	 */
+	private function scoredMatch(array $candidates, string $text): ?array {
 		$best = null;
 		foreach ($candidates as $candidate) {
 			$judgement = $this->scorer->score(left: $text, right: $this->groupText(group: $candidate));
-
-			if ($judgement['score'] < $this->settings->lower()) {
-				continue;
+			if ($this->beats(judgement: $judgement, best: $best) === true) {
+				$best = $this->scoredMatchOf(candidate: $candidate, judgement: $judgement);
 			}
-
-			if ($best !== null && $judgement['score'] <= $best['score']) {
-				continue;
-			}
-
-			$best = [
-				'group' => $candidate,
-				'score' => $judgement['score'],
-				'terms' => $judgement['terms'],
-				'scorer' => $judgement['scorer'],
-				'decidedBy' => self::DECIDED_BY_MODEL,
-			];
-		}//end foreach
+		}
 
 		return $best;
-	}//end bestMatch()
+	}//end scoredMatch()
+
+	/**
+	 * Whether a judgement reaches the lower threshold and scores above the best so far.
+	 *
+	 * @param array<string, mixed>      $judgement The scorer's judgement.
+	 * @param array<string, mixed>|null $best      The best match so far, or null.
+	 *
+	 * @return bool
+	 */
+	private function beats(array $judgement, ?array $best): bool {
+		if ($judgement['score'] < $this->settings->lower()) {
+			return false;
+		}
+
+		return ($best === null || $judgement['score'] > $best['score']);
+	}//end beats()
+
+	/**
+	 * A match the similarity score decided.
+	 *
+	 * @param ObjectEntity         $candidate The group.
+	 * @param array<string, mixed> $judgement The scorer's judgement (score, terms, scorer).
+	 *
+	 * @return array{group: ObjectEntity, score: float, terms: array<int, string>, scorer: string, decidedBy: string}
+	 */
+	private function scoredMatchOf(ObjectEntity $candidate, array $judgement): array {
+		return [
+			'group' => $candidate,
+			'score' => $judgement['score'],
+			'terms' => $judgement['terms'],
+			'scorer' => $judgement['scorer'],
+			'decidedBy' => self::DECIDED_BY_MODEL,
+		];
+	}//end scoredMatchOf()
+
+	/**
+	 * Start a new group for a report nothing in the window matched.
+	 *
+	 * @param ReportEvaluation $evaluation The report under evaluation.
+	 *
+	 * @return array<string, mixed> The answer.
+	 *
+	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-a-clearly-separate-report-stands-alone
+	 */
+	private function startGroupFor(ReportEvaluation $evaluation): array {
+		return $this->startGroup(
+			reportId: $evaluation->reportId,
+			reportType: $evaluation->reportType,
+			text: $evaluation->text,
+			deterministicKey: $evaluation->deterministicKey,
+			windowMinutes: $evaluation->windowMinutes,
+			at: $evaluation->at
+		);
+	}//end startGroupFor()
+
+	/**
+	 * Attach the report to the group it matched.
+	 *
+	 * @param ReportEvaluation     $evaluation The report under evaluation.
+	 * @param array<string, mixed> $match      The match (group, score, terms, scorer, decidedBy).
+	 *
+	 * @return array<string, mixed> The answer.
+	 *
+	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-a-near-duplicate-is-visible-not-buried
+	 */
+	private function joinGroupFor(ReportEvaluation $evaluation, array $match): array {
+		return $this->joinGroup(
+			group: $match['group'],
+			reportId: $evaluation->reportId,
+			score: $match['score'],
+			terms: $match['terms'],
+			scorer: $match['scorer'],
+			decidedBy: $match['decidedBy'],
+			at: $evaluation->at
+		);
+	}//end joinGroupFor()
 
 	/**
 	 * Start a new group for a report nothing in the window matched.
@@ -301,7 +411,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The answer.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-a-clearly-separate-report-stands-alone
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-a-clearly-separate-report-stands-alone
 	 */
 	private function startGroup(
 		string $reportId,
@@ -360,7 +470,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The answer.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-a-near-duplicate-is-visible-not-buried
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-a-near-duplicate-is-visible-not-buried
 	 */
 	private function joinGroup(
 		ObjectEntity $group,
@@ -420,7 +530,7 @@ class ReportSimilarityService {
 	 *
 	 * @return array<string, mixed> The group.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	private function shape(ObjectEntity $group): array {
 		$data = $group->getObject();
@@ -450,21 +560,36 @@ class ReportSimilarityService {
 	}//end shape()
 
 	/**
-	 * The groups of one report type that are still inside the comparison window.
+	 * The open groups of the report's type: those that gained a member inside the window.
 	 *
-	 * @param string $reportType The report type.
-	 * @param int $windowMinutes The window.
-	 * @param DateTimeImmutable $at The moment.
+	 * @param ReportEvaluation $evaluation The report under evaluation.
 	 *
 	 * @return array<int, ObjectEntity> The candidate groups.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
 	 */
-	private function openGroups(string $reportType, int $windowMinutes, DateTimeImmutable $at): array {
-		$cutoff = $at->modify(sprintf('-%d minutes', $windowMinutes));
+	private function openGroups(ReportEvaluation $evaluation): array {
+		$evaluation->cutoff = $evaluation->at->modify(sprintf('-%d minutes', $evaluation->windowMinutes));
+		$objects = $this->groupsOfType(reportType: $evaluation->reportType);
 
+		return array_values(
+			array_filter(
+				$objects,
+				fn (mixed $object): bool => $this->isOpenGroup(object: $object, evaluation: $evaluation)
+			)
+		);
+	}//end openGroups()
+
+	/**
+	 * The stored groups filtered to a report type (none when they cannot be read).
+	 *
+	 * @param string $reportType The report type.
+	 *
+	 * @return array<int|string, mixed> The stored objects.
+	 */
+	private function groupsOfType(string $reportType): array {
 		try {
-			$objects = $this->objectService
+			return $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::SCHEMA_SLUG)
 				->findAll(config: ['filters' => ['reportType' => $reportType], 'limit' => 200]);
@@ -476,27 +601,30 @@ class ReportSimilarityService {
 
 			return [];
 		}
+	}//end groupsOfType()
 
-		$open = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
+	/**
+	 * Whether an object is a group of the report's type that is still open.
+	 *
+	 * @param mixed            $object     A stored object.
+	 * @param ReportEvaluation $evaluation The report under evaluation.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-an-old-report-is-out-of-scope
+	 */
+	private function isOpenGroup(mixed $object, ReportEvaluation $evaluation): bool {
+		if (($object instanceof ObjectEntity) === false) {
+			return false;
+		}
 
-			$data = $object->getObject();
-			if ((string)($data['reportType'] ?? '') !== $reportType) {
-				continue;
-			}
+		$data = $object->getObject();
+		if ((string)($data['reportType'] ?? '') !== $evaluation->reportType) {
+			return false;
+		}
 
-			if ($this->lastJoinedAt(data: $data) < $cutoff) {
-				continue;
-			}
-
-			$open[] = $object;
-		}//end foreach
-
-		return $open;
-	}//end openGroups()
+		return ($this->lastJoinedAt(data: $data) < $evaluation->cutoff) === false;
+	}//end isOpenGroup()
 
 	/**
 	 * When a group last gained a member, which is what keeps it open. A group with
@@ -578,36 +706,16 @@ class ReportSimilarityService {
 	 * Non-fatal by contract: a failed audit write never fails the judgement, in
 	 * line with every other audit write in this app.
 	 *
-	 * @param string $reportId The report.
-	 * @param string $reportType The report type.
-	 * @param array<string, mixed> $answer The answer given.
-	 * @param int $windowMinutes The window in force.
+	 * @param ReportEvaluation     $evaluation The report judged.
+	 * @param array<string, mixed> $answer     The answer given.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-each-judgement-is-on-the-audit-trail
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-each-judgement-is-on-the-audit-trail
 	 */
-	private function record(string $reportId, string $reportType, array $answer, int $windowMinutes): void {
+	private function record(ReportEvaluation $evaluation, array $answer): void {
 		try {
-			$marker = new ObjectEntity();
-			$marker->setUuid((string)($answer['groupId'] ?? 'report-similarity'));
-
-			$this->auditTrailMapper->recordObjectEvent(
-				event: new ObjectAuditEvent(
-					object: $marker,
-					action: self::AUDIT_ACTION,
-					context: [
-						'reportId' => $reportId,
-						'reportType' => $reportType,
-						'groupId' => (string)($answer['groupId'] ?? ''),
-						'score' => ($answer['score'] ?? null),
-						'uncertain' => ($answer['uncertain'] ?? false),
-						'newGroup' => ($answer['newGroup'] ?? false),
-						'windowMinutes' => $windowMinutes,
-						'terms' => ($answer['terms'] ?? []),
-					]
-				)
-			);
+			$this->auditTrailMapper->recordObjectEvent(event: $this->judgementEvent(evaluation: $evaluation, answer: $answer));
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'Hermiq could not record a report-similarity judgement: ' . $e->getMessage(),
@@ -616,4 +724,44 @@ class ReportSimilarityService {
 		}
 
 	}//end record()
+
+	/**
+	 * The judgement's audit event, on a marker for the group it answered with.
+	 *
+	 * @param ReportEvaluation     $evaluation The report judged.
+	 * @param array<string, mixed> $answer     The answer given.
+	 *
+	 * @return ObjectAuditEvent
+	 */
+	private function judgementEvent(ReportEvaluation $evaluation, array $answer): ObjectAuditEvent {
+		$marker = new ObjectEntity();
+		$marker->setUuid((string)($answer['groupId'] ?? 'report-similarity'));
+
+		return new ObjectAuditEvent(
+			object: $marker,
+			action: self::AUDIT_ACTION,
+			context: $this->judgementContext(evaluation: $evaluation, answer: $answer)
+		);
+	}//end judgementEvent()
+
+	/**
+	 * What the audit entry records about one judgement.
+	 *
+	 * @param ReportEvaluation     $evaluation The report judged.
+	 * @param array<string, mixed> $answer     The answer given.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function judgementContext(ReportEvaluation $evaluation, array $answer): array {
+		return [
+			'reportId' => $evaluation->reportId,
+			'reportType' => $evaluation->reportType,
+			'groupId' => (string)($answer['groupId'] ?? ''),
+			'score' => ($answer['score'] ?? null),
+			'uncertain' => ($answer['uncertain'] ?? false),
+			'newGroup' => ($answer['newGroup'] ?? false),
+			'windowMinutes' => $evaluation->windowMinutes,
+			'terms' => ($answer['terms'] ?? []),
+		];
+	}//end judgementContext()
 }//end class

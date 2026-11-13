@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Chat;
 
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Chat\GeneratedImageFiles;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
@@ -143,7 +143,7 @@ class ImageGenerationServiceTest extends TestCase {
 
 		$feature = new ObjectEntity();
 		$feature->setObject(['slug' => 'image-generation', 'enabled' => $enabled]);
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlugForGate')->willReturn($feature);
 
 		return new ImageGenerationService(

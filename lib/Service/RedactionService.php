@@ -40,7 +40,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -61,7 +61,7 @@ use OCP\IConfig;
  * Owns the frozen enable toggle, the mode flags and the order of the passes;
  * each family of patterns lives in its own class under `Redaction/`.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 class RedactionService {
 
@@ -137,7 +137,7 @@ class RedactionService {
 	 *
 	 * @param IConfig $config Reads the frozen `redact_secrets` app setting (default on).
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function __construct(IConfig $config) {
 		$setting = strtolower((string)$config->getAppValue('hermiq', 'redact_secrets', 'yes'));
@@ -163,7 +163,7 @@ class RedactionService {
 	 *
 	 * @return string The redacted text.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text): string {
 		return $this->redactSensitiveText(text: $text, mode: self::MODE_FORCE);
@@ -180,7 +180,7 @@ class RedactionService {
 	 *
 	 * @return string The redacted text.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redactSensitiveText(string $text, int $mode = 0): string {
 		if ($text === '') {
@@ -213,7 +213,7 @@ class RedactionService {
 	 *
 	 * @return string The masked value.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function maskSecret(
 		string $value,
@@ -242,7 +242,7 @@ class RedactionService {
 	 *
 	 * @return string The redacted text.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function applyPasses(string $text, int $mode): string {
 		$codeFile = (($mode & self::MODE_CODE_FILE) !== 0);

@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  * @psalm-api
  * @SuppressWarnings(PHPMD.UnusedFormalParameter)
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
  */
 class ScheduleTask extends TimedJob {
 	/**
@@ -60,7 +60,7 @@ class ScheduleTask extends TimedJob {
 	 * @param GoalService $goals Takes the due standing goals' turns (agents-standing-goal).
 	 * @param LoggerInterface $logger Isolates a bridge failure from the tick.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
@@ -98,7 +98,7 @@ class ScheduleTask extends TimedJob {
 	 *
 	 * @phpstan-param mixed $argument
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-2-2
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */

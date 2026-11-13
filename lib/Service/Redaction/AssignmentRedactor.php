@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service\Redaction;
 /**
  * The configuration-assignment passes of the redaction pipeline.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
  */
 final class AssignmentRedactor {
 
@@ -140,7 +140,7 @@ final class AssignmentRedactor {
 	 *
 	 * @return string The text with configuration secrets masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text): string {
 		$text = $this->redactEnvAssignments(text: $text);
@@ -157,7 +157,7 @@ final class AssignmentRedactor {
 	 *
 	 * @return string The text with assignment secrets masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactEnvAssignments(string $text): string {
 		if (str_contains($text, '=') === false) {
@@ -213,7 +213,7 @@ final class AssignmentRedactor {
 	 *
 	 * @return string The text with JSON secret values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactJsonFields(string $text): string {
 		if (str_contains($text, ':') === false || str_contains($text, '"') === false) {
@@ -238,7 +238,7 @@ final class AssignmentRedactor {
 	 *
 	 * @return string The text with YAML secret values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactYaml(string $text): string {
 		if (str_contains($text, ':') === false || str_contains($text, '://') === true) {

@@ -39,7 +39,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 
 declare(strict_types=1);
@@ -66,7 +66,7 @@ use OCP\Security\Bruteforce\IThrottler;
  * The token-gated egress PDP: answers allow/deny per CONNECT from the shared
  * `WebResearchEgressGuard` policy.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 class EgressAuthorizeController extends Controller {
 
@@ -120,8 +120,8 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return JSONResponse The verdict, or a 400/401 error.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -247,7 +247,7 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return JSONResponse The fail-closed 401.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	private function refuseToken(string $token): JSONResponse {
 		// The per-run token IS the authorization, so a failed verify is a
@@ -297,7 +297,7 @@ class EgressAuthorizeController extends Controller {
 	 *
 	 * @return string The raw request body, or '' when unreadable.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');

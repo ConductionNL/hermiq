@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ namespace OCA\Hermiq\Service\Redaction;
 /**
  * The vendor-prefix pass of the redaction pipeline.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-2
  */
 final class VendorKeyRedactor {
 
@@ -123,7 +123,7 @@ final class VendorKeyRedactor {
 	 *
 	 * @return string The text with prefix credentials masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text, bool $fileRead): string {
 		if ($this->hasKnownPrefixSubstring(text: $text) === false) {
@@ -153,7 +153,7 @@ final class VendorKeyRedactor {
 	 *
 	 * @return string The non-reusable sentinel (vendor label preserved).
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function maskTokenNonReusable(string $token): string {
 		foreach ($this->prefixSubstrings as $sub) {

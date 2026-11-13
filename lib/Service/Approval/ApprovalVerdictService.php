@@ -84,39 +84,8 @@ class ApprovalVerdictService
     {
         $verdict  = $this->requestFields(request: $request);
         $now      = $this->timeFactory->getTime();
-        $approval = $this->approvals->loadApproval(uuid: $verdict['approvalId']);
-        $data     = [];
-        if ($approval !== null) {
-            $data = $approval->getObject();
-        }
-
-        $decidedAt = $this->instant(value: ($data['decidedAt'] ?? null));
-        $expiresAt = null;
-        if ($decidedAt !== null) {
-            $expiresAt = $decidedAt->modify('+'.ApprovalService::TOOLCALL_APPROVAL_TTL_SECONDS.' seconds');
-        }
-
-        $reason = $this->reason(approval: $approval, data: $data, request: $verdict, expiresAt: $expiresAt, now: $now);
-
-        $decidedBy = null;
-        if (is_string($data['decidedBy'] ?? null) === true && $data['decidedBy'] !== '') {
-            $decidedBy = $data['decidedBy'];
-        }
-
-        // The route is public: when the approval is not the caller's own toolcall
-        // approval, an approval id alone must not reveal who decided it, or when.
-        if ($reason === 'unknown' || $reason === 'binding-mismatch') {
-            $decidedBy = null;
-            $decidedAt = null;
-            $expiresAt = null;
-        }
-
-        $verdict['approved']  = ($reason === 'approved');
-        $verdict['reason']    = $reason;
-        $verdict['decidedBy'] = $decidedBy;
-        $verdict['decidedAt'] = $decidedAt?->format('c');
-        $verdict['expiresAt'] = $expiresAt?->format('c');
-        $verdict['issuedAt']  = (new DateTimeImmutable('@'.$now))->setTimezone(new DateTimeZone('UTC'))->format('c');
+        $verdict += $this->decisionFields(request: $verdict, now: $now);
+        $verdict['issuedAt'] = (new DateTimeImmutable('@'.$now))->setTimezone(new DateTimeZone('UTC'))->format('c');
 
         return [
             'verdict'   => $verdict,
@@ -124,6 +93,89 @@ class ApprovalVerdictService
         ];
 
     }//end verify()
+
+    /**
+     * Whether the approval holds for the request, why (or why not), and the decision
+     * behind it.
+     *
+     * The route is public: when the approval is not the caller's own toolcall
+     * approval, an approval id alone must not reveal who decided it, or when.
+     *
+     * @param array<string, string> $request The validated request fields.
+     * @param int                   $now     The current unix time.
+     *
+     * @return array<string, mixed> The approved, reason, decidedBy, decidedAt and expiresAt fields.
+     */
+    private function decisionFields(array $request, int $now): array
+    {
+        $approval = $this->approvals->loadApproval(uuid: $request['approvalId']);
+        $data     = $this->approvalData(approval: $approval);
+        $reason   = $this->reason(approval: $approval, data: $data, request: $request, expiresAt: $this->expiryOf(data: $data), now: $now);
+        $outcome  = ['approved' => ($reason === 'approved'), 'reason' => $reason];
+        if ($reason === 'unknown' || $reason === 'binding-mismatch') {
+            return $outcome + ['decidedBy' => null, 'decidedAt' => null, 'expiresAt' => null];
+        }
+
+        return $outcome + $this->disclosedDecision(data: $data);
+
+    }//end decisionFields()
+
+    /**
+     * An approval's fields, or none when there is no approval.
+     *
+     * @param ObjectEntity|null $approval The approval, or null when absent.
+     *
+     * @return array<string, mixed>
+     */
+    private function approvalData(?ObjectEntity $approval): array
+    {
+        if ($approval === null) {
+            return [];
+        }
+
+        return $approval->getObject();
+
+    }//end approvalData()
+
+    /**
+     * When an approval stops holding: its decision time plus the toolcall approval TTL.
+     *
+     * @param array<string, mixed> $data The approval's fields.
+     *
+     * @return DateTimeImmutable|null The expiry, or null without a readable decision time.
+     */
+    private function expiryOf(array $data): ?DateTimeImmutable
+    {
+        $decidedAt = $this->instant(value: ($data['decidedAt'] ?? null));
+        if ($decidedAt === null) {
+            return null;
+        }
+
+        return $decidedAt->modify('+'.ApprovalService::TOOLCALL_APPROVAL_TTL_SECONDS.' seconds');
+
+    }//end expiryOf()
+
+    /**
+     * Who decided the approval and when, and when it stops holding.
+     *
+     * @param array<string, mixed> $data The approval's fields.
+     *
+     * @return array{decidedBy: ?string, decidedAt: ?string, expiresAt: ?string}
+     */
+    private function disclosedDecision(array $data): array
+    {
+        $decidedBy = null;
+        if (is_string($data['decidedBy'] ?? null) === true && $data['decidedBy'] !== '') {
+            $decidedBy = $data['decidedBy'];
+        }
+
+        return [
+            'decidedBy' => $decidedBy,
+            'decidedAt' => $this->instant(value: ($data['decidedAt'] ?? null))?->format('c'),
+            'expiresAt' => $this->expiryOf(data: $data)?->format('c'),
+        ];
+
+    }//end disclosedDecision()
 
     /**
      * The five request fields, each a non-empty string.

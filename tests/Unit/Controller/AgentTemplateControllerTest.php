@@ -1062,4 +1062,214 @@ class AgentTemplateControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
 		$this->assertSame('active', $response->getData()['state']);
 	}//end testSaveFromAgentCreatesTheTemplateForTheOwner()
+
+	/**
+	 * githubInstall() pins every refusal body: a bad repo after a good owner, a bad ref,
+	 * and the exact coordinates, ref and credential it hands the catalog service.
+	 *
+	 * @return void
+	 */
+	public function testGithubInstallRefusalsAndFetchArguments(): void {
+		$catalog = $this->createMock(GitHubTemplateCatalogService::class);
+		$catalog->expects($this->once())
+			->method('fetchTemplateFile')
+			->with('acme', 'demo', 'v1.2', 'alice', 'cred-9')
+			->willReturn(null);
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->expects($this->never())->method('importPackage');
+		$auth = $this->createMock(ActionAuthService::class);
+
+		$badRepo = $this->controller($service, $auth, $this->session('alice'), $this->request(['owner' => 'acme', 'repo' => 'bad repo']), null, $catalog)->githubInstall();
+		$this->assertSame([Http::STATUS_BAD_REQUEST, ['error' => 'invalid_repo']], [$badRepo->getStatus(), $badRepo->getData()]);
+
+		$badRef = $this->controller($service, $auth, $this->session('alice'), $this->request(['owner' => 'acme', 'repo' => 'demo', 'ref' => 'v1 ;rm']), null, $catalog)->githubInstall();
+		$this->assertSame([Http::STATUS_BAD_REQUEST, ['error' => 'invalid_ref']], [$badRef->getStatus(), $badRef->getData()]);
+
+		$request = $this->request(['owner' => 'acme', 'repo' => 'demo', 'ref' => 'v1.2', 'credentialId' => 'cred-9']);
+		$missing = $this->controller($service, $auth, $this->session('alice'), $request, null, $catalog)->githubInstall();
+		$this->assertSame([Http::STATUS_NOT_FOUND, ['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE]], [$missing->getStatus(), $missing->getData()]);
+
+		$unauthenticated = $this->controller($service, $auth, $this->session(null), $request, null, $catalog)->githubInstall();
+		$this->assertSame([Http::STATUS_UNAUTHORIZED, ['error' => 'Unauthenticated']], [$unauthenticated->getStatus(), $unauthenticated->getData()]);
+
+	}//end testGithubInstallRefusalsAndFetchArguments()
+
+	/**
+	 * githubInstall() passes an empty ref and no credential as null, and answers a
+	 * failing import with 500.
+	 *
+	 * @return void
+	 */
+	public function testGithubInstallEmptyRefAndFailingImport(): void {
+		$catalog = $this->createMock(GitHubTemplateCatalogService::class);
+		$catalog->expects($this->once())
+			->method('fetchTemplateFile')
+			->with('acme', 'demo', null, 'alice', null)
+			->willReturn('{"name":"Demo"}');
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('importPackage')->willThrowException(new RuntimeException('scan crashed'));
+
+		$request = $this->request(['owner' => 'acme', 'repo' => 'demo', 'ref' => '']);
+		$response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, $catalog)->githubInstall();
+
+		$this->assertSame([Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Install failed']], [$response->getStatus(), $response->getData()]);
+
+	}//end testGithubInstallEmptyRefAndFailingImport()
+
+	/**
+	 * publishGithub() pins every refusal body, and reads the template before it asks
+	 * whether the broker is available.
+	 *
+	 * @return void
+	 */
+	public function testPublishGithubRefusalBodiesAndOrder(): void {
+		$calls = [];
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('exportTemplate')->willReturnCallback(
+			function (string $templateId) use (&$calls): ?string {
+				$calls[] = 'export:' . $templateId;
+				return ($templateId === 'gone') ? null : '{"name":"Demo"}';
+			}
+		);
+		$service->expects($this->never())->method('update');
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->method('isBrokerAvailable')->willReturnCallback(
+			function () use (&$calls): bool {
+				$calls[] = 'broker';
+				return false;
+			}
+		);
+		$push->expects($this->never())->method('push');
+		$auth = $this->createMock(ActionAuthService::class);
+		$valid = $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'cred-1']);
+
+		$cases = [
+			[$this->session(null), $valid, 'template-1', Http::STATUS_UNAUTHORIZED, ['error' => 'Unauthenticated']],
+			[$this->session('alice'), $this->request(['owner' => 'acme', 'repo' => 'x y', 'credentialId' => 'c']), 'template-1', Http::STATUS_BAD_REQUEST, ['error' => 'invalid_repo']],
+			[$this->session('alice'), $this->request(['owner' => 'acme', 'repo' => 'demo']), 'template-1', Http::STATUS_UNPROCESSABLE_ENTITY, ['error' => 'A broker credentialId is required to publish']],
+			[$this->session('alice'), $valid, 'gone', Http::STATUS_NOT_FOUND, ['error' => 'Not found']],
+			[$this->session('alice'), $valid, 'template-1', Http::STATUS_SERVICE_UNAVAILABLE, ['error' => 'The GitHub credential broker is not available']],
+		];
+		foreach ($cases as [$session, $request, $id, $status, $body]) {
+			$response = $this->controller($service, $auth, $session, $request, null, null, $push)->publishGithub($id);
+			$this->assertSame([$status, $body], [$response->getStatus(), $response->getData()]);
+		}
+
+		$this->assertSame(['export:gone', 'export:template-1', 'broker'], $calls);
+
+	}//end testPublishGithubRefusalBodiesAndOrder()
+
+	/**
+	 * publishGithub() normalises the visibility, answers a push refusal with its own
+	 * message, and a push crash with 500, never recording provenance for either.
+	 *
+	 * @return void
+	 */
+	public function testPublishGithubVisibilityAndPushFailures(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('exportTemplate')->willReturn('{"name":"Demo"}');
+		$service->expects($this->never())->method('update');
+		$visibilities = [];
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->method('isBrokerAvailable')->willReturn(true);
+		$push->method('push')->willReturnCallback(
+			function (string $package, string $owner, string $repo, string $visibility) use (&$visibilities): array {
+				$visibilities[] = $visibility;
+				if ($visibility === 'public') {
+					throw new RuntimeException('Repository acme/demo already exists');
+				}
+
+				throw new \LogicException('network down');
+			}
+		);
+		$auth = $this->createMock(ActionAuthService::class);
+
+		$refused = $this->controller($service, $auth, $this->session('alice'), $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'c', 'visibility' => 'public']), null, null, $push)->publishGithub('template-1');
+		$this->assertSame([Http::STATUS_UNPROCESSABLE_ENTITY, ['error' => 'Repository acme/demo already exists']], [$refused->getStatus(), $refused->getData()]);
+
+		$crashed = $this->controller($service, $auth, $this->session('alice'), $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'c', 'visibility' => 'internal']), null, null, $push)->publishGithub('template-1');
+		$this->assertSame([Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Publish failed']], [$crashed->getStatus(), $crashed->getData()]);
+
+		$this->assertSame(['public', 'private'], $visibilities);
+
+	}//end testPublishGithubVisibilityAndPushFailures()
+
+	/**
+	 * approve() answers a template the scanner kept quarantined with 409 and its
+	 * findings, a missing template with 404, and a failing service with 500.
+	 *
+	 * @return void
+	 */
+	public function testApproveConflictNotFoundAndFailure(): void {
+		$blocked = new ObjectEntity();
+		$blocked->setUuid('template-1');
+		$blocked->setObject(['state' => 'quarantined', 'scanReport' => ['x' => 1], 'quarantineReason' => 'dangerous']);
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('approveQuarantined')->willReturnCallback(
+			static function (string $templateId) use ($blocked): ?ObjectEntity {
+				if ($templateId === 'boom') {
+					throw new RuntimeException('db down');
+				}
+
+				return ($templateId === 'gone') ? null : $blocked;
+			}
+		);
+		$auth = $this->createMock(ActionAuthService::class);
+
+		$conflict = $this->controller($service, $auth, $this->session('admin'))->approve('template-1');
+		$shaped = ['id' => 'template-1', 'state' => 'quarantined', 'scanReport' => ['x' => 1], 'quarantineReason' => 'dangerous', 'uuid' => 'template-1'];
+		$this->assertSame(Http::STATUS_CONFLICT, $conflict->getStatus());
+		$this->assertSame(
+			[
+				'error' => 'Approval blocked: content scan flagged dangerous patterns.',
+				'scanReport' => ['x' => 1],
+				'quarantineReason' => 'dangerous',
+				'template' => $shaped,
+			],
+			$conflict->getData()
+		);
+
+		$forced = $this->controller($service, $auth, $this->session('admin'), $this->request(['force' => true]))->approve('template-1');
+		$this->assertSame([Http::STATUS_OK, $shaped], [$forced->getStatus(), $forced->getData()]);
+
+		$missing = $this->controller($service, $auth, $this->session('admin'))->approve('gone');
+		$this->assertSame([Http::STATUS_NOT_FOUND, ['error' => 'Not found']], [$missing->getStatus(), $missing->getData()]);
+
+		$failed = $this->controller($service, $auth, $this->session('admin'))->approve('boom');
+		$this->assertSame([Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Approve failed']], [$failed->getStatus(), $failed->getData()]);
+
+	}//end testApproveConflictNotFoundAndFailure()
+
+	/**
+	 * saveFromAgent() pins every refusal body, answers a template the service could
+	 * not create with 404 and a failing service with 500.
+	 *
+	 * @return void
+	 */
+	public function testSaveFromAgentBodiesForEveryOutcome(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('saveAgentAsTemplate')->willReturnCallback(
+			static function (string $agentId, string $createdBy): ?ObjectEntity {
+				if ($createdBy === 'alice') {
+					return null;
+				}
+
+				throw new RuntimeException('db down');
+			}
+		);
+		$auth = $this->createMock(ActionAuthService::class);
+
+		$cases = [
+			[$this->session(null), $this->agent('alice', true), Http::STATUS_UNAUTHORIZED, ['error' => 'Unauthenticated']],
+			[$this->session('mallory'), $this->agent('alice', true), Http::STATUS_NOT_FOUND, ['error' => 'Agent not found']],
+			[$this->session('bob'), $this->agent('alice', false), Http::STATUS_FORBIDDEN, ['error' => 'Only the owner of this agent can save it as a template']],
+			[$this->session('alice'), $this->agent('alice', true), Http::STATUS_NOT_FOUND, ['error' => 'Agent not found']],
+			[$this->session('carol'), $this->agent('carol', true), Http::STATUS_INTERNAL_SERVER_ERROR, ['error' => 'Could not save the agent as a template']],
+		];
+		foreach ($cases as [$session, $agent, $status, $body]) {
+			$response = $this->controller($service, $auth, $session, null, null, null, null, $agent)->saveFromAgent('agent-1');
+			$this->assertSame([$status, $body], [$response->getStatus(), $response->getData()]);
+		}
+
+	}//end testSaveFromAgentBodiesForEveryOutcome()
 }//end class

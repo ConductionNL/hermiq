@@ -69,7 +69,7 @@ final class ToolDispatch {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
 	 */
 	public function outcome(): string {
 		if ($this->envelope['isError'] === true) {

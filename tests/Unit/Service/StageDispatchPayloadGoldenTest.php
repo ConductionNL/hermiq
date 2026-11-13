@@ -158,6 +158,7 @@ class RecordingAsyncStageDispatchService extends AsyncStageDispatchService {
  * @uses \OCA\Hermiq\Service\Llm\RunTokenService
  * @uses \OCA\Hermiq\Service\StageOptions
  * @uses \OCA\Hermiq\Service\StageRequest
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenRequest
  */
 class StageDispatchPayloadGoldenTest extends TestCase {
 

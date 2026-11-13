@@ -102,7 +102,7 @@ class ToolGrantWrites {
 	 *
 	 * @throws Throwable When the decision cannot be stored.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function saveDecision(array $data, string $requestId): void {
 		// System path: the schema admits only the request's owner, and the
@@ -133,7 +133,7 @@ class ToolGrantWrites {
 	 *
 	 * @return array<string, mixed>|null The request data, or null when it is not this agent's.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function findAccessRequest(string $requestId, string $agentId): ?array {
 		try {
@@ -173,7 +173,7 @@ class ToolGrantWrites {
 	 *                   success. The single caller
 	 *                   (`resolveToolAccessRequest()`) turns it into a 500.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function grantRequestedTool(ObjectEntity $agent, array $data): void {
 		if (($data['status'] ?? '') !== 'granted') {
