@@ -28,10 +28,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
 use OCA\Hermiq\Kernel\Contracts\RecordSummaryServiceInterface;
 use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
-use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -106,7 +106,7 @@ class SeedRecordSummary implements IRepairStep {
 	public function run(IOutput $output): void {
 		try {
 			$objectService = $this->container->get(ObjectService::class);
-			$library = $this->container->get(AssistantPromptLibrary::class);
+			$library = $this->container->get(AssistantPromptLibraryInterface::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available, skipping the record-summary seed.');
 			$this->logger->warning('[hermiq] record-summary seed skipped: ' . $e->getMessage());
@@ -166,14 +166,14 @@ class SeedRecordSummary implements IRepairStep {
 	/**
 	 * Ship the record-summary prompt into the library.
 	 *
-	 * @param AssistantPromptLibrary $library The prompt library.
+	 * @param AssistantPromptLibraryInterface $library The prompt library.
 	 * @param IOutput $output The repair output.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
-	private function seedPrompt(AssistantPromptLibrary $library, IOutput $output): void {
+	private function seedPrompt(AssistantPromptLibraryInterface $library, IOutput $output): void {
 		try {
 			$result = $library->seed(
 				appId: 'hermiq',

@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Chat;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
@@ -46,7 +47,7 @@ use Throwable;
  *
  * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
  */
-class ImageGenerationService {
+class ImageGenerationService implements ImageGenerationServiceInterface {
 
 	/**
 	 * The AiFeature that has to be enabled before an image is created.

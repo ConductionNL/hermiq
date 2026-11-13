@@ -41,8 +41,9 @@ namespace OCA\Hermiq\Service\Assistant;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -53,7 +54,7 @@ use Throwable;
  *
  * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
  */
-class AssistantPromptLibrary {
+class AssistantPromptLibrary implements AssistantPromptLibraryInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

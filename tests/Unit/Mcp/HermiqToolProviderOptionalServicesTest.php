@@ -20,6 +20,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Mcp\ImageToolDescriptors;
 use OCA\Hermiq\Mcp\NcTaskToolDescriptors;
@@ -134,8 +136,8 @@ class HermiqToolProviderOptionalServicesTest extends TestCase {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
 			static fn (string $id): object => match ($id) {
-				TaskWriteService::class => $tasks,
-				ImageGenerationService::class => $images,
+				TaskWriteServiceInterface::class => $tasks,
+				ImageGenerationServiceInterface::class => $images,
 				default => throw new RuntimeException($id),
 			}
 		);

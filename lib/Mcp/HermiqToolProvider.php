@@ -97,15 +97,15 @@ use DateTimeInterface;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
-use OCA\Hermiq\Service\Graph\GraphTools;
-use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -677,12 +677,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function taskDescriptors(): array {
 		try {
-			$tasks = $this->container->get(TaskWriteService::class);
+			$tasks = $this->container->get(TaskWriteServiceInterface::class);
 		} catch (Throwable) {
 			$tasks = null;
 		}
 
-		if ($tasks instanceof TaskWriteService && $tasks->canComplete() === true) {
+		if ($tasks instanceof TaskWriteServiceInterface && $tasks->canComplete() === true) {
 			return NcTaskToolDescriptors::ALL;
 		}
 
@@ -704,12 +704,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function imageDescriptors(): array {
 		try {
-			$images = $this->container->get(ImageGenerationService::class);
+			$images = $this->container->get(ImageGenerationServiceInterface::class);
 		} catch (Throwable) {
 			$images = null;
 		}
 
-		if ($images instanceof ImageGenerationService
+		if ($images instanceof ImageGenerationServiceInterface
 			&& $images->isAvailable(uid: $this->userSession->getUser()?->getUID()) === true
 		) {
 			return ImageToolDescriptors::ALL;
@@ -774,9 +774,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 */
 	private function userScopedServiceFor(string $toolId): ?string {
 		return match (true) {
-			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphTools::class,
-			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteService::class,
-			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationService::class,
+			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
+			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
+			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
 			default => null,
 		};
 
