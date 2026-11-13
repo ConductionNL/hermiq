@@ -10,8 +10,9 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 - **acceptance_criteria**:
   - GIVEN a new handoff WHEN it is opened THEN it has a conversation, an owner, a kind and a deadline of at most 7 days
   - GIVEN a closed handoff WHEN a second close arrives THEN it is ignored
-- [ ] Implement
-- [ ] Test (PHPUnit on the state transitions)
+- **status**: built. `Handoff` is declared as `agenthandoff` (register v0.53.0), read only by `requestedBy`. `HandoffService` opens (24 hours by default, capped at 7 days), closes as `done` or `failed` (a second close is ignored and logged) and expires a waiting handoff past its deadline. Nothing calls it yet: tasks 2 to 4 are its callers.
+- [x] Implement
+- [x] Test (PHPUnit on the state transitions): `tests/Unit/Service/Handoff/HandoffServiceTest.php`
 
 ### Task 2: The follow-up turn and the notification
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002`
