@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\ActionMatrix;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IAppConfig;
 use OCP\IGroupManager;
@@ -46,6 +47,13 @@ class ActionAuthServiceTest extends TestCase {
 	 * @var ActionAuthService
 	 */
 	private ActionAuthService $service;
+
+	/**
+	 * The matrix the service reads.
+	 *
+	 * @var ActionMatrix
+	 */
+	private ActionMatrix $matrix;
 
 	/**
 	 * Mock IAppConfig.
@@ -70,8 +78,9 @@ class ActionAuthServiceTest extends TestCase {
 		parent::setUp();
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->groupManager = $this->createMock(IGroupManager::class);
+		$this->matrix = new ActionMatrix(appConfig: $this->appConfig);
 		$this->service = new ActionAuthService(
-			appConfig: $this->appConfig,
+			actionMatrix: $this->matrix,
 			groupManager: $this->groupManager,
 		);
 
@@ -236,7 +245,7 @@ class ActionAuthServiceTest extends TestCase {
 		foreach ($stored as $json) {
 			$config = $this->createMock(originalClassName: IAppConfig::class);
 			$config->method('getValueString')->willReturn($json);
-			$read[] = (new ActionAuthService(appConfig: $config, groupManager: $this->groupManager))->getMatrix();
+			$read[] = (new ActionMatrix(appConfig: $config))->getMatrix();
 		}
 
 		$this->assertSame(expected: [[], [], [], ['a.b' => ['x', 'y'], 'e.f' => []]], actual: $read);
@@ -251,8 +260,57 @@ class ActionAuthServiceTest extends TestCase {
 	public function testGetAllowedGroupsDefaultsToAdmin(): void {
 		$this->setMatrix([]);
 
-		$this->assertSame(['admin'], $this->service->getAllowedGroups('unknown.action'));
+		$this->assertSame(['admin'], $this->matrix->getAllowedGroups('unknown.action'));
 
 	}//end testGetAllowedGroupsDefaultsToAdmin()
 
+	/**
+	 * Each refusal names the action and why: admin-only (or no entry), or no matching group.
+	 *
+	 * @return void
+	 */
+	public function testEachRefusalNamesItsReason(): void {
+		$user = $this->mockUser('jane');
+		$this->groupManager->method('isAdmin')->willReturn(false);
+		$this->groupManager->method('getUserGroupIds')->willReturn(['staff']);
+		$this->setMatrix(['a.admin' => ['admin'], 'a.none' => [], 'a.chairs' => ['admin', 'chairs']]);
+
+		$messages = [];
+		foreach (['a.admin', 'a.none', 'a.missing', 'a.chairs'] as $action) {
+			try {
+				$this->service->requireAction(user: $user, action: $action);
+				$messages[] = 'allowed';
+			} catch (OCSForbiddenException $e) {
+				$messages[] = $e->getMessage();
+			}
+		}
+
+		$this->assertSame(
+			[
+				"Action 'a.admin' requires admin rights",
+				"Action 'a.none' requires admin rights",
+				"Action 'a.missing' requires admin rights",
+				"Action 'a.chairs' not allowed for your groups",
+			],
+			$messages
+		);
+
+	}//end testEachRefusalNamesItsReason()
+
+	/**
+	 * The matrix is written normalised (empty groups dropped, duplicates removed, reindexed)
+	 * under the app's `actions` key, and its actions are its keys.
+	 *
+	 * @return void
+	 */
+	public function testTheMatrixIsWrittenNormalisedAndListsItsActions(): void {
+		$this->appConfig->expects($this->once())->method('setValueString')
+			->with('hermiq', 'actions', '{"a.b":["x","y"],"c.d":[]}');
+		$this->setMatrix(['a.b' => ['x'], 'c.d' => []]);
+
+		$this->matrix->setMatrix(['a.b' => ['x', '', 'x', 'y'], 'c.d' => ['']]);
+
+		$this->assertSame(['a.b', 'c.d'], $this->matrix->getActions());
+
+	}//end testTheMatrixIsWrittenNormalisedAndListsItsActions()
 }//end class

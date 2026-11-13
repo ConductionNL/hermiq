@@ -20,8 +20,8 @@ export function organisationPicker(reload) {
 			 * The manageable organisations as NcSelect options.
 			 *
 			 * @return {Array<object>} The { label, value } options.
-			 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+			 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
+			 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 			 */
 			orgOptions() {
 				return this.organisations.map((org) => ({
@@ -36,8 +36,8 @@ export function organisationPicker(reload) {
 			orgOption: {
 				/**
 				 * @return {object|undefined} The selected option, else the first.
-				 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-				 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+				 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
+				 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 				 */
 				get() {
 					return (
@@ -50,8 +50,8 @@ export function organisationPicker(reload) {
 				/**
 				 * @param {object|null} option The chosen option, or none.
 				 * @return {void}
-				 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-				 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+				 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
+				 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 				 */
 				set(option) {
 					this.selectedOrg = option ? option.value : ''

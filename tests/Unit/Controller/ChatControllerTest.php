@@ -847,4 +847,165 @@ class ChatControllerTest extends TestCase {
 		$this->assertFalse($response->getData()['warmed']);
 
 	}//end testWarmSwallowsAFailedLookup()
+
+	/**
+	 * Run a turn whose engine call throws the given exception, recording every
+	 * warning/error log line, and return the response.
+	 *
+	 * @param \Exception $failure The engine failure.
+	 *
+	 * @return array{0: int, 1: array<string, mixed>, 2: array<int, string>} Status, data and log lines.
+	 */
+	private function failedTurn(\Exception $failure): array {
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willThrowException($failure);
+		$lines = [];
+		$this->logger->method('warning')->willReturnCallback(
+			static function (string $message) use (&$lines): void {
+				$lines[] = 'warning ' . $message;
+			}
+		);
+		$this->logger->method('error')->willReturnCallback(
+			static function (string $message, array $context) use (&$lines): void {
+				$lines[] = 'error ' . $message . ' / ' . $context['error'];
+			}
+		);
+
+		$response = $this->controller()->sendMessage();
+		return [$response->getStatus(), $response->getData(), $lines];
+
+	}//end failedTurn()
+
+	/**
+	 * Every exception code maps to its status and error sentence; codes outside the
+	 * HTTP error range become 500, and 4xx is logged as a warning, 5xx as an error.
+	 *
+	 * @return void
+	 */
+	public function testEveryFailureCodeMapsToItsStatusAndSentence(): void {
+		$cases = [
+			[0, 500, 'Failed to process message'],
+			[23, 500, 'Failed to process message'],
+			[399, 500, 'Failed to process message'],
+			[400, 400, 'Missing conversation or agentUuid'],
+			[401, 401, 'Authentication required'],
+			[403, 403, 'Access denied'],
+			[404, 404, 'Conversation not found'],
+			[409, 409, 'This agent is switched off.'],
+			[410, 410, 'Failed to process message'],
+			[422, 422, 'Message blocked by the organisation\'s guardrail policy'],
+			[503, 503, 'AI service not configured'],
+			[599, 599, 'Failed to process message'],
+			[600, 500, 'Failed to process message'],
+		];
+		foreach ($cases as [$code, $status, $error]) {
+			$this->setUp();
+			[$actualStatus, $data, $lines] = $this->failedTurn(new \Exception('why', $code));
+			$this->assertSame([$status, ['error' => $error, 'message' => 'why']], [$actualStatus, $data], 'code ' . $code);
+			$expected = ($status < 500) ? ['warning [ChatController] Rejected message: why'] : ['error [ChatController] Failed to send message / why'];
+			$this->assertSame($expected, $lines, 'code ' . $code);
+		}
+
+	}//end testEveryFailureCodeMapsToItsStatusAndSentence()
+
+	/**
+	 * A guardrail block carries its stable code; a refusal found deeper in the cause
+	 * chain replaces the message and code, the first one found wins, and the literacy
+	 * refusal adds the course link.
+	 *
+	 * @return void
+	 */
+	public function testTheCauseChainDecidesTheSentenceAndCode(): void {
+		[$status, $data] = $this->failedTurn(new \OCA\Hermiq\Service\GuardrailBlockedException(reason: 'pii'));
+		$this->assertSame(
+			[422, ['error' => 'Message blocked by the organisation\'s guardrail policy', 'message' => 'Message blocked by guardrail policy (pii)', 'errorCode' => 'guardrail_blocked']],
+			[$status, $data]
+		);
+
+		$this->setUp();
+		$switchedOff = new \OCA\Hermiq\Service\Agent\AgentSwitchedOffException();
+		$pinned = new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException(provider: 'openai');
+		$chain = new \Exception('outer', 403, new \Exception('middle', 0, new \Exception('inner', 0, $switchedOff)));
+		[$status, $data] = $this->failedTurn($chain);
+		$this->assertSame(
+			[403, ['error' => 'Access denied', 'message' => 'This agent is switched off.', 'errorCode' => \OCA\Hermiq\Service\Agent\AgentSwitchedOffException::ERROR_CODE]],
+			[$status, $data]
+		);
+
+		$this->setUp();
+		[$status, $data] = $this->failedTurn(new \Exception('outer', 503, $pinned));
+		$this->assertSame(
+			[503, ['error' => 'AI service not configured', 'message' => 'The credential pinned to this agent cannot be used for this run.', 'errorCode' => 'pinned_credential_refused']],
+			[$status, $data]
+		);
+
+		$this->setUp();
+		$literacy = new \OCA\Hermiq\Service\Literacy\LiteracyRequiredException();
+		[$status, $data] = $this->failedTurn(new \Exception('outer', 0, $literacy));
+		$this->assertSame(
+			[
+				500,
+				[
+					'error' => 'Failed to process message',
+					'message' => 'Finish the short course Working with AI first.',
+					'errorCode' => \OCA\Hermiq\Service\Literacy\LiteracyRequiredException::ERROR_CODE,
+					'courseUrl' => \OCA\Hermiq\Service\Literacy\LiteracyRequiredException::COURSE_PATH,
+				],
+			],
+			[$status, $data]
+		);
+
+	}//end testTheCauseChainDecidesTheSentenceAndCode()
+
+	/**
+	 * The turn's request parameters reach the engine with their defaults: views and
+	 * tools only when they are lists, the RAG settings defaulted, context only when an
+	 * array, and attachments re-indexed.
+	 *
+	 * @return void
+	 */
+	public function testTheTurnParametersReachTheEngine(): void {
+		$seen = [];
+		$this->objectService->method('find')->willReturn(
+			$this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+		);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				$seen[] = [$args[2], $args[3], $args[4], $args[5], $args[6], $args[13]];
+				return [];
+			}
+		);
+		$controller = $this->controller();
+
+		$this->stubParams(
+			[
+				'conversation' => 'conv-1',
+				'message' => 'hi',
+				'views' => ['v1'],
+				'tools' => ['t1'],
+				'includeFiles' => false,
+				'numSourcesObjects' => 2,
+				'context' => ['page' => 'x'],
+				'attachments' => ['a' => ['id' => 1], 'b' => ['id' => 2]],
+			]
+		);
+		$controller->sendMessage();
+
+		$this->request = $this->createMock(\OCP\IRequest::class);
+		$this->stubParams(['conversation' => 'conv-1', 'message' => 'again', 'views' => 'x', 'tools' => 5, 'context' => 'y', 'attachments' => 'z']);
+		$this->controller()->sendMessage();
+
+		$defaults = ['includeObjects' => true, 'includeFiles' => true, 'numSourcesFiles' => 5, 'numSourcesObjects' => 5];
+		$this->assertSame(
+			[
+				['hi', ['v1'], ['t1'], ['includeObjects' => true, 'includeFiles' => false, 'numSourcesFiles' => 5, 'numSourcesObjects' => 2], ['page' => 'x'], [['id' => 1], ['id' => 2]]],
+				['again', [], [], $defaults, [], []],
+			],
+			$seen
+		);
+
+	}//end testTheTurnParametersReachTheEngine()
 }//end class

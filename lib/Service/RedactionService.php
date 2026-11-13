@@ -40,7 +40,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 
 declare(strict_types=1);
@@ -61,7 +61,7 @@ use OCP\IConfig;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Class complexity is the sum of
  *   many independent one-pattern passes, each individually trivial.
  *
- * @spec openspec/changes/run-audit-log/tasks.md#1-redaction
+ * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#1-redaction
  */
 class RedactionService {
 
@@ -191,7 +191,7 @@ class RedactionService {
 	 *
 	 * @param IConfig $config Reads the frozen `redact_secrets` app setting (default on).
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function __construct(IConfig $config) {
 		$setting = strtolower((string)$config->getAppValue('hermiq', 'redact_secrets', 'yes'));
@@ -216,7 +216,7 @@ class RedactionService {
 	 *
 	 * @return string The redacted text.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redact(string $text): string {
 		return $this->redactSensitiveText(text: $text, mode: self::MODE_FORCE);
@@ -233,7 +233,7 @@ class RedactionService {
 	 *
 	 * @return string The redacted text.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function redactSensitiveText(string $text, int $mode = 0): string {
 		if ($text === '') {
@@ -280,7 +280,7 @@ class RedactionService {
 	 *
 	 * @return string The masked value.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	public function maskSecret(
 		string $value,
@@ -310,7 +310,7 @@ class RedactionService {
 	 *
 	 * @return string The masked token.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function maskToken(string $token): string {
 		if ($token === '') {
@@ -330,7 +330,7 @@ class RedactionService {
 	 *
 	 * @return string The non-reusable sentinel (vendor label preserved).
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function maskTokenNonReusable(string $token): string {
 		foreach ($this->prefixSubstrings as $sub) {
@@ -350,7 +350,7 @@ class RedactionService {
 	 *
 	 * @return string The text with prefix credentials masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactPrefixes(string $text, int $mode): string {
 		if ($this->hasKnownPrefixSubstring(text: $text) === false) {
@@ -384,7 +384,7 @@ class RedactionService {
 	 *
 	 * @return string The text with assignment secrets masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactEnvAssignments(string $text, int $mode): string {
 		if (($mode & self::MODE_CODE_FILE) !== 0 || str_contains($text, '=') === false) {
@@ -422,7 +422,7 @@ class RedactionService {
 	 *
 	 * @return string The rebuilt, masked assignment.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function envAssignReplacement(array $matches): string {
 		$quote = ($matches[2] ?? '');
@@ -439,7 +439,7 @@ class RedactionService {
 	 *
 	 * @return string The text with JSON secret values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactJsonFields(string $text, int $mode): string {
 		if (($mode & self::MODE_CODE_FILE) !== 0) {
@@ -473,7 +473,7 @@ class RedactionService {
 	 *
 	 * @return string The text with YAML secret values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactYaml(string $text, int $mode): string {
 		if (($mode & self::MODE_CODE_FILE) !== 0) {
@@ -506,7 +506,7 @@ class RedactionService {
 	 *
 	 * @return string The text with auth-header credentials masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactAuthHeaders(string $text): string {
 		if (stripos($text, 'uthorization') === false) {
@@ -532,7 +532,7 @@ class RedactionService {
 	 *
 	 * @return string The text with API-key header values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactApiKeyHeaders(string $text): string {
 		if (str_contains($text, ':') === false) {
@@ -560,7 +560,7 @@ class RedactionService {
 	 *
 	 * @return string The text with Telegram tokens masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactTelegram(string $text): string {
 		if (str_contains($text, ':') === false) {
@@ -586,7 +586,7 @@ class RedactionService {
 	 *
 	 * @return string The text with private-key blocks removed.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactPrivateKeys(string $text): string {
 		if (str_contains($text, 'BEGIN') === false || str_contains($text, '-----') === false) {
@@ -612,7 +612,7 @@ class RedactionService {
 	 *
 	 * @return string The text with DSN passwords masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactDbConnStrings(string $text, int $mode): string {
 		if (str_contains($text, '://') === false) {
@@ -646,7 +646,7 @@ class RedactionService {
 	 *
 	 * @return string The text with bare-token userinfo masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactUrlBareToken(string $text): string {
 		if (str_contains($text, '://') === false) {
@@ -672,7 +672,7 @@ class RedactionService {
 	 *
 	 * @return string The text with JWTs masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactJwt(string $text): string {
 		if (str_contains($text, 'eyJ') === false) {
@@ -698,7 +698,7 @@ class RedactionService {
 	 *
 	 * @return string The text with phone numbers masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactPhones(string $text): string {
 		if (str_contains($text, '+') === false) {
@@ -730,7 +730,7 @@ class RedactionService {
 	 *
 	 * @return string The text with form-body secrets masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactFormBody(string $text): string {
 		if (str_contains($text, '&') === false || str_contains($text, '=') === false) {
@@ -759,7 +759,7 @@ class RedactionService {
 	 *
 	 * @return string The query string with sensitive values masked.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function redactQueryString(string $query): string {
 		if ($query === '') {
@@ -794,7 +794,7 @@ class RedactionService {
 	 *
 	 * @return bool True when a known prefix substring is present.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function hasKnownPrefixSubstring(string $text): bool {
 		foreach ($this->prefixSubstrings as $sub) {
@@ -816,7 +816,7 @@ class RedactionService {
 	 *
 	 * @return string The literal prefix.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#task-1-1
 	 */
 	private function extractLiteralPrefix(string $pattern): string {
 		$meta = '[(\\.?*+|{^$';

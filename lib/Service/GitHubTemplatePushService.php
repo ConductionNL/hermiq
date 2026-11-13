@@ -335,7 +335,7 @@ class GitHubTemplatePushService {
 	 *
 	 * @throws RuntimeException On a missing broker, bad coordinates, or API failure.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function publishBundle(
 		array $files,

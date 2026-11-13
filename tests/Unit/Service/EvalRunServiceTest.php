@@ -284,6 +284,54 @@ class EvalRunServiceTest extends TestCase {
 	}//end testTwoCaseRunComputesPassRate()
 
 	/**
+	 * The regression gate fails only when the drop EXCEEDS the threshold: a drop
+	 * equal to it passes, and a previous run without a pass rate counts as 0.0.
+	 *
+	 * @return void
+	 */
+	public function testRegressionGateFailsOnlyAboveTheThreshold(): void {
+		$outcomes = [];
+		foreach ([[1.0, 50], [1.0, 49], [null, 0]] as [$previousPassRate, $threshold]) {
+			$schedule = $this->createMock(ScheduleService::class);
+			$schedule->method('isOrganisationEngaged')->willReturn(false);
+			$schedule->method('runAgentAsOwner')->willReturn('agent output');
+			$schedule->method('getLastRunUsage')->willReturn([]);
+
+			$scoring = $this->createMock(EvalScoringService::class);
+			$scoring->method('score')->willReturnOnConsecutiveCalls(
+				['passed' => true, 'errorMessage' => null, 'score' => null, 'judgeRationale' => null],
+				['passed' => false, 'errorMessage' => null, 'score' => null, 'judgeRationale' => null]
+			);
+
+			$previousData = ['datasetId' => 'dataset-uuid', 'agentId' => 'agent-uuid', 'status' => 'completed'];
+			if ($previousPassRate !== null) {
+				$previousData['passRate'] = $previousPassRate;
+			}
+
+			$previous = new ObjectEntity();
+			$previous->setUuid('previous-run');
+			$previous->setObject($previousData);
+			$previous->setCreated(new \DateTime('2026-07-01T00:00:00+00:00'));
+
+			$service = $this->service(objectService: $this->objectService([$previous]), scheduleService: $schedule, scoring: $scoring);
+			$result = $service->run(
+				$this->dataset(
+					[
+						['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+						['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+					]
+				),
+				$this->agent(),
+				regressionThresholdOverride: $threshold
+			);
+			$outcomes[] = [$result['regressionGateResult'], $result['previousPassRate']];
+		}//end foreach
+
+		$this->assertSame([['passed', 1.0], ['failed', 1.0], ['passed', 0.0]], $outcomes);
+
+	}//end testRegressionGateFailsOnlyAboveTheThreshold()
+
+	/**
 	 * An agent turn that throws is recorded as a failed case (infraError) and the run
 	 * is marked failed, but scoring of the OTHER case still happens — one bad case
 	 * never aborts the run.
@@ -452,4 +500,80 @@ class EvalRunServiceTest extends TestCase {
 		$this->assertSame('draft-comparison', $result['status']);
 
 	}//end testDraftComparisonRunDoesNotEnqueueEvalFailCapture()
+
+	/**
+	 * A failing audit write and a failing capture enqueue are logged and never fail
+	 * the run: every failing case is still offered to the job list, and the
+	 * warnings name the run and the cause, in order.
+	 *
+	 * @return void
+	 */
+	public function testAuditAndCaptureFailuresAreLoggedAndNeverFailTheRun(): void {
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturn(false);
+		$schedule->method('runAgentAsOwner')->willReturn('agent output');
+		$schedule->method('getLastRunUsage')->willReturn([]);
+		$schedule->method('getLastRunSkillsUsed')->willReturn(['skill-1']);
+
+		$scoring = $this->createMock(EvalScoringService::class);
+		$scoring->method('score')->willReturn(['passed' => false, 'errorMessage' => 'nope', 'score' => null, 'judgeRationale' => null]);
+
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('getValueString')->willReturnArgument(2);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->method('recordObjectEvent')->willThrowException(new RuntimeException('audit store down'));
+		$jobList = $this->createMock(IJobList::class);
+		$jobArguments = [];
+		$jobList->method('add')->willReturnCallback(
+			static function (mixed $job, mixed $argument = null) use (&$jobArguments): void {
+				$jobArguments[] = $argument['evalFail'];
+				throw new RuntimeException('queue down');
+			}
+		);
+		$warnings = [];
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			static function (string|\Stringable $message, array $context = []) use (&$warnings): void {
+				$warnings[] = [(string)$message, get_class($context['exception'])];
+			}
+		);
+
+		$service = new EvalRunService(
+			objectService: $this->objectService(),
+			scheduleService: $schedule,
+			budgetService: $this->createMock(BudgetService::class),
+			scoringService: $scoring,
+			auditTrailMapper: $audit,
+			redactionService: $redaction,
+			appConfig: $appConfig,
+			logger: $logger,
+			contextAssembler: $this->createMock(ContextAssembler::class),
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			jobList: $jobList,
+		);
+
+		$result = $service->run(
+			$this->dataset(
+				[
+					['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+					['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+				]
+			),
+			$this->agent()
+		);
+
+		$this->assertSame('completed', $result['status']);
+		$this->assertSame(['eval-run-uuid#0', 'eval-run-uuid#1'], $jobArguments);
+		$this->assertSame(
+			[
+				['Hermiq could not write eval-run audit for eval-run-uuid: audit store down', RuntimeException::class],
+				['Hermiq could not enqueue eval-fail learnings capture for run eval-run-uuid: queue down', RuntimeException::class],
+				['Hermiq could not enqueue eval-fail learnings capture for run eval-run-uuid: queue down', RuntimeException::class],
+			],
+			$warnings
+		);
+
+	}//end testAuditAndCaptureFailuresAreLoggedAndNeverFailTheRun()
 }//end class

@@ -19,7 +19,7 @@
  *   - a list of `{property, maxLength}` entries.
  *
  * @module utils/agentContext
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
  */
 
 export const AGENT_CONTEXT_KEYWORD = 'x-openregister-agent-context'

@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * Org-owner/instance-admin-guarded kill-switch read + toggle endpoints.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
 class OrganisationControlController extends Controller {
 	/**
@@ -66,7 +66,7 @@ class OrganisationControlController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: distinct collaborators.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -89,7 +89,7 @@ class OrganisationControlController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function show(string $organisation): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -122,7 +122,7 @@ class OrganisationControlController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	public function toggle(string $organisation): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -168,7 +168,7 @@ class OrganisationControlController extends Controller {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-5-1
 	 */
 	private function mayAdminister(string $organisation, IUser $user): bool {
 		if ($organisation === '') {

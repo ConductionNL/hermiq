@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\NcNative;
 
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use PHPUnit\Framework\TestCase;
@@ -51,7 +51,7 @@ class MailReadServiceTest extends TestCase {
 	 * @return MailReadService
 	 */
 	private function service(?bool $enabled, bool $throws = false): MailReadService {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 
 		if ($throws === true) {
 			$features->method('findBySlug')->willThrowException(new RuntimeException('register down'));
@@ -205,7 +205,7 @@ class MailReadServiceTest extends TestCase {
 	 * @return MailReadService
 	 */
 	private function serviceWithMail(array $doubles): MailReadService {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$feature = new ObjectEntity();
 		$feature->setObject(['enabled' => true]);
 		$features->method('findBySlug')->willReturn($feature);
@@ -219,13 +219,13 @@ class MailReadServiceTest extends TestCase {
 			/**
 			 * Constructor.
 			 *
-			 * @param AiFeatureService $features The feature register.
+			 * @param AiFeatureLookup $features The feature register.
 			 * @param ContainerInterface $container The container.
 			 * @param LoggerInterface $logger The logger.
 			 * @param array<string, object> $doubles The Mail doubles.
 			 */
 			public function __construct(
-				AiFeatureService $features,
+				AiFeatureLookup $features,
 				ContainerInterface $container,
 				LoggerInterface $logger,
 				private array $doubles,

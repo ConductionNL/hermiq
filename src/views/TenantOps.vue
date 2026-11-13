@@ -24,9 +24,9 @@
   — it is governance policy, not a per-organisation operational control, and
   now exists in exactly that one place.
 
-  @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
-  @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
-  @spec openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
+  @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
+  @spec openspec/specs/multi-tenant-ops/spec.md
+  @spec openspec/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
   @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 -->
 <template>
@@ -442,7 +442,7 @@ export default {
 		 * Column definitions for the access-review CnDataTable.
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		reviewColumns() {
 			return [
@@ -460,7 +460,7 @@ export default {
 		 * Agents projected onto flat rows for the access-review table.
 		 *
 		 * @return {Array<object>} The table rows.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		reviewRows() {
 			return this.reviewAgents.map((agent) => ({
@@ -481,7 +481,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 	 */
 	created() {
 		if (this.canManage) {
@@ -508,7 +508,7 @@ export default {
 		 * status (cost-guardrails).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async loadBudgets() {
 			if (!this.selectedOrg) {
@@ -549,7 +549,7 @@ export default {
 		 *
 		 * @param {object} entry The budget + its status.
 		 * @return {string} The usage label.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		budgetUsageLabel(entry) {
 			const tokens = entry.status && entry.status.tokens
@@ -569,7 +569,7 @@ export default {
 		 * Open the create-budget modal for the selected organisation.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		openCreateBudget() {
 			this.editingBudget = null
@@ -581,7 +581,7 @@ export default {
 		 *
 		 * @param {object} entry The budget to edit.
 		 * @return {void}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		openEditBudget(entry) {
 			this.editingBudget = entry
@@ -592,7 +592,7 @@ export default {
 		 * Reload after a budget is created/edited.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async onBudgetSaved() {
 			await this.loadBudgets()
@@ -602,7 +602,7 @@ export default {
 		 * Load the caller-visible model policies (tenant-model-policy).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async loadModelPolicies() {
 			this.policyError = ''
@@ -623,7 +623,7 @@ export default {
 		 *
 		 * @param {object} policy The ModelPolicy record.
 		 * @return {string} The summary line.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		policySummary(policy) {
 			const allowed = Array.isArray(policy.allowed) ? policy.allowed : []
@@ -652,7 +652,7 @@ export default {
 		 *
 		 * @param {object} policy The ModelPolicy record.
 		 * @return {void}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		togglePolicyEdit(policy) {
 			if (this.editingPolicyId === policy.id) {
@@ -680,7 +680,7 @@ export default {
 		 *
 		 * @param {object} policy The ModelPolicy record being edited.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async savePolicy(policy) {
 			const allowed = this.policyDraft.allowedText
@@ -724,7 +724,7 @@ export default {
 		 *
 		 * @param {object} entry The budget to delete.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async removeBudget(entry) {
 			try {
@@ -742,7 +742,7 @@ export default {
 		 *
 		 * @param {object} agent The access-review agent entry.
 		 * @return {string} The summary line.
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		capabilitySummary(agent) {
 			const tools = Array.isArray(agent.tools) ? agent.tools : []
@@ -759,7 +759,7 @@ export default {
 		 * Load the organisation's periodic access-review list (agent-lifecycle-governance).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async loadAccessReview() {
 			this.reviewLoading = true
@@ -787,7 +787,7 @@ export default {
 		 *
 		 * @param {object} row The access-review row.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async markReviewed(row) {
 			this.reviewBusyUuid = row.uuid
@@ -810,7 +810,7 @@ export default {
 		 *
 		 * @param {object} row The access-review row.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+		 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-3-2
 		 */
 		async reassign(row) {
 			const target = (this.reassignDrafts[row.uuid] || '').trim()

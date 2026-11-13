@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
  */
 
 declare(strict_types=1);
@@ -48,7 +48,7 @@ use Throwable;
 /**
  * Auth, allowlist and limits over LessonAuthoringEngine.
  *
- * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+ * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
  */
 class LessonAuthoringController extends Controller {
 
@@ -118,8 +118,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-004-draft-a-lesson-outline-from-learning-goals
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -147,8 +147,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-005-suggest-questions-for-a-lesson
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -178,8 +178,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-006-rewrite-a-text-at-a-lower-reading-level
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -205,8 +205,8 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @no-admin-idor-exempt Looks up no caller-supplied id: lesson content in, draft out, no object to authorise.
 	 *
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
-	 * @spec openspec/changes/lesson-authoring-ai-delegate/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-007-suggest-which-given-goals-a-lesson-covers
+	 * @spec openspec/specs/lesson-authoring/spec.md#requirement-req-010-the-endpoints-authenticate-validate-and-rate-limit-before-the-gate
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 30, period: 60)]
@@ -305,21 +305,29 @@ class LessonAuthoringController extends Controller {
 			throw new InvalidArgumentException('goalTitles must hold at most ' . self::MAX_GOALS . ' items');
 		}
 
-		$titles = [];
-		foreach ($value as $title) {
-			if (is_string($title) === false || trim($title) === '') {
-				throw new InvalidArgumentException('goalTitles must hold non-empty strings only');
-			}
+		return array_map(fn (mixed $title): string => $this->goalTitle(title: $title), $value);
+	}//end goalTitles()
 
-			if (mb_strlen(trim($title)) > self::MAX_GOAL_TITLE) {
-				throw new InvalidArgumentException('each goal title must be at most ' . self::MAX_GOAL_TITLE . ' characters');
-			}
-
-			$titles[] = trim($title);
+	/**
+	 * One goal title, trimmed.
+	 *
+	 * @param mixed $title The submitted title.
+	 *
+	 * @return string The trimmed title.
+	 *
+	 * @throws InvalidArgumentException When it is not a non-empty string within the limit.
+	 */
+	private function goalTitle(mixed $title): string {
+		if (is_string($title) === false || trim($title) === '') {
+			throw new InvalidArgumentException('goalTitles must hold non-empty strings only');
 		}
 
-		return $titles;
-	}//end goalTitles()
+		if (mb_strlen(trim($title)) > self::MAX_GOAL_TITLE) {
+			throw new InvalidArgumentException('each goal title must be at most ' . self::MAX_GOAL_TITLE . ' characters');
+		}
+
+		return trim($title);
+	}//end goalTitle()
 
 	/**
 	 * `language`, a BCP-47 tag; DEFAULT_LANGUAGE when absent.
@@ -354,14 +362,8 @@ class LessonAuthoringController extends Controller {
 			return self::DEFAULT_QUESTION_COUNT;
 		}
 
-		if (is_string($value) === true && ctype_digit($value) === true) {
-			$value = (int)$value;
-		}
-
-		if (is_int($value) === false
-			|| $value < LessonAuthoringEngine::MIN_QUESTIONS
-			|| $value > LessonAuthoringEngine::MAX_QUESTIONS
-		) {
+		$value = $this->digitsAsInt(value: $value);
+		if ($this->isQuestionCount(value: $value) === false) {
 			throw new InvalidArgumentException(
 				'questionCount must be a whole number from ' . LessonAuthoringEngine::MIN_QUESTIONS
 				. ' to ' . LessonAuthoringEngine::MAX_QUESTIONS
@@ -370,6 +372,34 @@ class LessonAuthoringController extends Controller {
 
 		return $value;
 	}//end questionCount()
+
+	/**
+	 * A string of digits as an int; any other value unchanged.
+	 *
+	 * @param mixed $value The submitted value.
+	 *
+	 * @return mixed The int, or the value as given.
+	 */
+	private function digitsAsInt(mixed $value): mixed {
+		if (is_string($value) === true && ctype_digit($value) === true) {
+			return (int)$value;
+		}
+
+		return $value;
+	}//end digitsAsInt()
+
+	/**
+	 * Whether a value is a whole number within the engine's question range.
+	 *
+	 * @param mixed $value The candidate count.
+	 *
+	 * @return boolean True when it is an int from MIN_QUESTIONS to MAX_QUESTIONS.
+	 */
+	private function isQuestionCount(mixed $value): bool {
+		return is_int($value) === true
+			&& $value >= LessonAuthoringEngine::MIN_QUESTIONS
+			&& $value <= LessonAuthoringEngine::MAX_QUESTIONS;
+	}//end isQuestionCount()
 
 	/**
 	 * `readingLevel`, one of the engine's levels; the engine default when absent.

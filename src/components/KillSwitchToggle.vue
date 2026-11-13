@@ -12,8 +12,8 @@
   TenantControl through the guarded endpoints in src/api/approvals.js; the server
   remains the real authorization boundary.
 
-  @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
-  @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
 	<div v-if="canManage && organisations.length > 0" class="kill-switch">
@@ -109,7 +109,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 	 */
 	created() {
 		if (this.canManage && this.organisations.length > 0) {
@@ -123,7 +123,7 @@ export default {
 		 * Read the current kill-switch state for the selected organisation.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		async load() {
 			if (!this.selectedOrg) {
@@ -147,7 +147,7 @@ export default {
 		 *
 		 * @param {boolean} next The requested engaged state.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-4-1
 		 */
 		async onToggle(next) {
 			if (!this.selectedOrg) {

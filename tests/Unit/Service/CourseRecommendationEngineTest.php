@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\LearnerSignalReader;
 use OCA\Hermiq\Service\LearnerSignalRegister;
@@ -247,7 +247,7 @@ class CourseRecommendationEngineTest extends TestCase {
 		?string $installedAppId = null,
 		array $presentRegisterSlugs = ['learniq'],
 	): CourseRecommendationEngine {
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
+		$aiFeatureService = $this->createMock(AiFeatureLookup::class);
 		$aiFeatureService->method('findBySlug')->willReturn($feature);
 
 		$appManager = $this->createMock(IAppManager::class);

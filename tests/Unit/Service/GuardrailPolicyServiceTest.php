@@ -467,4 +467,111 @@ class GuardrailPolicyServiceTest extends TestCase {
 		$this->assertSame('confirm', $result['toolPolicy'][0]['classification']);
 
 	}//end testUpsertForOrganisationPersistsAndShapesTheResult()
+
+	/**
+	 * The effective policy's source for every combination of an organisation's own
+	 * policy and the instance default, enabled or not; '' never reads an own policy.
+	 *
+	 * @return void
+	 */
+	public function testEffectivePolicySourceForEveryCombination(): void {
+		$ownOn = $this->policy('own', 'org-a');
+		$ownOff = $this->policy('own-off', 'org-a', enabled: false);
+		$instanceOn = $this->policy('inst', '');
+		$instanceOff = $this->policy('inst-off', '', enabled: false);
+		$cases = [
+			[[$ownOn, $instanceOn], 'org-a', 'organisation', 'own'],
+			[[$ownOff, $instanceOn], 'org-a', 'instance', 'inst'],
+			[[$ownOff, $instanceOff], 'org-a', 'fallback', null],
+			[[$instanceOn], 'org-b', 'instance', 'inst'],
+			[[$ownOn, $instanceOff], 'org-b', 'fallback', null],
+			[[$ownOn, $instanceOn], '', 'instance', 'inst'],
+			[[], '', 'fallback', null],
+		];
+		foreach ($cases as $index => [$policies, $organisation, $source, $id]) {
+			$effective = $this->service($policies)->effectivePolicyFor(organisation: $organisation);
+			$this->assertSame([$source, $id], [$effective['source'], ($effective['id'] ?? null)], 'case ' . $index);
+		}
+
+	}//end testEffectivePolicySourceForEveryCombination()
+
+	/**
+	 * filterOutputValue() keeps the value when filtering is off or changes nothing,
+	 * returns filtered text for a string, re-decodes filtered JSON for any other value,
+	 * and returns the text when it no longer decodes.
+	 *
+	 * @return void
+	 */
+	public function testFilterOutputValueKeepsTheValuesShape(): void {
+		$service = $this->service();
+		$redact = ['outputFilters' => ['piiAction' => 'redact']];
+		$block = ['outputFilters' => ['piiAction' => 'block']];
+		$object = (object)['k' => 'SECRET'];
+
+		$this->assertSame($object, $service->filterOutputValue(policy: [], value: $object));
+		$this->assertSame($object, $service->filterOutputValue(policy: ['outputFilters' => 'junk'], value: $object));
+		$this->assertSame('a [REDACTED] b', $service->filterOutputValue(policy: $redact, value: 'a SECRET b'));
+		$this->assertSame(['k' => '[REDACTED]', 'n' => 1], $service->filterOutputValue(policy: $redact, value: ['k' => 'SECRET', 'n' => 1]));
+		$this->assertSame(['k' => '[REDACTED]'], $service->filterOutputValue(policy: $redact, value: $object));
+		$clean = ['k' => 'v'];
+		$this->assertSame($clean, $service->filterOutputValue(policy: $redact, value: $clean));
+		$this->assertSame(5, $service->filterOutputValue(policy: $redact, value: 5));
+
+		$blocked = $service->filterOutputValue(policy: $block, value: ['k' => 'SECRET']);
+		$this->assertSame($service->filterOutput(policy: $block, text: '{"k":"SECRET"}')['text'], $blocked);
+		$this->assertIsString($blocked);
+
+	}//end testFilterOutputValueKeepsTheValuesShape()
+
+	/**
+	 * Saving a policy refuses each malformed tool policy with its own message, and
+	 * stores well-formed entries with `auto` as the default classification.
+	 *
+	 * @return void
+	 */
+	public function testSavedToolPolicyIsValidatedStrictly(): void {
+		$service = $this->service();
+		$cases = [
+			['x', 'toolPolicy must be an array of {toolId, classification} entries'],
+			[[['toolId' => 'a'], 'x'], 'Each toolPolicy entry must be an object with toolId/classification'],
+			[[['toolId' => '']], 'Each toolPolicy entry requires a non-empty toolId'],
+			[[['toolId' => 'a', 'classification' => 'maybe']], "Unsupported toolPolicy classification 'maybe' — must be one of: auto, confirm, deny"],
+		];
+		foreach ($cases as [$toolPolicy, $message]) {
+			try {
+				$service->upsertForOrganisation(organisation: 'org-a', payload: ['toolPolicy' => $toolPolicy]);
+				$this->fail('Expected a refusal: ' . $message);
+			} catch (\InvalidArgumentException $e) {
+				$this->assertSame($message, $e->getMessage());
+			}
+		}
+
+		$saved = $service->upsertForOrganisation(
+			organisation: 'org-a',
+			payload: ['toolPolicy' => ['first' => ['toolId' => 'a'], 'second' => ['toolId' => 7, 'classification' => 'deny']]]
+		);
+		$this->assertSame([['toolId' => 'a', 'classification' => 'auto'], ['toolId' => '7', 'classification' => 'deny']], $saved['toolPolicy']);
+
+	}//end testSavedToolPolicyIsValidatedStrictly()
+
+	/**
+	 * A stored tool policy is read leniently: malformed entries are skipped and an
+	 * unknown classification reads as `auto`.
+	 *
+	 * @return void
+	 */
+	public function testStoredToolPolicyIsReadLeniently(): void {
+		$stored = $this->policy('own', 'org-a', toolPolicy: [['toolId' => 'a', 'classification' => 'maybe'], 'x', ['toolId' => ''], ['classification' => 'deny'], ['toolId' => 'b', 'classification' => 'confirm'], ['toolId' => 'c']]);
+		$this->assertSame(
+			[['toolId' => 'a', 'classification' => 'auto'], ['toolId' => 'b', 'classification' => 'confirm'], ['toolId' => 'c', 'classification' => 'auto']],
+			$this->service([$stored])->effectivePolicyFor(organisation: 'org-a')['toolPolicy']
+		);
+
+		$junk = new ObjectEntity();
+		$junk->setUuid('junk');
+		$junk->setOrganisation('org-a');
+		$junk->setObject(['toolPolicy' => 'x']);
+		$this->assertSame([], $this->service([$junk])->effectivePolicyFor(organisation: 'org-a')['toolPolicy']);
+
+	}//end testStoredToolPolicyIsReadLeniently()
 }//end class

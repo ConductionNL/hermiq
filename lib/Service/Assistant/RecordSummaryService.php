@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Service\Assistant;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Engine\AppRegisterScope;
@@ -124,7 +125,7 @@ class RecordSummaryService {
 	 * @param ObjectService $objectService OpenRegister's single read and write path.
 	 * @param AppAssistantResolver $resolver Picks the agent that answers in the record's app.
 	 * @param AppRegisterScope $registerScope Names the app a register belongs to.
-	 * @param AiFeatureService $features The AI feature register (the on/off switch).
+	 * @param AiFeatureLookup $features The AI feature register (the on/off switch).
 	 * @param AssistantPromptLibrary $prompts The administered prompts.
 	 * @param ResponseGenerationHandler $responseHandler The model call (shared with converse).
 	 * @param LoggerInterface $logger PSR-3 logger.
@@ -137,7 +138,7 @@ class RecordSummaryService {
 		private readonly ObjectService $objectService,
 		private readonly AppAssistantResolver $resolver,
 		private readonly AppRegisterScope $registerScope,
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly AssistantPromptLibrary $prompts,
 		private readonly ResponseGenerationHandler $responseHandler,
 		private readonly LoggerInterface $logger,
