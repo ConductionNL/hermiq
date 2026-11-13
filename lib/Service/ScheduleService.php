@@ -111,13 +111,6 @@ class ScheduleService {
 	private const SCHEMA_SLUG = 'schedule';
 
 	/**
-	 * OpenRegister schema slug for tenant-control (kill-switch) objects.
-	 *
-	 * @var string
-	 */
-	private const TENANT_CONTROL_SCHEMA = 'tenantcontrol';
-
-	/**
 	 * OpenRegister schema slug for agent objects (agent-engine-port; only read
 	 * when the in-app engine feature flag is on).
 	 *
@@ -254,6 +247,14 @@ class ScheduleService {
 	private array $lastRunSkillsUsed = [];
 
 	/**
+	 * The organisation kill-switch reader, built from this service's own
+	 * ObjectService and logger.
+	 *
+	 * @var TenantKillSwitch
+	 */
+	private readonly TenantKillSwitch $tenantKillSwitch;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
@@ -327,6 +328,7 @@ class ScheduleService {
 		private readonly IJobList $jobList,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 	) {
+		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
 
 	/**
@@ -356,7 +358,7 @@ class ScheduleService {
 
 		// Load engaged kill-switches ONCE per tick: any schedule whose organisation is
 		// in this set is halted synchronously before its agent runs (ADR-004 Art. 14).
-		$engagedOrganisations = $this->loadEngagedOrganisations();
+		$engagedOrganisations = $this->tenantKillSwitch->engagedOrganisations();
 
 		foreach ($due as $schedule) {
 			// Per-schedule isolation: one bad schedule must not block the tick.
@@ -370,63 +372,13 @@ class ScheduleService {
 	}//end run()
 
 	/**
-	 * Load the set of organisations whose kill-switch (TenantControl) is engaged.
-	 *
-	 * Read once per tick (and per runNow) via a single register/schema-wide query.
-	 * When engaged, ALL runs for that organisation are halted in dispatch(). A read
-	 * failure is logged and treated as "no organisation engaged" so a transient
-	 * TenantControl read error never silently halts every tenant — the dispatcher
-	 * fails open on the read but the halt itself is a hard, synchronous block.
-	 *
-	 * @return array<int, string> The engaged organisation identifiers.
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
-	 */
-	private function loadEngagedOrganisations(): array {
-		try {
-			$objects = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::TENANT_CONTROL_SCHEMA)
-				->findAll(
-					config: ['filters' => ['engaged' => true]],
-					_rbac: false,
-					_multitenancy: false
-				);
-		} catch (Throwable $e) {
-			$this->logger->error(
-				'Hermiq could not load engaged kill-switches: ' . $e->getMessage(),
-				['exception' => $e]
-			);
-			return [];
-		}
-
-		$organisations = [];
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$data = $object->getObject();
-			if (($data['engaged'] ?? false) !== true) {
-				continue;
-			}
-
-			$organisation = (string)($object->getOrganisation() ?? '');
-			if ($organisation !== '') {
-				$organisations[] = $organisation;
-			}
-		}
-
-		return array_values(array_unique($organisations));
-	}//end loadEngagedOrganisations()
-
-	/**
 	 * Whether the given organisation's kill-switch (TenantControl) is currently
 	 * engaged — GATE 1 for any governed run, not just a Schedule tick.
 	 *
-	 * Reused by `FlowAgentRunService` so a flow-triggered agent run (from OR's
-	 * `AgentRunRequestedEvent`, ADR-041) is halted by the SAME kill-switch data
-	 * source a scheduled run already respects — one query, one source of truth.
+	 * Kept for the callers that still reach the kill-switch through the
+	 * dispatcher (`FlowAgentRunService`, `WebhookAgentRunService`,
+	 * `EvalRunService`, `DelegationService`, `CourseRecommendationEngine`);
+	 * the check itself lives in `TenantKillSwitch`, the one source of truth.
 	 *
 	 * @param string $organisation The organisation identifier to check.
 	 *
@@ -435,11 +387,7 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	public function isOrganisationEngaged(string $organisation): bool {
-		if ($organisation === '') {
-			return false;
-		}
-
-		return in_array($organisation, $this->loadEngagedOrganisations(), true);
+		return $this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation);
 	}//end isOrganisationEngaged()
 
 	/**
@@ -448,7 +396,7 @@ class ScheduleService {
 	 * affected Agent for reassignment (agent-lifecycle-governance).
 	 *
 	 * Runs system-wide (`_rbac:false`, `_multitenancy:false`) — mirrors
-	 * findDueSchedules()/loadEngagedOrganisations() — because the caller
+	 * findDueSchedules()/TenantKillSwitch::engagedOrganisations() — because the caller
 	 * (UserLifecycleListener) fires outside any user session and must see every
 	 * tenant's schedules to find the ones owned by the affected user. Reuses the
 	 * SAME `enabled=false` + persist() mechanic recordGateSkip() already uses, but
@@ -801,7 +749,7 @@ class ScheduleService {
 			$this->dispatch(
 				schedule: $schedule,
 				now: $now,
-				engagedOrganisations: $this->loadEngagedOrganisations(),
+				engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
 				bypassApprovalGate: $bypassApprovalGate
 			);
 		} catch (Throwable $e) {
@@ -2528,7 +2476,7 @@ class ScheduleService {
 	 * `actingUser` when set and valid, otherwise the schedule owner.
 	 *
 	 * Reads the hermiq-register `agent` object system-wide (`_rbac`/`_multitenancy`
-	 * off — mirrors `findDueSchedules()`/`loadEngagedOrganisations()`: no user is
+	 * off — mirrors `findDueSchedules()`/`TenantKillSwitch::engagedOrganisations()`: no user is
 	 * impersonated yet at this point in the call chain). A missing agent, a read
 	 * failure, an unset `actingUser`, or an `actingUser` that does not resolve to an
 	 * existing, ENABLED NC user all fail open to `$fallbackOwner` (logged at

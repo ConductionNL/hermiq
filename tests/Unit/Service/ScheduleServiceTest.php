@@ -1308,6 +1308,50 @@ class ScheduleServiceTest extends TestCase {
 	}//end testIsOrganisationEngagedReflectsTenantControl()
 
 	/**
+	 * isOrganisationEngaged() only counts TenantControl objects that are real
+	 * entities, carry `engaged === true` and name an organisation; a read
+	 * failure is logged and treated as "no organisation engaged" (fail open on
+	 * the read, never a silent halt of every tenant).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 */
+	public function testIsOrganisationEngagedIgnoresUnengagedAndUnnamedControls(): void {
+		$released = new ObjectEntity();
+		$released->setOrganisation('org-released');
+		$released->setObject(['engaged' => 'yes']);
+
+		$unnamed = new ObjectEntity();
+		$unnamed->setObject(['engaged' => true]);
+
+		$engaged = new ObjectEntity();
+		$engaged->setOrganisation('org-halted');
+		$engaged->setObject(['engaged' => true]);
+
+		$this->objectService->method('findAll')->willReturn(['not-an-entity', $released, $unnamed, $engaged]);
+
+		$this->assertTrue($this->service->isOrganisationEngaged(organisation: 'org-halted'));
+		$this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-released'));
+
+	}//end testIsOrganisationEngagedIgnoresUnengagedAndUnnamedControls()
+
+	/**
+	 * A TenantControl read failure is logged and leaves every organisation
+	 * un-halted (fail open on the read).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 */
+	public function testIsOrganisationEngagedFailsOpenWhenTenantControlUnreadable(): void {
+		$this->objectService->method('findAll')->willThrowException(new \RuntimeException('register down'));
+
+		$this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-x'));
+
+	}//end testIsOrganisationEngagedFailsOpenWhenTenantControlUnreadable()
+
+	/**
 	 * A schedule requiring approval does NOT run its agent: the gate ensures a pending
 	 * Approval (idempotent, once per due occurrence) and records lastStatus=awaiting_approval.
 	 *
