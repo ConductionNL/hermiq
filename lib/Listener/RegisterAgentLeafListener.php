@@ -176,8 +176,10 @@ class RegisterAgentLeafListener implements IEventListener {
 				// openregister#3954 read the missing `hermiq-leaves.js` as proof
 				// the surface was dark and refused the registration; #3955
 				// reverted that, and #3956 replaced the inference with this
-				// declaration. Declaring it is what stops the next reader
-				// re-deriving the wrong answer from the filesystem.
+				// declaration. The leaf only declares that Hermiq loads its own
+				// script; whether the registry reports a leaf without a shared
+				// bundle is the registry's decision, and it needs this
+				// declaration to make it.
 			);
 
 			// Render-only leaf: no IntegrationProvider (null). The chat reads via

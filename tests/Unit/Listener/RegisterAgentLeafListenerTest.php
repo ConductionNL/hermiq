@@ -107,8 +107,9 @@ class RegisterAgentLeafListenerTest extends TestCase {
 		$this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
 
 		// Hermiq loads its own bundle on every page (Util::addInitScript) and ships
-		// no `hermiq-leaves.js`, so the descriptor must say so; left unsaid,
-		// OpenRegister's LeafRegistry logs an error on every page load.
+		// no `hermiq-leaves.js`, so the descriptor declares that Hermiq loads its
+		// own script. Whether the registry reports a leaf without a shared bundle
+		// is the registry's decision; it needs this declaration to make it.
 		$this->assertSame(LeafDescriptor::LOADS_VIA_OWN_SCRIPT, $descriptor->getLoadStrategy());
 
 		// Render-only: no data provider.
