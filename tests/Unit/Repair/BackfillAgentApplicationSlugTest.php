@@ -30,6 +30,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 use OCA\Hermiq\Repair\BackfillAgentApplicationSlug;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectPatch;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -95,8 +96,8 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 	 *
 	 * @param array<int, ObjectEntity> $agents The agents `findAll()` returns for
 	 *                                         every name queried.
-	 * @param array<int, array{0: string, 1: array}> $patchCalls Filled with
-	 *                                                           `[objectId, data]` for every `patchObject()` call.
+	 * @param array<int, array{0: string, 1: array, 2: array}> $patchCalls Filled with
+	 *                                                           `[objectId, data, [register, schema, rbac, multitenancy]]` per `patchObject()` call.
 	 *
 	 * @return ObjectService&\PHPUnit\Framework\MockObject\MockObject
 	 */
@@ -125,8 +126,8 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 			}
 		);
 		$objectService->method('patchObject')->willReturnCallback(
-			function (string $objectId, array $data) use (&$patchCalls, $agents): ObjectEntity {
-				$patchCalls[] = [$objectId, $data];
+			function (ObjectPatch $patch, bool $_rbac = true, bool $_multitenancy = true) use (&$patchCalls, $agents): ObjectEntity {
+				$patchCalls[] = [$patch->objectId, $patch->data, [$patch->target->register, $patch->target->schema, $_rbac, $_multitenancy]];
 				return $agents[0];
 			}
 		);
@@ -179,6 +180,7 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 		$this->assertCount(1, $patchCalls, 'exactly one agent named "Hydra Triage" must be patched once');
 		$this->assertSame('uuid-1', $patchCalls[0][0]);
 		$this->assertSame(['applicationSlug' => 'hydra-console'], $patchCalls[0][1]);
+		$this->assertSame(['hermiq', 'agent', false, false], $patchCalls[0][2], 'the backfill patches the agent schema as the system');
 
 	}//end testRunBackfillsApplicationSlugWhenEmpty()
 

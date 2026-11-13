@@ -51,6 +51,8 @@ namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Service\Object\ObjectFindTarget;
+use OCA\OpenRegister\Service\Object\ObjectPatch;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Container\ContainerInterface;
@@ -218,10 +220,11 @@ class BackfillAgentApplicationSlug implements IRepairStep {
 
 		try {
 			$objectService->patchObject(
-				objectId: $uuid,
-				data: ['applicationSlug' => self::APPLICATION_SLUG],
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				patch: new ObjectPatch(
+					objectId: $uuid,
+					data: ['applicationSlug' => self::APPLICATION_SLUG],
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

@@ -26,6 +26,7 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Service\Object\ObjectPatch;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -175,24 +176,16 @@ class ObjectService {
 	 * save the merged result. Unlike `saveObject()`, a key absent from `$data`
 	 * leaves the stored value untouched.
 	 *
-	 * @param string $objectId Object id, uuid or slug.
-	 * @param array $data Partial object data to merge.
-	 * @param Register|string|int|null $register Optional register scope.
-	 * @param Schema|string|int|null $schema Optional schema scope.
+	 * @param ObjectPatch $patch The object id, the partial data, its register and schema, and the acting user.
 	 * @param bool $_rbac Whether RBAC applies.
 	 * @param bool $_multitenancy Whether multi-tenancy applies.
-	 * @param \OCP\IUser|null $currentUser Acting user override.
 	 *
 	 * @return ObjectEntity
 	 */
 	public function patchObject(
-		string $objectId,
-		array $data,
-		Register|string|int|null $register = null,
-		Schema|string|int|null $schema = null,
+		ObjectPatch $patch,
 		bool $_rbac = true,
 		bool $_multitenancy = true,
-		?\OCP\IUser $currentUser = null,
 	): ObjectEntity {
 		return new ObjectEntity();
 	}//end patchObject()
