@@ -39,7 +39,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
  */
 
 declare(strict_types=1);
@@ -59,7 +59,7 @@ use Throwable;
 /**
  * PSR-18 client that delegates the call — and the secret — to the credential broker.
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
  */
 class BrokerHttpClient implements ClientInterface {
 	/**
@@ -140,7 +140,7 @@ class BrokerHttpClient implements ClientInterface {
 	 *
 	 * @return bool True when the broker class can be resolved.
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
 	public static function isAvailable(): bool {
 		return class_exists(self::BROKER_CLASS) === true;
@@ -162,7 +162,7 @@ class BrokerHttpClient implements ClientInterface {
 	 *   class-string and resolved through the injected container (feature-detected via
 	 *   isAvailable()) so this class stays constructible when the broker is absent.
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
 	public function sendRequest(RequestInterface $request): ResponseInterface {
 		$this->assertBrokerConfigured();
@@ -298,7 +298,7 @@ class BrokerHttpClient implements ClientInterface {
 	 *
 	 * @return array<string, array<int, string>|string> Headers for the PSR-7 response.
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
 	private function passthroughResponseHeaders(mixed $brokerHeaders): array {
 		if (is_array($brokerHeaders) === false) {

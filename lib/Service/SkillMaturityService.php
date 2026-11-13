@@ -305,6 +305,25 @@ class SkillMaturityService {
 			$incoming['maturityLevel'] = $stored['maturityLevel'];
 		}
 
+		$incomingEvidence = $this->guardedEvidence(incoming: $incoming, stored: $stored);
+		if ($incomingEvidence === [] && array_key_exists('levelEvidence', $incoming) === false) {
+			return $incoming;
+		}
+
+		$incoming['levelEvidence'] = $incomingEvidence;
+
+		return $incoming;
+	}//end preserveComputedFields()
+
+	/**
+	 * The client's `levelEvidence` with every guarded key replaced by the stored one.
+	 *
+	 * @param array<string, mixed> $incoming The client-supplied skill payload.
+	 * @param array<string, mixed> $stored The currently stored skill payload.
+	 *
+	 * @return array<string, mixed> The guarded evidence.
+	 */
+	private function guardedEvidence(array $incoming, array $stored): array {
 		$storedEvidence = $this->evidenceOf(data: $stored);
 		$incomingEvidence = $this->evidenceOf(data: $incoming);
 
@@ -316,14 +335,9 @@ class SkillMaturityService {
 			}
 		}
 
-		if ($incomingEvidence === [] && array_key_exists('levelEvidence', $incoming) === false) {
-			return $incoming;
-		}
+		return $incomingEvidence;
 
-		$incoming['levelEvidence'] = $incomingEvidence;
-
-		return $incoming;
-	}//end preserveComputedFields()
+	}//end guardedEvidence()
 
 	/**
 	 * Compute, persist (maturityLevel + refreshed l1–l3 evidence, everything else
@@ -383,33 +397,56 @@ class SkillMaturityService {
 	 * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
 	 */
 	private function checkL1(array $data): array {
-		$reasons = [];
-		$frontmatter = $this->stringOf(value: ($data['frontmatter'] ?? ''));
-
-		$hasFrontmatter = (trim($frontmatter) !== '');
-		if ($hasFrontmatter === false) {
-			$reasons[] = 'frontmatter is missing or empty';
-		}
-
-		// The field checks only apply to a frontmatter block that exists at all.
-		if ($hasFrontmatter === true && $this->frontmatterField(frontmatter: $frontmatter, field: 'name') === '') {
-			$reasons[] = 'frontmatter has no name';
-		}
-
-		if ($hasFrontmatter === true && $this->frontmatterField(frontmatter: $frontmatter, field: 'description') === '') {
-			$reasons[] = 'frontmatter has no description';
-		}
+		$reasons = $this->frontmatterReasons(frontmatter: $this->stringOf(value: ($data['frontmatter'] ?? '')));
 
 		if (trim($this->stringOf(value: ($data['body'] ?? ''))) === '') {
 			$reasons[] = 'body is empty';
 		}
 
+		return $this->checkOutcome(reasons: $reasons);
+
+	}//end checkL1()
+
+	/**
+	 * The L1 reasons of a frontmatter block: missing, or without a name or description.
+	 *
+	 * @param string $frontmatter The frontmatter block.
+	 *
+	 * @return array<int, string> The reasons.
+	 */
+	private function frontmatterReasons(string $frontmatter): array {
+		if (trim($frontmatter) === '') {
+			return ['frontmatter is missing or empty'];
+		}
+
+		// The field checks only apply to a frontmatter block that exists at all.
+		$reasons = [];
+		if ($this->frontmatterField(frontmatter: $frontmatter, field: 'name') === '') {
+			$reasons[] = 'frontmatter has no name';
+		}
+
+		if ($this->frontmatterField(frontmatter: $frontmatter, field: 'description') === '') {
+			$reasons[] = 'frontmatter has no description';
+		}
+
+		return $reasons;
+
+	}//end frontmatterReasons()
+
+	/**
+	 * A check's outcome: passed exactly when there is no reason.
+	 *
+	 * @param array<int, string> $reasons The reasons the check failed.
+	 *
+	 * @return array{passed: bool, reasons: array<int, string>}
+	 */
+	private function checkOutcome(array $reasons): array {
 		return [
 			'passed' => ($reasons === []),
 			'reasons' => $reasons,
 		];
 
-	}//end checkL1()
+	}//end checkOutcome()
 
 	/**
 	 * L2 Triggering: the description reads as a trigger (verb-ish start AND
@@ -424,9 +461,21 @@ class SkillMaturityService {
 	 * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
 	 */
 	private function checkL2(array $data): array {
-		$reasons = [];
-		$description = trim($this->descriptionOf(data: $data));
+		$reasons = $this->descriptionReasons(description: trim($this->descriptionOf(data: $data)));
 
+		return $this->checkOutcome(reasons: array_merge($reasons, $this->bodySizeReasons(data: $data)));
+
+	}//end checkL2()
+
+	/**
+	 * The L2 reasons of a description: no trigger verb, no when-to-use phrasing.
+	 *
+	 * @param string $description The trimmed description.
+	 *
+	 * @return array<int, string> The reasons.
+	 */
+	private function descriptionReasons(string $description): array {
+		$reasons = [];
 		if ($this->startsWithTriggerVerb(description: $description) === false) {
 			$reasons[] = 'description does not start with trigger phrasing';
 		}
@@ -435,26 +484,32 @@ class SkillMaturityService {
 			$reasons[] = 'description has no when-to-use phrasing';
 		}
 
-		$body = $this->stringOf(value: ($data['body'] ?? ''));
-		$bodyLines = $this->lineCount(text: $body);
+		return $reasons;
 
+	}//end descriptionReasons()
+
+	/**
+	 * The L2 reasons of a body: at the line cap, or large without `references/` entries.
+	 *
+	 * @param array<string, mixed> $data The skill payload.
+	 *
+	 * @return array<int, string> The reasons.
+	 */
+	private function bodySizeReasons(array $data): array {
+		$reasons = [];
+		$bodyLines = $this->lineCount(text: $this->stringOf(value: ($data['body'] ?? '')));
 		if ($bodyLines >= self::BODY_MAX_LINES) {
 			$reasons[] = 'body is 500 lines or more';
 		}
 
-		$fileNames = $this->fileNames(data: $data);
-		$hasReferences = $this->hasEntryUnder(fileNames: $fileNames, prefixes: ['references/']);
-
+		$hasReferences = $this->hasEntryUnder(fileNames: $this->fileNames(data: $data), prefixes: ['references/']);
 		if ($bodyLines >= self::PROGRESSIVE_DISCLOSURE_LINES && $hasReferences === false) {
 			$reasons[] = 'large body has no references/ entries (no progressive disclosure)';
 		}
 
-		return [
-			'passed' => ($reasons === []),
-			'reasons' => $reasons,
-		];
+		return $reasons;
 
-	}//end checkL2()
+	}//end bodySizeReasons()
 
 	/**
 	 * L3 Patterns: the `files` map contains at least one `references/*` or
@@ -525,31 +580,47 @@ class SkillMaturityService {
 	 */
 	private function checkL5(array $evidence): array {
 		$evalEvidence = $this->levelEntry(evidence: $evidence, key: 'l5');
-
 		if ($evalEvidence === []) {
-			return [
-				'passed' => false,
-				'reasons' => ['no eval evidence (levelEvidence.l5 empty)'],
-			];
+			return $this->checkOutcome(reasons: ['no eval evidence (levelEvidence.l5 empty)']);
 		}
 
-		$hasDataset = ($this->stringOf(value: ($evalEvidence['evalDatasetId'] ?? '')) !== '');
-		$hasPassRate = (isset($evalEvidence['passRate']) === true && is_numeric($evalEvidence['passRate']) === true);
-		$hasDelta = (isset($evalEvidence['baselineDelta']) === true && is_numeric($evalEvidence['baselineDelta']) === true);
-		$hasValidated = ($this->stringOf(value: ($evalEvidence['lastValidated'] ?? '')) !== '');
-		$passed = ($hasDataset === true && $hasPassRate === true && $hasDelta === true && $hasValidated === true);
-
 		$reasons = [];
-		if ($passed === false) {
+		if ($this->isCompleteEvalEvidence(evalEvidence: $evalEvidence) === false) {
 			$reasons[] = 'incomplete eval evidence (levelEvidence.l5)';
 		}
 
-		return [
-			'passed' => $passed,
-			'reasons' => $reasons,
-		];
+		return $this->checkOutcome(reasons: $reasons);
 
 	}//end checkL5()
+
+	/**
+	 * Whether eval evidence names its dataset, a numeric pass rate and baseline delta,
+	 * and when it was last validated.
+	 *
+	 * @param array<string, mixed> $evalEvidence The `levelEvidence.l5` entry.
+	 *
+	 * @return bool True when complete.
+	 */
+	private function isCompleteEvalEvidence(array $evalEvidence): bool {
+		return $this->stringOf(value: ($evalEvidence['evalDatasetId'] ?? '')) !== ''
+			&& $this->isNumericEntry(entry: $evalEvidence, key: 'passRate')
+			&& $this->isNumericEntry(entry: $evalEvidence, key: 'baselineDelta')
+			&& $this->stringOf(value: ($evalEvidence['lastValidated'] ?? '')) !== '';
+
+	}//end isCompleteEvalEvidence()
+
+	/**
+	 * Whether an evidence entry holds a numeric value under a key.
+	 *
+	 * @param array<string, mixed> $entry The evidence entry.
+	 * @param string $key The key.
+	 *
+	 * @return bool True when set and numeric.
+	 */
+	private function isNumericEntry(array $entry, string $key): bool {
+		return isset($entry[$key]) === true && is_numeric($entry[$key]) === true;
+
+	}//end isNumericEntry()
 
 	/**
 	 * L6 Self-Improvement: learnings activity in `levelEvidence.l6`
@@ -688,17 +759,29 @@ class SkillMaturityService {
 			return '';
 		}
 
-		$value = trim($matches[1]);
-		if (strlen($value) >= 2) {
-			$first = $value[0];
-			$last = $value[(strlen($value) - 1)];
-			if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
-				$value = substr($value, 1, -1);
-			}
+		return $this->withoutQuotes(value: trim($matches[1]));
+	}//end frontmatterField()
+
+	/**
+	 * A value without one pair of matching surrounding quotes (`"…"` or `'…'`).
+	 *
+	 * @param string $value The value.
+	 *
+	 * @return string The unquoted value.
+	 */
+	private function withoutQuotes(string $value): string {
+		if (strlen($value) < 2) {
+			return $value;
+		}
+
+		$first = $value[0];
+		if ($first === $value[(strlen($value) - 1)] && in_array($first, ['"', "'"], true) === true) {
+			return substr($value, 1, -1);
 		}
 
 		return $value;
-	}//end frontmatterField()
+
+	}//end withoutQuotes()
 
 	/**
 	 * The auxiliary file names/paths of a skill. Supports both the schema's
@@ -716,18 +799,35 @@ class SkillMaturityService {
 
 		$names = [];
 		foreach ($files as $key => $file) {
-			if (is_array($file) === true && isset($file['name']) === true) {
-				$names[] = $this->stringOf(value: $file['name']);
-				continue;
-			}
-
-			if (is_string($key) === true) {
-				$names[] = $key;
+			$name = $this->fileNameOf(key: $key, file: $file);
+			if ($name !== null) {
+				$names[] = $name;
 			}
 		}
 
 		return $names;
 	}//end fileNames()
+
+	/**
+	 * The name of one `files` entry: its `name` field, else a string key.
+	 *
+	 * @param int|string $key The entry's key.
+	 * @param mixed $file The entry.
+	 *
+	 * @return string|null The name, or null when the entry has none.
+	 */
+	private function fileNameOf(int|string $key, mixed $file): ?string {
+		if (is_array($file) === true && isset($file['name']) === true) {
+			return $this->stringOf(value: $file['name']);
+		}
+
+		if (is_string($key) === true) {
+			return $key;
+		}
+
+		return null;
+
+	}//end fileNameOf()
 
 	/**
 	 * Whether any file name starts with one of the given path prefixes.

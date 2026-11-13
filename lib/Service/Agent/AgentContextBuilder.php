@@ -36,7 +36,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ namespace OCA\Hermiq\Service\Agent;
 /**
  * Builds a bounded, fail-closed agent context from a schema allowlist.
  *
- * @spec openspec/changes/hermiq-agent-leaf/tasks.md#3-declarative-context-allowlist
+ * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#3-declarative-context-allowlist
  */
 class AgentContextBuilder {
 
@@ -71,7 +71,7 @@ class AgentContextBuilder {
 	 *                             instance, capped where declared. Empty when the allowlist is
 	 *                             absent or empty (fail-closed).
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-1
 	 */
 	public function build(array $objectData, array $schemaConfiguration): array {
 		$allowlist = $this->normaliseAllowlist(spec: ($schemaConfiguration[self::KEYWORD] ?? null));
@@ -101,7 +101,7 @@ class AgentContextBuilder {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-1
 	 */
 	private function hasValue(array $objectData, int|string $property): bool {
 		if (array_key_exists($property, $objectData) === false) {
@@ -122,7 +122,7 @@ class AgentContextBuilder {
 	 *
 	 * @return array<string,array<string,mixed>> Property name => caps map.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-2
 	 */
 	private function normaliseAllowlist(mixed $spec): array {
 		if (is_array($spec) === false || $spec === []) {
@@ -151,7 +151,7 @@ class AgentContextBuilder {
 	 *
 	 * @return array{0:string,1:array<string,mixed>} The `[name, caps]` pair.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-2
 	 */
 	private function normaliseEntry(int|string $key, mixed $entry): array {
 		// Associative name => caps map: the key is the property name.
@@ -188,7 +188,7 @@ class AgentContextBuilder {
 	 *
 	 * @return mixed The capped value.
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-3-2
 	 */
 	private function applyCaps(mixed $value, array $caps): mixed {
 		$maxLength = $caps['maxLength'] ?? null;

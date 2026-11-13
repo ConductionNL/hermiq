@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */
 
 declare(strict_types=1);
@@ -27,7 +27,7 @@ namespace OCA\Hermiq\Service;
 /**
  * Only a pending request is decided, and only for the tool its owner was shown.
  *
- * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+ * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
  */
 final class ToolAccessDecision {
 	/**
@@ -38,7 +38,7 @@ final class ToolAccessDecision {
 	 *
 	 * @return string|null The refusal, or null.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 */
 	public function conflict(array $stored, string $shownToolId): ?string {
 		if (($stored['status'] ?? '') !== 'pending') {

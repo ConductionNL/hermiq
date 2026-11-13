@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use Throwable;
 /**
  * Normalises a stored schedule record to the shape its schema accepts.
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 final class ScheduleRecordNormaliser {
 
@@ -66,7 +66,7 @@ final class ScheduleRecordNormaliser {
 	 *
 	 * @return array<string,mixed> The sanitised payload.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	public function sanitizeForSave(array $data): array {
 		$data = $this->normaliseDates(data: $data);
@@ -82,7 +82,7 @@ final class ScheduleRecordNormaliser {
 	 *
 	 * @return DateTimeImmutable|null The parsed instant, or null when empty or unparseable.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	public function parseDate(string $value): ?DateTimeImmutable {
 		if ($value === '') {

@@ -34,7 +34,7 @@ use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -49,15 +49,15 @@ use PHPUnit\Framework\TestCase;
 class FeatureProviderResolverTest extends TestCase {
 
 	/**
-	 * An AiFeatureService double answering `findBySlug()` from a slug-keyed map of
+	 * An AiFeatureLookup double answering `findBySlug()` from a slug-keyed map of
 	 * feature object data.
 	 *
 	 * @param array<string, array<string, mixed>> $features The stored features, by slug.
 	 *
-	 * @return AiFeatureService The double.
+	 * @return AiFeatureLookup The double.
 	 */
-	private function features(array $features): AiFeatureService {
-		$service = $this->createMock(AiFeatureService::class);
+	private function features(array $features): AiFeatureLookup {
+		$service = $this->createMock(AiFeatureLookup::class);
 		$service->method('findBySlug')->willReturnCallback(
 			static function (string $slug) use ($features): ?ObjectEntity {
 				if (isset($features[$slug]) === false) {

@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 
 declare(strict_types=1);

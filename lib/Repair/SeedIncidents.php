@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
+ * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Seed the 3 design.md Incident objects (idempotent, graceful-degradation).
  *
- * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
+ * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
  */
 class SeedIncidents implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -88,7 +88,7 @@ class SeedIncidents implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
 	 */
 	public function getName(): string {
 		return 'Seed agent-lifecycle-governance incident records';
@@ -102,7 +102,7 @@ class SeedIncidents implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
+	 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
 	 */
 	public function run(IOutput $output): void {
 		try {

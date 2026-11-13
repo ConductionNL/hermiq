@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -67,7 +67,7 @@ use OCP\User\Events\UserDeletedEvent;
 /**
  * Main application class for the Hermiq Nextcloud app.
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires every listener,
  * notifier, tool provider and TaskProcessing provider the app ships — one reference per
@@ -96,7 +96,7 @@ class Application extends App implements IBootstrap {
 	 * @SuppressWarnings(PHPMD.StaticAccess)          OpenRegisterAutoloader::register() is
 	 * a static bootstrap hook: there is nothing to inject before the container exists.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	public function register(IRegistrationContext $context): void {
 		// Load the app's own composer autoloader so bundled dependencies (e.g.
@@ -131,7 +131,7 @@ class Application extends App implements IBootstrap {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	private function registerAgentRunListeners(IRegistrationContext $context): void {
 		// Flow-triggered agent runs (SPECTR-NEXTCLOUD-PLAN.md §5.2, ADR-041): a
@@ -168,7 +168,7 @@ class Application extends App implements IBootstrap {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	private function registerOpenRegisterContributions(IRegistrationContext $context): void {
 		// Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
@@ -254,7 +254,7 @@ class Application extends App implements IBootstrap {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	private function registerUserAndTalkListeners(IRegistrationContext $context): void {
 		// Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
@@ -320,7 +320,7 @@ class Application extends App implements IBootstrap {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	private function registerServices(IRegistrationContext $context): void {
 		// Renders Hermiq's Nextcloud notifications (talk-delivery): the notification
@@ -411,7 +411,7 @@ class Application extends App implements IBootstrap {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	private function registerTaskProcessingProviders(IRegistrationContext $context): void {
 		// TaskProcessing PROVIDERS (SPECTR-NEXTCLOUD-PLAN.md §8 moves 2 + 3). Hermiq
@@ -439,7 +439,7 @@ class Application extends App implements IBootstrap {
 	 * @SuppressWarnings(PHPMD.StaticAccess) \OCP\Util::addInitScript is the Nextcloud
 	 * asset API: there is no injectable equivalent in a bootstrap register() hook.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	protected function addInitScript(string $suffix): void {
 		\OCP\Util::addInitScript(self::APP_ID, self::APP_ID . $suffix);

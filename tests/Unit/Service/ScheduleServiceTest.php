@@ -3972,4 +3972,86 @@ class ScheduleServiceTest extends TestCase {
 			$this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => '3', 'nextAttemptAt' => 7]])
 		);
 	}//end testDateAndRetryStateReaders()
+
+	/**
+	 * Call one of ScheduleService's private run-step helpers.
+	 *
+	 * @param string $method The private method name.
+	 * @param array<string, mixed> $arguments Its named arguments.
+	 *
+	 * @return mixed The method's return value.
+	 */
+	private function callStepHelper(string $method, array $arguments): mixed {
+		$reflection = new \ReflectionMethod(ScheduleService::class, $method);
+		$reflection->setAccessible(true);
+		return $reflection->invokeArgs($this->service, $arguments);
+	}//end callStepHelper()
+
+	/**
+	 * Golden: the coarse context/history/llm timeline is chained backward from
+	 * the anchor at millisecond precision, skips legs that are absent or do not
+	 * parse as `<number>s`, and numbers the steps in call order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+	 */
+	public function testCoarseStepTimelineFromTimings(): void {
+		$anchor = new \DateTimeImmutable('2026-01-01T00:00:10.000+00:00');
+
+		$this->assertSame(
+			[
+				[
+					'type' => 'context',
+					'name' => 'Context retrieval',
+					'startedAt' => '2026-01-01T00:00:06+00:00',
+					'endedAt' => '2026-01-01T00:00:07+00:00',
+					'durationMs' => 500,
+					'outcome' => 'ok',
+					'seq' => 0,
+				],
+				[
+					'type' => 'llm',
+					'name' => 'LLM generation',
+					'startedAt' => '2026-01-01T00:00:07+00:00',
+					'endedAt' => '2026-01-01T00:00:10+00:00',
+					'durationMs' => 2750,
+					'outcome' => 'ok',
+					'seq' => 1,
+				],
+			],
+			$this->callStepHelper(
+				'buildCoarseStepsFromTimings',
+				['timings' => ['context' => '0.5s', 'history' => '12ms', 'llm' => '2.75s', 'total' => '9s'], 'anchorEnd' => $anchor]
+			)
+		);
+		$this->assertSame([], $this->callStepHelper('buildCoarseStepsFromTimings', ['timings' => [], 'anchorEnd' => $anchor]));
+		$this->assertSame(
+			[['type' => 'history', 'name' => 'History build', 'startedAt' => '2026-01-01T00:00:09+00:00', 'endedAt' => '2026-01-01T00:00:10+00:00', 'durationMs' => 1000, 'outcome' => 'ok', 'seq' => 0]],
+			$this->callStepHelper('buildCoarseStepsFromTimings', ['timings' => ['history' => '1s', 'llm' => 3], 'anchorEnd' => $anchor])
+		);
+
+		$chained = $this->callStepHelper(
+			'buildCoarseStepsFromTimings',
+			['timings' => ['context' => '0.6s', 'history' => '0.6s', 'llm' => '0.6s'], 'anchorEnd' => $anchor]
+		);
+		$this->assertSame(
+			['2026-01-01T00:00:08+00:00', '2026-01-01T00:00:08+00:00', '2026-01-01T00:00:09+00:00'],
+			array_column($chained, 'startedAt'),
+			'Legs chain at millisecond precision, not at the formatted second.'
+		);
+	}//end testCoarseStepTimelineFromTimings()
+
+	/**
+	 * Golden: a step list counts as having tool steps only when one is typed `tool`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+	 */
+	public function testToolStepDetection(): void {
+		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => []]));
+		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['name' => 'x']]]));
+		$this->assertTrue($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['type' => 'tool']]]));
+	}//end testToolStepDetection()
 }//end class

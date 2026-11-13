@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/multi-tenant-ops/tasks.md#1-tenantopsservice
+ * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#1-tenantopsservice
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use RuntimeException;
  * incidents, retention), each independently simple — the same coordinator shape as
  * ScheduleService/DeliveryService/ApprovalService in this app.
  *
- * @spec openspec/changes/multi-tenant-ops/tasks.md#1-tenantopsservice
+ * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#1-tenantopsservice
  */
 class OrganisationOpsService {
 
@@ -141,7 +141,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> The quota status payload.
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-1-1
 	 */
 	public function quotaStatus(): array {
 		$schedules = $this->loadSchedules();
@@ -180,7 +180,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> The export payload.
 	 *
-	 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#task-1-2
 	 */
 	public function exportAuditTrail(): array {
 		$records = [];
@@ -216,7 +216,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> `{ agents: [...] }`, tenant-scoped to the caller.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary
 	 */
 	public function accessReviewList(): array {
 		$agents = $this->loadAgents();
@@ -254,7 +254,7 @@ class OrganisationOpsService {
 	 *
 	 * @throws RuntimeException When the Agent does not exist (in the caller's tenant scope).
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-reviewed-attestation-is-recorded-and-auditable
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-reviewed-attestation-is-recorded-and-auditable
 	 */
 	public function attestAgentReviewed(string $uuid, string $reviewerUid): array {
 		$agent = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
@@ -290,7 +290,7 @@ class OrganisationOpsService {
 	 * @throws RuntimeException When the Agent does not exist (in the caller's tenant scope).
 	 * @throws InvalidArgumentException When the target user does not exist or is not active.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-org-admin-reassignment-flow-for-flagged-agents
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-org-admin-reassignment-flow-for-flagged-agents
 	 */
 	public function reassignAgent(string $uuid, string $newActingUser): array {
 		$agent = $this->objectService->find(id: $uuid, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
@@ -322,7 +322,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> `{ incidents: [...] }`, tenant-scoped to the caller.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
 	 */
 	public function listIncidents(): array {
 		$incidents = $this->loadIncidents();
@@ -351,7 +351,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> The created incident.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
 	 */
 	public function createIncident(
 		string $description,
@@ -386,7 +386,7 @@ class OrganisationOpsService {
 	 *
 	 * @return int
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/multi-tenant-ops/spec.md#requirement-per-organisation-retention-period-configuration
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-organisation-retention-period-configuration
 	 */
 	public function getRetentionMonths(): int {
 		$control = $this->loadTenantControl();
@@ -412,7 +412,7 @@ class OrganisationOpsService {
 	 *
 	 * @throws InvalidArgumentException When `$months` is below the 6-month minimum.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/multi-tenant-ops/spec.md#requirement-per-organisation-retention-period-configuration
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-organisation-retention-period-configuration
 	 */
 	public function setRetentionMonths(int $months): int {
 		if ($months < self::DEFAULT_RETENTION_MONTHS) {
@@ -491,7 +491,7 @@ class OrganisationOpsService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-are-included-in-the-art-12-audit-export
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-are-included-in-the-art-12-audit-export
 	 */
 	private function appendIncidentRecords(array &$records): void {
 		foreach ($this->loadIncidents() as $incident) {
@@ -536,7 +536,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> The access-review row.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary
 	 */
 	private function shapeAgentForReview(ObjectEntity $agent, array $scheduleUuids): array {
 		$data = $agent->getObject();
@@ -570,7 +570,7 @@ class OrganisationOpsService {
 	 *
 	 * @return string|null The latest run's ISO-8601 timestamp, or null when none ran yet.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary
 	 */
 	private function lastRunAt(array $scheduleUuids): ?string {
 		$latest = null;
@@ -603,7 +603,7 @@ class OrganisationOpsService {
 	 *
 	 * @return array<string, mixed> The shaped incident.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
 	 */
 	private function shapeIncident(ObjectEntity $incident): array {
 		$data = $incident->getObject();

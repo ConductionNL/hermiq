@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCP\AppFramework\Http\JSONResponse;
 /**
  * The responses of the skill-bundle endpoints.
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
 final class SkillBundleAnswers {
 
@@ -44,7 +44,7 @@ final class SkillBundleAnswers {
 	 *
 	 * @return JSONResponse The refusal.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function badRequest(string $code): JSONResponse {
 		return new JSONResponse(['error' => $code], Http::STATUS_BAD_REQUEST);
@@ -57,7 +57,7 @@ final class SkillBundleAnswers {
 	 *
 	 * @return JSONResponse|null The refusal, or null when there is something to publish.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function nothingToPublish(BundlePublishRun $run): ?JSONResponse {
 		if ($run->skills['payloads'] === [] && $run->agents['payloads'] === []) {
@@ -79,7 +79,7 @@ final class SkillBundleAnswers {
 	 *
 	 * @return JSONResponse The report.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function published(BundlePublishRun $run, array $result): JSONResponse {
 		return new JSONResponse(
@@ -117,7 +117,7 @@ final class SkillBundleAnswers {
 	 *
 	 * @return JSONResponse The report.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function installed(BundleInstallRun $run): JSONResponse {
 		$counts = $run->skillResult['counts'];
@@ -152,7 +152,7 @@ final class SkillBundleAnswers {
 	 *
 	 * @return array{outcomes:array<int,array<string,mixed>>,published:int}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function reconcileOutcomes(array $outcomes, array $dropped): array {
 		$byName = [];
