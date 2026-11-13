@@ -1956,7 +1956,9 @@ OC.L10N.register(
         "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).": "De goedkeuringsstatus: pending -> approved/denied voor elk blokkerend sourceType. `overridden` is ALLEEN ADVIES en definitief bij aanmaken: de mens nam het AI-voorstel in principe over maar gebruikte een andere waarde (advisoryContext.actualValue). Het is niet bereikbaar vanuit `pending` en geen blokkerende flow mag het opleveren. `unused` is ook ALLEEN ADVIES en definitief bij aanmaken: het voorstel werd getoond en niemand deed er iets mee voordat het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel het verving (advisoryContext.unusedBecause).",
         "Unused because": "Niet gebruikt omdat",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Waarom een getoond voorstel niet is gebruikt (status=unused): het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel verving het. Leeg bij elke andere status.",
-        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens."
+        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens.",
+        "Fork from here": "Hier afsplitsen",
+        "Could not fork the session.": "De sessie kon niet worden afgesplitst."
     },
     "nplurals=2; plural=(n != 1);"
 )

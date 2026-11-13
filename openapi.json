@@ -228,6 +228,10 @@
             "description": "List, add and remove the participants of a session; the owner only."
         },
         {
+            "name": "session-fork",
+            "description": "Fork a session at an answer."
+        },
+        {
             "name": "settings",
             "description": "Controller for managing Hermiq application settings."
         },
@@ -7361,6 +7365,71 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/sessions/{uuid}/fork": {
+            "post": {
+                "operationId": "session-fork-create",
+                "summary": "Fork a session the caller owns at one of its answers",
+                "description": "Start a new session with the same agent and a copy of every turn up to and including the answer named by turnUuid; the source session is not changed. A session the caller does not own answers 404; a turn that is not an answer of it answers 400. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-fork"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The source session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "turnUuid": {
+                                        "type": "string",
+                                        "description": "The assistant turn to fork at."
+                                    }
+                                },
+                                "required": [
+                                    "turnUuid"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The new session: uuid, title, agentId, forkedFrom and messageCount.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The turn is not an answer of this session."
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "description": "No session the caller owns has this uuid."
                     }
                 }
             }

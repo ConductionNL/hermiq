@@ -1150,6 +1150,8 @@ class SessionController extends Controller {
 			// shown in the session header.
 			'startValues' => (array)($data['startValues'] ?? []),
 			'deletedAt' => $deletedAt,
+			// Chat-fork-and-share-link: the session and answer a fork was made from.
+			'forkedFrom' => ($data['forkedFrom'] ?? null),
 			'created' => $conversation->getCreated()?->format('c'),
 			'updated' => $conversation->getUpdated()?->format('c'),
 		];

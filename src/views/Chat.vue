@@ -466,6 +466,19 @@
 										<PuzzlePlusOutline :size="16" />
 									</template>
 								</NcButton>
+								<!-- chat-fork-and-share-link: the owner continues from this answer in a new session. -->
+								<NcButton
+									v-if="canFork"
+									variant="tertiary"
+									data-testid="chat-fork-from-here"
+									:aria-label="t('hermiq', 'Fork from here')"
+									:title="t('hermiq', 'Fork from here')"
+									:disabled="forking"
+									@click="forkFrom(message)">
+									<template #icon>
+										<SourceBranch :size="16" />
+									</template>
+								</NcButton>
 								<!-- agents-plain-language-builder: a message with an agent draft opens it in the agent form. -->
 								<NcButton
 									v-if="hasAgentDraft(message)"
@@ -796,6 +809,7 @@ import Restore from 'vue-material-design-icons/Restore.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
+import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
@@ -819,6 +833,7 @@ import {
 	archiveSession,
 	ChatStreamError,
 	createSession,
+	forkSession,
 	getImageAvailability,
 	getSession,
 	getSessionGoal,
@@ -846,6 +861,7 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
@@ -912,6 +928,7 @@ export default {
 		Creation,
 		Send,
 		SitemapOutline,
+		SourceBranch,
 		SkillFormModal,
 		ScheduleFormModal,
 		AgentFormModal,
@@ -1004,6 +1021,8 @@ export default {
 			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
 			showSaveAsSkill: false,
 			saveAsSkillBody: '',
+			// chat-fork-and-share-link: a fork is being made.
+			forking: false,
 
 			// agents-plain-language-builder: the checked draft the agent form opens
 			// with, its findings, and the schedule offered after the save.
@@ -1019,6 +1038,16 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 */
+		canFork() {
+			return canForkSession(this.activeSession)
+		},
+
 		/**
 		 * Whether this person can set a goal here: their own session without an active goal.
 		 *
@@ -2255,6 +2284,30 @@ export default {
 			this.loadAgents()
 			if (this.draftSchedule && agentId) {
 				this.draftScheduleAgentId = agentId
+			}
+		},
+
+		/**
+		 * Start a new session from this answer, with every turn up to it, and open it.
+		 * The open session stays as it was.
+		 *
+		 * @param {object} message The assistant message to fork at.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 */
+		async forkFrom(message) {
+			if (!this.canFork || this.forking) {
+				return
+			}
+			this.forking = true
+			try {
+				const fork = await forkSession(this.activeSession.uuid, message.uuid || message.id)
+				await this.loadSessions(true)
+				await this.selectSession(forkedSessionToOpen(this.sessions, fork))
+			} catch {
+				showError(this.t('hermiq', 'Could not fork the session.'))
+			} finally {
+				this.forking = false
 			}
 		},
 
