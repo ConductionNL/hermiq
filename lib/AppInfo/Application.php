@@ -27,8 +27,6 @@ declare(strict_types=1);
 namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Middleware\ApiContractMiddleware;
-use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
-use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
@@ -39,20 +37,12 @@ use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
-use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Middleware\ApiVersionMiddleware;
-use OCA\Hermiq\Notification\Notifier;
-use OCA\Hermiq\Service\Llm\DatabaseRunTokenStore;
-use OCA\Hermiq\Service\Llm\RunTokenStore;
-use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
-use OCA\Hermiq\TaskProcessing\AudioToTextProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextProvider;
-use OCA\Hermiq\TaskProcessing\TextToSpeechProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
-use OCA\Hermiq\Tenant\ManageableOrganisations;
-use OCA\Hermiq\Tenant\OpenRegisterManageableOrganisations;
-use OCA\OpenRegister\Contract\RegisterSlugResolverInterface;
+use OCA\Hermiq\Mcp\McpRegistrar;
+use OCA\Hermiq\Notification\NotificationRegistrar;
+use OCA\Hermiq\Service\ServiceRegistrar;
+use OCA\Hermiq\TaskProcessing\ProviderRegistrar;
+use OCA\Hermiq\Tenant\TenantRegistrar;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
@@ -72,9 +62,9 @@ use OCP\User\Events\UserDeletedEvent;
  *
  * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires every listener,
- * notifier, tool provider and TaskProcessing provider the app ships — one reference per
- * registered integration point, no behavioural coupling.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires every listener
+ * and the component registrars — one reference per registered integration point, no
+ * behavioural coupling.
  */
 class Application extends App implements IBootstrap {
 	public const APP_ID = AppIdentity::APP_ID;
@@ -126,8 +116,11 @@ class Application extends App implements IBootstrap {
 		$this->registerAgentObjectListeners(context: $context);
 		$this->registerOpenRegisterContributions(context: $context);
 		$this->registerUserAndTalkListeners(context: $context);
-		$this->registerServices(context: $context);
-		$this->registerTaskProcessingProviders(context: $context);
+		(new NotificationRegistrar())->register(context: $context);
+		(new TenantRegistrar())->register(context: $context);
+		(new ServiceRegistrar())->register(context: $context);
+		(new McpRegistrar())->register(context: $context);
+		(new ProviderRegistrar())->register(context: $context);
 
 		// Every /api/ response names the answering API version (NL API Design Rules, /core/version-header).
 		$context->registerMiddleware(ApiVersionMiddleware::class);
@@ -322,121 +315,6 @@ class Application extends App implements IBootstrap {
 			listener: TalkApprovalReactionListener::class
 		);
 	}//end registerUserAndTalkListeners()
-
-	/**
-	 * The notifier and the service bindings named at this composition root.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerServices(IRegistrationContext $context): void {
-		// Renders Hermiq's Nextcloud notifications (talk-delivery): the notification
-		// delivery channel and the Talk fallback both raise notifications that this
-		// INotifier turns into localised bell-menu entries. See lib/Notification/Notifier.php.
-		$context->registerNotifierService(Notifier::class);
-
-		// ADR-083 rule 3: the dashboard is the app's DEFAULT ROUTE, so it depends on
-		// hermiq's own ManageableOrganisations contract instead of OpenRegister's
-		// OrganisationMapper. The binding names the implementation here, at the
-		// composition root; the implementation itself takes only core services and
-		// reaches OpenRegister behind an isInstalled() guard, so the container can
-		// build the controller — and the start screen can render — on an instance
-		// where OpenRegister is absent.
-		$context->registerServiceAlias(
-			ManageableOrganisations::class,
-			OpenRegisterManageableOrganisations::class
-		);
-
-		// The governed workspace seam (hermiq-runner-git-capability): Hermiq's
-		// runtime keeps run-keyed checkouts in app data on the governed side.
-		$context->registerServiceAlias(
-			WorkspaceProvider::class,
-			ServerSideWorkspaceProvider::class
-		);
-
-		// Run tokens live in the database, the one store every PHP process of the
-		// instance shares (hermiq ADR-025). The distributed cache is not that store
-		// on an instance without `memcache.distributed`: there it is APCu, per
-		// process pool, and a token a cron job minted was invisible to the web
-		// server verifying it.
-		$context->registerServiceAlias(
-			RunTokenStore::class,
-			DatabaseRunTokenStore::class
-		);
-
-		// The register-slug resolver, published by OpenRegister (ADR-084's shape:
-		// one definition owned by the app that implements it).
-		//
-		// Register slugs live in `openregister_registers`, and nine fleet apps
-		// ship a repair step that renames theirs. The step is per instance, so
-		// both slugs are live across the estate at once and a literal is wrong on
-		// half of it. The old-slug case is the quiet one: OpenRegister finds no
-		// register, matches no rows, and returns an empty set that is
-		// byte-for-byte what a healthy empty register returns. No exception, no
-		// 404, no log line. `CourseRecommendationEngine` read the learner-signal
-		// register that way, which for a recommendation engine means it
-		// recommends nothing and reports success.
-		//
-		// Verified against this container rather than assumed: resolving this
-		// interface from hermiq's own DIContainer on the running instance returns
-		// a working resolver. OpenRegister registers the concrete class in its OWN
-		// container and none of that registration reaches here; what reaches here
-		// is this alias plus autowiring of the concrete class, whose dependencies
-		// are `RegisterMapper` and `LoggerInterface`, both resolvable from a leaf
-		// app's container. The one thing lost is OpenRegister's shared-instance
-		// registration: a leaf container autowires a fresh resolver per injection
-		// point, so the request-scoped memo is per consumer rather than per
-		// request. That costs one indexed read per consumer and changes no answer.
-		//
-		// An ALIAS specifically, and not a factory that touches the class. Apps
-		// register in sorted order, so `OCA\OpenRegister\` is not autoloadable at
-		// `register()` time on every instance; both sides of an alias are strings
-		// and neither triggers an autoload, so the binding is safe whatever the
-		// order. `OpenRegisterAutoloader::register()` at the top of register()
-		// already removes that hazard here, and the alias would hold without it.
-		$context->registerServiceAlias(
-			RegisterSlugResolverInterface::class,
-			'OCA\\OpenRegister\\Service\\RegisterSlugResolver'
-		);
-
-		// NC-native agent tools (nc-native-tools): expose Files/Contacts/Calendar/Deck/email
-		// to the agent runtime as an IMcpToolProvider. OpenRegister's McpToolsService
-		// discovers per-app providers by the alias OCA\OpenRegister\Mcp\IMcpToolProvider::{appId}
-		// AND, as a fallback, by the conventional FQCN OCA\Hermiq\Mcp\HermiqToolProvider —
-		// the class is named to match that convention so discovery resolves it even when the
-		// alias is not visible from OR's container. See lib/Mcp/HermiqToolProvider.php.
-		$context->registerServiceAlias(
-			'OCA\\OpenRegister\\Mcp\\IMcpToolProvider::' . self::APP_ID,
-			HermiqToolProvider::class
-		);
-	}//end registerServices()
-
-	/**
-	 * The TaskProcessing providers Hermiq offers Nextcloud's AI API.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerTaskProcessingProviders(IRegistrationContext $context): void {
-		// TaskProcessing PROVIDERS (SPECTR-NEXTCLOUD-PLAN.md §8 moves 2 + 3). Hermiq
-		// backs Nextcloud's own AI API with its configured LLM, so the whole instance
-		// (Assistant, Mail, decidesk — which 503s without any provider) gets AI from
-		// one Hermiq config. The text2text family shares the identical input→output
-		// shape; the contextagent provider is the governed alternative to NC's stock
-		// `context_agent` ExApp (admin picks the preferred provider per task type).
-		$context->registerTaskProcessingProvider(AudioToTextProvider::class);
-		$context->registerTaskProcessingProvider(TextToSpeechProvider::class);
-		$context->registerTaskProcessingProvider(Text2TextProvider::class);
-		$context->registerTaskProcessingProvider(Text2TextSummaryProvider::class);
-		$context->registerTaskProcessingProvider(Text2TextHeadlineProvider::class);
-		$context->registerTaskProcessingProvider(ContextAgentProvider::class);
-	}//end registerTaskProcessingProviders()
 
 
 	/**
