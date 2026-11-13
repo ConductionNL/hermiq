@@ -125,7 +125,7 @@ class SkillMarketplaceController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#4-controller-routes
 	 */
 	public function installFromSource(): JSONResponse {
 		$user = $this->userSession->getUser();

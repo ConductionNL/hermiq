@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Exception;
 /**
  * Signals that an agent turn's input was refused by the effective GuardrailPolicy.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
  */
 class GuardrailBlockedException extends Exception {
 	/**
@@ -63,7 +63,7 @@ class GuardrailBlockedException extends Exception {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md
+	 * @spec openspec/specs/agent-guardrails/spec.md
 	 */
 	public function getReason(): string {
 		return $this->reason;

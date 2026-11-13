@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Maps one cause of a failed chat turn to the error frame the person reads.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
  */
 class ChatRefusalFrame {
 
@@ -48,7 +48,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	public function __construct(
 		private readonly IL10N $l10n,
@@ -62,7 +62,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return array<string, string>|null
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	public function forCause(Throwable $cause): ?array {
 		// An attachment that is not available to the speaker, or that the
@@ -104,7 +104,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return array{code: string, message: string}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
 	private function frame(string $code, string $message): array {
 		return ['code' => $code, 'message' => $message];

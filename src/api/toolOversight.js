@@ -6,8 +6,8 @@
 // EU AI Act art.12/14 tool-invocation oversight read. axios from @nextcloud/axios adds the
 // CSRF requesttoken. Mirrors src/api/analytics.js / src/api/tenantOps.js.
 //
-// @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
-// @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+// @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-6
+// @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'

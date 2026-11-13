@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+ * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use stdClass;
 /**
  * Maps between Hermiq's engine shapes and the Anthropic Messages API. Stateless.
  *
- * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+ * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
  */
 final class AnthropicMessageFormat {
 
@@ -47,7 +47,7 @@ final class AnthropicMessageFormat {
 	 *
 	 * @return array{system: string, messages: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	public function mapHistoryToAnthropicMessages(array $messageHistory): array {
 		$systemParts = [];
@@ -96,7 +96,7 @@ final class AnthropicMessageFormat {
 	 *
 	 * @return array<int, array<string, mixed>> Anthropic tool definitions.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	public function buildAnthropicTools(array $functions): array {
 		$tools = [];
@@ -149,7 +149,7 @@ final class AnthropicMessageFormat {
 	 * @return array{text: string, toolCalls: array<int, array<string, mixed>>,
 	 *     stopReason: string, content: array<int, mixed>, usage: array<string, int>}
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	public function parseAnthropicResponse(array $data): array {
 		$content = [];
@@ -245,7 +245,7 @@ final class AnthropicMessageFormat {
 	 *
 	 * @return array<int, array<string, mixed>> Anthropic tool_result content blocks.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	public function buildAnthropicToolResultBlocks(array $toolResults): array {
 		$blocks = [];

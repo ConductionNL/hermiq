@@ -99,7 +99,7 @@ class AnthropicMessageFormatTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	public function testBuildAnthropicToolsEmptyPropertiesSerialisesAsObject(): void {
 		$tools = $this->format()->buildAnthropicTools(
@@ -125,7 +125,7 @@ class AnthropicMessageFormatTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	public function testBuildAnthropicToolsPreservesRealProperties(): void {
 		$tools = $this->format()->buildAnthropicTools(

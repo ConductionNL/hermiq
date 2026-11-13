@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ComplianceService;
@@ -160,6 +161,7 @@ class ComplianceServiceTest extends TestCase {
 	 * @param OrganisationControlService|null $tenantControlService Optional custom mock.
 	 * @param OrganisationModelPolicyService|null $modelPolicyService Optional custom mock.
 	 * @param AiFeatureService|null $aiFeatureService Optional custom mock.
+	 * @param AiFeatureLookup|null $aiFeatureLookup Optional custom mock.
 	 *
 	 * @return ComplianceService
 	 */
@@ -170,6 +172,7 @@ class ComplianceServiceTest extends TestCase {
 		?OrganisationControlService $tenantControlService = null,
 		?OrganisationModelPolicyService $modelPolicyService = null,
 		?AiFeatureService $aiFeatureService = null,
+		?AiFeatureLookup $aiFeatureLookup = null,
 	): ComplianceService {
 		return new ComplianceService(
 			objectService: $objectService,
@@ -178,6 +181,7 @@ class ComplianceServiceTest extends TestCase {
 			tenantControlService: ($tenantControlService ?? $this->createMock(OrganisationControlService::class)),
 			modelPolicyService: ($modelPolicyService ?? $this->createMock(OrganisationModelPolicyService::class)),
 			aiFeatureService: ($aiFeatureService ?? $this->createMock(AiFeatureService::class)),
+			aiFeatureLookup: ($aiFeatureLookup ?? $this->createMock(AiFeatureLookup::class)),
 		);
 
 	}//end service()
@@ -239,6 +243,7 @@ class ComplianceServiceTest extends TestCase {
 			tenantControlService: $this->createMock(OrganisationControlService::class),
 			modelPolicyService: $this->createMock(OrganisationModelPolicyService::class),
 			aiFeatureService: $this->createMock(AiFeatureService::class),
+			aiFeatureLookup: $this->createMock(AiFeatureLookup::class),
 			literacyReport: $report,
 		);
 
@@ -541,8 +546,8 @@ class ComplianceServiceTest extends TestCase {
 			['description' => 'Oops', 'impact' => 'Minor', 'linkedAgentId' => 'agent-1', 'createdAt' => '2026-01-02T00:00:00+00:00']
 		);
 
-		$aiFeatureService = $this->createMock(AiFeatureService::class);
-		$aiFeatureService->method('findBySlug')->willReturn(
+		$aiFeatureLookup = $this->createMock(AiFeatureLookup::class);
+		$aiFeatureLookup->method('findBySlug')->willReturn(
 			$this->object('af-1', ['riskCategory' => 'high', 'lifecycle' => 'enabled', 'dpoAckBy' => 'dpo', 'dpoAckAt' => '2026-01-01T00:00:00+00:00'])
 		);
 
@@ -559,7 +564,7 @@ class ComplianceServiceTest extends TestCase {
 		$service = $this->service(
 			objectService: $this->objectService(['agent' => [$agent], 'incident' => [$incident]]),
 			approvalService: $approvalService,
-			aiFeatureService: $aiFeatureService,
+			aiFeatureLookup: $aiFeatureLookup,
 		);
 
 		$factsheet = $service->factsheet(agentId: 'agent-1');

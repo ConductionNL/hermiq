@@ -47,8 +47,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
  */
 
 declare(strict_types=1);
@@ -103,7 +103,7 @@ use Throwable;
  * direct-HTTP branch lives here in full (see ExcessiveClassComplexity above); the length
  * is the sum of those individually simple branches.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 class ProviderFactory {
 
@@ -396,10 +396,10 @@ class ProviderFactory {
 	 *   distinct injected collaborator (several nullable/defaulted for backward-compatible
 	 *   test call sites), not a logic-bearing argument list.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/changes/llm-cli-runner-exapp/specs/llm-cli-runner-exapp/spec.md#requirement-optional-cli-execution-mode-routes-turns-through-the-runner-exapp
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	public function __construct(
 		private readonly LlmSettingsHandler $settingsHandler,
@@ -510,7 +510,7 @@ class ProviderFactory {
 	 *
 	 * @return array LLM configuration (see LlmSettingsHandler::getLLMSettingsOnly()).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function getLlmConfig(): array {
 		return $this->settingsHandler->getLLMSettingsOnly();
@@ -561,9 +561,9 @@ class ProviderFactory {
 	 *                                       reads no unredacted document and the one it was
 	 *                                       handed has no recorded redaction.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	/**
 	 * Build the driver for one named provider.
@@ -679,9 +679,9 @@ class ProviderFactory {
 	 *                                       reads no unredacted document and the one it was
 	 *                                       handed has no recorded redaction.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
@@ -814,7 +814,7 @@ class ProviderFactory {
 	 *
 	 * @throws ModelPolicyViolationException When the pair is outside the effective policy.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	private function enforceModelPolicy(?string $organisation, string $provider, string $model): void {
 		if ($organisation === null || $this->modelPolicyService === null) {
@@ -862,7 +862,7 @@ class ProviderFactory {
 	 *
 	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	private function resolveCredentialOverride(string $provider, ?string $organisation, ?array $pinned = null): ?string {
@@ -908,7 +908,7 @@ class ProviderFactory {
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function callFireworksChat(
 		string $credentialId,
@@ -1076,7 +1076,7 @@ class ProviderFactory {
 	 *
 	 * @return array<string, string> The request headers.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 */
 	public function buildAnthropicHeaders(string $authMode): array {
 		$headers = [
@@ -1163,7 +1163,7 @@ class ProviderFactory {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors callFireworksChat's direct-HTTP signature
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
 	 */
 	public function callAnthropicChat(
@@ -1464,7 +1464,7 @@ class ProviderFactory {
 	 *                                      credential cannot be resolved or is organisation-scope
 	 *                                      (503), or the dispatch fails (503).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
 	 */
 	private function callAnthropicCli(
@@ -1555,7 +1555,7 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
 	private function mintTurnTokens(CliTurn $turn): void {
 		if (empty($turn->functions) === false) {
@@ -1642,7 +1642,7 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 *
 	 */
 	private function mintGovernedRunToken(CliTurn $turn): string {
@@ -1782,7 +1782,7 @@ class ProviderFactory {
 	 *
 	 * @return string The token, or '' when one could not be minted.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	private function mintEgressRunToken(?string $agentId, ?string $uid): string {
 		if ($this->runTokenService === null || $uid === null || $uid === '') {
@@ -1827,7 +1827,7 @@ class ProviderFactory {
 	 *   is a second copy of the rewrite rule, and a second copy is what puts the egress
 	 *   PDP and this config into disagreement about where the endpoint is.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	private function buildGovernedMcpConfig(string $runToken): array {
 		return [
@@ -2223,8 +2223,8 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException On any transport, status, or shape failure (503).
 	 *
 	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	private function dispatchCliTurn(CliTurn $turn, string $token): string {
 		$result = $this->appApiPublicFunctions()->exAppRequest(
@@ -2500,7 +2500,7 @@ class ProviderFactory {
 	 *
 	 * @throws \Exception If the HTTP call fails or the response is malformed.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
 	 */
 	private function postToAnthropic(AnthropicToolLoop $loop, array $payload): array {
 		$psrResponse = $this->sendToAnthropic(loop: $loop, payload: $payload);
@@ -2652,7 +2652,7 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException When no TaskProcessing provider is installed,
 	 *                                      or the task fails/returns no output.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
 	 */
 	public function generateViaNextcloud(string $prompt, ?string $userId = null, ?string $customId = null): string {
 		if ($this->taskManager->hasProviders() === false) {
@@ -2734,7 +2734,7 @@ class ProviderFactory {
 	 * Mirrors the accepted `ScheduleService::runNow($bypassApprovalGate)` precedent.
 	 *
 	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
-	 * @spec openspec/changes/agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
+	 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
 	 * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
 	 */
 	public function generateText(
@@ -2865,7 +2865,7 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the OpenAI API key is not configured.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	private function createOpenAiDriver(array $openaiConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = $this->overriddenCredentialId(
@@ -3025,7 +3025,7 @@ class ProviderFactory {
 	 *
 	 * @throws ProviderUnavailableException When the Fireworks API key is not configured.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 */
 	private function createFireworksDriver(array $fireworksConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = $this->overriddenCredentialId(
@@ -3072,7 +3072,7 @@ class ProviderFactory {
 	 *                                      OpenRegister credential broker is unavailable (503),
 	 *                                      mirroring createOpenAiDriver().
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	private function createAnthropicDriver(array $anthropicConfig, ChatDriverRequest $request): ChatDriver {
 		$credentialId = (string)($anthropicConfig['credentialId'] ?? '');
@@ -3137,7 +3137,7 @@ class ProviderFactory {
 	 *
 	 * @return string The model id to send to Anthropic.
 	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
 	 */
 	private function resolveAnthropicModel(string $configuredModel, ?string $agentModel): string {
 		if (empty($agentModel) === true) {

@@ -37,7 +37,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 
 declare(strict_types=1);
@@ -62,7 +62,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
  */
 class AgentBotLifecycleListener implements IEventListener {
 
@@ -88,7 +88,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -113,7 +113,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function apply(Event $event): void {
 		[$object, $deleted] = $this->resolve(event: $event);
@@ -147,7 +147,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function agentIdOf(mixed $object): ?string {
 		if (($object instanceof ObjectEntity) === false || $this->agents->isAgent(object: $object) === false) {
@@ -180,7 +180,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function mustStopAnswering(ObjectEntity $agent): bool {
 		if ($agent->getDeleted() !== null && $agent->getDeleted() !== []) {
@@ -198,7 +198,7 @@ class AgentBotLifecycleListener implements IEventListener {
 	 *
 	 * @return array{0: ObjectEntity|null, 1: bool} The object and the deleted flag.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 */
 	private function resolve(Event $event): array {
 		if ($event instanceof ObjectCreatedEvent) {
