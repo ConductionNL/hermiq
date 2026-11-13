@@ -71,7 +71,7 @@ final class EvalRunTrigger {
 	 *
 	 * @var int|null
 	 */
-	public ?int $regressionThresholdOverride = null;
+	public ?int $thresholdOverride = null;
 
 	/**
 	 * Whether the run is a PAIRED baseline run (skill-evals).

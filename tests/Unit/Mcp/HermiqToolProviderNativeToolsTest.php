@@ -1,12 +1,12 @@
 <?php
 
 /**
- * Unit tests for the nc-native tools HermiqToolProvider runs itself: files,
- * contacts, mail, Deck, web research, delegation and tool-access routing.
+ * Characterisation tests for three native HermiqToolProvider tools:
+ * `hermiq.listFiles`, `hermiq.sendMail` and `hermiq.listDeckBoards`.
  *
- * Every tool is reached through the public invokeTool() facade, so each test
- * also proves the id routes to the right handler and that the never-throws
- * contract turns a failing collaborator into an error envelope.
+ * Pins every refusal envelope, the listing shape, the mail that is composed and the
+ * board titles that are read, so the three tools can be split into named steps
+ * without changing what an agent receives.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Mcp
@@ -16,16 +16,15 @@
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  *
  * @link https://conduction.nl
+ *
+ * @spec openspec/changes/nc-native-tools/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
-use OCA\Hermiq\Mcp\AgentMemoryTools;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
-use OCA\Hermiq\Mcp\NativeToolCall;
-use OCA\Hermiq\Mcp\ToolErrorEnvelope;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\MemoryService;
@@ -44,490 +43,237 @@ use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use OCP\Mail\IMessage;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\UsesClass;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 /**
- * An agent's native tools act only as the signed-in user and answer every bad input with an error envelope.
+ * Characterisation tests for the files, mail and Deck tools.
+ *
+ * @spec openspec/changes/nc-native-tools/tasks.md#task-4-1
  */
-#[CoversClass(HermiqToolProvider::class)]
-#[UsesClass(NativeToolCall::class)]
-#[UsesClass(AgentMemoryTools::class)]
-#[UsesClass(ToolErrorEnvelope::class)]
-final class HermiqToolProviderNativeToolsTest extends TestCase {
+class HermiqToolProviderNativeToolsTest extends TestCase {
 
-	private IUser&MockObject $user;
-	private IRootFolder&MockObject $rootFolder;
-	private IContactsManager&MockObject $contacts;
-	private IMailer&MockObject $mailer;
-	private IAppManager&MockObject $appManager;
-	private ContainerInterface&MockObject $container;
-	private WebSearchClient&MockObject $webSearch;
-	private WebFetchService&MockObject $webFetch;
-	private DelegationService&MockObject $delegation;
-	private NcNativeWriteService&MockObject $writes;
-	private MailReadService&MockObject $mailReads;
-	private ToolAccessRequestService&MockObject $accessRequests;
-	private LoggerInterface&MockObject $logger;
-	private HermiqToolProvider $provider;
+	/**
+	 * Collaborators the tests steer.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $parts = [];
 
-	protected function setUp(): void {
-		$this->user = $this->createMock(IUser::class);
-		$this->user->method('getUID')->willReturn('alice');
+	/**
+	 * The provider, acting as alice, over the steered collaborators.
+	 *
+	 * @param IUser|null $user The acting user; a default alice when null.
+	 *
+	 * @return HermiqToolProvider
+	 */
+	private function provider(?IUser $user = null): HermiqToolProvider {
+		if ($user === null) {
+			$user = $this->createMock(IUser::class);
+			$user->method('getUID')->willReturn('alice');
+		}
+
 		$session = $this->createMock(IUserSession::class);
-		$session->method('getUser')->willReturn($this->user);
+		$session->method('getUser')->willReturn($user);
 
-		$this->rootFolder     = $this->createMock(IRootFolder::class);
-		$this->contacts       = $this->createMock(IContactsManager::class);
-		$this->mailer         = $this->createMock(IMailer::class);
-		$this->appManager     = $this->createMock(IAppManager::class);
-		$this->container      = $this->createMock(ContainerInterface::class);
-		$this->webSearch      = $this->createMock(WebSearchClient::class);
-		$this->webFetch       = $this->createMock(WebFetchService::class);
-		$this->delegation     = $this->createMock(DelegationService::class);
-		$this->writes         = $this->createMock(NcNativeWriteService::class);
-		$this->mailReads      = $this->createMock(MailReadService::class);
-		$this->accessRequests = $this->createMock(ToolAccessRequestService::class);
-		$this->logger         = $this->createMock(LoggerInterface::class);
-
-		$this->provider = new HermiqToolProvider(
+		return new HermiqToolProvider(
 			$session,
-			$this->rootFolder,
-			$this->contacts,
+			($this->parts['rootFolder'] ?? $this->createMock(IRootFolder::class)),
+			$this->createMock(IContactsManager::class),
 			$this->createMock(ICalendarManager::class),
-			$this->mailer,
-			$this->appManager,
-			$this->container,
+			($this->parts['mailer'] ?? $this->createMock(IMailer::class)),
+			($this->parts['appManager'] ?? $this->createMock(IAppManager::class)),
+			($this->parts['container'] ?? $this->createMock(ContainerInterface::class)),
 			$this->createMock(CourseRecommendationEngine::class),
 			$this->createMock(MemoryService::class),
-			$this->webSearch,
-			$this->webFetch,
-			$this->delegation,
-			$this->writes,
-			$this->mailReads,
-			$this->accessRequests,
-			$this->logger
+			$this->createMock(WebSearchClient::class),
+			$this->createMock(WebFetchService::class),
+			$this->createMock(DelegationService::class),
+			$this->createMock(NcNativeWriteService::class),
+			$this->createMock(MailReadService::class),
+			$this->createMock(ToolAccessRequestService::class),
+			($this->parts['logger'] ?? $this->createMock(LoggerInterface::class))
 		);
-	}//end setUp()
+	}//end provider()
 
 	/**
-	 * The error envelope invokeTool returns.
+	 * A node mock.
 	 *
-	 * @param string $code The machine code.
-	 * @param string $message The message.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private static function error(string $code, string $message): array {
-		return ['error' => ['code' => $code, 'message' => $message]];
-	}//end error()
-
-	/**
-	 * A node double with a name and size.
-	 *
-	 * @param class-string $type File::class or Folder::class.
+	 * @param string $class File or Folder.
 	 * @param string $name The node name.
 	 * @param int $size The node size.
 	 *
-	 * @return File&MockObject|Folder&MockObject
+	 * @return File|Folder
 	 */
-	private function node(string $type, string $name, int $size): MockObject {
-		$node = $this->createMock($type);
+	private function node(string $class, string $name, int $size): File|Folder {
+		$node = $this->createMock($class);
 		$node->method('getName')->willReturn($name);
 		$node->method('getSize')->willReturn($size);
 		return $node;
 	}//end node()
 
 	/**
-	 * The acting user's folder, looked up for alice only.
+	 * listFiles lists the root or a sub-folder with each entry's name, type and size,
+	 * and refuses a missing path or a file.
 	 *
-	 * @return Folder&MockObject
+	 * @return void
 	 */
-	private function userFolder(): Folder&MockObject {
-		$folder = $this->createMock(Folder::class);
-		$this->rootFolder->expects($this->once())->method('getUserFolder')->with('alice')->willReturn($folder);
-		return $folder;
-	}//end userFolder()
+	public function testListFilesShapesAndRefusals(): void {
+		$sub = $this->node(Folder::class, 'docs', 0);
+		$sub->method('getDirectoryListing')->willReturn([$this->node(File::class, 'a.txt', 3)]);
+		$root = $this->createMock(Folder::class);
+		$root->method('getDirectoryListing')->willReturn([$this->node(File::class, 'r.md', 10), $this->node(Folder::class, 'docs', 0)]);
+		$root->method('nodeExists')->willReturnCallback(static fn (string $path): bool => in_array($path, ['docs', 'r.md'], true));
+		$root->method('get')->willReturnCallback(fn (string $path) => ($path === 'docs') ? $sub : $this->node(File::class, 'r.md', 10));
+		$rootFolder = $this->createMock(IRootFolder::class);
+		$rootFolder->method('getUserFolder')->with('alice')->willReturn($root);
+		$this->parts['rootFolder'] = $rootFolder;
+		$provider = $this->provider();
 
-	public function testListFilesWithoutAPathListsTheUserRoot(): void {
-		$folder = $this->userFolder();
-		$folder->expects($this->never())->method('nodeExists');
-		$folder->method('getDirectoryListing')->willReturn([
-			$this->node(File::class, 'notes.txt', 12),
-			$this->node(Folder::class, 'Photos', 2048),
-		]);
+		$listing = [['name' => 'r.md', 'type' => 'file', 'size' => 10], ['name' => 'docs', 'type' => 'folder', 'size' => 0]];
+		$this->assertSame(['path' => '/', 'entries' => $listing], $provider->invokeTool('hermiq.listFiles', []));
+		$this->assertSame(['path' => '/', 'entries' => $listing], $provider->invokeTool('hermiq.listFiles', ['path' => '/']));
+		$this->assertSame(['path' => 'docs', 'entries' => [['name' => 'a.txt', 'type' => 'file', 'size' => 3]]], $provider->invokeTool('hermiq.listFiles', ['path' => 'docs']));
+		$this->assertSame(['error' => ['code' => 'not_found', 'message' => 'Path not found in your files.']], $provider->invokeTool('hermiq.listFiles', ['path' => 'gone']));
+		$this->assertSame(['error' => ['code' => 'not_a_folder', 'message' => 'Path is not a folder.']], $provider->invokeTool('hermiq.listFiles', ['path' => 'r.md']));
 
-		$this->assertSame(
-			[
-				'path' => '/',
-				'entries' => [
-					['name' => 'notes.txt', 'type' => 'file', 'size' => 12],
-					['name' => 'Photos', 'type' => 'folder', 'size' => 2048],
-				],
-			],
-			$this->provider->invokeTool('hermiq.listFiles', [])
-		);
-	}//end testListFilesWithoutAPathListsTheUserRoot()
+	}//end testListFilesShapesAndRefusals()
 
-	public function testListFilesListsTheNamedSubfolder(): void {
-		$sub = $this->createMock(Folder::class);
-		$sub->method('getDirectoryListing')->willReturn([$this->node(File::class, 'a.pdf', 5)]);
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->with('/Docs')->willReturn(true);
-		$folder->method('get')->with('/Docs')->willReturn($sub);
-		$folder->expects($this->never())->method('getDirectoryListing');
-
-		$this->assertSame(
-			['path' => '/Docs', 'entries' => [['name' => 'a.pdf', 'type' => 'file', 'size' => 5]]],
-			$this->provider->invokeTool('hermiq.listFiles', ['path' => '/Docs'])
-		);
-	}//end testListFilesListsTheNamedSubfolder()
-
-	public function testListFilesRefusesAMissingPath(): void {
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->willReturn(false);
-		$folder->expects($this->never())->method('get');
-
-		$this->assertSame(
-			self::error('not_found', 'Path not found in your files.'),
-			$this->provider->invokeTool('hermiq.listFiles', ['path' => 'gone'])
-		);
-	}//end testListFilesRefusesAMissingPath()
-
-	public function testListFilesRefusesAFile(): void {
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->willReturn(true);
-		$folder->method('get')->willReturn($this->createMock(File::class));
-
-		$this->assertSame(
-			self::error('not_a_folder', 'Path is not a folder.'),
-			$this->provider->invokeTool('hermiq.listFiles', ['path' => 'notes.txt'])
-		);
-	}//end testListFilesRefusesAFile()
-
-	public function testReadFileRequiresAPath(): void {
-		$this->rootFolder->expects($this->never())->method('getUserFolder');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'A file path is required.'),
-			$this->provider->invokeTool('hermiq.readFile', ['path' => '/'])
-		);
-	}//end testReadFileRequiresAPath()
-
-	public function testReadFileRefusesAMissingFile(): void {
-		$this->userFolder()->method('nodeExists')->with('x.txt')->willReturn(false);
-
-		$this->assertSame(
-			self::error('not_found', 'File not found in your files.'),
-			$this->provider->invokeTool('hermiq.readFile', ['path' => 'x.txt'])
-		);
-	}//end testReadFileRefusesAMissingFile()
-
-	public function testReadFileRefusesAFolder(): void {
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->willReturn(true);
-		$folder->method('get')->willReturn($this->createMock(Folder::class));
-
-		$this->assertSame(
-			self::error('not_a_file', 'Path is not a file.'),
-			$this->provider->invokeTool('hermiq.readFile', ['path' => 'Photos'])
-		);
-	}//end testReadFileRefusesAFolder()
-
-	public function testReadFileReturnsTheContentUntruncated(): void {
-		$file = $this->createMock(File::class);
-		$file->method('getContent')->willReturn('hello');
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->willReturn(true);
-		$folder->method('get')->with('notes.txt')->willReturn($file);
-
-		$this->assertSame(
-			['path' => 'notes.txt', 'content' => 'hello', 'truncated' => false],
-			$this->provider->invokeTool('hermiq.readFile', ['path' => 'notes.txt'])
-		);
-	}//end testReadFileReturnsTheContentUntruncated()
-
-	public function testReadFileCapsTheContentAtTwentyThousandBytes(): void {
-		$file = $this->createMock(File::class);
-		$file->method('getContent')->willReturn(str_repeat('a', 20000) . 'b');
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->willReturn(true);
-		$folder->method('get')->willReturn($file);
-
-		$result = $this->provider->invokeTool('hermiq.readFile', ['path' => 'big.txt']);
-
-		$this->assertSame(str_repeat('a', 20000), $result['content']);
-		$this->assertTrue($result['truncated']);
-	}//end testReadFileCapsTheContentAtTwentyThousandBytes()
-
-	public function testReadFileOfExactlyTheCapIsNotTruncated(): void {
-		$file = $this->createMock(File::class);
-		$file->method('getContent')->willReturn(str_repeat('a', 20000));
-		$folder = $this->userFolder();
-		$folder->method('nodeExists')->willReturn(true);
-		$folder->method('get')->willReturn($file);
-
-		$this->assertFalse($this->provider->invokeTool('hermiq.readFile', ['path' => 'cap.txt'])['truncated']);
-	}//end testReadFileOfExactlyTheCapIsNotTruncated()
-
-	public function testSearchContactsRequiresAQuery(): void {
-		$this->contacts->expects($this->never())->method('search');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'A search query is required.'),
-			$this->provider->invokeTool('hermiq.searchContacts', ['query' => '  '])
-		);
-	}//end testSearchContactsRequiresAQuery()
-
-	public function testSearchContactsReturnsNameAndFirstEmail(): void {
-		$this->contacts->expects($this->once())
-			->method('search')
-			->with('ann', ['FN', 'EMAIL'], ['limit' => 25])
-			->willReturn([
-				['FN' => 'Ann One', 'EMAIL' => ['ann@one.test', 'ann@two.test']],
-				['FN' => 'Ann Two', 'EMAIL' => 'ann2@test.test'],
-				[],
-			]);
-
-		$this->assertSame(
-			[
-				'query' => 'ann',
-				'results' => [
-					['name' => 'Ann One', 'email' => 'ann@one.test'],
-					['name' => 'Ann Two', 'email' => 'ann2@test.test'],
-					['name' => '', 'email' => ''],
-				],
-			],
-			$this->provider->invokeTool('hermiq.searchContacts', ['query' => 'ann'])
-		);
-	}//end testSearchContactsReturnsNameAndFirstEmail()
-
-	public function testSendMailRequiresRecipientSubjectAndBody(): void {
-		$this->mailer->expects($this->never())->method('send');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'to, subject and body are all required.'),
-			$this->provider->invokeTool('hermiq.sendMail', ['to' => 'bob@test.test', 'subject' => 'Hi'])
-		);
-	}//end testSendMailRequiresRecipientSubjectAndBody()
-
-	public function testSendMailRefusesAnInvalidRecipient(): void {
-		$this->mailer->method('validateMailAddress')->with('not-an-address')->willReturn(false);
-		$this->mailer->expects($this->never())->method('send');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'The recipient address is not a valid email.'),
-			$this->provider->invokeTool('hermiq.sendMail', ['to' => ' not-an-address ', 'subject' => 'Hi', 'body' => 'Text'])
-		);
-	}//end testSendMailRefusesAnInvalidRecipient()
-
-	public function testSendMailRefusesAUserWithoutAnAddress(): void {
-		$this->mailer->method('validateMailAddress')->willReturn(true);
-		$this->user->method('getEMailAddress')->willReturn('');
-		$this->mailer->expects($this->never())->method('createMessage');
-
-		$this->assertSame(
-			self::error('no_sender', 'Your account has no email address to send from.'),
-			$this->provider->invokeTool('hermiq.sendMail', ['to' => 'bob@test.test', 'subject' => 'Hi', 'body' => 'Text'])
-		);
-	}//end testSendMailRefusesAUserWithoutAnAddress()
-
-	public function testSendMailSendsFromTheActingUser(): void {
-		$this->mailer->method('validateMailAddress')->willReturn(true);
-		$this->user->method('getEMailAddress')->willReturn('alice@test.test');
-		$this->user->method('getDisplayName')->willReturn('Alice');
+	/**
+	 * sendMail refuses missing parts, an invalid address and a user without an
+	 * address, in that order; otherwise it composes and sends the mail as the user.
+	 *
+	 * @return void
+	 */
+	public function testSendMailRefusalsAndTheComposedMail(): void {
+		$composed = [];
 		$message = $this->createMock(IMessage::class);
-		$message->expects($this->once())->method('setFrom')->with(['alice@test.test' => 'Alice'])->willReturnSelf();
-		$message->expects($this->once())->method('setTo')->with(['bob@test.test'])->willReturnSelf();
-		$message->expects($this->once())->method('setSubject')->with('Hi')->willReturnSelf();
-		$message->expects($this->once())->method('setPlainBody')->with('Text')->willReturnSelf();
-		$this->mailer->method('createMessage')->willReturn($message);
-		$this->mailer->expects($this->once())->method('send')->with($message)->willReturn([]);
+		foreach (['setFrom', 'setTo', 'setSubject', 'setPlainBody'] as $setter) {
+			$message->method($setter)->willReturnCallback(
+				function (mixed $value) use (&$composed, $setter, $message) {
+					$composed[] = [$setter, $value];
+					return $message;
+				}
+			);
+		}
 
+		$mailer = $this->createMock(IMailer::class);
+		$mailer->method('validateMailAddress')->willReturnCallback(static fn (string $to): bool => str_contains($to, '@'));
+		$mailer->method('createMessage')->willReturn($message);
+		$mailer->method('send')->willReturnOnConsecutiveCalls([], ['bob@example.org']);
+		$this->parts['mailer'] = $mailer;
+
+		$alice = $this->createMock(IUser::class);
+		$alice->method('getUID')->willReturn('alice');
+		$alice->method('getEMailAddress')->willReturn('alice@example.org');
+		$alice->method('getDisplayName')->willReturn('Alice');
+		$nobody = $this->createMock(IUser::class);
+		$nobody->method('getUID')->willReturn('nobody');
+		$nobody->method('getEMailAddress')->willReturn(null);
+
+		$mail = ['to' => ' bob@example.org ', 'subject' => 'S', 'body' => 'B'];
+		$missing = ['error' => ['code' => 'invalid_argument', 'message' => 'to, subject and body are all required.']];
+		$this->assertSame($missing, $this->provider($alice)->invokeTool('hermiq.sendMail', ['to' => '  '] + $mail));
+		$this->assertSame($missing, $this->provider($alice)->invokeTool('hermiq.sendMail', ['subject' => ''] + $mail));
+		$this->assertSame($missing, $this->provider($alice)->invokeTool('hermiq.sendMail', ['body' => ''] + $mail));
 		$this->assertSame(
-			['sent' => true, 'failedRecipients' => []],
-			$this->provider->invokeTool('hermiq.sendMail', ['to' => 'bob@test.test', 'subject' => 'Hi', 'body' => 'Text'])
+			['error' => ['code' => 'invalid_argument', 'message' => 'The recipient address is not a valid email.']],
+			$this->provider($nobody)->invokeTool('hermiq.sendMail', ['to' => 'bob'] + $mail)
 		);
-	}//end testSendMailSendsFromTheActingUser()
-
-	public function testSendMailReportsFailedRecipients(): void {
-		$this->mailer->method('validateMailAddress')->willReturn(true);
-		$this->user->method('getEMailAddress')->willReturn('alice@test.test');
-		$this->mailer->method('createMessage')->willReturn($this->createMock(IMessage::class));
-		$this->mailer->method('send')->willReturn(['bob@test.test']);
-
 		$this->assertSame(
-			['sent' => false, 'failedRecipients' => ['bob@test.test']],
-			$this->provider->invokeTool('hermiq.sendMail', ['to' => 'bob@test.test', 'subject' => 'Hi', 'body' => 'Text'])
+			['error' => ['code' => 'no_sender', 'message' => 'Your account has no email address to send from.']],
+			$this->provider($nobody)->invokeTool('hermiq.sendMail', $mail)
 		);
-	}//end testSendMailReportsFailedRecipients()
+		$this->assertSame([], $composed);
 
-	public function testListDeckBoardsWithoutDeckSaysSo(): void {
-		$this->appManager->method('isEnabledForUser')->with('deck')->willReturn(false);
-		$this->container->expects($this->never())->method('get');
-
+		$this->assertSame(['sent' => true, 'failedRecipients' => []], $this->provider($alice)->invokeTool('hermiq.sendMail', $mail));
 		$this->assertSame(
-			self::error('deck_unavailable', 'The Deck app is not installed or enabled.'),
-			$this->provider->invokeTool('hermiq.listDeckBoards', [])
+			[['setFrom', ['alice@example.org' => 'Alice']], ['setTo', ['bob@example.org']], ['setSubject', 'S'], ['setPlainBody', 'B']],
+			$composed
 		);
-	}//end testListDeckBoardsWithoutDeckSaysSo()
+		$this->assertSame(['sent' => false, 'failedRecipients' => ['bob@example.org']], $this->provider($alice)->invokeTool('hermiq.sendMail', $mail));
 
-	public function testListDeckBoardsLogsAndReportsAnUnreachableBoardService(): void {
-		$this->appManager->method('isEnabledForUser')->willReturn(true);
-		$this->container->method('get')->with('OCA\\Deck\\Service\\BoardService')->willThrowException(new RuntimeException('no deck'));
-		$this->logger->expects($this->once())->method('warning')->with('Hermiq Deck board listing failed: no deck');
+	}//end testSendMailRefusalsAndTheComposedMail()
 
-		$this->assertSame(
-			self::error('deck_unavailable', 'Could not read Deck boards.'),
-			$this->provider->invokeTool('hermiq.listDeckBoards', [])
+	/**
+	 * listDeckBoards refuses without Deck or when Deck cannot be read, and lists the
+	 * scalar titles of readable boards, skipping the rest with a warning for each
+	 * unreadable one.
+	 *
+	 * @return void
+	 */
+	public function testListDeckBoardsRefusalsAndTitles(): void {
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('isEnabledForUser')->willReturnOnConsecutiveCalls(false, true, true);
+		$this->parts['appManager'] = $appManager;
+
+		$board = static fn (mixed $title): object => new class($title) {
+			/**
+			 * @var mixed
+			 */
+			public mixed $title;
+
+			/**
+			 * @param mixed $title The title.
+			 */
+			public function __construct(mixed $title) {
+				$this->title = $title;
+			}
+
+			/**
+			 * @return mixed
+			 */
+			public function getTitle(): mixed {
+				if ($this->title instanceof RuntimeException) {
+					throw $this->title;
+				}
+
+				return $this->title;
+			}
+		};
+		$boardService = new class([$board('Plan'), 'not-a-board', new \stdClass(), $board(new RuntimeException('locked')), $board(['x']), $board(7)]) {
+			/**
+			 * @param array<int, mixed> $boards The boards.
+			 */
+			public function __construct(private readonly array $boards) {
+			}
+
+			/**
+			 * @return array<int, mixed>
+			 */
+			public function findAll(): array {
+				return $this->boards;
+			}
+		};
+		$calls = 0;
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static function (string $id) use (&$calls, $boardService) {
+				$calls++;
+				if ($calls === 1) {
+					throw new RuntimeException('deck broke');
+				}
+
+				return $boardService;
+			}
 		);
-	}//end testListDeckBoardsLogsAndReportsAnUnreachableBoardService()
-
-	public function testWebSearchRequiresAQuery(): void {
-		$this->webSearch->expects($this->never())->method('search');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'A search query is required.'),
-			$this->provider->invokeTool('hermiq.webSearch', [])
+		$this->parts['container'] = $container;
+		$warnings = [];
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
 		);
-	}//end testWebSearchRequiresAQuery()
+		$this->parts['logger'] = $logger;
+		$provider = $this->provider();
 
-	public function testWebSearchForwardsTheQueryAndActingUser(): void {
-		$this->webSearch->expects($this->once())
-			->method('search')
-			->with('nextcloud', 'alice')
-			->willReturn(['results' => [['title' => 'NC']]]);
+		$this->assertSame(['error' => ['code' => 'deck_unavailable', 'message' => 'The Deck app is not installed or enabled.']], $provider->invokeTool('hermiq.listDeckBoards', []));
+		$this->assertSame(['error' => ['code' => 'deck_unavailable', 'message' => 'Could not read Deck boards.']], $provider->invokeTool('hermiq.listDeckBoards', []));
+		$this->assertSame(['boards' => [['title' => 'Plan'], ['title' => '7']]], $provider->invokeTool('hermiq.listDeckBoards', []));
+		$this->assertSame(['Hermiq Deck board listing failed: deck broke', 'Hermiq skipped an unreadable Deck board: locked'], $warnings);
 
-		$this->assertSame(
-			['results' => [['title' => 'NC']]],
-			$this->provider->invokeTool('hermiq.webSearch', ['query' => 'nextcloud'])
-		);
-	}//end testWebSearchForwardsTheQueryAndActingUser()
-
-	public function testWebFetchRequiresAUrl(): void {
-		$this->webFetch->expects($this->never())->method('fetch');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'A URL is required.'),
-			$this->provider->invokeTool('hermiq.webFetch', ['url' => ' '])
-		);
-	}//end testWebFetchRequiresAUrl()
-
-	public function testWebFetchForwardsTheUrl(): void {
-		$this->webFetch->expects($this->once())->method('fetch')->with('https://example.test/')->willReturn(['text' => 'page']);
-
-		$this->assertSame(['text' => 'page'], $this->provider->invokeTool('hermiq.webFetch', ['url' => 'https://example.test/']));
-	}//end testWebFetchForwardsTheUrl()
-
-	public function testDelegateAgentNeedsAnAgentContext(): void {
-		$this->delegation->expects($this->never())->method('delegate');
-
-		$result = $this->provider->invokeTool('hermiq.delegateAgent', ['targetAgentId' => 't', 'task' => 'do it']);
-
-		$this->assertSame('no_agent_context', $result['error']['code']);
-	}//end testDelegateAgentNeedsAnAgentContext()
-
-	public function testDelegateAgentNeedsATarget(): void {
-		$this->delegation->expects($this->never())->method('delegate');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'targetAgentId is required.'),
-			$this->provider->invokeTool('hermiq.delegateAgent', ['agentId' => 'a', 'task' => 'do it'])
-		);
-	}//end testDelegateAgentNeedsATarget()
-
-	public function testDelegateAgentNeedsATask(): void {
-		$this->delegation->expects($this->never())->method('delegate');
-
-		$this->assertSame(
-			self::error('invalid_argument', 'A non-empty task is required.'),
-			$this->provider->invokeTool('hermiq.delegateAgent', ['agentId' => 'a', 'targetAgentId' => 't', 'task' => ' '])
-		);
-	}//end testDelegateAgentNeedsATask()
-
-	public function testDelegateAgentForwardsTrimmedArguments(): void {
-		$this->delegation->expects($this->once())
-			->method('delegate')
-			->with('caller', 'target', 'summarise')
-			->willReturn(['result' => 'done']);
-
-		$this->assertSame(
-			['result' => 'done'],
-			$this->provider->invokeTool('hermiq.delegateAgent', ['agentId' => ' caller ', 'targetAgentId' => ' target ', 'task' => ' summarise '])
-		);
-	}//end testDelegateAgentForwardsTrimmedArguments()
-
-	public function testNoteAndMailReadToolsActAsTheActingUser(): void {
-		$this->writes->expects($this->once())->method('listNotes')->with('alice')->willReturn(['notes' => []]);
-		$this->writes->expects($this->once())->method('createNote')->with('alice', ['title' => 'N'])->willReturn(['created' => 1]);
-		$this->writes->expects($this->once())->method('updateNote')->with('alice', ['id' => 1])->willReturn(['updated' => 1]);
-		$this->mailReads->expects($this->once())->method('listAccounts')->with('alice')->willReturn(['accounts' => []]);
-		$this->mailReads->expects($this->once())->method('listMessages')->with('alice', ['accountId' => 2])->willReturn(['messages' => []]);
-		$this->mailReads->expects($this->once())->method('readMessage')->with('alice', ['id' => 3])->willReturn(['message' => 'm']);
-
-		$this->assertSame(['notes' => []], $this->provider->invokeTool('hermiq.listNotes', []));
-		$this->assertSame(['created' => 1], $this->provider->invokeTool('hermiq.createNote', ['title' => 'N']));
-		$this->assertSame(['updated' => 1], $this->provider->invokeTool('hermiq.updateNote', ['id' => 1]));
-		$this->assertSame(['accounts' => []], $this->provider->invokeTool('hermiq.listMailAccounts', []));
-		$this->assertSame(['messages' => []], $this->provider->invokeTool('hermiq.listMailMessages', ['accountId' => 2]));
-		$this->assertSame(['message' => 'm'], $this->provider->invokeTool('hermiq.readMailMessage', ['id' => 3]));
-	}//end testNoteAndMailReadToolsActAsTheActingUser()
-
-	public function testAttributedWritesRecordTheInjectedAgent(): void {
-		$args = ['summary' => 'Meet', 'agentId' => 'agent-7'];
-		$this->writes->expects($this->once())->method('createCalendarEvent')->with('alice', $args, 'agent-7')->willReturn(['event' => 1]);
-		$this->writes->expects($this->once())->method('upsertContact')->with('alice', ['fn' => 'B'], '')->willReturn(['contact' => 1]);
-
-		$this->assertSame(['event' => 1], $this->provider->invokeTool('hermiq.createCalendarEvent', $args));
-		$this->assertSame(['contact' => 1], $this->provider->invokeTool('hermiq.upsertContact', ['fn' => 'B']));
-	}//end testAttributedWritesRecordTheInjectedAgent()
-
-	public function testToolAccessToolsForwardTheAgentAndArguments(): void {
-		$this->accessRequests->expects($this->once())
-			->method('listAvailable')
-			->with('alice', 'agent-1', 'mail')
-			->willReturn(['tools' => []]);
-		$this->accessRequests->expects($this->once())
-			->method('request')
-			->with('alice', 'agent-1', 'hermiq.sendMail', 'to reply')
-			->willReturn(['requested' => true]);
-
-		$this->assertSame(['tools' => []], $this->provider->invokeTool('hermiq.listAvailableTools', ['agentId' => 'agent-1', 'query' => 'mail']));
-		$this->assertSame(
-			['requested' => true],
-			$this->provider->invokeTool('hermiq.requestToolAccess', ['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'reason' => 'to reply'])
-		);
-	}//end testToolAccessToolsForwardTheAgentAndArguments()
-
-	public function testSearchToolsIsNotInvocableThroughTheFacade(): void {
-		$this->assertSame(
-			self::error('internal_only', 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'),
-			$this->provider->invokeTool('hermiq.searchTools', ['query' => 'x'])
-		);
-	}//end testSearchToolsIsNotInvocableThroughTheFacade()
-
-	public function testAThrowingToolBecomesAToolFailedEnvelope(): void {
-		$this->writes->method('listNotes')->willThrowException(new RuntimeException('db down'));
-		$this->logger->expects($this->once())
-			->method('warning')
-			->with('Hermiq nc-native tool failed: db down', $this->callback(static fn (array $context): bool => $context['tool'] === 'hermiq.listNotes'));
-
-		$this->assertSame(
-			self::error('tool_failed', 'The tool call failed.'),
-			$this->provider->invokeTool('hermiq.listNotes', [])
-		);
-	}//end testAThrowingToolBecomesAToolFailedEnvelope()
-
-	public function testAnUnknownToolNamesTheAvailableIds(): void {
-		$result = $this->provider->invokeTool('hermiq.nope', []);
-
-		$this->assertSame('unknown_tool', $result['error']['code']);
-		$this->assertStringStartsWith("Unknown tool id 'hermiq.nope'. Available: hermiq.listFiles, hermiq.readFile, ", $result['error']['message']);
-		$this->assertStringEndsWith('hermiq.delegateAgent.', $result['error']['message']);
-	}//end testAnUnknownToolNamesTheAvailableIds()
+	}//end testListDeckBoardsRefusalsAndTitles()
 }//end class

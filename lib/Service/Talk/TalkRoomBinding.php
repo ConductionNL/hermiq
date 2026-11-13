@@ -109,44 +109,80 @@ class TalkRoomBinding {
 		}
 
 		try {
-			// _rbac false: the room token is the key, not the caller. The Session read
-			// rule (hermiq#976) admits only the owner and listed participants, so a
-			// room member not yet on the roster would find nothing here and the
-			// listener would bind a second session to the room. Every caller runs
-			// the participation check on the session it gets back.
-			$matches = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::CONVERSATION_SCHEMA)
-				->findAll(
-					config: [
-						'filters' => ['talkRoomToken' => $roomToken],
-						'sort' => ['created' => 'DESC'],
-						'limit' => 1,
-					],
-					_rbac: false
-				);
-
-			foreach ($matches as $match) {
-				if ($match instanceof ObjectEntity) {
-					return $match;
-				}
-			}
-
-			return null;
+			return $this->firstEntity(objects: $this->sessionsBoundTo(roomToken: $roomToken));
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[TalkRoomBinding] Could not resolve the conversation bound to the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
-			);
+			$this->logRoomLookupFailure(roomToken: $roomToken, error: $e);
 			return null;
-		}//end try
+		}
 
 	}//end findByRoomToken()
+
+	/**
+	 * The newest session bound to a room.
+	 *
+	 * _rbac false: the room token is the key, not the caller. The Session read rule
+	 * (hermiq#976) admits only the owner and listed participants, so a room member not
+	 * yet on the roster would find nothing here and the listener would bind a second
+	 * session to the room. Every caller runs the participation check on the session it
+	 * gets back.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return array<int, mixed> The matching sessions (at most one).
+	 */
+	private function sessionsBoundTo(string $roomToken): array {
+		return $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::CONVERSATION_SCHEMA)
+			->findAll(
+				config: [
+					'filters' => ['talkRoomToken' => $roomToken],
+					'sort' => ['created' => 'DESC'],
+					'limit' => 1,
+				],
+				_rbac: false
+			);
+
+	}//end sessionsBoundTo()
+
+	/**
+	 * The first object entity of a read.
+	 *
+	 * @param array<int, mixed> $objects The read results.
+	 *
+	 * @return ObjectEntity|null The first entity, or null.
+	 */
+	private function firstEntity(array $objects): ?ObjectEntity {
+		foreach ($objects as $object) {
+			if ($object instanceof ObjectEntity) {
+				return $object;
+			}
+		}
+
+		return null;
+
+	}//end firstEntity()
+
+	/**
+	 * Log a failed room lookup.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param Throwable $error The failure.
+	 *
+	 * @return void
+	 */
+	private function logRoomLookupFailure(string $roomToken, Throwable $error): void {
+		$this->logger->warning(
+			message: '[TalkRoomBinding] Could not resolve the conversation bound to the room',
+			context: [
+				'file' => __FILE__,
+				'line' => __LINE__,
+				'roomToken' => $roomToken,
+				'error' => $error->getMessage(),
+			]
+		);
+
+	}//end logRoomLookupFailure()
 
 	/**
 	 * Whether Hermiq created this room for a session, rather than being invited into it.
