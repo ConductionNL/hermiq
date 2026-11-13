@@ -66,15 +66,6 @@ class SkillVersionService {
 	private const SKILL_SCHEMA = 'agentskill';
 
 	/**
-	 * AuditTrail actions that represent a version (create + every update) —
-	 * every other action written against a Skill object (draft transitions,
-	 * rollback/republish markers) is deliberately excluded from the timeline.
-	 *
-	 * @var array<int, string>
-	 */
-	private const VERSION_ACTIONS = ['create', 'update'];
-
-	/**
 	 * The versioned field set: exactly the agentskills.io content plane. Identity
 	 * (`name`), lifecycle (`state`), provenance (`githubOwner`/`githubRepo`/
 	 * `publishedAt`/`lastAcceptedVersionAt`), maturity and evidence fields are NOT
@@ -90,6 +81,13 @@ class SkillVersionService {
 	];
 
 	/**
+	 * The AuditTrail version timeline over this service's versioned fields.
+	 *
+	 * @var AuditTrailVersionHistory
+	 */
+	private readonly AuditTrailVersionHistory $versionHistory;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (by object_uuid), the
@@ -103,6 +101,10 @@ class SkillVersionService {
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly ObjectService $objectService,
 	) {
+		$this->versionHistory = new AuditTrailVersionHistory(
+			auditTrailMapper: $auditTrailMapper,
+			versionedFields: self::VERSIONED_FIELDS
+		);
 	}//end __construct()
 
 	/**
@@ -119,7 +121,7 @@ class SkillVersionService {
 		$entries = $this->fetchVersionEntries(skillUuid: $skillUuid);
 
 		return array_map(
-			fn (AuditTrail $entry): array => $this->toVersionRecord(entry: $entry),
+			fn (AuditTrail $entry): array => $this->versionHistory->toVersionRecord(entry: $entry),
 			$entries
 		);
 
@@ -154,21 +156,7 @@ class SkillVersionService {
 		$fromState = $this->reconstructAsOf(entries: $entries, targetIndex: $fromIndex, liveData: $live);
 		$toState = $this->reconstructAsOf(entries: $entries, targetIndex: $toIndex, liveData: $live);
 
-		$changed = [];
-		foreach (self::VERSIONED_FIELDS as $field) {
-			$oldValue = ($fromState[$field] ?? null);
-			$newValue = ($toState[$field] ?? null);
-			if ($oldValue === $newValue) {
-				continue;
-			}
-
-			$changed[$field] = [
-				'old' => $oldValue,
-				'new' => $newValue,
-			];
-		}
-
-		return $changed;
+		return $this->versionHistory->changedBetween(fromState: $fromState, toState: $toState);
 	}//end diff()
 
 	/**
@@ -295,36 +283,7 @@ class SkillVersionService {
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
 	 */
 	private function fetchVersionEntries(string $skillUuid): array {
-		// NOTE: AuditTrailMapper::findAll() string-casts every filter value — an
-		// ARRAY value becomes the literal string "Array" and matches ZERO rows
-		// (green-but-dead). Its multi-value contract is a comma-separated STRING
-		// ("create,update"), which it explodes into an IN() itself.
-		$logs = $this->auditTrailMapper->findAll(
-			filters: [
-				'object_uuid' => $skillUuid,
-				'action' => implode(',', self::VERSION_ACTIONS),
-			]
-		);
-
-		$entries = [];
-		foreach ($logs as $log) {
-			if (in_array($log->getAction(), self::VERSION_ACTIONS, true) === false) {
-				continue;
-			}
-
-			$entries[] = $log;
-		}
-
-		usort(
-			$entries,
-			static function (AuditTrail $entryA, AuditTrail $entryB): int {
-				$timeA = ($entryA->getCreated()?->getTimestamp() ?? 0);
-				$timeB = ($entryB->getCreated()?->getTimestamp() ?? 0);
-				return ($timeB <=> $timeA);
-			}
-		);
-
-		return $entries;
+		return $this->versionHistory->entriesFor(objectUuid: $skillUuid);
 	}//end fetchVersionEntries()
 
 	/**
@@ -338,13 +297,7 @@ class SkillVersionService {
 	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
 	 */
 	private function findEntryIndex(array $entries, string $versionId): ?int {
-		foreach ($entries as $index => $entry) {
-			if ($entry->getUuid() === $versionId) {
-				return $index;
-			}
-		}
-
-		return null;
+		return $this->versionHistory->indexOf(entries: $entries, versionId: $versionId);
 	}//end findEntryIndex()
 
 	/**
@@ -404,28 +357,4 @@ class SkillVersionService {
 
 		return $skill->getObject();
 	}//end liveSkillData()
-
-	/**
-	 * Map one AuditTrail entry into a version record.
-	 *
-	 * @param AuditTrail $entry The version's AuditTrail entry.
-	 *
-	 * @return array<string, mixed> The version record.
-	 *
-	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
-	 */
-	private function toVersionRecord(AuditTrail $entry): array {
-		$changed = ($entry->getChanged() ?? []);
-		$changedFields = array_values(array_intersect(array_keys($changed), self::VERSIONED_FIELDS));
-		$created = $entry->getCreated();
-
-		return [
-			'id' => $entry->getUuid(),
-			'timestamp' => $created?->format('c'),
-			'user' => $entry->getUser(),
-			'action' => $entry->getAction(),
-			'changedFields' => $changedFields,
-		];
-
-	}//end toVersionRecord()
 }//end class

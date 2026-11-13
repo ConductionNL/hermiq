@@ -115,7 +115,7 @@ final class WorkspaceToolsetReadTest extends TestCase {
 	public function testOutsideAGovernedRunEveryToolIsRefused(): void {
 		$result = $this->toolset()->invoke(toolId: WorkspaceToolDescriptors::OPEN, arguments: ['repository' => 'example-org/example-app', 'ref' => 'development']);
 
-		self::assertSame(WorkspaceException::TOKEN_INVALID, $result['error']['code'] ?? null);
+		self::assertSame(WorkspaceException::RUN_SCOPE_INVALID, $result['error']['code'] ?? null);
 		$this->assertNoWorkspaceDirectory();
 	}//end testOutsideAGovernedRunEveryToolIsRefused()
 

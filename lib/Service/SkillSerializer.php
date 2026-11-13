@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
  */
 
 declare(strict_types=1);
@@ -32,8 +32,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Lossless agentskills.io package (de)serialiser for Skill objects.
  *
- * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
- * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
+ * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
  */
 class SkillSerializer {
 
@@ -86,7 +86,7 @@ class SkillSerializer {
 	 *
 	 * @return string The agentskills.io package string.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
 	 */
 	public function toPackage(array $skill): string {
 		$frontmatter = (string)($skill['frontmatter'] ?? '');
@@ -107,7 +107,7 @@ class SkillSerializer {
 	 *
 	 * @return array<string, string> The parsed { frontmatter, body, name, description }.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
 	 */
 	public function fromPackage(string $package): array {
 		$normalised = str_replace("\r\n", "\n", $package);
@@ -152,7 +152,7 @@ class SkillSerializer {
 	 *
 	 * @return array<string, string> The `path => contents` map, `SKILL.md` first.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function toPackageFiles(array $skill): array {
 		$out = [self::SKILL_FILE => $this->toPackage(skill: $skill)];
@@ -179,7 +179,7 @@ class SkillSerializer {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	private function auxName(mixed $file): ?string {
 		if (is_array($file) === false) {
@@ -207,7 +207,7 @@ class SkillSerializer {
 	 *
 	 * @return array<string, mixed> The parsed { frontmatter, body, name, description, files }.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
 	 */
 	public function fromPackageFiles(array $files): array {
 		$parsed = $this->fromPackage(package: (string)($files[self::SKILL_FILE] ?? ''));
@@ -251,7 +251,7 @@ class SkillSerializer {
 	 *
 	 * @return array<string, string> The `path => contents` map.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function toDirectoryMap(string $package, array $auxFiles = []): array {
 		$map = [self::SKILL_FILE => $package];
@@ -285,7 +285,7 @@ class SkillSerializer {
 	 *
 	 * @return bool True when the path is safe to persist.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
 	 */
 	public function isSafeAuxPath(string $path): bool {
 		if ($path === '' || strlen($path) > self::MAX_PATH_LENGTH) {

@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-hermiq-must-answer-which-group-a-report-belongs-to-and-must-not-act-on-the-answer
+ * @spec openspec/specs/report-similarity/spec.md#requirement-hermiq-must-answer-which-group-a-report-belongs-to-and-must-not-act-on-the-answer
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Asks and reads the grouping judgement, and undoes one membership.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md
+ * @spec openspec/specs/report-similarity/spec.md
  */
 class ReportSimilarityController extends Controller {
 
@@ -79,7 +79,7 @@ class ReportSimilarityController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-two-hundred-reports-of-one-power-cut-answer-as-one-group
 	 */
 	public function evaluate(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -123,7 +123,7 @@ class ReportSimilarityController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	public function show(string $groupId): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -156,7 +156,7 @@ class ReportSimilarityController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-pulling-one-report-out-costs-nothing
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-pulling-one-report-out-costs-nothing
 	 */
 	public function removeMember(string $groupId, string $reportId): JSONResponse {
 		$user = $this->userSession->getUser();

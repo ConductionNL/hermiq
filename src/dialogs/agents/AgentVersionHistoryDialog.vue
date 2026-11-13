@@ -16,8 +16,8 @@
   itself, then refreshes its own list and emits `rolled-back` so the host
   re-fetches the agent's live config.
 
-  @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
-  @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+  @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+  @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
   @spec openspec/specs/manifest-driven-pages/spec.md#requirement-header-actions-open-their-modal-via-a-registry-resolved-open-modal-action
 -->
 <template>
@@ -58,7 +58,7 @@
 						<span class="agent-version-history-dialog__meta">
 							<span class="agent-version-history-dialog__date">{{
 								/**
-								 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+								 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 								 */
 								formatDate(version.timestamp)
 							}}</span>
@@ -67,7 +67,7 @@
 							}}</span>
 							<span class="agent-version-history-dialog__action">{{
 								/**
-								 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+								 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 								 */
 								actionLabel(version.action)
 							}}</span>
@@ -208,7 +208,7 @@ export default {
 		 * set, else the self-fetched agent's owner compared to the current user.
 		 *
 		 * @return {boolean} True when rollback should be offered.
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		resolvedCanRollback() {
 			if (this.canRollback !== null) {
@@ -228,7 +228,7 @@ export default {
 		show: {
 			immediate: true,
 			/**
-			 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+			 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 			 */
 			handler(open) {
 				if (open) {
@@ -245,7 +245,7 @@ export default {
 		 * Load the agent's version history.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async load() {
 			this.loading = true
@@ -268,7 +268,7 @@ export default {
 		 * when the caller did not already supply an explicit `canRollback`.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async loadAgentForRollbackGate() {
 			if (this.canRollback !== null || !this.resolvedAgentId) {
@@ -297,7 +297,7 @@ export default {
 		 *
 		 * @param {string} id The version id.
 		 * @return {void}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		toggleSelected(id) {
 			if (this.selected.includes(id)) {
@@ -313,7 +313,7 @@ export default {
 		 * relying on the list's newest-first order to pick a stable direction).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		compare() {
 			if (this.selected.length !== 2) {
@@ -332,7 +332,7 @@ export default {
 		 *
 		 * @param {object} version The version record to roll back to.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async performRollback(version) {
 			this.rollingBackId = version.id
@@ -357,7 +357,7 @@ export default {
 		 *
 		 * @param {string} action The audit action (create|update).
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		actionLabel(action) {
 			if (action === 'create') {
@@ -366,6 +366,13 @@ export default {
 			return this.t('hermiq', 'Updated')
 		},
 
+		/**
+		 * Format an ISO date for display, or a dash when absent/invalid.
+		 *
+		 * @param {string} value The ISO timestamp.
+		 * @return {string} The localised date, or '—'.
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 */
 		formatDate: dateOrDash,
 
 		/**
@@ -373,7 +380,7 @@ export default {
 		 *
 		 * @param {boolean} open The new open state.
 		 * @return {void}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		onUpdateOpen(open) {
 			if (!open) {

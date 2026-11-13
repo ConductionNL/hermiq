@@ -16,8 +16,8 @@
   kill-switch (KillSwitchToggle) sits in the header, shown only to org sub-admins /
   instance admins via a backend capability flag.
 
-  @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
-  @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
 	<div class="approval-inbox">
@@ -165,7 +165,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 	 */
 	created() {
 		this.store = useScheduleStore()
@@ -180,7 +180,7 @@ export default {
 		 * Load pending approvals plus the schedule + agent name lookups in parallel.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async load() {
 			this.loading = true
@@ -208,7 +208,7 @@ export default {
 		 *
 		 * @param {Array<object>} items The objects to index.
 		 * @return {object} A uuid → object map.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		byUuid(items) {
 			const map = {}
@@ -226,7 +226,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The schedule name (falls back to the id).
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		scheduleName(approval) {
 			const schedule = this.scheduleMap[String(approval.scheduleId)]
@@ -238,13 +238,20 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The agent name (falls back to the id).
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		agentName(approval) {
 			const agent = this.agentMap[String(approval.agentId)]
 			return (agent && agent.name) || approval.agentId || '—'
 		},
 
+		/**
+		 * Human-friendly requested-at timestamp.
+		 *
+		 * @param {string} value The ISO timestamp.
+		 * @return {string} The formatted date, or a dash.
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
+		 */
 		formatDate: dateOrText,
 
 		/**
@@ -276,7 +283,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async approve(approval) {
 			this.actioningId = approval.id
@@ -296,7 +303,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {void}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		openDeny(approval) {
 			this.denyTarget = approval
@@ -307,7 +314,7 @@ export default {
 		 * Reload after a decision (deny) clears a row.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async onDecided() {
 			await this.load()

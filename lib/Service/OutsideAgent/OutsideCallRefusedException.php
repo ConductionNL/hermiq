@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use RuntimeException;
 /**
  * A refused call from an outside agent, naming the gate that refused it.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-both-gates-must-open-before-a-tool-runs
  */
 class OutsideCallRefusedException extends RuntimeException {
 
@@ -99,7 +99,7 @@ class OutsideCallRefusedException extends RuntimeException {
 	 *
 	 * @return string The gate name.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/agent-tool-governance/spec.md#scenario-a-permitted-caller-without-the-grant-is-refused
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-permitted-caller-without-the-grant-is-refused
 	 */
 	public function gate(): string {
 		return $this->gate;

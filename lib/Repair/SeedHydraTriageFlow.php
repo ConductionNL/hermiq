@@ -340,7 +340,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 * @return void
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-a-new-finding-triggers-the-seeded-triage-flow
-	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
+	 * @spec openspec/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
 	 */
 	public function run(IOutput $output): void {
 		$run = $this->startRun(output: $output);
@@ -847,8 +847,8 @@ class SeedHydraTriageFlow implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
-	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten-req-003
+	 * @spec openspec/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
+	 * @spec openspec/specs/hydra-flow-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten-req-003
 	 */
 	private function backfillApplicationSlug(FlowSeedRun $run, Flow $flow): void {
 		$current = trim((string)($flow->getApplicationSlug() ?? ''));
