@@ -175,6 +175,9 @@
                  register sync so the schema's new engineFlowId property
                  exists. -->
             <step>OCA\Hermiq\Repair\MirrorSchedulesToEngineFlows</step>
+            <!-- @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+                 After the register sync, so Memory has its scope property. -->
+            <step>OCA\Hermiq\Repair\ScopeExistingMemories</step>
         </post-migration>
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>

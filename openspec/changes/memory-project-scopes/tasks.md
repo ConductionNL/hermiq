@@ -9,8 +9,8 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **files**: `lib/Settings/hermiq_register.json`, `lib/Repair/ScopeExistingMemories.php`, `appinfo/info.xml`
 - **acceptance_criteria**:
   - GIVEN existing `Memory` objects without `scope` WHEN the repair step runs THEN each has `scope: shared` and a rerun changes nothing
-- [ ] Implement
-- [ ] Test (PHPUnit on the repair step, including the count check)
+- [x] Implement
+- [x] Test (PHPUnit on the repair step, including the count check)
 
 ### Task 2: Scoped get and recall in MemoryService
 - **spec_ref**: `openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002`
@@ -18,8 +18,8 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **acceptance_criteria**:
   - GIVEN a shared and two project memories WHEN recall runs for one project THEN only that project and shared are searched, each entry labelled
   - GIVEN no project WHEN `getMemory()` runs THEN it returns the shared object, never a project one
-- [ ] Implement
-- [ ] Test (PHPUnit with three memory objects)
+- [x] Implement
+- [x] Test (PHPUnit with three memory objects)
 
 ### Task 3: Project key into the memory tools on both transports
 - **spec_ref**: `openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003`

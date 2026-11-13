@@ -136,23 +136,43 @@ class MemoryService implements MemoryServiceInterface {
 	}//end __construct()
 
 	/**
+	 * The scope of an agent's shared memory.
+	 *
+	 * @var string
+	 */
+	public const SCOPE_SHARED = 'shared';
+
+	/**
+	 * The scope of an agent's memory for one project.
+	 *
+	 * @var string
+	 */
+	public const SCOPE_PROJECT = 'project';
+
+	/**
 	 * Get (or create) the Memory object for an agent, scoped to the caller's tenant.
 	 *
-	 * @param string $agentId The agent UUID.
+	 * Without a project key this is the agent's shared memory, found by its
+	 * explicit `scope: shared`; with one it is that project's memory. Never the
+	 * first Memory that happens to carry the agent id.
+	 *
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $projectKey The project, or null for the shared memory.
 	 *
 	 * @return ObjectEntity The agent's Memory object.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
-	public function getMemory(string $agentId): ObjectEntity {
-		$existing = $this->findOne(schema: self::MEMORY_SCHEMA, filters: ['agentId' => $agentId]);
+	public function getMemory(string $agentId, ?string $projectKey = null): ObjectEntity {
+		$layer    = self::layerFilters(agentId: $agentId, projectKey: $projectKey);
+		$existing = $this->findOne(schema: self::MEMORY_SCHEMA, filters: $layer);
 		if ($existing !== null) {
 			return $existing;
 		}
 
 		return $this->objectService->saveObject(
-			object: [
-				'agentId' => $agentId,
+			object: $layer + [
 				'entries' => [],
 				'charBudget' => self::DEFAULT_MEMORY_BUDGET,
 				'needsConsolidation' => false,
@@ -162,6 +182,29 @@ class MemoryService implements MemoryServiceInterface {
 		);
 
 	}//end getMemory()
+
+	/**
+	 * The filters that find exactly one layer of an agent's memory.
+	 *
+	 * The shared layer is matched on its explicit scope, not on a missing
+	 * project key, so OpenRegister's search never has to filter on an absent
+	 * property (design D1).
+	 *
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $projectKey The project, or null/'' for the shared memory.
+	 *
+	 * @return array<string,string>
+	 *
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 */
+	public static function layerFilters(string $agentId, ?string $projectKey): array {
+		$key = trim((string)$projectKey);
+		if ($key === '') {
+			return ['agentId' => $agentId, 'scope' => self::SCOPE_SHARED];
+		}
+
+		return ['agentId' => $agentId, 'scope' => self::SCOPE_PROJECT, 'projectKey' => $key];
+	}//end layerFilters()
 
 	/**
 	 * Get (or create) the UserProfile object for an agent + subject user.
@@ -417,17 +460,35 @@ class MemoryService implements MemoryServiceInterface {
 	 *                                searched, or null to search only the agent's Memory.
 	 * @param string $query The recall query.
 	 * @param int $limit Maximum objects to search per schema.
+	 * @param string|null $projectKey The session's project: its memory is searched beside the
+	 *                                shared one. Null searches the shared memory only. Another
+	 *                                project's memory is never read.
 	 *
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
-	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20): array {
+	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20, ?string $projectKey = null): array {
 		$lookup = new MemoryLookup(filters: ['agentId' => $agentId], limit: $limit);
 		$lookup->search = $query;
 
+		$memoryEntries = [];
+		$layers        = [self::SCOPE_SHARED => null];
+		if (trim((string)$projectKey) !== '') {
+			$layers = [self::SCOPE_PROJECT => $projectKey, self::SCOPE_SHARED => null];
+		}
+
+		foreach ($layers as $layer => $key) {
+			$layerLookup = new MemoryLookup(filters: self::layerFilters(agentId: $agentId, projectKey: $key), limit: $limit);
+			$layerLookup->search = $query;
+			foreach ($this->recalledEntries(schema: self::MEMORY_SCHEMA, lookup: $layerLookup) as $entry) {
+				$memoryEntries[] = $entry + ['layer' => $layer];
+			}
+		}
+
 		return [
-			'memoryEntries' => $this->recalledEntries(schema: self::MEMORY_SCHEMA, lookup: $lookup),
+			'memoryEntries' => $memoryEntries,
 			'userProfileEntries' => $this->profileEntries(lookup: $lookup, subjectUid: $subjectUid),
 		];
 

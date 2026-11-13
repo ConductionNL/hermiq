@@ -129,13 +129,15 @@ interface MemoryServiceInterface {
 	/**
 	 * Get (or create) the Memory object for an agent, scoped to the caller's tenant.
 	 *
-	 * @param string $agentId The agent UUID.
+	 * @param string      $agentId    The agent UUID.
+	 * @param string|null $projectKey The project, or null for the agent's shared memory.
 	 *
 	 * @return ObjectEntity The agent's Memory object.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
-	public function getMemory(string $agentId): ObjectEntity;
+	public function getMemory(string $agentId, ?string $projectKey = null): ObjectEntity;
 
 	/**
 	 * List an agent's Sessions, scoped to the caller's tenant AND to the caller's OWN
@@ -184,12 +186,14 @@ interface MemoryServiceInterface {
 	 *                                searched, or null to search only the agent's Memory.
 	 * @param string $query The recall query.
 	 * @param int $limit Maximum objects to search per schema.
+	 * @param string|null $projectKey The session's project, searched beside the shared memory; null for shared only.
 	 *
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
-	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20): array;
+	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20, ?string $projectKey = null): array;
 
 	/**
 	 * Recall relevant SessionTurns for an agent via OpenRegister's own search substrate.
