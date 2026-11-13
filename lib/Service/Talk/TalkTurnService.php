@@ -147,7 +147,8 @@ class TalkTurnService implements TalkTurnServiceInterface {
 			userId: $turn->speakerUid,
 			userMessage: $turn->message,
 			authorId: $turn->speakerUid,
-			authorDisplayName: $this->displayNameOf(uid: $turn->speakerUid)
+			authorDisplayName: $this->displayNameOf(uid: $turn->speakerUid),
+			turnChannel: 'talk'
 		);
 
 		$answer = (string)$result['message'];

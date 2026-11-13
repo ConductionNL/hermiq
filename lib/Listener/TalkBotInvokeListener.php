@@ -379,7 +379,8 @@ class TalkBotInvokeListener implements IEventListener {
 			roomToken: $roomToken,
 			agentId: $invocation->agentId,
 			ownerUid: $invocation->turn['speakerUid'],
-			participants: $this->bridge->roomUserIds(roomToken: $roomToken)
+			participants: $this->bridge->roomUserIds(roomToken: $roomToken),
+			roomName: $this->bridge->roomName(roomToken: $roomToken)
 		);
 
 		// Newly bound: file the room under each participant's own Hermiq tag so

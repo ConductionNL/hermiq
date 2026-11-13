@@ -121,6 +121,7 @@ final class TalkTurnServiceTest extends TestCase {
 		$args = $this->events[1][1];
 		$this->assertSame(['conv-1', 'alice', 'Hallo'], array_slice($args, 0, 3));
 		$this->assertSame(['alice', 'Alice A.'], array_slice($args, 11, 2));
+		$this->assertSame('talk', $args[14] ?? null, 'A turn from a Talk room is recorded as typed in Talk.');
 		$this->assertSame(['post', 'room-1', 'The answer.', 'agent-9'], $this->events[2]);
 		$this->assertSame(['setUser', 'prior'], $this->events[3]);
 		$this->assertCount(4, $this->events);

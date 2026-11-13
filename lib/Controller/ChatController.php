@@ -339,7 +339,8 @@ class ChatController extends Controller {
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
 				trace: $trace,
-				attachments: $params['attachments']
+				attachments: $params['attachments'],
+				turnChannel: 'hermiq'
 			);
 
 			// Add conversation UUID to result for frontend.

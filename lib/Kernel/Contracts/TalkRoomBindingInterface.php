@@ -55,12 +55,20 @@ interface TalkRoomBindingInterface {
 	 * @param string $agentId The agent bound to this room.
 	 * @param string $ownerUid The session owner's uid.
 	 * @param array<int, string> $participants Additional invited uids.
+	 * @param string|null $roomName The room's display name, the session's title; the default title without one.
 	 *
 	 * @return ObjectEntity|null The stored conversation, or null when it could not be written.
 	 *
 	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
 	 */
-	public function createBound(string $roomToken, string $agentId, string $ownerUid, array $participants = []): ?ObjectEntity;
+	public function createBound(
+		string $roomToken,
+		string $agentId,
+		string $ownerUid,
+		array $participants = [],
+		?string $roomName = null,
+	): ?ObjectEntity;
 
 	/**
 	 * Find the conversation bound to a room, if any.

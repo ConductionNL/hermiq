@@ -98,6 +98,12 @@
             0
         ],
         [
+            "registerEventListener",
+            "OCA\\Talk\\Events\\RoomModifiedEvent",
+            "OCA\\Hermiq\\Listener\\TalkRoomRenameListener",
+            0
+        ],
+        [
             "registerNotifierService",
             "OCA\\Hermiq\\Notification\\Notifier"
         ],

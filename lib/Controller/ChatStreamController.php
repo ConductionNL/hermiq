@@ -238,7 +238,8 @@ class ChatStreamController extends Controller {
 				ragSettings: [],
 				context: $turn['contextArr'],
 				channel: $channel,
-				attachments: $turn['attachments']
+				attachments: $turn['attachments'],
+				turnChannel: 'hermiq'
 			);
 
 			$this->replayRunSteps(conversationId: $turn['conversationId']);
