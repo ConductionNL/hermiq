@@ -265,82 +265,21 @@ class ContextAssembler {
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 */
 	public function assembleSkillsForRun(?ObjectEntity $agent, ?array $skillSetOverride = null): array {
-		$effective = $skillSetOverride;
-		if ($effective === null) {
-			$effective = [];
-			if ($agent !== null) {
-				$stored = ($agent->getObject()['skillInstalls'] ?? []);
-				if (is_array($stored) === true) {
-					$effective = $stored;
-				}
-			}
-		}
-
 		$blocks = [];
 		$skillsUsed = [];
-		foreach ($effective as $skillId) {
+		foreach ($this->effectiveSkillIds(agent: $agent, skillSetOverride: $skillSetOverride) as $skillId) {
 			if (is_string($skillId) === false || $skillId === '') {
 				continue;
 			}
 
-			try {
-				$skill = $this->objectService->find(
-					id: $skillId,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
-					_rbac: false,
-					_multitenancy: false
-				);
-			} catch (Throwable $e) {
-				$this->logger->warning(
-					sprintf('Hermiq ContextAssembler could not resolve skill %s: %s', $skillId, $e->getMessage()),
-					['exception' => $e]
-				);
-				continue;
-			}
-
+			$skill = $this->resolveExposableSkill(skillId: $skillId);
 			if ($skill === null) {
-				$this->logger->info(sprintf('Hermiq ContextAssembler: skill not found, skipping: %s', $skillId));
 				continue;
 			}
 
-			$data = $skill->getObject();
-			$state = (string)($data['state'] ?? self::SKILL_ACTIVE_STATE);
-			if ($state !== self::SKILL_ACTIVE_STATE) {
-				// Marketplace approval gate: an agent MUST NOT use an unapproved skill —
-				// neither via install nor via a dataset's skillRefs reaching an override.
-				$this->logger->info(
-					sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
-				);
-				continue;
-			}
-
-			$name = (string)($data['name'] ?? 'skill');
-			$description = (string)($data['description'] ?? '');
-			$body = (string)($data['body'] ?? '');
-
-			// Skill-self-improvement: the paired draft-vs-active eval's draft half
-			// swaps in the DRAFT's content in memory — the stored object above was
-			// still consulted for existence and the marketplace state gate.
-			$override = ($this->skillContentOverride[(string)$skill->getUuid()] ?? null);
-			if (is_array($override) === true) {
-				$name = (string)($override['name'] ?? $name);
-				$description = (string)($override['description'] ?? $description);
-				$body = (string)($override['body'] ?? $body);
-			}
-
-			$block = "Skill: {$name}";
-			if ($description !== '') {
-				$block .= "\n" . $description;
-			}
-
-			if ($body !== '') {
-				$block .= "\n\n" . $body;
-			}
-
-			$blocks[] = $block;
+			$blocks[] = $this->renderSkillBlock(skill: $skill);
 			$skillsUsed[] = (string)$skill->getUuid();
-		}//end foreach
+		}
 
 		return [
 			'text' => implode("\n\n", $blocks),
@@ -348,6 +287,113 @@ class ContextAssembler {
 		];
 
 	}//end assembleSkillsForRun()
+
+	/**
+	 * The skill uuids a run sees: the per-run override when given (even an empty
+	 * one), else the agent's stored skillInstalls when they are a list, else none.
+	 *
+	 * @param ObjectEntity|null       $agent            Agent object (optional).
+	 * @param array<int, string>|null $skillSetOverride Per-run override, or null.
+	 *
+	 * @return array<int, mixed> The candidate skill ids, unvalidated.
+	 */
+	private function effectiveSkillIds(?ObjectEntity $agent, ?array $skillSetOverride): array {
+		if ($skillSetOverride !== null) {
+			return $skillSetOverride;
+		}
+
+		if ($agent === null) {
+			return [];
+		}
+
+		$stored = ($agent->getObject()['skillInstalls'] ?? []);
+		if (is_array($stored) === true) {
+			return $stored;
+		}
+
+		return [];
+
+	}//end effectiveSkillIds()
+
+	/**
+	 * Load a skill and return it only when it may be exposed to a run. A lookup
+	 * that throws is logged as a warning, a missing skill and a skill that is
+	 * not active are logged as info; each is skipped, never fatal (marketplace
+	 * approval gate: an agent MUST NOT use an unapproved skill).
+	 *
+	 * @param string $skillId The skill uuid.
+	 *
+	 * @return ObjectEntity|null The active skill, or null when it is skipped.
+	 */
+	private function resolveExposableSkill(string $skillId): ?ObjectEntity {
+		try {
+			$skill = $this->objectService->find(
+				id: $skillId,
+				register: self::REGISTER_SLUG,
+				schema: self::SKILL_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf('Hermiq ContextAssembler could not resolve skill %s: %s', $skillId, $e->getMessage()),
+				['exception' => $e]
+			);
+			return null;
+		}
+
+		if ($skill === null) {
+			$this->logger->info(sprintf('Hermiq ContextAssembler: skill not found, skipping: %s', $skillId));
+			return null;
+		}
+
+		$state = (string)($skill->getObject()['state'] ?? self::SKILL_ACTIVE_STATE);
+		if ($state !== self::SKILL_ACTIVE_STATE) {
+			$this->logger->info(
+				sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
+			);
+			return null;
+		}
+
+		return $skill;
+
+	}//end resolveExposableSkill()
+
+	/**
+	 * The text block for one exposed skill: `Skill: {name}`, then the description
+	 * and the body when present. The paired draft-vs-active eval's draft half
+	 * swaps in the DRAFT's content in memory; the stored object was already used
+	 * for existence and the marketplace state gate.
+	 *
+	 * @param ObjectEntity $skill The exposed skill.
+	 *
+	 * @return string The block.
+	 */
+	private function renderSkillBlock(ObjectEntity $skill): string {
+		$data = $skill->getObject();
+		$name = (string)($data['name'] ?? 'skill');
+		$description = (string)($data['description'] ?? '');
+		$body = (string)($data['body'] ?? '');
+
+		$override = ($this->skillContentOverride[(string)$skill->getUuid()] ?? null);
+		if (is_array($override) === true) {
+			$name = (string)($override['name'] ?? $name);
+			$description = (string)($override['description'] ?? $description);
+			$body = (string)($override['body'] ?? $body);
+		}
+
+		$block = "Skill: {$name}";
+		if ($description !== '') {
+			$block .= "\n" . $description;
+		}
+
+		if ($body !== '') {
+			$block .= "\n\n" . $body;
+		}
+
+		return $block;
+
+	}//end renderSkillBlock()
 
 	/**
 	 * Resolve ONE Context object into its budgeted preamble text.
