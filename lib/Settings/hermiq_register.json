@@ -4065,7 +4065,7 @@
 			"EvalDataset": {
 				"slug": "evaldataset",
 				"icon": "FlaskOutline",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Eval dataset",
 				"description": "A named set of EvalCases (agent-evals) — an input prompt plus a deterministic assertion or an LLM-judge rubric — run on demand against an Agent as an EvalRun, so an operator can verify an agent's behaviour before trusting it with real, delivered runs. A case has no independent lifecycle, ownership, or cross-dataset reuse need, so it is stored as an embedded array property, not a standalone schema/register relation (mirrors Schedule.repeat).",
 				"type": "object",
@@ -4112,10 +4112,11 @@
 										"contains",
 										"notContains",
 										"jsonPathEquals",
-										"rubric"
+										"rubric",
+										"counterfactualPair"
 									],
 									"title": "Expectation type",
-									"description": "How this case is scored: a plain substring check (contains/notContains), a JSONPath-equals assertion against the parsed output, or an LLM-as-judge rubric."
+									"description": "How this case is scored: a plain substring check (contains/notContains), a JSONPath-equals assertion against the parsed output, or an LLM-as-judge rubric. counterfactualPair sends two requests that differ only in one attribute to the agent in separate sessions and passes only when the judge finds no difference in the answers caused by that attribute."
 								},
 								"expectedSubstring": {
 									"type": "string",
@@ -4144,6 +4145,28 @@
 									"maximum": 1,
 									"title": "Rubric pass threshold",
 									"description": "The minimum judge score (0–1) for a rubric case to be recorded passed=true. Only meaningful when expectationType=rubric."
+								},
+								"inputA": {
+									"type": "string",
+									"title": "Request A",
+									"description": "counterfactualPair: the first of the two requests. When absent the case's prompt is used."
+								},
+								"inputB": {
+									"type": "string",
+									"title": "Request B",
+									"description": "counterfactualPair: the second request, identical to request A except for the attribute."
+								},
+								"attribute": {
+									"type": "string",
+									"enum": [
+										"name",
+										"gender",
+										"age",
+										"origin",
+										"disability"
+									],
+									"title": "Attribute",
+									"description": "counterfactualPair: the one attribute in which the two requests differ."
 								}
 							}
 						}
@@ -4164,7 +4187,7 @@
 			"EvalRun": {
 				"slug": "evalrun",
 				"icon": "ChartLine",
-				"version": "0.2.0",
+				"version": "0.3.0",
 				"title": "Eval run",
 				"description": "One execution of an EvalDataset against an Agent (agent-evals): each case runs through ScheduleService::runAgentAsOwner() — the same impersonation and Engine/ChatService path a schedule tick or Run now uses — but non-delivering (DeliveryService is never called). Scored deterministically or via LLM-as-judge, aggregated into a passRate, and compared against the immediately preceding completed EvalRun for the same datasetId+agentId as a regression gate.",
 				"type": "object",
@@ -4274,6 +4297,16 @@
 									"nullable": true,
 									"title": "Judge rationale",
 									"description": "The LLM judge's rationale for its score, for a rubric case."
+								},
+								"inputB": {
+									"type": "string",
+									"title": "Request B",
+									"description": "counterfactualPair: the second request, snapshotted at run time."
+								},
+								"actualOutputB": {
+									"type": "string",
+									"title": "Actual output B",
+									"description": "counterfactualPair: the agent's answer to request B, from its own session."
 								}
 							}
 						}
