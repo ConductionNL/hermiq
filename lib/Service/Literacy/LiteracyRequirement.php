@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Literacy;
 
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -40,7 +41,7 @@ use Throwable;
  *
  * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-organisation-admin-sees-completion-and-may-require-the-course-req-ailit-002
  */
-class LiteracyRequirement {
+class LiteracyRequirement implements LiteracyRequirementInterface {
 
 	private const CONTROL_SCHEMA = 'tenantcontrol';
 

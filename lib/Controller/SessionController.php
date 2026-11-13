@@ -41,14 +41,14 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
-use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
-use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
 use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -123,16 +123,16 @@ class SessionController extends Controller {
 	/**
 	 * Creates and renames the Talk room a session owns.
 	 *
-	 * @var TalkSessionRoom
+	 * @var TalkSessionRoomInterface
 	 */
-	private readonly TalkSessionRoom $sessionRoom;
+	private readonly TalkSessionRoomInterface $sessionRoom;
 
 	/**
 	 * Decides whether the caller may use an agent.
 	 *
-	 * @var AgentAccessService
+	 * @var AgentAccessServiceInterface
 	 */
-	private readonly AgentAccessService $agentAccess;
+	private readonly AgentAccessServiceInterface $agentAccess;
 
 	/**
 	 * Reads and filters on the record a session is about.
@@ -144,9 +144,9 @@ class SessionController extends Controller {
 	/**
 	 * The approvals a session's agent waits on.
 	 *
-	 * @var SessionPendingApprovals
+	 * @var SessionPendingApprovalsInterface
 	 */
-	private readonly SessionPendingApprovals $pendingApprovals;
+	private readonly SessionPendingApprovalsInterface $pendingApprovals;
 
 	/**
 	 * Constructor.

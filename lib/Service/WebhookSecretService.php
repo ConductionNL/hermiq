@@ -51,6 +51,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\WebhookSecretServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
@@ -64,7 +65,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
  */
-class WebhookSecretService {
+class WebhookSecretService implements WebhookSecretServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

@@ -29,8 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\AnalyticsServiceInterface;
-use OCA\Hermiq\Service\AgentAccessService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -52,7 +52,7 @@ class AnalyticsController extends Controller {
 	 * @param AnalyticsServiceInterface $analyticsService The run-analytics read service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-2-1
 	 */
@@ -61,7 +61,7 @@ class AnalyticsController extends Controller {
 		private readonly AnalyticsServiceInterface $analyticsService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()

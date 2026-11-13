@@ -35,7 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\OrganisationControlService;
+use OCA\Hermiq\Kernel\Contracts\OrganisationControlServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -58,7 +58,7 @@ class OrganisationControlController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param OrganisationControlService $tenantControlService The kill-switch read/write path.
+	 * @param OrganisationControlServiceInterface $tenantControlService The kill-switch read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (owner check).
@@ -70,7 +70,7 @@ class OrganisationControlController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly OrganisationControlService $tenantControlService,
+		private readonly OrganisationControlServiceInterface $tenantControlService,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,

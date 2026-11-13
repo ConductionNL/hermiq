@@ -37,8 +37,8 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\OrganisationOpsServiceInterface;
-use OCA\Hermiq\Service\ActionAuthService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -60,7 +60,7 @@ class OrganisationOpsController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param OrganisationOpsServiceInterface $tenantOpsService The tenant-ops read/write service.
 	 * @param IUserSession $userSession Resolves the requesting user.
-	 * @param ActionAuthService $actionAuth ADR-023 action-authorization gate for the
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action-authorization gate for the
 	 *                                      four mutating endpoints (agent-lifecycle-governance).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
@@ -72,7 +72,7 @@ class OrganisationOpsController extends Controller {
 		IRequest $request,
 		private readonly OrganisationOpsServiceInterface $tenantOpsService,
 		private readonly IUserSession $userSession,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

@@ -54,10 +54,10 @@ namespace OCA\Hermiq\Controller;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
-use OCA\Hermiq\Service\ActionAuthService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -94,7 +94,7 @@ class SkillMarketplaceController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param SkillMarketplaceServiceInterface $marketplaceService The marketplace service.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param SkillServiceInterface $skillService Export + provenance stamp (hermiq-github-store).
@@ -108,7 +108,7 @@ class SkillMarketplaceController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly SkillMarketplaceServiceInterface $marketplaceService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly SkillServiceInterface $skillService,

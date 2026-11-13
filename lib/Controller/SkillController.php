@@ -51,14 +51,14 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillBundleInstallerInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillBundleSerializerInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillBundleInstaller;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -113,9 +113,9 @@ class SkillController extends Controller {
 	 * @param SkillMarketplaceServiceInterface $marketplaceService Quarantine install path (hermiq-github-store).
 	 * @param SkillBundleSerializerInterface $bundleSerializer Bundle tree (de)serialiser (skill-bundle-publish).
 	 * @param GitHubTemplatePushServiceInterface $pushService Bundle publish (skill-bundle-publish).
-	 * @param SkillBundleInstaller $bundleInstaller Bundle install, shared with OpenBuild (apply-v2-channels).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (skill write guard).
-	 * @param AgentAccessService $agentAccess Per-agent authorization (install/uninstall guard).
+	 * @param SkillBundleInstallerInterface $bundleInstaller Bundle install, shared with OpenBuild (apply-v2-channels).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (skill write guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (install/uninstall guard).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -131,9 +131,9 @@ class SkillController extends Controller {
 		private readonly SkillMarketplaceServiceInterface $marketplaceService,
 		private readonly SkillBundleSerializerInterface $bundleSerializer,
 		private readonly GitHubTemplatePushServiceInterface $pushService,
-		private readonly SkillBundleInstaller $bundleInstaller,
-		private readonly SeedCustodyService $seedCustody,
-		private readonly AgentAccessService $agentAccess,
+		private readonly SkillBundleInstallerInterface $bundleInstaller,
+		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()

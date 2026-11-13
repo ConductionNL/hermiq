@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Service\ReportSimilarity;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilaritySettingsInterface;
 use OCP\IAppConfig;
 
 /**
@@ -40,7 +41,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
  */
-class ReportSimilaritySettings {
+class ReportSimilaritySettings implements ReportSimilaritySettingsInterface {
 
 	/**
 	 * At or above this score a report joins a group and is counted into it.

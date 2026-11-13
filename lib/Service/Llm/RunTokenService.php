@@ -70,6 +70,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use RuntimeException;
@@ -80,7 +81,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
-class RunTokenService {
+class RunTokenService implements RunTokenServiceInterface {
 
 	/**
 	 * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches

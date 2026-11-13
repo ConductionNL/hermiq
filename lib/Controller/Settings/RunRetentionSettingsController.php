@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionPolicyInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -51,14 +51,14 @@ class RunRetentionSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param RunRetentionPolicy $policy Resolves and reports retention.
+	 * @param RunRetentionPolicyInterface $policy Resolves and reports retention.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunRetentionPolicy $policy,
+		private readonly RunRetentionPolicyInterface $policy,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
@@ -78,8 +78,8 @@ class RunRetentionSettingsController extends Controller {
 			return new JSONResponse(
 				[
 					'defaultDays' => $this->policy->defaultDays(),
-					'minimumDays' => RunRetentionPolicy::MINIMUM_DAYS,
-					'maximumDays' => RunRetentionPolicy::MAXIMUM_DAYS,
+					'minimumDays' => RunRetentionPolicyInterface::MINIMUM_DAYS,
+					'maximumDays' => RunRetentionPolicyInterface::MAXIMUM_DAYS,
 					'lastCleanup' => $this->policy->lastCleanup(),
 				]
 			);

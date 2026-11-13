@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionMatrixInterface;
 use OCP\IAppConfig;
 
 /**
@@ -33,7 +34,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/architecture/adr-023-action-authorization.md
  */
-class ActionMatrix {
+class ActionMatrix implements ActionMatrixInterface {
 	private const CONFIG_KEY = 'actions';
 
 	/**

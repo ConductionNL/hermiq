@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -51,14 +51,14 @@ class AssistantPromptController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param AssistantPromptLibrary $library The prompt library.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly AssistantPromptLibrary $library,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

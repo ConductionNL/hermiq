@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Connection;
 
+use OCA\Hermiq\Kernel\Contracts\ConnectionReporterInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -39,7 +40,7 @@ use Throwable;
  *
  * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  */
-class ConnectionReporter {
+class ConnectionReporter implements ConnectionReporterInterface {
 
 	/**
 	 * The app id integriq keys the rows by.

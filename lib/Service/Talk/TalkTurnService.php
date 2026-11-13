@@ -34,8 +34,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -49,7 +50,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
-class TalkTurnService {
+class TalkTurnService implements TalkTurnServiceInterface {
 	/**
 	 * Constructor.
 	 *

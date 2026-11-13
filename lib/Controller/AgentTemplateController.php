@@ -59,12 +59,12 @@ namespace OCA\Hermiq\Controller;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\AgentTemplateServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\SeedCustodyService;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -118,14 +118,14 @@ class AgentTemplateController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param AgentTemplateServiceInterface $templateService The template read/write/gallery path.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param GitHubTemplateCatalogServiceInterface $catalogService GitHub search/fetch (agent-template-github-store).
 	 * @param GitHubTemplatePushServiceInterface $pushService GitHub publish (agent-template-github-store).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (update/destroy guard).
-	 * @param AgentAccessService $agentAccess Per-agent authorization (export guard).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (update/destroy guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (export guard).
 	 * @param ObjectService $objectService OpenRegister object read/write — the ownership guard
 	 *   reads, and `destroy()` deletes, through OpenRegister directly (ADR-022/ADR-083: no
 	 *   app-local CRUD wrapper).
@@ -136,14 +136,14 @@ class AgentTemplateController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly AgentTemplateServiceInterface $templateService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
 		private readonly GitHubTemplateCatalogServiceInterface $catalogService,
 		private readonly GitHubTemplatePushServiceInterface $pushService,
-		private readonly SeedCustodyService $seedCustody,
-		private readonly AgentAccessService $agentAccess,
+		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly ObjectService $objectService,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

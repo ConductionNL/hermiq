@@ -42,12 +42,12 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\SeedCustodyService;
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\Hermiq\Service\SkillConsolidationService;
-use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -85,9 +85,9 @@ class SkillDraftController extends Controller {
 	 * @param SkillServiceInterface $skillService Tenant-scoped skill visibility reads.
 	 * @param SkillConsolidationService $consolidation The draft pipeline owner.
 	 * @param ApprovalServiceInterface $approvalService The ONE human-decision surface.
-	 * @param SkillVersionService $versionService Post-accept version id resolution.
-	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
+	 * @param SkillVersionServiceInterface $versionService Post-accept version id resolution.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization.
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
@@ -99,9 +99,9 @@ class SkillDraftController extends Controller {
 		private readonly SkillServiceInterface $skillService,
 		private readonly SkillConsolidationService $consolidation,
 		private readonly ApprovalServiceInterface $approvalService,
-		private readonly SkillVersionService $versionService,
-		private readonly ActionAuthService $actionAuth,
-		private readonly SeedCustodyService $seedCustody,
+		private readonly SkillVersionServiceInterface $versionService,
+		private readonly ActionAuthServiceInterface $actionAuth,
+		private readonly SeedCustodyServiceInterface $seedCustody,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

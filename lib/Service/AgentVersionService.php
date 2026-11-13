@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AgentVersionServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -57,7 +58,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-1-agentversionservice-list-history-diff-rollback-current-version-lookup
  */
-class AgentVersionService {
+class AgentVersionService implements AgentVersionServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq agent-engine objects.

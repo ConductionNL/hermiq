@@ -32,6 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkApprovalBindingInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -44,7 +45,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
  */
-class TalkApprovalBinding {
+class TalkApprovalBinding implements TalkApprovalBindingInterface {
 
 	/**
 	 * OpenRegister register slug.

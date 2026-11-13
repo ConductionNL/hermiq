@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Kernel\Contracts\ConversationTitleWriterInterface;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -54,7 +55,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
-class ConversationTitleWriter {
+class ConversationTitleWriter implements ConversationTitleWriterInterface {
 	use SanitizesForSaveTrait;
 
 	/**

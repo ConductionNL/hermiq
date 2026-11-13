@@ -41,8 +41,8 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Agent\AgentCatalog;
-use OCA\Hermiq\Service\AgentAccessService;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
@@ -141,8 +141,8 @@ class AgentsController extends Controller {
 	 * @param ToolRegistryFacade $toolRegistry OR's public tool read surface (gate-27 contract).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
-	 * @param AgentCatalog $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
+	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
+	 * @param AgentCatalogInterface $catalog The agent list and row by who asks (agents-sharing-and-catalog-columns).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#4-mirror-the-routes
 	 */
@@ -152,8 +152,8 @@ class AgentsController extends Controller {
 		private readonly ToolRegistryFacade $toolRegistry,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
-		private readonly AgentCatalog $catalog,
+		private readonly AgentAccessServiceInterface $agentAccess,
+		private readonly AgentCatalogInterface $catalog,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()

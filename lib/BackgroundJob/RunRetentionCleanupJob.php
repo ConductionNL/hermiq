@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\AiFeature\RunRetentionCleaner;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionCleanerInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 use Psr\Log\LoggerInterface;
@@ -49,12 +49,12 @@ class RunRetentionCleanupJob extends TimedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
-	 * @param RunRetentionCleaner $cleaner Removes expired run payloads.
+	 * @param RunRetentionCleanerInterface $cleaner Removes expired run payloads.
 	 * @param LoggerInterface $logger Isolates a failed cleanup from the cron tick.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly RunRetentionCleaner $cleaner,
+		private readonly RunRetentionCleanerInterface $cleaner,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);

@@ -40,11 +40,11 @@ namespace OCA\Hermiq\Controller;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -84,11 +84,11 @@ class SkillVersionController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param SkillServiceInterface $skillService Tenant-scoped skill reads + provenance stamp.
-	 * @param SkillVersionService $versionService AuditTrail-backed version store.
+	 * @param SkillVersionServiceInterface $versionService AuditTrail-backed version store.
 	 * @param GitHubTemplatePushServiceInterface $pushService Fail-closed broker-mediated GitHub push.
-	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization.
 	 * @param AuditTrailMapper $auditTrailMapper Rollback/republish audit entries.
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
@@ -98,11 +98,11 @@ class SkillVersionController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly SkillServiceInterface $skillService,
-		private readonly SkillVersionService $versionService,
+		private readonly SkillVersionServiceInterface $versionService,
 		private readonly GitHubTemplatePushServiceInterface $pushService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly AuditTrailMapper $auditTrailMapper,
-		private readonly SeedCustodyService $seedCustody,
+		private readonly SeedCustodyServiceInterface $seedCustody,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

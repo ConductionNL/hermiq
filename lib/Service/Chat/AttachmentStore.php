@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
+use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
 use OCP\Files\Folder;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IRootFolder;
@@ -40,7 +41,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
-class AttachmentStore {
+class AttachmentStore implements AttachmentStoreInterface {
 
 	/**
 	 * App config key of the size cap, in MB.

@@ -29,7 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Agent\InstructionVariablesService;
+use OCA\Hermiq\Kernel\Contracts\InstructionVariablesServiceInterface;
 use OCA\Hermiq\Service\Agent\StartValuesRejectedException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -58,13 +58,13 @@ class InstructionVariablesController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest                    $request     The request.
-	 * @param InstructionVariablesService $variables   The preview and the answers.
+	 * @param InstructionVariablesServiceInterface $variables   The preview and the answers.
 	 * @param IUserSession                $userSession The signed-in user.
 	 * @param LoggerInterface             $logger      PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly InstructionVariablesService $variables,
+		private readonly InstructionVariablesServiceInterface $variables,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

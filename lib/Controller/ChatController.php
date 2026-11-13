@@ -41,7 +41,9 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
@@ -49,12 +51,10 @@ use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
-use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -138,7 +138,7 @@ class ChatController extends Controller {
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IL10N $l10n Localization service for translations.
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param ProviderFactoryInterface $providerFactory Pre-warms an agent's pooled CLI process.
 	 * @param ToolAccessRequestServiceInterface $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
@@ -146,7 +146,7 @@ class ChatController extends Controller {
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard
 	 *                                                 (talk-shared-sessions). Defaulted so every
 	 *                                                 existing caller constructs unchanged.
-	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
@@ -157,12 +157,12 @@ class ChatController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
-		private readonly RunStepBus $runStepBus,
+		private readonly RunStepBusInterface $runStepBus,
 		private readonly ProviderFactoryInterface $providerFactory,
 		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
-		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

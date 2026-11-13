@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
@@ -44,7 +45,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
-class AiFeatureService {
+class AiFeatureService implements AiFeatureServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -68,39 +69,11 @@ class AiFeatureService {
 	private const ACK_KEY_PREFIX = 'dpo_ack';
 
 	/**
-	 * Transition outcome: the feature is now enabled.
-	 *
-	 * @var string
-	 */
-	public const RESULT_ENABLED = 'enabled';
-
-	/**
-	 * Transition outcome: the feature is now disabled.
-	 *
-	 * @var string
-	 */
-	public const RESULT_DISABLED = 'disabled';
-
-	/**
-	 * Transition outcome: the guard refused the transition (e.g. no DPO ack).
-	 *
-	 * @var string
-	 */
-	public const RESULT_BLOCKED = 'blocked';
-
-	/**
 	 * Transition outcome: the transition is not allowed from the current state.
 	 *
 	 * @var string
 	 */
 	public const RESULT_INVALID = 'invalid';
-
-	/**
-	 * Transition outcome: the feature was not found (or is cross-tenant).
-	 *
-	 * @var string
-	 */
-	public const RESULT_NOT_FOUND = 'notfound';
 
 	/**
 	 * Constructor.

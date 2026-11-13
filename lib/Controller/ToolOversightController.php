@@ -38,7 +38,7 @@ namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
+use OCA\Hermiq\Kernel\Contracts\GrantWaiverAuditInterface;
 use OCA\Hermiq\Service\ToolAccessDecision;
 use OCA\Hermiq\Service\ToolInvocationRows;
 use OCA\Hermiq\Service\ToolOversight\ToolOversightServices;
@@ -74,7 +74,7 @@ class ToolOversightController extends Controller {
 	 *
 	 * @var string
 	 */
-	public const WAIVER_AUDIT_ACTION = GrantWaiverAudit::ACTION;
+	public const WAIVER_AUDIT_ACTION = GrantWaiverAuditInterface::ACTION;
 
 	/**
 	 * Constructor.

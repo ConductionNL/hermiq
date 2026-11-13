@@ -37,6 +37,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\MessageTranslationEngineInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Translation\TranslationDisclosure;
 use Psr\Log\LoggerInterface;
@@ -47,7 +48,7 @@ use Throwable;
  *
  * @spec openspec/specs/message-translation/spec.md
  */
-class MessageTranslationEngine {
+class MessageTranslationEngine implements MessageTranslationEngineInterface {
 
 	/**
 	 * The AiFeature slug this engine is gated by.

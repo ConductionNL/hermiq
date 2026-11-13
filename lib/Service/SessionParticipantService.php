@@ -36,6 +36,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTime;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SessionParticipantServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -50,7 +51,7 @@ use Throwable;
  *
  * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
  */
-class SessionParticipantService {
+class SessionParticipantService implements SessionParticipantServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**

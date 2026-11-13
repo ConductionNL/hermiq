@@ -36,8 +36,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
-use OCA\Hermiq\Service\ActionAuthService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -69,7 +69,7 @@ class ComplianceController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ComplianceServiceInterface $complianceService Computed dashboard/export/factsheet reads.
 	 * @param IUserSession $userSession Resolves the requesting user.
-	 * @param ActionAuthService $actionAuth ADR-023 action-authorization gate.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action-authorization gate.
 	 * @param OrganisationMapper $organisationMapper Resolves the caller's active organisation
 	 *                                               (mirrors OrganisationModelPolicyController).
 	 * @param LoggerInterface $logger PSR-3 logger.
@@ -78,7 +78,7 @@ class ComplianceController extends Controller {
 		IRequest $request,
 		private readonly ComplianceServiceInterface $complianceService,
 		private readonly IUserSession $userSession,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly OrganisationMapper $organisationMapper,
 		private readonly LoggerInterface $logger,
 	) {

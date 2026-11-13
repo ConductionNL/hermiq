@@ -34,7 +34,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\DemoDataService;
+use OCA\Hermiq\Kernel\Contracts\DemoDataServiceInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -107,14 +107,14 @@ class SetupController extends Controller {
 	 * @param IClientService $clientService Nextcloud HTTP client factory.
 	 * @param IAppConfig $appConfig App-config reader/writer.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param DemoDataService $demoDataService Imports the shipped demo dataset (ADR-111 rule 4).
+	 * @param DemoDataServiceInterface $demoDataService Imports the shipped demo dataset (ADR-111 rule 4).
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IClientService $clientService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
-		private readonly DemoDataService $demoDataService,
+		private readonly DemoDataServiceInterface $demoDataService,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
@@ -338,7 +338,7 @@ class SetupController extends Controller {
 			);
 		}
 
-		if ($picked === DemoDataService::NONE_DATASET) {
+		if ($picked === DemoDataServiceInterface::NONE_DATASET) {
 			return $this->declineDemoData();
 		}
 
@@ -375,7 +375,7 @@ class SetupController extends Controller {
 		// The legacy id carries no answer, so it means the shipped dataset. A
 		// caller that posts it has said which one by posting it.
 		if ($actionId === 'install-demo-data' && $picked === '') {
-			$picked = DemoDataService::DEMO_DATASET;
+			$picked = DemoDataServiceInterface::DEMO_DATASET;
 		}
 
 		return $picked;
@@ -390,7 +390,7 @@ class SetupController extends Controller {
 	 * @return JSONResponse `{ success: true, message }`.
 	 */
 	private function declineDemoData(): JSONResponse {
-		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DATASET_KEY, DemoDataServiceInterface::NONE_DATASET);
 		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
 
 		return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);

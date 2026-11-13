@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\Graph\GraphExtractionService;
+use OCA\Hermiq\Kernel\Contracts\GraphExtractionServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 
@@ -42,11 +42,11 @@ class GraphExtractionJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time The time factory.
-	 * @param GraphExtractionService $extraction The extraction service.
+	 * @param GraphExtractionServiceInterface $extraction The extraction service.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly GraphExtractionService $extraction,
+		private readonly GraphExtractionServiceInterface $extraction,
 	) {
 		parent::__construct(time: $time);
 	}//end __construct()
