@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
+ * @spec openspec/changes/archive/2026-07-16-hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * Seed the `skill-creator` Skill object via ObjectService (idempotent, by name).
  *
- * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
+ * @spec openspec/changes/archive/2026-07-16-hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
  */
 class SeedSkillCreator implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -97,7 +97,7 @@ class SeedSkillCreator implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
+	 * @spec openspec/changes/archive/2026-07-16-hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
 	 */
 	public function getName(): string {
 		return 'Seed skill-creator skill (hermiq-skill-conversational-authoring)';
@@ -114,7 +114,7 @@ class SeedSkillCreator implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
+	 * @spec openspec/changes/archive/2026-07-16-hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
 	 */
 	public function run(IOutput $output): void {
 		try {

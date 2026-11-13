@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
  */
 class InstallTalkBot implements IRepairStep {
 	/**
@@ -62,7 +62,7 @@ class InstallTalkBot implements IRepairStep {
 	 *
 	 * @return string The step name.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
 	 */
 	public function getName(): string {
 		return 'Register the Hermiq Talk bot';
@@ -78,7 +78,7 @@ class InstallTalkBot implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
 	 */
 	public function run(IOutput $output): void {
 		try {

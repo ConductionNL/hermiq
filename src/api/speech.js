@@ -20,7 +20,7 @@ const BASE = '/apps/hermiq/api/speech'
  *
  * @param {object} [http] The HTTP client (axios by default).
  * @return {Promise<{available: boolean}>} The capability answer.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
  */
 export async function speechCapabilities(http = axios) {
 	try {
@@ -38,7 +38,7 @@ export async function speechCapabilities(http = axios) {
  * @param {string} [language] An optional language hint, for example "nl".
  * @param {object} [http] The HTTP client (axios by default).
  * @return {Promise<string>} The transcript.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
  */
 export async function transcribe(blob, language = '', http = axios) {
 	const form = new FormData()
@@ -56,7 +56,7 @@ export async function transcribe(blob, language = '', http = axios) {
  * @param {string} text The plain text to speak.
  * @param {object} [http] The HTTP client (axios by default).
  * @return {Promise<Blob>} WAV audio.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
  */
 export async function synthesise(text, http = axios) {
 	const { data } = await http.post(

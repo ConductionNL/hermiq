@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#6-multi-participant-sessions
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#6-multi-participant-sessions
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ namespace OCA\Hermiq\Service\Talk;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+ * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
  */
 class ConversationParticipation {
 	/**
@@ -58,7 +58,7 @@ class ConversationParticipation {
 	 *
 	 * @return bool True when the user owns the conversation or is a listed participant.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	public function mayTakeTurn(array $conversationData, string $userId): bool {
 		if ($userId === '') {
@@ -82,7 +82,7 @@ class ConversationParticipation {
 	 *
 	 * @return string[] The listed participant uids, excluding the implicit owner.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	public function roster(array $conversationData): array {
 		$participants = ($conversationData['participants'] ?? []);
@@ -107,7 +107,7 @@ class ConversationParticipation {
 	 *
 	 * @return string[] Owner plus listed participants, de-duplicated.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	public function permittedUids(array $conversationData): array {
 		$owner = ($conversationData['userId'] ?? '');

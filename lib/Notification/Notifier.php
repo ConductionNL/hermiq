@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCP\Notification\UnknownNotificationException;
 /**
  * Parses Hermiq notifications into localised, rendered form.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
  */
 class Notifier implements INotifier {
 
@@ -87,7 +87,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	public function getID(): string {
 		return self::APP_ID;
@@ -98,7 +98,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	public function getName(): string {
 		return 'Hermiq';
@@ -114,7 +114,7 @@ class Notifier implements INotifier {
 	 *
 	 * @throws UnknownNotificationException When the notification is not a Hermiq one.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
 	 */
 	public function prepare(INotification $notification, string $languageCode): INotification {
@@ -182,7 +182,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	private function runCompleteText(string $name, IL10N $l): array {
 		$subject = $l->t('Scheduled agent run complete');
@@ -201,7 +201,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	private function approvalRequestedText(string $name, IL10N $l): array {
 		$subject = $l->t('Approval needed for an agent run');

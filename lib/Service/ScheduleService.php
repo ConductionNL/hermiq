@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 
 declare(strict_types=1);
@@ -43,6 +43,7 @@ use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -89,7 +90,7 @@ use Throwable;
  *   constructor collaborator named after its class (GuardrailPolicyService) — the
  *   length IS the clarity.
  *
- * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
  */
 class ScheduleService {
@@ -349,8 +350,8 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	public function run(): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -391,7 +392,7 @@ class ScheduleService {
 	 *
 	 * @return array<int, string> The engaged organisation identifiers.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
 	 */
 	private function loadEngagedOrganisations(): array {
 		try {
@@ -443,7 +444,7 @@ class ScheduleService {
 	 *
 	 * @return bool True when the organisation's kill-switch is engaged.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	public function isOrganisationEngaged(string $organisation): bool {
 		if ($organisation === '') {
@@ -649,7 +650,7 @@ class ScheduleService {
 	 *
 	 * @return string|null The feature slug, or null when the agent names none.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-a-feature-may-keep-less
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-a-feature-may-keep-less
 	 */
 	private function aiFeatureForAgent(string $agentId): ?string {
 		if ($agentId === '') {
@@ -802,8 +803,8 @@ class ScheduleService {
 	 *   authorisation input (normal run vs. an already-approved occurrence), not a
 	 *   responsibility split — both modes share the identical dispatch path.
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate = false): void {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -883,7 +884,7 @@ class ScheduleService {
 	 *
 	 * @return array<int, ObjectEntity> The due, enabled schedule objects.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
@@ -980,8 +981,8 @@ class ScheduleService {
 	 *   authorisation input (normal run vs. an already-approved occurrence), not a
 	 *   responsibility split — both modes share the identical dispatch path.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
 	 */
 	private function dispatch(
@@ -1385,8 +1386,8 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
 	 */
 	private function recordGateSkip(ObjectEntity $schedule, array $data, string $owner, DateTimeImmutable $now, string $status): void {
@@ -1449,9 +1450,9 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
@@ -1826,8 +1827,8 @@ class ScheduleService {
 	 * @return void The write is fire-and-forget: no caller consumes an entry
 	 *              UUID, and a failed write is never fatal — see below.
 	 *
-	 * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
-	 * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#2-per-run-audit-write
+	 * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#2-per-run-audit-write
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-letter-circuit-breaker-outcomes-mvp
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 *
@@ -2021,31 +2022,14 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
 	 */
 	private function stepsIncludeToolCall(array $steps): bool {
-		foreach ($steps as $step) {
-			if (($step['type'] ?? null) === 'tool') {
-				return true;
-			}
-		}
-
-		return false;
+		return (new CoarseStepTimeline())->includesToolCall(steps: $steps);
 	}//end stepsIncludeToolCall()
 
 	/**
-	 * Build coarse context/history/llm steps from the agent-turn call's already-
-	 * returned `timings` bucket (a formatted-seconds string per leg, e.g. `"0.18s"`)
-	 * — the ONLY step source available on the default OpenRegister `ChatService`
-	 * path (Hermiq does not instrument OR's internal tool loop, so no `tool` step
-	 * is ever produced here).
+	 * The coarse context/history/llm steps of a turn on the ChatService path
+	 * (see CoarseStepTimeline::fromTimings()).
 	 *
-	 * Each leg's real DURATION is known but not its absolute wall-clock start/end,
-	 * so the three legs are chained backward from `$anchorEnd` (the moment the
-	 * agent-turn call returned) in call order (context, history, llm) — a
-	 * contiguous, honest synthetic timeline. A leg that is absent or does not
-	 * parse as `<number>s` is skipped entirely rather than fabricated (proposal
-	 * Risk 1 / tasks.md task 3 acceptance).
-	 *
-	 * @param array<string, mixed> $timings The `timings` bucket (`context`/`history`/`llm`/`total`
-	 *                                      formatted-seconds strings), or malformed/absent.
+	 * @param array<string, mixed> $timings The `timings` bucket, or malformed/absent.
 	 * @param DateTimeImmutable $anchorEnd The moment the agent-turn call returned.
 	 *
 	 * @return array<int, array<string, mixed>> The coarse steps, oldest leg first, `seq` 0..n-1.
@@ -2053,67 +2037,8 @@ class ScheduleService {
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
 	 */
 	private function buildCoarseStepsFromTimings(array $timings, DateTimeImmutable $anchorEnd): array {
-		// Chained backward from $anchorEnd; legs are appended in call order below
-		// (context, history, llm) so the final array is already in call order.
-		$legs = [
-			['type' => 'llm', 'name' => 'LLM generation', 'key' => 'llm'],
-			['type' => 'history', 'name' => 'History build', 'key' => 'history'],
-			['type' => 'context', 'name' => 'Context retrieval', 'key' => 'context'],
-		];
-
-		$cursor = $anchorEnd;
-		$backwardSteps = [];
-		foreach ($legs as $leg) {
-			$durationMs = $this->parseTimingSeconds(value: ($timings[$leg['key']] ?? null));
-			if ($durationMs === null) {
-				continue;
-			}
-
-			$endedAt = $cursor;
-			$startedAt = $endedAt->modify('-' . $durationMs . ' milliseconds');
-
-			$backwardSteps[] = [
-				'type' => $leg['type'],
-				'name' => $leg['name'],
-				'startedAt' => $startedAt->format('c'),
-				'endedAt' => $endedAt->format('c'),
-				'durationMs' => $durationMs,
-				'outcome' => 'ok',
-			];
-
-			$cursor = $startedAt;
-		}//end foreach
-
-		$steps = array_reverse($backwardSteps);
-
-		$seq = 0;
-		return array_map(
-			static function (array $step) use (&$seq): array {
-				$step['seq'] = $seq++;
-				return $step;
-			},
-			$steps
-		);
-
+		return (new CoarseStepTimeline())->fromTimings(timings: $timings, anchorEnd: $anchorEnd);
 	}//end buildCoarseStepsFromTimings()
-
-	/**
-	 * Parse a `timings` leg value (`"0.18s"`) into a millisecond duration.
-	 *
-	 * @param mixed $value The raw timing value.
-	 *
-	 * @return int|null The duration in milliseconds, or null when absent/malformed
-	 *                  (never fabricated — proposal Risk 1).
-	 *
-	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
-	 */
-	private function parseTimingSeconds(mixed $value): ?int {
-		if (is_string($value) === false || preg_match('~^(\d+(?:\.\d+)?)s$~', $value, $matches) !== 1) {
-			return null;
-		}
-
-		return (int)round(((float)$matches[1]) * 1000);
-	}//end parseTimingSeconds()
 
 	/**
 	 * Compute the next run time for a schedule, anchored to the owner's timezone.
@@ -2129,7 +2054,7 @@ class ScheduleService {
 	 *
 	 * @return DateTimeImmutable|null The next run (UTC), or null for one-shots.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function computeNextRun(string $kind, array $data, string $owner, DateTimeImmutable $now): ?DateTimeImmutable {
 		$timezone = $this->resolveTimezone(owner: $owner);
@@ -2261,10 +2186,10 @@ class ScheduleService {
 	 *                                   the Engine branch throws this internally,
 	 *                                   inside `runAgentViaEngine()`/`Engine::processMessage()`).
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parent-s-acting-user-attribution
@@ -2604,7 +2529,7 @@ class ScheduleService {
 	 *
 	 * @return bool True when the in-app Engine must be used.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
 	 */
 	private function isEngineEnabled(): bool {
 		return $this->appConfig->getValueString(Application::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
@@ -2627,7 +2552,7 @@ class ScheduleService {
 	 *
 	 * @return string The resolved run-as user id.
 	 *
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
 	 */
 	private function resolveActingUser(string $agentId, string $fallbackOwner): string {
 		try {
@@ -2733,8 +2658,8 @@ class ScheduleService {
 	 *
 	 * @throws RuntimeException When the agent cannot be resolved in the hermiq register.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 *
@@ -2955,7 +2880,7 @@ class ScheduleService {
 	 *
 	 * @return DeliveryResult The delivery outcome (warning ⇒ lastDeliveryError).
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#3-wire-into-the-dispatcher
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#3-wire-into-the-dispatcher
 	 */
 	private function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult {
 		$conversationUuid = null;
@@ -2980,7 +2905,7 @@ class ScheduleService {
 	 *
 	 * @return string The uuid, or '' when the conversation must not be bound.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
 	 */
 	private function bindableConversationUuid(ObjectEntity $conversation, bool $dryRun): string {
 		if ($dryRun === true) {
@@ -3118,7 +3043,7 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function recordFailure(ObjectEntity $schedule, Throwable $error): void {
 		$this->logger->warning(
@@ -3170,7 +3095,7 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function persist(ObjectEntity $schedule, array $data): void {
 		$this->objectService->saveObject(
@@ -3199,8 +3124,8 @@ class ScheduleService {
 	 *
 	 * @return array<string,mixed> The sanitised payload.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function sanitizeForSave(array $data): array {
 		$data = $this->normaliseDates(data: $data);
@@ -3221,7 +3146,7 @@ class ScheduleService {
 	 *
 	 * @return array<string,mixed> The payload with normalised date-time fields.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function normaliseDates(array $data): array {
 		foreach (self::DATE_TIME_FIELDS as $field) {
@@ -3259,7 +3184,7 @@ class ScheduleService {
 	 *
 	 * @return array<string,mixed> The payload with a schema-valid `repeat`.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function sanitizeRepeat(array $data): array {
 		if (array_key_exists('repeat', $data) === false) {
@@ -3392,7 +3317,7 @@ class ScheduleService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function deleteSchedule(ObjectEntity $schedule): void {
 		$this->objectService->deleteObject(
@@ -3415,7 +3340,7 @@ class ScheduleService {
 	 *
 	 * @return DateTimeZone The resolved timezone.
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function resolveTimezone(string $owner): DateTimeZone {
 		$tz = '';
@@ -3442,7 +3367,7 @@ class ScheduleService {
 	 *
 	 * @return array{times:int, completed:int}
 	 *
-	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function normaliseRepeat(mixed $repeat): array {
 		if (is_array($repeat) === false) {

@@ -56,6 +56,14 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - [ ] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users)
 
+### Task 7: "Copy link" in the share dialog
+- **spec_ref**: `openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-copy-a-link-to-a-shared-session-req-sshare-004`
+- **files**: `src/modals/SessionShareModal.vue`, `l10n/en.json`, `l10n/nl.json`
+- **acceptance_criteria**:
+  - GIVEN a shared session WHEN the owner chooses "Copy link" THEN the clipboard holds `/apps/hermiq/chat/shared/<uuid>`, which opens the session for a recipient and shows "This session is not available" to anyone else
+- [ ] Implement
+- [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users)
+
 ## Verification
 - [ ] `openspec validate chat-fork-and-share-link --type change --strict` passes
 - [ ] PHPUnit, Newman and the Playwright file run, exit codes read

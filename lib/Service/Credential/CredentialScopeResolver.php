@@ -40,8 +40,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-resolver-selections-never-bypass-the-brokers-own-guards
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-resolver-selections-never-bypass-the-brokers-own-guards
  */
 
 declare(strict_types=1);
@@ -55,7 +55,7 @@ use OCA\OpenRegister\Service\ObjectService;
  * Resolves the best-scoped broker credential id for a (provider, user, organisation)
  * tuple: personal → organisation → null (instance fallback).
  *
- * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+ * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
  */
 class CredentialScopeResolver {
 
@@ -131,7 +131,7 @@ class CredentialScopeResolver {
 	 *
 	 * @throws PinnedCredentialRefusedException When the pin for `$provider` cannot be used.
 	 *
-	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 * @spec openspec/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
 	 */
 	public function resolve(string $provider, ?string $actingUserId, ?string $organisation, ?array $pinned = null): ?string {

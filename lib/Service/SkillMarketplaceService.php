@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
 
 declare(strict_types=1);
@@ -56,7 +56,7 @@ use Throwable;
  * install-from-source (HTTP), content scanning (OR ContentScanService), skill CRUD,
  * curation (cron) and hub publish; each dependency is one lifecycle stage.
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
 class SkillMarketplaceService {
 
@@ -135,8 +135,8 @@ class SkillMarketplaceService {
 	 *
 	 * @return ObjectEntity The quarantined Skill object.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
 	 */
 	public function installFromSource(
 		string $package,
@@ -352,7 +352,7 @@ class SkillMarketplaceService {
 	 * reviewer decision (explicit dangerous-verdict override), part of the public
 	 * seam the controller exposes — not an SRP smell.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function approveQuarantined(string $skillId, bool $force = false): ?ObjectEntity {
 		$skill = $this->skillService->getSkill(skillId: $skillId);
@@ -391,7 +391,7 @@ class SkillMarketplaceService {
 	 *
 	 * @return array<string, int> Summary counts { scanned, staled, archived }.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function curate(): array {
 		$staleDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
@@ -443,7 +443,7 @@ class SkillMarketplaceService {
 	 *
 	 * @return array<string, mixed> The publish result or a structured error.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function publishToHub(string $skillId, string $hubId): array {
 		$skill = $this->skillService->getSkill(skillId: $skillId);
@@ -600,7 +600,7 @@ class SkillMarketplaceService {
 	 *
 	 * @return array<string, mixed> The scan report { severity, safe, findings, scannedAt, … }.
 	 *
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
 	 */
 	private function scanContent(string $body, mixed $frontmatter, array $files = []): array {
 		$content = $body;

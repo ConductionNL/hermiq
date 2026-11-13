@@ -1,0 +1,202 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SkillLearnings > holds no skill when the store has none 1`] = `
+"<div data-v-3cd7e60c="" class="skill-learnings">
+  <!--v-if-->
+  <p data-v-3cd7e60c="" class="skill-learnings__empty">No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.</p>
+</div>"
+`;
+
+exports[`SkillLearnings > registers the skill type and loads the route skill 1`] = `
+"<div data-v-3cd7e60c="" class="skill-learnings">
+  <!--v-if-->
+  <nc-loadingicon data-v-3cd7e60c="" data-size="24" data-class="skill-learnings__loading"></nc-loadingicon>
+</div>"
+`;
+
+exports[`SkillLearnings > registers the skill type and loads the route skill 2`] = `
+"<div data-v-3cd7e60c="" class="skill-learnings">
+  <!--v-if-->
+  <dl data-v-3cd7e60c="" class="skill-learnings__facts">
+    <div data-v-3cd7e60c="" class="skill-learnings__fact">
+      <dt data-v-3cd7e60c="">Promoted learnings</dt>
+      <dd data-v-3cd7e60c="">—</dd>
+    </div>
+    <div data-v-3cd7e60c="" class="skill-learnings__fact">
+      <dt data-v-3cd7e60c="">Open candidates</dt>
+      <dd data-v-3cd7e60c="">—</dd>
+    </div>
+    <div data-v-3cd7e60c="" class="skill-learnings__fact">
+      <dt data-v-3cd7e60c="">Last capture</dt>
+      <dd data-v-3cd7e60c="">1/2/2026, 3:04:05 AM</dd>
+    </div>
+    <div data-v-3cd7e60c="" class="skill-learnings__fact">
+      <dt data-v-3cd7e60c="">Last promotion</dt>
+      <dd data-v-3cd7e60c="">—</dd>
+    </div>
+  </dl><!-- Learnings markdown is sanitised via DOMPurify with the shared safe config. -->
+  <!-- eslint-disable-next-line vue/no-v-html -->
+  <div data-v-3cd7e60c="" class="skill-learnings__content">
+    <h1>Learned</h1>
+  </div>
+  <p data-v-3cd7e60c="" class="skill-learnings__hint">Learnings are captured automatically after runs that used this skill and promoted by a daily background pass. This view is read-only.</p>
+</div>"
+`;
+
+exports[`SkillLearnings > reports a failed fetch ({"response":{"data":{"error":"Not allowed"}},"message":"Request failed"}) 1`] = `
+"<div data-v-3cd7e60c="" class="skill-learnings">
+  <nc-notecard data-v-3cd7e60c="" data-type="error" data-heading="Learnings error">Not allowed</nc-notecard>
+  <p data-v-3cd7e60c="" class="skill-learnings__empty">No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.</p>
+</div>"
+`;
+
+exports[`SkillLearnings > reports a failed fetch ({}) 1`] = `
+"<div data-v-3cd7e60c="" class="skill-learnings">
+  <nc-notecard data-v-3cd7e60c="" data-type="error" data-heading="Learnings error">Network down</nc-notecard>
+  <p data-v-3cd7e60c="" class="skill-learnings__empty">No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.</p>
+</div>"
+`;
+
+exports[`SkillLearnings > reports a failed fetch ({}) 2`] = `
+"<div data-v-3cd7e60c="" class="skill-learnings">
+  <nc-notecard data-v-3cd7e60c="" data-type="error" data-heading="Learnings error">Could not load the skill.</nc-notecard>
+  <p data-v-3cd7e60c="" class="skill-learnings__empty">No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.</p>
+</div>"
+`;
+
+exports[`SkillProvenance > holds no skill when the store has none 1`] = `
+"<div data-v-a8ba3192="" class="skill-provenance">
+  <!--v-if-->
+  <!--v-if-->
+  <!--v-if-->
+  <dl data-v-a8ba3192="" class="skill-provenance__facts">
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">State</dt>
+      <dd data-v-a8ba3192="">Unknown</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Source</dt>
+      <dd data-v-a8ba3192=""><span data-v-a8ba3192="">Authored here — not installed from a bundle</span></dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Last updated from source</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Learnings last accepted</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+  </dl>
+</div>"
+`;
+
+exports[`SkillProvenance > registers the skill type and loads the route skill 1`] = `
+"<div data-v-a8ba3192="" class="skill-provenance">
+  <!--v-if-->
+  <nc-loadingicon data-v-a8ba3192="" data-size="24" data-class="skill-provenance__loading"></nc-loadingicon>
+</div>"
+`;
+
+exports[`SkillProvenance > registers the skill type and loads the route skill 2`] = `
+"<div data-v-a8ba3192="" class="skill-provenance">
+  <!--v-if-->
+  <nc-notecard data-v-a8ba3192="" data-type="warning" data-heading="Awaiting review">content-changed</nc-notecard>
+  <!--v-if-->
+  <dl data-v-a8ba3192="" class="skill-provenance__facts">
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">State</dt>
+      <dd data-v-a8ba3192="">Quarantined — awaiting review</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Source</dt>
+      <dd data-v-a8ba3192=""><a data-v-a8ba3192="" href="https://github.com/acme/skill" target="_blank" rel="noreferrer noopener">https://github.com/acme/skill</a></dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Last updated from source</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Learnings last accepted</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+  </dl>
+</div>"
+`;
+
+exports[`SkillProvenance > reports a failed fetch ({"response":{"data":{"error":"Not allowed"}},"message":"Request failed"}) 1`] = `
+"<div data-v-a8ba3192="" class="skill-provenance">
+  <nc-notecard data-v-a8ba3192="" data-type="error" data-heading="Provenance error">Not allowed</nc-notecard>
+  <!--v-if-->
+  <!--v-if-->
+  <dl data-v-a8ba3192="" class="skill-provenance__facts">
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">State</dt>
+      <dd data-v-a8ba3192="">Unknown</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Source</dt>
+      <dd data-v-a8ba3192=""><span data-v-a8ba3192="">Authored here — not installed from a bundle</span></dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Last updated from source</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Learnings last accepted</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+  </dl>
+</div>"
+`;
+
+exports[`SkillProvenance > reports a failed fetch ({}) 1`] = `
+"<div data-v-a8ba3192="" class="skill-provenance">
+  <nc-notecard data-v-a8ba3192="" data-type="error" data-heading="Provenance error">Network down</nc-notecard>
+  <!--v-if-->
+  <!--v-if-->
+  <dl data-v-a8ba3192="" class="skill-provenance__facts">
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">State</dt>
+      <dd data-v-a8ba3192="">Unknown</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Source</dt>
+      <dd data-v-a8ba3192=""><span data-v-a8ba3192="">Authored here — not installed from a bundle</span></dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Last updated from source</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Learnings last accepted</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+  </dl>
+</div>"
+`;
+
+exports[`SkillProvenance > reports a failed fetch ({}) 2`] = `
+"<div data-v-a8ba3192="" class="skill-provenance">
+  <nc-notecard data-v-a8ba3192="" data-type="error" data-heading="Provenance error">Could not load the skill.</nc-notecard>
+  <!--v-if-->
+  <!--v-if-->
+  <dl data-v-a8ba3192="" class="skill-provenance__facts">
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">State</dt>
+      <dd data-v-a8ba3192="">Unknown</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Source</dt>
+      <dd data-v-a8ba3192=""><span data-v-a8ba3192="">Authored here — not installed from a bundle</span></dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Last updated from source</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+    <div data-v-a8ba3192="" class="skill-provenance__fact">
+      <dt data-v-a8ba3192="">Learnings last accepted</dt>
+      <dd data-v-a8ba3192="">—</dd>
+    </div>
+  </dl>
+</div>"
+`;

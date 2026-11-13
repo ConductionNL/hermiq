@@ -65,6 +65,7 @@ use Random\Randomizer;
  * @covers \OCA\Hermiq\Service\ToolOversight\ToolOversightServices
  * @uses   \OCA\Hermiq\Service\AgentAccessService
  * @uses   \OCA\Hermiq\Service\ToolInvocationRows
+ * @uses \OCA\Hermiq\Controller\ToolInvocationExport
  *
  * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
  */

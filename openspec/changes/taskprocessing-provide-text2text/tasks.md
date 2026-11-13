@@ -34,3 +34,12 @@
 - [ ] 3.2 `tests/Unit/Service/Llm/ProviderFactoryGenerateTextTest.php` — the
       `nextcloud` driver is rejected when `allowNextcloud` is false, and each
       non-nextcloud driver path returns the generated text.
+
+## 4. Reformulate and translate (REQ-T2T-003, closing round 12 November)
+
+- [ ] 4.1 Add `Text2TextReformulationProvider` (`core:text2text:reformulation`) and
+      `Text2TextTranslateProvider` (`core:text2text:translate`, with the task type's
+      origin and target language slots) on `AbstractTextProvider`, and register both in
+      `Application.php`. Verify: `occ taskprocessing:task-type:list` shows hermiq for both.
+- [ ] 4.2 Unit tests: each reports its task-type id, the translation prompt names the target
+      language, and the `nextcloud` driver stays banned.

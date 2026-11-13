@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-retention-must-remove-the-payload-and-must-not-break-the-chain
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-retention-must-remove-the-payload-and-must-not-break-the-chain
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
 /**
  * Removes expired run payloads and leaves a tombstone in their place.
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
 class RunRetentionCleaner {
 
@@ -101,7 +101,7 @@ class RunRetentionCleaner {
 	 *
 	 * @return int How many entries were tombstoned.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
 	 */
 	public function clean(?DateTimeImmutable $now = null): int {
 		$at = ($now ?? new DateTimeImmutable('now', new DateTimeZone('UTC')));
@@ -128,7 +128,7 @@ class RunRetentionCleaner {
 	 *
 	 * @return bool True when the entry was tombstoned and stored.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
 	 */
 	private function tombstoneIfExpired(AuditTrail $entry, DateTimeImmutable $at): bool {
 		if ($this->isExpired(entry: $entry, at: $at) === false) {
@@ -158,7 +158,7 @@ class RunRetentionCleaner {
 	 *
 	 * @return array<string, mixed> The tombstone.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-the-processing-is-still-recorded-after-the-data-is-gone
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-the-processing-is-still-recorded-after-the-data-is-gone
 	 */
 	public function tombstone(array $changed, DateTimeImmutable $at): array {
 		$tombstone = [
@@ -198,7 +198,7 @@ class RunRetentionCleaner {
 	 *
 	 * @return bool True when the payload should be removed.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
 	 */
 	public function isExpired(AuditTrail $entry, DateTimeImmutable $at): bool {
 		$changed = (array)$entry->getChanged();

@@ -31,6 +31,24 @@ description:
       - Admin settings panel
       - Playwright e2e test setup
 
+  nl:
+    localisedName: "Hermiq"
+    shortDescription: "Plan autonome AI-agents in Nextcloud"
+    longDescription: |
+      Hermiq brengt autonome AI-agents naar Nextcloud. Je definieert een
+      agent, geeft hem tools en laat hem volgens een schema draaien: dagelijkse
+      rapportages, het sorteren van de inbox, monitoring of een ochtendbriefing.
+      Alles gebeurt in je eigen Nextcloud en de resultaten komen binnen in
+      Nextcloud Talk. Agents, hun geheugen en hun zelflerende vaardigheden worden
+      opgeslagen als OpenRegister-objecten, zodat elke run beheerst,
+      controleerbaar en geschikt voor meerdere organisaties is.
+    features:
+      - Initialisatie van OpenRegister-register en -schema's
+      - Manifestgestuurde single-page-app met CnAppRoot
+      - Basis voor een AI-chatassistent (MCP-toolprovider)
+      - Beheerinstellingen
+      - Opzet voor end-to-endtests met Playwright
+
 legal:
   license: EUPL-1.2
   mainCopyrightOwner: "Conduction B.V."

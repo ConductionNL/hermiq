@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
  */
 class TalkBridgeSettingsController extends Controller {
 	/**
@@ -74,7 +74,7 @@ class TalkBridgeSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The bridge status.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -101,7 +101,7 @@ class TalkBridgeSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The updated bridge status.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function bindRoom(): JSONResponse {
