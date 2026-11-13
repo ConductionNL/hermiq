@@ -55,6 +55,9 @@ use Throwable;
  * Answers which group an incoming report belongs to, and why.
  *
  * @spec openspec/specs/report-similarity/spec.md
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) The grouping steps take small parameter
+ *   objects, which count as dependencies but carry no behaviour.
  */
 class ReportSimilarityService implements ReportSimilarityServiceInterface {
 

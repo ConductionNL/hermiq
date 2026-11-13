@@ -46,6 +46,9 @@ use Throwable;
  * Collects and imports the agent templates installed apps offer.
  *
  * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Its steps take small parameter objects,
+ *   which count as dependencies but carry no behaviour.
  */
 class AppTemplateOffers implements AppTemplateOffersInterface {
 	use SanitizesForSaveTrait;

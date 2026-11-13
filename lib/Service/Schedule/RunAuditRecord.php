@@ -57,6 +57,9 @@ final class RunAuditRecord {
 	 *                                    prompt that WAS actually used for a real run/direct dry-run.
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Dry-run preview (run-replay-and-dry-run) is a
+	 *   cross-cutting mode carried as a flag by design.
 	 */
 	public function __construct(
 		public readonly array $data,

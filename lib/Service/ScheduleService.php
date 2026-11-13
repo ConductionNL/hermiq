@@ -953,29 +953,13 @@ class ScheduleService implements ScheduleServiceInterface {
 		// GATE 0 — THE AGENT IS SWITCHED OFF (agents-switch-off-and-stop): recorded
 		// like a kill-switch skip, and the next run still advances.
 		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
-			$this->recordGateSkip(
-				schedule: $schedule,
-				skip: new GateSkip(
-					data: $data,
-					owner: $owner,
-					now: $now,
-					status: 'skipped_agent_off'
-				)
-			);
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'skipped_agent_off'));
 			return;
 		}
 
 		// GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
 		if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
-			$this->recordGateSkip(
-				schedule: $schedule,
-				skip: new GateSkip(
-					data: $data,
-					owner: $owner,
-					now: $now,
-					status: 'skipped_killswitch'
-				)
-			);
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'skipped_killswitch'));
 			return;
 		}
 
@@ -1011,15 +995,7 @@ class ScheduleService implements ScheduleServiceInterface {
 				);
 			}
 
-			$this->recordGateSkip(
-				schedule: $schedule,
-				skip: new GateSkip(
-					data: $data,
-					owner: $owner,
-					now: $now,
-					status: 'awaiting_approval'
-				)
-			);
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: 'awaiting_approval'));
 			return;
 		}
 

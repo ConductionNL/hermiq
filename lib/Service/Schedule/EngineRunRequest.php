@@ -70,6 +70,9 @@ final class EngineRunRequest {
 	 * @param string|null $continueSessionUuid A goal's session to continue (agents-standing-goal).
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Dry-run preview (run-replay-and-dry-run) is a
+	 *   cross-cutting mode carried as a flag by design.
 	 */
 	public function __construct(
 		public readonly string $owner,

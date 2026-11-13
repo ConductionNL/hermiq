@@ -59,6 +59,8 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\Eval\EvalRunRecord;
+use OCA\Hermiq\Service\Eval\EvalRunScores;
+use OCA\Hermiq\Service\Eval\EvalRunSubject;
 use OCA\Hermiq\Service\Eval\L5EvidenceContext;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -532,18 +534,22 @@ class EvalRunService implements EvalRunServiceInterface {
 
 		$saved = $this->persistEvalRun(
 			record: new EvalRunRecord(
-				datasetId: $run['datasetId'],
-				agentId: $run['agentId'],
-				organisation: $run['organisation'],
-				agentVersionId: null,
+				subject: new EvalRunSubject(
+					datasetId: $run['datasetId'],
+					agentId: $run['agentId'],
+					organisation: $run['organisation'],
+					agentVersionId: null
+				),
 				status: $status,
 				startedAt: $run['startedAt'],
 				endedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
-				results: $halves['draft']['results'],
-				passRate: $draftPassRate,
-				regressionGateResult: 'not_applicable',
-				previousPassRate: null,
-				regressionThresholdPercent: 0,
+				scores: new EvalRunScores(
+					results: $halves['draft']['results'],
+					passRate: $draftPassRate,
+					regressionGateResult: 'not_applicable',
+					previousPassRate: null,
+					regressionThresholdPercent: 0
+				),
 				extra: [
 				'baselineResults' => $halves['active']['results'],
 				'baselinePassRate' => $activePassRate,
@@ -939,18 +945,22 @@ class EvalRunService implements EvalRunServiceInterface {
 	private function recordRun(array $run, array $outcome): ObjectEntity {
 		$saved = $this->persistEvalRun(
 			record: new EvalRunRecord(
-				datasetId: $run['datasetId'],
-				agentId: $run['agentId'],
-				organisation: $run['organisation'],
-				agentVersionId: $run['agentVersionId'],
+				subject: new EvalRunSubject(
+					datasetId: $run['datasetId'],
+					agentId: $run['agentId'],
+					organisation: $run['organisation'],
+					agentVersionId: $run['agentVersionId']
+				),
 				status: $outcome['status'],
 				startedAt: $run['startedAt'],
 				endedAt: $outcome['endedAt'],
-				results: $outcome['results'],
-				passRate: $outcome['passRate'],
-				regressionGateResult: $outcome['regressionGateResult'],
-				previousPassRate: $outcome['previousPassRate'],
-				regressionThresholdPercent: $outcome['thresholdPercent'],
+				scores: new EvalRunScores(
+					results: $outcome['results'],
+					passRate: $outcome['passRate'],
+					regressionGateResult: $outcome['regressionGateResult'],
+					previousPassRate: $outcome['previousPassRate'],
+					regressionThresholdPercent: $outcome['thresholdPercent']
+				),
 				extra: ($outcome['paired'] ?? [])
 			)
 		);
@@ -1481,18 +1491,22 @@ class EvalRunService implements EvalRunServiceInterface {
 
 		$saved = $this->persistEvalRun(
 			record: new EvalRunRecord(
-				datasetId: $trigger->datasetId(),
-				agentId: $trigger->agentId,
-				organisation: $trigger->organisation,
-				agentVersionId: $trigger->agentVersionId,
+				subject: new EvalRunSubject(
+					datasetId: $trigger->datasetId(),
+					agentId: $trigger->agentId,
+					organisation: $trigger->organisation,
+					agentVersionId: $trigger->agentVersionId
+				),
 				status: $status,
 				startedAt: $trigger->startedAt,
 				endedAt: $endedAt,
-				results: [],
-				passRate: 0.0,
-				regressionGateResult: 'not_applicable',
-				previousPassRate: null,
-				regressionThresholdPercent: 0
+				scores: new EvalRunScores(
+					results: [],
+					passRate: 0.0,
+					regressionGateResult: 'not_applicable',
+					previousPassRate: null,
+					regressionThresholdPercent: 0
+				)
 			)
 		);
 
