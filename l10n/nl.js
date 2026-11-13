@@ -1956,7 +1956,17 @@ OC.L10N.register(
         "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).": "De goedkeuringsstatus: pending -> approved/denied voor elk blokkerend sourceType. `overridden` is ALLEEN ADVIES en definitief bij aanmaken: de mens nam het AI-voorstel in principe over maar gebruikte een andere waarde (advisoryContext.actualValue). Het is niet bereikbaar vanuit `pending` en geen blokkerende flow mag het opleveren. `unused` is ook ALLEEN ADVIES en definitief bij aanmaken: het voorstel werd getoond en niemand deed er iets mee voordat het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel het verving (advisoryContext.unusedBecause).",
         "Unused because": "Niet gebruikt omdat",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Waarom een getoond voorstel niet is gebruikt (status=unused): het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel verving het. Leeg bij elke andere status.",
-        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens."
+        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens.",
+        "Your report is ready: %s": "Je rapport staat klaar: %s",
+        "It covers %1$s to %2$s. Open it to read what happened in that period.": "Het gaat over %1$s tot en met %2$s. Open het om te lezen wat er in die periode gebeurde.",
+        "Active until the person cancels it.": "Actief tot de persoon het opzegt.",
+        "Frequency": "Frequentie",
+        "How often the report is sent.": "Hoe vaak het rapport wordt verstuurd.",
+        "Last sent": "Laatst verstuurd",
+        "Report subscription": "Rapportabonnement",
+        "The person who receives the report.": "De persoon die het rapport ontvangt.",
+        "The report, by its card on the Reports page.": "Het rapport, volgens de kaart op de pagina Rapporten.",
+        "When the report was last sent.": "Wanneer het rapport voor het laatst is verstuurd."
     },
     "nplurals=2; plural=(n != 1);"
 )

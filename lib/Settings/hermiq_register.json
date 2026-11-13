@@ -53,7 +53,8 @@
 					"schedule",
 					"tenantcontrol",
 					"toolAccessRequest",
-					"userprofile"
+					"userprofile",
+					"reportsubscription"
 				]
 			}
 		},
@@ -5031,6 +5032,88 @@
 						"format": "date-time",
 						"title": "Written at",
 						"description": "When the summary was written."
+					}
+				}
+			},
+			"ReportSubscription": {
+				"slug": "reportsubscription",
+				"icon": "CalendarClock",
+				"version": "0.1.0",
+				"title": "Report subscription",
+				"description": "A person's request to receive a report weekly or monthly as a notification (reports-on-a-schedule).",
+				"type": "object",
+				"required": [
+					"person",
+					"report",
+					"frequency"
+				],
+				"authorization": {
+					"create": [
+						"authenticated"
+					],
+					"read": [
+						{
+							"group": "authenticated",
+							"match": {
+								"person": "$userId"
+							}
+						}
+					],
+					"update": [
+						{
+							"group": "authenticated",
+							"match": {
+								"person": "$userId"
+							}
+						}
+					],
+					"delete": [
+						{
+							"group": "authenticated",
+							"match": {
+								"person": "$userId"
+							}
+						}
+					]
+				},
+				"properties": {
+					"person": {
+						"type": "string",
+						"title": "Person",
+						"description": "The person who receives the report."
+					},
+					"report": {
+						"type": "string",
+						"title": "Report",
+						"enum": [
+							"AiOversight"
+						],
+						"description": "The report, by its card on the Reports page."
+					},
+					"frequency": {
+						"type": "string",
+						"title": "Frequency",
+						"enum": [
+							"weekly",
+							"monthly"
+						],
+						"description": "How often the report is sent."
+					},
+					"status": {
+						"type": "string",
+						"title": "Status",
+						"enum": [
+							"active",
+							"cancelled"
+						],
+						"default": "active",
+						"description": "Active until the person cancels it."
+					},
+					"lastSent": {
+						"type": "string",
+						"format": "date-time",
+						"title": "Last sent",
+						"description": "When the report was last sent."
 					}
 				}
 			}

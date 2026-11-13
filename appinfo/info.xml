@@ -56,6 +56,7 @@
         <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
         <job>OCA\Hermiq\BackgroundJob\RunRetentionCleanupJob</job>
         <job>OCA\Hermiq\BackgroundJob\WorkspaceReaperJob</job>
+        <job>OCA\Hermiq\BackgroundJob\ReportSubscriptionJob</job>
     </background-jobs>
 
     <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
