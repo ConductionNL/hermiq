@@ -29,6 +29,7 @@ use OCA\Hermiq\Service\Engine\AppRegisterScope;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\SearchOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
@@ -197,11 +198,34 @@ class ContextRetrievalGoldenTest extends TestCase {
 				continue;
 			}
 
+			if ($args[$index] instanceof SearchOptions) {
+				$named += $this->searchOptions(options: $args[$index]);
+				continue;
+			}
+
 			$named[$param->getName()] = $args[$index];
 		}
 
 		return $named;
 	}//end named()
+
+	/**
+	 * The non-default parts of a SearchOptions, under the names a recording uses.
+	 *
+	 * @param SearchOptions $options The options a search received.
+	 *
+	 * @return array<string, mixed> The deleted flag, ids, uses and views that differ from their default.
+	 */
+	private function searchOptions(SearchOptions $options): array {
+		$parts = [
+			'deleted' => $options->deleted,
+			'ids' => $options->selection->ids,
+			'uses' => $options->selection->uses,
+			'views' => $options->views,
+		];
+
+		return array_filter($parts, static fn (mixed $value): bool => $value !== null && $value !== false);
+	}//end searchOptions()
 
 	/**
 	 * Search rows of mixed shapes: arrays, entities and scalars.

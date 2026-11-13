@@ -26,6 +26,7 @@ namespace OCA\OpenRegister\Service;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\Schema;
+use OCA\OpenRegister\Kernel\Contracts\SearchOptions;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -204,10 +205,7 @@ class ObjectService {
 	 *                     `_register`, `_schema`, ...).
 	 * @param bool $_rbac Whether RBAC applies.
 	 * @param bool $_multitenancy Whether multi-tenancy applies.
-	 * @param bool $deleted Whether to include deleted objects.
-	 * @param array|null $ids Optional array of object IDs to filter by.
-	 * @param string|null $uses Optional uses parameter for filtering.
-	 * @param array|null $views Optional array of view IDs to apply filters from.
+	 * @param SearchOptions $options The id and uses selection, the view ids and the deleted flag.
 	 *
 	 * @return array<string, mixed> Paginated result shape (results, total, ...).
 	 */
@@ -215,10 +213,7 @@ class ObjectService {
 		array $query = [],
 		bool $_rbac = true,
 		bool $_multitenancy = true,
-		bool $deleted = false,
-		?array $ids = null,
-		?string $uses = null,
-		?array $views = null,
+		SearchOptions $options = new SearchOptions(),
 	): array {
 		return [
 			'results' => [],
