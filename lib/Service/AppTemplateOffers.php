@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Event\CollectAgentTemplatesEvent;
+use OCA\Hermiq\Kernel\Contracts\AppTemplateOffersInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -45,7 +46,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
  */
-class AppTemplateOffers {
+class AppTemplateOffers implements AppTemplateOffersInterface {
 	use SanitizesForSaveTrait;
 
 	/**

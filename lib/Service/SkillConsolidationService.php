@@ -47,11 +47,12 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -82,7 +83,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
  */
-class SkillConsolidationService {
+class SkillConsolidationService implements SkillConsolidationServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -149,13 +150,6 @@ class SkillConsolidationService {
 	 * @var string
 	 */
 	public const STATUS_PROPOSED = 'proposed';
-
-	/**
-	 * Awaiting the human decision on the linked Approval.
-	 *
-	 * @var string
-	 */
-	public const STATUS_AWAITING_APPROVAL = 'awaiting-approval';
 
 	/**
 	 * The text fields an edit may replace: edit key => draft field.

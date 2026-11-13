@@ -203,6 +203,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AppTemplateOffersInterface",
+            "OCA\\Hermiq\\Service\\AppTemplateOffers"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ApprovalServiceInterface",
             "OCA\\Hermiq\\Service\\ApprovalService"
         ],
@@ -218,6 +223,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AssistantPromptLibraryInterface",
+            "OCA\\Hermiq\\Service\\Assistant\\AssistantPromptLibrary"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AssistantServiceInterface",
             "OCA\\Hermiq\\Service\\Assistant\\AssistantService"
         ],
@@ -230,6 +240,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AttachmentStoreInterface",
             "OCA\\Hermiq\\Service\\Chat\\AttachmentStore"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\BudgetServiceInterface",
+            "OCA\\Hermiq\\Service\\BudgetService"
         ],
         [
             "registerServiceAlias",
@@ -328,8 +343,18 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\GraphToolsInterface",
+            "OCA\\Hermiq\\Service\\Graph\\GraphTools"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\GuardrailPolicyServiceInterface",
             "OCA\\Hermiq\\Service\\GuardrailPolicyService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ImageGenerationServiceInterface",
+            "OCA\\Hermiq\\Service\\Chat\\ImageGenerationService"
         ],
         [
             "registerServiceAlias",
@@ -405,6 +430,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\OrganisationControlServiceInterface",
             "OCA\\Hermiq\\Service\\OrganisationControlService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\OrganisationModelPolicyServiceInterface",
+            "OCA\\Hermiq\\Service\\OrganisationModelPolicyService"
         ],
         [
             "registerServiceAlias",
@@ -538,6 +568,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SkillConsolidationServiceInterface",
+            "OCA\\Hermiq\\Service\\SkillConsolidationService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SkillLearningsCaptureServiceInterface",
             "OCA\\Hermiq\\Service\\SkillLearningsCaptureService"
         ],
@@ -625,6 +660,11 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnServiceInterface",
             "OCA\\Hermiq\\Service\\Talk\\TalkTurnService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TaskWriteServiceInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\TaskWriteService"
         ],
         [
             "registerServiceAlias",

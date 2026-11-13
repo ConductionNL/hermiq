@@ -48,6 +48,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\BudgetServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -73,31 +74,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
-class BudgetService {
-
-	/**
-	 * OpenRegister register slug that holds Hermiq objects.
-	 *
-	 * Public because `BudgetController::destroy()` addresses the same register when
-	 * it deletes a Budget through OpenRegister directly (ADR-022: no app-local CRUD
-	 * wrapper) — the slug is declared once, here.
-	 *
-	 * @var string
-	 */
-	public const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * OpenRegister schema slug for Budget objects. Namespaced (`agentbudget`, not
-	 * `budget`) because OpenRegister resolves schema slugs GLOBALLY across all
-	 * registers — the generic `budget` slug collided with another app's Budget
-	 * schema, making every write fail validation against foreign required
-	 * properties (same fix as `agentsession`/`agentskill`).
-	 *
-	 * Public for the same reason as REGISTER_SLUG above.
-	 *
-	 * @var string
-	 */
-	public const BUDGET_SCHEMA = 'agentbudget';
+class BudgetService implements BudgetServiceInterface {
 
 	/**
 	 * OpenRegister schema slug for schedule objects.
@@ -379,7 +356,6 @@ class BudgetService {
 		];
 
 	}//end usageFields()
-
 
 	/**
 	 * Pre-run rough cost estimate for one agent — the trailing average tokens per run,

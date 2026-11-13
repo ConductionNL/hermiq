@@ -30,9 +30,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MessageHistoryHandlerInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -69,7 +69,7 @@ class ChatImageController extends Controller {
 	 * @param string                    $appName       The app id.
 	 * @param IRequest                  $request       The request.
 	 * @param IUserSession              $userSession   The signed-in person.
-	 * @param ImageGenerationService    $images        Creates and marks the image.
+	 * @param ImageGenerationServiceInterface    $images        Creates and marks the image.
 	 * @param ObjectService             $objectService Reads the session.
 	 * @param MessageHistoryHandlerInterface     $history       Stores the two turns.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard.
@@ -80,7 +80,7 @@ class ChatImageController extends Controller {
 		string $appName,
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly ImageGenerationService $images,
+		private readonly ImageGenerationServiceInterface $images,
 		private readonly ObjectService $objectService,
 		private readonly MessageHistoryHandlerInterface $history,
 		private readonly ConversationParticipation $participation,

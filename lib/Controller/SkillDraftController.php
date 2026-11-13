@@ -45,9 +45,9 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
-use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -83,7 +83,7 @@ class SkillDraftController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param SkillServiceInterface $skillService Tenant-scoped skill visibility reads.
-	 * @param SkillConsolidationService $consolidation The draft pipeline owner.
+	 * @param SkillConsolidationServiceInterface $consolidation The draft pipeline owner.
 	 * @param ApprovalServiceInterface $approvalService The ONE human-decision surface.
 	 * @param SkillVersionServiceInterface $versionService Post-accept version id resolution.
 	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization.
@@ -97,7 +97,7 @@ class SkillDraftController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly SkillServiceInterface $skillService,
-		private readonly SkillConsolidationService $consolidation,
+		private readonly SkillConsolidationServiceInterface $consolidation,
 		private readonly ApprovalServiceInterface $approvalService,
 		private readonly SkillVersionServiceInterface $versionService,
 		private readonly ActionAuthServiceInterface $actionAuth,
