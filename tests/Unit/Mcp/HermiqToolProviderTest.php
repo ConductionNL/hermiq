@@ -43,15 +43,22 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 
 use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
+use OCA\Hermiq\Mcp\AgentToolActions;
+use OCA\Hermiq\Mcp\AgentToolReaders;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
+use OCA\Hermiq\Mcp\NcPlatform;
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
-use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\NcNative\MailReadService;
+use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\NcNative\TaskWriteService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -60,10 +67,6 @@ use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
-use OCA\Hermiq\Service\NcNative\MailReadService;
-use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
-use OCA\Hermiq\Service\NcNative\TaskWriteService;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -109,22 +112,28 @@ class HermiqToolProviderTest extends TestCase {
 		}
 
 		return new HermiqToolProvider(
-			$session,
-			$this->createMock(IRootFolder::class),
-			$this->createMock(IContactsManager::class),
-			$this->createMock(ICalendarManager::class),
-			$this->createMock(IMailer::class),
-			$this->createMock(IAppManager::class),
-			$container ?? $this->tasksContainer(canComplete: true),
-			$engine ?? $this->createMock(CourseRecommendationEngine::class),
-			$memoryService ?? $this->createMock(MemoryService::class),
-			$webSearchClient ?? $this->createMock(WebSearchClient::class),
-			$webFetchService ?? $this->createMock(WebFetchService::class),
-			$delegationService ?? $this->createMock(DelegationService::class),
-			$writeService ?? $this->createMock(NcNativeWriteService::class),
-			$mailReadService ?? $this->createMock(MailReadService::class),
-			$this->createMock(ToolAccessRequestService::class),
-			$this->createMock(LoggerInterface::class)
+			userSession: $session,
+			platform: new NcPlatform(
+				rootFolder: $this->createMock(IRootFolder::class),
+				contactsManager: $this->createMock(IContactsManager::class),
+				calendarManager: $this->createMock(ICalendarManager::class),
+				mailer: $this->createMock(IMailer::class),
+				appManager: $this->createMock(IAppManager::class)
+			),
+			container: $container ?? $this->tasksContainer(canComplete: true),
+			readers: new AgentToolReaders(
+				courseEngine: $engine ?? $this->createMock(CourseRecommendationEngine::class),
+				memoryService: $memoryService ?? $this->createMock(MemoryService::class),
+				webSearchClient: $webSearchClient ?? $this->createMock(WebSearchClient::class),
+				webFetchService: $webFetchService ?? $this->createMock(WebFetchService::class)
+			),
+			actions: new AgentToolActions(
+				delegationService: $delegationService ?? $this->createMock(DelegationService::class),
+				writeService: $writeService ?? $this->createMock(NcNativeWriteService::class),
+				mailReadService: $mailReadService ?? $this->createMock(MailReadService::class),
+				accessRequests: $this->createMock(ToolAccessRequestService::class)
+			),
+			logger: $this->createMock(LoggerInterface::class)
 		);
 
 	}//end provider()

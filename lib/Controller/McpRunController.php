@@ -56,6 +56,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Mcp\McpRunIdentity;
+use OCA\Hermiq\Controller\Mcp\McpRunState;
+use OCA\Hermiq\Controller\Mcp\McpToolAccess;
 use OCA\Hermiq\Controller\Mcp\ToolCallRequest;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
@@ -156,49 +159,64 @@ class McpRunController extends Controller {
 	 */
 	private string $runId = '';
 
+	private readonly ToolRegistryFacade $toolRegistryFacade;
+
+	private readonly ToolGrantResolver $grantResolver;
+
+	private readonly ToolLoopInterface $toolLoop;
+
+	private readonly ToolSearchServiceInterface $toolSearchService;
+
+	private readonly ?GuardrailPolicyServiceInterface $guardrailService;
+
+	private readonly RunTokenServiceInterface $runTokenService;
+
+	private readonly IUserManager $userManager;
+
+	private readonly IUserSession $userSession;
+
+	private readonly IThrottler $throttler;
+
+	private readonly ObjectService $objectService;
+
+	private readonly RunStepBusInterface $runStepBus;
+
+	private readonly ?WorkspaceRunScope $workspaceScope;
+
+	private readonly ?RunToolCallCounter $toolCallCounter;
+
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token.
-	 * @param ObjectService $objectService Loads the run's agent (under the impersonated user).
-	 * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface.
-	 * @param ToolGrantResolver $grantResolver Expands `Agent.tools` against the catalog.
-	 * @param ToolLoopInterface $toolLoop Builds the governed `FacadeToolInvoker` (reused,
-	 *                           not reimplemented).
-	 * @param ToolSearchServiceInterface $toolSearchService Holds the run's resolved set for the approval gate.
-	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
-	 * @param IUserSession $userSession Impersonates that user for RBAC on dispatch.
-	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
-	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param McpRunIdentity $identity What establishes who an MCP run acts as.
+	 * @param McpRunState $runState The run an MCP call belongs to: its objects, steps, workspace and call count.
+	 * @param McpToolAccess $toolAccess What decides and runs a governed MCP tool call.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
-	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
-	 *                                              workspace tools for the length of one dispatch.
-	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
-	 *                                                 for the agent's tool call cap.
-	 * @param GuardrailPolicyServiceInterface|null $guardrailService Applies the output filters to
-	 *                                                      the steps shown in the chat.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenServiceInterface $runTokenService,
-		private readonly ObjectService $objectService,
-		private readonly ToolRegistryFacade $toolRegistryFacade,
-		private readonly ToolGrantResolver $grantResolver,
-		private readonly ToolLoopInterface $toolLoop,
-		private readonly ToolSearchServiceInterface $toolSearchService,
-		private readonly IUserManager $userManager,
-		private readonly IUserSession $userSession,
-		private readonly IThrottler $throttler,
-		private readonly RunStepBusInterface $runStepBus,
+		McpRunIdentity $identity,
+		McpRunState $runState,
+		McpToolAccess $toolAccess,
 		private readonly LoggerInterface $logger,
-		private readonly ?WorkspaceRunScope $workspaceScope = null,
-		private readonly ?RunToolCallCounter $toolCallCounter = null,
-		private readonly ?GuardrailPolicyServiceInterface $guardrailService = null,
 	) {
+		$this->objectService = $runState->objectService;
+		$this->runStepBus = $runState->runStepBus;
+		$this->workspaceScope = $runState->workspaceScope;
+		$this->toolCallCounter = $runState->toolCallCounter;
+		$this->runTokenService = $identity->runTokenService;
+		$this->userManager = $identity->userManager;
+		$this->userSession = $identity->userSession;
+		$this->throttler = $identity->throttler;
+		$this->toolRegistryFacade = $toolAccess->toolRegistryFacade;
+		$this->grantResolver = $toolAccess->grantResolver;
+		$this->toolLoop = $toolAccess->toolLoop;
+		$this->toolSearchService = $toolAccess->toolSearchService;
+		$this->guardrailService = $toolAccess->guardrailService;
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()

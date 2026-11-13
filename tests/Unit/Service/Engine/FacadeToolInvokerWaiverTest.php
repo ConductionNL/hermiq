@@ -37,9 +37,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\InvocationPolicy;
+use OCA\Hermiq\Service\Engine\InvocationScope;
+use OCA\Hermiq\Service\Engine\InvocationServices;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -146,13 +149,19 @@ class FacadeToolInvokerWaiverTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			approvalService: $approvals,
-			agentId: 'agent-1',
-			mcpIdByName: $this->idMap(),
-			toolPolicy: $this->confirmPolicy(),
-			argumentConstraints: $constraints,
-			ownerUid: 'alice',
-			waivedConstraintSets: $waived
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1',
+				ownerUid: 'alice'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				toolPolicy: $this->confirmPolicy(),
+				argumentConstraints: $constraints,
+				waivedConstraintSets: $waived
+			)
 		);
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_A), true);
@@ -187,13 +196,19 @@ class FacadeToolInvokerWaiverTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			approvalService: $approvals,
-			agentId: 'agent-1',
-			mcpIdByName: $this->idMap(),
-			toolPolicy: $this->confirmPolicy(),
-			argumentConstraints: $constraints,
-			ownerUid: 'alice',
-			waivedConstraintSets: $waived
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1',
+				ownerUid: 'alice'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				toolPolicy: $this->confirmPolicy(),
+				argumentConstraints: $constraints,
+				waivedConstraintSets: $waived
+			)
 		);
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_A), true);
@@ -232,13 +247,19 @@ class FacadeToolInvokerWaiverTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			approvalService: $approvals,
-			agentId: 'agent-1',
-			mcpIdByName: $this->idMap(),
-			toolPolicy: $this->confirmPolicy(),
-			argumentConstraints: $constraints,
-			ownerUid: 'alice',
-			waivedConstraintSets: $waived
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1',
+				ownerUid: 'alice'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				toolPolicy: $this->confirmPolicy(),
+				argumentConstraints: $constraints,
+				waivedConstraintSets: $waived
+			)
 		);
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_B), true);
@@ -271,13 +292,19 @@ class FacadeToolInvokerWaiverTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			approvalService: $approvals,
-			agentId: 'agent-1',
-			mcpIdByName: $this->idMap(),
-			toolPolicy: $this->confirmPolicy(),
-			argumentConstraints: $constraints,
-			ownerUid: 'alice',
-			waivedConstraintSets: $waived
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1',
+				ownerUid: 'alice'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				toolPolicy: $this->confirmPolicy(),
+				argumentConstraints: $constraints,
+				waivedConstraintSets: $waived
+			)
 		);
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_B), true);
@@ -306,12 +333,16 @@ class FacadeToolInvokerWaiverTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			agentId: 'agent-1',
-			mcpIdByName: $this->idMap(),
-			toolPolicy: ['openregister.runFlow' => 'deny'],
-			argumentConstraints: $constraints,
-			ownerUid: 'alice',
-			waivedConstraintSets: $waived
+			scope: new InvocationScope(
+				agentId: 'agent-1',
+				ownerUid: 'alice'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				toolPolicy: ['openregister.runFlow' => 'deny'],
+				argumentConstraints: $constraints,
+				waivedConstraintSets: $waived
+			)
 		);
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_A), true);

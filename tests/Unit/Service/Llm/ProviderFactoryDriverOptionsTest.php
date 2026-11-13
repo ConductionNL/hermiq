@@ -30,6 +30,7 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -55,7 +56,16 @@ class ProviderFactoryDriverOptionsTest extends TestCase {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 
-		return new ProviderFactory($this->createMock(LlmSettingsHandler::class), $this->createMock(IManager::class), $userSession, new NullLogger());
+		return new ProviderFactory(
+			settingsHandler: $this->createMock(LlmSettingsHandler::class),
+			platform: new ProviderPlatform(
+				taskManager: $this->createMock(IManager::class),
+				userSession: $userSession
+			),
+			logger: new NullLogger(
+
+			)
+		);
 	}//end factory()
 
 	/**

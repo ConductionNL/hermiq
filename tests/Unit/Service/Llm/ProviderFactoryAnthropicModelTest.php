@@ -23,6 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
@@ -62,7 +63,14 @@ class ProviderFactoryAnthropicModelTest extends TestCase {
 		$session = $this->createMock(IUserSession::class);
 		$session->method('getUser')->willReturn($user);
 
-		$factory = new ProviderFactory($this->createMock(LlmSettingsHandler::class), $this->createMock(IManager::class), $session, $logger);
+		$factory = new ProviderFactory(
+			settingsHandler: $this->createMock(LlmSettingsHandler::class),
+			platform: new ProviderPlatform(
+				taskManager: $this->createMock(IManager::class),
+				userSession: $session
+			),
+			logger: $logger
+		);
 
 		return $factory->createChatDriver(
 			llmConfig: ['chatProvider' => 'anthropic', 'anthropicConfig' => (['credentialId' => 'cred-a'] + $anthropicConfig)],

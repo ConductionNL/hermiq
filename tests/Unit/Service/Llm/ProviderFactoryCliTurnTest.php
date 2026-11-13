@@ -37,6 +37,9 @@ namespace OCA\AppAPI {
 namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 	use LLPhant\Chat\Message as LLPhantMessage;
+
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 	use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 	use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 	use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -100,14 +103,18 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 			return new ProviderFactory(
 				settingsHandler: $this->createMock(LlmSettingsHandler::class),
-				taskManager: $this->createMock(IManager::class),
-				userSession: $session,
+				platform: new ProviderPlatform(
+					taskManager: $this->createMock(IManager::class),
+					userSession: $session,
+					appManager: $apps,
+					urlGenerator: $urls,
+					container: $this->container()
+				),
 				logger: new NullLogger(),
-				appManager: $apps,
-				credentialResolver: $scopes,
-				runTokenService: $this->tokens,
-				urlGenerator: $urls,
-				container: $this->container()
+				governance: new ProviderGovernance(
+					credentialResolver: $scopes,
+					runTokenService: $this->tokens
+				)
 			);
 		}//end factory()
 

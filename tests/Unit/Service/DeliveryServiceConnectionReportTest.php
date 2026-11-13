@@ -28,6 +28,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
+use OCA\Hermiq\Service\Delivery\DeliveryChannels;
+use OCA\Hermiq\Service\Delivery\DeliverySafety;
+use OCA\Hermiq\Service\Delivery\TalkDelivery;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleWebhookSecretService;
@@ -104,20 +107,26 @@ class DeliveryServiceConnectionReportTest extends TestCase {
 		);
 
 		return new class(
-			notificationManager: $this->createMock(originalClassName: INotificationManager::class),
-			talkBroker: $this->createMock(originalClassName: IBroker::class),
-			urlGenerator: $this->createMock(originalClassName: IURLGenerator::class),
+			channels: new DeliveryChannels(
+				notificationManager: $this->createMock(originalClassName: INotificationManager::class),
+				talkBroker: $this->createMock(originalClassName: IBroker::class),
+				mailer: $this->createMock(originalClassName: IMailer::class),
+				clientService: $clientService
+			),
+			talk: new TalkDelivery(
+				urlGenerator: $this->createMock(originalClassName: IURLGenerator::class),
+				userManager: $this->createMock(originalClassName: IUserManager::class),
+				talkRoomBinding: $this->createMock(originalClassName: TalkRoomBinding::class),
+				talkApprovalNotifier: $this->createMock(originalClassName: TalkApprovalNotifier::class)
+			),
 			container: $this->createMock(originalClassName: ContainerInterface::class),
 			config: $this->createMock(originalClassName: IConfig::class),
-			userManager: $this->createMock(originalClassName: IUserManager::class),
-			mailer: $this->createMock(originalClassName: IMailer::class),
-			clientService: $clientService,
-			redactionService: new RedactionService(config: $redactionConfig),
-			scheduleWebhookSecretService: $secrets,
-			logger: $this->createMock(originalClassName: LoggerInterface::class),
-			talkRoomBinding: $this->createMock(originalClassName: TalkRoomBinding::class),
-			talkApprovalNotifier: $this->createMock(originalClassName: TalkApprovalNotifier::class),
-			connectionReporter: $reporter,
+			safety: new DeliverySafety(
+				redactionService: new RedactionService(config: $redactionConfig),
+				scheduleWebhookSecretService: $secrets,
+				connectionReporter: $reporter
+			),
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
 		) extends DeliveryService {
 
 			/**

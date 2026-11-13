@@ -24,14 +24,16 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
-use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\EffectiveModelPolicy;
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -93,19 +95,23 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 		);
 
 		return new ProviderFactory(
-			$this->createMock(LlmSettingsHandler::class),
-			$this->createMock(IManager::class),
-			$this->createMock(IUserSession::class),
-			new NullLogger(),
-			'hermiq',
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			$resolver
+			settingsHandler: $this->createMock(LlmSettingsHandler::class),
+			platform: new ProviderPlatform(
+				taskManager: $this->createMock(IManager::class),
+				userSession: $this->createMock(IUserSession::class),
+				appManager: null,
+				urlGenerator: null,
+				appConfig: null,
+				container: null
+			),
+			logger: new NullLogger(),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: null,
+				credentialResolver: null,
+				runTokenService: null,
+				featureResolver: $resolver
+			)
 		);
 	}//end factory()
 

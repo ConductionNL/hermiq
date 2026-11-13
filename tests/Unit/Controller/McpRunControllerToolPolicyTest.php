@@ -22,6 +22,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
+use OCA\Hermiq\Controller\Mcp\McpRunIdentity;
+use OCA\Hermiq\Controller\Mcp\McpRunState;
+use OCA\Hermiq\Controller\Mcp\McpToolAccess;
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\RunStepBus;
@@ -30,8 +33,8 @@ use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use OCP\ICacheFactory;
@@ -140,7 +143,26 @@ final class McpRunControllerToolPolicyTest extends TestCase {
 		$controller = new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, new ToolSearchService(), $userManager, $this->createMock(IUserSession::class), $this->createMock(IThrottler::class), new RunStepBus($this->createMock(ICacheFactory::class)), new NullLogger(), $body) extends McpRunController {
 			// phpcs:ignore
 			public function __construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $bus, $logger, private string $rawBody) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $bus, $logger);
+				parent::__construct(
+					request: $request,
+					identity: new McpRunIdentity(
+						runTokenService: $tokens,
+						userManager: $userManager,
+						userSession: $userSession,
+						throttler: $throttler
+					),
+					runState: new McpRunState(
+						objectService: $objects,
+						runStepBus: $bus
+					),
+					toolAccess: new McpToolAccess(
+						toolRegistryFacade: $facade,
+						grantResolver: $grant,
+						toolLoop: $toolLoop,
+						toolSearchService: $search
+					),
+					logger: $logger
+				);
 			}
 
 			// phpcs:ignore

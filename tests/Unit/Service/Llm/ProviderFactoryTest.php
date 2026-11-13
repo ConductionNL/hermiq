@@ -28,21 +28,23 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
-use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
-use OCA\Hermiq\Service\Llm\CliTurn;
-use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
+use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
+use OCA\Hermiq\Service\Llm\CliTurn;
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
-use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
+use OCP\IAppConfig;
 use OCP\IUser;
 use OCP\IUserSession;
-use OCP\IAppConfig;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
@@ -75,7 +77,16 @@ class ProviderFactoryTest extends TestCase {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 
-		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger());
+		$factory = new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession
+			),
+			logger: new NullLogger(
+
+			)
+		);
 
 		return [$factory, $manager];
 	}//end factory()
@@ -203,7 +214,20 @@ class ProviderFactoryTest extends TestCase {
 		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(false);
 
-		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
+		$factory = new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession
+			),
+			logger: new NullLogger(
+
+			),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: $policy
+			)
+		);
 
 		$this->expectException(ModelPolicyViolationException::class);
 		$this->expectExceptionCode(422);
@@ -236,7 +260,20 @@ class ProviderFactoryTest extends TestCase {
 		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->expects($this->once())->method('isAllowed')->willReturn(true);
 
-		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
+		$factory = new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession
+			),
+			logger: new NullLogger(
+
+			),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: $policy
+			)
+		);
 
 		$driver = $factory->createChatDriver(
 			llmConfig: [
@@ -276,20 +313,24 @@ class ProviderFactoryTest extends TestCase {
 		$gate = new DataUseGate($effective, new ProviderDataUseRegistry($config));
 
 		$factory = new ProviderFactory(
-			$settings,
-			$manager,
-			$userSession,
-			new NullLogger(),
-			'hermiq',
-			$policy,
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			$gate
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession,
+				appManager: null,
+				urlGenerator: null,
+				appConfig: null,
+				container: null
+			),
+			logger: new NullLogger(),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: $policy,
+				credentialResolver: null,
+				runTokenService: null,
+				featureResolver: null,
+				dataUseGate: $gate
+			)
 		);
 
 		$this->expectException(DataUseViolationException::class);
@@ -583,7 +624,20 @@ class ProviderFactoryTest extends TestCase {
 		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(false);
 
-		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
+		$factory = new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession
+			),
+			logger: new NullLogger(
+
+			),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: $policy
+			)
+		);
 
 		$this->expectException(ModelPolicyViolationException::class);
 		$this->expectExceptionCode(422);
@@ -713,7 +767,22 @@ class ProviderFactoryTest extends TestCase {
 		$user->method('getUID')->willReturn('alice');
 		$userSession->method('getUser')->willReturn($user);
 
-		return new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', null, null, $resolver);
+		return new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession,
+				appManager: null
+			),
+			logger: new NullLogger(
+
+			),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: null,
+				credentialResolver: $resolver
+			)
+		);
 	}//end factoryWithCredentialResolver()
 
 	/**
@@ -1320,16 +1389,20 @@ class ProviderFactoryTest extends TestCase {
 		$userSession->method('getUser')->willReturn($user);
 
 		return new ProviderFactory(
-			$settings,
-			$manager,
-			$userSession,
-			new NullLogger(),
-			'hermiq',
-			null,
-			null,
-			null,
-			$runTokenService,
-			$urlGenerator
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession,
+				appManager: null,
+				urlGenerator: $urlGenerator
+			),
+			logger: new NullLogger(),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: null,
+				credentialResolver: null,
+				runTokenService: $runTokenService
+			)
 		);
 
 	}//end governedFactory()
@@ -1650,13 +1723,17 @@ class ProviderFactoryTest extends TestCase {
 		$appManager->method('isEnabledForUser')->willReturn(true);
 
 		$factory = new ProviderFactory(
-			$settings,
-			$manager,
-			$userSession,
-			new NullLogger(),
-			'hermiq',
-			null,
-			$appManager
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession,
+				appManager: $appManager
+			),
+			logger: new NullLogger(),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: null
+			)
 		);
 
 		try {

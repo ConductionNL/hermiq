@@ -29,6 +29,9 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use DateTime;
 use OCA\Hermiq\Service\ApprovalPreviewBuilder;
+use OCA\Hermiq\Service\Delivery\DeliveryChannels;
+use OCA\Hermiq\Service\Delivery\DeliverySafety;
+use OCA\Hermiq\Service\Delivery\TalkDelivery;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\RedactionService;
@@ -175,19 +178,25 @@ class DeliveryServiceNoticeGoldenTest extends TestCase {
 		$config->method('getAppValue')->willReturn('yes');
 
 		return new DeliveryService(
-			notificationManager: $manager,
-			talkBroker: $broker,
-			urlGenerator: $urls,
+			channels: new DeliveryChannels(
+				notificationManager: $manager,
+				talkBroker: $broker,
+				mailer: $this->createMock(IMailer::class),
+				clientService: $this->createMock(IClientService::class)
+			),
+			talk: new TalkDelivery(
+				urlGenerator: $urls,
+				userManager: $this->createMock(IUserManager::class),
+				talkRoomBinding: $this->createMock(TalkRoomBinding::class),
+				talkApprovalNotifier: $this->createMock(TalkApprovalNotifier::class)
+			),
 			container: $container,
 			config: $config,
-			userManager: $this->createMock(IUserManager::class),
-			mailer: $this->createMock(IMailer::class),
-			clientService: $this->createMock(IClientService::class),
-			redactionService: new RedactionService(config: $config),
-			scheduleWebhookSecretService: $this->createMock(ScheduleWebhookSecretService::class),
-			logger: $logger,
-			talkRoomBinding: $this->createMock(TalkRoomBinding::class),
-			talkApprovalNotifier: $this->createMock(TalkApprovalNotifier::class),
+			safety: new DeliverySafety(
+				redactionService: new RedactionService(config: $config),
+				scheduleWebhookSecretService: $this->createMock(ScheduleWebhookSecretService::class)
+			),
+			logger: $logger
 		);
 	}//end service()
 

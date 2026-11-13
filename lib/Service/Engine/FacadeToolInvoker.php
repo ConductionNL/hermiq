@@ -300,6 +300,30 @@ class FacadeToolInvoker {
 	 */
 	private readonly TurnGuard $turnGuard;
 
+	private readonly ?ToolSearchService $toolSearchService;
+
+	private readonly ?ApprovalService $approvalService;
+
+	private readonly ?ToolClassificationService $classifier;
+
+	private readonly ?RedactionService $redactionService;
+
+	private readonly ?string $agentId;
+
+	private readonly bool $dryRun;
+
+	private readonly ?string $ownerUid;
+
+	private readonly array $mcpIdByName;
+
+	private readonly array $toolPolicy;
+
+	private readonly array $descriptorsByName;
+
+	private readonly array $argumentConstraints;
+
+	private readonly array $waivedConstraintSets;
+
 	/**
 	 * Constructor.
 	 *
@@ -310,115 +334,9 @@ class FacadeToolInvoker {
 	 *                                      supplied, each invocation is timed
 	 *                                      as a `tool` step
 	 *                                      (run-trace-observability).
-	 * @param ToolSearchService|null $toolSearchService Per-run resolved-set + `searchTools`
-	 *                                                  ranking
-	 *                                                  (agent-tool-governance-and-disclosure);
-	 *                                                  null disables both the meta-tool
-	 *                                                  short-circuit and the
-	 *                                                  approval-gate's grant-membership
-	 *                                                  check (agent-less chat).
-	 * @param ApprovalService|null $approvalService Human-approval gate; null disables the
-	 *                                              destructive-invocation short-circuit
-	 *                                              (existing callers, unchanged
-	 *                                              behaviour).
-	 * @param string|null $agentId The acting agent's UUID; null disables
-	 *                             the approval gate (no reviewer/owner
-	 *                             to route to).
-	 * @param array<string,string> $mcpIdByName Map of LLPhant-safe function name to the
-	 *                                          dotted `mcpId` — resolves the id the
-	 *                                          approval gate classifies/checks (LLPhant
-	 *                                          calls back with the safe name, which may
-	 *                                          have dots replaced by underscores).
-	 * @param array<string,string> $toolPolicy The effective GuardrailPolicy's
-	 *                                         `toolId => classification` map
-	 *                                         (agent-guardrails), resolved
-	 *                                         ONCE per turn by
-	 *                                         `ToolLoop::resolveToolPolicy()`.
-	 *                                         A tool absent from this map is
-	 *                                         `auto` (zero behavior change);
-	 *                                         an empty map (no
-	 *                                         `GuardrailPolicyService`, or no
-	 *                                         policy configured) disables
-	 *                                         this short-circuit entirely.
-	 * @param bool $dryRun Whether this turn is a
-	 *                     dry-run preview
-	 *                     (run-replay-and-dry-run):
-	 *                     when true, a
-	 *                     side-effecting tool is
-	 *                     neutralised at
-	 *                     `dispatchToFacade()`
-	 *                     instead of actually
-	 *                     invoked. False (every
-	 *                     pre-existing caller)
-	 *                     is byte-for-byte
-	 *                     unchanged behavior.
-	 * @param ToolClassificationService|null $classifier Resolves whether a tool is
-	 *                                                   side-effecting or
-	 *                                                   read-only
-	 *                                                   (run-replay-and-dry-run);
-	 *                                                   only consulted when
-	 *                                                   `$dryRun` is true.
-	 *                                                   Defaults to a fresh
-	 *                                                   instance (stateless, no
-	 *                                                   dependencies) so callers
-	 *                                                   never need to construct
-	 *                                                   one just to leave dry-run
-	 *                                                   off.
-	 * @param array<string,array<string,mixed>> $descriptorsByName Map of LLPhant-safe function
-	 *                                                             name to its full catalog
-	 *                                                             descriptor
-	 *                                                             (run-replay-and-dry-run), so
-	 *                                                             the classifier can consult a
-	 *                                                             tool's declared `scope`/
-	 *                                                             `destructiveHint`/`readOnlyHint`
-	 *                                                             when available. Empty for
-	 *                                                             existing callers — the
-	 *                                                             classifier then falls back
-	 *                                                             to id-only classification.
-	 * @param RedactionService|null $redactionService Masks secrets/PII in a
-	 *                                                `would-have-called`
-	 *                                                step's arguments
-	 *                                                before they reach the
-	 *                                                trace
-	 *                                                (run-replay-and-dry-run,
-	 *                                                the ONE exception to
-	 *                                                this class's "never
-	 *                                                raw arguments" rule).
-	 *                                                Null falls back to a
-	 *                                                fully-opaque
-	 *                                                placeholder rather
-	 *                                                than ever risking an
-	 *                                                unredacted value
-	 *                                                (fail-safe).
-	 * @param array<string,array<int,array>> $argumentConstraints Per-tool ALTERNATIVE argument-constraint
-	 *                                                            sets from an argument-scoped grant
-	 *                                                            (`ToolGrantResolver::argumentConstraints()`,
-	 *                                                            hydra-console-agent-leaves). Each inner
-	 *                                                            entry is an `argument => {mode, values}`
-	 *                                                            map. A tool absent from this map is
-	 *                                                            unconstrained; an empty map (every
-	 *                                                            pre-existing caller) disables the check
-	 *                                                            entirely — zero behaviour change.
-	 * @param string|null $ownerUid The owning Nextcloud UID this run acts as
-	 *                              (hydra-console-agent-leaves). Required
-	 *                              before a flow-queueing tool may be
-	 *                              dispatched; null or empty REFUSES that
-	 *                              tool rather than defaulting the owner.
-	 *                              Every other tool is unaffected, so
-	 *                              existing callers that omit it are
-	 *                              unchanged.
-	 * @param array<string,array<int,array>> $waivedConstraintSets The subset of those alternative sets
-	 *                                                             belonging to grant entries that carried
-	 *                                                             a `#noapproval` fragment
-	 *                                                             (`ToolGrantResolver::waivedConstraintSets()`,
-	 *                                                             agent-capability-reach). Shaped
-	 *                                                             identically so the same pure checker
-	 *                                                             decides conformance. Empty (every
-	 *                                                             pre-existing caller) waives nothing.
-	 * @param int|null     $maxToolCalls Tool calls this turn may make (agents-switch-off-and-stop);
-	 *                                   null, every pre-existing caller, is no cap.
-	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
-	 *                                   null is always on.
+	 * @param InvocationServices $services The services a tool invocation consults: search, approvals, classification and redaction.
+	 * @param InvocationScope $scope Whose run a tool invocation belongs to, and the limits it runs under.
+	 * @param InvocationPolicy $policy The tool policy, descriptors and argument constraints an invocation enforces.
 	 *
 	 * @return void
 	 *
@@ -439,21 +357,24 @@ class FacadeToolInvoker {
 		private readonly ToolRegistryFacade $facade,
 		private readonly ?StreamYieldChannel $channel = null,
 		private readonly ?RunTraceCollector $trace = null,
-		private readonly ?ToolSearchService $toolSearchService = null,
-		private readonly ?ApprovalService $approvalService = null,
-		private readonly ?string $agentId = null,
-		private readonly array $mcpIdByName = [],
-		private readonly array $toolPolicy = [],
-		private readonly bool $dryRun = false,
-		private readonly ?ToolClassificationService $classifier = new ToolClassificationService(),
-		private readonly array $descriptorsByName = [],
-		private readonly ?RedactionService $redactionService = null,
-		private readonly array $argumentConstraints = [],
-		private readonly ?string $ownerUid = null,
-		private readonly array $waivedConstraintSets = [],
-		?int $maxToolCalls = null,
-		?Closure $agentStillOn = null,
+		InvocationServices $services = new InvocationServices(),
+		InvocationScope $scope = new InvocationScope(),
+		InvocationPolicy $policy = new InvocationPolicy(),
 	) {
+		$this->mcpIdByName = $policy->mcpIdByName;
+		$this->toolPolicy = $policy->toolPolicy;
+		$this->descriptorsByName = $policy->descriptorsByName;
+		$this->argumentConstraints = $policy->argumentConstraints;
+		$this->waivedConstraintSets = $policy->waivedConstraintSets;
+		$this->agentId = $scope->agentId;
+		$this->dryRun = $scope->dryRun;
+		$this->ownerUid = $scope->ownerUid;
+		$maxToolCalls = $scope->maxToolCalls;
+		$agentStillOn = $scope->agentStillOn;
+		$this->toolSearchService = $services->toolSearchService;
+		$this->approvalService = $services->approvalService;
+		$this->classifier = $services->classifier;
+		$this->redactionService = $services->redactionService;
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
 

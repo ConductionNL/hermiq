@@ -544,19 +544,25 @@ class ToolLoop implements ToolLoopInterface {
 			facade: $this->toolRegistryFacade,
 			channel: $run->channel,
 			trace: $run->trace,
-			toolSearchService: $this->toolSearchService,
-			approvalService: $this->approvalService,
-			agentId: $agentId,
-			mcpIdByName: $this->mcpIdsByName(functions: $run->functions),
-			toolPolicy: $this->resolveToolPolicy(organisation: $run->organisation),
-			dryRun: $run->dryRun,
-			descriptorsByName: $this->descriptorsByName(functions: $run->functions),
-			redactionService: $this->redactionService,
-			argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $run->agent)),
-			ownerUid: $this->resolveOwnerUid(agent: $run->agent),
-			waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent)),
-			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
-			agentStillOn: $this->agentStillOn(agentId: $agentId)
+			services: new InvocationServices(
+				toolSearchService: $this->toolSearchService,
+				approvalService: $this->approvalService,
+				redactionService: $this->redactionService
+			),
+			scope: new InvocationScope(
+				agentId: $agentId,
+				dryRun: $run->dryRun,
+				ownerUid: $this->resolveOwnerUid(agent: $run->agent),
+				maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
+				agentStillOn: $this->agentStillOn(agentId: $agentId)
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->mcpIdsByName(functions: $run->functions),
+				toolPolicy: $this->resolveToolPolicy(organisation: $run->organisation),
+				descriptorsByName: $this->descriptorsByName(functions: $run->functions),
+				argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $run->agent)),
+				waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $run->agent))
+			)
 		);
 	}//end createInvoker()
 

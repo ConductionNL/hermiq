@@ -21,6 +21,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -69,7 +71,26 @@ class ProviderFactoryGenerateTextHttpTest extends TestCase {
 		$session = $this->createMock(IUserSession::class);
 		$session->method('getUser')->willReturn($user);
 
-		return new ProviderFactory($settings, $this->createMock(IManager::class), $session, new NullLogger(), 'hermiq', null, null, null, null, null, null, $container);
+		return new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $this->createMock(IManager::class),
+				userSession: $session,
+				appManager: null,
+				urlGenerator: null,
+				appConfig: null,
+				container: $container
+			),
+			logger: new NullLogger(
+
+			),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: null,
+				credentialResolver: null,
+				runTokenService: null
+			)
+		);
 	}//end factory()
 
 	/**

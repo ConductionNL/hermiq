@@ -21,6 +21,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\InvocationScope;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\TurnStoppedException;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
@@ -61,7 +62,13 @@ class FacadeToolInvokerStopTest extends TestCase {
 	public function testSixthCallPastACapOfFiveIsNotInvoked(): void {
 		$calls = 0;
 		$trace = new RunTraceCollector();
-		$invoker = new FacadeToolInvoker(facade: $this->countingFacade(calls: $calls), trace: $trace, maxToolCalls: 5);
+		$invoker = new FacadeToolInvoker(
+			facade: $this->countingFacade(calls: $calls),
+			trace: $trace,
+			scope: new InvocationScope(
+				maxToolCalls: 5
+			)
+		);
 
 		for ($i = 0; $i < 5; $i++) {
 			$invoker->search_objects(query: 'permit');
@@ -96,9 +103,11 @@ class FacadeToolInvokerStopTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $this->countingFacade(calls: $calls),
 			trace: $trace,
-			agentStillOn: static function () use (&$on): bool {
+			scope: new InvocationScope(
+				agentStillOn: static function () use (&$on): bool {
 				return $on;
 			}
+			)
 		);
 
 		$invoker->search_objects(query: 'a');

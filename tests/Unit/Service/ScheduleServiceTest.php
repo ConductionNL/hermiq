@@ -40,16 +40,20 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\Schedule\AgentRuntimes;
+use OCA\Hermiq\Service\Schedule\RunGovernance;
+use OCA\Hermiq\Service\Schedule\ScheduleEnvironment;
+use OCA\Hermiq\Service\Schedule\ScheduleRecords;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
-use OCA\OpenRegister\Db\AuditTrail;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Mcp\Db\Conversation;
 use OCA\OpenRegister\Mcp\Db\ConversationMapper;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -332,25 +336,33 @@ class ScheduleServiceTest extends TestCase {
 	private function makeService(): ScheduleService {
 		return new ScheduleService(
 			objectService: $this->objectService,
-			agentMapper: $this->agentMapper,
-			conversationMapper: $this->conversationMapper,
-			chatService: $this->chatService,
-			userSession: $this->userSession,
-			userManager: $this->userManager,
-			config: $this->config,
+			records: new ScheduleRecords(
+				agentMapper: $this->agentMapper,
+				conversationMapper: $this->conversationMapper,
+				auditTrailMapper: $this->auditTrailMapper,
+				agentVersionService: $this->agentVersionService,
+				skillVersionService: $this->createMock(SkillVersionService::class)
+			),
+			runtimes: new AgentRuntimes(
+				chatService: $this->chatService,
+				deliveryService: $this->deliveryService,
+				engine: $this->engine,
+				delegationContext: $this->delegationContext,
+				jobList: $this->createMock(IJobList::class)
+			),
+			environment: new ScheduleEnvironment(
+				userSession: $this->userSession,
+				userManager: $this->userManager,
+				config: $this->config,
+				appConfig: $this->appConfig
+			),
 			logger: $this->createMock(LoggerInterface::class),
-			deliveryService: $this->deliveryService,
-			auditTrailMapper: $this->auditTrailMapper,
-			redactionService: $this->redactionService,
-			approvalService: $this->approvalService,
-			appConfig: $this->appConfig,
-			engine: $this->engine,
-			budgetService: $this->budgetService,
-			guardrailPolicyService: $this->guardrailPolicyService,
-			agentVersionService: $this->agentVersionService,
-			skillVersionService: $this->createMock(SkillVersionService::class),
-			delegationContext: $this->delegationContext,
-			jobList: $this->createMock(IJobList::class),
+			governance: new RunGovernance(
+				redactionService: $this->redactionService,
+				approvalService: $this->approvalService,
+				budgetService: $this->budgetService,
+				guardrailPolicyService: $this->guardrailPolicyService
+			)
 		);
 
 	}//end makeService()

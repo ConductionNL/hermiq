@@ -34,6 +34,9 @@ namespace OCA\AppAPI {
 namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 	use LLPhant\Chat\Message as LLPhantMessage;
+
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 	use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 	use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 	use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -99,14 +102,18 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 			return new ProviderFactory(
 				settingsHandler: $this->createMock(LlmSettingsHandler::class),
-				taskManager: $this->createMock(IManager::class),
-				userSession: $session,
+				platform: new ProviderPlatform(
+					taskManager: $this->createMock(IManager::class),
+					userSession: $session,
+					appManager: $apps,
+					urlGenerator: $urls,
+					container: $this->container()
+				),
 				logger: $this->logger,
-				appManager: $apps,
-				credentialResolver: $scopes,
-				runTokenService: $tokens,
-				urlGenerator: $urls,
-				container: $this->container()
+				governance: new ProviderGovernance(
+					credentialResolver: $scopes,
+					runTokenService: $tokens
+				)
 			);
 		}//end factory()
 
@@ -300,7 +307,14 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 				'[ProviderFactory] Nextcloud Assistant task failed',
 				self::callback(static fn (array $context): bool => $context['error'] === 'provider crashed')
 			);
-			$factory = new ProviderFactory($this->createMock(LlmSettingsHandler::class), $manager, $this->createMock(IUserSession::class), $this->logger);
+			$factory = new ProviderFactory(
+				settingsHandler: $this->createMock(LlmSettingsHandler::class),
+				platform: new ProviderPlatform(
+					taskManager: $manager,
+					userSession: $this->createMock(IUserSession::class)
+				),
+				logger: $this->logger
+			);
 
 			try {
 				$factory->generateViaNextcloud(prompt: 'Summarise this.', userId: 'alice');

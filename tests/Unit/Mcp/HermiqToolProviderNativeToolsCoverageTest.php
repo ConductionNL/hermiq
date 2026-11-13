@@ -23,8 +23,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
 use OCA\Hermiq\Mcp\AgentMemoryTools;
+use OCA\Hermiq\Mcp\AgentToolActions;
+use OCA\Hermiq\Mcp\AgentToolReaders;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Mcp\NativeToolCall;
+use OCA\Hermiq\Mcp\NcPlatform;
 use OCA\Hermiq\Mcp\ToolErrorEnvelope;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
@@ -96,22 +99,28 @@ final class HermiqToolProviderNativeToolsCoverageTest extends TestCase {
 		$this->logger         = $this->createMock(LoggerInterface::class);
 
 		$this->provider = new HermiqToolProvider(
-			$session,
-			$this->rootFolder,
-			$this->contacts,
-			$this->createMock(ICalendarManager::class),
-			$this->mailer,
-			$this->appManager,
-			$this->container,
-			$this->createMock(CourseRecommendationEngine::class),
-			$this->createMock(MemoryService::class),
-			$this->webSearch,
-			$this->webFetch,
-			$this->delegation,
-			$this->writes,
-			$this->mailReads,
-			$this->accessRequests,
-			$this->logger
+			userSession: $session,
+			platform: new NcPlatform(
+				rootFolder: $this->rootFolder,
+				contactsManager: $this->contacts,
+				calendarManager: $this->createMock(ICalendarManager::class),
+				mailer: $this->mailer,
+				appManager: $this->appManager
+			),
+			container: $this->container,
+			readers: new AgentToolReaders(
+				courseEngine: $this->createMock(CourseRecommendationEngine::class),
+				memoryService: $this->createMock(MemoryService::class),
+				webSearchClient: $this->webSearch,
+				webFetchService: $this->webFetch
+			),
+			actions: new AgentToolActions(
+				delegationService: $this->delegation,
+				writeService: $this->writes,
+				mailReadService: $this->mailReads,
+				accessRequests: $this->accessRequests
+			),
+			logger: $this->logger
 		);
 	}//end setUp()
 

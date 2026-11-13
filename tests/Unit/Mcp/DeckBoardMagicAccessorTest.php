@@ -29,13 +29,16 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
 use BadFunctionCallException;
+use OCA\Hermiq\Mcp\AgentToolActions;
+use OCA\Hermiq\Mcp\AgentToolReaders;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
+use OCA\Hermiq\Mcp\NcPlatform;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCP\App\IAppManager;
@@ -165,22 +168,28 @@ class DeckBoardMagicAccessorTest extends TestCase {
 		);
 
 		return new HermiqToolProvider(
-			$session,
-			$this->createMock(IRootFolder::class),
-			$this->createMock(IContactsManager::class),
-			$this->createMock(ICalendarManager::class),
-			$this->createMock(IMailer::class),
-			$apps,
-			$container,
-			$this->createMock(CourseRecommendationEngine::class),
-			$this->createMock(MemoryService::class),
-			$this->createMock(WebSearchClient::class),
-			$this->createMock(WebFetchService::class),
-			$this->createMock(DelegationService::class),
-			$this->createMock(NcNativeWriteService::class),
-			$this->createMock(MailReadService::class),
-			$this->createMock(ToolAccessRequestService::class),
-			$this->createMock(LoggerInterface::class)
+			userSession: $session,
+			platform: new NcPlatform(
+				rootFolder: $this->createMock(IRootFolder::class),
+				contactsManager: $this->createMock(IContactsManager::class),
+				calendarManager: $this->createMock(ICalendarManager::class),
+				mailer: $this->createMock(IMailer::class),
+				appManager: $apps
+			),
+			container: $container,
+			readers: new AgentToolReaders(
+				courseEngine: $this->createMock(CourseRecommendationEngine::class),
+				memoryService: $this->createMock(MemoryService::class),
+				webSearchClient: $this->createMock(WebSearchClient::class),
+				webFetchService: $this->createMock(WebFetchService::class)
+			),
+			actions: new AgentToolActions(
+				delegationService: $this->createMock(DelegationService::class),
+				writeService: $this->createMock(NcNativeWriteService::class),
+				mailReadService: $this->createMock(MailReadService::class),
+				accessRequests: $this->createMock(ToolAccessRequestService::class)
+			),
+			logger: $this->createMock(LoggerInterface::class)
 		);
 
 	}//end providerWithBoards()

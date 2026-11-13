@@ -20,6 +20,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
+use OCA\Hermiq\Controller\Mcp\McpRunIdentity;
+use OCA\Hermiq\Controller\Mcp\McpRunState;
+use OCA\Hermiq\Controller\Mcp\McpToolAccess;
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\ToolLoop;
@@ -27,8 +30,8 @@ use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IRequest;
 use OCP\IUser;
@@ -95,7 +98,27 @@ final class McpRunControllerWorkspaceScopeTest extends TestCase {
 		return new class($request, $tokens, $objects, $this->createMock(ToolRegistryFacade::class), new ToolGrantResolver(), $this->createMock(ToolLoop::class), $this->createMock(ToolSearchService::class), $userManager, $this->createMock(IUserSession::class), $this->createMock(IThrottler::class), $this->createMock(RunStepBus::class), new NullLogger(), $scope, $body) extends McpRunController {
 			// phpcs:ignore
 			public function __construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, $scope, private string $rawBody) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, $scope);
+				parent::__construct(
+					request: $request,
+					identity: new McpRunIdentity(
+						runTokenService: $tokens,
+						userManager: $userManager,
+						userSession: $userSession,
+						throttler: $throttler
+					),
+					runState: new McpRunState(
+						objectService: $objects,
+						runStepBus: $runStepBus,
+						workspaceScope: $scope
+					),
+					toolAccess: new McpToolAccess(
+						toolRegistryFacade: $facade,
+						grantResolver: $grant,
+						toolLoop: $toolLoop,
+						toolSearchService: $search
+					),
+					logger: $logger
+				);
 			}
 
 			protected function readRawBody(): string {

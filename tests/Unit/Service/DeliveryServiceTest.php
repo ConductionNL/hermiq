@@ -38,6 +38,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Delivery\DeliveryChannels;
+use OCA\Hermiq\Service\Delivery\DeliverySafety;
+use OCA\Hermiq\Service\Delivery\TalkDelivery;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleWebhookSecretService;
@@ -244,25 +247,25 @@ class DeliveryServiceTest extends TestCase {
 		);
 
 		$this->service = new DeliveryServiceTestable(
-			notificationManager: $this->notificationManager,
-			talkBroker: $this->talkBroker,
-			urlGenerator: $this->urlGenerator,
+			channels: new DeliveryChannels(
+				notificationManager: $this->notificationManager,
+				talkBroker: $this->talkBroker,
+				mailer: $this->mailer,
+				clientService: $this->clientService
+			),
+			talk: new TalkDelivery(
+				urlGenerator: $this->urlGenerator,
+				userManager: $this->userManager,
+				talkRoomBinding: $this->talkRoomBinding,
+				talkApprovalNotifier: $this->talkApprovalNotifier
+			),
 			container: $this->container,
 			config: $this->config,
-			userManager: $this->userManager,
-			mailer: $this->mailer,
-			clientService: $this->clientService,
-			redactionService: $this->redactionService,
-			scheduleWebhookSecretService: $this->scheduleWebhookSecretService,
-			logger: $this->createMock(LoggerInterface::class),
-			// talk-chat-bridge: delivery records the room it posted into on the
-			// conversation the run produced, so the report can be replied to.
-			// Mocked here — these tests assert delivery, not binding; the
-			// binding's own behaviour is covered by TalkRoomBindingTest.
-			talkRoomBinding: $this->talkRoomBinding,
-			// talk-approval-reactions: a bonus surface; these tests assert delivery,
-			// and the notifier's own behaviour is covered by its listener tests.
-			talkApprovalNotifier: $this->talkApprovalNotifier,
+			safety: new DeliverySafety(
+				redactionService: $this->redactionService,
+				scheduleWebhookSecretService: $this->scheduleWebhookSecretService
+			),
+			logger: $this->createMock(LoggerInterface::class)
 		);
 
 	}//end setUp()
@@ -1566,19 +1569,25 @@ class DeliveryServiceTest extends TestCase {
 		);
 
 		$service = new DeliveryServiceTestable(
-			notificationManager: $notificationManager,
-			talkBroker: $talkBroker,
-			urlGenerator: $this->urlGenerator,
+			channels: new DeliveryChannels(
+				notificationManager: $notificationManager,
+				talkBroker: $talkBroker,
+				mailer: $this->mailer,
+				clientService: $this->clientService
+			),
+			talk: new TalkDelivery(
+				urlGenerator: $this->urlGenerator,
+				userManager: $this->userManager,
+				talkRoomBinding: $talkRoomBinding,
+				talkApprovalNotifier: $this->talkApprovalNotifier
+			),
 			container: $this->container,
 			config: $this->config,
-			userManager: $this->userManager,
-			mailer: $this->mailer,
-			clientService: $this->clientService,
-			redactionService: $this->redactionService,
-			scheduleWebhookSecretService: $this->scheduleWebhookSecretService,
-			logger: $logger,
-			talkRoomBinding: $talkRoomBinding,
-			talkApprovalNotifier: $this->talkApprovalNotifier,
+			safety: new DeliverySafety(
+				redactionService: $this->redactionService,
+				scheduleWebhookSecretService: $this->scheduleWebhookSecretService
+			),
+			logger: $logger
 		);
 
 		$schedule = $this->schedule(['name' => 'Briefing', 'deliver' => 'talk', 'deliverTarget' => $scenario['target']]);

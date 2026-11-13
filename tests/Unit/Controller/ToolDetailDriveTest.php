@@ -25,6 +25,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 require_once __DIR__ . '/ChatStreamControllerTest.php';
 
 use OCA\Hermiq\Controller\ChatController;
+use OCA\Hermiq\Controller\Mcp\McpRunIdentity;
+use OCA\Hermiq\Controller\Mcp\McpRunState;
+use OCA\Hermiq\Controller\Mcp\McpToolAccess;
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\ApprovalService;
@@ -282,7 +285,29 @@ final class ToolDetailDriveTest extends TestCase {
 		$controller = new class($request, $tokens, $this->objects(), $facade, new ToolGrantResolver(), $toolLoop, $this->createMock(ToolSearchService::class), $userManager, $this->createMock(IUserSession::class), $this->createMock(IThrottler::class), $bus, new NullLogger(), $this->guardrail(), $body) extends McpRunController {
 			// phpcs:ignore
 			public function __construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $bus, $logger, $guardrail, private string $rawBody) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $bus, $logger, null, null, $guardrail);
+				parent::__construct(
+					request: $request,
+					identity: new McpRunIdentity(
+						runTokenService: $tokens,
+						userManager: $userManager,
+						userSession: $userSession,
+						throttler: $throttler
+					),
+					runState: new McpRunState(
+						objectService: $objects,
+						runStepBus: $bus,
+						workspaceScope: null,
+						toolCallCounter: null
+					),
+					toolAccess: new McpToolAccess(
+						toolRegistryFacade: $facade,
+						grantResolver: $grant,
+						toolLoop: $toolLoop,
+						toolSearchService: $search,
+						guardrailService: $guardrail
+					),
+					logger: $logger
+				);
 			}
 
 			// phpcs:ignore

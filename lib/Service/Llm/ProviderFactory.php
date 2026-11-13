@@ -288,108 +288,37 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 */
 	private ?AnthropicMessageFormat $anthropicFormat = null;
 
+	private readonly IManager $taskManager;
+
+	private readonly IUserSession $userSession;
+
+	private readonly ?IAppManager $appManager;
+
+	private readonly ?IURLGenerator $urlGenerator;
+
+	private readonly ?IAppConfig $appConfig;
+
+	private readonly ?ContainerInterface $container;
+
+	private readonly ?OrganisationModelPolicyService $modelPolicyService;
+
+	private readonly ?CredentialScopeResolver $credentialResolver;
+
+	private readonly ?RunTokenService $runTokenService;
+
+	private readonly ?FeatureProviderResolver $featureResolver;
+
+	private readonly ?DataUseGate $dataUseGate;
+
 	/**
 	 * Constructor.
 	 *
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
-	 * @param IManager $taskManager Nextcloud Assistant task manager
-	 *                              (the `nextcloud` driver's
-	 *                              backend).
-	 * @param IUserSession $userSession Current session —
-	 *                                  the broker's
-	 *                                  ownership guard needs
-	 *                                  an identity to check
-	 *                                  the credential
-	 *                                  against.
+	 * @param ProviderPlatform $platform The Nextcloud services a model provider call reaches.
 	 * @param LoggerInterface $logger Logger.
 	 * @param string $appName App id used when scheduling
 	 *                        TaskProcessing tasks.
-	 * @param OrganisationModelPolicyService|null $modelPolicyService Resolves the calling
-	 *                                                          organisation's effective ModelPolicy
-	 *                                                          (tenant-model-policy). Nullable —
-	 *                                                          defaulted so every existing call site
-	 *                                                          (all constructed before this change)
-	 *                                                          keeps working unchanged; NC's DI
-	 *                                                          container autowires a real instance in
-	 *                                                          production regardless of the default.
-	 *                                                          When `$organisation` is not passed to
-	 *                                                          `createChatDriver()`, no enforcement
-	 *                                                          call is made at all (opt-in threading,
-	 *                                                          see design.md).
-	 * @param IAppManager|null $appManager Nextcloud app manager — used ONLY by the
-	 *                                     `cli` execution-mode path
-	 *                                     (llm-cli-runner-exapp) to detect whether
-	 *                                     AppAPI and the `hermiq-llm-runner` ExApp
-	 *                                     are installed/enabled before a turn is
-	 *                                     dispatched. Nullable/defaulted so every
-	 *                                     existing call site (all constructed before
-	 *                                     this change) keeps working unchanged; NC's
-	 *                                     DI container autowires a real instance in
-	 *                                     production. A null manager makes the runner
-	 *                                     report unavailable (503), never crash.
-	 * @param CredentialScopeResolver|null $credentialResolver Resolves a personal →
-	 *                                                         organisation override for the
-	 *                                                         broker credential id the
-	 *                                                         `openai`/`fireworks` branches use
-	 *                                                         (agent-credentials). Nullable —
-	 *                                                         defaulted so every existing call
-	 *                                                         site (all constructed before this
-	 *                                                         change) keeps working unchanged;
-	 *                                                         NC's DI container autowires a real
-	 *                                                         instance in production regardless
-	 *                                                         of the default. Consulted ONLY
-	 *                                                         when `$organisation` is passed to
-	 *                                                         `createChatDriver()` — the exact
-	 *                                                         same opt-in guard
-	 *                                                         `enforceModelPolicy()` uses.
-	 * @param RunTokenService|null $runTokenService Mints/consumes the per-run bearer
-	 *                                              token that authenticates the governed
-	 *                                              `cli` MCP + egress endpoints
-	 *                                              (cli-runner-governed-mcp-and-egress).
-	 *                                              Nullable/defaulted so existing test
-	 *                                              call sites keep working; DI autowires
-	 *                                              a real instance in production. A null
-	 *                                              service makes a tool-requiring `cli`
-	 *                                              turn fail loud (503) — never a
-	 *                                              text-only downgrade.
-	 * @param IURLGenerator|null $urlGenerator Resolves the absolute URL of Hermiq's
-	 *                                         governed MCP endpoint written into the
-	 *                                         runner's MCP config
-	 *                                         (cli-runner-governed-mcp-and-egress).
-	 *                                         Nullable/defaulted for the same
-	 *                                         backward-compat reason; a null
-	 *                                         generator makes a tool-requiring `cli`
-	 *                                         turn fail loud (503).
-	 * @param IAppConfig|null $appConfig Reads the `mcp_run_base_url` override —
-	 *                                   the CONTAINER-reachable origin of the
-	 *                                   governed MCP endpoint. Needed because
-	 *                                   `IURLGenerator` yields the URL published
-	 *                                   to browsers, which the runner container
-	 *                                   usually cannot resolve
-	 *                                   (cli-runner-governed-mcp-and-egress).
-	 *                                   Nullable/defaulted for the same
-	 *                                   backward-compat reason; a null config
-	 *                                   simply means no override is applied.
-	 * @param ContainerInterface|null $container The app container AppAPI and the
-	 *                                          OpenRegister credential broker are
-	 *                                          resolved from, both being optional
-	 *                                          sibling apps named by class-string.
-	 *                                          Nullable and trailing for the same
-	 *                                          backward-compat reason: the unit tests
-	 *                                          build this factory positionally with
-	 *                                          its first four collaborators.
-	 * @param FeatureProviderResolver|null $featureResolver Joins the AiFeature register to
-	 *                                                      the ModelPolicy: resolves a
-	 *                                                      feature's own provider binding
-	 *                                                      and refuses a run whose provider
-	 *                                                      runs outside the residency the
-	 *                                                      feature requires. Nullable and
-	 *                                                      trailing for the same
-	 *                                                      backward-compat reason; a null
-	 *                                                      resolver leaves every existing
-	 *                                                      call site unchanged.
-	 * @param DataUseGate|null $dataUseGate The data-use step on the path without an AI
-	 *                                      feature (models-no-training-guarantee).
+	 * @param ProviderGovernance $governance What governs a model provider call: model policy, credentials, run tokens, features and data use.
 	 *
 	 * @return void
 	 *
@@ -404,20 +333,22 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 */
 	public function __construct(
 		private readonly LlmSettingsHandler $settingsHandler,
-		private readonly IManager $taskManager,
-		private readonly IUserSession $userSession,
+		ProviderPlatform $platform,
 		private readonly LoggerInterface $logger,
 		private readonly string $appName = 'hermiq',
-		private readonly ?OrganisationModelPolicyService $modelPolicyService = null,
-		private readonly ?IAppManager $appManager = null,
-		private readonly ?CredentialScopeResolver $credentialResolver = null,
-		private readonly ?RunTokenService $runTokenService = null,
-		private readonly ?IURLGenerator $urlGenerator = null,
-		private readonly ?IAppConfig $appConfig = null,
-		private readonly ?ContainerInterface $container = null,
-		private readonly ?FeatureProviderResolver $featureResolver = null,
-		private readonly ?DataUseGate $dataUseGate = null,
+		ProviderGovernance $governance = new ProviderGovernance(),
 	) {
+		$this->modelPolicyService = $governance->modelPolicyService;
+		$this->credentialResolver = $governance->credentialResolver;
+		$this->runTokenService = $governance->runTokenService;
+		$this->featureResolver = $governance->featureResolver;
+		$this->dataUseGate = $governance->dataUseGate;
+		$this->taskManager = $platform->taskManager;
+		$this->userSession = $platform->userSession;
+		$this->appManager = $platform->appManager;
+		$this->urlGenerator = $platform->urlGenerator;
+		$this->appConfig = $platform->appConfig;
+		$this->container = $platform->container;
 	}//end __construct()
 
 	/**

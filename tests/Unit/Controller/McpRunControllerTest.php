@@ -21,23 +21,26 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
+use OCA\Hermiq\Controller\Mcp\McpRunIdentity;
+use OCA\Hermiq\Controller\Mcp\McpRunState;
+use OCA\Hermiq\Controller\Mcp\McpToolAccess;
 use OCA\Hermiq\Controller\McpRunController;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
-use OCP\Security\Bruteforce\IThrottler;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
+use OCP\Security\Bruteforce\IThrottler;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use stdClass;
@@ -170,7 +173,28 @@ final class McpRunControllerTest extends TestCase {
 				private string $rawBody,
 				$counter = null,
 			) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger, null, $counter);
+				parent::__construct(
+					request: $request,
+					identity: new McpRunIdentity(
+						runTokenService: $tokens,
+						userManager: $userManager,
+						userSession: $userSession,
+						throttler: $throttler
+					),
+					runState: new McpRunState(
+						objectService: $objects,
+						runStepBus: $runStepBus,
+						workspaceScope: null,
+						toolCallCounter: $counter
+					),
+					toolAccess: new McpToolAccess(
+						toolRegistryFacade: $facade,
+						grantResolver: $grant,
+						toolLoop: $toolLoop,
+						toolSearchService: $search
+					),
+					logger: $logger
+				);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;

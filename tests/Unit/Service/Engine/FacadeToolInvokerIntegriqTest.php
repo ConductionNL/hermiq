@@ -22,6 +22,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\InvocationPolicy;
+use OCA\Hermiq\Service\Engine\InvocationScope;
+use OCA\Hermiq\Service\Engine\InvocationServices;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
@@ -70,7 +73,15 @@ class FacadeToolInvokerIntegriqTest extends TestCase {
 			->with($name, ['id' => 'x', 'agentId' => 'g1'])
 			->willReturn(['result' => ['status' => 'executed'], 'isError' => false]);
 
-		$invoker = new FacadeToolInvoker(facade: $facade, agentId: 'g1', mcpIdByName: [$name => $toolId]);
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			scope: new InvocationScope(
+				agentId: 'g1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: [$name => $toolId]
+			)
+		);
 		$invoker->$name(id: 'x', agentId: 'g2');
 
 	}//end testTheActingAgentIsInjected()
@@ -103,9 +114,15 @@ class FacadeToolInvokerIntegriqTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			approvalService: $approvals,
-			agentId: 'g1',
-			mcpIdByName: ['integriq_replayDeadLetters' => 'integriq.replayDeadLetters']
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: 'g1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['integriq_replayDeadLetters' => 'integriq.replayDeadLetters']
+			)
 		);
 		$result = json_decode($invoker->integriq_replayDeadLetters(deadLetterIds: ['d1', 'd2']), true);
 
@@ -149,7 +166,18 @@ class FacadeToolInvokerIntegriqTest extends TestCase {
 		$approvals = $this->createMock(ApprovalService::class);
 		$approvals->expects($this->never())->method('ensurePendingApprovalForStagedBatch');
 
-		$invoker = new FacadeToolInvoker(facade: $facade, approvalService: $approvals, agentId: 'g1', mcpIdByName: [$name => $toolId]);
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: 'g1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: [$name => $toolId]
+			)
+		);
 		$answer  = json_decode($invoker->$name(), true);
 
 		$this->assertArrayNotHasKey('approvalId', $answer);

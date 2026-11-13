@@ -560,78 +560,65 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 	];
 
+	private readonly IRootFolder $rootFolder;
+
+	private readonly IContactsManager $contactsManager;
+
+	private readonly ICalendarManager $calendarManager;
+
+	private readonly IMailer $mailer;
+
+	private readonly IAppManager $appManager;
+
+	private readonly CourseRecommendationEngineInterface $courseEngine;
+
+	private readonly MemoryServiceInterface $memoryService;
+
+	private readonly WebSearchClientInterface $webSearchClient;
+
+	private readonly WebFetchServiceInterface $webFetchService;
+
+	private readonly DelegationServiceInterface $delegationService;
+
+	private readonly NcNativeWriteServiceInterface $writeService;
+
+	private readonly MailReadServiceInterface $mailReadService;
+
+	private readonly ToolAccessRequestServiceInterface $accessRequests;
+
 	/**
 	 * Constructor.
 	 *
 	 * @param IUserSession $userSession The current user session (auth + scoping).
-	 * @param IRootFolder $rootFolder Files root (scoped per user).
-	 * @param IContactsManager $contactsManager Contacts search (acting user's books).
-	 * @param ICalendarManager $calendarManager Calendar query (acting user's calendars).
-	 * @param IMailer $mailer Outbound email.
-	 * @param IAppManager $appManager App availability (Deck) + describe.
+	 * @param NcPlatform $platform The Nextcloud platform services the native agent tools reach: files, contacts, calendars, mail and apps.
 	 * @param ContainerInterface $container Lazy Deck BoardService resolution.
-	 * @param CourseRecommendationEngineInterface $courseEngine Shared engine backing `recommendCourses`
-	 *                                                 (ai-course-recommendations) — no
-	 *                                                 duplicated gating/scoring/signal-read
-	 *                                                 logic.
-	 * @param MemoryServiceInterface $memoryService Shared service backing `rememberMemory`/
-	 *                                     `recallMemory`/`forgetMemory`
-	 *                                     (agent-memory-tools) — no duplicated
-	 *                                     append/redact/recall/soft-delete logic.
-	 * @param WebSearchClientInterface $webSearchClient Shared client backing `webSearch`
-	 *                                         (web-research-tool) —
-	 *                                         SSRF-guarded call to the
-	 *                                         admin-configured search backend.
-	 * @param WebFetchServiceInterface $webFetchService Shared service backing `webFetch`
-	 *                                         (web-research-tool) —
-	 *                                         SSRF-guarded GET + readable-text
-	 *                                         extraction.
-	 * @param DelegationServiceInterface $delegationService Shared governed dispatcher backing
-	 *                                             `delegateAgent` (sub-agent-delegation) —
-	 *                                             all self/cycle/allowlist/depth/fan-out/
-	 *                                             organisation/model-policy/kill-switch/
-	 *                                             budget/approval gating lives there.
-	 * @param NcNativeWriteServiceInterface $writeService Facade over the Calendar/Contacts/Notes
-	 *                                           write services (nc-native-write-tools) —
-	 *                                           ownership guards, ADR-088 marking and the
-	 *                                           lazy Notes resolution all live there.
-	 * @param MailReadServiceInterface $mailReadService Read-only mail (nc-mail-read-tools) —
-	 *                                         AI-feature gate and lazy Mail resolution live there.
-	 * @param ToolAccessRequestServiceInterface $accessRequests Discovery past the grant and the
-	 *                                                 request that can widen it
-	 *                                                 (tool-discovery-and-access-requests) —
-	 *                                                 backs `listAvailableTools` and
-	 *                                                 `requestToolAccess`. Raising a request
-	 *                                                 grants nothing; only the agent's owner
-	 *                                                 can write `Agent.tools`.
+	 * @param AgentToolReaders $readers The services the agent tools read from: courses, memory and the web.
+	 * @param AgentToolActions $actions The services the agent tools act through: delegation, writes, mail and access requests.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of thirteen distinct capabilities.
 	 */
 	public function __construct(
-		// Promoted like every other dependency. These two were previously plain
-		// params assigned onto properties DECLARED BY the removed
-		// `AbstractToolHandler` base — with the base gone they silently became
-		// PHP dynamic properties (deprecated in 8.2), which works at runtime and
-		// is why a live tool call still succeeded, but phpstan/psalm correctly
-		// flagged the reads and writes as undefined.
 		private readonly IUserSession $userSession,
-		private readonly IRootFolder $rootFolder,
-		private readonly IContactsManager $contactsManager,
-		private readonly ICalendarManager $calendarManager,
-		private readonly IMailer $mailer,
-		private readonly IAppManager $appManager,
+		NcPlatform $platform,
 		private readonly ContainerInterface $container,
-		private readonly CourseRecommendationEngineInterface $courseEngine,
-		private readonly MemoryServiceInterface $memoryService,
-		private readonly WebSearchClientInterface $webSearchClient,
-		private readonly WebFetchServiceInterface $webFetchService,
-		private readonly DelegationServiceInterface $delegationService,
-		private readonly NcNativeWriteServiceInterface $writeService,
-		private readonly MailReadServiceInterface $mailReadService,
-		private readonly ToolAccessRequestServiceInterface $accessRequests,
+		AgentToolReaders $readers,
+		AgentToolActions $actions,
 		private readonly LoggerInterface $logger,
 	) {
+		$this->delegationService = $actions->delegationService;
+		$this->writeService = $actions->writeService;
+		$this->mailReadService = $actions->mailReadService;
+		$this->accessRequests = $actions->accessRequests;
+		$this->courseEngine = $readers->courseEngine;
+		$this->memoryService = $readers->memoryService;
+		$this->webSearchClient = $readers->webSearchClient;
+		$this->webFetchService = $readers->webFetchService;
+		$this->rootFolder = $platform->rootFolder;
+		$this->contactsManager = $platform->contactsManager;
+		$this->calendarManager = $platform->calendarManager;
+		$this->mailer = $platform->mailer;
+		$this->appManager = $platform->appManager;
 	}//end __construct()
 
 	/**

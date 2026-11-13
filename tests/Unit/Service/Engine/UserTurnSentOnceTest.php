@@ -53,6 +53,7 @@ use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -177,17 +178,9 @@ class UserTurnSentOnceTest extends TestCase {
 			->setConstructorArgs(
 				[
 					$this->createMock(LlmSettingsHandler::class),
-					$this->createMock(IManager::class),
-					$userSession,
+					new ProviderPlatform(taskManager: $this->createMock(IManager::class), userSession: $userSession, container: $container),
 					new NullLogger(),
 					'hermiq',
-					null,
-					null,
-					null,
-					null,
-					null,
-					null,
-					$container,
 				]
 			)
 			->onlyMethods(['getLlmConfig', 'createChatDriver'])

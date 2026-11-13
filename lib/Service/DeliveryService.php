@@ -53,6 +53,9 @@ namespace OCA\Hermiq\Service;
 use Closure;
 use DateTime;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
+use OCA\Hermiq\Service\Delivery\DeliveryChannels;
+use OCA\Hermiq\Service\Delivery\DeliverySafety;
+use OCA\Hermiq\Service\Delivery\TalkDelivery;
 use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkSafeText;
@@ -198,6 +201,28 @@ class DeliveryService {
 	 */
 	private const WEBHOOK_HTTP_TIMEOUT_SECONDS = 10;
 
+	private readonly INotificationManager $notificationManager;
+
+	private readonly IBroker $talkBroker;
+
+	private readonly IMailer $mailer;
+
+	private readonly IClientService $clientService;
+
+	private readonly IURLGenerator $urlGenerator;
+
+	private readonly IUserManager $userManager;
+
+	private readonly TalkRoomBinding $talkRoomBinding;
+
+	private readonly TalkApprovalNotifier $talkApprovalNotifier;
+
+	private readonly RedactionService $redactionService;
+
+	private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService;
+
+	private readonly ?ConnectionReporter $connectionReporter;
+
 	/**
 	 * Constructor.
 	 *
@@ -205,48 +230,35 @@ class DeliveryService {
 	 * spreed classes are resolved lazily through $container inside the Talk guard, so
 	 * this service (and Hermiq) construct cleanly on an instance without Talk.
 	 *
-	 * @param INotificationManager $notificationManager Raises Nextcloud notifications (baseline + fallback).
-	 * @param IBroker $talkBroker Core Talk availability probe (hasBackend()).
-	 * @param IURLGenerator $urlGenerator Builds the schedule/run deep link for notifications.
+	 * @param DeliveryChannels $channels The channels a result is delivered through: notifications, Talk, mail and HTTP.
+	 * @param TalkDelivery $talk What a Talk delivery needs: room bindings, approval notices, links and users.
 	 * @param ContainerInterface $container Server container for lazy spreed resolution.
 	 * @param IConfig $config Reads/writes the owner's default-room preference.
-	 * @param IUserManager $userManager Resolves the owner IUser for room creation / email fallback.
-	 * @param IMailer $mailer Sends `deliver=email` output (delivery-channels) — never a bespoke SMTP
-	 *                        client.
-	 * @param IClientService $clientService Sends `deliver=webhook` POSTs (delivery-channels) — never a bespoke HTTP
-	 *                                      client.
-	 * @param RedactionService $redactionService Redacts output before it crosses the instance boundary (email/webhook only).
-	 * @param ScheduleWebhookSecretService $scheduleWebhookSecretService Retrieves a schedule's outbound webhook signing secret (delivery-channels).
+	 * @param DeliverySafety $safety What keeps a delivery safe and observable: redaction, webhook secrets and connection reports.
 	 * @param LoggerInterface $logger PSR-3 logger for delivery warnings.
-	 * @param TalkRoomBinding $talkRoomBinding Binds the run's conversation to the Talk room it
-	 *                                         was delivered into, so the report can be replied to
-	 *                                         (talk-chat-bridge).
-	 * @param TalkApprovalNotifier $talkApprovalNotifier Posts an approval request into the agent's
-	 *                                                   bound room as the bot, so it can be decided
-	 *                                                   by a reaction (talk-approval-reactions).
-	 * @param ConnectionReporter|null $connectionReporter Tells integriq's connection registry what a
-	 *                                                    webhook delivery met; null when built by hand
-	 *                                                    in a test (adopt-connection-registry).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
 	 */
 	public function __construct(
-		private readonly INotificationManager $notificationManager,
-		private readonly IBroker $talkBroker,
-		private readonly IURLGenerator $urlGenerator,
+		DeliveryChannels $channels,
+		TalkDelivery $talk,
 		private readonly ContainerInterface $container,
 		private readonly IConfig $config,
-		private readonly IUserManager $userManager,
-		private readonly IMailer $mailer,
-		private readonly IClientService $clientService,
-		private readonly RedactionService $redactionService,
-		private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
+		DeliverySafety $safety,
 		private readonly LoggerInterface $logger,
-		private readonly TalkRoomBinding $talkRoomBinding,
-		private readonly TalkApprovalNotifier $talkApprovalNotifier,
-		private readonly ?ConnectionReporter $connectionReporter = null,
 	) {
+		$this->redactionService = $safety->redactionService;
+		$this->scheduleWebhookSecretService = $safety->scheduleWebhookSecretService;
+		$this->connectionReporter = $safety->connectionReporter;
+		$this->urlGenerator = $talk->urlGenerator;
+		$this->userManager = $talk->userManager;
+		$this->talkRoomBinding = $talk->talkRoomBinding;
+		$this->talkApprovalNotifier = $talk->talkApprovalNotifier;
+		$this->notificationManager = $channels->notificationManager;
+		$this->talkBroker = $channels->talkBroker;
+		$this->mailer = $channels->mailer;
+		$this->clientService = $channels->clientService;
 	}//end __construct()
 
 	/**

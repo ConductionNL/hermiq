@@ -36,6 +36,9 @@ namespace OCA\AppAPI {
 namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 
 	use Exception;
+
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 	use GuzzleHttp\Psr7\Request;
 	use LLPhant\Chat\Message as LLPhantMessage;
 	use LLPhant\Chat\OpenAIChat;
@@ -79,15 +82,19 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 		private function factory(array $args = []): ProviderFactory {
 			return new ProviderFactory(
 				settingsHandler: $this->createMock(LlmSettingsHandler::class),
-				taskManager: $this->createMock(IManager::class),
-				userSession: ($args['userSession'] ?? $this->createMock(IUserSession::class)),
+				platform: new ProviderPlatform(
+					taskManager: $this->createMock(IManager::class),
+					userSession: ($args['userSession'] ?? $this->createMock(IUserSession::class)),
+					appManager: ($args['appManager'] ?? null),
+					container: ($args['container'] ?? null)
+				),
 				logger: ($args['logger'] ?? $this->createMock(LoggerInterface::class)),
-				modelPolicyService: ($args['modelPolicyService'] ?? null),
-				appManager: ($args['appManager'] ?? null),
-				credentialResolver: ($args['credentialResolver'] ?? null),
-				runTokenService: ($args['runTokenService'] ?? null),
-				container: ($args['container'] ?? null),
-				featureResolver: ($args['featureResolver'] ?? null)
+				governance: new ProviderGovernance(
+					modelPolicyService: ($args['modelPolicyService'] ?? null),
+					credentialResolver: ($args['credentialResolver'] ?? null),
+					runTokenService: ($args['runTokenService'] ?? null),
+					featureResolver: ($args['featureResolver'] ?? null)
+				)
 			);
 		}//end factory()
 

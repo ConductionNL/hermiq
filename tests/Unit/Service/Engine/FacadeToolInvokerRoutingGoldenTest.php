@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\InvocationPolicy;
+use OCA\Hermiq\Service\Engine\InvocationScope;
+use OCA\Hermiq\Service\Engine\InvocationServices;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
@@ -88,13 +91,19 @@ class FacadeToolInvokerRoutingGoldenTest extends TestCase {
 
 		return new FacadeToolInvoker(
 			facade: $this->facade(),
-			approvalService: ($approvals ?? $this->createMock(ApprovalService::class)),
-			agentId: 'agent-1',
-			mcpIdByName: ['openregister_runFlow' => 'openregister.runFlow'],
-			toolPolicy: ['openregister.runFlow' => $classification],
-			argumentConstraints: $resolver->argumentConstraints(grants: $grants),
-			ownerUid: $ownerUid,
-			waivedConstraintSets: $resolver->waivedConstraintSets(grants: $grants)
+			services: new InvocationServices(
+				approvalService: ($approvals ?? $this->createMock(ApprovalService::class))
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1',
+				ownerUid: $ownerUid
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['openregister_runFlow' => 'openregister.runFlow'],
+				toolPolicy: ['openregister.runFlow' => $classification],
+				argumentConstraints: $resolver->argumentConstraints(grants: $grants),
+				waivedConstraintSets: $resolver->waivedConstraintSets(grants: $grants)
+			)
 		);
 	}//end flowInvoker()
 
@@ -145,7 +154,15 @@ class FacadeToolInvokerRoutingGoldenTest extends TestCase {
 			'hermiq_searchTools' => 'hermiq.searchTools',
 		];
 		foreach (['agent-1', null] as $agentId) {
-			$invoker = new FacadeToolInvoker(facade: $this->facade(), agentId: $agentId, mcpIdByName: $map);
+			$invoker = new FacadeToolInvoker(
+				facade: $this->facade(),
+				scope: new InvocationScope(
+					agentId: $agentId
+				),
+				policy: new InvocationPolicy(
+					mcpIdByName: $map
+				)
+			);
 			foreach (array_keys($map) as $name) {
 				$this->assertSame('{"ok":true}', $invoker->{$name}(x: 1));
 			}
@@ -190,7 +207,13 @@ class FacadeToolInvokerRoutingGoldenTest extends TestCase {
 		];
 		foreach ($cases as $index => [$result, $artefact]) {
 			$trace = new RunTraceCollector();
-			$invoker = new FacadeToolInvoker(facade: $this->facade($result), trace: $trace, mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']);
+			$invoker = new FacadeToolInvoker(
+				facade: $this->facade($result),
+				trace: $trace,
+				policy: new InvocationPolicy(
+					mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+				)
+			);
 			$invoker->hermiq_createNote(title: 'T');
 			$this->assertSame($artefact, ($trace->toArray()[0]['artefact'] ?? null), 'case ' . $index);
 		}

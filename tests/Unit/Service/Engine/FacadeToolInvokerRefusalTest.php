@@ -23,6 +23,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\InvocationPolicy;
+use OCA\Hermiq\Service\Engine\InvocationScope;
+use OCA\Hermiq\Service\Engine\InvocationServices;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -112,8 +115,10 @@ final class FacadeToolInvokerRefusalTest extends TestCase {
 			facade: $this->facade,
 			channel: $this->channel(),
 			trace: $this->trace,
-			mcpIdByName: ['x_delete' => 'x.delete'],
-			toolPolicy: ['x.delete' => 'deny']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['x_delete' => 'x.delete'],
+				toolPolicy: ['x.delete' => 'deny']
+			)
 		);
 
 		$out = $invoker->x_delete(id: '7');
@@ -137,8 +142,10 @@ final class FacadeToolInvokerRefusalTest extends TestCase {
 			facade: $this->facade,
 			channel: $this->channel(),
 			trace: $this->trace,
-			mcpIdByName: ['x_send' => 'x.send'],
-			toolPolicy: ['x.send' => 'confirm']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['x_send' => 'x.send'],
+				toolPolicy: ['x.send' => 'confirm']
+			)
 		);
 
 		$out = json_decode($invoker->x_send(to: 'a'), true);
@@ -183,10 +190,16 @@ final class FacadeToolInvokerRefusalTest extends TestCase {
 			facade: $this->facade,
 			channel: $this->channel(),
 			trace: $this->trace,
-			approvalService: $approvals,
-			agentId: self::AGENT,
-			mcpIdByName: ['x_send' => 'x.send'],
-			toolPolicy: ['x.send' => 'confirm']
+			services: new InvocationServices(
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: self::AGENT
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['x_send' => 'x.send'],
+				toolPolicy: ['x.send' => 'confirm']
+			)
 		);
 
 		$first = json_decode($invoker->x_send(to: 'a'), true);
@@ -228,11 +241,17 @@ final class FacadeToolInvokerRefusalTest extends TestCase {
 			facade: $this->facade,
 			channel: $this->channel(),
 			trace: $this->trace,
-			toolSearchService: $search,
-			approvalService: $approvals,
-			agentId: self::AGENT,
-			mcpIdByName: ['x_delete' => 'x.delete'],
-			descriptorsByName: ['x_delete' => ['name' => 'x_delete', 'annotations' => ['destructiveHint' => true]]]
+			services: new InvocationServices(
+				toolSearchService: $search,
+				approvalService: $approvals
+			),
+			scope: new InvocationScope(
+				agentId: self::AGENT
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['x_delete' => 'x.delete'],
+				descriptorsByName: ['x_delete' => ['name' => 'x_delete', 'annotations' => ['destructiveHint' => true]]]
+			)
 		);
 
 		$pending = json_decode($invoker->x_delete(id: '7'), true);
@@ -260,7 +279,9 @@ final class FacadeToolInvokerRefusalTest extends TestCase {
 			facade: $this->facade,
 			channel: $this->channel(),
 			trace: $this->trace,
-			mcpIdByName: ['openregister_runFlow' => 'openregister.runFlow']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['openregister_runFlow' => 'openregister.runFlow']
+			)
 		);
 
 		$out = $invoker->openregister_runFlow(flowId: 'f');

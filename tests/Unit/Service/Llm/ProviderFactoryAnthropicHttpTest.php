@@ -32,6 +32,8 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderGovernance;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -85,18 +87,22 @@ class ProviderFactoryAnthropicHttpTest extends TestCase {
 		$userSession->method('getUser')->willReturn($user);
 
 		return new ProviderFactory(
-			$this->createMock(LlmSettingsHandler::class),
-			$this->createMock(IManager::class),
-			$userSession,
-			new NullLogger(),
-			'hermiq',
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			$container
+			settingsHandler: $this->createMock(LlmSettingsHandler::class),
+			platform: new ProviderPlatform(
+				taskManager: $this->createMock(IManager::class),
+				userSession: $userSession,
+				appManager: null,
+				urlGenerator: null,
+				appConfig: null,
+				container: $container
+			),
+			logger: new NullLogger(),
+			appName: 'hermiq',
+			governance: new ProviderGovernance(
+				modelPolicyService: null,
+				credentialResolver: null,
+				runTokenService: null
+			)
 		);
 	}//end factory()
 

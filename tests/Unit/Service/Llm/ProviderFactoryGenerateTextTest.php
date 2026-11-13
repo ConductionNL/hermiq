@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -60,7 +61,16 @@ class ProviderFactoryGenerateTextTest extends TestCase {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 
-		return [new ProviderFactory($settings, $manager, $userSession, new NullLogger()), $manager];
+		return [new ProviderFactory(
+			settingsHandler: $settings,
+			platform: new ProviderPlatform(
+				taskManager: $manager,
+				userSession: $userSession
+			),
+			logger: new NullLogger(
+
+			)
+		), $manager];
 	}//end factory()
 
 	/**

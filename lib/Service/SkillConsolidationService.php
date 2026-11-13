@@ -49,7 +49,11 @@ use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\SkillConsolidation\ConsolidationEnvironment;
+use OCA\Hermiq\Service\SkillConsolidation\ConsolidationGuards;
+use OCA\Hermiq\Service\SkillConsolidation\ConsolidationRecords;
 use OCA\Hermiq\Service\SkillConsolidation\DraftEvalSubject;
+use OCA\Hermiq\Service\SkillConsolidation\SkillPipeline;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -209,27 +213,48 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 */
 	public const AUDIT_ACTION = 'skill-draft';
 
+	private readonly SkillMaturityService $maturityService;
+
+	private readonly SkillVersionService $versionService;
+
+	private readonly SkillLearningsPromotionService $promotionService;
+
+	private readonly SkillLearningsCaptureService $captureService;
+
+	private readonly EvalRunService $evalRunService;
+
+	private readonly TenantKillSwitch $tenantKillSwitch;
+
+	private readonly BudgetService $budgetService;
+
+	private readonly ContentScanService $contentScanService;
+
+	private readonly ApprovalService $approvalService;
+
+	private readonly ProviderFactory $providerFactory;
+
+	private readonly AgentMapper $agentMapper;
+
+	private readonly AuditTrailMapper $auditTrailMapper;
+
+	private readonly DeliveryService $deliveryService;
+
+	private readonly IAppConfig $appConfig;
+
+	private readonly IUserSession $userSession;
+
+	private readonly IUserManager $userManager;
+
+	private readonly IURLGenerator $urlGenerator;
+
 	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
-	 * @param SkillMaturityService $maturityService Computed-maturity write guard on apply.
-	 * @param SkillVersionService $versionService Base-version pin + post-apply version id.
-	 * @param SkillLearningsPromotionService $promotionService Learnings grammar owner (entry counting, file name).
-	 * @param SkillLearningsCaptureService $captureService `files` map helpers (fileContent).
-	 * @param ProviderFactory $providerFactory The governed LLM chokepoint (ONE pass per proposal).
-	 * @param TenantKillSwitch $tenantKillSwitch Org kill-switch check (same gate as a schedule tick).
-	 * @param BudgetService $budgetService Budget hard-cap gate (same gate as a schedule tick).
-	 * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
-	 * @param EvalRunService $evalRunService Paired draft-vs-active comparison (skill-evals seam).
-	 * @param ApprovalService $approvalService The ONE human-decision surface (Approval objects).
-	 * @param AgentMapper $agentMapper Resolves the eval agent for the paired comparison.
-	 * @param AuditTrailMapper $auditTrailMapper OR audit write-path (one entry per transition).
-	 * @param DeliveryService $deliveryService Behind-badge + rollback-suggestion notifications.
-	 * @param IAppConfig $appConfig Threshold configuration.
-	 * @param IUserSession $userSession Owner impersonation around draft persistence.
-	 * @param IUserManager $userManager Resolves the skill owner for impersonation.
-	 * @param IURLGenerator $urlGenerator SkillDetail deep link for the Approval payload.
+	 * @param SkillPipeline $pipeline The skill services a consolidation passes through: maturity, versions, learnings and evals.
+	 * @param ConsolidationRecords $records The agents, audit trail, delivery and model provider a consolidation uses.
+	 * @param ConsolidationGuards $guards What may stop or hold a consolidation: the kill switch, budgets, content scanning and approvals.
+	 * @param ConsolidationEnvironment $environment The Nextcloud configuration, users and links a consolidation reads.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
@@ -238,25 +263,29 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly SkillMaturityService $maturityService,
-		private readonly SkillVersionService $versionService,
-		private readonly SkillLearningsPromotionService $promotionService,
-		private readonly SkillLearningsCaptureService $captureService,
-		private readonly ProviderFactory $providerFactory,
-		private readonly TenantKillSwitch $tenantKillSwitch,
-		private readonly BudgetService $budgetService,
-		private readonly ContentScanService $contentScanService,
-		private readonly EvalRunService $evalRunService,
-		private readonly ApprovalService $approvalService,
-		private readonly AgentMapper $agentMapper,
-		private readonly AuditTrailMapper $auditTrailMapper,
-		private readonly DeliveryService $deliveryService,
-		private readonly IAppConfig $appConfig,
-		private readonly IUserSession $userSession,
-		private readonly IUserManager $userManager,
-		private readonly IURLGenerator $urlGenerator,
+		SkillPipeline $pipeline,
+		ConsolidationRecords $records,
+		ConsolidationGuards $guards,
+		ConsolidationEnvironment $environment,
 		private readonly LoggerInterface $logger,
 	) {
+		$this->appConfig = $environment->appConfig;
+		$this->userSession = $environment->userSession;
+		$this->userManager = $environment->userManager;
+		$this->urlGenerator = $environment->urlGenerator;
+		$this->providerFactory = $records->providerFactory;
+		$this->agentMapper = $records->agentMapper;
+		$this->auditTrailMapper = $records->auditTrailMapper;
+		$this->deliveryService = $records->deliveryService;
+		$this->tenantKillSwitch = $guards->tenantKillSwitch;
+		$this->budgetService = $guards->budgetService;
+		$this->contentScanService = $guards->contentScanService;
+		$this->approvalService = $guards->approvalService;
+		$this->maturityService = $pipeline->maturityService;
+		$this->versionService = $pipeline->versionService;
+		$this->promotionService = $pipeline->promotionService;
+		$this->captureService = $pipeline->captureService;
+		$this->evalRunService = $pipeline->evalRunService;
 	}//end __construct()
 
 	/**

@@ -44,13 +44,17 @@ use OCA\Hermiq\Service\AiFeature\RunRetentionPolicy;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\Hermiq\Service\Schedule\AgentRuntimes;
 use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
 use OCA\Hermiq\Service\Schedule\DispatchOptions;
 use OCA\Hermiq\Service\Schedule\EngineRunRequest;
 use OCA\Hermiq\Service\Schedule\FailedAttempt;
 use OCA\Hermiq\Service\Schedule\GateSkip;
 use OCA\Hermiq\Service\Schedule\RunAuditRecord;
+use OCA\Hermiq\Service\Schedule\RunGovernance;
+use OCA\Hermiq\Service\Schedule\ScheduleEnvironment;
 use OCA\Hermiq\Service\Schedule\ScheduleRecordNormaliser;
+use OCA\Hermiq\Service\Schedule\ScheduleRecords;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -260,80 +264,84 @@ class ScheduleService implements ScheduleServiceInterface {
 	 */
 	private readonly TenantKillSwitch $tenantKillSwitch;
 
+	private readonly AgentMapper $agentMapper;
+
+	private readonly ConversationMapper $conversationMapper;
+
+	private readonly AuditTrailMapper $auditTrailMapper;
+
+	private readonly AgentVersionService $agentVersionService;
+
+	private readonly SkillVersionService $skillVersionService;
+
+	private readonly IUserSession $userSession;
+
+	private readonly IUserManager $userManager;
+
+	private readonly IConfig $config;
+
+	private readonly IAppConfig $appConfig;
+
+	private readonly RedactionService $redactionService;
+
+	private readonly ApprovalService $approvalService;
+
+	private readonly BudgetService $budgetService;
+
+	private readonly GuardrailPolicyService $guardrailPolicyService;
+
+	private readonly ?RunRetentionPolicy $retentionPolicy;
+
+	private readonly ChatService $chatService;
+
+	private readonly DeliveryService $deliveryService;
+
+	private readonly Engine $engine;
+
+	private readonly DelegationContext $delegationContext;
+
+	private readonly IJobList $jobList;
+
 	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
-	 * @param AgentMapper $agentMapper Resolves an agent UUID to an Agent entity.
-	 * @param ConversationMapper $conversationMapper Creates the conversation row the agent runs against.
-	 * @param ChatService $chatService OpenRegister agent runtime (processMessage).
-	 * @param IUserSession $userSession Session used to impersonate the schedule owner.
-	 * @param IUserManager $userManager Resolves the owner UID to an IUser.
-	 * @param IConfig $config Reads owner/instance timezone.
+	 * @param ScheduleRecords $records The records a scheduled run reads and writes: agents, conversations, the audit trail and versions.
+	 * @param AgentRuntimes $runtimes What runs an agent turn and delivers its result.
+	 * @param ScheduleEnvironment $environment The Nextcloud users and configuration a scheduled run reads.
 	 * @param LoggerInterface $logger PSR-3 logger (delivery seam + diagnostics).
-	 * @param DeliveryService $deliveryService Real Talk/notification delivery (talk-delivery).
-	 * @param AuditTrailMapper $auditTrailMapper OR audit write-path for the explicit per-run entry (run-audit-log).
-	 * @param RedactionService $redactionService Masks secrets/PII BEFORE the audit write (run-audit-log).
-	 * @param ApprovalService $approvalService Human-approval gate: ensures a pending Approval
-	 *                                         for gated runs (human-approval-gate-enforcement).
-	 * @param IAppConfig $appConfig Reads the `hermiq`.`engine.enabled` feature flag (agent-engine-port).
-	 * @param Engine $engine In-app agent engine facade, used only when the flag is on (agent-engine-port).
-	 * @param BudgetService $budgetService Budget hard-cap gate + soft-threshold warning (cost-guardrails).
-	 * @param GuardrailPolicyService $guardrailPolicyService Resolves + applies the effective GuardrailPolicy's
-	 *                                                       input filter (legacy ChatService branch only —
-	 *                                                       the Engine branch already applies it internally)
-	 *                                                       and the defense-in-depth output filter at
-	 *                                                       runAgentAsOwner()'s single return point
-	 *                                                       (agent-guardrails).
-	 * @param AgentVersionService $agentVersionService Resolves the executing agent's current version
-	 *                                                 identifier, pinned onto the run-audit context
-	 *                                                 (agent-versioning).
-	 * @param SkillVersionService $skillVersionService Resolves the exposed skills' version
-	 *                                                 identifiers, pinned onto the run-audit
-	 *                                                 context (skill-self-improvement) — never
-	 *                                                 fatal to the run.
-	 * @param DelegationContext $delegationContext Request-scoped delegation call-stack
-	 *                                             (sub-agent-delegation): pushed/popped around
-	 *                                             every Engine-path turn so a mid-turn
-	 *                                             `hermiq.delegateAgent` call sees this run's
-	 *                                             true depth/ancestry/fan-out/anchor.
-	 * @param IJobList $jobList Enqueues the post-run learnings capture
-	 *                          QueuedJob AFTER the run's audit entry is
-	 *                          written (skill-learnings) — try/catch
-	 *                          wrapped; capture never sits on the run's
-	 *                          critical path.
-	 * @param RunRetentionPolicy|null $retentionPolicy Stamps each run entry with the
-	 *                          retention that applied when it was written
-	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
-	 *                          trailing: a service built by hand in a test writes the
-	 *                          entry it always wrote.
+	 * @param RunGovernance $governance What governs a scheduled run: redaction, approvals, budgets, guardrails and retention.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly AgentMapper $agentMapper,
-		private readonly ConversationMapper $conversationMapper,
-		private readonly ChatService $chatService,
-		private readonly IUserSession $userSession,
-		private readonly IUserManager $userManager,
-		private readonly IConfig $config,
+		ScheduleRecords $records,
+		AgentRuntimes $runtimes,
+		ScheduleEnvironment $environment,
 		private readonly LoggerInterface $logger,
-		private readonly DeliveryService $deliveryService,
-		private readonly AuditTrailMapper $auditTrailMapper,
-		private readonly RedactionService $redactionService,
-		private readonly ApprovalService $approvalService,
-		private readonly IAppConfig $appConfig,
-		private readonly Engine $engine,
-		private readonly BudgetService $budgetService,
-		private readonly GuardrailPolicyService $guardrailPolicyService,
-		private readonly AgentVersionService $agentVersionService,
-		private readonly SkillVersionService $skillVersionService,
-		private readonly DelegationContext $delegationContext,
-		private readonly IJobList $jobList,
-		private readonly ?RunRetentionPolicy $retentionPolicy = null,
+		RunGovernance $governance,
 	) {
+		$this->chatService = $runtimes->chatService;
+		$this->deliveryService = $runtimes->deliveryService;
+		$this->engine = $runtimes->engine;
+		$this->delegationContext = $runtimes->delegationContext;
+		$this->jobList = $runtimes->jobList;
+		$this->redactionService = $governance->redactionService;
+		$this->approvalService = $governance->approvalService;
+		$this->budgetService = $governance->budgetService;
+		$this->guardrailPolicyService = $governance->guardrailPolicyService;
+		$this->retentionPolicy = $governance->retentionPolicy;
+		$this->userSession = $environment->userSession;
+		$this->userManager = $environment->userManager;
+		$this->config = $environment->config;
+		$this->appConfig = $environment->appConfig;
+		$this->agentMapper = $records->agentMapper;
+		$this->conversationMapper = $records->conversationMapper;
+		$this->auditTrailMapper = $records->auditTrailMapper;
+		$this->agentVersionService = $records->agentVersionService;
+		$this->skillVersionService = $records->skillVersionService;
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
 

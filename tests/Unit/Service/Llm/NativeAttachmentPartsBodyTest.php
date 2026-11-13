@@ -42,6 +42,7 @@ use OCA\Hermiq\Service\Llm\AnthropicMessageFormat;
 use OCA\Hermiq\Service\Llm\AttachmentMessage;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\Llm\ProviderPlatform;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OpenAI\Responses\Chat\CreateResponse;
@@ -97,8 +98,10 @@ class NativeAttachmentPartsBodyTest extends TestCase {
 	private function factory(): ProviderFactory {
 		return new ProviderFactory(
 			settingsHandler: $this->createMock(LlmSettingsHandler::class),
-			taskManager: $this->createMock(IManager::class),
-			userSession: $this->createMock(IUserSession::class),
+			platform: new ProviderPlatform(
+				taskManager: $this->createMock(IManager::class),
+				userSession: $this->createMock(IUserSession::class)
+			),
 			logger: new NullLogger()
 		);
 	}//end factory()

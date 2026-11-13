@@ -44,6 +44,10 @@ use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\SkillConsolidation\ConsolidationEnvironment;
+use OCA\Hermiq\Service\SkillConsolidation\ConsolidationGuards;
+use OCA\Hermiq\Service\SkillConsolidation\ConsolidationRecords;
+use OCA\Hermiq\Service\SkillConsolidation\SkillPipeline;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
@@ -51,9 +55,9 @@ use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -309,23 +313,31 @@ class SkillConsolidationServiceTest extends TestCase {
 
 		return new SkillConsolidationService(
 			objectService: $this->objectService,
-			maturityService: new SkillMaturityService($this->objectService),
-			versionService: $this->versionService,
-			promotionService: new SkillLearningsPromotionService($this->objectService, $captureService, new NullLogger()),
-			captureService: $captureService,
-			providerFactory: $this->providerFactory,
-			tenantKillSwitch: new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			budgetService: $this->budgetService,
-			contentScanService: $this->contentScanService,
-			evalRunService: $this->evalRunService,
-			approvalService: $this->approvalService,
-			agentMapper: $this->agentMapper,
-			auditTrailMapper: $this->auditTrailMapper,
-			deliveryService: $this->deliveryService,
-			appConfig: $appConfig,
-			userSession: $this->createMock(IUserSession::class),
-			userManager: $this->createMock(IUserManager::class),
-			urlGenerator: $urlGenerator,
+			pipeline: new SkillPipeline(
+				maturityService: new SkillMaturityService($this->objectService),
+				versionService: $this->versionService,
+				promotionService: new SkillLearningsPromotionService($this->objectService, $captureService, new NullLogger()),
+				captureService: $captureService,
+				evalRunService: $this->evalRunService
+			),
+			records: new ConsolidationRecords(
+				providerFactory: $this->providerFactory,
+				agentMapper: $this->agentMapper,
+				auditTrailMapper: $this->auditTrailMapper,
+				deliveryService: $this->deliveryService
+			),
+			guards: new ConsolidationGuards(
+				tenantKillSwitch: new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
+				budgetService: $this->budgetService,
+				contentScanService: $this->contentScanService,
+				approvalService: $this->approvalService
+			),
+			environment: new ConsolidationEnvironment(
+				appConfig: $appConfig,
+				userSession: $this->createMock(IUserSession::class),
+				userManager: $this->createMock(IUserManager::class),
+				urlGenerator: $urlGenerator
+			),
 			logger: new NullLogger()
 		);
 

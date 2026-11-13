@@ -29,9 +29,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\InvocationPolicy;
+use OCA\Hermiq\Service\Engine\InvocationScope;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -101,9 +103,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: 'alice'
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: 'alice'
+			)
 		);
 
 		$decoded = json_decode(
@@ -133,9 +139,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: 'alice'
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: 'alice'
+			)
 		);
 
 		$decoded = json_decode(
@@ -176,9 +186,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: 'alice'
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: 'alice'
+			)
 		);
 
 		$decoded = json_decode(
@@ -209,9 +223,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: 'alice'
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: 'alice'
+			)
 		);
 
 		$decoded = json_decode(
@@ -242,9 +260,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: null
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: null
+			)
 		);
 
 		$decoded = json_decode(
@@ -272,9 +294,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: '   '
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: '   '
+			)
 		);
 
 		$decoded = json_decode(
@@ -300,9 +326,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: $this->idMap(),
-			argumentConstraints: $this->constraints(),
-			ownerUid: null
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap(),
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: null
+			)
 		);
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_B, label: 'admin'), true);
@@ -334,9 +364,13 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: ['hydra_finding_get' => 'hydra.finding.get'],
-			argumentConstraints: $this->constraints(),
-			ownerUid: 'alice'
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hydra_finding_get' => 'hydra.finding.get'],
+				argumentConstraints: $this->constraints()
+			),
+			scope: new InvocationScope(
+				ownerUid: 'alice'
+			)
 		);
 
 		$invoker->hydra_finding_get(id: '7');
@@ -367,7 +401,12 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 				}
 			);
 
-		$invoker = new FacadeToolInvoker(facade: $facade, mcpIdByName: ['hydra_finding_get' => 'hydra.finding.get']);
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hydra_finding_get' => 'hydra.finding.get']
+			)
+		);
 
 		$invoker->hydra_finding_get(id: '7');
 
@@ -392,7 +431,7 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 		$facade = $this->createMock(ToolRegistryFacade::class);
 		$facade->expects($this->never())->method('invokeTool');
 
-		$invoker = new FacadeToolInvoker(facade: $facade, mcpIdByName: $this->idMap());
+		$invoker = new FacadeToolInvoker(facade: $facade, policy: new InvocationPolicy(mcpIdByName: $this->idMap()));
 
 		$decoded = json_decode($invoker->openregister_runFlow(flowId: self::FLOW_B), true);
 
@@ -421,8 +460,12 @@ class FacadeToolInvokerConstraintTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: $this->idMap(),
-			ownerUid: 'alice'
+			policy: new InvocationPolicy(
+				mcpIdByName: $this->idMap()
+			),
+			scope: new InvocationScope(
+				ownerUid: 'alice'
+			)
 		);
 
 		$invoker->openregister_runFlow(flowId: self::FLOW_A, triggeredBy: 'root');

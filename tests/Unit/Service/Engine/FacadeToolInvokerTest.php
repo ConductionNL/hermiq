@@ -28,6 +28,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\InvocationPolicy;
+use OCA\Hermiq\Service\Engine\InvocationScope;
+use OCA\Hermiq\Service\Engine\InvocationServices;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\RedactionService;
@@ -177,7 +180,7 @@ class FacadeToolInvokerTest extends TestCase {
 			descriptors: [['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search', 'description' => 'Search leads']]
 		);
 
-		$invoker = new FacadeToolInvoker(facade: $facade, toolSearchService: $searchService);
+		$invoker = new FacadeToolInvoker(facade: $facade, services: new InvocationServices(toolSearchService: $searchService));
 		$encoded = $invoker->hermiq_searchTools(query: 'lead');
 
 		$decoded = json_decode($encoded, true);
@@ -214,10 +217,16 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			toolSearchService: $searchService,
-			approvalService: $approvalService,
-			agentId: 'agent-1',
-			mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			services: new InvocationServices(
+				toolSearchService: $searchService,
+				approvalService: $approvalService
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			)
 		);
 
 		$encoded = $invoker->pipelinq_lead_delete(id: '7');
@@ -253,10 +262,16 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			toolSearchService: $searchService,
-			approvalService: $approvalService,
-			agentId: 'agent-1',
-			mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			services: new InvocationServices(
+				toolSearchService: $searchService,
+				approvalService: $approvalService
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			)
 		);
 
 		$decoded = json_decode($invoker->pipelinq_lead_delete(id: '7'), true);
@@ -291,10 +306,16 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			toolSearchService: new ToolSearchService(),
-			approvalService: $approvalService,
-			agentId: 'agent-1',
-			mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			services: new InvocationServices(
+				toolSearchService: new ToolSearchService(),
+				approvalService: $approvalService
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			)
 		);
 
 		$decoded = json_decode($invoker->pipelinq_lead_delete(id: '7'), true);
@@ -326,10 +347,16 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			toolSearchService: $searchService,
-			approvalService: $approvalService,
-			agentId: 'agent-1',
-			mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			services: new InvocationServices(
+				toolSearchService: $searchService,
+				approvalService: $approvalService
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			)
 		);
 
 		$decoded = json_decode($invoker->pipelinq_lead_delete(id: '7'), true);
@@ -368,10 +395,16 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			toolSearchService: $searchService,
-			approvalService: $approvalService,
-			agentId: 'agent-1',
-			mcpIdByName: ['pipelinq_createLead' => 'pipelinq.createLead']
+			services: new InvocationServices(
+				toolSearchService: $searchService,
+				approvalService: $approvalService
+			),
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['pipelinq_createLead' => 'pipelinq.createLead']
+			)
 		);
 
 		$decoded = json_decode($invoker->pipelinq_createLead(name: 'Acme'), true);
@@ -397,10 +430,16 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			toolSearchService: new ToolSearchService(),
-			approvalService: $approvalService,
-			agentId: null,
-			mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			services: new InvocationServices(
+				toolSearchService: new ToolSearchService(),
+				approvalService: $approvalService
+			),
+			scope: new InvocationScope(
+				agentId: null
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+			)
 		);
 
 		$invoker->pipelinq_lead_delete(id: '7');
@@ -436,10 +475,16 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['talk_sendMessage' => 'talk.schema.create'],
-			dryRun: true,
-			classifier: new ToolClassificationService(),
-			redactionService: $this->redactionService()
+			policy: new InvocationPolicy(
+				mcpIdByName: ['talk_sendMessage' => 'talk.schema.create']
+			),
+			scope: new InvocationScope(
+				dryRun: true
+			),
+			services: new InvocationServices(
+				classifier: new ToolClassificationService(),
+				redactionService: $this->redactionService()
+			)
 		);
 
 		$encoded = $invoker->talk_sendMessage(text: 'weekly summary', apiKey: 'sk-abcdefghijklmnop');
@@ -477,9 +522,15 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['demo_search' => 'demo.schema.search'],
-			dryRun: true,
-			classifier: new ToolClassificationService()
+			policy: new InvocationPolicy(
+				mcpIdByName: ['demo_search' => 'demo.schema.search']
+			),
+			scope: new InvocationScope(
+				dryRun: true
+			),
+			services: new InvocationServices(
+				classifier: new ToolClassificationService()
+			)
 		);
 
 		$invoker->demo_search(query: 'x');
@@ -506,8 +557,12 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			dryRun: true,
-			classifier: new ToolClassificationService()
+			scope: new InvocationScope(
+				dryRun: true
+			),
+			services: new InvocationServices(
+				classifier: new ToolClassificationService()
+			)
 		);
 
 		$invoker->some_unclassified_tool(x: 1);
@@ -534,9 +589,15 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			mcpIdByName: ['demo_create' => 'demo.schema.create'],
-			dryRun: false,
-			classifier: new ToolClassificationService()
+			policy: new InvocationPolicy(
+				mcpIdByName: ['demo_create' => 'demo.schema.create']
+			),
+			scope: new InvocationScope(
+				dryRun: false
+			),
+			services: new InvocationServices(
+				classifier: new ToolClassificationService()
+			)
 		);
 
 		$invoker->demo_create(name: 'x');
@@ -562,8 +623,12 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			agentId: 'agent-1',
-			mcpIdByName: ['hermiq_rememberMemory' => 'hermiq.rememberMemory']
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_rememberMemory' => 'hermiq.rememberMemory']
+			)
 		);
 
 		$invoker->hermiq_rememberMemory(content: 'x', scope: 'agent');
@@ -587,8 +652,12 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			agentId: 'agent-1',
-			mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+			)
 		);
 
 		$invoker->hermiq_listFiles(path: '/');
@@ -613,8 +682,12 @@ class FacadeToolInvokerTest extends TestCase {
 
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
-			agentId: null,
-			mcpIdByName: ['hermiq_recallMemory' => 'hermiq.recallMemory']
+			scope: new InvocationScope(
+				agentId: null
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_recallMemory' => 'hermiq.recallMemory']
+			)
 		);
 
 		$invoker->hermiq_recallMemory(query: 'x');
@@ -639,7 +712,9 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['hermiq_webFetch' => 'hermiq.webFetch']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_webFetch' => 'hermiq.webFetch']
+			)
 		);
 
 		$invoker->hermiq_webFetch(url: 'https://example.test/a/b?token=SECRET&q=1');
@@ -668,7 +743,9 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['hermiq_webSearch' => 'hermiq.webSearch']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_webSearch' => 'hermiq.webSearch']
+			)
 		);
 
 		$invoker->hermiq_webSearch(query: 'nextcloud news');
@@ -694,7 +771,9 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+			)
 		);
 
 		$invoker->hermiq_listFiles(path: '/');
@@ -730,7 +809,9 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+			)
 		);
 
 		$invoker->hermiq_createNote(title: 'Groceries');
@@ -769,12 +850,16 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			agentId: 'agent-1',
-			mcpIdByName: [
+			scope: new InvocationScope(
+				agentId: 'agent-1'
+			),
+			policy: new InvocationPolicy(
+				mcpIdByName: [
 				'hermiq_createTask' => 'hermiq.createTask',
 				'hermiq_completeTask' => 'hermiq.completeTask',
 				'hermiq_listTasks' => 'hermiq.listTasks',
 			]
+			)
 		);
 
 		$invoker->hermiq_createTask(summary: 'Besluit bezwaar Kerkstraat 12 versturen');
@@ -818,7 +903,9 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+			)
 		);
 
 		$invoker->hermiq_createNote(title: 'x');
@@ -844,7 +931,9 @@ class FacadeToolInvokerTest extends TestCase {
 		$invoker = new FacadeToolInvoker(
 			facade: $facade,
 			trace: $trace,
-			mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+			policy: new InvocationPolicy(
+				mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+			)
 		);
 
 		$invoker->hermiq_listFiles(path: '/');

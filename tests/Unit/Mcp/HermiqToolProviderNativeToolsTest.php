@@ -24,7 +24,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Mcp\AgentToolActions;
+use OCA\Hermiq\Mcp\AgentToolReaders;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
+use OCA\Hermiq\Mcp\NcPlatform;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\MemoryService;
@@ -79,22 +82,28 @@ class HermiqToolProviderNativeToolsTest extends TestCase {
 		$session->method('getUser')->willReturn($user);
 
 		return new HermiqToolProvider(
-			$session,
-			($this->parts['rootFolder'] ?? $this->createMock(IRootFolder::class)),
-			$this->createMock(IContactsManager::class),
-			$this->createMock(ICalendarManager::class),
-			($this->parts['mailer'] ?? $this->createMock(IMailer::class)),
-			($this->parts['appManager'] ?? $this->createMock(IAppManager::class)),
-			($this->parts['container'] ?? $this->createMock(ContainerInterface::class)),
-			$this->createMock(CourseRecommendationEngine::class),
-			$this->createMock(MemoryService::class),
-			$this->createMock(WebSearchClient::class),
-			$this->createMock(WebFetchService::class),
-			$this->createMock(DelegationService::class),
-			$this->createMock(NcNativeWriteService::class),
-			$this->createMock(MailReadService::class),
-			$this->createMock(ToolAccessRequestService::class),
-			($this->parts['logger'] ?? $this->createMock(LoggerInterface::class))
+			userSession: $session,
+			platform: new NcPlatform(
+				rootFolder: ($this->parts['rootFolder'] ?? $this->createMock(IRootFolder::class)),
+				contactsManager: $this->createMock(IContactsManager::class),
+				calendarManager: $this->createMock(ICalendarManager::class),
+				mailer: ($this->parts['mailer'] ?? $this->createMock(IMailer::class)),
+				appManager: ($this->parts['appManager'] ?? $this->createMock(IAppManager::class))
+			),
+			container: ($this->parts['container'] ?? $this->createMock(ContainerInterface::class)),
+			readers: new AgentToolReaders(
+				courseEngine: $this->createMock(CourseRecommendationEngine::class),
+				memoryService: $this->createMock(MemoryService::class),
+				webSearchClient: $this->createMock(WebSearchClient::class),
+				webFetchService: $this->createMock(WebFetchService::class)
+			),
+			actions: new AgentToolActions(
+				delegationService: $this->createMock(DelegationService::class),
+				writeService: $this->createMock(NcNativeWriteService::class),
+				mailReadService: $this->createMock(MailReadService::class),
+				accessRequests: $this->createMock(ToolAccessRequestService::class)
+			),
+			logger: ($this->parts['logger'] ?? $this->createMock(LoggerInterface::class))
 		);
 	}//end provider()
 
