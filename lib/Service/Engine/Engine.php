@@ -124,28 +124,88 @@ class Engine implements EngineInterface {
 	 */
 	private const CONVERSATION_SCHEMA = 'agentsession';
 
+	/**
+	 * The context handler.
+	 *
+	 * @var ContextRetrievalHandler
+	 */
 	private readonly ContextRetrievalHandler $contextHandler;
 
+	/**
+	 * The response handler.
+	 *
+	 * @var ResponseGenerationHandler
+	 */
 	private readonly ResponseGenerationHandler $responseHandler;
 
+	/**
+	 * The conversation handler.
+	 *
+	 * @var ConversationManagementHandler
+	 */
 	private readonly ConversationManagementHandler $conversationHandler;
 
+	/**
+	 * The history handler.
+	 *
+	 * @var MessageHistoryHandler
+	 */
 	private readonly MessageHistoryHandler $historyHandler;
 
+	/**
+	 * The context assembler.
+	 *
+	 * @var ContextAssembler
+	 */
 	private readonly ContextAssembler $contextAssembler;
 
+	/**
+	 * The guardrail policy service.
+	 *
+	 * @var ?GuardrailPolicyService
+	 */
 	private readonly ?GuardrailPolicyService $guardrailPolicyService;
 
+	/**
+	 * The participation.
+	 *
+	 * @var ConversationParticipation
+	 */
 	private readonly ConversationParticipation $participation;
 
+	/**
+	 * The user manager.
+	 *
+	 * @var ?IUserManager
+	 */
 	private readonly ?IUserManager $userManager;
 
+	/**
+	 * The job list.
+	 *
+	 * @var ?IJobList
+	 */
 	private readonly ?IJobList $jobList;
 
+	/**
+	 * The prompt variables.
+	 *
+	 * @var ?PromptVariableResolver
+	 */
 	private readonly ?PromptVariableResolver $promptVariables;
 
+	/**
+	 * The attachment resolver.
+	 *
+	 * @var ?TurnAttachmentResolver
+	 */
 	private readonly ?TurnAttachmentResolver $attachmentResolver;
 
+	/**
+	 * The images.
+	 *
+	 * @var ?ImageGenerationService
+	 */
 	private readonly ?ImageGenerationService $images;
 
 	/**

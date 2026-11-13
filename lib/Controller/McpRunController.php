@@ -159,30 +159,95 @@ class McpRunController extends Controller {
 	 */
 	private string $runId = '';
 
+	/**
+	 * The tool registry facade.
+	 *
+	 * @var ToolRegistryFacade
+	 */
 	private readonly ToolRegistryFacade $toolRegistryFacade;
 
+	/**
+	 * The grant resolver.
+	 *
+	 * @var ToolGrantResolver
+	 */
 	private readonly ToolGrantResolver $grantResolver;
 
+	/**
+	 * The tool loop.
+	 *
+	 * @var ToolLoopInterface
+	 */
 	private readonly ToolLoopInterface $toolLoop;
 
+	/**
+	 * The tool search service.
+	 *
+	 * @var ToolSearchServiceInterface
+	 */
 	private readonly ToolSearchServiceInterface $toolSearchService;
 
+	/**
+	 * The guardrail service.
+	 *
+	 * @var ?GuardrailPolicyServiceInterface
+	 */
 	private readonly ?GuardrailPolicyServiceInterface $guardrailService;
 
+	/**
+	 * The run token service.
+	 *
+	 * @var RunTokenServiceInterface
+	 */
 	private readonly RunTokenServiceInterface $runTokenService;
 
+	/**
+	 * The user manager.
+	 *
+	 * @var IUserManager
+	 */
 	private readonly IUserManager $userManager;
 
+	/**
+	 * The user session.
+	 *
+	 * @var IUserSession
+	 */
 	private readonly IUserSession $userSession;
 
+	/**
+	 * The throttler.
+	 *
+	 * @var IThrottler
+	 */
 	private readonly IThrottler $throttler;
 
+	/**
+	 * The object service.
+	 *
+	 * @var ObjectService
+	 */
 	private readonly ObjectService $objectService;
 
+	/**
+	 * The run step bus.
+	 *
+	 * @var RunStepBusInterface
+	 */
 	private readonly RunStepBusInterface $runStepBus;
 
+	/**
+	 * The workspace scope.
+	 *
+	 * @var ?WorkspaceRunScope
+	 */
 	private readonly ?WorkspaceRunScope $workspaceScope;
 
+	/**
+	 * The tool call counter.
+	 *
+	 * @var ?RunToolCallCounter
+	 */
 	private readonly ?RunToolCallCounter $toolCallCounter;
 
 	/**

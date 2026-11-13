@@ -288,26 +288,81 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 */
 	private ?AnthropicMessageFormat $anthropicFormat = null;
 
+	/**
+	 * The task manager.
+	 *
+	 * @var IManager
+	 */
 	private readonly IManager $taskManager;
 
+	/**
+	 * The user session.
+	 *
+	 * @var IUserSession
+	 */
 	private readonly IUserSession $userSession;
 
+	/**
+	 * The app manager.
+	 *
+	 * @var ?IAppManager
+	 */
 	private readonly ?IAppManager $appManager;
 
+	/**
+	 * The url generator.
+	 *
+	 * @var ?IURLGenerator
+	 */
 	private readonly ?IURLGenerator $urlGenerator;
 
+	/**
+	 * The app config.
+	 *
+	 * @var ?IAppConfig
+	 */
 	private readonly ?IAppConfig $appConfig;
 
+	/**
+	 * The container.
+	 *
+	 * @var ?ContainerInterface
+	 */
 	private readonly ?ContainerInterface $container;
 
+	/**
+	 * The model policy service.
+	 *
+	 * @var ?OrganisationModelPolicyService
+	 */
 	private readonly ?OrganisationModelPolicyService $modelPolicyService;
 
+	/**
+	 * The credential resolver.
+	 *
+	 * @var ?CredentialScopeResolver
+	 */
 	private readonly ?CredentialScopeResolver $credentialResolver;
 
+	/**
+	 * The run token service.
+	 *
+	 * @var ?RunTokenService
+	 */
 	private readonly ?RunTokenService $runTokenService;
 
+	/**
+	 * The feature resolver.
+	 *
+	 * @var ?FeatureProviderResolver
+	 */
 	private readonly ?FeatureProviderResolver $featureResolver;
 
+	/**
+	 * The data use gate.
+	 *
+	 * @var ?DataUseGate
+	 */
 	private readonly ?DataUseGate $dataUseGate;
 
 	/**

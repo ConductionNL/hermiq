@@ -560,30 +560,95 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 	];
 
+	/**
+	 * The root folder.
+	 *
+	 * @var IRootFolder
+	 */
 	private readonly IRootFolder $rootFolder;
 
+	/**
+	 * The contacts manager.
+	 *
+	 * @var IContactsManager
+	 */
 	private readonly IContactsManager $contactsManager;
 
+	/**
+	 * The calendar manager.
+	 *
+	 * @var ICalendarManager
+	 */
 	private readonly ICalendarManager $calendarManager;
 
+	/**
+	 * The mailer.
+	 *
+	 * @var IMailer
+	 */
 	private readonly IMailer $mailer;
 
+	/**
+	 * The app manager.
+	 *
+	 * @var IAppManager
+	 */
 	private readonly IAppManager $appManager;
 
+	/**
+	 * The course engine.
+	 *
+	 * @var CourseRecommendationEngineInterface
+	 */
 	private readonly CourseRecommendationEngineInterface $courseEngine;
 
+	/**
+	 * The memory service.
+	 *
+	 * @var MemoryServiceInterface
+	 */
 	private readonly MemoryServiceInterface $memoryService;
 
+	/**
+	 * The web search client.
+	 *
+	 * @var WebSearchClientInterface
+	 */
 	private readonly WebSearchClientInterface $webSearchClient;
 
+	/**
+	 * The web fetch service.
+	 *
+	 * @var WebFetchServiceInterface
+	 */
 	private readonly WebFetchServiceInterface $webFetchService;
 
+	/**
+	 * The delegation service.
+	 *
+	 * @var DelegationServiceInterface
+	 */
 	private readonly DelegationServiceInterface $delegationService;
 
+	/**
+	 * The write service.
+	 *
+	 * @var NcNativeWriteServiceInterface
+	 */
 	private readonly NcNativeWriteServiceInterface $writeService;
 
+	/**
+	 * The mail read service.
+	 *
+	 * @var MailReadServiceInterface
+	 */
 	private readonly MailReadServiceInterface $mailReadService;
 
+	/**
+	 * The access requests.
+	 *
+	 * @var ToolAccessRequestServiceInterface
+	 */
 	private readonly ToolAccessRequestServiceInterface $accessRequests;
 
 	/**

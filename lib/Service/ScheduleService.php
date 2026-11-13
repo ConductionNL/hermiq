@@ -264,42 +264,137 @@ class ScheduleService implements ScheduleServiceInterface {
 	 */
 	private readonly TenantKillSwitch $tenantKillSwitch;
 
+	/**
+	 * The agent mapper.
+	 *
+	 * @var AgentMapper
+	 */
 	private readonly AgentMapper $agentMapper;
 
+	/**
+	 * The conversation mapper.
+	 *
+	 * @var ConversationMapper
+	 */
 	private readonly ConversationMapper $conversationMapper;
 
+	/**
+	 * The audit trail mapper.
+	 *
+	 * @var AuditTrailMapper
+	 */
 	private readonly AuditTrailMapper $auditTrailMapper;
 
+	/**
+	 * The agent version service.
+	 *
+	 * @var AgentVersionService
+	 */
 	private readonly AgentVersionService $agentVersionService;
 
+	/**
+	 * The skill version service.
+	 *
+	 * @var SkillVersionService
+	 */
 	private readonly SkillVersionService $skillVersionService;
 
+	/**
+	 * The user session.
+	 *
+	 * @var IUserSession
+	 */
 	private readonly IUserSession $userSession;
 
+	/**
+	 * The user manager.
+	 *
+	 * @var IUserManager
+	 */
 	private readonly IUserManager $userManager;
 
+	/**
+	 * The config.
+	 *
+	 * @var IConfig
+	 */
 	private readonly IConfig $config;
 
+	/**
+	 * The app config.
+	 *
+	 * @var IAppConfig
+	 */
 	private readonly IAppConfig $appConfig;
 
+	/**
+	 * The redaction service.
+	 *
+	 * @var RedactionService
+	 */
 	private readonly RedactionService $redactionService;
 
+	/**
+	 * The approval service.
+	 *
+	 * @var ApprovalService
+	 */
 	private readonly ApprovalService $approvalService;
 
+	/**
+	 * The budget service.
+	 *
+	 * @var BudgetService
+	 */
 	private readonly BudgetService $budgetService;
 
+	/**
+	 * The guardrail policy service.
+	 *
+	 * @var GuardrailPolicyService
+	 */
 	private readonly GuardrailPolicyService $guardrailPolicyService;
 
+	/**
+	 * The retention policy.
+	 *
+	 * @var ?RunRetentionPolicy
+	 */
 	private readonly ?RunRetentionPolicy $retentionPolicy;
 
+	/**
+	 * The chat service.
+	 *
+	 * @var ChatService
+	 */
 	private readonly ChatService $chatService;
 
+	/**
+	 * The delivery service.
+	 *
+	 * @var DeliveryService
+	 */
 	private readonly DeliveryService $deliveryService;
 
+	/**
+	 * The engine.
+	 *
+	 * @var Engine
+	 */
 	private readonly Engine $engine;
 
+	/**
+	 * The delegation context.
+	 *
+	 * @var DelegationContext
+	 */
 	private readonly DelegationContext $delegationContext;
 
+	/**
+	 * The job list.
+	 *
+	 * @var IJobList
+	 */
 	private readonly IJobList $jobList;
 
 	/**

@@ -201,26 +201,81 @@ class DeliveryService {
 	 */
 	private const WEBHOOK_HTTP_TIMEOUT_SECONDS = 10;
 
+	/**
+	 * The notification manager.
+	 *
+	 * @var INotificationManager
+	 */
 	private readonly INotificationManager $notificationManager;
 
+	/**
+	 * The talk broker.
+	 *
+	 * @var IBroker
+	 */
 	private readonly IBroker $talkBroker;
 
+	/**
+	 * The mailer.
+	 *
+	 * @var IMailer
+	 */
 	private readonly IMailer $mailer;
 
+	/**
+	 * The client service.
+	 *
+	 * @var IClientService
+	 */
 	private readonly IClientService $clientService;
 
+	/**
+	 * The url generator.
+	 *
+	 * @var IURLGenerator
+	 */
 	private readonly IURLGenerator $urlGenerator;
 
+	/**
+	 * The user manager.
+	 *
+	 * @var IUserManager
+	 */
 	private readonly IUserManager $userManager;
 
+	/**
+	 * The talk room binding.
+	 *
+	 * @var TalkRoomBinding
+	 */
 	private readonly TalkRoomBinding $talkRoomBinding;
 
+	/**
+	 * The talk approval notifier.
+	 *
+	 * @var TalkApprovalNotifier
+	 */
 	private readonly TalkApprovalNotifier $talkApprovalNotifier;
 
+	/**
+	 * The redaction service.
+	 *
+	 * @var RedactionService
+	 */
 	private readonly RedactionService $redactionService;
 
+	/**
+	 * The schedule webhook secret service.
+	 *
+	 * @var ScheduleWebhookSecretService
+	 */
 	private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService;
 
+	/**
+	 * The connection reporter.
+	 *
+	 * @var ?ConnectionReporter
+	 */
 	private readonly ?ConnectionReporter $connectionReporter;
 
 	/**

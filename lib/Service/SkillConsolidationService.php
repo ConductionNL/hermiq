@@ -213,38 +213,123 @@ class SkillConsolidationService implements SkillConsolidationServiceInterface {
 	 */
 	public const AUDIT_ACTION = 'skill-draft';
 
+	/**
+	 * The maturity service.
+	 *
+	 * @var SkillMaturityService
+	 */
 	private readonly SkillMaturityService $maturityService;
 
+	/**
+	 * The version service.
+	 *
+	 * @var SkillVersionService
+	 */
 	private readonly SkillVersionService $versionService;
 
+	/**
+	 * The promotion service.
+	 *
+	 * @var SkillLearningsPromotionService
+	 */
 	private readonly SkillLearningsPromotionService $promotionService;
 
+	/**
+	 * The capture service.
+	 *
+	 * @var SkillLearningsCaptureService
+	 */
 	private readonly SkillLearningsCaptureService $captureService;
 
+	/**
+	 * The eval run service.
+	 *
+	 * @var EvalRunService
+	 */
 	private readonly EvalRunService $evalRunService;
 
+	/**
+	 * The tenant kill switch.
+	 *
+	 * @var TenantKillSwitch
+	 */
 	private readonly TenantKillSwitch $tenantKillSwitch;
 
+	/**
+	 * The budget service.
+	 *
+	 * @var BudgetService
+	 */
 	private readonly BudgetService $budgetService;
 
+	/**
+	 * The content scan service.
+	 *
+	 * @var ContentScanService
+	 */
 	private readonly ContentScanService $contentScanService;
 
+	/**
+	 * The approval service.
+	 *
+	 * @var ApprovalService
+	 */
 	private readonly ApprovalService $approvalService;
 
+	/**
+	 * The provider factory.
+	 *
+	 * @var ProviderFactory
+	 */
 	private readonly ProviderFactory $providerFactory;
 
+	/**
+	 * The agent mapper.
+	 *
+	 * @var AgentMapper
+	 */
 	private readonly AgentMapper $agentMapper;
 
+	/**
+	 * The audit trail mapper.
+	 *
+	 * @var AuditTrailMapper
+	 */
 	private readonly AuditTrailMapper $auditTrailMapper;
 
+	/**
+	 * The delivery service.
+	 *
+	 * @var DeliveryService
+	 */
 	private readonly DeliveryService $deliveryService;
 
+	/**
+	 * The app config.
+	 *
+	 * @var IAppConfig
+	 */
 	private readonly IAppConfig $appConfig;
 
+	/**
+	 * The user session.
+	 *
+	 * @var IUserSession
+	 */
 	private readonly IUserSession $userSession;
 
+	/**
+	 * The user manager.
+	 *
+	 * @var IUserManager
+	 */
 	private readonly IUserManager $userManager;
 
+	/**
+	 * The url generator.
+	 *
+	 * @var IURLGenerator
+	 */
 	private readonly IURLGenerator $urlGenerator;
 
 	/**

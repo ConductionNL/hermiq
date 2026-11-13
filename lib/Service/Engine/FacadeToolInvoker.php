@@ -300,28 +300,88 @@ class FacadeToolInvoker {
 	 */
 	private readonly TurnGuard $turnGuard;
 
+	/**
+	 * The tool search service.
+	 *
+	 * @var ?ToolSearchService
+	 */
 	private readonly ?ToolSearchService $toolSearchService;
 
+	/**
+	 * The approval service.
+	 *
+	 * @var ?ApprovalService
+	 */
 	private readonly ?ApprovalService $approvalService;
 
+	/**
+	 * The classifier.
+	 *
+	 * @var ?ToolClassificationService
+	 */
 	private readonly ?ToolClassificationService $classifier;
 
+	/**
+	 * The redaction service.
+	 *
+	 * @var ?RedactionService
+	 */
 	private readonly ?RedactionService $redactionService;
 
+	/**
+	 * The agent id.
+	 *
+	 * @var ?string
+	 */
 	private readonly ?string $agentId;
 
+	/**
+	 * The dry run.
+	 *
+	 * @var bool
+	 */
 	private readonly bool $dryRun;
 
+	/**
+	 * The owner uid.
+	 *
+	 * @var ?string
+	 */
 	private readonly ?string $ownerUid;
 
+	/**
+	 * The mcp id by name.
+	 *
+	 * @var array
+	 */
 	private readonly array $mcpIdByName;
 
+	/**
+	 * The tool policy.
+	 *
+	 * @var array
+	 */
 	private readonly array $toolPolicy;
 
+	/**
+	 * The descriptors by name.
+	 *
+	 * @var array
+	 */
 	private readonly array $descriptorsByName;
 
+	/**
+	 * The argument constraints.
+	 *
+	 * @var array
+	 */
 	private readonly array $argumentConstraints;
 
+	/**
+	 * The waived constraint sets.
+	 *
+	 * @var array
+	 */
 	private readonly array $waivedConstraintSets;
 
 	/**
