@@ -294,6 +294,10 @@
         {
             "name": "tool-oversight",
             "description": "Tool-catalog / tool-grants / tool-invocations endpoints."
+        },
+        {
+            "name": "ai-label",
+            "description": "The AI label on what agents write."
         }
     ],
     "paths": {
@@ -3405,6 +3409,79 @@
                                     "type": "string",
                                     "format": "binary"
                                 }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/ai-label/files/{fileId}/reviewed": {
+            "post": {
+                "operationId": "ai-label-mark-reviewed",
+                "summary": "Mark an agent-authored file as reviewed",
+                "description": "Adds the reviewed system tag next to the agent-authored tag on a file the caller can read. A file the caller cannot open answers 404; a file without the agent-authored tag answers 409. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "ai-label"
+                ],
+                "parameters": [
+                    {
+                        "name": "fileId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Nextcloud file id.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file is marked as reviewed.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "description": "No file the caller can read has this id."
+                    },
+                    "409": {
+                        "description": "The file is not marked as made with AI."
+                    }
+                }
+            }
+        },
+        "/ai-label/stats": {
+            "get": {
+                "operationId": "ai-label-stats",
+                "summary": "The AI label counts for the caller",
+                "description": "The number of agent-authored files the caller can read, how many are marked as reviewed, the reviewed share in percent, and the agent-authored tag id for a link to Files. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "ai-label"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The counts.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
                             }
                         }
                     },

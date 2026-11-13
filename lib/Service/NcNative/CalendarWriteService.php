@@ -268,6 +268,7 @@ class CalendarWriteService {
 	 * @param string $agentId The invoking agent id.
 	 *
 	 * @return string The marked calendar object.
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	private function withAgentProperty(string $ics, string $agentId): string {
 		$anchor = 'BEGIN:VEVENT';
