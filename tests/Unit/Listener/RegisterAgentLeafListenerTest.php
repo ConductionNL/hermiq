@@ -48,15 +48,9 @@ class RegisterAgentLeafListenerTest extends TestCase {
 	/**
 	 * Build the listener with an identity l10n and a logger that REMEMBERS.
 	 *
-	 * The listener wraps its registration in `catch (Throwable)` and turns any
-	 * failure into a warning, so with a plain mock logger a failed
-	 * registration reaches the assertions as nothing but `assertCount(1, …)`
-	 * finding 0. That is how this test reported "actual size 0" for weeks
-	 * while the reason -- `Undefined constant …LeafDescriptor::LOADS_VIA_OWN_SCRIPT`
-	 * -- was sitting in a message nobody captured.
-	 *
-	 * Capturing the warnings costs one property and makes the failure name its
-	 * own cause.
+	 * The listener turns a registration failure into a warning, so the logger
+	 * keeps them and the first assertion can name the cause when the leaf did
+	 * not register.
 	 *
 	 * @return RegisterAgentLeafListener
 	 */

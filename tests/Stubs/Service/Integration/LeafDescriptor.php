@@ -98,23 +98,11 @@ final class LeafDescriptor {
 	/**
 	 * Constructor — same parameter order as the real descriptor.
 	 *
-	 * @param string $id Stable kebab-case id.
-	 * @param string $label Human-readable label.
-	 * @param string $icon MDI icon name.
-	 * @param array<int,string> $kinds Non-empty subset of VALID_KINDS.
-	 * @param string|null $requiredApp Required NC app id, or null.
-	 * @param string|null $group Optional group.
-	 * @param array<int,string> $surfaces Render surfaces.
-	 * @param string|null $referenceType Optional reference-type marker.
-	 * @param string|null $requiresPermission Optional permission gate.
-	 * @param string $renderMode `component` (SFC under the host's Vue runtime) or
-	 *                           `mount` (a mount/unmount DOM hand-off that crosses a
-	 *                           Vue major). Mirrors the real descriptor, which gained
-	 *                           this parameter in openregister#2127 / ADR-066 — without
-	 *                           it the listener's own registration throws and the leaf
-	 *                           silently disappears, which is exactly the failure mode
-	 *                           the leaf tests exist to catch.
-	 * @param string|null $loadStrategy How the render bundle reaches the page, or null when unsaid.
+	 * @param LeafIdentity          $identity     Id, label, icon and group.
+	 * @param array<int,string>     $kinds        Non-empty subset of VALID_KINDS.
+	 * @param LeafAvailability|null $availability Required app and permission; defaults to none.
+	 * @param LeafRendering|null    $rendering    Surfaces, reference type, render mode and
+	 *                                            load strategy; defaults to an empty rendering.
 	 */
 	public function __construct(
 		LeafIdentity $identity,
