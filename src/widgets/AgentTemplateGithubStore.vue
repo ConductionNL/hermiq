@@ -35,7 +35,7 @@
 <template>
 	<div class="agent-template-github-store">
 		<h3 class="agent-template-github-store__heading">
-			{{ t('hermiq', 'GitHub store') }}
+			{{ t('hermiq', 'GitHub marketplace') }}
 		</h3>
 
 		<div class="agent-template-github-store__search">

@@ -1,5 +1,6 @@
 {
     "translations": {
+        "Marketplace": "Marketplace",
         "Open {name} in Files": "Open {name} in Files",
         "Create an image": "Create an image",
         "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.": "The image is saved in your Files under Hermiq/Generated images and marked as made by an agent.",
@@ -115,10 +116,10 @@
         "This file is not an exported agent.": "This file is not an exported agent.",
         "Save as template": "Save as template",
         "Export agent": "Export agent",
-        "The template appears in the Store. Colleagues create their own agent from it with Use this template. Sharing, schedules and credentials stay with this agent.": "The template appears in the Store. Colleagues create their own agent from it with Use this template. Sharing, schedules and credentials stay with this agent.",
+        "The template appears in the Marketplace. Colleagues create their own agent from it with Use this template. Sharing, schedules and credentials stay with this agent.": "The template appears in the Marketplace. Colleagues create their own agent from it with Use this template. Sharing, schedules and credentials stay with this agent.",
         "The file holds the prompt, the model and the tools. It holds no users, groups, quotas or credentials.": "The file holds the prompt, the model and the tools. It holds no users, groups, quotas or credentials.",
         "Download file": "Download file",
-        "Saved as the template {name}. You find it in the Store.": "Saved as the template {name}. You find it in the Store.",
+        "Saved as the template {name}. You find it in the Marketplace.": "Saved as the template {name}. You find it in the Marketplace.",
         "The file is downloaded.": "The file is downloaded.",
         "Only the owner of this agent can save it as a template.": "Only the owner of this agent can save it as a template.",
         "Could not save the agent as a template": "Could not save the agent as a template",
@@ -564,7 +565,7 @@
         "Gap list": "Gap list",
         "Generic JSON search API": "Generic JSON search API",
         "GitHub credential": "GitHub credential",
-        "GitHub store": "GitHub store",
+        "GitHub marketplace": "GitHub marketplace",
         "GitHub's anonymous search rate limit was reached. Add a GitHub credential under Settings → Agent credentials to raise the limit and see private repos.": "GitHub's anonymous search rate limit was reached. Add a GitHub credential under Settings → Agent credentials to raise the limit and see private repos.",
         "GitHub's anonymous search rate limit was reached. Add a personal GitHub credential under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, to raise the limit and see private repos.": "GitHub's anonymous search rate limit was reached. Add a personal GitHub credential under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, to raise the limit and see private repos.",
         "Go to agents": "Go to agents",
