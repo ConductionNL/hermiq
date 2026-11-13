@@ -10,8 +10,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
 - **acceptance_criteria**:
   - GIVEN openai-compatible with a keyless base URL WHEN an agent runs THEN the base URL answers and the model policy and residency apply to it
   - GIVEN an OpenAI provider with no base URL WHEN it runs THEN calls go to api.openai.com as before
-- [ ] Implement
-- [ ] Test (PHPUnit on the driver and the settings merge)
+- [x] Implement
+      > 2026-11-13: `openai-compatible` in `ALLOWED_CHAT_PROVIDERS`, `openaiCompatibleConfig` (label, baseUrl, chatModel, credentialId, ownNetwork) and `openaiConfig.baseUrl`/`ownNetwork` in the settings shape; `ProviderFactory::createOpenAiCompatibleDriver()`; a keyless base URL is called directly after the egress check (private address and plain HTTP only with `ownNetwork`), a credential keeps the broker path; the ModelPolicy and AiFeature provider enums accept it (register 0.53.0); residency and data-use declarations take it through the shared provider list; the connection report names it by its label.
+- [x] Test (PHPUnit on the driver and the settings merge)
+      > `ProviderFactoryOpenAiCompatibleTest` (9), `LlmConnectionReportNamingTest` (+2), `LlmSettingsHandlerTest` shape and merge.
 
 ### Task 2: Transport by credential, and an honest Fireworks form
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002`

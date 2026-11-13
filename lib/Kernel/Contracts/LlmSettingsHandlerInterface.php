@@ -42,10 +42,12 @@ interface LlmSettingsHandlerInterface {
 	 * (openai, ollama, fireworks) — plan §8 move 1, background/non-interactive only.
 	 * `anthropic` is additive too (anthropic-agent-provider) — Claude via API key or a
 	 * Claude Max OAuth subscription, broker-injected like openai/fireworks.
+	 * `openai-compatible` is an OpenAI-compatible endpoint an admin connects by base
+	 * URL (models-provider-connections).
 	 *
 	 * @var string[]
 	 */
-	public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'];
+	public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic', 'openai-compatible'];
 
 	/**
 	 * Get the LLM settings, defaulting every field when the key is unset.
