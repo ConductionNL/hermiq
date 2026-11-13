@@ -500,11 +500,34 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$prompt = ((int)($total['promptTokens'] ?? 0) + (int)$promptTokens);
 		$completion = ((int)($total['completionTokens'] ?? 0) + (int)$completionTokens);
 		if (($prompt + $completion) === 0) {
-			return [];
+			return $total;
 		}
 
-		return ['promptTokens' => $prompt, 'completionTokens' => $completion];
+		// Other counts already on the total (the prompt-cache counts) are kept.
+		return array_merge($total, ['promptTokens' => $prompt, 'completionTokens' => $completion]);
 	}//end addUsage()
+
+	/**
+	 * Add one request's prompt-cache counts to a running total. A count the
+	 * provider did not report is not added, so a total only carries
+	 * `cacheReadTokens` / `cacheWriteTokens` once some request reported them.
+	 *
+	 * @param array<string, int>   $total The running total.
+	 * @param array<string, mixed> $usage This request's parsed usage.
+	 *
+	 * @return array<string, int>
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-the-run-reports-cache-tokens-req-pcache-003
+	 */
+	private function addCacheUsage(array $total, array $usage): array {
+		foreach (['cacheReadTokens', 'cacheWriteTokens'] as $key) {
+			if (array_key_exists($key, $usage) === true) {
+				$total[$key] = ((int)($total[$key] ?? 0) + (int)$usage[$key]);
+			}
+		}
+
+		return $total;
+	}//end addCacheUsage()
 
 	/**
 	 * Read the current `hermiq.llm` configuration.
@@ -1252,6 +1275,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$loop->messages = $mapped['messages'];
 		$loop->tools = $this->offeredAnthropicTools(run: $run);
 		$loop->headers = $this->buildAnthropicHeaders(authMode: $run->authMode);
+		$loop->breakpoints = $this->anthropicCacheBreakpoints();
 
 		for ($iteration = 0; $iteration <= $loop->cap; $iteration++) {
 			if ($this->anthropicRound(loop: $loop) === false) {
@@ -1314,6 +1338,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 			promptTokens: ($parsed['usage']['promptTokens'] ?? 0),
 			completionTokens: ($parsed['usage']['completionTokens'] ?? 0)
 		);
+		$this->lastCallUsage = $this->addCacheUsage(total: $this->lastCallUsage, usage: ($parsed['usage'] ?? []));
 
 		if ($this->anthropicTurnComplete(loop: $loop, parsed: $parsed) === true) {
 			return false;
@@ -1368,8 +1393,35 @@ class ProviderFactory implements ProviderFactoryInterface {
 			$payload['tools'] = $loop->tools;
 		}
 
+		if ($loop->breakpoints !== null) {
+			$payload = $loop->breakpoints->apply(payload: $payload);
+		}
+
 		return $payload;
 	}//end anthropicPayload()
+
+	/**
+	 * The prompt-cache breakpoints the admin's Anthropic settings ask for: on
+	 * unless `promptCaching` is switched off. Settings that cannot be read leave
+	 * caching on, the default; caching changes cost and speed, not the answer.
+	 *
+	 * @return AnthropicCacheBreakpoints|null
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-anthropic-requests-carry-cache-breakpoints-by-default-req-pcache-001
+	 */
+	private function anthropicCacheBreakpoints(): ?AnthropicCacheBreakpoints {
+		try {
+			$anthropicConfig = ($this->getLlmConfig()['anthropicConfig'] ?? []);
+		} catch (\Throwable $e) {
+			$anthropicConfig = [];
+		}
+
+		if (is_array($anthropicConfig) === false) {
+			$anthropicConfig = [];
+		}
+
+		return AnthropicCacheBreakpoints::fromConfig(anthropicConfig: $anthropicConfig);
+	}//end anthropicCacheBreakpoints()
 
 	/**
 	 * Echo the assistant's tool_use turn back verbatim, run each requested tool
