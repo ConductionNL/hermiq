@@ -106,7 +106,7 @@ class ToolOversightController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
+	 * @spec openspec/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
 	 */
 	public function toolCatalog(string $agentId): JSONResponse {
 		$agent = $this->viewableAgent(agentId: $agentId);
@@ -142,7 +142,7 @@ class ToolOversightController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 * @spec openspec/changes/archive/2026-11-12-tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
 	 *
 	 * @psalm-suppress TypeDoesNotContainType OCP 35 types getUID() as
 	 *   non-empty-string; Nextcloud 32-34 can still return '', so the guard stays.

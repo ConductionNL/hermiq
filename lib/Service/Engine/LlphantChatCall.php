@@ -16,7 +16,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use Psr\Log\LoggerInterface;
 /**
  * One LLPhant model call of a turn. Built by ResponseGenerationHandler per call.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 final class LlphantChatCall {
 
@@ -61,7 +61,7 @@ final class LlphantChatCall {
 	 *
 	 * @return string The assistant's textual response.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function generate(ResponseTurnRun $run): string {
 		if ($this->chat instanceof OpenAIChat) {
@@ -144,7 +144,7 @@ final class LlphantChatCall {
 	 *
 	 * @return string The assistant's textual response.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	private function invokeChat(OpenAIChat|OllamaChat $chat, ResponseTurnRun $run): string {
 		$ollamaWithTools = (($chat instanceof OllamaChat) === true && empty($run->progress->functions) === false);
@@ -201,7 +201,7 @@ final class LlphantChatCall {
 	 *
 	 * @throws MissingFeatureException When the provider's streaming surface throws.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	private function streamChat(OpenAIChat|OllamaChat $chat, ResponseTurnRun $run): string {
 		$stream = $chat->generateChatStream($run->messageHistory);

@@ -67,7 +67,7 @@ class DocumentFeatureRun {
 	/**
 	 * Constructor.
 	 *
-	 * @param AiFeatureService            $features        Reads the feature register.
+	 * @param AiFeatureLookup             $features        Reads the feature register.
 	 * @param LiteracyRequirement         $literacy        The course requirement and the caller's organisation.
 	 * @param IRootFolder                 $rootFolder      Resolves the document in the caller's Files.
 	 * @param AttachmentTextReader        $textReader      Reads a file's text as the caller.
@@ -77,7 +77,7 @@ class DocumentFeatureRun {
 	 * @return void
 	 */
 	public function __construct(
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly LiteracyRequirement $literacy,
 		private readonly IRootFolder $rootFolder,
 		private readonly AttachmentTextReader $textReader,

@@ -68,10 +68,7 @@ final class GraphToolDescriptors {
 				],
 				'required' => ['entity'],
 			],
-			'readOnlyHint' => true,
-			'destructiveHint' => false,
-			'idempotentHint' => true,
-			'scope' => 'read',
+			...ReadOnlyToolHints::HINTS,
 		],
 		[
 			'id' => self::PATH,
@@ -91,10 +88,7 @@ final class GraphToolDescriptors {
 				],
 				'required' => ['from', 'to'],
 			],
-			'readOnlyHint' => true,
-			'destructiveHint' => false,
-			'idempotentHint' => true,
-			'scope' => 'read',
+			...ReadOnlyToolHints::HINTS,
 		],
 	];
 }//end class

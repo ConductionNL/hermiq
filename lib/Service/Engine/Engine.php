@@ -50,8 +50,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
- * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
  */
 
 declare(strict_types=1);
@@ -92,7 +92,7 @@ use Throwable;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Facade orchestrates the handler set by design.
  * @SuppressWarnings(PHPMD.LongVariable)           `$guardrailPolicyService` is a promoted
@@ -175,8 +175,8 @@ class Engine {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
-	 * @spec openspec/changes/agent-context-system/tasks.md#3-engine-wiring
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#3-engine-wiring
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-3-wire-input-output-filters-into-engine-processmessage
 	 * @spec openspec/specs/agent-engine-port/spec.md
 	 *
@@ -277,8 +277,8 @@ class Engine {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
 	 *   is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
@@ -396,7 +396,7 @@ class Engine {
 	 *
 	 * @throws Exception When the conversation is missing or the caller may not take a turn.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	private function admitTurn(array $request): array {
 		$turn = $request;
@@ -576,7 +576,7 @@ class Engine {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 */
 	private function turnResponse(array $turn, array &$timings): string {
@@ -625,7 +625,7 @@ class Engine {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	private function turnEnvelope(array $turn, array $timings): array {
 		$totalTime = ($timings['context'] + $timings['history'] + $timings['llm']);
@@ -670,7 +670,7 @@ class Engine {
 	 *
 	 * @return ObjectEntity The stored user Message.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	private function storeUserTurn(array $turn): ObjectEntity {
 		$userTurn = $this->historyHandler->storeMessage(
@@ -776,7 +776,7 @@ class Engine {
 	 *
 	 * @return string Generated title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	public function generateConversationTitle(string $firstMessage): string {
 		return $this->conversationHandler->generateConversationTitle(firstMessage: $firstMessage);
@@ -793,7 +793,7 @@ class Engine {
 	 *
 	 * @return string Unique title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#1-port-the-chat-engine
 	 */
 	public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string {
 		return $this->conversationHandler->ensureUniqueTitle(

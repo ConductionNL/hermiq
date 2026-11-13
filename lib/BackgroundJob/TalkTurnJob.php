@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
  */
 class TalkTurnJob extends QueuedJob {
 	/**
@@ -70,7 +70,7 @@ class TalkTurnJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	protected function run($argument): void {
 		$turn = $this->turnOf(argument: $argument);
@@ -89,7 +89,7 @@ class TalkTurnJob extends QueuedJob {
 	 *
 	 * @return array{conversationUuid: string, speakerUid: string, message: string, roomToken: string}|null
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	private function turnOf(mixed $argument): ?array {
 		if (is_array($argument) === false) {

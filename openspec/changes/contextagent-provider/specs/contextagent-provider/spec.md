@@ -12,6 +12,14 @@ preferred provider per task type) — it MUST NOT disable or replace the stock p
 - **WHEN** `ContextAgentProvider::getTaskTypeId()` is read
 - **THEN** it MUST return `core:contextagent:interaction`
 
+#### Scenario: A person asks an agent from a text field and inserts the answer
+
+- **GIVEN** an admin chose Hermiq as the provider for `core:contextagent:interaction`
+- **AND** a case handler is writing a reply in Text
+- **WHEN** they open the Smart Picker, ask "Write two sentences confirming receipt of the objection" and insert the result
+- **THEN** Hermiq's governed agent writes the answer
+- **AND** the answer is inserted at the cursor, and nothing is inserted when they cancel
+
 ### Requirement: An interaction runs one governed turn and returns the ContextAgent shape
 
 For a valid interaction the system MUST bind the `conversation_token` to a Hermiq

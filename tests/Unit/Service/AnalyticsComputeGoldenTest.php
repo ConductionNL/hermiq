@@ -41,6 +41,7 @@ use ReflectionMethod;
  *
  * @covers \OCA\Hermiq\Service\AnalyticsService
  * @uses   \OCA\Hermiq\Service\AgentFeedbackStats
+ * @uses \OCA\Hermiq\Service\FeedbackTally
  *
  * @spec openspec/changes/run-analytics/tasks.md#task-1-3
  */

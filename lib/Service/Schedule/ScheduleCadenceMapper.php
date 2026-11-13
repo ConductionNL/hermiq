@@ -152,14 +152,35 @@ class ScheduleCadenceMapper {
 			return true;
 		}
 
-		$minuteIsCadence = ($fields[0] === '*' || preg_match('/^\*\/\d+$/', $fields[0]) === 1);
+		$minuteIsCadence = $this->isMinuteCadence(minute: $fields[0]);
 
-		return $minuteIsCadence
-			&& $fields[1] === '*'
+		return $minuteIsCadence && $this->hourAndDateAreUnset(fields: $fields);
+	}//end timezoneSafe()
+
+	/**
+	 * Whether a cron minute field is every minute or a pure every-N-minutes cadence.
+	 *
+	 * @param string $minute The minute field.
+	 *
+	 * @return boolean True for every minute or every N minutes.
+	 */
+	private function isMinuteCadence(string $minute): bool {
+		return $minute === '*' || preg_match('/^\*\/\d+$/', $minute) === 1;
+	}//end isMinuteCadence()
+
+	/**
+	 * Whether the hour, day, month and weekday fields are all `*`.
+	 *
+	 * @param array<int,string> $fields The 5 cron fields.
+	 *
+	 * @return boolean True when none of them is set.
+	 */
+	private function hourAndDateAreUnset(array $fields): bool {
+		return $fields[1] === '*'
 			&& $fields[2] === '*'
 			&& $fields[3] === '*'
 			&& $fields[4] === '*';
-	}//end timezoneSafe()
+	}//end hourAndDateAreUnset()
 
 	/**
 	 * The owner's resolved timezone name, mirroring the dispatcher's rule.
@@ -202,16 +223,38 @@ class ScheduleCadenceMapper {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
 	private function cronForInterval(int $minutes): ?string {
-		if ($minutes >= 1 && $minutes < 60) {
+		if ($this->isUnderAnHour(minutes: $minutes) === true) {
 			return $this->minuteCadence(minutes: $minutes);
 		}
 
-		if ($minutes >= 60 && ($minutes % 60) === 0) {
+		if ($this->isWholeHours(minutes: $minutes) === true) {
 			return $this->hourCadence(hours: intdiv($minutes, 60));
 		}
 
 		return null;
 	}//end cronForInterval()
+
+	/**
+	 * Whether an interval is 1 to 59 minutes.
+	 *
+	 * @param int $minutes The interval in minutes.
+	 *
+	 * @return boolean True when it is shorter than an hour.
+	 */
+	private function isUnderAnHour(int $minutes): bool {
+		return $minutes >= 1 && $minutes < 60;
+	}//end isUnderAnHour()
+
+	/**
+	 * Whether an interval is one or more whole hours.
+	 *
+	 * @param int $minutes The interval in minutes.
+	 *
+	 * @return boolean True when it is a multiple of 60, at least 60.
+	 */
+	private function isWholeHours(int $minutes): bool {
+		return $minutes >= 60 && ($minutes % 60) === 0;
+	}//end isWholeHours()
 
 	/**
 	 * A sub-hour cadence, when the minutes divide an hour evenly.

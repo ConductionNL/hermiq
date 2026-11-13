@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
  * @psalm-api
  * @SuppressWarnings(PHPMD.UnusedFormalParameter)
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+ * @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
  */
 class RunRetentionCleanupJob extends TimedJob {
 
@@ -78,7 +78,7 @@ class RunRetentionCleanupJob extends TimedJob {
 	 *
 	 * @phpstan-param mixed $argument
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
+	 * @spec openspec/specs/run-audit-log/spec.md#scenario-expired-runs-lose-their-payload
 	 */
 	protected function run($argument): void {
 		try {

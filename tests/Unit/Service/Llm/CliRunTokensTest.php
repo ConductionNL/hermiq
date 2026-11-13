@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
  */
 
 declare(strict_types=1);
@@ -376,7 +376,7 @@ class CliRunTokensTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-requiring-turn-with-an-unreachable-governed-endpoint-raises
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-requiring-turn-with-an-unreachable-governed-endpoint-raises
 	 */
 	public function testMintGovernedRunTokenFailsLoudWithoutTokenService(): void {
 		$factory = $this->runTokens();
@@ -393,7 +393,7 @@ class CliRunTokensTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
 	public function testMintGovernedRunTokenFailsLoudWithoutAgentId(): void {
 		$factory = $this->runTokens(runTokenService: $this->realRunTokenService());
@@ -413,7 +413,7 @@ class CliRunTokensTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
 	public function testMintGovernedRunTokenFailsLoudWithoutUser(): void {
 		$factory = $this->runTokens(runTokenService: $this->realRunTokenService());
@@ -434,7 +434,7 @@ class CliRunTokensTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
 	 */
 	public function testMintGovernedRunTokenBindsAndVerifies(): void {
 		$runTokenService = $this->realRunTokenService();
@@ -457,7 +457,7 @@ class CliRunTokensTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
 	public function testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator(): void {
 		$factory = $this->runTokens(runTokenService: $this->realRunTokenService());
@@ -475,7 +475,7 @@ class CliRunTokensTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 */
 	public function testBuildGovernedMcpConfigProducesHttpBearerConfig(): void {
 		$urlGenerator = $this->createMock(\OCP\IURLGenerator::class);

@@ -10,8 +10,8 @@
   and never re-opens this dialog to re-reveal a past secret — the webhook panel
   itself only ever shows the masked secretPrefix afterward.
 
-  @spec openspec/changes/agent-webhook-trigger/tasks.md#task-7-agentdetail-webhook-panel-copy-once-secret-dialog
-  @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md
+  @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-7-agentdetail-webhook-panel-copy-once-secret-dialog
+  @spec openspec/specs/agent-management-ui/spec.md
 -->
 <template>
 	<NcModal
@@ -104,7 +104,7 @@ export default {
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
 		 */
 		copy() {
 			return copySecret(this.secret)
