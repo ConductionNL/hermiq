@@ -9,8 +9,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **files**: `lib/Settings/hermiq_register.json` (PublicChannel, PublicConversation), `lib/Repair/SeedAiFeatures.php`
 - **acceptance_criteria**:
   - GIVEN the re-import WHEN it runs THEN both schemas exist and `public-chat` is seeded disabled
-- [ ] Implement
-- [ ] Test (npm run check:register; PHPUnit on the seed)
+- [x] Implement (register 0.53.0: `agentpublicchannel`, `agentpublicconversation`; `public-chat` seeded `limited`, disabled)
+- [x] Test (npm run check:register; `SeedAiFeaturesTest`, `PublicChatSchemasTest`)
 
 ### Task 2: Scoped anonymous retrieval
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002`

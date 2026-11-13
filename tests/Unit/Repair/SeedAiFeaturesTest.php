@@ -241,11 +241,11 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(5, $objectService->saved);
+		$this->assertCount(6, $objectService->saved);
 
 		$slugs = array_map(static fn (array $row): string => (string)$row['object']['slug'], $objectService->saved);
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake', 'image-generation'],
+			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'public-chat'],
 			$slugs
 		);
 
@@ -306,9 +306,11 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(2, $objectService->saved);
+		$this->assertCount(3, $objectService->saved);
 		$this->assertSame('skill-code-execution', $objectService->saved[0]['object']['slug']);
 		$this->assertSame('image-generation', $objectService->saved[1]['object']['slug']);
+		$this->assertSame('public-chat', $objectService->saved[2]['object']['slug']);
+		$this->assertSame('limited', $objectService->saved[2]['object']['riskCategory']);
 
 	}//end testReRunSeedsOnlyTheMissingFeatures()
 
@@ -326,6 +328,7 @@ class SeedAiFeaturesTest extends TestCase {
 					$this->object('existing-3', ['slug' => 'chat-companion']),
 					$this->object('existing-4', ['slug' => 'conversational-intake']),
 					$this->object('existing-5', ['slug' => 'image-generation']),
+					$this->object('existing-6', ['slug' => 'public-chat']),
 				],
 			]
 		);
@@ -350,7 +353,7 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(5, $objectService->saved);
+		$this->assertCount(6, $objectService->saved);
 
 	}//end testNonEntityRowsAreNotTreatedAsExisting()
 
@@ -427,12 +430,12 @@ class SeedAiFeaturesTest extends TestCase {
 		};
 
 		$output = $this->createMock(IOutput::class);
-		$output->expects($this->exactly(5))->method('warning');
+		$output->expects($this->exactly(6))->method('warning');
 
 		$this->step(objectService: $objectService)->run(output: $output);
 
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake', 'image-generation'],
+			['autonomous-agent-run', 'skill-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'public-chat'],
 			$objectService->attempted,
 			'One failed write must not stop the seeds that follow it.'
 		);
