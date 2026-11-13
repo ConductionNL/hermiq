@@ -117,6 +117,7 @@ use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillLearningsCaptureServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillLearningsPromotionServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMergeServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillMaturityServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
@@ -336,6 +337,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(SkillLearningsCaptureServiceInterface::class, SkillLearningsCaptureService::class);
 		$context->registerServiceAlias(SkillLearningsPromotionServiceInterface::class, SkillLearningsPromotionService::class);
 		$context->registerServiceAlias(SkillMarketplaceServiceInterface::class, SkillMarketplaceService::class);
+		$context->registerServiceAlias(SkillMergeServiceInterface::class, SkillMergeService::class);
 		$context->registerServiceAlias(SkillMaturityServiceInterface::class, SkillMaturityService::class);
 		$context->registerServiceAlias(SkillServiceInterface::class, SkillService::class);
 		$context->registerServiceAlias(SkillVersionServiceInterface::class, SkillVersionService::class);

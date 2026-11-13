@@ -588,6 +588,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SkillMergeServiceInterface",
+            "OCA\\Hermiq\\Service\\SkillMergeService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SkillMaturityServiceInterface",
             "OCA\\Hermiq\\Service\\SkillMaturityService"
         ],
