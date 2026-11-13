@@ -2,43 +2,48 @@
 
 ## 1. Domain tool descriptors
 
-- [ ] 1.1 Add five entries to `HermiqToolProvider::TOOL_DESCRIPTORS`
+- [x] 1.1 Add five entries to `HermiqToolProvider::TOOL_DESCRIPTORS`
       (`lib/Mcp/HermiqToolProvider.php:84-150`): `hermiq.listAgents`, `hermiq.getAgentStatus`,
       `hermiq.listPendingApprovals`, `hermiq.runAgentNow`, `hermiq.searchSkills` — each with
       `id`, `name`, `description`, `inputSchema` (JSON Schema).
-- [ ] 1.2 Inject the collaborating services (`ApprovalService`, the schedule/run read+trigger
+- [x] 1.2 Inject the collaborating services (`ApprovalService`, the schedule/run read+trigger
       path already used by `RunNowController`/`RunHistoryController`, `SkillService`) into
       `HermiqToolProvider::__construct()` — thin delegation only, no new business logic
       duplicated from the controllers/services.
+      Built as the existing graph-tool pattern: the descriptors in `Mcp/DomainToolDescriptors`,
+      the delegation in `Service/Mcp/DomainTools`, routed through the provider's
+      `userScopedServiceFor()` and resolved from the container, so the provider's
+      constructor did not grow. The schedule owner guard moved to `Service/Schedule/OwnedSchedule`,
+      which `RunNowController` and `hermiq.runAgentNow` both call.
 
 ## 2. invokeTool branches
 
-- [ ] 2.1 `hermiq.listAgents` — delegate to the same tenant-scoped agent read path as
+- [x] 2.1 `hermiq.listAgents` — delegate to the same tenant-scoped agent read path as
       `AgentCatalog`'s index (no admin bypass; scoped to the caller's session).
-- [ ] 2.2 `hermiq.getAgentStatus` — read the agent's last-run + next-scheduled-run fields.
-- [ ] 2.3 `hermiq.listPendingApprovals` — delegate to
+- [x] 2.2 `hermiq.getAgentStatus` — read the agent's last-run + next-scheduled-run fields.
+- [x] 2.3 `hermiq.listPendingApprovals` — delegate to
       `ApprovalService::listPendingForReviewer(uid: $user->getUID())`, mirroring
       `ApprovalController::index()` exactly (same reviewer scoping — no broader access
       than the HTTP endpoint grants).
-- [ ] 2.4 `hermiq.runAgentNow` — delegate to the SAME owner-scoped guard
+- [x] 2.4 `hermiq.runAgentNow` — delegate to the SAME owner-scoped guard
       `RunNowController::loadOwnedSchedule()` uses before triggering a run; the per-object
       authorization MUST NOT be weakened or bypassed inside `invokeTool()`.
-- [ ] 2.5 `hermiq.searchSkills` — delegate to `SkillService::listSkills()` with an optional
+- [x] 2.5 `hermiq.searchSkills` — delegate to `SkillService::listSkills()` with an optional
       query filter.
-- [ ] 2.6 Every branch returns a structured `['error' => ['code' => ..., 'message' => ...]]`
+- [x] 2.6 Every branch returns a structured `['error' => ['code' => ..., 'message' => ...]]`
       on failure; `invokeTool()` MUST NOT throw (matches the existing class contract).
 
 ## 3. Docblock correction
 
-- [ ] 3.1 Update `lib/Mcp/HermiqToolProvider.php:22-24` — the "OR#269 blocks LLM tool-calling"
+- [x] 3.1 Update `lib/Mcp/HermiqToolProvider.php:22-24` — the "OR#269 blocks LLM tool-calling"
       note is stale (OR#269 closed per the hermiq/hermes port); correct or remove it once
       verified against the current OpenRegister integration.
 
 ## 4. Tests
 
-- [ ] 4.1 Unit-test the extended `TOOL_DESCRIPTORS` catalogue includes the five new ids with
+- [x] 4.1 Unit-test the extended `TOOL_DESCRIPTORS` catalogue includes the five new ids with
       valid `inputSchema` objects.
-- [ ] 4.2 Unit-test each new `invokeTool` branch: happy path + the same guard-denial path its
+- [x] 4.2 Unit-test each new `invokeTool` branch: happy path + the same guard-denial path its
       HTTP-controller counterpart exercises (e.g. `hermiq.runAgentNow` on a schedule the
       caller doesn't own returns a structured error, not a successful run).
 
@@ -47,7 +52,7 @@
 - [ ] 5.1 Verify live on NC + OR (agent turn against the in-app companion): ask the
       companion "what agents do I have" / "do I have any pending approvals" on the
       Approval Inbox page and confirm a domain-specific answer (not "I can list registers").
-- [ ] 5.2 `composer phpcs` (lib scope) + PHPStan; PHPUnit the CI way.
+- [x] 5.2 `composer phpcs` (lib scope) + PHPStan; PHPUnit the CI way.
 
 ## Acceptance criteria
 

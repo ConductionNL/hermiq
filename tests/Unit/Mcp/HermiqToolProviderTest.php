@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(41, $ids);
+		$this->assertCount(46, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -415,8 +415,10 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.listAgents/getAgentStatus/listPendingApprovals/runAgentNow/searchSkills
+		//   (hermiq-domain-mcp-tools),
 		// all registered through this same provider.
-		$this->assertCount(42, $tools);
+		$this->assertCount(47, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -509,6 +511,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 			'hermiq.graphNeighbors' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.graphPath' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// hermiq-domain-mcp-tools: four reads, and a run that does whatever the agent's tools do.
+			'hermiq.listAgents' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.getAgentStatus' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.listPendingApprovals' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.runAgentNow' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.searchSkills' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			// tools-nextcloud-tasks: completing is not destructive (one click reopens it).
 			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
@@ -516,7 +524,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(42, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(47, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -601,6 +609,11 @@ class HermiqToolProviderTest extends TestCase {
 			// `user`: reads the graph as the acting user and returns pointers only.
 			'hermiq.graphNeighbors' => ToolReachResolver::REACH_USER,
 			'hermiq.graphPath' => ToolReachResolver::REACH_USER,
+			'hermiq.listAgents' => ToolReachResolver::REACH_USER,
+			'hermiq.getAgentStatus' => ToolReachResolver::REACH_USER,
+			'hermiq.listPendingApprovals' => ToolReachResolver::REACH_USER,
+			'hermiq.runAgentNow' => ToolReachResolver::REACH_USER,
+			'hermiq.searchSkills' => ToolReachResolver::REACH_USER,
 			// `instance`: a list the user owns can be shared with colleagues, who see the change.
 			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
 			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
@@ -703,6 +716,11 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.workspacePush' => ['workspace', 'push'],
 			'hermiq.graphNeighbors' => ['graphEntity', 'list'],
 			'hermiq.graphPath' => ['graphEntity', 'get'],
+			'hermiq.listAgents' => ['agent', 'list'],
+			'hermiq.getAgentStatus' => ['agent', 'get'],
+			'hermiq.listPendingApprovals' => ['approval', 'list'],
+			'hermiq.runAgentNow' => ['schedule', 'run'],
+			'hermiq.searchSkills' => ['skill', 'search'],
 			'hermiq.listTasks' => ['task', 'list'],
 			'hermiq.createTask' => ['task', 'create'],
 			'hermiq.completeTask' => ['task', 'complete'],
