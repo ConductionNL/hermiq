@@ -293,4 +293,22 @@ class InstructionVariablesServiceTest extends TestCase {
 		$this->assertSame([], $this->saved);
 
 	}//end testTheInputFilterRunsOnTheAnswers()
+
+	/**
+	 * A session whose agent is unknown or gone asks for nothing: stray answers
+	 * are dropped and the session is returned unsaved.
+	 *
+	 * @return void
+	 */
+	public function testASessionWithoutAKnownAgentStoresNoAnswers(): void {
+		foreach (['', 'agent-gone'] as $agentId) {
+			$session = $this->service(session: ['agentId' => $agentId])->answer(sessionId: 'sess-1', uid: 'bram', values: ['department' => 'Permits']);
+
+			$this->assertSame('sess-1', $session->getUuid());
+			$this->assertArrayNotHasKey('startValues', $session->getObject());
+		}
+
+		$this->assertSame([], $this->saved);
+
+	}//end testASessionWithoutAKnownAgentStoresNoAnswers()
 }//end class

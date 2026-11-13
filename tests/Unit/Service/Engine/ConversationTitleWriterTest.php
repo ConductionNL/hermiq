@@ -544,4 +544,63 @@ class ConversationTitleWriterTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testAMissingConversationIsANoOp()
+	/**
+	 * A conversation deleted before the job ran is left alone: nothing is
+	 * generated, nothing is written, and the session is still released.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 */
+	public function testAConversationGoneBeforeTheJobIsLeftAlone(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willThrowException(new RuntimeException('not found'));
+		$objectService->expects($this->never())->method('saveObject');
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->never())->method('generateConversationTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'conv-1',
+			userMessage: 'What is our leave policy?',
+			userId: 'alice'
+		);
+
+		$this->assertSame(['setUser:alice', 'setUser:null'], $this->calls);
+	}//end testAConversationGoneBeforeTheJobIsLeftAlone()
+
+	/**
+	 * A conversation with an empty title wants one, and gets the generated
+	 * title written with the rest of its object kept.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	public function testAnEmptyTitleIsGenerated(): void {
+		$objectService = $this->objectService(
+			$this->conversation(['title' => '', 'userId' => 'alice', 'summary' => 'kept'])
+		);
+		$saved = [];
+		$objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$saved): ObjectEntity {
+				$saved[] = ($args['object'] ?? $args[0]);
+				return new ObjectEntity();
+			}
+		);
+
+		$handler = $this->createMock(ConversationManagementHandler::class);
+		$handler->expects($this->once())->method('generateConversationTitle')->willReturn('Leave policy');
+		$handler->expects($this->never())->method('ensureUniqueTitle');
+
+		$this->writer($objectService, $handler)->write(
+			conversationId: 'conv-1',
+			userMessage: 'What is our leave policy?',
+			userId: 'alice'
+		);
+
+		$this->assertCount(1, $saved);
+		$this->assertSame('Leave policy', $saved[0]['title']);
+		$this->assertSame('kept', $saved[0]['summary']);
+	}//end testAnEmptyTitleIsGenerated()
 }//end class
