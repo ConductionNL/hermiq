@@ -40,23 +40,50 @@ class WorkspaceRunScope {
 	/**
 	 * The verified binding, or null outside a governed run.
 	 *
-	 * @var array{runId: string, agentId: string, userId: string}|null
+	 * @var array{runId: string, agentId: string, userId: string, conversationId: string, workspaceKey: string}|null
 	 */
 	private ?array $binding = null;
 
 	/**
 	 * Enter a verified run.
 	 *
-	 * @param string $runId   The run id from the token.
-	 * @param string $agentId The agent id from the token.
-	 * @param string $userId  The acting user (the run owner) from the token.
+	 * 🔑 THE WORKSPACE KEY COMES FROM THE TOKEN, NEVER FROM THE MODEL. An agent
+	 * whose `workspaceMode` is `session` keeps one workspace for its whole
+	 * conversation, keyed by agent, conversation and user, so the next run of
+	 * the same conversation finds the same files and a run of any other
+	 * conversation, user or agent derives a different key. Every other mode, and
+	 * a session run without a conversation, keys by the run as before.
+	 *
+	 * @param string $runId          The run id from the token.
+	 * @param string $agentId        The agent id from the token.
+	 * @param string $userId         The acting user (the run owner) from the token.
+	 * @param string $conversationId The conversation from the token, '' when none.
+	 * @param string $workspaceMode  The agent's `workspaceMode`.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
 	 */
-	public function enter(string $runId, string $agentId, string $userId): void {
-		$this->binding = ['runId' => $runId, 'agentId' => $agentId, 'userId' => $userId];
+	public function enter(
+		string $runId,
+		string $agentId,
+		string $userId,
+		string $conversationId='',
+		string $workspaceMode='',
+	): void {
+		$workspaceKey = $runId;
+		if ($workspaceMode === SessionWorkspaceKey::MODE_SESSION) {
+			$workspaceKey = (SessionWorkspaceKey::compose(agentId: $agentId, conversationId: $conversationId, userId: $userId) ?? $runId);
+		}
+
+		$this->binding = [
+			'runId' => $runId,
+			'agentId' => $agentId,
+			'userId' => $userId,
+			'conversationId' => $conversationId,
+			'workspaceKey' => $workspaceKey,
+		];
 	}//end enter()
 
 	/**
@@ -73,7 +100,7 @@ class WorkspaceRunScope {
 	/**
 	 * The verified binding.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string}
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, workspaceKey: string}
 	 *
 	 * @throws WorkspaceException token_invalid outside a governed run.
 	 *

@@ -45,4 +45,13 @@ interface ServerSideWorkspaceProviderInterface {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reap(): int;
+
+	/**
+	 * Remove every conversation-long workspace whose conversation is gone.
+	 *
+	 * @param callable(string): bool $conversationGone Whether a conversation id no longer exists.
+	 *
+	 * @return int How many workspaces were removed.
+	 */
+	public function reapEndedSessions(callable $conversationGone): int;
 }//end interface

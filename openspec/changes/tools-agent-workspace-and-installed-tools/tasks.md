@@ -10,8 +10,9 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - **acceptance_criteria**:
   - GIVEN workspaceMode session WHEN two runs share a conversation THEN they reach one workspace, and a run of another conversation, user or agent does not
   - GIVEN a conversation deleted or idle for 14 days WHEN the job runs THEN its workspace is gone
-- [ ] Implement
-- [ ] Test (PHPUnit on keying, isolation and expiry)
+- [x] Implement
+- [x] Test (PHPUnit on keying, isolation and expiry)
+  > 2026-11-13: `Agent.workspaceMode` (register v0.53.0); `WorkspaceRunScope` keys a `session` agent's workspace by `SessionWorkspaceKey` (agent, conversation, user from the token); the provider records the lifetime, gives a session 14 days of idleness and 5,000 files, and `WorkspaceExpiryJob` ends the workspace of a deleted conversation. `none` keys by the run like `run`: withholding the workspace tools from `none` agents would change agents that use them today, so it is left to the change that adds the sandbox tools.
 
 ### Task 2: Copy in and write back around sandbox runs
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002`
