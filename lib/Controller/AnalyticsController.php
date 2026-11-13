@@ -28,7 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AnalyticsService;
 use OCP\AppFramework\Controller;
@@ -63,7 +63,7 @@ class AnalyticsController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly AgentAccessService $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

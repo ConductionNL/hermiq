@@ -39,7 +39,7 @@ namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SeedCustodyService;
@@ -106,7 +106,7 @@ class SkillVersionController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

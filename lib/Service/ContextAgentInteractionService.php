@@ -48,7 +48,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -244,7 +244,7 @@ class ContextAgentInteractionService {
 	 * @return ObjectEntity|null The agent, or null when none is available.
 	 */
 	private function resolveAgent(string $userId): ?ObjectEntity {
-		$configured = $this->appConfig->getValueString(Application::APP_ID, self::AGENT_CONFIG_KEY, '');
+		$configured = $this->appConfig->getValueString(AppIdentity::APP_ID, self::AGENT_CONFIG_KEY, '');
 		if ($configured !== '') {
 			// _rbac false: this agent was named in app configuration for every user,
 			// and new agents are private by default, so the Agent read rule

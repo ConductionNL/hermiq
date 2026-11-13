@@ -38,7 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\Notification\IManager as INotificationManager;
 use DateTime;
@@ -447,7 +447,7 @@ class ToolAccessRequestService {
 	 */
 	private function userMaySee(string $uid, string $toolId): bool {
 		$app = $this->appOf(toolId: $toolId);
-		if ($app === '' || $app === Application::APP_ID) {
+		if ($app === '' || $app === AppIdentity::APP_ID) {
 			return true;
 		}
 
@@ -862,7 +862,7 @@ class ToolAccessRequestService {
 
 		try {
 			$notification = $this->notifications->createNotification();
-			$notification->setApp(Application::APP_ID)
+			$notification->setApp(AppIdentity::APP_ID)
 				->setUser($owner)
 				->setDateTime(new DateTime())
 				->setObject('toolaccess', $agentId . ':' . $toolId)

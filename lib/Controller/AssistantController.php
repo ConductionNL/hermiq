@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Assistant\AssistantService;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCP\AppFramework\Controller;
@@ -62,7 +62,7 @@ class AssistantController extends Controller {
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

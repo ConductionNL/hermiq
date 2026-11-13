@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\SettingsService;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
@@ -202,7 +202,7 @@ class InitializeSettings implements IRepairStep {
 	 */
 	private function recordApplied(string $configVersion): void {
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::APPLIED_VERSION_KEY,
 			$configVersion
 		);
@@ -219,7 +219,7 @@ class InitializeSettings implements IRepairStep {
 	 */
 	private function mustForce(string $configVersion, IOutput $output): bool {
 		$appliedVersion = $this->appConfig->getValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::APPLIED_VERSION_KEY,
 			''
 		);

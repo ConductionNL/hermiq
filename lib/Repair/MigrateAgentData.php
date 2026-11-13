@@ -66,7 +66,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -364,7 +364,7 @@ class MigrateAgentData implements IRepairStep {
 			$encoded = '[]';
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
 
 	}//end storeReportedUnmigratable()
 
@@ -925,7 +925,7 @@ class MigrateAgentData implements IRepairStep {
 	 * @return array<int, string> The previously reported uuids.
 	 */
 	private function loadReportedUnmigratable(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, '[]');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::UNMIGRATABLE_KEY, '[]');
 		if ($raw === '') {
 			return [];
 		}
@@ -951,6 +951,6 @@ class MigrateAgentData implements IRepairStep {
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#a-repair-step-migrates-existing-or-agent-engine-data-into-hermiq-register-objects
 	 */
 	private function isEngineEnabled(): bool {
-		return $this->appConfig->getValueString(Application::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
+		return $this->appConfig->getValueString(AppIdentity::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
 	}//end isEngineEnabled()
 }//end class

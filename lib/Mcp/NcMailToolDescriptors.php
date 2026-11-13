@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 
@@ -55,7 +55,7 @@ final class NcMailToolDescriptors {
 	 */
 	public const ALL = [
 		[
-			'id' => Application::APP_ID . '.listMailAccounts',
+			'id' => AppIdentity::APP_ID . '.listMailAccounts',
 			'subject' => 'mailAccount',
 			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -73,7 +73,7 @@ final class NcMailToolDescriptors {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.listMailMessages',
+			'id' => AppIdentity::APP_ID . '.listMailMessages',
 			'subject' => 'mailMessage',
 			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
@@ -100,7 +100,7 @@ final class NcMailToolDescriptors {
 			'scope' => 'read',
 		],
 		[
-			'id' => Application::APP_ID . '.readMailMessage',
+			'id' => AppIdentity::APP_ID . '.readMailMessage',
 			'subject' => 'mailMessage',
 			'action' => 'get',
 			'reach' => ToolReachResolver::REACH_USER,

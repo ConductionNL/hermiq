@@ -16,7 +16,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\AiOversightAccess;
 use OCA\Hermiq\Service\AiOversightService;
 use OCP\AppFramework\Controller;
@@ -68,7 +68,7 @@ class AiOversightController extends Controller {
 		private readonly AiOversightService $oversight,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

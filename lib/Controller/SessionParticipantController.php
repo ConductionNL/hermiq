@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\SessionParticipantException;
 use OCA\Hermiq\Service\SessionParticipantService;
 use OCP\AppFramework\Controller;
@@ -54,7 +54,7 @@ class SessionParticipantController extends Controller {
 		private readonly SessionParticipantService $participants,
 		private readonly IUserSession $userSession,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

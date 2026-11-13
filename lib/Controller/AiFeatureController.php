@@ -35,7 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\AiFeature\AiFeatureBindingService;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
@@ -88,7 +88,7 @@ class AiFeatureController extends Controller {
 		private readonly AiFeatureBindingService $bindingService,
 		private readonly FeatureProviderResolver $featureResolver,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

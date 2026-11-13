@@ -46,7 +46,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
@@ -1269,7 +1269,7 @@ class SkillConsolidationService {
 	 */
 	public function threshold(): int {
 		return $this->appConfig->getValueInt(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::THRESHOLD_KEY,
 			self::DEFAULT_LEARNINGS_THRESHOLD
 		);

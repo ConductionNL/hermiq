@@ -33,7 +33,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -155,8 +155,8 @@ class OrganisationOpsService {
 			}
 		}
 
-		$scheduleLimit = $this->appConfig->getValueInt(Application::APP_ID, 'scheduleQuota', self::DEFAULT_SCHEDULE_QUOTA);
-		$agentLimit = $this->appConfig->getValueInt(Application::APP_ID, 'agentQuota', self::DEFAULT_AGENT_QUOTA);
+		$scheduleLimit = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'scheduleQuota', self::DEFAULT_SCHEDULE_QUOTA);
+		$agentLimit = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'agentQuota', self::DEFAULT_AGENT_QUOTA);
 		$agentCount = count($agentIds);
 
 		return [

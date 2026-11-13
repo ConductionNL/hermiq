@@ -28,7 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\SettingsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -70,7 +70,7 @@ class MetricsController extends Controller {
 		private SettingsService $settingsService,
 		private LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -110,7 +110,7 @@ class MetricsController extends Controller {
 			$lines = [
 				'# HELP ' . $prefix . '_info Static app information',
 				'# TYPE ' . $prefix . '_info gauge',
-				$prefix . '_info{app="' . Application::APP_ID . '",version="0.1.0"} 1',
+				$prefix . '_info{app="' . AppIdentity::APP_ID . '",version="0.1.0"} 1',
 				'# HELP ' . $prefix . '_health_status 1 when OpenRegister reachable, 0 otherwise',
 				'# TYPE ' . $prefix . '_health_status gauge',
 				$prefix . '_health_status ' . $healthy,

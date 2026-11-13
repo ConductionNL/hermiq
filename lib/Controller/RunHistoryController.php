@@ -32,7 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\RunHistoryService;
 use OCA\Hermiq\Service\ScheduleService;
@@ -89,7 +89,7 @@ class RunHistoryController extends Controller {
 		private readonly ScheduleService $scheduleService,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

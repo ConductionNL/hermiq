@@ -32,7 +32,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\ReportSimilarity;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 
 /**
@@ -176,7 +176,7 @@ class ReportSimilaritySettings {
 			$stored['windows'] = $this->cleanWindows(windows: $windows);
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
 
 		return $this->all();
 	}//end store()
@@ -261,7 +261,7 @@ class ReportSimilaritySettings {
 	 * @return array<string, mixed> The settings.
 	 */
 	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return [];
 		}

@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -60,7 +60,7 @@ class CourseRecommendationController extends Controller {
 		private readonly CourseRecommendationEngine $engine,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

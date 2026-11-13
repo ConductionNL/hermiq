@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
@@ -39,9 +39,9 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
  */
 final class GraphToolDescriptors {
 
-	public const NEIGHBORS = Application::APP_ID . '.graphNeighbors';
+	public const NEIGHBORS = AppIdentity::APP_ID . '.graphNeighbors';
 
-	public const PATH = Application::APP_ID . '.graphPath';
+	public const PATH = AppIdentity::APP_ID . '.graphPath';
 
 	public const IDS = [self::NEIGHBORS, self::PATH];
 

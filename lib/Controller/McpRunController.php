@@ -60,7 +60,7 @@ use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
@@ -198,7 +198,7 @@ class McpRunController extends Controller {
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
 		private readonly ?GuardrailPolicyService $guardrailService = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

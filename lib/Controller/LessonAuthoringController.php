@@ -33,7 +33,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\LessonAuthoringEngine;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -108,7 +108,7 @@ class LessonAuthoringController extends Controller {
 		private readonly LessonAuthoringEngine $engine,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
