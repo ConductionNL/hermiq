@@ -42,11 +42,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\EvalRunService;
+use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
 use OCA\Hermiq\Service\SeedCustodyService;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -96,7 +96,7 @@ class EvalRunController extends Controller {
 	 * @param ObjectService $objectService OpenRegister object read (dataset ownership check).
 	 * @param AgentMapper $agentMapper Resolves + ownership-checks the target Agent.
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param EvalRunService $evalRunService Executes the gated, scored eval run.
+	 * @param EvalRunServiceInterface $evalRunService Executes the gated, scored eval run.
 	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (an instance
 	 *                                        admin acts as owner of `__system__`-seeded
 	 *                                        objects only).
@@ -110,7 +110,7 @@ class EvalRunController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly AgentMapper $agentMapper,
 		private readonly IUserSession $userSession,
-		private readonly EvalRunService $evalRunService,
+		private readonly EvalRunServiceInterface $evalRunService,
 		private readonly SeedCustodyService $seedCustody,
 		private readonly LoggerInterface $logger,
 	) {

@@ -38,11 +38,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCP\Notification\IManager as INotificationManager;
 use DateTime;
 use DateTimeImmutable;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCP\Notification\IManager as INotificationManager;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -59,7 +60,7 @@ use Throwable;
  *   right move — do it when that provider's constructor is next opened, not by
  *   raising this number again.
  */
-class ToolAccessRequestService {
+class ToolAccessRequestService implements ToolAccessRequestServiceInterface {
 
 	/**
 	 * Matches returned by a single discovery call.

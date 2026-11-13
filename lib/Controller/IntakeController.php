@@ -33,8 +33,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\IntakeServiceInterface;
 use OCA\Hermiq\Service\Intake\IntakeRefusedException;
-use OCA\Hermiq\Service\Intake\IntakeService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -54,13 +54,13 @@ class IntakeController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param IntakeService $intake The intake conversation.
+	 * @param IntakeServiceInterface $intake The intake conversation.
 	 * @param IUserSession $userSession Resolves the calling app's principal.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly IntakeService $intake,
+		private readonly IntakeServiceInterface $intake,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

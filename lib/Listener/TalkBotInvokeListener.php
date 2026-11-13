@@ -35,11 +35,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
+use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
-use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCP\EventDispatcher\Event;
@@ -73,7 +73,7 @@ class TalkBotInvokeListener implements IEventListener {
 	 * Constructor.
 	 *
 	 * @param TalkBridge $bridge Talk availability, room type and room I/O.
-	 * @param TalkRoomBinding $roomBinding Resolves/creates the bound conversation.
+	 * @param TalkRoomBindingInterface $roomBinding Resolves/creates the bound conversation.
 	 * @param TalkAgentBinding $agentBinding Resolves the room's opted-in agent.
 	 * @param TalkTurnDispatcher $dispatcher Hands the turn off out of request.
 	 * @param TalkRoomGrouping $grouping Files a newly bound room under each participant's tag.
@@ -83,7 +83,7 @@ class TalkBotInvokeListener implements IEventListener {
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
-		private readonly TalkRoomBinding $roomBinding,
+		private readonly TalkRoomBindingInterface $roomBinding,
 		private readonly TalkAgentBinding $agentBinding,
 		private readonly TalkTurnDispatcher $dispatcher,
 		private readonly TalkRoomGrouping $grouping,

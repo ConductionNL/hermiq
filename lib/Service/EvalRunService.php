@@ -54,13 +54,14 @@ use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -82,7 +83,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-6-evalrunservice-orchestration
  */
-class EvalRunService {
+class EvalRunService implements EvalRunServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

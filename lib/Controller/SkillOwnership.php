@@ -27,8 +27,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -45,11 +45,11 @@ final class SkillOwnership {
 	/**
 	 * The guard.
 	 *
-	 * @param SkillService $skillService Tenant-scoped skill visibility reads.
+	 * @param SkillServiceInterface $skillService Tenant-scoped skill visibility reads.
 	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
 	 */
 	public function __construct(
-		private readonly SkillService $skillService,
+		private readonly SkillServiceInterface $skillService,
 		private readonly SeedCustodyService $seedCustody,
 	) {
 	}//end __construct()

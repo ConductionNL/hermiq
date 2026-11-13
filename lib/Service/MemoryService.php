@@ -36,6 +36,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserSession;
@@ -57,7 +58,7 @@ use OCP\IUserSession;
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
  * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
  */
-class MemoryService {
+class MemoryService implements MemoryServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

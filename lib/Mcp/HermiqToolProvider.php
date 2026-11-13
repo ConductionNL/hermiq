@@ -94,22 +94,22 @@ namespace OCA\Hermiq\Mcp;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
-use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
-use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\CourseRecommendationEngine;
-use OCA\Hermiq\Service\DelegationService;
-use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
+use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Graph\GraphTools;
-use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use OCA\Hermiq\Service\NcNative\TaskWriteService;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
+use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
+use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -570,11 +570,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @param IMailer $mailer Outbound email.
 	 * @param IAppManager $appManager App availability (Deck) + describe.
 	 * @param ContainerInterface $container Lazy Deck BoardService resolution.
-	 * @param CourseRecommendationEngine $courseEngine Shared engine backing `recommendCourses`
+	 * @param CourseRecommendationEngineInterface $courseEngine Shared engine backing `recommendCourses`
 	 *                                                 (ai-course-recommendations) — no
 	 *                                                 duplicated gating/scoring/signal-read
 	 *                                                 logic.
-	 * @param MemoryService $memoryService Shared service backing `rememberMemory`/
+	 * @param MemoryServiceInterface $memoryService Shared service backing `rememberMemory`/
 	 *                                     `recallMemory`/`forgetMemory`
 	 *                                     (agent-memory-tools) — no duplicated
 	 *                                     append/redact/recall/soft-delete logic.
@@ -586,7 +586,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded GET + readable-text
 	 *                                         extraction.
-	 * @param DelegationService $delegationService Shared governed dispatcher backing
+	 * @param DelegationServiceInterface $delegationService Shared governed dispatcher backing
 	 *                                             `delegateAgent` (sub-agent-delegation) —
 	 *                                             all self/cycle/allowlist/depth/fan-out/
 	 *                                             organisation/model-policy/kill-switch/
@@ -595,9 +595,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                           write services (nc-native-write-tools) —
 	 *                                           ownership guards, ADR-088 marking and the
 	 *                                           lazy Notes resolution all live there.
-	 * @param MailReadService $mailReadService Read-only mail (nc-mail-read-tools) —
+	 * @param MailReadServiceInterface $mailReadService Read-only mail (nc-mail-read-tools) —
 	 *                                         AI-feature gate and lazy Mail resolution live there.
-	 * @param ToolAccessRequestService $accessRequests Discovery past the grant and the
+	 * @param ToolAccessRequestServiceInterface $accessRequests Discovery past the grant and the
 	 *                                                 request that can widen it
 	 *                                                 (tool-discovery-and-access-requests) —
 	 *                                                 backs `listAvailableTools` and
@@ -622,14 +622,14 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly IMailer $mailer,
 		private readonly IAppManager $appManager,
 		private readonly ContainerInterface $container,
-		private readonly CourseRecommendationEngine $courseEngine,
-		private readonly MemoryService $memoryService,
+		private readonly CourseRecommendationEngineInterface $courseEngine,
+		private readonly MemoryServiceInterface $memoryService,
 		private readonly WebSearchClient $webSearchClient,
 		private readonly WebFetchService $webFetchService,
-		private readonly DelegationService $delegationService,
+		private readonly DelegationServiceInterface $delegationService,
 		private readonly NcNativeWriteService $writeService,
-		private readonly MailReadService $mailReadService,
-		private readonly ToolAccessRequestService $accessRequests,
+		private readonly MailReadServiceInterface $mailReadService,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

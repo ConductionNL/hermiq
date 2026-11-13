@@ -30,7 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 
 /**
@@ -50,10 +50,10 @@ final class AgentMemoryTools {
 	/**
 	 * Build the memory tools over the agent memory store.
 	 *
-	 * @param MemoryService $memoryService The agent memory store.
+	 * @param MemoryServiceInterface $memoryService The agent memory store.
 	 */
 	public function __construct(
-		private readonly MemoryService $memoryService,
+		private readonly MemoryServiceInterface $memoryService,
 	) {
 		$this->errors = new ToolErrorEnvelope();
 	}//end __construct()

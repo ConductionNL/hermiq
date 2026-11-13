@@ -39,6 +39,7 @@ namespace OCA\Hermiq\Service\Schedule;
 
 use DateTime;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ScheduleFlowBridgeInterface;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
@@ -63,7 +64,7 @@ use Throwable;
  *
  * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
  */
-class ScheduleFlowBridge {
+class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 
 	/**
 	 * OpenRegister register slug that holds hermiq schedule objects.

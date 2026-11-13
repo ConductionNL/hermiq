@@ -35,10 +35,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Service\EngineRequiredException;
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -76,7 +76,7 @@ class RunNowController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (ownership check + status re-read).
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param ScheduleService $scheduleService Runs the schedule via the shared dispatch path.
+	 * @param ScheduleServiceInterface $scheduleService Runs the schedule via the shared dispatch path.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param LiteracyRequirement|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
 	 *
@@ -86,7 +86,7 @@ class RunNowController extends Controller {
 		IRequest $request,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
 		private readonly ?LiteracyRequirement $literacy = null,
 	) {

@@ -40,13 +40,13 @@ namespace OCA\Hermiq\Controller;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -83,9 +83,9 @@ class SkillVersionController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService Tenant-scoped skill reads + provenance stamp.
+	 * @param SkillServiceInterface $skillService Tenant-scoped skill reads + provenance stamp.
 	 * @param SkillVersionService $versionService AuditTrail-backed version store.
-	 * @param GitHubTemplatePushService $pushService Fail-closed broker-mediated GitHub push.
+	 * @param GitHubTemplatePushServiceInterface $pushService Fail-closed broker-mediated GitHub push.
 	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
 	 * @param AuditTrailMapper $auditTrailMapper Rollback/republish audit entries.
 	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
@@ -97,9 +97,9 @@ class SkillVersionController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
+		private readonly SkillServiceInterface $skillService,
 		private readonly SkillVersionService $versionService,
-		private readonly GitHubTemplatePushService $pushService,
+		private readonly GitHubTemplatePushServiceInterface $pushService,
 		private readonly ActionAuthService $actionAuth,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly SeedCustodyService $seedCustody,
@@ -447,7 +447,7 @@ class SkillVersionController extends Controller {
 			repo: $run->repo(),
 			credentialId: $run->credentialId,
 			actingUserId: $user->getUID(),
-			kind: GitHubTemplatePushService::KIND_SKILL,
+			kind: GitHubTemplatePushServiceInterface::KIND_SKILL,
 			auxFiles: ($this->skillService->publishFileSelection(skillId: $run->skillId) ?? [])
 		);
 	}//end pushPackage()

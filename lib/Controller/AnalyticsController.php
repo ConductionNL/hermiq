@@ -29,8 +29,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AnalyticsServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\AnalyticsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -49,7 +49,7 @@ class AnalyticsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AnalyticsService $analyticsService The run-analytics read service.
+	 * @param AnalyticsServiceInterface $analyticsService The run-analytics read service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AgentAccessService $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
@@ -58,7 +58,7 @@ class AnalyticsController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AnalyticsService $analyticsService,
+		private readonly AnalyticsServiceInterface $analyticsService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly AgentAccessService $agentAccess,

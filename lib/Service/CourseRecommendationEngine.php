@@ -62,6 +62,7 @@ namespace OCA\Hermiq\Service;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -87,7 +88,7 @@ use Throwable;
  *
  * @spec openspec/specs/course-recommendations/spec.md
  */
-class CourseRecommendationEngine {
+class CourseRecommendationEngine implements CourseRecommendationEngineInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq's own objects.

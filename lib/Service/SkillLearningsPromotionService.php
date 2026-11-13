@@ -39,6 +39,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\SkillLearningsPromotionServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -49,7 +50,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
  */
-class SkillLearningsPromotionService {
+class SkillLearningsPromotionService implements SkillLearningsPromotionServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

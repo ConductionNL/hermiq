@@ -56,20 +56,20 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
-use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
-use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Engine\RunStepBus;
-use OCA\Hermiq\Service\GuardrailPolicyService;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
+use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -163,7 +163,7 @@ class McpRunController extends Controller {
 	 * @param ObjectService $objectService Loads the run's agent (under the impersonated user).
 	 * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface.
 	 * @param ToolGrantResolver $grantResolver Expands `Agent.tools` against the catalog.
-	 * @param ToolLoop $toolLoop Builds the governed `FacadeToolInvoker` (reused,
+	 * @param ToolLoopInterface $toolLoop Builds the governed `FacadeToolInvoker` (reused,
 	 *                           not reimplemented).
 	 * @param ToolSearchService $toolSearchService Holds the run's resolved set for the approval gate.
 	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
@@ -175,7 +175,7 @@ class McpRunController extends Controller {
 	 *                                              workspace tools for the length of one dispatch.
 	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
 	 *                                                 for the agent's tool call cap.
-	 * @param GuardrailPolicyService|null $guardrailService Applies the output filters to
+	 * @param GuardrailPolicyServiceInterface|null $guardrailService Applies the output filters to
 	 *                                                      the steps shown in the chat.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -187,7 +187,7 @@ class McpRunController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly ToolRegistryFacade $toolRegistryFacade,
 		private readonly ToolGrantResolver $grantResolver,
-		private readonly ToolLoop $toolLoop,
+		private readonly ToolLoopInterface $toolLoop,
 		private readonly ToolSearchService $toolSearchService,
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
@@ -196,7 +196,7 @@ class McpRunController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
-		private readonly ?GuardrailPolicyService $guardrailService = null,
+		private readonly ?GuardrailPolicyServiceInterface $guardrailService = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 

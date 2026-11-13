@@ -33,6 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\LessonAuthoringEngineInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -42,71 +43,7 @@ use Throwable;
  *
  * @spec openspec/specs/lesson-authoring/spec.md
  */
-class LessonAuthoringEngine {
-
-	/**
-	 * Action: draft a lesson outline from learning goals.
-	 *
-	 * @var string
-	 */
-	public const ACTION_OUTLINE = 'outline';
-
-	/**
-	 * Action: suggest questions for a lesson.
-	 *
-	 * @var string
-	 */
-	public const ACTION_QUESTIONS = 'questions';
-
-	/**
-	 * Action: rewrite a text at a lower reading level.
-	 *
-	 * @var string
-	 */
-	public const ACTION_SIMPLIFY = 'simplify';
-
-	/**
-	 * Action: suggest which given goals a lesson covers.
-	 *
-	 * @var string
-	 */
-	public const ACTION_GOAL_SUGGESTIONS = 'goal-suggestions';
-
-	/**
-	 * The reading levels `simplify` accepts, each with the description the prompt uses.
-	 *
-	 * @var array<string, string>
-	 */
-	public const READING_LEVELS = [
-		'A1' => 'CEFR A1: very short sentences and only the most common everyday words',
-		'A2' => 'CEFR A2: short sentences and common words',
-		'B1' => 'CEFR B1: plain language most adults understand',
-		'B2' => 'CEFR B2: clear language, with subject terms explained',
-		'1F' => 'Dutch referentieniveau 1F: the basic level expected at the end of primary school',
-		'2F' => 'Dutch referentieniveau 2F: the level expected at the end of vmbo or mbo 2 and 3',
-		'3F' => 'Dutch referentieniveau 3F: the level expected at the end of havo or mbo 4',
-	];
-
-	/**
-	 * The reading level used when the caller names none.
-	 *
-	 * @var string
-	 */
-	public const DEFAULT_READING_LEVEL = 'B1';
-
-	/**
-	 * The fewest questions `questions` returns.
-	 *
-	 * @var int
-	 */
-	public const MIN_QUESTIONS = 1;
-
-	/**
-	 * The most questions `questions` returns.
-	 *
-	 * @var int
-	 */
-	public const MAX_QUESTIONS = 10;
+class LessonAuthoringEngine implements LessonAuthoringEngineInterface {
 
 	/**
 	 * The AiFeature slug this engine is gated by.

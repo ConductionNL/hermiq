@@ -60,6 +60,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
@@ -99,7 +100,7 @@ use Throwable;
  *   constructor collaborator named after its class (GuardrailPolicyService) —
  *   shortening it would obscure which service is injected.
  */
-class Engine {
+class Engine implements EngineInterface {
 	use SanitizesForSaveTrait;
 
 	/**

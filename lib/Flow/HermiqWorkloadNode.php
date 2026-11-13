@@ -65,8 +65,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
+use OCA\Hermiq\Kernel\Contracts\StageDispatchServiceInterface;
 use OCA\Hermiq\Service\AsyncStageDispatchService;
-use OCA\Hermiq\Service\StageDispatchService;
 use OCA\Hermiq\Service\StageRequest;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
@@ -85,7 +85,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	/**
 	 * Constructor.
 	 *
-	 * @param StageDispatchService $stages The ExApp stage dispatcher.
+	 * @param StageDispatchServiceInterface $stages The ExApp stage dispatcher.
 	 * @param IL10N $l10n Translations.
 	 * @param IURLGenerator $urls For the palette icon.
 	 * @param AsyncStageDispatchService|null $asyncStages Optional async dispatcher; added
@@ -96,7 +96,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	 *                                                    quietly running synchronously.
 	 */
 	public function __construct(
-		private readonly StageDispatchService $stages,
+		private readonly StageDispatchServiceInterface $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
 		// ADDED LAST, and deliberately. Three unit tests construct this node

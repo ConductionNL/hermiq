@@ -50,6 +50,8 @@ final class ServiceRegistrar {
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	public function register(IRegistrationContext $context): void {
+		(new ContractBindings())->register(context: $context);
+
 		// The governed workspace seam (hermiq-runner-git-capability): Hermiq's
 		// runtime keeps run-keyed checkouts in app data on the governed side.
 		$context->registerServiceAlias(

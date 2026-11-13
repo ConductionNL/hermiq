@@ -37,6 +37,7 @@ namespace OCA\Hermiq\Service\Workspace;
 
 use FilesystemIterator;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ServerSideWorkspaceProviderInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -48,7 +49,7 @@ use RecursiveIteratorIterator;
  *
  * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
  */
-class ServerSideWorkspaceProvider implements WorkspaceProvider {
+class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorkspaceProviderInterface {
 
 	public const DEFAULT_MAX_BYTES = 209715200;
 

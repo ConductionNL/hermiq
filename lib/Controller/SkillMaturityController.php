@@ -40,10 +40,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillMaturityServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillMaturityService;
-use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -76,8 +76,8 @@ class SkillMaturityController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService The tenant-scoped skill read path.
-	 * @param SkillMaturityService $maturityService Computes + persists maturity.
+	 * @param SkillServiceInterface $skillService The tenant-scoped skill read path.
+	 * @param SkillMaturityServiceInterface $maturityService Computes + persists maturity.
 	 * @param ActionAuthService $actionAuth ADR-023 action authorization (attest gate).
 	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
 	 * @param IUserSession $userSession Resolves the requesting user.
@@ -88,8 +88,8 @@ class SkillMaturityController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
-		private readonly SkillMaturityService $maturityService,
+		private readonly SkillServiceInterface $skillService,
+		private readonly SkillMaturityServiceInterface $maturityService,
 		private readonly ActionAuthService $actionAuth,
 		private readonly SeedCustodyService $seedCustody,
 		private readonly IUserSession $userSession,

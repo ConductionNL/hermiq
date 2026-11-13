@@ -40,6 +40,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -58,7 +59,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
-class SkillMarketplaceService {
+class SkillMarketplaceService implements SkillMarketplaceServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

@@ -34,6 +34,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\OrganisationOpsServiceInterface;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -53,7 +54,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#1-tenantopsservice
  */
-class OrganisationOpsService {
+class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

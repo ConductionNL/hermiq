@@ -29,6 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -39,7 +40,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
  */
-class SkillService {
+class SkillService implements SkillServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

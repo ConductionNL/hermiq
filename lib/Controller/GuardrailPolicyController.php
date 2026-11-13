@@ -41,7 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -70,7 +70,7 @@ class GuardrailPolicyController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param GuardrailPolicyService $guardrailPolicy The guardrail-policy read/write path.
+	 * @param GuardrailPolicyServiceInterface $guardrailPolicy The guardrail-policy read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup
@@ -80,7 +80,7 @@ class GuardrailPolicyController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly GuardrailPolicyService $guardrailPolicy,
+		private readonly GuardrailPolicyServiceInterface $guardrailPolicy,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,

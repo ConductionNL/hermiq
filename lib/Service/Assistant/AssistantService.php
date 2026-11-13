@@ -34,16 +34,17 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Assistant;
 
-use OCA\Hermiq\Service\Agent\AgentAvailability;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use Exception;
+use OCA\Hermiq\Kernel\Contracts\AssistantServiceInterface;
+use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use Psr\Log\LoggerInterface;
@@ -60,7 +61,7 @@ use Psr\Log\LoggerInterface;
  * constructor collaborator named after its class (GuardrailPolicyService) —
  * shortening it would obscure which service is injected.
  */
-class AssistantService {
+class AssistantService implements AssistantServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**

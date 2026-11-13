@@ -28,10 +28,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\RecordSummaryServiceInterface;
 use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
-use OCA\Hermiq\Service\Assistant\RecordSummaryService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -140,7 +140,7 @@ class SeedRecordSummary implements IRepairStep {
 
 			$objectService->saveObject(
 				object: [
-					'slug' => RecordSummaryService::FEATURE_SLUG,
+					'slug' => RecordSummaryServiceInterface::FEATURE_SLUG,
 					'name' => 'Record summary',
 					'description' => 'Writes a short summary of a record on its page, with the assistant of the '
 						. 'record\'s app. Limited risk under the EU AI Act: the text is labelled as written by AI '
@@ -180,8 +180,8 @@ class SeedRecordSummary implements IRepairStep {
 				prompts: [
 					[
 						'label' => 'Record summary',
-						'prompt' => RecordSummaryService::DEFAULT_PROMPT,
-						'usageScope' => RecordSummaryService::PROMPT_SCOPE,
+						'prompt' => RecordSummaryServiceInterface::DEFAULT_PROMPT,
+						'usageScope' => RecordSummaryServiceInterface::PROMPT_SCOPE,
 						'order' => 0,
 						'enabled' => true,
 					],
@@ -204,6 +204,6 @@ class SeedRecordSummary implements IRepairStep {
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function featureExists(ObjectService $objectService): bool {
-		return (new AiFeatureRows(objectService: $objectService))->exists(slug: RecordSummaryService::FEATURE_SLUG);
+		return (new AiFeatureRows(objectService: $objectService))->exists(slug: RecordSummaryServiceInterface::FEATURE_SLUG);
 	}//end featureExists()
 }//end class

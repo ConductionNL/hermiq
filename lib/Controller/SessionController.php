@@ -41,11 +41,11 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
 use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkSessionRoom;
@@ -152,7 +152,7 @@ class SessionController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param Engine $engine In-app agent engine facade (unique-title generation).
+	 * @param EngineInterface $engine In-app agent engine facade (unique-title generation).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
@@ -164,7 +164,7 @@ class SessionController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly Engine $engine,
+		private readonly EngineInterface $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,

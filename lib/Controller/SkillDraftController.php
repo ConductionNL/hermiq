@@ -42,11 +42,11 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillConsolidationService;
-use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
@@ -82,9 +82,9 @@ class SkillDraftController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService Tenant-scoped skill visibility reads.
+	 * @param SkillServiceInterface $skillService Tenant-scoped skill visibility reads.
 	 * @param SkillConsolidationService $consolidation The draft pipeline owner.
-	 * @param ApprovalService $approvalService The ONE human-decision surface.
+	 * @param ApprovalServiceInterface $approvalService The ONE human-decision surface.
 	 * @param SkillVersionService $versionService Post-accept version id resolution.
 	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
 	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
@@ -96,9 +96,9 @@ class SkillDraftController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
+		private readonly SkillServiceInterface $skillService,
 		private readonly SkillConsolidationService $consolidation,
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly SkillVersionService $versionService,
 		private readonly ActionAuthService $actionAuth,
 		private readonly SeedCustodyService $seedCustody,
