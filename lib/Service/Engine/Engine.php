@@ -598,10 +598,12 @@ class Engine implements EngineInterface {
 				conversationId: $turn['conversationId'],
 				promptVariables: $this->promptVariablesFor(
 					userId: $turn['userId'],
-					agent: $turn['agent'],
-					organisation: $turn['organisation'],
-					appContext: $turn['cnAiContext'],
-					conversationData: $turn['conversationData']
+					scope: new PromptVariableScope(
+						agent: $turn['agent'],
+						organisation: $turn['organisation'],
+						appContext: $turn['cnAiContext'],
+						conversationData: $turn['conversationData']
+					)
 				),
 				attachments: $turn['resolvedAttachments'],
 				speaker: ($turn['authorId'] ?? $turn['userId'])
@@ -858,22 +860,17 @@ class Engine implements EngineInterface {
 	 * sent as written.
 	 *
 	 * @param string               $userId           The acting person.
-	 * @param ObjectEntity|null    $agent            The session's agent.
-	 * @param string               $organisation     The session's organisation.
-	 * @param array<string, mixed> $appContext       The companion's snapshot.
-	 * @param array<string, mixed> $conversationData The session's data.
+	 * @param PromptVariableScope $scope The agent, organisation and context a turn's prompt variables are resolved in.
 	 *
 	 * @return array<string, string>
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
-	private function promptVariablesFor(
-		string $userId,
-		?ObjectEntity $agent,
-		string $organisation,
-		array $appContext,
-		array $conversationData,
-	): array {
+	private function promptVariablesFor(string $userId, PromptVariableScope $scope): array {
+		$agent = $scope->agent;
+		$organisation = $scope->organisation;
+		$appContext = $scope->appContext;
+		$conversationData = $scope->conversationData;
 		if ($this->promptVariables === null || $agent === null) {
 			return [];
 		}

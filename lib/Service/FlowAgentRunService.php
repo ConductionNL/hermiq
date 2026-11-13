@@ -54,6 +54,8 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\FlowAgentRunServiceInterface;
+use OCA\Hermiq\Service\AgentRun\AgentRunOutcome;
+use OCA\Hermiq\Service\AgentRun\ResultFieldWrite;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -173,14 +175,14 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 
 		// GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
 		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
-			$this->writeRunAudit(object: $object, status: 'skipped_killswitch', summary: '', payload: $payload);
+			$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: 'skipped_killswitch', summary: '', payload: $payload));
 			return false;
 		}
 
 		// GATE 2 — BUDGET HARD CAP (cost-guardrails), applied even to an authorised
 		// approval-bypass occurrence.
 		if ($this->budgetBlocks(organisation: $organisation, agentId: $agentId) === true) {
-			$this->writeRunAudit(object: $object, status: 'skipped_budget', summary: '', payload: $payload);
+			$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: 'skipped_budget', summary: '', payload: $payload));
 			return false;
 		}
 
@@ -278,7 +280,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 			);
 		}
 
-		$this->writeRunAudit(object: $object, status: 'awaiting_approval', summary: '', payload: $payload);
+		$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: 'awaiting_approval', summary: '', payload: $payload));
 	}//end holdForApproval()
 
 	/**
@@ -353,11 +355,13 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 				anchor: $object
 			);
 			$this->writeResultField(
-				resultField: $resultField,
-				value: $output,
-				subjectUuid: (string)$object->getUuid(),
-				subjectRegister: (string)($payload['subjectRegister'] ?? ''),
-				subjectSchema: (string)($payload['subjectSchema'] ?? '')
+				write: new ResultFieldWrite(
+					resultField: $resultField,
+					value: $output,
+					subjectUuid: (string)$object->getUuid(),
+					subjectRegister: (string)($payload['subjectRegister'] ?? ''),
+					subjectSchema: (string)($payload['subjectSchema'] ?? '')
+				)
 			);
 			$summary = $output;
 		} catch (Throwable $e) {
@@ -369,7 +373,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 			);
 		}//end try
 
-		$this->writeRunAudit(object: $object, status: $status, summary: $summary, payload: $payload, startedAt: $startedAt);
+		$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: $status, summary: $summary, payload: $payload, startedAt: $startedAt));
 
 		return $status === 'ok';
 	}//end runAgentAndWriteBack()
@@ -403,23 +407,18 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 	 * via OpenRegister's single write-path — a read-modify-write on the whole object,
 	 * mirroring how ScheduleService persists its own schedule fields.
 	 *
-	 * @param string $resultField The object field to write.
-	 * @param string $value The agent's output.
-	 * @param string $subjectUuid The triggering object's UUID.
-	 * @param string $subjectRegister The triggering object's register.
-	 * @param string $subjectSchema The triggering object's schema.
+	 * @param ResultFieldWrite $write The agent's answer and the field on the subject object it is written to.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
-	private function writeResultField(
-		string $resultField,
-		string $value,
-		string $subjectUuid,
-		string $subjectRegister,
-		string $subjectSchema,
-	): void {
+	private function writeResultField(ResultFieldWrite $write): void {
+		$resultField = $write->resultField;
+		$value = $write->value;
+		$subjectUuid = $write->subjectUuid;
+		$subjectRegister = $write->subjectRegister;
+		$subjectSchema = $write->subjectSchema;
 		$fresh = $this->objectService->find(
 			id: $subjectUuid,
 			register: $subjectRegister,
@@ -455,22 +454,17 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 	 * redaction-before-persist contract. Non-fatal by design.
 	 *
 	 * @param ObjectEntity $object The triggering object.
-	 * @param string $status The run outcome (ok|error|skipped_killswitch|skipped_budget|awaiting_approval).
-	 * @param string $summary The raw run output/error (redacted here).
-	 * @param array<string,mixed> $payload The event payload (for agentId/flowName diagnostics).
-	 * @param DateTimeImmutable|null $startedAt When the agent turn began, if it ran (UTC).
+	 * @param AgentRunOutcome $outcome How one agent run ended, as its audit entry records it.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
-	private function writeRunAudit(
-		ObjectEntity $object,
-		string $status,
-		string $summary,
-		array $payload,
-		?DateTimeImmutable $startedAt = null,
-	): void {
+	private function writeRunAudit(ObjectEntity $object, AgentRunOutcome $outcome): void {
+		$status = $outcome->status;
+		$summary = $outcome->summary;
+		$payload = $outcome->payload;
+		$startedAt = $outcome->startedAt;
 		try {
 			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 			$started = ($startedAt ?? $endedAt);

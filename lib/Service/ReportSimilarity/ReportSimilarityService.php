@@ -370,11 +370,13 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 	private function startGroupFor(ReportEvaluation $evaluation): array {
 		return $this->startGroup(
 			reportId: $evaluation->reportId,
-			reportType: $evaluation->reportType,
-			text: $evaluation->text,
-			deterministicKey: $evaluation->deterministicKey,
-			windowMinutes: $evaluation->windowMinutes,
-			at: $evaluation->at
+			start: new NewSimilarityGroup(
+				reportType: $evaluation->reportType,
+				text: $evaluation->text,
+				deterministicKey: $evaluation->deterministicKey,
+				windowMinutes: $evaluation->windowMinutes,
+				at: $evaluation->at
+			)
 		);
 	}//end startGroupFor()
 
@@ -391,12 +393,14 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 	private function joinGroupFor(ReportEvaluation $evaluation, array $match): array {
 		return $this->joinGroup(
 			group: $match['group'],
-			reportId: $evaluation->reportId,
-			score: $match['score'],
-			terms: $match['terms'],
-			scorer: $match['scorer'],
-			decidedBy: $match['decidedBy'],
-			at: $evaluation->at
+			membership: new GroupMembership(
+				reportId: $evaluation->reportId,
+				score: $match['score'],
+				terms: $match['terms'],
+				scorer: $match['scorer'],
+				decidedBy: $match['decidedBy'],
+				at: $evaluation->at
+			)
 		);
 	}//end joinGroupFor()
 
@@ -404,24 +408,18 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 	 * Start a new group for a report nothing in the window matched.
 	 *
 	 * @param string $reportId The report.
-	 * @param string $reportType The report type.
-	 * @param string $text The report's text.
-	 * @param string $deterministicKey The owning app's key, when it has one.
-	 * @param int $windowMinutes The window in force.
-	 * @param DateTimeImmutable $at The moment.
+	 * @param NewSimilarityGroup $start The report that opens a new similarity group, and the window it stays open.
 	 *
 	 * @return array<string, mixed> The answer.
 	 *
 	 * @spec openspec/specs/report-similarity/spec.md#scenario-a-clearly-separate-report-stands-alone
 	 */
-	private function startGroup(
-		string $reportId,
-		string $reportType,
-		string $text,
-		string $deterministicKey,
-		int $windowMinutes,
-		DateTimeImmutable $at,
-	): array {
+	private function startGroup(string $reportId, NewSimilarityGroup $start): array {
+		$reportType = $start->reportType;
+		$text = $start->text;
+		$deterministicKey = $start->deterministicKey;
+		$windowMinutes = $start->windowMinutes;
+		$at = $start->at;
 		$decidedBy = self::DECIDED_BY_KEY;
 		if ($deterministicKey === '') {
 			$decidedBy = self::DECIDED_BY_MODEL;
@@ -462,26 +460,19 @@ class ReportSimilarityService implements ReportSimilarityServiceInterface {
 	 * fell between the two thresholds.
 	 *
 	 * @param ObjectEntity $group The group.
-	 * @param string $reportId The report.
-	 * @param float $score The score.
-	 * @param array<int, string> $terms The shared terms.
-	 * @param string $scorer Which judgement produced the score.
-	 * @param string $decidedBy Whether the key or the model decided.
-	 * @param DateTimeImmutable $at The moment.
+	 * @param GroupMembership $membership A report joining a similarity group, and how the match was decided.
 	 *
 	 * @return array<string, mixed> The answer.
 	 *
 	 * @spec openspec/specs/report-similarity/spec.md#scenario-a-near-duplicate-is-visible-not-buried
 	 */
-	private function joinGroup(
-		ObjectEntity $group,
-		string $reportId,
-		float $score,
-		array $terms,
-		string $scorer,
-		string $decidedBy,
-		DateTimeImmutable $at,
-	): array {
+	private function joinGroup(ObjectEntity $group, GroupMembership $membership): array {
+		$reportId = $membership->reportId;
+		$score = $membership->score;
+		$terms = $membership->terms;
+		$scorer = $membership->scorer;
+		$decidedBy = $membership->decidedBy;
+		$at = $membership->at;
 		$uncertain = ($decidedBy === self::DECIDED_BY_MODEL && $score < $this->settings->upper());
 
 		$data = $group->getObject();

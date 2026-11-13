@@ -53,6 +53,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Migration\MigratedConversation;
 use OCA\Hermiq\Repair\Support\RegisterScopedSchema;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -292,10 +293,12 @@ class MigrateConversationsToSessions implements IRepairStep {
 
 			$written = $this->persist(
 				objectService: $objectService,
-				sourceSchema: $sourceSchema,
-				targetSchema: $targetSchema,
-				uuid: $uuid,
-				source: $source
+				migrated: new MigratedConversation(
+					sourceSchema: $sourceSchema,
+					targetSchema: $targetSchema,
+					uuid: $uuid,
+					source: $source
+				)
 			);
 
 			$bucket = 'failed';
@@ -498,22 +501,17 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 * out of the payload is written away rather than left alone.
 	 *
 	 * @param ObjectService $objectService OpenRegister's object write path.
-	 * @param string        $sourceSchema  Source schema slug, for the archive-marker copy.
-	 * @param string        $targetSchema  Target schema slug.
-	 * @param string        $uuid          The uuid to preserve.
-	 * @param ObjectEntity  $source        The source object.
+	 * @param MigratedConversation $migrated One conversation being moved to a session, and its source and target schemas.
 	 *
 	 * @return bool True when the write succeeded.
 	 *
 	 * @spec openspec/specs/session-data-migration/spec.md
 	 */
-	private function persist(
-		ObjectService $objectService,
-		string $sourceSchema,
-		string $targetSchema,
-		string $uuid,
-		ObjectEntity $source
-	): bool {
+	private function persist(ObjectService $objectService, MigratedConversation $migrated): bool {
+		$sourceSchema = $migrated->sourceSchema;
+		$targetSchema = $migrated->targetSchema;
+		$uuid = $migrated->uuid;
+		$source = $migrated->source;
 		// `getObject()` is declared `: array`, so no shape guard is needed here.
 		$data = $source->getObject();
 

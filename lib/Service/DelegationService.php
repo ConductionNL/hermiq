@@ -45,6 +45,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
+use OCA\Hermiq\Service\Delegation\DelegatedTurn;
+use OCA\Hermiq\Service\Delegation\DelegationAuditEntry;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -272,10 +274,12 @@ class DelegationService implements DelegationServiceInterface {
 		// construction.
 		return $this->runDelegatedTurn(
 			targetAgent: $targetAgent,
-			task: $task,
-			organisation: $callerOrganisation,
-			callerFrame: $callerFrame,
-			effectiveReach: $this->effectiveReachFor(targetData: $targetData)
+			turn: new DelegatedTurn(
+				task: $task,
+				organisation: $callerOrganisation,
+				callerFrame: $callerFrame,
+				effectiveReach: $this->effectiveReachFor(targetData: $targetData)
+			)
 		);
 
 	}//end delegate()
@@ -493,17 +497,7 @@ class DelegationService implements DelegationServiceInterface {
 	 * anchored the same way — never throws.
 	 *
 	 * @param ObjectEntity $targetAgent The resolved target Agent object.
-	 * @param string $task The bounded task/prompt (LLM-supplied).
-	 * @param string $organisation The caller's organisation.
-	 * @param DelegationFrame|null $callerFrame The calling agent's own current frame
-	 *                                          (its `runId` becomes this sub-run's
-	 *                                          `parentRunId`; its `anchor` is reused
-	 *                                          verbatim).
-	 * @param string $effectiveReach The composed reach of this delegation
-	 *                               (`effectiveReachFor()`), carried onto the
-	 *                               result so the calling turn can account for
-	 *                               it. Defaults to the delegation tool's own
-	 *                               `instance` — never lower.
+	 * @param DelegatedTurn $turn The task one agent delegates to another, and the frame it runs in.
 	 *
 	 * @return array<string, mixed> `{targetAgentId, result, effectiveReach}` on success, or a
 	 *                              `delegation_failed` error envelope.
@@ -511,13 +505,11 @@ class DelegationService implements DelegationServiceInterface {
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
 	 */
-	private function runDelegatedTurn(
-		ObjectEntity $targetAgent,
-		string $task,
-		string $organisation,
-		?DelegationFrame $callerFrame,
-		string $effectiveReach = ToolReachResolver::REACH_INSTANCE,
-	): array {
+	private function runDelegatedTurn(ObjectEntity $targetAgent, DelegatedTurn $turn): array {
+		$task = $turn->task;
+		$organisation = $turn->organisation;
+		$callerFrame = $turn->callerFrame;
+		$effectiveReach = $turn->effectiveReach;
 		$targetAgentId = (string)$targetAgent->getUuid();
 
 		$owner = (string)($this->userSession->getUser()?->getUID() ?? '');
@@ -554,12 +546,14 @@ class DelegationService implements DelegationServiceInterface {
 
 		$this->writeDelegationAudit(
 			auditTarget: ($anchor ?? $targetAgent),
-			targetAgentId: $targetAgentId,
-			status: $status,
-			summary: $result,
-			runId: $this->scheduleService->getLastRunId(),
-			parentRunId: $callerFrame?->runId,
-			startedAt: $startedAt
+			entry: new DelegationAuditEntry(
+				targetAgentId: $targetAgentId,
+				status: $status,
+				summary: $result,
+				runId: $this->scheduleService->getLastRunId(),
+				parentRunId: $callerFrame?->runId,
+				startedAt: $startedAt
+			)
 		);
 
 		if ($status === 'error') {
@@ -584,26 +578,19 @@ class DelegationService implements DelegationServiceInterface {
 	 * @param ObjectEntity $auditTarget The object this entry is written against
 	 *                                  (the shared anchor, or the target agent
 	 *                                  itself when no anchor is available).
-	 * @param string $targetAgentId The delegated-to agent's UUID.
-	 * @param string $status `ok`|`error`.
-	 * @param string $summary The raw run output/error (redacted here).
-	 * @param string $runId This sub-run's own fresh run identifier.
-	 * @param string|null $parentRunId The calling run's own `runId`.
-	 * @param DateTimeImmutable $startedAt When the delegated turn began.
+	 * @param DelegationAuditEntry $entry What one delegation audit entry records.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
 	 */
-	private function writeDelegationAudit(
-		ObjectEntity $auditTarget,
-		string $targetAgentId,
-		string $status,
-		string $summary,
-		string $runId,
-		?string $parentRunId,
-		DateTimeImmutable $startedAt,
-	): void {
+	private function writeDelegationAudit(ObjectEntity $auditTarget, DelegationAuditEntry $entry): void {
+		$targetAgentId = $entry->targetAgentId;
+		$status = $entry->status;
+		$summary = $entry->summary;
+		$runId = $entry->runId;
+		$parentRunId = $entry->parentRunId;
+		$startedAt = $entry->startedAt;
 		try {
 			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
