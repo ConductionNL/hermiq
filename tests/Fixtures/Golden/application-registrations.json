@@ -373,6 +373,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\FormFillEngineInterface",
+            "OCA\\Hermiq\\Service\\FormFillEngine"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\LessonAuthoringEngineInterface",
             "OCA\\Hermiq\\Service\\LessonAuthoringEngine"
         ],
