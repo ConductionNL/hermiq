@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Assistant\RecordSummaryService;
+use OCA\Hermiq\Kernel\Contracts\RecordSummaryServiceInterface;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -68,14 +68,14 @@ class RecordSummaryController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param RecordSummaryService $summaries Reads, writes and keeps record summaries.
+	 * @param RecordSummaryServiceInterface $summaries Reads, writes and keeps record summaries.
 	 * @param IUserSession $userSession The signed-in user.
 	 *
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RecordSummaryService $summaries,
+		private readonly RecordSummaryServiceInterface $summaries,
 		private readonly IUserSession $userSession,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

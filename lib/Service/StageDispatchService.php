@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\StageDispatchServiceInterface;
 use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use Psr\Container\ContainerInterface;
@@ -37,7 +38,7 @@ use Throwable;
  *
  * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
  */
-class StageDispatchService {
+class StageDispatchService implements StageDispatchServiceInterface {
 
 	/**
 	 * AppAPI's public dispatch surface.
@@ -907,6 +908,5 @@ class StageDispatchService {
 
 		return $result;
 	}//end mapResult()
-
 
 }//end class

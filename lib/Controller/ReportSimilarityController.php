@@ -33,8 +33,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilarityServiceInterface;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\ReportSimilarity\ReportSimilarityService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -55,14 +55,14 @@ class ReportSimilarityController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param ReportSimilarityService $similarity The grouping judgement.
+	 * @param ReportSimilarityServiceInterface $similarity The grouping judgement.
 	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ReportSimilarityService $similarity,
+		private readonly ReportSimilarityServiceInterface $similarity,
 		private readonly ActionAuthService $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,

@@ -38,7 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Service\Talk\TalkApprovalBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -77,13 +77,13 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @param TalkBridge $bridge Talk availability and room posting.
 	 * @param TalkApprovalBinding $approvalBinding Resolves an approval from a message id.
-	 * @param ApprovalService $approvalService Applies the decision — the same path the inbox uses.
+	 * @param ApprovalServiceInterface $approvalService Applies the decision — the same path the inbox uses.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
 		private readonly TalkApprovalBinding $approvalBinding,
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

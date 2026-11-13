@@ -30,8 +30,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
-use OCA\Hermiq\Service\NcNative\MailReadService;
 
 /**
  * Descriptor source for the mail read tools.
@@ -89,7 +89,7 @@ final class NcMailToolDescriptors {
 					'pageSize' => [
 						'type' => 'integer',
 						'description' => 'Envelopes per page (default 20, server maximum '
-							. MailReadService::MAX_PAGE_SIZE . ' — the maximum cannot be raised).',
+							. MailReadServiceInterface::MAX_PAGE_SIZE . ' — the maximum cannot be raised).',
 					],
 				],
 				'required' => ['mailboxId'],

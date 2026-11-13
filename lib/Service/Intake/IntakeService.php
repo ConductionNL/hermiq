@@ -51,8 +51,9 @@ namespace OCA\Hermiq\Service\Intake;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\Hermiq\Kernel\Contracts\IntakeServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -67,7 +68,7 @@ use Throwable;
  *
  * @spec openspec/specs/conversational-intake/spec.md
  */
-class IntakeService {
+class IntakeService implements IntakeServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

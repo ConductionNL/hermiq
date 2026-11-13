@@ -43,8 +43,9 @@ namespace OCA\Hermiq\Service\ReportSimilarity;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilarityServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -55,7 +56,7 @@ use Throwable;
  *
  * @spec openspec/specs/report-similarity/spec.md
  */
-class ReportSimilarityService {
+class ReportSimilarityService implements ReportSimilarityServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

@@ -49,9 +49,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Service\Engine\Engine;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -68,7 +69,7 @@ use Throwable;
  *
  * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
  */
-class ContextAgentInteractionService {
+class ContextAgentInteractionService implements ContextAgentInteractionServiceInterface {
 	/**
 	 * OpenRegister register slug holding Hermiq agent-engine objects.
 	 *

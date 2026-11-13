@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\GoalService;
+use OCA\Hermiq\Kernel\Contracts\GoalServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -54,13 +54,13 @@ class GoalController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest        $request     The request.
-	 * @param GoalService     $goals       The goal lifecycle.
+	 * @param GoalServiceInterface     $goals       The goal lifecycle.
 	 * @param IUserSession    $userSession The signed-in person.
 	 * @param LoggerInterface $logger      PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly GoalService $goals,
+		private readonly GoalServiceInterface $goals,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

@@ -37,19 +37,19 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
-use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Response;
@@ -131,7 +131,7 @@ class ChatStreamController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param Engine $engine In-app agent engine facade (ported ChatService).
+	 * @param EngineInterface $engine In-app agent engine facade (ported ChatService).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IDBConnection $db Database connection, used to finalise any open
@@ -144,7 +144,7 @@ class ChatStreamController extends Controller {
 	 *                    structured data, because a service throwing it has no
 	 *                    business knowing the reader's locale (ADR-007).
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
-	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
+	 * @param ToolAccessRequestServiceInterface $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
 	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
@@ -157,14 +157,14 @@ class ChatStreamController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly Engine $engine,
+		private readonly EngineInterface $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IDBConnection $db,
 		private readonly LoggerInterface $logger,
 		private readonly IL10N $l10n,
 		private readonly RunStepBus $runStepBus,
-		private readonly ToolAccessRequestService $accessRequests,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly AgentAccessService $agentAccess,
 		private readonly ?LiteracyRequirement $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,

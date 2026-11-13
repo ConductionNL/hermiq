@@ -46,9 +46,10 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\SkillLearningsCaptureServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -67,7 +68,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
  */
-class SkillLearningsCaptureService {
+class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

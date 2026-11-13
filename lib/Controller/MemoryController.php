@@ -35,8 +35,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\MemoryService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -71,7 +71,7 @@ class MemoryController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param MemoryService $memoryService The memory read/write path.
+	 * @param MemoryServiceInterface $memoryService The memory read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AgentAccessService $agentAccess Per-agent authorization (IDOR guard).
@@ -80,7 +80,7 @@ class MemoryController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly MemoryService $memoryService,
+		private readonly MemoryServiceInterface $memoryService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly AgentAccessService $agentAccess,

@@ -37,6 +37,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Exception;
+use OCA\Hermiq\Kernel\Contracts\RunHistoryServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCP\IURLGenerator;
@@ -47,7 +48,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-run-audit-log/tasks.md#3-run-history-read-surface
  */
-class RunHistoryService {
+class RunHistoryService implements RunHistoryServiceInterface {
 
 	/**
 	 * The audit action written per run by ScheduleService.

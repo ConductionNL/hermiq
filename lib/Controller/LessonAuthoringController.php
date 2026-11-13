@@ -34,7 +34,7 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\LessonAuthoringEngine;
+use OCA\Hermiq\Kernel\Contracts\LessonAuthoringEngineInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -99,13 +99,13 @@ class LessonAuthoringController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param IUserSession $userSession Resolves the requesting user (401 if absent).
-	 * @param LessonAuthoringEngine $engine The gated lesson authoring pipeline.
+	 * @param LessonAuthoringEngineInterface $engine The gated lesson authoring pipeline.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly LessonAuthoringEngine $engine,
+		private readonly LessonAuthoringEngineInterface $engine,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
@@ -125,7 +125,7 @@ class LessonAuthoringController extends Controller {
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function outline(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_OUTLINE,
+			action: LessonAuthoringEngineInterface::ACTION_OUTLINE,
 			read: fn (): array => [
 				'goalTitles' => $this->required(value: $this->goalTitles(), field: 'goalTitles'),
 				'lessonText' => $this->lessonText(),
@@ -154,7 +154,7 @@ class LessonAuthoringController extends Controller {
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function questions(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_QUESTIONS,
+			action: LessonAuthoringEngineInterface::ACTION_QUESTIONS,
 			read: fn (): array => [
 				'lessonText' => $this->required(value: $this->lessonText(), field: 'lessonText'),
 				'goalTitles' => $this->goalTitles(),
@@ -185,7 +185,7 @@ class LessonAuthoringController extends Controller {
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function simplify(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_SIMPLIFY,
+			action: LessonAuthoringEngineInterface::ACTION_SIMPLIFY,
 			read: fn (): array => [
 				'lessonText' => $this->required(value: $this->lessonText(), field: 'lessonText'),
 				'readingLevel' => $this->readingLevel(),
@@ -212,7 +212,7 @@ class LessonAuthoringController extends Controller {
 	#[UserRateLimit(limit: 30, period: 60)]
 	public function goalSuggestions(): JSONResponse {
 		return $this->handle(
-			action: LessonAuthoringEngine::ACTION_GOAL_SUGGESTIONS,
+			action: LessonAuthoringEngineInterface::ACTION_GOAL_SUGGESTIONS,
 			read: fn (): array => [
 				'lessonText' => $this->required(value: $this->lessonText(), field: 'lessonText'),
 				'goalTitles' => $this->required(value: $this->goalTitles(), field: 'goalTitles'),
@@ -365,8 +365,8 @@ class LessonAuthoringController extends Controller {
 		$value = $this->digitsAsInt(value: $value);
 		if ($this->isQuestionCount(value: $value) === false) {
 			throw new InvalidArgumentException(
-				'questionCount must be a whole number from ' . LessonAuthoringEngine::MIN_QUESTIONS
-				. ' to ' . LessonAuthoringEngine::MAX_QUESTIONS
+				'questionCount must be a whole number from ' . LessonAuthoringEngineInterface::MIN_QUESTIONS
+				. ' to ' . LessonAuthoringEngineInterface::MAX_QUESTIONS
 			);
 		}
 
@@ -397,8 +397,8 @@ class LessonAuthoringController extends Controller {
 	 */
 	private function isQuestionCount(mixed $value): bool {
 		return is_int($value) === true
-			&& $value >= LessonAuthoringEngine::MIN_QUESTIONS
-			&& $value <= LessonAuthoringEngine::MAX_QUESTIONS;
+			&& $value >= LessonAuthoringEngineInterface::MIN_QUESTIONS
+			&& $value <= LessonAuthoringEngineInterface::MAX_QUESTIONS;
 	}//end isQuestionCount()
 
 	/**
@@ -409,14 +409,14 @@ class LessonAuthoringController extends Controller {
 	 * @throws InvalidArgumentException When it is not a known level.
 	 */
 	private function readingLevel(): string {
-		$value = $this->request->getParam('readingLevel', LessonAuthoringEngine::DEFAULT_READING_LEVEL);
+		$value = $this->request->getParam('readingLevel', LessonAuthoringEngineInterface::DEFAULT_READING_LEVEL);
 		if ($value === null || $value === '') {
-			return LessonAuthoringEngine::DEFAULT_READING_LEVEL;
+			return LessonAuthoringEngineInterface::DEFAULT_READING_LEVEL;
 		}
 
-		if (is_string($value) === false || array_key_exists($value, LessonAuthoringEngine::READING_LEVELS) === false) {
+		if (is_string($value) === false || array_key_exists($value, LessonAuthoringEngineInterface::READING_LEVELS) === false) {
 			throw new InvalidArgumentException(
-				'readingLevel must be one of ' . implode(', ', array_keys(LessonAuthoringEngine::READING_LEVELS))
+				'readingLevel must be one of ' . implode(', ', array_keys(LessonAuthoringEngineInterface::READING_LEVELS))
 			);
 		}
 

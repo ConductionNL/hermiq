@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Service\Assistant;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\RecordSummaryServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
@@ -59,29 +60,7 @@ use Throwable;
  * is one collaborator, and splitting them would only move the joins elsewhere.
  * @SuppressWarnings(PHPMD.LongVariable) `$guardrailPolicyService` is named after its class.
  */
-class RecordSummaryService {
-
-	/**
-	 * The AI feature that switches record summaries on and off.
-	 *
-	 * @var string
-	 */
-	public const FEATURE_SLUG = 'record-summary';
-
-	/**
-	 * The assistant prompt scope whose prompt writes the summary.
-	 *
-	 * @var string
-	 */
-	public const PROMPT_SCOPE = 'record-summary';
-
-	/**
-	 * The prompt used when the library holds none for the scope (design.md, seed data).
-	 *
-	 * @var string
-	 */
-	public const DEFAULT_PROMPT = 'Summarise this record in at most five sentences for a colleague who has not '
-		. 'seen it. Name its status, the last change and anything that needs action.';
+class RecordSummaryService implements RecordSummaryServiceInterface {
 
 	/**
 	 * Tool whitelist entry that resolves to no tool: the summary is tool-free by
