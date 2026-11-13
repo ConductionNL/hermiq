@@ -56,6 +56,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 * What a `cli` turn does when it cannot be governed or its credential cannot be resolved.
 	 *
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
+	 * @uses   \OCA\Hermiq\Service\Llm\CliTurn
 	 */
 	final class ProviderFactoryCliFailuresTest extends TestCase {
 
