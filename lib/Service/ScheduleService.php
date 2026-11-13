@@ -261,6 +261,13 @@ class ScheduleService implements ScheduleServiceInterface {
 	private readonly TenantKillSwitch $tenantKillSwitch;
 
 	/**
+	 * The per-department AI switch (oversight-switch-ai-off-per-department).
+	 *
+	 * @var DepartmentSwitch
+	 */
+	private readonly DepartmentSwitch $departmentSwitch;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
@@ -335,6 +342,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
+		$this->departmentSwitch = new DepartmentSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
 
 	/**
@@ -395,6 +403,22 @@ class ScheduleService implements ScheduleServiceInterface {
 	public function isOrganisationEngaged(string $organisation): bool {
 		return $this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation);
 	}//end isOrganisationEngaged()
+
+	/**
+	 * Whether the department an agent runs for has AI switched off.
+	 *
+	 * The per-department switch every governed run asks after the organisation
+	 * kill-switch (oversight-switch-ai-off-per-department).
+	 *
+	 * @param string $agentId The agent's uuid.
+	 *
+	 * @return bool True when the agent's runs are refused.
+	 *
+	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-switch-ai-off-for-one-department
+	 */
+	public function isAgentDepartmentOff(string $agentId): bool {
+		return $this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null;
+	}//end isAgentDepartmentOff()
 
 	/**
 	 * Offboarding: pause every Schedule owned by, or whose Agent's `actingUser`
@@ -963,6 +987,13 @@ class ScheduleService implements ScheduleServiceInterface {
 			return;
 		}
 
+		// GATE 1b — THE AGENT'S DEPARTMENT IS SWITCHED OFF (oversight-switch-ai-off-per-department).
+		// After the kill-switch, so the organisation switch still stops everything.
+		if ($this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null) {
+			$this->recordGateSkip(schedule: $schedule, skip: new GateSkip(data: $data, owner: $owner, now: $now, status: DepartmentSwitch::SKIPPED_STATUS));
+			return;
+		}
+
 		// GATE 2 — BUDGET HARD CAP (cost-guardrails). A soft-threshold warning is
 		// independent of the block (runs continue when only the soft threshold is
 		// crossed), so it is checked unconditionally here, every tick the schedule is
@@ -1021,7 +1052,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @param ObjectEntity $schedule The schedule to evaluate.
 	 *
-	 * @return string|null One of `skipped_agent_off`|`skipped_killswitch`|`skipped_budget`|`awaiting_approval`
+	 * @return string|null One of `skipped_agent_off`|`skipped_killswitch`|`skipped_department_off`|`skipped_budget`|`awaiting_approval`
 	 *                     when a gate blocks the run, or null when every gate passes.
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
@@ -1049,7 +1080,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @param string $organisation The organisation.
 	 * @param string $agentId      The agent.
 	 *
-	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_budget`, or null.
+	 * @return string|null `skipped_agent_off`, `skipped_killswitch`, `skipped_department_off`, `skipped_budget`, or null.
 	 *
 	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
 	 */
@@ -1060,6 +1091,10 @@ class ScheduleService implements ScheduleServiceInterface {
 
 		if ($this->isOrganisationEngaged(organisation: $organisation) === true) {
 			return 'skipped_killswitch';
+		}
+
+		if ($this->departmentSwitch->offDepartmentOf(agentId: $agentId) !== null) {
+			return DepartmentSwitch::SKIPPED_STATUS;
 		}
 
 		if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {

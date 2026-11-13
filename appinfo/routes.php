@@ -206,6 +206,13 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['organisation' => '[^/]+'],
         ],
+        // Per-department AI switch (oversight-switch-ai-off-per-department): admins only.
+        [
+            'name'         => 'departmentControl#toggle',
+            'url'          => '/api/department-control/{group}/toggle',
+            'verb'         => 'POST',
+            'requirements' => ['group' => '[^/]+'],
+        ],
 
         // Agent memory (agent-memory): tenant-scoped memory, profiles, sessions, consolidate, recall.
         ['name' => 'memory#memory',        'url' => '/api/agents/{agentId}/memory', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],

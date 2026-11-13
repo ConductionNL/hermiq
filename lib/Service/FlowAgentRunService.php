@@ -187,6 +187,19 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 			return false;
 		}
 
+		// GATE 1b — THE AGENT'S DEPARTMENT IS SWITCHED OFF (oversight-switch-ai-off-per-department).
+		if ($this->scheduleService->isAgentDepartmentOff(agentId: $agentId) === true) {
+			$this->writeRunAudit(
+				object: $object,
+				outcome: new AgentRunOutcome(
+					status: DepartmentSwitch::SKIPPED_STATUS,
+					summary: '',
+					payload: $payload
+				)
+			);
+			return false;
+		}
+
 		// GATE 2 — BUDGET HARD CAP (cost-guardrails), applied even to an authorised
 		// approval-bypass occurrence.
 		if ($this->budgetBlocks(organisation: $organisation, agentId: $agentId) === true) {
