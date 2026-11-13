@@ -610,7 +610,7 @@ class FacadeToolInvoker {
 			return $this->handleGatedInvocation(name: $name, arguments: $arguments);
 		}
 
-		return $this->dispatchToFacade(name: $name, arguments: $arguments);
+		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
 
 	}//end routeGranted()
 
@@ -872,7 +872,13 @@ class FacadeToolInvoker {
 		$approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
 		if ($approvedUnconsumed !== null) {
 			$this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
-			return $this->dispatchToFacade(name: $name, arguments: $arguments, outcomeOverride: 'invoked_after_approval');
+			return $this->dispatchToFacade(
+				name: $name,
+				call: new FacadeCall(
+					arguments: $arguments,
+					outcomeOverride: 'invoked_after_approval'
+				)
+			);
 		}
 
 		$pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
@@ -1100,7 +1106,7 @@ class FacadeToolInvoker {
 		);
 
 		if ($decided !== null && (string)($decided->getObject()['status'] ?? '') === 'approved') {
-			return $this->dispatchToFacade(name: $name, arguments: $arguments);
+			return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
 		}
 
 		$pending = null;
@@ -1205,15 +1211,7 @@ class FacadeToolInvoker {
 	 * `ToolRegistryFacade::invokeTool()`, emitting channel frames / trace step.
 	 *
 	 * @param string $name The tool function name the LLM called.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param string|null $outcomeOverride A fixed trace-step outcome to record
-	 *                                     instead of the facade's own ok/error
-	 *                                     (agent-guardrails): `invoked_after_approval`
-	 *                                     for a `confirm`-classified tool's authorised
-	 *                                     retry, so the run history distinguishes it
-	 *                                     from an ordinary `auto` invocation. Null
-	 *                                     (every pre-existing caller) keeps the
-	 *                                     original ok/error derivation unchanged.
+	 * @param FacadeCall $call The arguments a facade tool is called with, and any outcome that overrides it.
 	 *
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 *
@@ -1221,7 +1219,9 @@ class FacadeToolInvoker {
 	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
 	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-staged-batch-raises-an-approval-that-keeps-its-binding-req-apver-002
 	 */
-	private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride = null): string {
+	private function dispatchToFacade(string $name, FacadeCall $call): string {
+		$arguments = $call->arguments;
+		$outcomeOverride = $call->outcomeOverride;
 		$dispatch = new ToolDispatch(name: $name, arguments: $arguments);
 		$dispatch->outcomeOverride = $outcomeOverride;
 		$reporter = new ToolCallReporter(channel: $this->channel, trace: $this->trace);
@@ -1234,7 +1234,13 @@ class FacadeToolInvoker {
 		// retry, or an already-approved gated invocation) — a single chokepoint,
 		// never duplicated per branch.
 		if ($this->dryRun === true && $this->isSideEffecting(name: $name) === true) {
-			return $this->recordWouldHaveCalled(name: $name, arguments: $arguments, traceToken: $dispatch->traceToken);
+			return $this->recordWouldHaveCalled(
+				name: $name,
+				call: new WouldHaveCalled(
+					arguments: $arguments,
+					traceToken: $dispatch->traceToken
+				)
+			);
 		}
 
 		// The facade's return shape is a documented contract:
@@ -1466,17 +1472,16 @@ class FacadeToolInvoker {
 	 * result so the LLM's multi-step plan can keep reasoning realistically.
 	 *
 	 * @param string $name The LLPhant-side function name.
-	 * @param array<string, mixed> $arguments Decoded arguments object.
-	 * @param int|null $traceToken The trace step token already started
-	 *                             by `dispatchToFacade()`, or null when
-	 *                             no collector is attached.
+	 * @param WouldHaveCalled $call The arguments a dry run would have called a tool with.
 	 *
 	 * @return string JSON-encoded preview envelope for the follow-up LLM turn.
 	 *
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
 	 */
-	private function recordWouldHaveCalled(string $name, array $arguments, ?int $traceToken): string {
+	private function recordWouldHaveCalled(string $name, WouldHaveCalled $call): string {
+		$arguments = $call->arguments;
+		$traceToken = $call->traceToken;
 		$toolId = $this->resolveToolId(name: $name);
 		$redactedArguments = $this->redactArguments(arguments: $arguments);
 
