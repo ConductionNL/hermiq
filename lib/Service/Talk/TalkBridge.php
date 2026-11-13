@@ -113,6 +113,13 @@ class TalkBridge {
 	private const TALK_CHAT_MANAGER = 'OCA\\Talk\\Chat\\ChatManager';
 
 	/**
+	 * Fully-qualified spreed bot service, resolved lazily.
+	 *
+	 * @var string
+	 */
+	private const TALK_BOT_SERVICE = 'OCA\\Talk\\Service\\BotService';
+
+	/**
 	 * Constructor.
 	 *
 	 * Both dependencies are always-present Nextcloud services; spreed is only
@@ -355,6 +362,40 @@ class TalkBridge {
 		}//end try
 
 	}//end roomUserIds()
+
+	/**
+	 * Whether an agent's own bot is a member of a room: enabled in it.
+	 *
+	 * Fails closed: Talk absent, an unreadable room or an error reads as not a member.
+	 *
+	 * @param string $roomToken The room token.
+	 * @param string $agentId   The agent's uuid.
+	 *
+	 * @return bool True when the agent's bot is enabled in the room.
+	 *
+	 * @spec openspec/changes/tools-post-a-talk-message/specs/nc-native-tools/spec.md#requirement-an-agent-can-post-a-message-in-a-talk-conversation-it-is-a-member-of-req-nctalk-001
+	 */
+	public function isAgentBotIn(string $roomToken, string $agentId): bool {
+		if ($this->isAvailable() === false || $roomToken === '' || trim($agentId) === '') {
+			return false;
+		}
+
+		$url = self::botUrlFor(agentId: $agentId);
+		try {
+			foreach ($this->container->get(self::TALK_BOT_SERVICE)->getBotsForToken($roomToken) as $bot) {
+				if ($bot->getBotServer()->getUrl() === $url) {
+					return true;
+				}
+			}
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not resolve the bots of a room',
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
+			);
+		}
+
+		return false;
+	}//end isAgentBotIn()
 
 	/**
 	 * Each non-empty string uid once, in the order spreed listed them.

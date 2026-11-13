@@ -133,6 +133,8 @@ use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkMessageToolInterface;
+use OCA\Hermiq\Service\NcNative\TalkMessageTool;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
@@ -352,6 +354,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(TalkTurnDispatcherInterface::class, TalkTurnDispatcher::class);
 		$context->registerServiceAlias(TalkTurnServiceInterface::class, TalkTurnService::class);
 		$context->registerServiceAlias(TaskWriteServiceInterface::class, TaskWriteService::class);
+		$context->registerServiceAlias(TalkMessageToolInterface::class, TalkMessageTool::class);
 		$context->registerServiceAlias(ToolAccessRequestServiceInterface::class, ToolAccessRequestService::class);
 		$context->registerServiceAlias(ToolLoopInterface::class, ToolLoop::class);
 		$context->registerServiceAlias(ToolSearchServiceInterface::class, ToolSearchService::class);

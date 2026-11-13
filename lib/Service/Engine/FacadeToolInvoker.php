@@ -253,6 +253,9 @@ class FacadeToolInvoker {
 		'hermiq.upsertContact',
 		'hermiq.createTask',
 		'hermiq.completeTask',
+		// Tools-post-a-talk-message: the message is posted as THIS agent's bot,
+		// and only where that bot is a member, so the agent must come from the run.
+		'hermiq.sendTalkMessage',
 	];
 
 	/**
