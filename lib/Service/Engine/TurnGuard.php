@@ -62,8 +62,8 @@ class TurnGuard {
 	/**
 	 * Constructor.
 	 *
-	 * @param integer|null $maxToolCalls  Tool calls one turn may make; null is no cap.
-	 * @param Closure|null $agentStillOn  Fresh read of the agent's switch; null is always on.
+	 * @param integer|null $maxToolCalls Tool calls one turn may make; null is no cap.
+	 * @param Closure|null $agentStillOn Fresh read of the agent's switch; null is always on.
 	 */
 	public function __construct(
 		private readonly ?int $maxToolCalls = null,

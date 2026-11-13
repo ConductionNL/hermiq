@@ -49,8 +49,8 @@ final class TurnPerformanceLog {
 	 * sha256 the runner prints, which is what makes the join possible; it is a
 	 * hash, so it names no user or conversation in the log.
 	 *
-	 * @param ResponseTurnRun $run      The turn.
-	 * @param string          $response The response text.
+	 * @param ResponseTurnRun $run The turn.
+	 * @param string $response The response text.
 	 *
 	 * @return void
 	 *

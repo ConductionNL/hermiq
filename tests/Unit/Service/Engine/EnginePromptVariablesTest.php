@@ -32,6 +32,9 @@ use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\PromptVariableResolver;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\ToolLoop;
+use OCA\Hermiq\Service\Engine\TurnEnrichment;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
+use OCA\Hermiq\Service\Engine\TurnSafeguards;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -128,18 +131,24 @@ class EnginePromptVariablesTest extends TestCase {
 		);
 
 		$engine = new Engine(
-			$objectService,
-			$retrieval,
-			$response,
-			$this->createMock(ConversationManagementHandler::class),
-			$history,
-			$this->createMock(ContextAssembler::class),
-			new NullLogger(),
-			null,
-			null,
-			new ConversationParticipation(),
-			null,
-			$this->resolver()
+			objectService: $objectService,
+			handlers: new TurnHandlers(
+				contextHandler: $retrieval,
+				responseHandler: $response,
+				conversationHandler: $this->createMock(ConversationManagementHandler::class),
+				historyHandler: $history,
+				contextAssembler: $this->createMock(ContextAssembler::class)
+			),
+			logger: new NullLogger(),
+			safeguards: new TurnSafeguards(
+				guardrailPolicyService: null,
+				participation: new ConversationParticipation(),
+				userManager: null
+			),
+			enrichment: new TurnEnrichment(
+				jobList: null,
+				promptVariables: $this->resolver()
+			)
 		);
 
 		try {

@@ -35,6 +35,9 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\Hermiq\Service\Engine\TurnEnrichment;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
+use OCA\Hermiq\Service\Engine\TurnSafeguards;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -105,15 +108,21 @@ class EngineTest extends TestCase {
 		}
 
 		return new Engine(
-			$objectService,
-			$contextHandler,
-			$responseHandler,
-			$conversationHandler,
-			$historyHandler,
-			$contextAssembler,
-			new NullLogger(),
-			$guardrailPolicyService,
-			$jobList
+			objectService: $objectService,
+			handlers: new TurnHandlers(
+				contextHandler: $contextHandler,
+				responseHandler: $responseHandler,
+				conversationHandler: $conversationHandler,
+				historyHandler: $historyHandler,
+				contextAssembler: $contextAssembler
+			),
+			logger: new NullLogger(),
+			safeguards: new TurnSafeguards(
+				guardrailPolicyService: $guardrailPolicyService
+			),
+			enrichment: new TurnEnrichment(
+				jobList: $jobList
+			)
 		);
 
 	}//end engine()

@@ -40,6 +40,9 @@ use OCA\Hermiq\Service\Engine\PromptVariableResolver;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\Engine\TurnEnrichment;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
+use OCA\Hermiq\Service\Engine\TurnSafeguards;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -211,20 +214,26 @@ class EngineTurnGoldenTest extends TestCase {
 	private function engine(array $input): Engine {
 		$optional = $input['optional'];
 		return new Engine(
-			$this->objectService(conversationData: $input['conversation']),
-			$this->contextHandler(),
-			$this->responseHandler(outcome: $input['response']),
-			$this->conversationHandler(),
-			$this->historyHandler(),
-			$this->contextAssembler(),
-			$this->logger(),
-			($optional['guardrails'] === true) ? $this->guardrails(input: $input['inputVerdict'], output: $input['outputVerdict']) : null,
-			($optional['jobList'] === true) ? $this->jobList() : null,
-			new ConversationParticipation(),
-			($optional['userManager'] === true) ? $this->userManager() : null,
-			$this->promptVariables(mode: $optional['promptVariables']),
-			($optional['attachments'] === true) ? $this->attachmentResolver() : null,
-			($optional['images'] === true) ? $this->images() : null
+			objectService: $this->objectService(conversationData: $input['conversation']),
+			handlers: new TurnHandlers(
+				contextHandler: $this->contextHandler(),
+				responseHandler: $this->responseHandler(outcome: $input['response']),
+				conversationHandler: $this->conversationHandler(),
+				historyHandler: $this->historyHandler(),
+				contextAssembler: $this->contextAssembler()
+			),
+			logger: $this->logger(),
+			safeguards: new TurnSafeguards(
+				guardrailPolicyService: ($optional['guardrails'] === true) ? $this->guardrails(input: $input['inputVerdict'], output: $input['outputVerdict']) : null,
+				participation: new ConversationParticipation(),
+				userManager: ($optional['userManager'] === true) ? $this->userManager() : null
+			),
+			enrichment: new TurnEnrichment(
+				jobList: ($optional['jobList'] === true) ? $this->jobList() : null,
+				promptVariables: $this->promptVariables(mode: $optional['promptVariables']),
+				attachmentResolver: ($optional['attachments'] === true) ? $this->attachmentResolver() : null,
+				images: ($optional['images'] === true) ? $this->images() : null
+			)
 		);
 	}//end engine()
 

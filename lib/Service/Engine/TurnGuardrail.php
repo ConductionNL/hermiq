@@ -51,7 +51,7 @@ class TurnGuardrail {
 	 * Constructor.
 	 *
 	 * @param GuardrailPolicyService|null $policies The policy service; null is the fully-open policy.
-	 * @param RunTraceCollector|null      $trace    The turn's trace, or null.
+	 * @param RunTraceCollector|null $trace The turn's trace, or null.
 	 *
 	 * @return void
 	 *
@@ -169,7 +169,7 @@ class TurnGuardrail {
 	 * nothing, so a fully-open policy leaves the step timeline unchanged.
 	 *
 	 * @param array{text: mixed, blocked: bool, reason: mixed} $filter The filter result.
-	 * @param array{name: string, text: string}                $step   The step name and the pre-filter text.
+	 * @param array{name: string, text: string} $step The step name and the pre-filter text.
 	 *
 	 * @return void
 	 *

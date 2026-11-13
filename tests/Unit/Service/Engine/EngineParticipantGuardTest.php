@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
@@ -91,13 +92,15 @@ class EngineParticipantGuardTest extends TestCase {
 		$this->historyHandler = $this->createMock(MessageHistoryHandler::class);
 
 		$this->engine = new Engine(
-			$objectService,
-			$this->createMock(ContextRetrievalHandler::class),
-			$this->createMock(ResponseGenerationHandler::class),
-			$this->createMock(ConversationManagementHandler::class),
-			$this->historyHandler,
-			$this->createMock(ContextAssembler::class),
-			$this->createMock(LoggerInterface::class)
+			objectService: $objectService,
+			handlers: new TurnHandlers(
+				contextHandler: $this->createMock(ContextRetrievalHandler::class),
+				responseHandler: $this->createMock(ResponseGenerationHandler::class),
+				conversationHandler: $this->createMock(ConversationManagementHandler::class),
+				historyHandler: $this->historyHandler,
+				contextAssembler: $this->createMock(ContextAssembler::class)
+			),
+			logger: $this->createMock(LoggerInterface::class)
 		);
 
 	}//end setUp()

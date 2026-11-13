@@ -29,6 +29,9 @@ use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Service\Engine\TurnEnrichment;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
+use OCA\Hermiq\Service\Engine\TurnSafeguards;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -86,17 +89,23 @@ class EngineSharedSessionAuthorTest extends TestCase {
 		);
 
 		$engine = new Engine(
-			$objectService,
-			$this->createMock(ContextRetrievalHandler::class),
-			$this->createMock(ResponseGenerationHandler::class),
-			$this->createMock(ConversationManagementHandler::class),
-			$history,
-			$this->createMock(ContextAssembler::class),
-			new NullLogger(),
-			null,
-			null,
-			new ConversationParticipation(),
-			$users
+			objectService: $objectService,
+			handlers: new TurnHandlers(
+				contextHandler: $this->createMock(ContextRetrievalHandler::class),
+				responseHandler: $this->createMock(ResponseGenerationHandler::class),
+				conversationHandler: $this->createMock(ConversationManagementHandler::class),
+				historyHandler: $history,
+				contextAssembler: $this->createMock(ContextAssembler::class)
+			),
+			logger: new NullLogger(),
+			safeguards: new TurnSafeguards(
+				guardrailPolicyService: null,
+				participation: new ConversationParticipation(),
+				userManager: $users
+			),
+			enrichment: new TurnEnrichment(
+				jobList: null
+			)
 		);
 
 		try {

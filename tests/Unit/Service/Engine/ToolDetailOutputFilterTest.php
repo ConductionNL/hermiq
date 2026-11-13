@@ -33,13 +33,15 @@ use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolLoop;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
+use OCA\Hermiq\Service\Engine\TurnSafeguards;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IAppConfig;
@@ -204,14 +206,18 @@ final class ToolDetailOutputFilterTest extends TestCase {
 		$contextAssembler->method('assembleForAgent')->willReturn('');
 
 		$engine = new Engine(
-			$objects,
-			$contextHandler,
-			$responseHandler,
-			$this->createMock(ConversationManagementHandler::class),
-			$historyHandler,
-			$contextAssembler,
-			new NullLogger(),
-			$guardrail
+			objectService: $objects,
+			handlers: new TurnHandlers(
+				contextHandler: $contextHandler,
+				responseHandler: $responseHandler,
+				conversationHandler: $this->createMock(ConversationManagementHandler::class),
+				historyHandler: $historyHandler,
+				contextAssembler: $contextAssembler
+			),
+			logger: new NullLogger(),
+			safeguards: new TurnSafeguards(
+				guardrailPolicyService: $guardrail
+			)
 		);
 
 		$frames = [];

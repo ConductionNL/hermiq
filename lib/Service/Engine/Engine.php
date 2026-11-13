@@ -124,55 +124,38 @@ class Engine implements EngineInterface {
 	 */
 	private const CONVERSATION_SCHEMA = 'agentsession';
 
+	private readonly ContextRetrievalHandler $contextHandler;
+
+	private readonly ResponseGenerationHandler $responseHandler;
+
+	private readonly ConversationManagementHandler $conversationHandler;
+
+	private readonly MessageHistoryHandler $historyHandler;
+
+	private readonly ContextAssembler $contextAssembler;
+
+	private readonly ?GuardrailPolicyService $guardrailPolicyService;
+
+	private readonly ConversationParticipation $participation;
+
+	private readonly ?IUserManager $userManager;
+
+	private readonly ?IJobList $jobList;
+
+	private readonly ?PromptVariableResolver $promptVariables;
+
+	private readonly ?TurnAttachmentResolver $attachmentResolver;
+
+	private readonly ?ImageGenerationService $images;
+
 	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write.
-	 * @param ContextRetrievalHandler $contextHandler RAG context handler.
-	 * @param ResponseGenerationHandler $responseHandler LLM response handler.
-	 * @param ConversationManagementHandler $conversationHandler Title/summary handler.
-	 * @param MessageHistoryHandler $historyHandler Message storage/history handler.
-	 * @param ContextAssembler $contextAssembler Resolves an agent's attached
-	 *                                           Context objects into a
-	 *                                           system-prompt preamble
-	 *                                           (agent-context-system).
+	 * @param TurnHandlers $handlers The handlers one engine turn passes through: context, response, conversation, history and context assembly.
 	 * @param LoggerInterface $logger Logger.
-	 * @param GuardrailPolicyService|null $guardrailPolicyService Resolves + applies the effective
-	 *                                                            GuardrailPolicy's input/output
-	 *                                                            filters (agent-guardrails).
-	 *                                                            Nullable/optional purely so
-	 *                                                            existing test callers that omit
-	 *                                                            it see zero behavior change
-	 *                                                            (equivalent to "no policy
-	 *                                                            configured" — fail-open,
-	 *                                                            design.md Decision 1); real DI
-	 *                                                            always provides it.
-	 * @param IJobList|null $jobList Queues the conversation-title job
-	 *                               so naming never sits on the reply's
-	 *                               critical path
-	 *                               (session-context-performance).
-	 *                               Nullable/defaulted for the same
-	 *                               backward-compat reason; a null list
-	 *                               simply means no title is queued —
-	 *                               the reply is unaffected, which is
-	 *                               the point of deferring it.
-	 * @param ConversationParticipation $participation The owner-or-listed-participant
-	 *                                                 guard (talk-shared-sessions).
-	 *                                                 Defaulted so every existing
-	 *                                                 caller constructs unchanged; the
-	 *                                                 class is dependency-free.
-	 * @param IUserManager|null $userManager Resolves a speaker's display name for a
-	 *                                       shared session's turn.
-	 * @param PromptVariableResolver|null $promptVariables Fills the placeholders in
-	 *                                                     Agent.prompt for the acting
-	 *                                                     person (agents-instruction-variables);
-	 *                                                     null leaves the prompt as written.
-	 * @param TurnAttachmentResolver|null $attachmentResolver Reads a turn's attachments as the
-	 *                                                        person who sent it
-	 *                                                        (chat-attachments-and-images); null
-	 *                                                        refuses any turn that carries one.
-	 * @param ImageGenerationService|null $images Hands over the images the agent created in the
-	 *                                            turn, for the answer (chat-attachments-and-images D8).
+	 * @param TurnSafeguards $safeguards What screens a turn: the guardrail policy, session participation and the user directory.
+	 * @param TurnEnrichment $enrichment What a turn may add: background titling, prompt variables, attachments and generated images.
 	 *
 	 * @return void
 	 *
@@ -186,20 +169,23 @@ class Engine implements EngineInterface {
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly ContextRetrievalHandler $contextHandler,
-		private readonly ResponseGenerationHandler $responseHandler,
-		private readonly ConversationManagementHandler $conversationHandler,
-		private readonly MessageHistoryHandler $historyHandler,
-		private readonly ContextAssembler $contextAssembler,
+		TurnHandlers $handlers,
 		private readonly LoggerInterface $logger,
-		private readonly ?GuardrailPolicyService $guardrailPolicyService = null,
-		private readonly ?IJobList $jobList = null,
-		private readonly ConversationParticipation $participation = new ConversationParticipation(),
-		private readonly ?IUserManager $userManager = null,
-		private readonly ?PromptVariableResolver $promptVariables = null,
-		private readonly ?TurnAttachmentResolver $attachmentResolver = null,
-		private readonly ?ImageGenerationService $images = null,
+		TurnSafeguards $safeguards = new TurnSafeguards(),
+		TurnEnrichment $enrichment = new TurnEnrichment(),
 	) {
+		$this->jobList = $enrichment->jobList;
+		$this->promptVariables = $enrichment->promptVariables;
+		$this->attachmentResolver = $enrichment->attachmentResolver;
+		$this->images = $enrichment->images;
+		$this->guardrailPolicyService = $safeguards->guardrailPolicyService;
+		$this->participation = $safeguards->participation;
+		$this->userManager = $safeguards->userManager;
+		$this->contextHandler = $handlers->contextHandler;
+		$this->responseHandler = $handlers->responseHandler;
+		$this->conversationHandler = $handlers->conversationHandler;
+		$this->historyHandler = $handlers->historyHandler;
+		$this->contextAssembler = $handlers->contextAssembler;
 	}//end __construct()
 
 	/**

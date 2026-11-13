@@ -48,6 +48,7 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\ToolLoop;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
 use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
@@ -242,13 +243,15 @@ class UserTurnSentOnceTest extends TestCase {
 
 		$objectService = $this->objectService();
 		$engine = new Engine(
-			$objectService,
-			$contextHandler,
-			new ResponseGenerationHandler($factory, $toolLoop, new NullLogger()),
-			$this->createMock(ConversationManagementHandler::class),
-			new MessageHistoryHandler($objectService, new NullLogger()),
-			$contextAssembler,
-			new NullLogger()
+			objectService: $objectService,
+			handlers: new TurnHandlers(
+				contextHandler: $contextHandler,
+				responseHandler: new ResponseGenerationHandler($factory, $toolLoop, new NullLogger()),
+				conversationHandler: $this->createMock(ConversationManagementHandler::class),
+				historyHandler: new MessageHistoryHandler($objectService, new NullLogger()),
+				contextAssembler: $contextAssembler
+			),
+			logger: new NullLogger()
 		);
 
 		foreach ([self::FIRST_QUESTION, self::LATEST_QUESTION] as $question) {

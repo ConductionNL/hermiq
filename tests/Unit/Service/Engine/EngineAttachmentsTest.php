@@ -35,6 +35,9 @@ use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Service\Engine\TurnEnrichment;
+use OCA\Hermiq\Service\Engine\TurnHandlers;
+use OCA\Hermiq\Service\Engine\TurnSafeguards;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -178,20 +181,26 @@ class EngineAttachmentsTest extends TestCase {
 		$images->method('takeCreated')->willReturnOnConsecutiveCalls($created, []);
 
 		return new Engine(
-			$objectService,
-			$context,
-			$response,
-			$this->createMock(ConversationManagementHandler::class),
-			$history,
-			$this->createMock(ContextAssembler::class),
-			new NullLogger(),
-			null,
-			null,
-			new ConversationParticipation(),
-			$users,
-			null,
-			new TurnAttachmentResolver($this->filesOnlyAnneCanRead(), $l10n),
-			$images
+			objectService: $objectService,
+			handlers: new TurnHandlers(
+				contextHandler: $context,
+				responseHandler: $response,
+				conversationHandler: $this->createMock(ConversationManagementHandler::class),
+				historyHandler: $history,
+				contextAssembler: $this->createMock(ContextAssembler::class)
+			),
+			logger: new NullLogger(),
+			safeguards: new TurnSafeguards(
+				guardrailPolicyService: null,
+				participation: new ConversationParticipation(),
+				userManager: $users
+			),
+			enrichment: new TurnEnrichment(
+				jobList: null,
+				promptVariables: null,
+				attachmentResolver: new TurnAttachmentResolver($this->filesOnlyAnneCanRead(), $l10n),
+				images: $images
+			)
 		);
 	}//end engine()
 
