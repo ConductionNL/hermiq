@@ -179,6 +179,54 @@ final class WorkspaceToolsetReadTest extends TestCase {
 		self::assertSame(WorkspaceException::PATH_OUTSIDE_WORKSPACE, $result['error']['code'] ?? null);
 	}//end testAReadThroughATraversalIsRefused()
 
+	public function testAStagedDiffShowsOnlyWhatIsStaged(): void {
+		$this->scope->enter(runId: 'run-a', agentId: 'agent-1', userId: 'alice');
+		$toolset = $this->toolset();
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::OPEN, arguments: ['repository' => 'example-org/example-app', 'ref' => 'development']);
+		$root = $this->provider->root(runKey: 'run-a');
+		file_put_contents($root . '/lib/A.php', "<?php // staged\n");
+		self::git($root, 'add', 'lib/A.php');
+		file_put_contents($root . '/README.md', "unstaged\n");
+
+		$staged = $toolset->invoke(toolId: WorkspaceToolDescriptors::DIFF, arguments: ['staged' => true]);
+		$unstaged = $toolset->invoke(toolId: WorkspaceToolDescriptors::DIFF, arguments: []);
+
+		self::assertStringContainsString('+<?php // staged', $staged['diff']);
+		self::assertStringNotContainsString('unstaged', $staged['diff']);
+		self::assertStringContainsString('+unstaged', $unstaged['diff']);
+		self::assertStringNotContainsString('// staged', $unstaged['diff']);
+	}//end testAStagedDiffShowsOnlyWhatIsStaged()
+
+	public function testListingAFolderListsOnlyItAndAFileIsNotAFolder(): void {
+		$this->scope->enter(runId: 'run-a', agentId: 'agent-1', userId: 'alice');
+		$toolset = $this->toolset();
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::OPEN, arguments: ['repository' => 'example-org/example-app', 'ref' => 'development']);
+
+		$listed = $toolset->invoke(toolId: WorkspaceToolDescriptors::LIST_FILES, arguments: ['path' => 'lib']);
+		self::assertSame(['lib/A.php'], $listed['files']);
+		self::assertFalse($listed['truncated']);
+
+		$notAFolder = $toolset->invoke(toolId: WorkspaceToolDescriptors::LIST_FILES, arguments: ['path' => 'README.md']);
+		self::assertSame(WorkspaceException::INVALID_ARGUMENT, $notAFolder['error']['code'] ?? null);
+		self::assertSame('That folder does not exist in the workspace.', $notAFolder['error']['message'] ?? null);
+	}//end testListingAFolderListsOnlyItAndAFileIsNotAFolder()
+
+	public function testAListingStopsAtTwoThousandFilesAndSaysSo(): void {
+		$this->scope->enter(runId: 'run-a', agentId: 'agent-1', userId: 'alice');
+		$toolset = $this->toolset();
+		$toolset->invoke(toolId: WorkspaceToolDescriptors::OPEN, arguments: ['repository' => 'example-org/example-app', 'ref' => 'development']);
+		$bulk = $this->provider->root(runKey: 'run-a') . '/bulk';
+		mkdir($bulk);
+		for ($i = 0; $i < 2001; $i++) {
+			touch($bulk . '/f' . $i);
+		}
+
+		$listed = $toolset->invoke(toolId: WorkspaceToolDescriptors::LIST_FILES, arguments: ['path' => 'bulk']);
+
+		self::assertCount(2000, $listed['files']);
+		self::assertTrue($listed['truncated']);
+	}//end testAListingStopsAtTwoThousandFilesAndSaysSo()
+
 	/**
 	 * The toolset under test, over real collaborators.
 	 */
