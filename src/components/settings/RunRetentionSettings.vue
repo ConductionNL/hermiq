@@ -13,7 +13,7 @@
 
   All strings via t(); server data comes from the admin-gated API, never a DOM read.
 
-  @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
+  @spec openspec/specs/run-audit-log/spec.md#requirement-a-scheduled-job-must-enforce-retention-and-must-report-that-it-did
 -->
 <template>
 	<div class="run-retention">
@@ -116,7 +116,7 @@ export default {
 		 * Read the retention and the report.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#scenario-the-last-cleanup-is-an-answerable-question
+		 * @spec openspec/specs/run-audit-log/spec.md#scenario-the-last-cleanup-is-an-answerable-question
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -134,7 +134,7 @@ export default {
 		 * 422 naming the range, which is shown rather than swallowed.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
+		 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
 		 */
 		async save() {
 			await this.withFlag('busy', async () => {

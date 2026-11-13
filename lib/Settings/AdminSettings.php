@@ -74,7 +74,7 @@ class AdminSettings implements IDelegatedSettings {
 	 *
 	 * @return TemplateResponse
 	 *
-	 * @spec openspec/changes/ai-features-to-admin/tasks.md#task-3-provide-is_admin--opencatalogi_available-from-the-admin-settings-bootstrap
+	 * @spec openspec/changes/archive/2026-07-15-ai-features-to-admin/tasks.md#task-3-provide-is_admin--opencatalogi_available-from-the-admin-settings-bootstrap
 	 */
 	public function getForm(): TemplateResponse {
 		$version = $this->appManager->getAppVersion(appId: Application::APP_ID);

@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Strips the retired, cleartext LLM API keys out of the `hermiq.llm` config blob.
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md
  */
 class RemoveLegacyLlmKeys implements IRepairStep {
 	/**
@@ -83,7 +83,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md
 	 */
 	public function getName(): string {
 		return 'Remove the legacy cleartext LLM API keys (they live in the credential broker now)';
@@ -96,7 +96,7 @@ class RemoveLegacyLlmKeys implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-4-delete-the-cleartext-keys
 	 */
 	public function run(IOutput $output): void {
 		$config = $this->storedConfig(output: $output);

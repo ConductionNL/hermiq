@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+ * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 /**
  * The agent self-service memory tools of the hermiq MCP provider.
  *
- * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+ * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
  */
 final class AgentMemoryTools {
 
@@ -66,7 +66,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed>|null The result, or null when $toolId is not a memory tool.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
 	 */
 	public function invoke(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
@@ -94,7 +94,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
 	 */
 	private function rememberMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -162,7 +162,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The combined result, or an error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
 	 */
 	private function recallMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));
@@ -205,7 +205,7 @@ final class AgentMemoryTools {
 	 *
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
-	 * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
 	 */
 	private function forgetMemory(string $uid, array $arguments): array {
 		$agentId = trim((string)($arguments['agentId'] ?? ''));

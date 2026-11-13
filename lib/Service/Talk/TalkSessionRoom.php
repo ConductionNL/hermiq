@@ -33,7 +33,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+ * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
  */
 class TalkSessionRoom {
 
@@ -134,7 +134,7 @@ class TalkSessionRoom {
 	 *
 	 * @return string|null The room token, or null when no room was created.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 */
 	public function createForSession(string $title, string $ownerUid, string $agentId): ?string {
 		if ($this->bridge->isAvailable() === false || $ownerUid === '' || $agentId === '') {
@@ -214,7 +214,7 @@ class TalkSessionRoom {
 	 *
 	 * @return ObjectEntity The session, with its room recorded when one was created.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 */
 	public function attachToSession(
 		ObjectEntity $conversation,
@@ -274,7 +274,7 @@ class TalkSessionRoom {
 	 *
 	 * @return ObjectEntity The stored session, or the copy when it cannot be read.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 */
 	private function reread(ObjectEntity $conversation): ObjectEntity {
 		try {
@@ -370,7 +370,7 @@ class TalkSessionRoom {
 	 *
 	 * @return string The room name.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 */
 	private function roomName(string $title): string {
 		$name = trim($title);

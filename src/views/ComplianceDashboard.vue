@@ -9,15 +9,15 @@
   computed live from Hermiq's own existing governance data — never a hand-ticked
   status. An auditor's-pack export button reuses TenantOps.vue's exact
   /**
-   * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+   * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
    */
   downloadJson()/Blob-download pattern. Gated server-side by
   `compliance.view-dashboard`/`compliance.export-pack` (ActionAuthService, ADR-023);
   the frontend detects a 403 from the dashboard read itself (no separate capability
   flag) and shows an "Organisation admins only" empty state, mirroring TenantOps.vue.
 
-  @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
-  @spec openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
+  @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+  @spec openspec/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
 -->
 <template>
 	<div class="compliance-dashboard" data-testid="compliance-dashboard">
@@ -199,7 +199,7 @@ export default {
 		 * Column definitions for each framework's control CnDataTable.
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		controlColumns() {
 			return [
@@ -222,7 +222,7 @@ export default {
 		 * state rather than a raw error (the real gate is server-side).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		async load() {
 			this.loading = true
@@ -253,7 +253,7 @@ export default {
 		 * Blob-download pattern as TenantOps.vue's exportAudit()).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		async exportPack() {
 			this.exporting = true
@@ -275,7 +275,7 @@ export default {
 		 *
 		 * @param {string} status One of satisfied/partial/unevidenced.
 		 * @return {string} The label.
-		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		statusLabel(status) {
 			const labels = {

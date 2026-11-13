@@ -50,7 +50,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\NcNative;
 
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -103,12 +103,12 @@ class MailReadService {
 	/**
 	 * Constructor.
 	 *
-	 * @param AiFeatureService $features The AI-feature governance register.
+	 * @param AiFeatureLookup $features The AI-feature governance register.
 	 * @param ContainerInterface $container Lazy Mail service resolution.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
 	) {

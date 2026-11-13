@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+ * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
  */
 
 declare(strict_types=1);
@@ -48,7 +48,7 @@ use Throwable;
  *
  * @implements IEventListener<Event>
  *
- * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+ * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
  */
 class UserLifecycleListener implements IEventListener {
 	/**
@@ -73,7 +73,7 @@ class UserLifecycleListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -104,7 +104,7 @@ class UserLifecycleListener implements IEventListener {
 	 *
 	 * @return string|null The offboarded uid, or null when not applicable.
 	 *
-	 * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+	 * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
 	 */
 	private function resolveOffboardedUid(Event $event): ?string {
 		if ($event instanceof UserDeletedEvent) {

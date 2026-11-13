@@ -367,7 +367,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	private function dirFor(string $runKey): string {
 		if (trim($runKey) === '') {
 			throw new WorkspaceException(
-				errorCode: WorkspaceException::TOKEN_INVALID,
+				errorCode: WorkspaceException::RUN_SCOPE_INVALID,
 				message: 'Workspace tools are only available inside a governed run.'
 			);
 		}

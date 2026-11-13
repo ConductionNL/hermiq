@@ -48,10 +48,10 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-2
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-2
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
  */
 
 declare(strict_types=1);
@@ -95,7 +95,7 @@ use Psr\Log\LoggerInterface;
  *   constructor collaborator named after its class (GuardrailPolicyService) — shortening
  *   it would obscure which service is injected.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 class ToolLoop {
 
@@ -164,10 +164,10 @@ class ToolLoop {
 	 *   distinct injected collaborator, not a logic-bearing argument list (mirrors
 	 *   ApprovalService's precedent in this codebase).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $toolRegistryFacade,
@@ -197,7 +197,7 @@ class ToolLoop {
 	 *                                          (`name`, `description`, `parameters`,
 	 *                                          optional `mcpId`).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-2
 	 */
 	public function listAgentFunctions(?ObjectEntity $agent, array $selectedTools = []): array {
 		if ($agent === null) {
@@ -349,7 +349,7 @@ class ToolLoop {
 	 *
 	 * @return array<int, array<string, mixed>> Flattened LLPhant function descriptors.
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-2
 	 */
 	private function resolveFunctions(array $whitelist): array {
 		$needsCatalog = ($whitelist === [] || $this->grantResolver->hasWildcardGrant(grants: $whitelist) === true);
@@ -428,8 +428,8 @@ class ToolLoop {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-small-catalog-does-not-trigger-disclosure
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
+	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-small-catalog-does-not-trigger-disclosure
 	 */
 	private function applyDisclosure(array $functions): array {
 		$threshold = $this->appConfig->getValueInt('hermiq', 'tools.disclosureThreshold', self::DEFAULT_DISCLOSURE_THRESHOLD);
@@ -502,12 +502,12 @@ class ToolLoop {
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)  Dry-run preview (run-replay-and-dry-run)
 	 * is a cross-cutting mode threaded through the engine as a flag by design.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
-	 * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
-	 * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-3
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-4
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+	 * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
 	 */
 	public function buildFunctionInfos(
 		array $functions,
@@ -764,7 +764,7 @@ class ToolLoop {
 	 *
 	 * @return array<string,string> toolId => classification.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function resolveToolPolicy(?string $organisation): array {
 		if ($this->guardrailPolicyService === null) {

@@ -16,8 +16,8 @@
   guards and behaviour — only the host page changed.
 
   @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
-  @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
-  @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
+  @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+  @spec openspec/specs/multi-tenant-ops/spec.md
 -->
 <template>
 	<div class="compliance-operations">

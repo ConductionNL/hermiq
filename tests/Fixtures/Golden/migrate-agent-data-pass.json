@@ -1,0 +1,135 @@
+{
+    "saved": [
+        {
+            "schema": "agent",
+            "uuid": "agent-uuid-7",
+            "data": {
+                "name": "Permit assistant",
+                "description": "Drafts permits",
+                "type": "assistant",
+                "provider": "openai",
+                "model": "gpt-4",
+                "prompt": "You help.",
+                "temperature": 0.7,
+                "maxTokens": 2048,
+                "active": true,
+                "@self": {
+                    "organisation": "org-x",
+                    "created": "2026-07-06 09:00:00"
+                }
+            }
+        },
+        {
+            "schema": "conversation",
+            "uuid": "conv-uuid-42",
+            "data": {
+                "title": "Permit chat",
+                "userId": "alice",
+                "metadata": {
+                    "token_count": 12
+                },
+                "agentId": "agent-uuid-7",
+                "@self": {
+                    "organisation": "org-x",
+                    "created": "2026-07-06 09:30:00"
+                }
+            }
+        },
+        {
+            "schema": "conversation",
+            "uuid": "conv-uuid-43",
+            "data": {
+                "title": "Permit chat",
+                "userId": "bob",
+                "metadata": {
+                    "token_count": 12
+                },
+                "agentId": "agent-uuid-8",
+                "@self": {
+                    "organisation": "org-x",
+                    "created": "2026-07-06 09:30:00"
+                }
+            }
+        },
+        {
+            "schema": "message",
+            "uuid": "msg-uuid-100",
+            "data": {
+                "role": "user",
+                "content": "hi",
+                "conversationId": "conv-uuid-42"
+            }
+        },
+        {
+            "schema": "message",
+            "uuid": "msg-uuid-101",
+            "data": {
+                "role": "assistant",
+                "content": "yo",
+                "conversationId": null,
+                "@self": {
+                    "organisation": "org-x"
+                }
+            }
+        },
+        {
+            "schema": "message",
+            "uuid": "msg-uuid-102",
+            "data": {
+                "role": "user",
+                "content": "?",
+                "conversationId": null
+            }
+        },
+        {
+            "schema": "feedback",
+            "uuid": "feedback-uuid-1",
+            "data": {
+                "type": "up",
+                "messageId": "msg-uuid-100",
+                "conversationId": "conv-uuid-42",
+                "agentId": "agent-uuid-7"
+            }
+        },
+        {
+            "schema": "feedback",
+            "uuid": "feedback-uuid-2",
+            "data": {
+                "type": "down",
+                "comment": "no",
+                "messageId": null,
+                "conversationId": null,
+                "agentId": null
+            }
+        },
+        {
+            "schema": "feedback",
+            "uuid": "feedback-uuid-3",
+            "data": {
+                "type": "up",
+                "messageId": null,
+                "conversationId": null,
+                "agentId": null
+            }
+        }
+    ],
+    "infos": [
+        "agent-data migration complete: 1 agents, 2 conversations, 3 messages, 3 feedback new; 4 dangling FK(s) nulled."
+    ],
+    "warnings": [
+        "hermiq: Conversation conv-uuid-44 references a missing agent; not migrated (a Conversation requires an agent).",
+        "Dangling Message.conversationId=999 on msg-uuid-101 \u2014 nulled (row still migrated).",
+        "Dangling Feedback.messageId=555 on feedback-uuid-2 \u2014 nulled (row still migrated).",
+        "Dangling Feedback.conversationId=777 on feedback-uuid-2 \u2014 nulled (row still migrated).",
+        "Dangling Feedback.agentId=888 on feedback-uuid-2 \u2014 nulled (row still migrated)."
+    ],
+    "impersonated": [
+        "alice",
+        "alice",
+        "bob",
+        "alice"
+    ],
+    "persistedUnmigratable": [
+        "[\"conv-uuid-45\",\"conv-uuid-44\"]"
+    ]
+}
