@@ -50,6 +50,7 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Mcp\Db\Conversation;
 use OCA\OpenRegister\Mcp\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Service\ChatMessageRequest;
 use OCA\OpenRegister\Mcp\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -1483,6 +1484,52 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('ok', $this->auditCalls[0]['context']['status'], 'An approved run must execute the agent.');
 
 	}//end testApprovalBypassRunsAgentWithoutGating()
+
+	/**
+	 * The agent turn reaches OpenRegister as one ChatMessageRequest naming the
+	 * conversation, the schedule's owner and the prompt.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 */
+	public function testAgentTurnSendsOneChatMessageRequest(): void {
+		$requests = [];
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->once())->method('processMessage')->willReturnCallback(
+			function (ChatMessageRequest $request) use (&$requests): array {
+				$requests[] = $request;
+				return ['message' => 'ran'];
+			}
+		);
+		$this->service = $this->makeService();
+
+		$schedule = $this->schedule(
+			[
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-uuid',
+				'prompt' => 'summarise the week',
+				'deliver' => 'none',
+				'enabled' => true,
+				'nextRun' => '2030-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'turn-sched'
+		);
+
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+		$this->service->runNow($schedule, true);
+
+		$this->assertCount(1, $requests);
+		$this->assertSame(99, $requests[0]->conversationId);
+		$this->assertSame('alice', $requests[0]->userId);
+		$this->assertSame('summarise the week', $requests[0]->userMessage);
+		$this->assertSame('ok', $this->auditCalls[0]['context']['status']);
+
+	}//end testAgentTurnSendsOneChatMessageRequest()
 
 	/**
 	 * The kill-switch takes priority over an authorised approval-run: even with the

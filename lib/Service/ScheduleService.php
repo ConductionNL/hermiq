@@ -51,6 +51,7 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Mcp\Db\Conversation;
 use OCA\OpenRegister\Mcp\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Service\ChatMessageRequest;
 use OCA\OpenRegister\Mcp\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -2275,9 +2276,11 @@ class ScheduleService {
 			$conversation = $this->conversationMapper->insert($conversation);
 
 			$result = $this->chatService->processMessage(
-				conversationId: (int)$conversation->getId(),
-				userId: $owner,
-				userMessage: $prompt
+				request: new ChatMessageRequest(
+					conversationId: (int)$conversation->getId(),
+					userId: $owner,
+					userMessage: $prompt
+				)
 			);
 
 			// Capture the LLM token/latency usage OpenRegister now reports, so writeRunAudit
