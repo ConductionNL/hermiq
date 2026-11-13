@@ -28,7 +28,7 @@ use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\EffectiveModelPolicy;
@@ -52,6 +52,9 @@ use Throwable;
  * @uses \OCA\Hermiq\Service\Llm\ChatDriver
  * @uses \OCA\Hermiq\Service\Llm\ProviderFactory
  * @uses \OCA\Hermiq\Support\FleetAppId
+ * @uses \OCA\Hermiq\Service\AiFeature\FeatureRunCheck
+ * @uses \OCA\Hermiq\Service\AiFeature\ProviderDeclarationStore
+ * @uses \OCA\Hermiq\Service\Llm\ChatDriverRequest
  */
 class ProviderFactoryGenerateTextFeatureTest extends TestCase {
 
@@ -68,7 +71,7 @@ class ProviderFactoryGenerateTextFeatureTest extends TestCase {
 			['chatProvider' => 'ollama', 'ollamaConfig' => ['url' => 'http://127.0.0.1:9', 'chatModel' => 'llama3']]
 		);
 
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlug')->willReturnCallback(
 			static function (string $slug): ?ObjectEntity {
 				$entity = new ObjectEntity();

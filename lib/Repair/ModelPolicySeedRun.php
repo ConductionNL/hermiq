@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use OCP\Migration\IOutput;
 /**
  * One model-policy seed run.
  *
- * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+ * @spec openspec/changes/archive/2026-07-12-tenant-model-policy/tasks.md#task-9-seed-data
  */
 final class ModelPolicySeedRun {
 

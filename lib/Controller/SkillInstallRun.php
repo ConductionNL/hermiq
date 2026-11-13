@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#4-controller-routes
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Controller;
 /**
  * The state of one skill install from a source.
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#4-controller-routes
  */
 final class SkillInstallRun {
 
@@ -63,7 +63,7 @@ final class SkillInstallRun {
 	 *
 	 * @return string The source.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#4-controller-routes
 	 */
 	public function installSource(): string {
 		if (in_array($this->source, ['local', 'org', 'hub'], true) === false) {

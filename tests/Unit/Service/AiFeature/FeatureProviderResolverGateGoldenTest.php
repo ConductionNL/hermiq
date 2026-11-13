@@ -33,7 +33,7 @@ use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\AiFeature\ResidencyViolationException;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -61,7 +61,7 @@ class FeatureProviderResolverGateGoldenTest extends TestCase {
 	 * @return FeatureProviderResolver
 	 */
 	private function resolver(?array $feature, bool $allowed = true, ?array $defaultModel = null, ?array $outcome = null, bool $withDataUse = false): FeatureProviderResolver {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlug')->willReturnCallback(
 			static function (string $slug) use ($feature): ?ObjectEntity {
 				if ($slug !== 'summary' || $feature === null) {

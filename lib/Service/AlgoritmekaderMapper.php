@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+ * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ namespace OCA\Hermiq\Service;
 /**
  * Publish-readiness gate + Algoritmekader mapping for AiFeature records.
  *
- * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+ * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
  */
 class AlgoritmekaderMapper {
 
@@ -82,7 +82,7 @@ class AlgoritmekaderMapper {
 	 *
 	 * @return array<int, string> The failing condition names; an empty array means ready.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 	 */
 	public function assessReadiness(array $feature): array {
 		return array_merge($this->gateFailures(feature: $feature), $this->missingFields(feature: $feature));
@@ -95,7 +95,7 @@ class AlgoritmekaderMapper {
 	 *
 	 * @return array<int, string>
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 	 */
 	private function gateFailures(array $feature): array {
 		$failing = [];
@@ -123,7 +123,7 @@ class AlgoritmekaderMapper {
 	 *
 	 * @return array<int, string>
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 	 */
 	private function missingFields(array $feature): array {
 		$missing = [];
@@ -151,7 +151,7 @@ class AlgoritmekaderMapper {
 	 *
 	 * @return array<string, mixed> The Algoritmekader-conformant publication.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function map(array $feature): array {
 		$responsible = [];
@@ -194,7 +194,7 @@ class AlgoritmekaderMapper {
 	 *
 	 * @return bool True when acknowledged.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 	 */
 	private function isDpoAcknowledged(array $feature): bool {
 		return trim((string)($feature['dpoAckBy'] ?? '')) !== ''
@@ -209,7 +209,7 @@ class AlgoritmekaderMapper {
 	 *
 	 * @return bool True when the value counts as present.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
 	 */
 	private function hasValue(mixed $value): bool {
 		if ($value === null) {

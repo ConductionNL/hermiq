@@ -78,6 +78,8 @@ use RuntimeException;
  * @uses   \OCA\Hermiq\Service\ToolAccessDecision
  * @uses   \OCA\Hermiq\Service\ToolInvocationRows
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses \OCA\Hermiq\Controller\ToolAccessResolution
+ * @uses \OCA\Hermiq\Controller\ToolInvocationExport
  */
 class ToolOversightControllerTest extends TestCase {
 

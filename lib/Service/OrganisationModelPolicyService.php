@@ -30,8 +30,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
  */
 
 declare(strict_types=1);
@@ -48,7 +48,7 @@ use RuntimeException;
  * Reads/writes ModelPolicy objects. Which policy governs an organisation, and what it
  * allows, is EffectiveModelPolicy's.
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
  */
 class OrganisationModelPolicyService {
 
@@ -91,7 +91,7 @@ class OrganisationModelPolicyService {
 	 *
 	 * @return ObjectEntity|null The policy object, or null when none exists at this scope.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function getForOrganisation(string $organisation): ?ObjectEntity {
 		return $this->effectivePolicy->getForOrganisation(organisation: $organisation);
@@ -106,7 +106,7 @@ class OrganisationModelPolicyService {
 	 *
 	 * @return ObjectEntity|null The policy, or null when not found.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function findById(string $uuid): ?ObjectEntity {
 		if ($uuid === '') {
@@ -128,7 +128,7 @@ class OrganisationModelPolicyService {
 	 *
 	 * @return array<int, ObjectEntity> Every policy object.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function listAll(): array {
 		$objects = $this->objectService
@@ -150,7 +150,7 @@ class OrganisationModelPolicyService {
 	 *
 	 * @return bool True when the pair is allowed.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	public function isAllowed(string $organisation, string $provider, string $model): bool {
 		return $this->effectivePolicy->isAllowed(organisation: $organisation, provider: $provider, model: $model);
@@ -169,7 +169,7 @@ class OrganisationModelPolicyService {
 	 *
 	 * @throws InvalidArgumentException When `allowed`/`defaultModel` fail validation.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function upsertForOrganisation(string $organisation, array $payload): array {
 		$allowed = $this->normaliseAllowed(raw: ($payload['allowed'] ?? []));
@@ -225,7 +225,7 @@ class OrganisationModelPolicyService {
 	 * @throws RuntimeException When the policy cannot be found.
 	 * @throws InvalidArgumentException When the merged payload fails validation.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function update(string $uuid, array $payload): array {
 		$existing = $this->findById(uuid: $uuid);

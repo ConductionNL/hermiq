@@ -28,6 +28,9 @@ use UnexpectedValueException;
 
 /**
  * @covers \OCA\Hermiq\Flow\HermiqAgentNode
+ * @uses \OCA\Hermiq\Flow\AgentStepRun
+ * @uses \OCA\Hermiq\Flow\FlowItemSlot
+ * @uses \OCA\Hermiq\Flow\ItemPlaceholders
  */
 class HermiqAgentNodeFailureTest extends TestCase {
 

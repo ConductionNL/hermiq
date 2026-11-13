@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
  */
 
 declare(strict_types=1);

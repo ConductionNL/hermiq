@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Writes an AI feature's provider binding and required residency.
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
 class AiFeatureBindingService {
 
@@ -90,7 +90,7 @@ class AiFeatureBindingService {
 	 *                                  one half of the pair is given, or when the residency is
 	 *                                  not one an administrator may state.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
 	 */
 	public function bind(string $id, ?string $provider, ?string $model, ?string $requiredResidency = null): ?ObjectEntity {
 		$feature = $this->features->getFeature(id: $id);
@@ -147,7 +147,7 @@ class AiFeatureBindingService {
 	 *
 	 * @return array<int, array<string, mixed>> One row per feature.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
 	 */
 	public function overview(FeatureProviderResolver $resolver): array {
 		$rows = [];

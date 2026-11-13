@@ -1047,7 +1047,7 @@ export default {
 		 * The speech controls the chat's agent allows (dictation, read aloud).
 		 *
 		 * @return {{dictate: boolean, readAloud: boolean}} The controls to show.
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
 		 */
 		speechControls() {
 			return speechControls(
@@ -1317,7 +1317,7 @@ export default {
 		 * Ask once whether the on-instance speech service answers.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
 		 */
 		async loadSpeechService() {
 			this.speechService = await speechCapabilities()
@@ -1394,7 +1394,7 @@ export default {
 		 * Put dictated words after what is in the message box, without sending.
 		 *
 		 * @param {string} words The transcript.
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
 		 */
 		insertTranscript(words) {
 			this.sendError = ''

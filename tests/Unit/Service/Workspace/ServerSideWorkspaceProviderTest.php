@@ -141,7 +141,7 @@ final class ServerSideWorkspaceProviderTest extends TestCase {
 			$this->provider()->root(runKey: '');
 			self::fail('An empty run key was accepted.');
 		} catch (WorkspaceException $e) {
-			self::assertSame(WorkspaceException::TOKEN_INVALID, $e->getErrorCode());
+			self::assertSame(WorkspaceException::RUN_SCOPE_INVALID, $e->getErrorCode());
 		}
 	}//end testAnEmptyRunKeyIsRefused()
 

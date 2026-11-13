@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Resolves the effective model policy of an organisation and checks a pair against it.
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
  */
 class EffectiveModelPolicy {
 
@@ -81,7 +81,7 @@ class EffectiveModelPolicy {
 	 *
 	 * @return ObjectEntity|null The policy object, or null when none exists at this scope.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function getForOrganisation(string $organisation): ?ObjectEntity {
 		$objects = $this->objectService
@@ -112,7 +112,7 @@ class EffectiveModelPolicy {
 	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null}
 	 *                                                                                                                                             The effective, shaped policy.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
 	 */
 	public function effectivePolicyFor(string $organisation): array {
 		if ($organisation !== '') {
@@ -138,7 +138,7 @@ class EffectiveModelPolicy {
 	 *
 	 * @return array{source: string, allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: null}
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
 	 */
 	private function fallbackPolicy(): array {
 		$chatProvider = $this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? null;
@@ -168,7 +168,7 @@ class EffectiveModelPolicy {
 	 *
 	 * @return bool True when the pair is allowed.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	public function isAllowed(string $organisation, string $provider, string $model): bool {
 		$policy = $this->effectivePolicyFor(organisation: $organisation);
@@ -201,7 +201,7 @@ class EffectiveModelPolicy {
 	 *
 	 * @return bool True when allowed.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function matchesAllowed(array $allowed, string $provider, string $model): bool {
 		foreach ($allowed as $entry) {
@@ -230,7 +230,7 @@ class EffectiveModelPolicy {
 	 *
 	 * @return array<string, mixed> The response payload.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function shape(ObjectEntity $policy, string $source): array {
 		$data = $policy->getObject();

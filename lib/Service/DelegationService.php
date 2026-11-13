@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
  */
 
 declare(strict_types=1);
@@ -71,7 +71,7 @@ use Throwable;
  *   constructor collaborator named after its class (OrganisationModelPolicyService) —
  *   shortening it would obscure which service is injected.
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
  */
 class DelegationService {
 
@@ -191,7 +191,7 @@ class DelegationService {
 	 * @return array<string, mixed> `{targetAgentId, result}` on success, or
 	 *                              `{error: {code, message}}` on refusal/failure.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 *
 	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) A fixed, ordered gate sequence
 	 *   (self/cycle → allowlist → depth/fan-out → same-organisation → model-policy →
@@ -308,7 +308,7 @@ class DelegationService {
 	 * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver` is a pure classification
 	 *   function, called statically wherever reach is decided so the answers cannot drift.
 	 *
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-delegation-cannot-launder-reach
+	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-a-delegation-cannot-launder-reach
 	 */
 	private function effectiveReachFor(array $targetData): string {
 		// The delegation tool's own reach is the floor.
@@ -338,7 +338,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when neither applies.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 */
 	private function checkSelfAndCycle(string $callerAgentId, string $targetAgentId): ?array {
 		if ($targetAgentId === $callerAgentId) {
@@ -365,7 +365,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when allowed.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-by-default-until-explicitly-allowlisted
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-by-default-until-explicitly-allowlisted
 	 */
 	private function checkAllowlist(?ObjectEntity $callerAgent, string $targetAgentId): ?array {
 		$allowlist = [];
@@ -391,7 +391,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when within bounds.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	private function checkBounds(?DelegationFrame $frame): ?array {
 		$depth = ($frame->depth ?? 0);
@@ -429,7 +429,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when allowed/unchecked.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
 	 */
 	private function checkModelPolicy(string $organisation, array $targetData): ?array {
 		$provider = trim((string)($targetData['provider'] ?? ''));
@@ -460,7 +460,7 @@ class DelegationService {
 	 *
 	 * @return array<string, mixed>|null The refusal envelope, or null when not blocked.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-refused-when-gated-by-kill-switch-budget-or-a-target-requiring-approval
 	 */
 	private function checkBudget(string $organisation, string $targetAgentId): ?array {
 		try {
@@ -507,8 +507,8 @@ class DelegationService {
 	 * @return array<string, mixed> `{targetAgentId, result, effectiveReach}` on success, or a
 	 *                              `delegation_failed` error envelope.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
 	 */
 	private function runDelegatedTurn(
 		ObjectEntity $targetAgent,
@@ -592,7 +592,7 @@ class DelegationService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
 	 */
 	private function writeDelegationAudit(
 		ObjectEntity $auditTarget,

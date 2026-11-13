@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
  */
 
 declare(strict_types=1);
@@ -65,7 +65,7 @@ use Throwable;
  *   (model-policy service, user session, group manager, org mapper, logger) plus the
  *   HTTP response/exception types every endpoint returns.
  *
- * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
  */
 class OrganisationModelPolicyController extends Controller {
 	/**
@@ -107,7 +107,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function effective(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -135,7 +135,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -189,7 +189,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function create(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -227,7 +227,7 @@ class OrganisationModelPolicyController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-model-policy-authorization
 	 */
 	public function update(string $policyId): JSONResponse {
 		$user = $this->userSession->getUser();

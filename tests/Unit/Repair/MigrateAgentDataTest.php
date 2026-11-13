@@ -455,6 +455,75 @@ class MigrateAgentDataTest extends TestCase {
 	}//end testMessageContextPreservedExactly()
 
 	/**
+	 * Golden: a full pass over the four tables, with dangling and missing
+	 * references, already-migrated rows, a row without a uuid and a previously
+	 * reported conversation, writes, warns and summarises exactly what was
+	 * recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testAFullPassMatchesTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/migrate-agent-data-pass.json';
+		$this->existing = ['agent-uuid-8', 'conv-uuid-46', 'feedback-uuid-4'];
+		$this->storedUnmigratable = '["conv-uuid-45"]';
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => [
+					$this->agentRow(7, 'agent-uuid-7', 'alice'),
+					$this->agentRow(8, 'agent-uuid-8', 'bob'),
+					['id' => 9, 'uuid' => '', 'name' => 'no uuid'],
+				],
+				'openregister_conversations' => [
+					$this->conversationRow(42, 'conv-uuid-42', 7, 'alice'),
+					$this->conversationRow(43, 'conv-uuid-43', 8, 'bob'),
+					$this->conversationRow(44, 'conv-uuid-44', 999, 'alice'),
+					$this->conversationRow(45, 'conv-uuid-45', 0, 'alice'),
+					$this->conversationRow(46, 'conv-uuid-46', 7, 'alice'),
+				],
+				'openregister_messages' => [
+					['id' => 100, 'uuid' => 'msg-uuid-100', 'conversation_id' => 42, 'role' => 'user', 'content' => 'hi', 'owner' => 'alice'],
+					['id' => 101, 'uuid' => 'msg-uuid-101', 'conversation_id' => 999, 'role' => 'assistant', 'content' => 'yo', 'organisation' => 'org-x'],
+					['id' => 102, 'uuid' => 'msg-uuid-102', 'conversation_id' => null, 'role' => 'user', 'content' => '?'],
+				],
+				'openregister_feedback' => [
+					['id' => 1, 'uuid' => 'feedback-uuid-1', 'message_id' => 100, 'conversation_id' => 42, 'agent_id' => 7, 'type' => 'up'],
+					['id' => 2, 'uuid' => 'feedback-uuid-2', 'message_id' => 555, 'conversation_id' => 777, 'agent_id' => 888, 'type' => 'down', 'comment' => 'no'],
+					['id' => 3, 'uuid' => 'feedback-uuid-3', 'message_id' => 0, 'conversation_id' => null, 'agent_id' => null, 'type' => 'up'],
+					['id' => 4, 'uuid' => 'feedback-uuid-4', 'message_id' => 100, 'conversation_id' => 42, 'agent_id' => 7, 'type' => 'up'],
+				],
+			]
+		);
+		$subject = $this->makeSubject(db: $db, flag: 'true');
+
+		$subject->run($this->makeOutput());
+
+		$actual = json_decode(
+			json_encode(
+				[
+					'saved' => $this->saved,
+					'infos' => $this->infos,
+					'warnings' => $this->warnings,
+					'impersonated' => $this->impersonated,
+					'persistedUnmigratable' => $this->persistedUnmigratable,
+				],
+				JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
+			),
+			true,
+			512,
+			JSON_THROW_ON_ERROR
+		);
+
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testAFullPassMatchesTheRecordedFixture()
+
+	/**
 	 * Build the subject under test with all collaborators mocked.
 	 *
 	 * @param IDBConnection $db The (fake) DB connection.
