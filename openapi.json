@@ -1773,6 +1773,83 @@
                 }
             }
         },
+        "/agents/{agentId}/tool-invocations/{callId}/mark": {
+            "post": {
+                "operationId": "tool-oversight-mark-tool-invocation",
+                "summary": "Mark one of the agent's tool calls as misuse, with a reason",
+                "description": "Mark one of the agent's tool calls as misuse, with a reason. The mark is written on the agent, so the agent's audit trail records the operator, the call and the reason, and the tool activity shows it on the call. Only who may modify the agent marks its calls; a mark without a reason is refused. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "tool-oversight"
+                ],
+                "parameters": [
+                    {
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true,
+                        "description": "Agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "callId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The call, as its tool activity row names it (`callId`).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "description": "Why the call is misuse."
+                                    }
+                                },
+                                "required": [
+                                    "reason"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The call is marked.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
         "/agents/{agentId}/user-profiles": {
             "get": {
                 "operationId": "memory-user-profiles",
