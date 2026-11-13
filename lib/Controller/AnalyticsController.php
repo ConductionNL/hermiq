@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-analytics/tasks.md#2-controller-route
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#2-controller-route
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Tenant-scoped run-analytics read endpoint.
  *
- * @spec openspec/changes/run-analytics/tasks.md#2-controller-route
+ * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#2-controller-route
  */
 class AnalyticsController extends Controller {
 	/**
@@ -54,7 +54,7 @@ class AnalyticsController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param AgentAccessService $agentAccess Per-agent read authorization (IDOR guard for the low ratings).
 	 *
-	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-2-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -76,7 +76,7 @@ class AnalyticsController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-run-analytics/tasks.md#task-2-1
 	 */
 	public function index(string $agentId = ''): JSONResponse {
 		if ($this->userSession->getUser() === null) {

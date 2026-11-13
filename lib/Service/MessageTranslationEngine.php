@@ -29,8 +29,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md
- * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md
+ * @spec openspec/specs/message-translation/spec.md
+ * @spec openspec/specs/message-translation/spec.md
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use Throwable;
 /**
  * Gate-then-execute translation of ad-hoc text via the configured LLM provider.
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md
+ * @spec openspec/specs/message-translation/spec.md
  */
 class MessageTranslationEngine {
 
@@ -122,12 +122,12 @@ class MessageTranslationEngine {
 	 *                              `{available: false, reason, translatedByAi: false}` when the
 	 *                              feature is not enabled or the provider fails.
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-002-a-successful-translation-always-carries-a-machine-translation-notice
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-004-a-provider-failure-degrades-to-unavailable-never-an-unhandled-error
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-002-a-successful-translation-always-carries-a-machine-translation-notice
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-004-a-provider-failure-degrades-to-unavailable-never-an-unhandled-error
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
 	 */
 	public function translate(
 		string $sourceText,
@@ -196,7 +196,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return string The detected tag, primary subtag lower-cased, or `und`.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
 	 */
 	private function detectLanguage(string $sourceText): string {
 		$prompt = 'Reply with only the BCP-47 language tag (for example "nl" or "ar") of the language '
@@ -229,7 +229,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return string The label, or an empty string when no provider is configured.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-008-the-model-label-never-carries-a-secret
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-008-the-model-label-never-carries-a-secret
 	 */
 	private function modelLabel(array $llmConfig): string {
 		$provider = (string)($llmConfig['chatProvider'] ?? '');
@@ -262,7 +262,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return string The built prompt.
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-003-a-supplied-glossary-is-honoured-verbatim
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-003-a-supplied-glossary-is-honoured-verbatim
 	 */
 	private function buildPrompt(string $sourceText, string $targetLanguage, array $glossary): string {
 		$prompt = 'Translate the following text into the language with BCP-47 tag "' . $targetLanguage . '". '
@@ -299,7 +299,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return array{available: false, reason: string, translatedByAi: false}
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
 	 */
 	private function unavailableResult(string $reason): array {
 		return [

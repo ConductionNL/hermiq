@@ -23,7 +23,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 
 declare(strict_types=1);

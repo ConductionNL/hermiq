@@ -41,7 +41,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 
@@ -66,7 +66,7 @@ use Throwable;
  *
  * @implements IEventListener<Event>
  *
- * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+ * @spec openspec/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 class RegisterAgentLeafListener implements IEventListener {
 
@@ -118,7 +118,7 @@ class RegisterAgentLeafListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-hermiq-agent-leaf/tasks.md#task-2-1
 	 */
 	public function handle(Event $event): void {
 		if ($event instanceof RegisterLeafProvidersEvent === false) {

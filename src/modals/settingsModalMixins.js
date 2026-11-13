@@ -73,7 +73,7 @@ export const brokerCredentials = {
 		 *
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		async fetchCredentials() {
 			this.loadingCredentials = true

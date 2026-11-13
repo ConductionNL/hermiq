@@ -77,7 +77,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
 
 declare(strict_types=1);
@@ -117,7 +117,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)     Each sourceType exposes its own public
  *   ensure/find/decide entry points consumed by distinct callers.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
 class ApprovalService {
 
@@ -204,8 +204,8 @@ class ApprovalService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	public function ensurePendingApproval(ObjectEntity $schedule): void {
 		$scheduleId = (string)$schedule->getUuid();
@@ -274,7 +274,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity The pending (or already-pending) Approval.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	public function ensurePendingApprovalForFlowRun(array $context, string $agentOwner): ObjectEntity {
 		$correlationId = (string)($context['correlationId'] ?? '');
@@ -1255,7 +1255,7 @@ class ApprovalService {
 	 *
 	 * @return array<int, array<string, mixed>> Compact pending-approval records.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function listPendingForReviewer(string $uid): array {
 		if ($uid === '') {
@@ -1414,7 +1414,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity|null The approval, or null when absent.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function loadApproval(string $uuid): ?ObjectEntity {
 		if ($uuid === '') {
@@ -1448,7 +1448,7 @@ class ApprovalService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	public function isReviewer(ObjectEntity $approval, string $uid): bool {
 		if ($uid === '') {
@@ -1479,8 +1479,8 @@ class ApprovalService {
 	 *
 	 * @return array{status:string, ran:bool} The resulting status and whether a run fired.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
 	 */
 	public function approve(ObjectEntity $approval, string $deciderUid): array {
@@ -1602,7 +1602,7 @@ class ApprovalService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function deny(ObjectEntity $approval, string $deciderUid, ?string $reason): void {
 		$data = $approval->getObject();
@@ -1653,7 +1653,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity|null The pending approval, or null.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function findPendingApprovalForSchedule(string $scheduleId): ?ObjectEntity {
 		$objects = $this->objectService
@@ -1689,7 +1689,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity|null The pending approval, or null.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	private function findPendingApprovalForCorrelation(string $correlationId): ?ObjectEntity {
 		$objects = $this->objectService
@@ -1728,7 +1728,7 @@ class ApprovalService {
 	 *
 	 * @return array{0:string, 1:string} The [reviewer, reviewerType] pair.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function resolveReviewer(ObjectEntity $schedule): array {
 		$data = $schedule->getObject();
@@ -1755,7 +1755,7 @@ class ApprovalService {
 	 *
 	 * @return array<int, string> The reviewer user ids.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	private function reviewerUids(string $reviewer, string $reviewerType): array {
 		if ($reviewerType === 'group') {
@@ -1814,7 +1814,7 @@ class ApprovalService {
 	 *
 	 * @return bool Whether a run was dispatched.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	private function runApprovedSchedule(string $scheduleId): bool {
 		if ($scheduleId === '') {
@@ -1858,7 +1858,7 @@ class ApprovalService {
 	 *
 	 * @return bool Whether the agent run actually executed.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	private function runApprovedFlowRun(array $flowContext): bool {
 		if ($flowContext === []) {
@@ -1919,7 +1919,7 @@ class ApprovalService {
 	 *
 	 * @return ObjectEntity The persisted approval.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function persistApproval(array $data, ?string $uuid, string $owner): ObjectEntity {
 		$priorUser = $this->userSession->getUser();
@@ -2020,7 +2020,7 @@ class ApprovalService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	private function writeDecisionAudit(ObjectEntity $approval, string $action, string $reason): void {
 		try {

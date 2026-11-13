@@ -34,6 +34,9 @@ use Stringable;
  * Exact outcomes of toBundle(), fromBundle() and agentsFromBundle().
  *
  * @covers \OCA\Hermiq\Service\SkillBundleSerializer
+ * @uses \OCA\Hermiq\Service\BundleKind
+ * @uses \OCA\Hermiq\Service\BundleSelection
+ * @uses \OCA\Hermiq\Service\SkillSerializer
  *
  * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */

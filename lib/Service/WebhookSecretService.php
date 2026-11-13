@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
  */
 
 declare(strict_types=1);
@@ -62,7 +62,7 @@ use Throwable;
 /**
  * Creates, rotates, revokes, patches, and verifies per-agent webhook secrets.
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
  */
 class WebhookSecretService {
 
@@ -127,7 +127,7 @@ class WebhookSecretService {
 	 *
 	 * @return ObjectEntity|null The AgentWebhook object, or null when none exists.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	public function findForAgent(string $agentId): ?ObjectEntity {
 		if ($agentId === '') {
@@ -168,7 +168,7 @@ class WebhookSecretService {
 	 *
 	 * @throws RuntimeException When a webhook already exists for this agent (409 — use rotate()).
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	public function create(string $agentId, string $owner): array {
 		if ($this->findForAgent(agentId: $agentId) !== null) {
@@ -205,7 +205,7 @@ class WebhookSecretService {
 	 * @return array{secret:string, object:ObjectEntity} The new plaintext secret
 	 *                                                   (shown once) and the persisted object.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	public function rotate(ObjectEntity $webhook): array {
 		$secret = $this->generateSecret();
@@ -228,7 +228,7 @@ class WebhookSecretService {
 	 *
 	 * @return ObjectEntity The persisted, now-disabled object.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	public function revoke(ObjectEntity $webhook): ObjectEntity {
 		$data = $webhook->getObject();
@@ -246,7 +246,7 @@ class WebhookSecretService {
 	 *
 	 * @return ObjectEntity The persisted, updated object.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
 	 */
 	public function patch(ObjectEntity $webhook, array $fields): ObjectEntity {
 		$data = $webhook->getObject();
@@ -280,7 +280,7 @@ class WebhookSecretService {
 	 *
 	 * @return array<string, mixed> The status payload.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
 	 */
 	public function status(?ObjectEntity $webhook): array {
 		if ($webhook === null) {
@@ -318,7 +318,7 @@ class WebhookSecretService {
 	 *                           auth-failure mode (unknown agent / no webhook /
 	 *                           disabled / wrong secret).
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-3-webhooktriggercontroller-public-secret-authenticated-enumeration-safe
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-3-webhooktriggercontroller-public-secret-authenticated-enumeration-safe
 	 */
 	public function verifyAndLoad(string $agentId, string $providedSecret): ?ObjectEntity {
 		$webhook = $this->findForAgent(agentId: $agentId);
@@ -351,7 +351,7 @@ class WebhookSecretService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
 	 */
 	public function markUsed(ObjectEntity $webhook): void {
 		try {
@@ -373,7 +373,7 @@ class WebhookSecretService {
 	 *
 	 * @return string The plaintext secret.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	private function generateSecret(): string {
 		return self::SECRET_PREFIX . bin2hex(random_bytes(self::SECRET_ENTROPY_BYTES));
@@ -386,7 +386,7 @@ class WebhookSecretService {
 	 *
 	 * @return string The hex-encoded SHA-256 digest.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	private function hash(string $secret): string {
 		return hash('sha256', $secret);
@@ -398,7 +398,7 @@ class WebhookSecretService {
 	 *
 	 * @return string The dummy SHA-256 digest.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-public-trigger-endpoint-authenticates-by-secret-not-session
 	 */
 	private function dummyHash(): string {
 		return hash('sha256', '');
@@ -411,7 +411,7 @@ class WebhookSecretService {
 	 *
 	 * @return string The display prefix.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	private function prefixOf(string $secret): string {
 		return substr($secret, 0, self::SECRET_PREFIX_DISPLAY_LEN);
@@ -431,7 +431,7 @@ class WebhookSecretService {
 	 *
 	 * @return ObjectEntity The persisted object.
 	 *
-	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-1-agentwebhook-schema-secret-lifecycle-service
 	 */
 	private function persist(array $data, ?string $uuid, string $owner): ObjectEntity {
 		$priorUser = $this->userSession->getUser();

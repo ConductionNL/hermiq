@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * Reviewer/admin-guarded approve/deny + pending-inbox endpoints.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 class ApprovalController extends Controller {
 	/**
@@ -60,7 +60,7 @@ class ApprovalController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -79,7 +79,7 @@ class ApprovalController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -106,7 +106,7 @@ class ApprovalController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-2
 	 */
 	public function approve(string $approvalId): JSONResponse {
 		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
@@ -131,7 +131,7 @@ class ApprovalController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
 	 */
 	public function resolve(string $approvalId): JSONResponse {
 		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
@@ -187,7 +187,7 @@ class ApprovalController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-3
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-3
 	 */
 	public function deny(string $approvalId): JSONResponse {
 		$guard = $this->ensureDecidableApproval(approvalId: $approvalId);
@@ -238,7 +238,7 @@ class ApprovalController extends Controller {
 	 *
 	 * @return ObjectEntity|JSONResponse The guarded approval, or an error response.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-4-1
 	 */
 	private function ensureDecidableApproval(string $approvalId): ObjectEntity|JSONResponse {
 		$user = $this->userSession->getUser();

@@ -25,13 +25,14 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -43,8 +44,8 @@ use Throwable;
 /**
  * Seed the `message-translation` AiFeature via ObjectService (idempotent).
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
- * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
  */
 class SeedMessageTranslationFeature implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -98,7 +99,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
 	 */
 	public function getName(): string {
 		return 'Seed the message-translation AI feature (message-translation-delegate)';
@@ -111,7 +112,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -144,7 +145,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
 	 */
 	private function seedFeature(object $objectService, IOutput $output): void {
 		try {
@@ -194,7 +195,7 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-register-records-whether-a-features-outputs-are-labelled-as-ai-made
 	 */
 	private function backfillLabelling(object $objectService, ObjectEntity $existing, IOutput $output): void {
 		$data = $existing->getObject();
@@ -229,25 +230,6 @@ class SeedMessageTranslationFeature implements IRepairStep {
 	 * @return ObjectEntity|null The existing row, or null when there is none.
 	 */
 	private function findExisting(ObjectService $objectService): ?ObjectEntity {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => self::FEATURE_SLUG], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === self::FEATURE_SLUG) {
-				return $object;
-			}
-		}
-
-		return null;
+		return (new AiFeatureRows(objectService: $objectService))->find(slug: self::FEATURE_SLUG);
 	}//end findExisting()
 }//end class

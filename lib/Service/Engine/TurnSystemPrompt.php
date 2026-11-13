@@ -17,7 +17,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -27,7 +27,7 @@ namespace OCA\Hermiq\Service\Engine;
 /**
  * Builds the system prompt of a turn from its run.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
 final class TurnSystemPrompt {
@@ -46,7 +46,7 @@ final class TurnSystemPrompt {
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) PromptVariableResolver::fill is a pure template fill.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function compose(ResponseTurnRun $run): string {
 		// Agents-instruction-variables: the owner's placeholders are filled in

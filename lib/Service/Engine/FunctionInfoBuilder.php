@@ -19,7 +19,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use LLPhant\Chat\FunctionInfo\Parameter;
 /**
  * Builds the FunctionInfo objects of one tool surface.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
 final class FunctionInfoBuilder {
 
@@ -45,7 +45,7 @@ final class FunctionInfoBuilder {
 	 *
 	 * @return array<int, FunctionInfo>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 */
 	public function build(array $functions, FacadeToolInvoker $invoker): array {
 		$functionInfoObjects = [];
@@ -63,7 +63,7 @@ final class FunctionInfoBuilder {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
 	 */
 	public function namedDescriptors(array $functions): array {
 		$named = [];
