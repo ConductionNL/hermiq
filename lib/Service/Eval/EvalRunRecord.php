@@ -32,24 +32,82 @@ use DateTimeImmutable;
  * What one stored eval run records.
  *
  * @spec exclude Parameter object, no functional requirement of its own.
+ *
+ * @SuppressWarnings(PHPMD.LongVariable) $regressionThresholdPercent mirrors the stored field name.
  */
 final class EvalRunRecord {
 
 	/**
+	 * The dataset id.
+	 *
+	 * @var string
+	 */
+	public readonly string $datasetId;
+
+	/**
+	 * The agent id.
+	 *
+	 * @var string
+	 */
+	public readonly string $agentId;
+
+	/**
+	 * The organisation.
+	 *
+	 * @var string
+	 */
+	public readonly string $organisation;
+
+	/**
+	 * The agent version id.
+	 *
+	 * @var ?string
+	 */
+	public readonly ?string $agentVersionId;
+
+	/**
+	 * The results.
+	 *
+	 * @var array
+	 */
+	public readonly array $results;
+
+	/**
+	 * The pass rate.
+	 *
+	 * @var float
+	 */
+	public readonly float $passRate;
+
+	/**
+	 * The regression gate result.
+	 *
+	 * @var string
+	 */
+	public readonly string $regressionGateResult;
+
+	/**
+	 * The previous pass rate.
+	 *
+	 * @var ?float
+	 */
+	public readonly ?float $previousPassRate;
+
+	/**
+	 * The regression threshold percent.
+	 *
+	 * @var int
+	 */
+	public readonly int $regressionThresholdPercent;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param string $datasetId The dataset UUID.
-	 * @param string $agentId The agent UUID.
-	 * @param string $organisation The agent's organisation.
-	 * @param string|null $agentVersionId Inert field.
+	 * @param EvalRunSubject $subject The dataset, agent and organisation an eval run belongs to.
 	 * @param string $status completed|failed.
 	 * @param DateTimeImmutable $startedAt When the run began.
 	 * @param DateTimeImmutable $endedAt When the run finished.
-	 * @param array<int,array<string,mixed>> $results Per-case results.
-	 * @param float $passRate Aggregate pass-rate.
-	 * @param string $regressionGateResult passed|failed|not_applicable.
-	 * @param float|null $previousPassRate The compared-against prior run's pass-rate.
-	 * @param int $regressionThresholdPercent The effective threshold applied.
+	 * @param EvalRunScores $scores What an eval run scored, and how it compares with the previous run.
 	 * @param array<string,mixed> $extra Paired-mode fields (skill-evals:
 	 *                                   baselineMode, attributionMode,
 	 *                                   skillResults, joint-mode
@@ -59,19 +117,21 @@ final class EvalRunRecord {
 	 * @spec exclude Parameter object, no functional requirement of its own.
 	 */
 	public function __construct(
-		public readonly string $datasetId,
-		public readonly string $agentId,
-		public readonly string $organisation,
-		public readonly ?string $agentVersionId,
+		EvalRunSubject $subject,
 		public readonly string $status,
 		public readonly DateTimeImmutable $startedAt,
 		public readonly DateTimeImmutable $endedAt,
-		public readonly array $results,
-		public readonly float $passRate,
-		public readonly string $regressionGateResult,
-		public readonly ?float $previousPassRate,
-		public readonly int $regressionThresholdPercent,
+		EvalRunScores $scores,
 		public readonly array $extra = [],
 	) {
+		$this->results = $scores->results;
+		$this->passRate = $scores->passRate;
+		$this->regressionGateResult = $scores->regressionGateResult;
+		$this->previousPassRate = $scores->previousPassRate;
+		$this->regressionThresholdPercent = $scores->regressionThresholdPercent;
+		$this->datasetId = $subject->datasetId;
+		$this->agentId = $subject->agentId;
+		$this->organisation = $subject->organisation;
+		$this->agentVersionId = $subject->agentVersionId;
 	}//end __construct()
 }//end class

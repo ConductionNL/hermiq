@@ -44,6 +44,9 @@ final class DispatchOptions {
 	 *                                 (an approved occurrence running via approve()).
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Bypassing the approval gate is a documented
+	 *   dispatch mode for an already-approved run, carried as a flag by design.
 	 */
 	public function __construct(
 		public readonly DateTimeImmutable $now,
