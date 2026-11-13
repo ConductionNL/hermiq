@@ -36,6 +36,7 @@ use Throwable;
  * Every rubric outcome, with the exact judge call it makes.
  *
  * @covers \OCA\Hermiq\Service\EvalScoringService
+ * @uses \OCA\Hermiq\Service\JudgedOutput
  *
  * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint
  */

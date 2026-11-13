@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
 
 declare(strict_types=1);
@@ -59,7 +59,7 @@ use Throwable;
  *   governance service, the ADR-023 action-auth gate, the Algoritmekader readiness/mapper,
  *   and the runtime publication seam — each a distinct single-responsibility collaborator.
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
 class AiFeatureController extends Controller {
 	/**
@@ -75,7 +75,7 @@ class AiFeatureController extends Controller {
 	 * @param AiFeatureBindingService $bindingService Writes a feature's provider binding and required residency.
 	 * @param FeatureProviderResolver $featureResolver Resolves which provider each feature will use.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
+	 * @spec openspec/changes/archive/2026-09-06-algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
 	 */
 	public function __construct(
 		IRequest $request,
@@ -99,7 +99,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	public function index(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -126,7 +126,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-3
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	public function acknowledge(string $slug): JSONResponse {
 		$user = $this->authorise(action: 'aifeature.acknowledge');
@@ -163,7 +163,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
 	 */
 	public function bind(string $id): JSONResponse {
 		$user = $this->authorise(action: 'aifeature.bind');
@@ -201,7 +201,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
 	 */
 	public function residencyOverview(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -244,7 +244,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function enable(string $id): JSONResponse {
 		return $this->drive(id: $id, action: 'aifeature.enable', enable: true);
@@ -260,7 +260,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function disable(string $id): JSONResponse {
 		return $this->drive(id: $id, action: 'aifeature.disable', enable: false);
@@ -282,7 +282,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function publishToAlgoritmeregister(string $id): JSONResponse {
 		$user = $this->authorise(action: 'aifeature.publish-to-algoritmeregister');
@@ -409,7 +409,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function withdrawFromAlgoritmeregister(string $id): JSONResponse {
 		$user = $this->authorise(action: 'aifeature.withdraw-from-algoritmeregister');
@@ -448,7 +448,7 @@ class AiFeatureController extends Controller {
 	 *
 	 * @return JSONResponse The transition outcome, or an error status.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	private function drive(string $id, string $action, bool $enable): JSONResponse {
 		$user = $this->authorise(action: $action);
@@ -477,7 +477,7 @@ class AiFeatureController extends Controller {
 	 *
 	 * @return JSONResponse The mapped response.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	private function mapTransition(string $id, string $result): JSONResponse {
 		return match ($result) {
@@ -502,7 +502,7 @@ class AiFeatureController extends Controller {
 	 *
 	 * @return array<string, mixed> The response payload.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	private function shape(ObjectEntity $object): array {
 		$data = $object->getObject();

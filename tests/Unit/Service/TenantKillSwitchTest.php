@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
  */
 
 declare(strict_types=1);

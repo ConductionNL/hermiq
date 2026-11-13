@@ -52,3 +52,20 @@ Hermiq MUST remove a recipient's access as soon as the owner removes the share. 
 - WHEN the owner removes Bram in the share dialog
 - THEN Bram's next visit to `/chat/shared/<uuid>` shows "This session is not available", and the session is gone from his "Shared with you" group
 - e2e: `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`
+
+### Requirement: The owner can copy a link to a shared session (REQ-SSHARE-004)
+
+The share dialog MUST offer "Copy link", which copies the address `/chat/shared/<uuid>` of the session. The link MUST open the session only for a signed-in recipient named in `sharedWith`, directly or through a group. Anyone else who opens it MUST get the same "This session is not available" as for a session that does not exist. The link MUST NOT work without signing in.
+
+#### Scenario: Anne pastes the link in a Talk chat
+- GIVEN Anne de Vries has shared "Offerte dakrenovatie Stadskantoor" with `team-inkoop`
+- WHEN she chooses "Copy link" in the share dialog and a member of `team-inkoop` opens the pasted link
+- THEN the colleague reads the session, with "Shared by Anne de Vries" and no message box
+- e2e: `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`
+
+#### Scenario: The link reaches someone the session is not shared with
+- GIVEN the copied link
+- WHEN a colleague outside `team-inkoop` opens it
+- THEN they see "This session is not available", and the session's title is not shown
+- e2e: `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`
+

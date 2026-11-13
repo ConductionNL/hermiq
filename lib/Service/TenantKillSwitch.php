@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use Throwable;
 /**
  * Answers which organisations have their kill-switch engaged.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
  */
 final class TenantKillSwitch {
 
@@ -74,7 +74,7 @@ final class TenantKillSwitch {
 	 *
 	 * @return array<int, string> The engaged organisation identifiers.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
 	 */
 	public function engagedOrganisations(): array {
 		$organisations = array_map(
@@ -128,7 +128,7 @@ final class TenantKillSwitch {
 	 *
 	 * @return bool True when the organisation's kill-switch is engaged.
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
 	 */
 	public function isOrganisationEngaged(string $organisation): bool {
 		if ($organisation === '') {

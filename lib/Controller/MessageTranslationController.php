@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Auth + validation shell over MessageTranslationEngine.
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
+ * @spec openspec/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
  */
 class MessageTranslationController extends Controller {
 
@@ -91,8 +91,8 @@ class MessageTranslationController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-005-the-rest-endpoint-requires-authentication-and-validates-its-input
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	public function translate(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -133,7 +133,7 @@ class MessageTranslationController extends Controller {
 	 * @return array{sourceText: string, targetLanguage: string, sourceLanguage: string|null, originalRef: string, glossary: array}|string
 	 *         The validated input, or the 400 message.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	private function readInput(): array|string {
 		$sourceText = $this->requiredParam(name: 'sourceText');
@@ -221,7 +221,7 @@ class MessageTranslationController extends Controller {
 	 *
 	 * @return string|null The 400 message, or null when all three are acceptable.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-010-language-tags-and-the-original-reference-are-validated-before-any-prompt
 	 */
 	private function provenanceError(string $targetLanguage, mixed $sourceLanguage, mixed $originalRef): ?string {
 		if ($this->disclosure->isLanguageTag(tag: $targetLanguage) === false) {
