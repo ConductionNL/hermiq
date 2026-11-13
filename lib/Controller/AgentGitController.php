@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Agent\AgentGitService;
+use OCA\Hermiq\Kernel\Contracts\AgentGitServiceInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -61,13 +61,13 @@ class AgentGitController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param AgentGitService $git The git round trip.
+	 * @param AgentGitServiceInterface $git The git round trip.
 	 * @param IUserSession $userSession The signed-in user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AgentGitService $git,
+		private readonly AgentGitServiceInterface $git,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

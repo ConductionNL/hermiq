@@ -26,9 +26,9 @@ namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Literacy\LiteracyCourse;
-use OCA\Hermiq\Service\Literacy\LiteracyReport;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
+use OCA\Hermiq\Kernel\Contracts\LiteracyCourseInterface;
+use OCA\Hermiq\Kernel\Contracts\LiteracyReportInterface;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -52,17 +52,17 @@ class LiteracyController extends Controller {
 	 * @param IRequest $request The request.
 	 * @param IUserSession $userSession The signed-in person.
 	 * @param IL10N $l10n Their language.
-	 * @param LiteracyCourse $course The course.
-	 * @param LiteracyRequirement $requirement The requirement and the admin rule.
-	 * @param LiteracyReport $report The organisation report.
+	 * @param LiteracyCourseInterface $course The course.
+	 * @param LiteracyRequirementInterface $requirement The requirement and the admin rule.
+	 * @param LiteracyReportInterface $report The organisation report.
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
-		private readonly LiteracyCourse $course,
-		private readonly LiteracyRequirement $requirement,
-		private readonly LiteracyReport $report,
+		private readonly LiteracyCourseInterface $course,
+		private readonly LiteracyRequirementInterface $requirement,
+		private readonly LiteracyReportInterface $report,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()

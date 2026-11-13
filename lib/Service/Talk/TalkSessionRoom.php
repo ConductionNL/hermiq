@@ -40,6 +40,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
@@ -54,7 +55,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
  */
-class TalkSessionRoom {
+class TalkSessionRoom implements TalkSessionRoomInterface {
 
 	/**
 	 * Spreed's RoomService, resolved by name so spreed stays optional.

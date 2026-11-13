@@ -99,13 +99,13 @@ use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MailReadServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\NcNativeWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Graph\GraphTools;
-use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use OCA\Hermiq\Service\NcNative\TaskWriteService;
-use OCA\Hermiq\Service\WebResearch\WebFetchService;
-use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -578,11 +578,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                     `recallMemory`/`forgetMemory`
 	 *                                     (agent-memory-tools) — no duplicated
 	 *                                     append/redact/recall/soft-delete logic.
-	 * @param WebSearchClient $webSearchClient Shared client backing `webSearch`
+	 * @param WebSearchClientInterface $webSearchClient Shared client backing `webSearch`
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded call to the
 	 *                                         admin-configured search backend.
-	 * @param WebFetchService $webFetchService Shared service backing `webFetch`
+	 * @param WebFetchServiceInterface $webFetchService Shared service backing `webFetch`
 	 *                                         (web-research-tool) —
 	 *                                         SSRF-guarded GET + readable-text
 	 *                                         extraction.
@@ -591,7 +591,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                             all self/cycle/allowlist/depth/fan-out/
 	 *                                             organisation/model-policy/kill-switch/
 	 *                                             budget/approval gating lives there.
-	 * @param NcNativeWriteService $writeService Facade over the Calendar/Contacts/Notes
+	 * @param NcNativeWriteServiceInterface $writeService Facade over the Calendar/Contacts/Notes
 	 *                                           write services (nc-native-write-tools) —
 	 *                                           ownership guards, ADR-088 marking and the
 	 *                                           lazy Notes resolution all live there.
@@ -624,10 +624,10 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly ContainerInterface $container,
 		private readonly CourseRecommendationEngineInterface $courseEngine,
 		private readonly MemoryServiceInterface $memoryService,
-		private readonly WebSearchClient $webSearchClient,
-		private readonly WebFetchService $webFetchService,
+		private readonly WebSearchClientInterface $webSearchClient,
+		private readonly WebFetchServiceInterface $webFetchService,
 		private readonly DelegationServiceInterface $delegationService,
-		private readonly NcNativeWriteService $writeService,
+		private readonly NcNativeWriteServiceInterface $writeService,
 		private readonly MailReadServiceInterface $mailReadService,
 		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,

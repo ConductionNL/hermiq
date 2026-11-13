@@ -41,7 +41,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Speech\SpeechClient;
+use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
@@ -89,13 +89,13 @@ class SpeechController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param SpeechClient $speech The sidecar transport.
+	 * @param SpeechClientInterface $speech The sidecar transport.
 	 * @param IUserSession $userSession The acting session.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SpeechClient $speech,
+		private readonly SpeechClientInterface $speech,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

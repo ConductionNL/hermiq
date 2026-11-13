@@ -50,6 +50,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use OCA\Hermiq\Kernel\Contracts\GovernedMcpEndpointInterface;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
 
@@ -59,7 +60,7 @@ use OCP\IURLGenerator;
  *
  * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
-class GovernedMcpEndpoint {
+class GovernedMcpEndpoint implements GovernedMcpEndpointInterface {
 
 	/**
 	 * Constructor.

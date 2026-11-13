@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -51,7 +52,7 @@ use OCP\IUser;
  *
  * @spec openspec/architecture/adr-023-action-authorization.md
  */
-class ActionAuthService {
+class ActionAuthService implements ActionAuthServiceInterface {
 	/**
 	 * Constructor.
 	 *

@@ -30,11 +30,12 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Workspace;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ForgeEgressPolicyInterface;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
-use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
 use Throwable;
 
@@ -43,7 +44,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
  */
-class ForgeEgressPolicy {
+class ForgeEgressPolicy implements ForgeEgressPolicyInterface {
 
 	/**
 	 * The workspace tools that reach the forge.

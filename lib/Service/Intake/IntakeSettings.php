@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Service\Intake;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\IntakeSettingsInterface;
 use OCP\IAppConfig;
 
 /**
@@ -38,7 +39,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
  */
-class IntakeSettings {
+class IntakeSettings implements IntakeSettingsInterface {
 
 	/**
 	 * The confidence an intake needs before it files rather than hands over. Set

@@ -33,11 +33,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use InvalidArgumentException;
-use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
-use OCA\Hermiq\Service\Llm\ModelCapabilityRegistry;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LlmSettingsHandlerInterface;
+use OCA\Hermiq\Kernel\Contracts\ModelCapabilityRegistryInterface;
+use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -57,9 +57,9 @@ class LlmSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
+	 * @param LlmSettingsHandlerInterface $settingsHandler Reads/writes `hermiq.llm`.
 	 * @param LoggerInterface $logger Logger.
-	 * @param ModelCapabilityRegistry $modelCapabilities The declared native inputs per model.
+	 * @param ModelCapabilityRegistryInterface $modelCapabilities The declared native inputs per model.
 	 * @param LlmConnectionReport|null $connectionReport Reports the saved provider to integriq's connection
 	 *                                                  registry; null when built by hand in a test.
 	 *
@@ -69,9 +69,9 @@ class LlmSettingsController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly LlmSettingsHandler $settingsHandler,
+		private readonly LlmSettingsHandlerInterface $settingsHandler,
 		private readonly LoggerInterface $logger,
-		private readonly ModelCapabilityRegistry $modelCapabilities,
+		private readonly ModelCapabilityRegistryInterface $modelCapabilities,
 		private readonly ?LlmConnectionReport $connectionReport = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
@@ -257,12 +257,12 @@ class LlmSettingsController extends Controller {
 	private function refusalFor(array $data): ?JSONResponse {
 		$provider = $data['chatProvider'] ?? null;
 		if ($provider !== null
-			&& in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false
+			&& in_array($provider, LlmSettingsHandlerInterface::ALLOWED_CHAT_PROVIDERS, true) === false
 		) {
 			return new JSONResponse(
 				[
 					'error' => 'Unsupported chat provider',
-					'allowed' => LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS,
+					'allowed' => LlmSettingsHandlerInterface::ALLOWED_CHAT_PROVIDERS,
 				],
 				Http::STATUS_UNPROCESSABLE_ENTITY
 			);

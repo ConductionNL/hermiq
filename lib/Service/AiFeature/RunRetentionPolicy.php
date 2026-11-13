@@ -36,6 +36,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\RunRetentionPolicyInterface;
 use OCP\IAppConfig;
 use Throwable;
 
@@ -44,7 +45,7 @@ use Throwable;
  *
  * @spec openspec/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
  */
-class RunRetentionPolicy {
+class RunRetentionPolicy implements RunRetentionPolicyInterface {
 
 	/**
 	 * The retention this instance keeps until an administrator says otherwise.
@@ -54,23 +55,6 @@ class RunRetentionPolicy {
 	 * @var int
 	 */
 	public const DEFAULT_DAYS = 90;
-
-	/**
-	 * The shortest retention an administrator may set. A retention of zero would
-	 * delete a run before anybody could read it, which is not storage limitation
-	 * but an absent audit trail.
-	 *
-	 * @var int
-	 */
-	public const MINIMUM_DAYS = 1;
-
-	/**
-	 * The longest retention an administrator may set, ten years, matching the
-	 * ceiling the audit trail itself supports.
-	 *
-	 * @var int
-	 */
-	public const MAXIMUM_DAYS = 3650;
 
 	/**
 	 * IAppConfig key holding the instance default, in days.

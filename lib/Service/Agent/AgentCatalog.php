@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\AgentCatalogInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -37,7 +38,7 @@ use OCP\IUserManager;
  *
  * @spec openspec/changes/agents-sharing-and-catalog-columns/specs/agent-management-ui/spec.md#requirement-the-agent-catalog-shows-owner-sharing-and-status-req-agshare-003
  */
-class AgentCatalog {
+class AgentCatalog implements AgentCatalogInterface {
 
 	/**
 	 * Why an organisation admin sees an agent they could not otherwise use.

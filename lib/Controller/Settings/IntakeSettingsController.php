@@ -29,7 +29,7 @@ namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Intake\IntakeSettings;
+use OCA\Hermiq\Kernel\Contracts\IntakeSettingsInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -50,14 +50,14 @@ class IntakeSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param IntakeSettings $settings The threshold.
+	 * @param IntakeSettingsInterface $settings The threshold.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly IntakeSettings $settings,
+		private readonly IntakeSettingsInterface $settings,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

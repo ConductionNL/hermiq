@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\ReportSimilarity\ReportSimilaritySettings;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilaritySettingsInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -51,14 +51,14 @@ class ReportSimilaritySettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param ReportSimilaritySettings $settings The thresholds and windows.
+	 * @param ReportSimilaritySettingsInterface $settings The thresholds and windows.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ReportSimilaritySettings $settings,
+		private readonly ReportSimilaritySettingsInterface $settings,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

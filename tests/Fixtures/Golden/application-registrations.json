@@ -108,8 +108,78 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ActingUserScopeInterface",
+            "OCA\\Hermiq\\Service\\Graph\\ActingUserScope"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ActionAuthServiceInterface",
+            "OCA\\Hermiq\\Service\\ActionAuthService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ActionMatrixInterface",
+            "OCA\\Hermiq\\Service\\ActionMatrix"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentAccessServiceInterface",
+            "OCA\\Hermiq\\Service\\AgentAccessService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentAvailabilityServiceInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AgentAvailabilityService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentCatalogInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AgentCatalog"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentContextBuilderInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AgentContextBuilder"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentDraftServiceInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AgentDraftService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentGitServiceInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AgentGitService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentObjectMatcherInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AgentObjectMatcher"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AgentTemplateServiceInterface",
             "OCA\\Hermiq\\Service\\AgentTemplateService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AgentVersionServiceInterface",
+            "OCA\\Hermiq\\Service\\AgentVersionService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiFeatureBindingServiceInterface",
+            "OCA\\Hermiq\\Service\\AiFeature\\AiFeatureBindingService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiFeatureServiceInterface",
+            "OCA\\Hermiq\\Service\\AiFeatureService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AiOversightAccessInterface",
+            "OCA\\Hermiq\\Service\\AiOversightAccess"
         ],
         [
             "registerServiceAlias",
@@ -118,8 +188,18 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AlgoritmekaderMapperInterface",
+            "OCA\\Hermiq\\Service\\AlgoritmekaderMapper"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AnalyticsServiceInterface",
             "OCA\\Hermiq\\Service\\AnalyticsService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AppAssistantServiceInterface",
+            "OCA\\Hermiq\\Service\\Agent\\AppAssistantService"
         ],
         [
             "registerServiceAlias",
@@ -128,8 +208,28 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ApprovalTaskBridgeInterface",
+            "OCA\\Hermiq\\Service\\Approval\\ApprovalTaskBridge"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ApprovalVerdictServiceInterface",
+            "OCA\\Hermiq\\Service\\Approval\\ApprovalVerdictService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\AssistantServiceInterface",
             "OCA\\Hermiq\\Service\\Assistant\\AssistantService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AsyncStageDispatchServiceInterface",
+            "OCA\\Hermiq\\Service\\AsyncStageDispatchService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\AttachmentStoreInterface",
+            "OCA\\Hermiq\\Service\\Chat\\AttachmentStore"
         ],
         [
             "registerServiceAlias",
@@ -138,8 +238,18 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ConnectionReporterInterface",
+            "OCA\\Hermiq\\Service\\Connection\\ConnectionReporter"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ContextAgentInteractionServiceInterface",
             "OCA\\Hermiq\\Service\\ContextAgentInteractionService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ConversationTitleWriterInterface",
+            "OCA\\Hermiq\\Service\\Engine\\ConversationTitleWriter"
         ],
         [
             "registerServiceAlias",
@@ -150,6 +260,21 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\DelegationServiceInterface",
             "OCA\\Hermiq\\Service\\DelegationService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\DemoDataServiceInterface",
+            "OCA\\Hermiq\\Service\\DemoDataService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\DocumentFeatureRunInterface",
+            "OCA\\Hermiq\\Service\\AiFeature\\DocumentFeatureRun"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\EffectiveModelPolicyInterface",
+            "OCA\\Hermiq\\Service\\EffectiveModelPolicy"
         ],
         [
             "registerServiceAlias",
@@ -168,6 +293,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ForgeEgressPolicyInterface",
+            "OCA\\Hermiq\\Service\\Workspace\\ForgeEgressPolicy"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\GitHubTemplateCatalogServiceInterface",
             "OCA\\Hermiq\\Service\\GitHubTemplateCatalogService"
         ],
@@ -183,8 +313,28 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\GovernedMcpEndpointInterface",
+            "OCA\\Hermiq\\Service\\Llm\\GovernedMcpEndpoint"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\GrantWaiverAuditInterface",
+            "OCA\\Hermiq\\Service\\Agent\\GrantWaiverAudit"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\GraphExtractionServiceInterface",
+            "OCA\\Hermiq\\Service\\Graph\\GraphExtractionService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\GuardrailPolicyServiceInterface",
             "OCA\\Hermiq\\Service\\GuardrailPolicyService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\InstructionVariablesServiceInterface",
+            "OCA\\Hermiq\\Service\\Agent\\InstructionVariablesService"
         ],
         [
             "registerServiceAlias",
@@ -193,8 +343,33 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\IntakeSettingsInterface",
+            "OCA\\Hermiq\\Service\\Intake\\IntakeSettings"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\LessonAuthoringEngineInterface",
             "OCA\\Hermiq\\Service\\LessonAuthoringEngine"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\LiteracyCourseInterface",
+            "OCA\\Hermiq\\Service\\Literacy\\LiteracyCourse"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\LiteracyReportInterface",
+            "OCA\\Hermiq\\Service\\Literacy\\LiteracyReport"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\LiteracyRequirementInterface",
+            "OCA\\Hermiq\\Service\\Literacy\\LiteracyRequirement"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\LlmSettingsHandlerInterface",
+            "OCA\\Hermiq\\Service\\Llm\\LlmSettingsHandler"
         ],
         [
             "registerServiceAlias",
@@ -213,13 +388,58 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\MessageTranslationEngineInterface",
+            "OCA\\Hermiq\\Service\\MessageTranslationEngine"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ModelCapabilityRegistryInterface",
+            "OCA\\Hermiq\\Service\\Llm\\ModelCapabilityRegistry"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\NcNativeWriteServiceInterface",
+            "OCA\\Hermiq\\Service\\NcNative\\NcNativeWriteService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\OrganisationControlServiceInterface",
+            "OCA\\Hermiq\\Service\\OrganisationControlService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\OrganisationOpsServiceInterface",
             "OCA\\Hermiq\\Service\\OrganisationOpsService"
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\OutsideAgentGatewayInterface",
+            "OCA\\Hermiq\\Service\\OutsideAgent\\OutsideAgentGateway"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\OutsideToolSurfaceInterface",
+            "OCA\\Hermiq\\Service\\OutsideAgent\\OutsideToolSurface"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ProviderDataUseRegistryInterface",
+            "OCA\\Hermiq\\Service\\AiFeature\\ProviderDataUseRegistry"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ProviderFactoryInterface",
             "OCA\\Hermiq\\Service\\Llm\\ProviderFactory"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ProviderResidencyRegistryInterface",
+            "OCA\\Hermiq\\Service\\AiFeature\\ProviderResidencyRegistry"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\PublicationGatewayInterface",
+            "OCA\\Hermiq\\Service\\PublicationGateway"
         ],
         [
             "registerServiceAlias",
@@ -233,8 +453,33 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ReportSimilaritySettingsInterface",
+            "OCA\\Hermiq\\Service\\ReportSimilarity\\ReportSimilaritySettings"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\RunHistoryServiceInterface",
             "OCA\\Hermiq\\Service\\RunHistoryService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\RunRetentionCleanerInterface",
+            "OCA\\Hermiq\\Service\\AiFeature\\RunRetentionCleaner"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\RunRetentionPolicyInterface",
+            "OCA\\Hermiq\\Service\\AiFeature\\RunRetentionPolicy"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\RunStepBusInterface",
+            "OCA\\Hermiq\\Service\\Engine\\RunStepBus"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\RunTokenServiceInterface",
+            "OCA\\Hermiq\\Service\\Llm\\RunTokenService"
         ],
         [
             "registerServiceAlias",
@@ -248,8 +493,43 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ScheduleWebhookSecretServiceInterface",
+            "OCA\\Hermiq\\Service\\ScheduleWebhookSecretService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SeedCustodyServiceInterface",
+            "OCA\\Hermiq\\Service\\SeedCustodyService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SeedFreshnessServiceInterface",
+            "OCA\\Hermiq\\Service\\SeedFreshnessService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\ServerSideWorkspaceProviderInterface",
             "OCA\\Hermiq\\Service\\Workspace\\ServerSideWorkspaceProvider"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionParticipantServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionParticipantService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionPendingApprovalsInterface",
+            "OCA\\Hermiq\\Service\\Chat\\SessionPendingApprovals"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SettingsServiceInterface",
+            "OCA\\Hermiq\\Service\\SettingsService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SkillBundleInstallerInterface",
+            "OCA\\Hermiq\\Service\\SkillBundleInstaller"
         ],
         [
             "registerServiceAlias",
@@ -283,13 +563,68 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SkillVersionServiceInterface",
+            "OCA\\Hermiq\\Service\\SkillVersionService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SpeechClientInterface",
+            "OCA\\Hermiq\\Service\\Speech\\SpeechClient"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\StageDispatchServiceInterface",
             "OCA\\Hermiq\\Service\\StageDispatchService"
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkAgentBindingInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkAgentBinding"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkApprovalBindingInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkApprovalBinding"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkBotInstallerInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkBotInstaller"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkBridgeStatusInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkBridgeStatus"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkMentionMatcherInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkMentionMatcher"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\TalkRoomBindingInterface",
             "OCA\\Hermiq\\Service\\Talk\\TalkRoomBinding"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkRoomGroupingInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkRoomGrouping"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkSessionRoomInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkSessionRoom"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnDispatcherInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkTurnDispatcher"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnServiceInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkTurnService"
         ],
         [
             "registerServiceAlias",
@@ -303,8 +638,38 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ToolSearchServiceInterface",
+            "OCA\\Hermiq\\Service\\ToolSearchService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\WebFetchServiceInterface",
+            "OCA\\Hermiq\\Service\\WebResearch\\WebFetchService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\WebResearchEgressGuardInterface",
+            "OCA\\Hermiq\\Service\\WebResearch\\WebResearchEgressGuard"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\WebResearchSettingsHandlerInterface",
+            "OCA\\Hermiq\\Service\\WebResearch\\WebResearchSettingsHandler"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\WebSearchClientInterface",
+            "OCA\\Hermiq\\Service\\WebResearch\\WebSearchClient"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\WebhookAgentRunServiceInterface",
             "OCA\\Hermiq\\Service\\WebhookAgentRunService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\WebhookSecretServiceInterface",
+            "OCA\\Hermiq\\Service\\WebhookSecretService"
         ],
         [
             "registerServiceAlias",

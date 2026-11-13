@@ -35,6 +35,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\AgentGitServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
@@ -53,7 +54,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
  */
-class AgentGitService {
+class AgentGitService implements AgentGitServiceInterface {
 
 	/**
 	 * Package field => agent field: the only fields a pull may change.

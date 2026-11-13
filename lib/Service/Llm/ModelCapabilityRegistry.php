@@ -35,6 +35,7 @@ namespace OCA\Hermiq\Service\Llm;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ModelCapabilityRegistryInterface;
 use OCP\IAppConfig;
 
 /**
@@ -42,7 +43,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
-class ModelCapabilityRegistry {
+class ModelCapabilityRegistry implements ModelCapabilityRegistryInterface {
 
 	/**
 	 * The model reads images natively.

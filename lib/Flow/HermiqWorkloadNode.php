@@ -65,8 +65,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
+use OCA\Hermiq\Kernel\Contracts\AsyncStageDispatchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\StageDispatchServiceInterface;
-use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\StageRequest;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
@@ -88,7 +88,7 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * @param StageDispatchServiceInterface $stages The ExApp stage dispatcher.
 	 * @param IL10N $l10n Translations.
 	 * @param IURLGenerator $urls For the palette icon.
-	 * @param AsyncStageDispatchService|null $asyncStages Optional async dispatcher; added
+	 * @param AsyncStageDispatchServiceInterface|null $asyncStages Optional async dispatcher; added
 	 *                                                    LAST so existing positional
 	 *                                                    construction keeps binding.
 	 *                                                    Null means async is unavailable
@@ -104,7 +104,7 @@ class HermiqWorkloadNode implements IFlowNode {
 		// silently rebinds that argument to a value of the wrong type — which
 		// is the same trap OpenRegister's own FlowEngine constructor documents,
 		// and it cost 41 test errors here the first time this went in second.
-		private readonly ?AsyncStageDispatchService $asyncStages = null,
+		private readonly ?AsyncStageDispatchServiceInterface $asyncStages = null,
 	) {
 	}//end __construct()
 

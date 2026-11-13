@@ -31,11 +31,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\OutsideAgent\OutsideAgentGateway;
+use OCA\Hermiq\Kernel\Contracts\OutsideAgentGatewayInterface;
+use OCA\Hermiq\Kernel\Contracts\OutsideToolSurfaceInterface;
 use OCA\Hermiq\Service\OutsideAgent\OutsideCallRefusedException;
-use OCA\Hermiq\Service\OutsideAgent\OutsideToolSurface;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -64,16 +64,16 @@ class OutsideAgentController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param OutsideToolSurface $surface What the owning apps declared reachable.
-	 * @param OutsideAgentGateway $gateway The two gates and the response filter.
+	 * @param OutsideToolSurfaceInterface $surface What the owning apps declared reachable.
+	 * @param OutsideAgentGatewayInterface $gateway The two gates and the response filter.
 	 * @param IUserSession $userSession Resolves the calling principal.
 	 * @param AuditTrailMapper $auditTrailMapper Records the call.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly OutsideToolSurface $surface,
-		private readonly OutsideAgentGateway $gateway,
+		private readonly OutsideToolSurfaceInterface $surface,
+		private readonly OutsideAgentGatewayInterface $gateway,
 		private readonly IUserSession $userSession,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly LoggerInterface $logger,

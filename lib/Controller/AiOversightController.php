@@ -17,8 +17,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AiOversightAccessInterface;
 use OCA\Hermiq\Kernel\Contracts\AiOversightServiceInterface;
-use OCA\Hermiq\Service\AiOversightAccess;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -55,7 +55,7 @@ class AiOversightController extends Controller {
 	 *
 	 * @param IRequest           $request     The request.
 	 * @param IUserSession       $userSession The signed-in user.
-	 * @param AiOversightAccess  $access      Decides who may read a subject's records.
+	 * @param AiOversightAccessInterface  $access      Decides who may read a subject's records.
 	 * @param AiOversightServiceInterface $oversight   Reads the records.
 	 * @param LoggerInterface    $logger      The logger.
 	 *
@@ -64,7 +64,7 @@ class AiOversightController extends Controller {
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly AiOversightAccess $access,
+		private readonly AiOversightAccessInterface $access,
 		private readonly AiOversightServiceInterface $oversight,
 		private readonly LoggerInterface $logger,
 	) {

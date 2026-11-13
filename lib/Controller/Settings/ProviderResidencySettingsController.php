@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
+use OCA\Hermiq\Kernel\Contracts\ProviderResidencyRegistryInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -51,14 +51,14 @@ class ProviderResidencySettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param ProviderResidencyRegistry $registry Reads/writes the declarations.
+	 * @param ProviderResidencyRegistryInterface $registry Reads/writes the declarations.
 	 * @param LoggerInterface $logger Logger.
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly ProviderResidencyRegistry $registry,
+		private readonly ProviderResidencyRegistryInterface $registry,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
@@ -87,7 +87,7 @@ class ProviderResidencySettingsController extends Controller {
 		return new JSONResponse(
 			[
 				'residencies' => $declarations,
-				'allowed' => ProviderResidencyRegistry::DECLARABLE_RESIDENCIES,
+				'allowed' => ProviderResidencyRegistryInterface::DECLARABLE_RESIDENCIES,
 			]
 		);
 

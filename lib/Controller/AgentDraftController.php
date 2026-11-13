@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
-use OCA\Hermiq\Service\Agent\AgentDraftService;
+use OCA\Hermiq\Kernel\Contracts\AgentDraftServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentDraftUnreadableException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -49,13 +49,13 @@ class AgentDraftController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest          $request     The request.
-	 * @param AgentDraftService $drafts      The draft check.
+	 * @param AgentDraftServiceInterface $drafts      The draft check.
 	 * @param IUserSession      $userSession The signed-in user.
 	 * @param LoggerInterface   $logger      PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AgentDraftService $drafts,
+		private readonly AgentDraftServiceInterface $drafts,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

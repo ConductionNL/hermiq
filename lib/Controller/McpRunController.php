@@ -58,13 +58,13 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
-use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
-use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -159,17 +159,17 @@ class McpRunController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenService $runTokenService Verifies the per-run bearer token.
+	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token.
 	 * @param ObjectService $objectService Loads the run's agent (under the impersonated user).
 	 * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface.
 	 * @param ToolGrantResolver $grantResolver Expands `Agent.tools` against the catalog.
 	 * @param ToolLoopInterface $toolLoop Builds the governed `FacadeToolInvoker` (reused,
 	 *                           not reimplemented).
-	 * @param ToolSearchService $toolSearchService Holds the run's resolved set for the approval gate.
+	 * @param ToolSearchServiceInterface $toolSearchService Holds the run's resolved set for the approval gate.
 	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
 	 * @param IUserSession $userSession Impersonates that user for RBAC on dispatch.
 	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
 	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
 	 *                                              workspace tools for the length of one dispatch.
@@ -183,16 +183,16 @@ class McpRunController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenService $runTokenService,
+		private readonly RunTokenServiceInterface $runTokenService,
 		private readonly ObjectService $objectService,
 		private readonly ToolRegistryFacade $toolRegistryFacade,
 		private readonly ToolGrantResolver $grantResolver,
 		private readonly ToolLoopInterface $toolLoop,
-		private readonly ToolSearchService $toolSearchService,
+		private readonly ToolSearchServiceInterface $toolSearchService,
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly IThrottler $throttler,
-		private readonly RunStepBus $runStepBus,
+		private readonly RunStepBusInterface $runStepBus,
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
@@ -611,7 +611,7 @@ class McpRunController extends Controller {
 					arguments: $shownArguments,
 					result: 'The tool call could not be completed.',
 					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
-					outcome: RunStepBus::OUTCOME_ERROR
+					outcome: RunStepBusInterface::OUTCOME_ERROR
 				);
 
 				return $this->jsonRpcSuccess(id: $id, result: $this->toolError(text: 'The tool call could not be completed.'));

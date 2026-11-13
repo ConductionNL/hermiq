@@ -43,7 +43,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
-use OCA\Hermiq\Service\SeedCustodyService;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Db\Agent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
@@ -97,7 +97,7 @@ class EvalRunController extends Controller {
 	 * @param AgentMapper $agentMapper Resolves + ownership-checks the target Agent.
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
 	 * @param EvalRunServiceInterface $evalRunService Executes the gated, scored eval run.
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (an instance
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (an instance
 	 *                                        admin acts as owner of `__system__`-seeded
 	 *                                        objects only).
 	 * @param LoggerInterface $logger PSR-3 logger.
@@ -111,7 +111,7 @@ class EvalRunController extends Controller {
 		private readonly AgentMapper $agentMapper,
 		private readonly IUserSession $userSession,
 		private readonly EvalRunServiceInterface $evalRunService,
-		private readonly SeedCustodyService $seedCustody,
+		private readonly SeedCustodyServiceInterface $seedCustody,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);

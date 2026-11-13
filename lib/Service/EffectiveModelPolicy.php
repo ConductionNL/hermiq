@@ -31,6 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\EffectiveModelPolicyInterface;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -40,7 +41,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
  */
-class EffectiveModelPolicy {
+class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
