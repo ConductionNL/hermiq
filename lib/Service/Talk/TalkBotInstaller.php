@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
  */
 class TalkBotInstaller {
 
@@ -58,7 +58,7 @@ class TalkBotInstaller {
 	 *
 	 * @var string
 	 */
-	private const SECRET_KEY = 'talk_bot_secret';
+	private const BOT_CREDENTIAL_CONFIG_NAME = 'talk_bot_secret';
 
 	/**
 	 * Spreed's BotInstallEvent class, referenced by name so Hermiq does not
@@ -147,7 +147,7 @@ class TalkBotInstaller {
 	 * classes are absent from static analysis; the class_exists() guard is what makes the
 	 * dynamic instantiation safe at runtime.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
 	 */
 	public function install(): bool {
 		if ($this->bridge->isAvailable() === false || class_exists(self::INSTALL_EVENT) === false) {
@@ -194,7 +194,7 @@ class TalkBotInstaller {
 	 *
 	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
 	 */
 	public function uninstall(): bool {
 		if ($this->bridge->isAvailable() === false || class_exists(self::UNINSTALL_EVENT) === false) {
@@ -254,7 +254,7 @@ class TalkBotInstaller {
 	 *
 	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) TalkBridge::botUrlFor() is a pure
 	 * function of the agent id — see TalkBridge for why the URL helpers are
@@ -323,7 +323,7 @@ class TalkBotInstaller {
 	 *
 	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-an-agents-bot-follows-the-agents-lifecycle
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See installForAgent().
 	 */
@@ -373,7 +373,7 @@ class TalkBotInstaller {
 	 *
 	 * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See installForAgent().
 	 */
@@ -491,7 +491,7 @@ class TalkBotInstaller {
 	 *
 	 * @return string The agent's bot secret.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 	private function secretForAgent(string $agentId): string {
 		return hash_hmac('sha256', $agentId, $this->secret());
@@ -506,13 +506,13 @@ class TalkBotInstaller {
 	 * @return string The bot secret.
 	 */
 	private function secret(): string {
-		$secret = $this->appConfig->getValueString('hermiq', self::SECRET_KEY, '');
+		$secret = $this->appConfig->getValueString('hermiq', self::BOT_CREDENTIAL_CONFIG_NAME, '');
 		if ($secret !== '') {
 			return $secret;
 		}
 
 		$secret = $this->secureRandom->generate(64, ISecureRandom::CHAR_ALPHANUMERIC);
-		$this->appConfig->setValueString('hermiq', self::SECRET_KEY, $secret, sensitive: true);
+		$this->appConfig->setValueString('hermiq', self::BOT_CREDENTIAL_CONFIG_NAME, $secret, sensitive: true);
 
 		return $secret;
 	}//end secret()

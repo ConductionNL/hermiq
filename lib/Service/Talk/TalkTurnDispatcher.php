@@ -36,7 +36,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
  */
 
 declare(strict_types=1);
@@ -54,7 +54,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
 class TalkTurnDispatcher {
 
@@ -100,7 +100,7 @@ class TalkTurnDispatcher {
 	 *
 	 * @return string The path taken: `triggered` or `queued`.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	public function dispatch(string $conversationUuid, string $speakerUid, string $message, string $roomToken): string {
 		$argument = [
@@ -138,7 +138,7 @@ class TalkTurnDispatcher {
 	 *
 	 * @return bool True when a triggerable runner was actually nudged.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	private function triggerFastPath(): bool {
 		if ($this->taskManager === null) {
@@ -186,7 +186,7 @@ class TalkTurnDispatcher {
 	 *
 	 * @return bool True when a triggerable provider is available.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
 	 */
 	public function hasTriggerableProvider(): bool {
 		if ($this->taskManager === null) {

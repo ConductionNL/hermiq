@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
  * `$fanOutCount`, which the OWNING turn increments each time it successfully
  * makes a further `hermiq.delegateAgent` call.
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
  */
 final class DelegationFrame {
 
@@ -103,7 +103,7 @@ final class DelegationFrame {
  * services (`ScheduleService`, `DelegationService`) both need to see the
  * SAME current frame.
  *
- * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+ * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
  */
 class DelegationContext {
 
@@ -129,7 +129,7 @@ class DelegationContext {
 	 *
 	 * @return DelegationFrame The newly-pushed frame.
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function push(string $runId, string $agentId, string $organisation, ?ObjectEntity $anchor): DelegationFrame {
 		$previous = $this->current();
@@ -165,7 +165,7 @@ class DelegationContext {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function pop(): void {
 		array_pop($this->stack);
@@ -178,7 +178,7 @@ class DelegationContext {
 	 *
 	 * @return DelegationFrame|null
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function current(): ?DelegationFrame {
 		if ($this->stack === []) {
@@ -193,7 +193,7 @@ class DelegationContext {
 	 *
 	 * @return int
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function depth(): int {
 		return ($this->current()->depth ?? 0);
@@ -205,7 +205,7 @@ class DelegationContext {
 	 *
 	 * @return array<int,string>
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 */
 	public function ancestorAgentIds(): array {
 		return ($this->current()->ancestorAgentIds ?? []);
@@ -218,7 +218,7 @@ class DelegationContext {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function incrementFanOut(): void {
 		$frame = $this->current();
@@ -235,7 +235,7 @@ class DelegationContext {
 	 *
 	 * @return int
 	 *
-	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function fanOutCount(): int {
 		return ($this->current()->fanOutCount ?? 0);

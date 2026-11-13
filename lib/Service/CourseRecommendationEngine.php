@@ -51,8 +51,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
- * @spec openspec/changes/ai-course-recommendations/tasks.md#2-recommendation-engine-cross-app-read-deterministic-scoring-optional-llm-phrasing
+ * @spec openspec/specs/course-recommendations/spec.md
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#2-recommendation-engine-cross-app-read-deterministic-scoring-optional-llm-phrasing
  */
 
 declare(strict_types=1);
@@ -62,6 +62,7 @@ namespace OCA\Hermiq\Service;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -84,7 +85,7 @@ use Throwable;
  *   two-stage explanation pipeline, persistence) — mirrors the accepted precedent in
  *   `ScheduleService`/`OrganisationOpsService`/`DeliveryService` for governed-pipeline classes.
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 class CourseRecommendationEngine {
 
@@ -185,7 +186,7 @@ class CourseRecommendationEngine {
 	 * @param ObjectService $objectService OpenRegister read/write (single write-path).
 	 * @param LearnerSignalRegister $signalRegister Tells "app or register absent" from "no data".
 	 * @param LearnerSignalReader $signalReader Reads the learner signals from the resolved register.
-	 * @param AiFeatureService $aiFeatureService The AiFeature DPO-ack gate (2.2).
+	 * @param AiFeatureLookup $aiFeatureLookup The AiFeature DPO-ack gate (2.2).
 	 * @param ScheduleService $scheduleService The tenant kill-switch (2.3/Stage 2).
 	 * @param ProviderFactory $providerFactory Credential-broker-backed LLM call.
 	 * @param OrganisationMapper $organisationMapper Resolves the caller's own organisation.
@@ -197,7 +198,7 @@ class CourseRecommendationEngine {
 		private readonly ObjectService $objectService,
 		private readonly LearnerSignalRegister $signalRegister,
 		private readonly LearnerSignalReader $signalReader,
-		private readonly AiFeatureService $aiFeatureService,
+		private readonly AiFeatureLookup $aiFeatureLookup,
 		private readonly ScheduleService $scheduleService,
 		private readonly ProviderFactory $providerFactory,
 		private readonly OrganisationMapper $organisationMapper,
@@ -223,14 +224,14 @@ class CourseRecommendationEngine {
 	 * @return array<string, mixed> The CourseRecommendation payload (plus `uuid`
 	 *                              when persisted).
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-8
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-8
 	 */
 	public function getOrRegenerate(string $learnerUid): array {
 		$now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
 		// Gate 1 (2.2): the AiFeature DPO-ack gate — zero Scholiq/LLM footprint
 		// when missing or not enabled.
-		$feature = $this->aiFeatureService->findBySlug(slug: self::AIFEATURE_SLUG);
+		$feature = $this->aiFeatureLookup->findBySlug(slug: self::AIFEATURE_SLUG);
 		if ($feature === null || (string)($feature->getObject()['lifecycle'] ?? '') !== 'enabled') {
 			return $this->unavailableResult(learnerUid: $learnerUid, reason: self::REASON_FEATURE_NOT_ENABLED);
 		}
@@ -277,9 +278,9 @@ class CourseRecommendationEngine {
 	 *
 	 * @return array<string, mixed> The persisted (or, on a write failure, in-memory) payload.
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-6
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-7
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-5
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-6
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-7
 	 */
 	private function regenerate(
 		string $learnerUid,
@@ -389,8 +390,8 @@ class CourseRecommendationEngine {
 	 *
 	 * @return array{candidateCount: int, recommendations: array<int, array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-6
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-6
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-ranking-is-deterministic-and-reproducible-explanation-phrasing-is-optional-and-never-changes-it
 	 */
 	public function scoreCandidates(
 		array $courses,
@@ -430,8 +431,8 @@ class CourseRecommendationEngine {
 	 * @return array{0: array<int, array<string, mixed>>, 1: string, 2: string|null}
 	 *                                                                               [recommendations-with-explanation, explanationMode, modelUsed]
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-7
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-a-recommendation-is-never-returned-without-an-explanation
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-7
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-a-recommendation-is-never-returned-without-an-explanation
 	 */
 	private function explain(array $recommendations, string $organisation, bool $killSwitchEngaged): array {
 		$driver = null;

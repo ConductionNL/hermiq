@@ -35,8 +35,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
  */
 
 declare(strict_types=1);
@@ -54,7 +54,7 @@ use Throwable;
  * Handles context retrieval for RAG chat responses against OpenRegister's
  * public search surface.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
  *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Complex RAG context retrieval, ported structure
  */
@@ -69,7 +69,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -98,7 +98,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @psalm-return array{text: string, sources: list<array>}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	public function retrieveContext(
 		string $query,
@@ -167,7 +167,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return array{searchMode: mixed, include: array{file: mixed, object: mixed}, limit: array{file: mixed, object: mixed}}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function retrievalSettings(array $agentData, array $ragSettings): array {
 		$numSources = $agentData['ragNumSources'] ?? 5;
@@ -196,7 +196,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return array{results: mixed, text: mixed}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function candidateResults(array $run): array {
 		$searchMode = $run['settings']['searchMode'];
@@ -248,7 +248,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function logRetrieved(array $run, array $collected): void {
 		$this->logger->info(
@@ -356,7 +356,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @psalm-return list<array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-apps-agent-answers-from-the-apps-data-first-req-appag-003
 	 */
 	private function searchScoped(string $query, int $limit, array $viewFilters, string $applicationSlug = ''): array {
@@ -415,7 +415,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @psalm-return list<array<string, mixed>>
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
 	 */
 	private function searchKeywordOnly(string $query, int $limit, array $views): array {
 		$results = $this->objectService->searchObjectsPaginated(

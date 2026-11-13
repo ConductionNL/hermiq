@@ -39,7 +39,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+ * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
  */
 
 declare(strict_types=1);
@@ -61,7 +61,7 @@ use Throwable;
  *   queries, files) is a skip-and-log loop whose per-entry defensive guards each add a
  *   branch; the class-wide sum crosses the threshold without any deep nesting.
  *
- * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+ * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
  */
 class ContextAssembler {
 
@@ -176,7 +176,7 @@ class ContextAssembler {
 	 * @return string The concatenated preamble (each bundle under a `Context: {name}`
 	 *                header), or `''` when the agent has no attached context.
 	 *
-	 * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
 	 */
 	public function assembleForAgent(?ObjectEntity $agent, string $actingUserId): string {
 		$blocks = [];
@@ -359,7 +359,7 @@ class ContextAssembler {
 	 *                                                       by `Context: {name}`; `''` when the Context cannot be resolved) and
 	 *                                                       whether it exceeded the object's charBudget.
 	 *
-	 * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
 	 */
 	public function assemble(string $contextId, string $actingUserId): array {
 		$context = $this->objectService->find(
@@ -408,7 +408,13 @@ class ContextAssembler {
 	 *
 	 * @return array<int, string> One formatted block per resolved query.
 	 *
-	 * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-query
+	 *   guard (array shape, register/schema present, optional filters/search, read
+	 *   failure) is a single flat condition preserving the never-fatal contract.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: independent skips multiply
+	 *   paths without nesting.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
 	 */
 	private function resolveObjectQueries(mixed $queries): array {
 		if (is_array($queries) === false) {
@@ -626,7 +632,13 @@ class ContextAssembler {
 	 *
 	 * @return array<int, string> One formatted block per resolved file.
 	 *
-	 * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-file
+	 *   guard (array shape, non-empty path, exists, is-a-file, size cap, read failure)
+	 *   is a single flat condition preserving the never-fatal contract.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: independent skips multiply
+	 *   paths without nesting.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
 	 */
 	private function resolveFiles(mixed $files, string $actingUserId): array {
 		if (is_array($files) === false || $files === [] || $actingUserId === '') {
@@ -808,7 +820,7 @@ class ContextAssembler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
+	 * @spec openspec/changes/archive/2026-09-06-agent-context-system/tasks.md#2-contextassembler
 	 */
 	private function persistFlagIfChanged(ObjectEntity $context, array $data, bool $needsConsolidation): void {
 		$stored = (bool)($data['needsConsolidation'] ?? false);
