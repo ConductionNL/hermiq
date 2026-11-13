@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use Closure;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
  */
 class StreamYieldChannel {
 
@@ -234,7 +234,7 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolCall(array $payload): void {
 		$payload = $this->screenToolDetail(payload: $payload, key: 'arguments');
@@ -252,7 +252,7 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function emitToolResult(array $payload): void {
 		$payload = $this->screenToolDetail(payload: $payload, key: 'result');
@@ -272,7 +272,7 @@ class StreamYieldChannel {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function screenToolDetails(callable $screen): void {
 		$this->toolDetailScreen = $screen(...);

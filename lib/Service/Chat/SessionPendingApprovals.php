@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-about-a-subject/tasks.md
+ * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCA\Hermiq\Service\ToolAccessRequestService;
  * Lists a session agent's pending tool-access requests and the tool-call
  * approvals the caller reviews.
  *
- * @spec openspec/changes/session-about-a-subject/tasks.md
+ * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
 class SessionPendingApprovals {
 
@@ -43,7 +43,7 @@ class SessionPendingApprovals {
 	 * @param ToolAccessRequestService $accessRequests The agent's pending tool-access requests.
 	 * @param ApprovalInbox            $approvals      The approvals routed to a reviewer.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/tasks.md
+	 * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
 	 */
 	public function __construct(
 		private readonly ToolAccessRequestService $accessRequests,
@@ -62,7 +62,7 @@ class SessionPendingApprovals {
 	 *
 	 * @return array<int, array<string, mixed>> The approvals.
 	 *
-	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-sessions-messages-come-with-the-approvals-waiting-on-its-owner
 	 */
 	public function forSession(array $session, string $uid): array {
 		$agentId = ($session['agentId'] ?? null);

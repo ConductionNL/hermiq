@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use OCP\IAppConfig;
 /**
  * Reads and writes the administered residency label of each configured provider.
  *
- * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+ * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
  */
 class ProviderResidencyRegistry {
 
@@ -105,7 +105,7 @@ class ProviderResidencyRegistry {
 	 *
 	 * @return array<string, array{provider: string, residency: string, location: string}> The declarations.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function all(): array {
 		return $this->store()->each(read: fn (string $provider): array => $this->forProvider(provider: $provider));
@@ -120,7 +120,7 @@ class ProviderResidencyRegistry {
 	 *
 	 * @return array{provider: string, residency: string, location: string} The declaration.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function forProvider(string $provider): array {
 		$entry = ($this->store()->stored()[$provider] ?? null);
@@ -155,7 +155,7 @@ class ProviderResidencyRegistry {
 	 *
 	 * @throws InvalidArgumentException When the provider or the residency is not a supported value.
 	 *
-	 * @spec openspec/changes/a-provider-and-a-place-per-ai-feature/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-configured-provider-must-declare-where-it-runs
 	 */
 	public function declareResidency(string $provider, string $residency, string $location = ''): array {
 		if (in_array($provider, LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS, true) === false) {

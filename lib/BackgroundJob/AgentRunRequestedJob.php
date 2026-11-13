@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#1-listener-and-queued-job
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#1-listener-and-queued-job
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @psalm-api
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-3
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-1-3
  */
 class AgentRunRequestedJob extends QueuedJob {
 	/**
@@ -64,7 +64,7 @@ class AgentRunRequestedJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-1-3
 	 */
 	protected function run($argument): void {
 		$payload = $argument;

@@ -94,7 +94,7 @@ class TurnGuardrail {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function screenToolDetails(?StreamYieldChannel $channel): void {
 		$policies = $this->policies;

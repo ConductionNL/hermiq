@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+ * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use Throwable;
 /**
  * Owner-scoped "Run now" endpoint that fires a schedule via ScheduleService.
  *
- * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+ * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
  */
 class RunNowController extends Controller {
 
@@ -80,7 +80,7 @@ class RunNowController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param LiteracyRequirement|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	public function __construct(
 		IRequest $request,
@@ -103,7 +103,7 @@ class RunNowController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	public function run(string $scheduleId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -170,7 +170,7 @@ class RunNowController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 */
 	public function dryRun(string $scheduleId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -227,7 +227,7 @@ class RunNowController extends Controller {
 	 *
 	 * @return ObjectEntity|null The owned schedule, or null when absent/not owned.
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
 		try {

@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-approval-reactions/tasks.md#2-reaction-listener
+ * @spec openspec/changes/archive/2026-07-30-talk-approval-reactions/tasks.md#2-reaction-listener
  */
 
 declare(strict_types=1);
@@ -55,7 +55,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+ * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
  */
 class TalkApprovalReactionListener implements IEventListener {
 
@@ -102,7 +102,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	public function handle(Event $event): void {
 		try {
@@ -123,7 +123,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function handleReaction(Event $event): void {
 		$payload = $this->readPayload(event: $event);
@@ -158,7 +158,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function fromReviewer(ObjectEntity $approval, string $reactor): bool {
 		if ($this->approvalInbox->isReviewer($approval, $reactor) === true) {
@@ -190,7 +190,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @return array{messageId: string, reactor: string, emoji: string, undo: bool}|null
 	 *                                                                                   The decision inputs, or null.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	private function readDecision(array $payload): ?array {
 		$undo = ((string)($payload['type'] ?? '') === 'Undo');
@@ -241,7 +241,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function decide(ObjectEntity $approval, array $decision): void {
 		$data = $approval->getObject();
@@ -275,7 +275,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function applyDecision(ObjectEntity $approval, array $decision): void {
 		$data = $approval->getObject();
@@ -302,7 +302,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function confirmingAgent(array $data): ?string {
 		$agentId = (string)($data['agentId'] ?? '');
@@ -322,7 +322,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return string The confirmation to post.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
 	 */
 	private function recordDecision(ObjectEntity $approval, array $decision): string {
 		$uuid = (string)$approval->getUuid();
@@ -348,7 +348,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return array|null The reaction payload, or null.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-the-reaction-path-is-inert-without-talk
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-the-reaction-path-is-inert-without-talk
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See TalkBotInvokeListener::readPayload():
 	 * the URL predicate is static so the real rule stays in the path under test.
@@ -394,7 +394,7 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @return string The bare uid.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-only-the-reviewer-may-decide-by-reaction
 	 */
 	private function bareUid(string $actorId): string {
 		if (str_starts_with($actorId, 'users/') === true) {

@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
 /**
  * Reads, administers and switches off the assistant's prompt library.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
  */
 class AssistantPromptLibrary {
 
@@ -97,7 +97,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return array<int, array<string, mixed>> The library.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
 	 */
 	public function all(): array {
 		$rows = [];
@@ -124,7 +124,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return array<int, array<string, mixed>> The prompts to offer.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-scope-decides-where-a-prompt-appears
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-scope-decides-where-a-prompt-appears
 	 */
 	public function forScope(string $usageScope): array {
 		$offered = [];
@@ -154,7 +154,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return array<string, mixed> The stored prompt.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
 	 */
 	/**
 	 * Copy the fields a payload may set onto the stored prompt.
@@ -201,7 +201,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return array<string, mixed> The stored prompt, with its id.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
 	 */
 	public function upsert(?string $id, array $payload): array {
 		return $this->write(id: $id, payload: $payload, administered: true);
@@ -221,7 +221,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return array<string, mixed> The stored prompt, with its id.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
 	 */
 	public function upsertShipped(?string $id, array $payload): array {
 		return $this->write(id: $id, payload: $payload, administered: false);
@@ -282,7 +282,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return int How many prompts were switched off.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
 	 */
 	public function disableAll(?string $usageScope, string $actor): int {
 		$disabled = 0;
@@ -344,7 +344,7 @@ class AssistantPromptLibrary {
 	 *   route would invent a write endpoint the spec does not ask for. It
 	 *   stays, unreachable and deliberate, until a consuming app calls it.
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-a-consuming-app-may-ship-an-initial-library-and-must-not-hold-the-edited-state
 	 */
 	public function seed(string $appId, array $prompts): array {
 		$existing = [];
@@ -417,7 +417,7 @@ class AssistantPromptLibrary {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-the-switch-off-is-on-the-record
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-the-switch-off-is-on-the-record
 	 */
 	private function recordDisableAll(?string $usageScope, string $actor, int $disabled): void {
 		try {

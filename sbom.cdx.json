@@ -18104,8 +18104,8 @@
     {
       "type": "library",
       "name": "fast-uri",
-      "version": "3.1.7",
-      "bom-ref": "hermiq@0.1.0|fast-uri@3.1.7",
+      "version": "3.1.9",
+      "bom-ref": "hermiq@0.1.0|fast-uri@3.1.9",
       "licenses": [
         {
           "license": {
@@ -18113,15 +18113,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/fast-uri@3.1.7",
+      "purl": "pkg:npm/fast-uri@3.1.9",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.7.tgz",
+          "url": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "74ebd95738dd65dcfba6177dbfa8c26f0c6b056ddf2ba9fc45cd02b5d98ce1bba6ccc9f1cb005886ea61e89f35f51470fe4bbeacb6de9707ccba792dbb35551e"
+              "content": "852ff45addd86b4e37a0a5ecd2c231acca4a4084d784c2c8ad500a2978b8828cc60bdbfb6115959d7219ce334f4ced3633d05dc4b096a8ad7245780dce257225"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -18626,8 +18626,8 @@
     {
       "type": "library",
       "name": "follow-redirects",
-      "version": "1.16.0",
-      "bom-ref": "hermiq@0.1.0|follow-redirects@1.16.0",
+      "version": "1.16.3",
+      "bom-ref": "hermiq@0.1.0|follow-redirects@1.16.3",
       "licenses": [
         {
           "license": {
@@ -18635,15 +18635,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/follow-redirects@1.16.0",
+      "purl": "pkg:npm/follow-redirects@1.16.3",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.0.tgz",
+          "url": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.3.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "cb9acdfee3ac69d153fc97d8c21c514b947b41c7be837cc6f7bf89aed159942f64957fd6e610fb8a22f349c2389d9a944bb0cd51d84f830e3123c5b62ee5e553"
+              "content": "b68392a2a37a779d568dfd5a38525872856fd5a343f6b8ff0b08cb534573e34a03b92a560dac8278a7b82692f934bd16745be838e088dc1468ebd1da8636d1d4"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -26693,8 +26693,8 @@
     {
       "type": "library",
       "name": "prosemirror-model",
-      "version": "1.25.11",
-      "bom-ref": "hermiq@0.1.0|prosemirror-model@1.25.11",
+      "version": "1.25.13",
+      "bom-ref": "hermiq@0.1.0|prosemirror-model@1.25.13",
       "licenses": [
         {
           "license": {
@@ -26702,15 +26702,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/prosemirror-model@1.25.11",
+      "purl": "pkg:npm/prosemirror-model@1.25.13",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/prosemirror-model/-/prosemirror-model-1.25.11.tgz",
+          "url": "https://registry.npmjs.org/prosemirror-model/-/prosemirror-model-1.25.13.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "41683d4619e92e5a20026a77a7deae105ac4e6dc50a45ca7778be104010b93080e09642cfd7d320b3077fe1ac7aa23f07fdd511b92b25aaeb9e77cecf49a8839"
+              "content": "3250cc5868d85da60e78288ed7b8dcc9b9ed08eccf9cdfbded4d3cd3d91ed90b203edc56de7e7fb03e992b224e35480cc3588ff77a216538de2a39d127b2fa91"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -26792,8 +26792,8 @@
     {
       "type": "library",
       "name": "prosemirror-view",
-      "version": "1.42.3",
-      "bom-ref": "hermiq@0.1.0|prosemirror-view@1.42.3",
+      "version": "1.42.9",
+      "bom-ref": "hermiq@0.1.0|prosemirror-view@1.42.9",
       "licenses": [
         {
           "license": {
@@ -26801,15 +26801,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/prosemirror-view@1.42.3",
+      "purl": "pkg:npm/prosemirror-view@1.42.9",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/prosemirror-view/-/prosemirror-view-1.42.3.tgz",
+          "url": "https://registry.npmjs.org/prosemirror-view/-/prosemirror-view-1.42.9.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "a1337b12d1fe0a9c3153d36bc04616774519e09531ee5d38f25e40d97a699b8a7feb48ac6582e7b61f50550982dd5448bddac8582c7065277e533efdd46df5ff"
+              "content": "6ca6dfcde2993aed87d89414d93689998bba101728af75671884788d1df571b12dd73b549df501e9b286575f9f27338976b55647eb51534db4f33337a10c78c0"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -32689,8 +32689,8 @@
         {
           "type": "library",
           "name": "brace-expansion",
-          "version": "2.1.4",
-          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|brace-expansion@2.1.4",
+          "version": "2.1.8",
+          "bom-ref": "hermiq@0.1.0|webdav@5.10.0|brace-expansion@2.1.8",
           "licenses": [
             {
               "license": {
@@ -32698,15 +32698,15 @@
               }
             }
           ],
-          "purl": "pkg:npm/brace-expansion@2.1.4",
+          "purl": "pkg:npm/brace-expansion@2.1.8",
           "externalReferences": [
             {
-              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.4.tgz",
+              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.8.tgz",
               "type": "distribution",
               "hashes": [
                 {
                   "alg": "SHA-512",
-                  "content": "8467d5ccfc6d85b7f7fb6ca383f441b3ad1c074161a814bfcef755ff8c27e3f0663746cd30c1cf73857f05b1627aa7f54ca0061801e76387928da8c29747f65e"
+                  "content": "067943cc3610a29953b194af3e2f3a08dce66dc6f4ed7f2e7d1f1f935ce2bda8842655c9922ab5310c830959a559cb166e3e9a597a879ebc307af6eb9bf49a8a"
                 }
               ],
               "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""

@@ -34,6 +34,7 @@ use Random\Randomizer;
  * Seeded step sequences give the recorded comparison and replay diff.
  *
  * @covers \OCA\Hermiq\Service\RunComparator
+ * @uses \OCA\Hermiq\Service\ComparedRun
  *
  * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-steps-are-aligned-so-an-extra-step-shows-as-one-difference-req-rcmp-002
  */

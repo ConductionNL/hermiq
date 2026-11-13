@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Bundle (de)serialiser — many skills in one repository tree.
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
 class SkillBundleSerializer {
 
@@ -162,7 +162,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return array<string, string> The `path => contents` bundle tree.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function toBundle(array $skills, ?array &$dropped = null, array $agents = [], ?array &$droppedAgents = null): array {
 		$skillPick = $this->selectEntries(items: $skills, kind: new BundleKind(name: 'skill', cap: self::MAX_SKILLS));
@@ -190,7 +190,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return array{tree: array<string, string>, entries: list<array{name: string, files: int}>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function skillFiles(array $accepted): array {
 		$tree = [];
@@ -220,7 +220,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return array{tree: array<string, string>, entries: list<array{name: string}>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function agentFiles(array $accepted): array {
 		$tree = [];
@@ -245,7 +245,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return BundleSelection The accepted entries and the dropped ones with their reason.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function selectEntries(array $items, BundleKind $kind): BundleSelection {
 		$selection = new BundleSelection(
@@ -285,7 +285,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return array<int, array<string, mixed>> One parsed skill payload per entry.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
 	 */
 	public function fromBundle(array $files): array {
 		return $this->parseDeclared(
@@ -412,7 +412,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return array<string, string> The skill's own `relative path => contents` map.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
 	 */
 	private function entriesFor(string $name, array $files): array {
 		$prefix = self::SKILLS_PREFIX . $name . '/';
@@ -449,7 +449,7 @@ class SkillBundleSerializer {
 	 *
 	 * @return string The agentskills.io package string.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	public function packageOf(array $skill): string {
 		return $this->skillSerializer->toPackage(skill: $skill);

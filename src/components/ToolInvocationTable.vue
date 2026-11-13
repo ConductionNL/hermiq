@@ -17,8 +17,8 @@
     endpoint degrades to the coarser run-audit entries and sets available/source; this view
     then shows a REDUCED-DETAIL indicator rather than implying the detail is simply absent.
 
-  @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
-  @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
+  @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
+  @spec openspec/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
 -->
 <template>
 	<section class="tool-oversight">
@@ -144,7 +144,7 @@
 							<td>
 								<span :class="resultClass(row)">{{
 									/**
-									 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+									 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 									 */
 									resultLabel(row)
 								}}</span>
@@ -230,7 +230,7 @@ export default {
 		 * policy" rendered literally as "OpenRegister&#39;s AuditTrail policy".
 		 *
 		 * @return {string} The retention label.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		retentionLabel() {
 			return this.t(
@@ -246,7 +246,7 @@ export default {
 	watch: {
 		agentId: {
 			/**
-			 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+			 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 			 */
 			handler() {
 				this.load()
@@ -261,7 +261,7 @@ export default {
 		 * Load this agent's oversight rows.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		async load() {
 			this.loading = true
@@ -284,7 +284,7 @@ export default {
 		 *
 		 * @param {string} format Either 'csv' or 'json'.
 		 * @return {void}
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		exportAs(format) {
 			window.location.href = toolInvocationsExportUrl(this.agentId, format)
@@ -295,7 +295,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -309,7 +309,7 @@ export default {
 		 *
 		 * @param {string} digest The full digest.
 		 * @return {string} The shortened digest.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		shortDigest(digest) {
 			return digest.length > 12 ? `${digest.slice(0, 12)}…` : digest
@@ -320,7 +320,7 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The result label.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultLabel(row) {
 			const summary = row.resultSummary
@@ -336,7 +336,7 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The class.
-		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+		 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultClass(row) {
 			const isError = !!(row.resultSummary && row.resultSummary.isError)

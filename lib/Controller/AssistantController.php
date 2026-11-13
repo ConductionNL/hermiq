@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/case-assistant-surface/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Psr\Log\LoggerInterface;
 /**
  * AssistantController handles the case-assistant-surface conversational endpoint.
  *
- * @spec openspec/changes/case-assistant-surface/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-2-1
  */
 class AssistantController extends Controller {
 	/**
@@ -53,7 +53,7 @@ class AssistantController extends Controller {
 	 * @param IL10N $l10n Localization service for translations.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-2-1
 	 */
 	public function __construct(
 		IRequest $request,
@@ -73,7 +73,7 @@ class AssistantController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-2-1
 	 */
 	public function converse(): JSONResponse {
 		try {
@@ -99,7 +99,7 @@ class AssistantController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-07-16-woo-llm-anonymisation/tasks.md#task-2-1
 	 */
 	public function detectPii(): JSONResponse {
 		try {
@@ -248,7 +248,7 @@ class AssistantController extends Controller {
 	 *
 	 * @throws Exception If no user is authenticated (code 401).
 	 *
-	 * @spec openspec/changes/case-assistant-surface/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-case-assistant-surface/tasks.md#task-2-1
 	 */
 	private function requireUserId(): string {
 		$user = $this->userSession->getUser();

@@ -117,7 +117,7 @@ class AgentArtefactMarker {
 	 * @throws ArtefactMarkingFailedException When the tag cannot be resolved,
 	 *                                        created or assigned.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/changes/archive/2026-08-15-nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
 	 */
 	public function markFile(int $fileId): void {
 		try {
@@ -149,7 +149,7 @@ class AgentArtefactMarker {
 	 *
 	 * @return bool True when the mark is present.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/changes/archive/2026-08-15-nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
 	 */
 	public function isFileMarked(int $fileId): bool {
 		try {
@@ -174,7 +174,7 @@ class AgentArtefactMarker {
 	 *
 	 * @return string The property value to store under `self::OBJECT_PROPERTY`.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/changes/archive/2026-08-15-nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
 	 */
 	public function objectPropertyValue(string $agentId = ''): string {
 		if (trim($agentId) === '') {

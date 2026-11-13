@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use Throwable;
  * Not final, like its neighbours in this namespace: the controllers, listeners
  * and services that consult it mock it in their unit tests.
  *
- * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+ * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
  */
 class ApprovalInbox {
 
@@ -86,7 +86,7 @@ class ApprovalInbox {
 	 *
 	 * @return array<int, array<string, mixed>> Compact pending-approval records.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 */
 	public function listPendingForReviewer(string $uid): array {
 		if ($uid === '') {
@@ -118,7 +118,7 @@ class ApprovalInbox {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
 	public function isReviewer(ObjectEntity $approval, string $uid): bool {
 		if ($uid === '') {

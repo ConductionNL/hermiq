@@ -10,8 +10,8 @@
   INBOUND trigger secret) exactly — both are NcModal-based reveal-once secret
   dialogs; only the backing service/endpoints differ.
 
-  @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
-  @spec openspec/changes/delivery-channels/design.md
+  @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+  @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
 -->
 <template>
 	<NcModal
@@ -162,7 +162,7 @@ export default {
 
 	watch: {
 		/**
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		show(open) {
 			if (open) {
@@ -180,7 +180,7 @@ export default {
 		 * Load the current webhook-secret status ({configured:false} when unconfigured).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async loadStatus() {
 			this.status = await getScheduleWebhookSecretStatus(
@@ -192,7 +192,7 @@ export default {
 		 * Copy the revealed secret to the clipboard.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		copy() {
 			return copySecret(this.revealedSecret)
@@ -202,7 +202,7 @@ export default {
 		 * Mint a new webhook signing secret for this schedule.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		mint() {
 			return this.runSecretAction(
@@ -216,7 +216,7 @@ export default {
 		 * previous one immediately.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		rotate() {
 			return this.runSecretAction(
@@ -229,7 +229,7 @@ export default {
 		 * Revoke this schedule's webhook signing secret.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		revoke() {
 			return this.runSecretAction(
@@ -247,7 +247,7 @@ export default {
 		 *
 		 * @param {object} result The server's { secret, rotatedAt }.
 		 * @return {void}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		reveal(result) {
 			this.revealedSecret = result.secret
@@ -261,7 +261,7 @@ export default {
 		 * @param {function(): Promise<void>} action The action.
 		 * @param {string} failure The translated fallback error.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 * @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async runSecretAction(action, failure) {
 			this.busy = true

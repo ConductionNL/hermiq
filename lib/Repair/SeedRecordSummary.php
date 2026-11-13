@@ -28,10 +28,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -204,21 +204,6 @@ class SeedRecordSummary implements IRepairStep {
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function featureExists(ObjectService $objectService): bool {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => RecordSummaryService::FEATURE_SLUG], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if ($object instanceof ObjectEntity && (string)($object->getObject()['slug'] ?? '') === RecordSummaryService::FEATURE_SLUG) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new AiFeatureRows(objectService: $objectService))->exists(slug: RecordSummaryService::FEATURE_SLUG);
 	}//end featureExists()
 }//end class
