@@ -25,7 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Literacy\LiteracyCourse;
 use OCA\Hermiq\Service\Literacy\LiteracyReport;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
@@ -64,7 +64,7 @@ class LiteracyController extends Controller {
 		private readonly LiteracyRequirement $requirement,
 		private readonly LiteracyReport $report,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

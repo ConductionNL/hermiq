@@ -47,7 +47,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -1073,7 +1073,7 @@ class BudgetService {
 	 * @return float|null
 	 */
 	private function eurRate(): ?float {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::EUR_RATE_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::EUR_RATE_KEY, '');
 		if ($raw === '' || is_numeric($raw) === false) {
 			return null;
 		}

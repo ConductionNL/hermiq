@@ -40,7 +40,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Agent\AgentCatalog;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -155,7 +155,7 @@ class AgentsController extends Controller {
 		private readonly AgentAccessService $agentAccess,
 		private readonly AgentCatalog $catalog,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

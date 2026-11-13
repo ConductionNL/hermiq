@@ -28,7 +28,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\MessageTranslationEngine;
 use OCA\Hermiq\Service\Translation\TranslationDisclosure;
 use OCP\AppFramework\Controller;
@@ -79,7 +79,7 @@ class MessageTranslationController extends Controller {
 		private readonly LoggerInterface $logger,
 		?TranslationDisclosure $disclosure=null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->disclosure = $disclosure ?? new TranslationDisclosure();
 	}//end __construct()
 

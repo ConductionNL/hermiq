@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller\Settings;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Intake\IntakeSettings;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
@@ -60,7 +60,7 @@ class IntakeSettingsController extends Controller {
 		private readonly IntakeSettings $settings,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

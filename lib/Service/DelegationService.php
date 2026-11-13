@@ -43,7 +43,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -673,7 +673,7 @@ class DelegationService {
 	 * @return int
 	 */
 	private function maxDepth(): int {
-		return max(1, (int)$this->appConfig->getValueString(Application::APP_ID, self::MAX_DEPTH_KEY, self::DEFAULT_MAX_DEPTH));
+		return max(1, (int)$this->appConfig->getValueString(AppIdentity::APP_ID, self::MAX_DEPTH_KEY, self::DEFAULT_MAX_DEPTH));
 	}//end maxDepth()
 
 	/**
@@ -683,7 +683,7 @@ class DelegationService {
 	 * @return int
 	 */
 	private function maxFanOut(): int {
-		return max(1, (int)$this->appConfig->getValueString(Application::APP_ID, self::MAX_FAN_OUT_KEY, self::DEFAULT_MAX_FAN_OUT));
+		return max(1, (int)$this->appConfig->getValueString(AppIdentity::APP_ID, self::MAX_FAN_OUT_KEY, self::DEFAULT_MAX_FAN_OUT));
 	}//end maxFanOut()
 
 	/**

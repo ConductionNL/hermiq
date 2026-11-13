@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\OutsideAgent\OutsideAgentGateway;
 use OCA\Hermiq\Service\OutsideAgent\OutsideCallRefusedException;
 use OCA\Hermiq\Service\OutsideAgent\OutsideToolSurface;
@@ -78,7 +78,7 @@ class OutsideAgentController extends Controller {
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

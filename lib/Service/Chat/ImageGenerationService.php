@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
@@ -284,7 +284,7 @@ class ImageGenerationService {
 	 * @throws ImageGenerationException When the task fails or returns no image.
 	 */
 	private function runTask(string $uid, string $prompt): string {
-		$task = new Task(TextToImage::ID, ['input' => $prompt, 'numberOfImages' => 1], Application::APP_ID, $uid);
+		$task = new Task(TextToImage::ID, ['input' => $prompt, 'numberOfImages' => 1], AppIdentity::APP_ID, $uid);
 		try {
 			$done = $this->taskManager->runTask($task);
 		} catch (Throwable $e) {

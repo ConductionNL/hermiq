@@ -33,7 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\DemoDataService;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
@@ -116,7 +116,7 @@ class SetupController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly DemoDataService $demoDataService,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -142,15 +142,15 @@ class SetupController extends Controller {
 	 */
 	public function status(): JSONResponse {
 		$llmTested = $this->config(key: 'setup_llm_tested') === '1';
-		$demoDecided = $this->appConfig->getValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, '') !== '';
-		$pickedDataset = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
+		$demoDecided = $this->appConfig->getValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, '') !== '';
+		$pickedDataset = $this->appConfig->getValueString(AppIdentity::APP_ID, self::DATASET_KEY, '');
 		// `completed` stays the REQUIRED step alone. Demo data is optional, so
 		// it must not gate the app — it only needs to be reportable, so the
 		// wizard can stop asking once it has an answer.
 		$completed = $llmTested;
 
 		if ($completed === true) {
-			$this->appConfig->setValueString(Application::APP_ID, 'setup_completed_version', (string)self::SETUP_VERSION);
+			$this->appConfig->setValueString(AppIdentity::APP_ID, 'setup_completed_version', (string)self::SETUP_VERSION);
 		}
 
 		return new JSONResponse(
@@ -257,7 +257,7 @@ class SetupController extends Controller {
 			}
 
 			$this->appConfig->setValueString(
-				Application::APP_ID,
+				AppIdentity::APP_ID,
 				(string)$key,
 				$stored,
 			);
@@ -360,7 +360,7 @@ class SetupController extends Controller {
 	 * @return string|JSONResponse The dataset id ('' when none is chosen), or the refusal.
 	 */
 	private function pickedDataset(string $actionId): string|JSONResponse {
-		$picked = $this->appConfig->getValueString(Application::APP_ID, self::DATASET_KEY, '');
+		$picked = $this->appConfig->getValueString(AppIdentity::APP_ID, self::DATASET_KEY, '');
 
 		$posted = $this->request->getParam('dataset');
 		if ($posted !== null) {
@@ -390,8 +390,8 @@ class SetupController extends Controller {
 	 * @return JSONResponse `{ success: true, message }`.
 	 */
 	private function declineDemoData(): JSONResponse {
-		$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
-		$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DATASET_KEY, DemoDataService::NONE_DATASET);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, 'skipped');
 
 		return new JSONResponse(data: ['success' => true, 'message' => 'No example data was loaded.']);
 	}//end declineDemoData()
@@ -411,8 +411,8 @@ class SetupController extends Controller {
 		}
 
 		// Loading IS choosing the set, so the pick is recorded too.
-		$this->appConfig->setValueString(Application::APP_ID, self::DATASET_KEY, $picked);
-		$this->appConfig->setValueString(Application::APP_ID, self::DEMO_DECIDED_KEY, 'installed');
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DATASET_KEY, $picked);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::DEMO_DECIDED_KEY, 'installed');
 
 		return new JSONResponse(data: ['success' => true, 'message' => 'Imported ' . $imported['objects'] . ' demo object(s).']);
 	}//end importDataset()
@@ -427,7 +427,7 @@ class SetupController extends Controller {
 	private function importFailed(\Throwable $error): JSONResponse {
 		$this->logger->error(
 			'Hermiq setup install-demo-data failed: ' . $error->getMessage(),
-			['app' => Application::APP_ID, 'exception' => $error]
+			['app' => AppIdentity::APP_ID, 'exception' => $error]
 		);
 
 		return new JSONResponse(
@@ -534,8 +534,8 @@ class SetupController extends Controller {
 			);
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, 'defaultmodel', $models[0]);
-		$this->appConfig->setValueString(Application::APP_ID, 'setup_llm_tested', '1');
+		$this->appConfig->setValueString(AppIdentity::APP_ID, 'defaultmodel', $models[0]);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, 'setup_llm_tested', '1');
 
 		return new JSONResponse(data: ['success' => true, 'message' => $this->connectedMessage(models: $models)]);
 	}//end modelsAnswer()
@@ -570,6 +570,6 @@ class SetupController extends Controller {
 	 * @return string The value, or '' when unset.
 	 */
 	private function config(string $key): string {
-		return $this->appConfig->getValueString(Application::APP_ID, $key, '');
+		return $this->appConfig->getValueString(AppIdentity::APP_ID, $key, '');
 	}//end config()
 }//end class

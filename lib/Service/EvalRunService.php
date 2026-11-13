@@ -54,7 +54,7 @@ use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -1002,7 +1002,7 @@ class EvalRunService {
 		}
 
 		return (int)$this->appConfig->getValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::REGRESSION_THRESHOLD_KEY,
 			(string)self::DEFAULT_REGRESSION_THRESHOLD
 		);

@@ -35,7 +35,7 @@ namespace OCA\Hermiq\Service\AiFeature;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 use Throwable;
 
@@ -107,7 +107,7 @@ class RunRetentionPolicy {
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-ai-run-must-carry-the-retention-that-applied-when-it-was-written
 	 */
 	public function defaultDays(): int {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_DEFAULT, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_DEFAULT, '');
 		if ($raw === '' || is_numeric($raw) === false) {
 			return self::DEFAULT_DAYS;
 		}
@@ -143,7 +143,7 @@ class RunRetentionPolicy {
 			);
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_DEFAULT, (string)$days);
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_DEFAULT, (string)$days);
 
 		return $days;
 	}//end setDefaultDays()
@@ -248,7 +248,7 @@ class RunRetentionPolicy {
 		];
 
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::CONFIG_LAST_CLEANUP,
 			(string)json_encode($report)
 		);
@@ -266,7 +266,7 @@ class RunRetentionPolicy {
 	 * @spec openspec/specs/run-audit-log/spec.md#scenario-a-job-that-has-never-run-is-visible-as-such
 	 */
 	public function lastCleanup(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_LAST_CLEANUP, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_LAST_CLEANUP, '');
 		$decoded = null;
 		if ($raw !== '') {
 			$decoded = json_decode($raw, true);

@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Graph;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 
 /**
@@ -397,7 +397,7 @@ class GraphTraversal {
 	 * @return int The cap.
 	 */
 	private function cap(string $key, int $default): int {
-		return $this->appConfig->getValueInt(Application::APP_ID, $key, $default);
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, $key, $default);
 
 	}//end cap()
 }//end class

@@ -32,7 +32,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\ReportSimilarity\ReportSimilarityService;
 use OCP\AppFramework\Controller;
@@ -67,7 +67,7 @@ class ReportSimilarityController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

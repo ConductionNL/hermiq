@@ -753,9 +753,9 @@ class MigrateConversationsToSessions implements IRepairStep {
 	 */
 	private function recordOutcome(string $outcome, string $detail = ''): void {
 		try {
-			$this->appConfig->setValueString(\OCA\Hermiq\AppInfo\Application::APP_ID, self::OUTCOME_KEY, $outcome);
+			$this->appConfig->setValueString(\OCA\Hermiq\Kernel\AppIdentity::APP_ID, self::OUTCOME_KEY, $outcome);
 			$this->appConfig->setValueString(
-				\OCA\Hermiq\AppInfo\Application::APP_ID,
+				\OCA\Hermiq\Kernel\AppIdentity::APP_ID,
 				self::OUTCOME_DETAIL_KEY,
 				$detail
 			);

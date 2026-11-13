@@ -39,7 +39,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Support\FleetAppId;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -394,8 +394,8 @@ class SkillMarketplaceService {
 	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#2-skillmarketplaceservice
 	 */
 	public function curate(): array {
-		$staleDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
-		$archiveDays = $this->appConfig->getValueInt(Application::APP_ID, 'skillArchiveDays', self::DEFAULT_ARCHIVE_DAYS);
+		$staleDays = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'skillStaleDays', self::DEFAULT_STALE_DAYS);
+		$archiveDays = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'skillArchiveDays', self::DEFAULT_ARCHIVE_DAYS);
 
 		$nowTs = time();
 		$scanned = 0;

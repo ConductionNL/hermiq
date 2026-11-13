@@ -32,7 +32,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
@@ -224,7 +224,7 @@ class AiFeatureService {
 
 		// Authoritative acknowledgement the guard reads (admin/DPO-only config write).
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			$this->ackKey(slug: $slug, tenantId: $tenantId),
 			$uid . '@' . $timestamp
 		);

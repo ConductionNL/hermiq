@@ -40,7 +40,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\Service\AppAssistantResolver;
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
@@ -165,7 +165,7 @@ class ChatController extends Controller {
 		private readonly ?LiteracyRequirement $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

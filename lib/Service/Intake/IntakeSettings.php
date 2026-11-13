@@ -30,7 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Intake;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\IAppConfig;
 
 /**
@@ -88,7 +88,7 @@ class IntakeSettings {
 	 * @return float|null The stored value, not yet range-checked.
 	 */
 	private function storedThreshold(): ?float {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return null;
 		}
@@ -120,7 +120,7 @@ class IntakeSettings {
 		}
 
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::CONFIG_KEY,
 			(string)json_encode(['abstentionThreshold' => $threshold])
 		);

@@ -33,7 +33,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Connection\LlmConnectionReport;
 use InvalidArgumentException;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
@@ -74,7 +74,7 @@ class LlmSettingsController extends Controller {
 		private readonly ModelCapabilityRegistry $modelCapabilities,
 		private readonly ?LlmConnectionReport $connectionReport = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

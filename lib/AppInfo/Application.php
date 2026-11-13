@@ -33,6 +33,7 @@ use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Event\AiOversightRecordedEvent;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Listener\AiOversightRecordedListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
@@ -76,7 +77,7 @@ use OCP\User\Events\UserDeletedEvent;
  * registered integration point, no behavioural coupling.
  */
 class Application extends App implements IBootstrap {
-	public const APP_ID = 'hermiq';
+	public const APP_ID = AppIdentity::APP_ID;
 
 	/**
 	 * Constructor for the Application class.

@@ -37,7 +37,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use DateTimeImmutable;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Agent\GrantWaiverAudit;
 use OCA\Hermiq\Service\ToolAccessDecision;
 use OCA\Hermiq\Service\ToolInvocationRows;
@@ -92,7 +92,7 @@ class ToolOversightController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ToolOversightServices $services,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

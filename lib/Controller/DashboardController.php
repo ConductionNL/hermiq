@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
@@ -67,7 +67,7 @@ class DashboardController extends Controller {
 		private readonly ManageableOrganisations $organisations,
 		private readonly IAppManager $appManager,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -90,7 +90,7 @@ class DashboardController extends Controller {
 	 */
 	public function page(): TemplateResponse {
 		$this->provideKillSwitchCapability();
-		return new TemplateResponse(Application::APP_ID, 'index');
+		return new TemplateResponse(AppIdentity::APP_ID, 'index');
 	}//end page()
 
 	/**

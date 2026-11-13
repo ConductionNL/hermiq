@@ -38,7 +38,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Schedule;
 
 use DateTime;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
@@ -438,7 +438,7 @@ class ScheduleFlowBridge {
 
 		$flow = new Flow();
 		$flow->setUuid($uuid);
-		$flow->setApp(Application::APP_ID);
+		$flow->setApp(AppIdentity::APP_ID);
 		$flow->setName('Schedule mirror: ' . (string)($data['name'] ?? (string)$schedule->getUuid()));
 		$flow->setDescription(
 			'Mirror of hermiq schedule ' . (string)$schedule->getUuid()

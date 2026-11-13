@@ -49,7 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCA\OpenRegister\Service\Integration\LeafAvailability;
 use OCA\OpenRegister\Service\Integration\LeafDescriptor;
@@ -144,7 +144,7 @@ class RegisterAgentLeafListener implements IEventListener {
 					LeafDescriptor::KIND_RENDER_SURFACE,
 					LeafDescriptor::KIND_AGENT_RUNNER,
 				],
-				availability: new LeafAvailability(requiredApp: Application::APP_ID),
+				availability: new LeafAvailability(requiredApp: AppIdentity::APP_ID),
 				// Declared EXPLICITLY and identically on both halves of the
 				// registration (hydra-console-agent-leaves). The JS half shipped a
 				// dashboard-sized `widget` (CnAgentRunsWidget, defaultSize 4x4)

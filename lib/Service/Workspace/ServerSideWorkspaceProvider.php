@@ -36,7 +36,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Workspace;
 
 use FilesystemIterator;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -337,7 +337,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 			return 0;
 		}
 
-		$retention = $this->appConfig->getValueInt(Application::APP_ID, 'workspace_retention_seconds', self::DEFAULT_RETENTION_SECONDS);
+		$retention = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_retention_seconds', self::DEFAULT_RETENTION_SECONDS);
 		$now = $this->time->getTime();
 		$removed = 0;
 		foreach ((array)scandir($base) as $entry) {
@@ -386,7 +386,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 		}
 
 		$dataDir = rtrim($this->config->getSystemValueString('datadirectory', '/var/www/html/data'), '/');
-		return $dataDir . '/appdata_' . $this->config->getSystemValueString('instanceid', '') . '/' . Application::APP_ID . '/workspaces';
+		return $dataDir . '/appdata_' . $this->config->getSystemValueString('instanceid', '') . '/' . AppIdentity::APP_ID . '/workspaces';
 	}//end base()
 
 	/**
@@ -508,7 +508,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 * @return int
 	 */
 	private function maxBytes(): int {
-		return $this->appConfig->getValueInt(Application::APP_ID, 'workspace_max_bytes', self::DEFAULT_MAX_BYTES);
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_max_bytes', self::DEFAULT_MAX_BYTES);
 	}//end maxBytes()
 
 	/**
@@ -517,7 +517,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider {
 	 * @return int
 	 */
 	private function maxFiles(): int {
-		return $this->appConfig->getValueInt(Application::APP_ID, 'workspace_max_files', self::DEFAULT_MAX_FILES);
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_max_files', self::DEFAULT_MAX_FILES);
 	}//end maxFiles()
 
 	/**

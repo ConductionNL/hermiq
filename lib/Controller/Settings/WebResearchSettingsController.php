@@ -31,7 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCA\Hermiq\Settings\AdminSettings;
@@ -66,7 +66,7 @@ class WebResearchSettingsController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly ?ConnectionReporter $connectionReporter = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
