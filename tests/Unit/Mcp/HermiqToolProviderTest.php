@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(41, $ids);
+		$this->assertCount(43, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -415,8 +415,9 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.createFile/moveFile (spec-coverage-built-rows),
 		// all registered through this same provider.
-		$this->assertCount(42, $tools);
+		$this->assertCount(44, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -488,6 +489,9 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createNote' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.updateNote' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			// Create-only and a move onto a free path: neither can lose content.
+			'hermiq.createFile' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.moveFile' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
 			// nc-mail-read-tools. Honestly read-only — which is exactly why the
 			// write default-deny does NOT protect them, and why MailReadService
 			// carries an AI-feature gate instead.
@@ -516,7 +520,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(42, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(44, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -578,6 +582,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ToolReachResolver::REACH_USER,
 			'hermiq.createNote' => ToolReachResolver::REACH_USER,
 			'hermiq.updateNote' => ToolReachResolver::REACH_USER,
+			'hermiq.createFile' => ToolReachResolver::REACH_USER,
+			'hermiq.moveFile' => ToolReachResolver::REACH_USER,
 			// `user`, honestly: reading changes nothing and sends nothing out. The
 			// new exposure is the INFERENCE path — the body reaches whatever engine
 			// the run uses — which the reach axis cannot express and the
@@ -685,6 +691,8 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ['note', 'list'],
 			'hermiq.createNote' => ['note', 'create'],
 			'hermiq.updateNote' => ['note', 'update'],
+			'hermiq.createFile' => ['file', 'create'],
+			'hermiq.moveFile' => ['file', 'move'],
 			'hermiq.listMailAccounts' => ['mailAccount', 'list'],
 			'hermiq.listMailMessages' => ['mailMessage', 'list'],
 			'hermiq.readMailMessage' => ['mailMessage', 'get'],

@@ -97,4 +97,28 @@ interface NcNativeWriteServiceInterface {
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
 	 */
 	public function upsertContact(string $uid, array $arguments, string $agentId = ''): array;
+
+	/**
+	 * Create a new file in the acting user's own Files; never overwrites.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param array<string, mixed> $arguments path, content.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 */
+	public function createFile(string $uid, array $arguments): array;
+
+	/**
+	 * Move a file within the acting user's own Files onto a free path.
+	 *
+	 * @param string $uid The acting user id.
+	 * @param array<string, mixed> $arguments from, to.
+	 *
+	 * @return array<string, mixed> The result, or an error envelope.
+	 *
+	 * @spec openspec/changes/spec-coverage-built-rows/tasks.md
+	 */
+	public function moveFile(string $uid, array $arguments): array;
 }//end interface
