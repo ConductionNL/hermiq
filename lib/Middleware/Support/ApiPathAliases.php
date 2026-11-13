@@ -79,6 +79,21 @@ final class ApiPathAliases {
 	private const VERSIONED = '#^/api/(?:[a-z0-9-]+/)*v[0-9]{1,3}(?:/|$)#i';
 
 	/**
+	 * Whether a path is a versioned API path, such as `/api/v1/things`.
+	 *
+	 * @param string $path The request path, with or without the app prefix.
+	 *
+	 * @return bool True when the app-relative path carries a major version.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) StandardProtocolPaths is a pure lookup, shared with routes.php.
+	 *
+	 * @spec openspec/specs/api-contract/spec.md
+	 */
+	public static function isVersioned(string $path): bool {
+		return preg_match(self::VERSIONED, StandardProtocolPaths::appRelative(path: $path)) === 1;
+	}//end isVersioned()
+
+	/**
 	 * Whether a path is an unversioned API path, deprecated in favour of its `/api/v1/` alias.
 	 *
 	 * @param string $path An app-relative path or a request path under the app root.

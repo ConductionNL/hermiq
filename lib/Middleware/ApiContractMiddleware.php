@@ -147,7 +147,10 @@ class ApiContractMiddleware extends Middleware {
 
 		$response->addHeader(name: 'API-Version', value: $this->appManager->getAppVersion(appId: Application::APP_ID));
 		$this->announceSuccessor(response: $response);
-		if ($response instanceof JSONResponse) {
+		// Only the versioned surface is new; an unversioned path keeps its error body and content type.
+		if ($response instanceof JSONResponse
+			&& ApiPathAliases::isVersioned(path: (string) $this->request->getPathInfo()) === true
+		) {
 			$this->decorateError(response: $response);
 		}
 

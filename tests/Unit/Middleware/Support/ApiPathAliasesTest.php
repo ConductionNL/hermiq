@@ -61,6 +61,20 @@ class ApiPathAliasesTest extends TestCase {
 	}//end testTheSuccessorOfAPath()
 
 	/**
+	 * Only a path that carries a major version counts as versioned, with or without the app prefix.
+	 *
+	 * @return void
+	 */
+	public function testIsVersioned(): void {
+		$this->assertTrue(condition: ApiPathAliases::isVersioned(path: '/api/v1/things'));
+		$this->assertTrue(condition: ApiPathAliases::isVersioned(path: '/apps/hermiq/api/v1/things/7'));
+		$this->assertTrue(condition: ApiPathAliases::isVersioned(path: '/api/v1'));
+		$this->assertFalse(condition: ApiPathAliases::isVersioned(path: '/api/things'));
+		$this->assertFalse(condition: ApiPathAliases::isVersioned(path: '/apps/hermiq/api/things/v1x'));
+		$this->assertFalse(condition: ApiPathAliases::isVersioned(path: '/apps/hermiq/'));
+	}//end testIsVersioned()
+
+	/**
 	 * Aliases come right after the routes already declared under `/api/v1/`, and
 	 * the declared routes stay exactly as they were.
 	 *

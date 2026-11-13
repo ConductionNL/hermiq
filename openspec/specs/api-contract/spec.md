@@ -24,13 +24,13 @@ Every response of an endpoint under `/api/` MUST carry an `API-Version` header w
 
 ### Requirement: API errors are problem details
 
-A JSON error response (status 400 or higher) of an endpoint under `/api/` MUST be served as `application/problem+json` with the members `type`, `title` and `status`, plus `detail` when the body already carries a `detail`, `message` or `error` text (/core/error-handling/problem-details). Every member the body already had MUST be kept, so existing callers see no change. A body that already uses `type`, `title` or `status` for something else, or that is a JSON list, MUST be left as it is.
+A JSON error response (status 400 or higher) of an endpoint under `/api/v1/` MUST be served as `application/problem+json` with the members `type`, `title` and `status`, plus `detail` when the body already carries a `detail`, `message` or `error` text (/core/error-handling/problem-details). Every member the body already had MUST be kept. An error of an unversioned `/api/` path MUST keep its body and content type exactly as before, so existing callers see no change. A body that already uses `type`, `title` or `status` for something else, or that is a JSON list, MUST be left as it is.
 
 #### Scenario: A not-found error becomes problem details
 
 @e2e exclude a content type and a body shape, not browser behaviour; covered by PHPUnit ApiContractMiddlewareTest.
 
-- GIVEN an endpoint answers `404` with `{"error": "Thing not found"}`
+- GIVEN an endpoint under `/api/v1/` answers `404` with `{"error": "Thing not found"}`
 - WHEN the response leaves the app
 - THEN its content type MUST be `application/problem+json`
 - AND its body MUST be `{"type": "about:blank", "title": "Not Found", "status": 404, "detail": "Thing not found", "error": "Thing not found"}`

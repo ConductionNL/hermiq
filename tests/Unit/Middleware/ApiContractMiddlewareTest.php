@@ -90,7 +90,7 @@ class ApiContractMiddlewareTest extends TestCase {
 	 */
 	public function testJsonErrorBecomesProblemDetails(): void {
 		$response = $this->decorate(
-			path: '/apps/hermiq/api/things/7',
+			path: '/apps/hermiq/api/v1/things/7',
 			response: new JSONResponse(data: ['error' => 'Thing not found'], statusCode: 404)
 		);
 
@@ -113,7 +113,7 @@ class ApiContractMiddlewareTest extends TestCase {
 	 */
 	public function testMessageIsUsedAsDetailAndUnknownStatusHasATitle(): void {
 		$response = $this->decorate(
-			path: '/apps/hermiq/api/things',
+			path: '/apps/hermiq/api/v1/things',
 			response: new JSONResponse(data: ['message' => 'Teapot', 'error' => 'ignored'], statusCode: 418)
 		);
 
@@ -130,13 +130,13 @@ class ApiContractMiddlewareTest extends TestCase {
 	 */
 	public function testConflictingOrListBodiesAreLeftAlone(): void {
 		$conflict = $this->decorate(
-			path: '/apps/hermiq/api/things',
+			path: '/apps/hermiq/api/v1/things',
 			response: new JSONResponse(data: ['status' => 'error', 'message' => 'No'], statusCode: 400)
 		);
 		$this->assertSame(expected: ['status' => 'error', 'message' => 'No'], actual: $conflict->getData());
 		$this->assertSame(expected: 'application/json; charset=utf-8', actual: $this->headersOf(response: $conflict)['Content-Type']);
 
-		$list = $this->decorate(path: '/apps/hermiq/api/things', response: new JSONResponse(data: ['a', 'b'], statusCode: 400));
+		$list = $this->decorate(path: '/apps/hermiq/api/v1/things', response: new JSONResponse(data: ['a', 'b'], statusCode: 400));
 		$this->assertSame(expected: ['a', 'b'], actual: $list->getData());
 	}//end testConflictingOrListBodiesAreLeftAlone()
 
@@ -147,10 +147,10 @@ class ApiContractMiddlewareTest extends TestCase {
 	 */
 	public function testExistingProblemAndEmptyBodies(): void {
 		$problem = ['type' => 'about:blank', 'title' => 'Forbidden', 'status' => 403, 'detail' => 'No access'];
-		$kept    = $this->decorate(path: '/apps/hermiq/api/things', response: new JSONResponse(data: $problem, statusCode: 403));
+		$kept    = $this->decorate(path: '/apps/hermiq/api/v1/things', response: new JSONResponse(data: $problem, statusCode: 403));
 		$this->assertSame(expected: $problem, actual: $kept->getData());
 
-		$empty = $this->decorate(path: '/apps/hermiq/api/things', response: new JSONResponse(data: [], statusCode: 500));
+		$empty = $this->decorate(path: '/apps/hermiq/api/v1/things', response: new JSONResponse(data: [], statusCode: 500));
 		$this->assertSame(expected: ['type' => 'about:blank', 'title' => 'Internal Server Error', 'status' => 500], actual: $empty->getData());
 	}//end testExistingProblemAndEmptyBodies()
 
@@ -165,6 +165,24 @@ class ApiContractMiddlewareTest extends TestCase {
 		$this->assertSame(expected: '1.2.3', actual: $this->headersOf(response: $response)['API-Version']);
 		$this->assertSame(expected: 'gone', actual: $response->getData());
 	}//end testNonJsonErrorOnlyGetsTheHeader()
+
+	/**
+	 * An unversioned API path keeps its error body and content type; it only gains headers.
+	 *
+	 * @return void
+	 */
+	public function testUnversionedErrorKeepsItsBodyAndContentType(): void {
+		$response = $this->decorate(
+			path: '/apps/hermiq/api/things/7/parts',
+			response: new JSONResponse(data: ['error' => 'Thing not found'], statusCode: 404)
+		);
+
+		$headers = $this->headersOf(response: $response);
+		$this->assertSame(expected: ['error' => 'Thing not found'], actual: $response->getData());
+		$this->assertSame(expected: 'application/json; charset=utf-8', actual: $headers['Content-Type']);
+		$this->assertSame(expected: '1.2.3', actual: $headers['API-Version']);
+		$this->assertArrayHasKey(key: 'Deprecation', array: $headers);
+	}//end testUnversionedErrorKeepsItsBodyAndContentType()
 
 	/**
 	 * An unversioned API path keeps answering and names its `/api/v1/` successor.
