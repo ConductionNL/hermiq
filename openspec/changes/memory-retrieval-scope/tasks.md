@@ -11,7 +11,10 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
   - GIVEN an owner filter on a group and a date WHEN a turn retrieves THEN the facade's `fileIds` holds only matching files the person can read
   - GIVEN filters that match nothing WHEN a turn retrieves THEN no file search runs
 - [ ] Implement
-- [ ] Test (PHPUnit on the query built and on the empty case)
+  - Backend built: `Agent.ragFileFilters` (register 0.53.0), `lib/Service/RetrievalScope/FileScopeResolver.php` (one Nextcloud file search as the session user, owners expanded from groups, name LIKE, mtime range; null when unset, an empty set when nothing can match) and `ContextRetrievalHandler` (an empty set switches file search off; file rows outside the set are dropped).
+  - Open: the agent form fields in `src/modals/AgentFormModal.vue` with their l10n strings, and handing the set to the vector facade's `fileIds` once `vector-rag` ships the facade.
+- [x] Test (PHPUnit on the query built and on the empty case)
+  - `FileScopeResolverTest`, `ContextRetrievalFileScopeTest`.
 
 ### Task 2: The validated tag setting
 - **spec_ref**: `openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-validated-documents-carry-a-restricted-nextcloud-tag-req-rscope-002`
@@ -20,7 +23,10 @@ Kind: code. Size M. Rows `hermiq:dm-metadata-filter`, `td-validated-sources`.
   - GIVEN an administrator WHEN they create the tag and restrict it to a group THEN `validated_tag_id` is set and the tag's groups are that group
   - GIVEN a non-admin WHEN they call the route THEN the answer is 403
 - [ ] Implement
+  - Backend built: `GET|PUT|POST /api/settings/validated-tag` (`ValidatedTagSettingsController`, admin only) over `ValidatedTagSettings` (stores `validated_tag_id` only; creates the tag restricted and sets its groups through `ISystemTagManager`), documented in `openapi.json`.
+  - Open: the admin page section in `src/views/AdminRoot.vue` with its l10n strings.
 - [ ] Test (PHPUnit; Playwright under `tests/e2e/spec-coverage/retrieval-scope.spec.ts`)
+  - PHPUnit done: `ValidatedTagSettingsTest`, `ValidatedTagSettingsControllerTest`. Playwright needs a live instance.
 
 ### Task 3: Validated mode and the deterministic abstention
 - **spec_ref**: `openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-agent-in-validated-mode-refuses-without-asking-the-model-when-nothing-validated-matches-req-rscope-003`

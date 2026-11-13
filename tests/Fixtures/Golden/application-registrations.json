@@ -683,6 +683,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\ValidatedTagSettingsInterface",
+            "OCA\\Hermiq\\Service\\RetrievalScope\\ValidatedTagSettings"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\WebFetchServiceInterface",
             "OCA\\Hermiq\\Service\\WebResearch\\WebFetchService"
         ],

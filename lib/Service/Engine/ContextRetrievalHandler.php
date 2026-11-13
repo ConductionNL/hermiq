@@ -43,6 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\RetrievalScope\FileScopeResolver;
 use Exception;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -66,6 +67,7 @@ class ContextRetrievalHandler {
 	 * @param LoggerInterface $logger Logger.
 	 * @param GraphContextRetriever|null $graphRetriever The graph mode (knowledge-graph); null keeps graph mode on the keyword path.
 	 * @param AppRegisterScope|null $appScope The registers of an agent's app (agents-bound-to-their-app).
+	 * @param FileScopeResolver|null $fileScope The agent's file filters as a file set (memory-retrieval-scope).
 	 *
 	 * @return void
 	 *
@@ -76,6 +78,7 @@ class ContextRetrievalHandler {
 		private readonly LoggerInterface $logger,
 		private readonly ?GraphContextRetriever $graphRetriever = null,
 		private readonly ?AppRegisterScope $appScope = null,
+		private readonly ?FileScopeResolver $fileScope = null,
 	) {
 	}//end __construct()
 
@@ -132,8 +135,17 @@ class ContextRetrievalHandler {
 			),
 		];
 
+		// The agent's file filters become the file set the turn may search
+		// (memory-retrieval-scope D1). An empty set switches file search off; it never
+		// falls back to an unscoped search.
+		$run['fileIds'] = $this->fileScope?->resolve(filters: ($agentData['ragFileFilters'] ?? null));
+		if ($run['fileIds'] === []) {
+			$run['settings']['include']['file'] = false;
+		}
+
 		try {
 			$found = $this->candidateResults(run: $run);
+			$found['results'] = self::withinFileScope(results: $found['results'], fileIds: $run['fileIds']);
 			$collected = (new RetrievalSourceCollector(settings: $run['settings']))->collect(found: $found);
 			$this->logRetrieved(run: $run, collected: $collected + ['rawResultsCount' => count($found['results'])]);
 
@@ -157,6 +169,32 @@ class ContextRetrievalHandler {
 			];
 		}//end try
 	}//end retrieveContext()
+
+	/**
+	 * Drop file rows outside the agent's file set; object rows pass. Without a
+	 * file set (null) every row passes.
+	 *
+	 * @param mixed          $results The candidate rows.
+	 * @param list<int>|null $fileIds The file set, or null when unscoped.
+	 *
+	 * @return mixed The rows within the scope.
+	 *
+	 * @spec openspec/changes/memory-retrieval-scope/specs/retrieval-scope/spec.md#requirement-an-owner-can-limit-file-retrieval-by-owner-file-name-and-modified-date-req-rscope-001
+	 */
+	private static function withinFileScope(mixed $results, ?array $fileIds): mixed {
+		if ($fileIds === null || is_array($results) === false) {
+			return $results;
+		}
+
+		return array_values(
+			array_filter(
+				$results,
+				static fn (mixed $row): bool => is_array($row) === false
+					|| ($row['entity_type'] ?? null) !== 'file'
+					|| in_array((int)($row['entity_id'] ?? 0), $fileIds, true) === true
+			)
+		);
+	}//end withinFileScope()
 
 	/**
 	 * The turn's search mode and, per source type, its include flag and limit:
