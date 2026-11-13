@@ -30,7 +30,7 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\RedactionService;
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -64,9 +64,11 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	private ApprovalService&MockObject $approvalService;
 
 	/**
-	 * @var ScheduleService&MockObject
+	 * The ObjectService mock the kill-switch reads TenantControl objects from.
+	 *
+	 * @var ObjectService&MockObject
 	 */
-	private ScheduleService&MockObject $scheduleService;
+	private ObjectService&MockObject $killSwitchControls;
 
 	/**
 	 * @var IAppConfig&MockObject
@@ -87,7 +89,9 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->engine = $this->createMock(Engine::class);
 		$this->approvalService = $this->createMock(ApprovalService::class);
-		$this->scheduleService = $this->createMock(ScheduleService::class);
+		$this->killSwitchControls = $this->createMock(ObjectService::class);
+		$this->killSwitchControls->method('setRegister')->willReturnSelf();
+		$this->killSwitchControls->method('setSchema')->willReturnSelf();
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->agentAccess = $this->createMock(AgentAccessService::class);
 
@@ -114,7 +118,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->objectService,
 			$this->engine,
 			$this->approvalService,
-			$this->scheduleService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			$audit,
 			$redaction,
 			$this->appConfig,
@@ -196,7 +200,10 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testKillSwitchHaltsBeforeEngine(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-engaged'));
-		$this->scheduleService->method('isOrganisationEngaged')->with('org-engaged')->willReturn(true);
+		$control = new ObjectEntity();
+		$control->setOrganisation('org-engaged');
+		$control->setObject(['engaged' => true]);
+		$this->killSwitchControls->method('findAll')->willReturn([$control]);
 		$this->engine->expects($this->never())->method('processMessage');
 
 		$this->expectException(ProcessingException::class);
@@ -213,7 +220,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testFirstTurnCreatesConversationAndReturnsShape(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1', ['openregister.searchObjects']));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$created = $this->conversation('conv-new', 'alice');
 		$this->objectService->expects($this->once())->method('saveObject')->willReturn($created);
@@ -238,7 +245,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testAgentVersionIsPinnedOnInteractionAudit(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$created = $this->conversation('conv-new', 'alice');
 		$this->objectService->method('saveObject')->willReturn($created);
@@ -266,7 +273,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->objectService,
 			$this->engine,
 			$this->approvalService,
-			$this->scheduleService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			$audit,
 			$redaction,
 			$this->appConfig,
@@ -304,7 +311,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 				return null;
 			}
 		);
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->expects($this->never())->method('saveObject');
 		$this->engine->method('processMessage')->willReturn(['message' => 'reply']);
 
@@ -322,7 +329,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testConfirmationApprovesPendingApproval(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
 
@@ -347,7 +354,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testConfirmationDeniesPendingApproval(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
 
@@ -372,7 +379,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testConfirmationNoPendingIsNoop(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
 		$this->approvalService->method('listPendingForReviewer')->willReturn([]);
@@ -415,7 +422,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testANonAdminsFirstTurnSessionIsSavedForThemPastTheObjectApiCreateCheck(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
@@ -472,7 +479,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->agentAccess->method('canUserAccessAgent')->willReturnCallback(
 			static fn (ObjectEntity $agent, string $userId): bool => $agent->getUuid() === 'shared-1' && $userId === 'bob'
 		);
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(

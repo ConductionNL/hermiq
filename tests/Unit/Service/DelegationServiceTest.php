@@ -46,7 +46,7 @@ use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -165,7 +165,7 @@ class DelegationServiceTest extends TestCase {
 	 * @param array<string,string> $appConfigValues `delegation.maxDepth`/`delegation.maxFanOut`
 	 *                                              overrides; unset keys fall back to the
 	 *                                              service's own defaults (2/3).
-	 * @param OrganisationModelPolicyService|null $tenantModelPolicyService Defaults to an
+	 * @param EffectiveModelPolicy|null $tenantModelPolicyService Defaults to an
 	 *                                                                always-allow mock.
 	 * @param ScheduleService|null $scheduleService Defaults to a never-called mock
 	 *                                              (tests exercising the success
@@ -180,7 +180,7 @@ class DelegationServiceTest extends TestCase {
 		ObjectService $objectService,
 		DelegationContext $delegationContext,
 		array $appConfigValues = [],
-		?OrganisationModelPolicyService $tenantModelPolicyService = null,
+		?EffectiveModelPolicy $tenantModelPolicyService = null,
 		?ScheduleService $scheduleService = null,
 		?BudgetService $budgetService = null,
 		?AuditTrailMapper $auditTrailMapper = null,
@@ -191,7 +191,7 @@ class DelegationServiceTest extends TestCase {
 			static fn (string $app, string $key, string $default): string => ($appConfigValues[$key] ?? $default)
 		);
 
-		$tenantModelPolicyService = ($tenantModelPolicyService ?? $this->createMock(OrganisationModelPolicyService::class));
+		$tenantModelPolicyService = ($tenantModelPolicyService ?? $this->createMock(EffectiveModelPolicy::class));
 
 		$scheduleService = ($scheduleService ?? $this->createMock(ScheduleService::class));
 
@@ -777,7 +777,7 @@ class DelegationServiceTest extends TestCase {
 		$caller = $this->agent('agent-a', 'org-x', ['delegationAllowlist' => ['agent-b']]);
 		$target = $this->agent('agent-b', 'org-x', ['provider' => 'openai', 'model' => 'gpt-9-forbidden']);
 
-		$tenantModelPolicyService = $this->createMock(OrganisationModelPolicyService::class);
+		$tenantModelPolicyService = $this->createMock(EffectiveModelPolicy::class);
 		$tenantModelPolicyService->method('isAllowed')->willReturn(false);
 
 		$scheduleService = $this->createMock(ScheduleService::class);

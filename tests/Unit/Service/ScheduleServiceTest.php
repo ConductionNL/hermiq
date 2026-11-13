@@ -1308,6 +1308,50 @@ class ScheduleServiceTest extends TestCase {
 	}//end testIsOrganisationEngagedReflectsTenantControl()
 
 	/**
+	 * isOrganisationEngaged() only counts TenantControl objects that are real
+	 * entities, carry `engaged === true` and name an organisation; a read
+	 * failure is logged and treated as "no organisation engaged" (fail open on
+	 * the read, never a silent halt of every tenant).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 */
+	public function testIsOrganisationEngagedIgnoresUnengagedAndUnnamedControls(): void {
+		$released = new ObjectEntity();
+		$released->setOrganisation('org-released');
+		$released->setObject(['engaged' => 'yes']);
+
+		$unnamed = new ObjectEntity();
+		$unnamed->setObject(['engaged' => true]);
+
+		$engaged = new ObjectEntity();
+		$engaged->setOrganisation('org-halted');
+		$engaged->setObject(['engaged' => true]);
+
+		$this->objectService->method('findAll')->willReturn(['not-an-entity', $released, $unnamed, $engaged]);
+
+		$this->assertTrue($this->service->isOrganisationEngaged(organisation: 'org-halted'));
+		$this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-released'));
+
+	}//end testIsOrganisationEngagedIgnoresUnengagedAndUnnamedControls()
+
+	/**
+	 * A TenantControl read failure is logged and leaves every organisation
+	 * un-halted (fail open on the read).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 */
+	public function testIsOrganisationEngagedFailsOpenWhenTenantControlUnreadable(): void {
+		$this->objectService->method('findAll')->willThrowException(new \RuntimeException('register down'));
+
+		$this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-x'));
+
+	}//end testIsOrganisationEngagedFailsOpenWhenTenantControlUnreadable()
+
+	/**
 	 * A schedule requiring approval does NOT run its agent: the gate ensures a pending
 	 * Approval (idempotent, once per due occurrence) and records lastStatus=awaiting_approval.
 	 *
@@ -3858,4 +3902,200 @@ class ScheduleServiceTest extends TestCase {
 		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-off', prompt: 'go');
 
 	}//end testRunAgentAsOwnerRefusesASwitchedOffAgent()
+
+	/**
+	 * Call one of ScheduleService's private record-normalisation steps.
+	 *
+	 * @param string $method The private method name.
+	 * @param array<string, mixed> $arguments Its named arguments.
+	 *
+	 * @return mixed The method's return value.
+	 */
+	private function callPrivate(string $method, array $arguments): mixed {
+		$reflection = new \ReflectionMethod(ScheduleService::class, $method);
+		$reflection->setAccessible(true);
+		return $reflection->invokeArgs($this->service, $arguments);
+	}//end callPrivate()
+
+	/**
+	 * Golden: the record written on every persist normalises its dates to
+	 * ISO-8601 UTC, drops a repeat that is not a positive finite count, keeps
+	 * the completed count at 0 or more, and keeps only a well-formed retry state
+	 * (attempt + nextAttemptAt, the date normalised when it parses).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
+	 */
+	public function testSanitizeForSaveNormalisesTheStoredRecord(): void {
+		$cases = [
+			'dates normalised, empty and missing left' => [
+				['nextRun' => '2026-03-01T10:00:00+02:00', 'runAt' => '', 'title' => 't'],
+				['nextRun' => '2026-03-01T08:00:00+00:00', 'runAt' => '', 'title' => 't'],
+			],
+			'unparseable date kept, null date kept' => [
+				['nextRun' => 'not a date', 'runAt' => null],
+				['nextRun' => 'not a date', 'runAt' => null],
+			],
+			'finite repeat kept, negative completed clamped' => [
+				['repeat' => ['times' => '3', 'completed' => -2, 'extra' => 1]],
+				['repeat' => ['times' => 3, 'completed' => 0]],
+			],
+			'repeat completed kept when numeric' => [
+				['repeat' => ['times' => 5, 'completed' => '2']],
+				['repeat' => ['times' => 5, 'completed' => 2]],
+			],
+			'repeat completed defaults to 0' => [
+				['repeat' => ['times' => 5, 'completed' => 'x']],
+				['repeat' => ['times' => 5, 'completed' => 0]],
+			],
+			'infinite repeat dropped' => [
+				['repeat' => ['times' => 0]],
+				['repeat' => null],
+			],
+			'malformed repeat dropped' => [
+				['repeat' => ['times' => 'many']],
+				['repeat' => null],
+			],
+			'non-array repeat dropped' => [
+				['repeat' => 'daily'],
+				['repeat' => null],
+			],
+			'well-formed retry state kept and dated' => [
+				['retryState' => ['attempt' => '2', 'nextAttemptAt' => '2026-03-01T10:00:00+02:00', 'x' => 1]],
+				['retryState' => ['attempt' => 2, 'nextAttemptAt' => '2026-03-01T08:00:00+00:00']],
+			],
+			'retry state with unparseable date kept as given' => [
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => 'soon']],
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => 'soon']],
+			],
+			'malformed retry state dropped' => [
+				['retryState' => ['attempt' => 'x', 'nextAttemptAt' => '2026-03-01']],
+				['retryState' => null],
+			],
+			'retry state without next attempt dropped' => [
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => '']],
+				['retryState' => null],
+			],
+			'non-array retry state dropped' => [
+				['retryState' => 'pending'],
+				['retryState' => null],
+			],
+			'absent repeat and retry state untouched' => [
+				['enabled' => true],
+				['enabled' => true],
+			],
+		];
+
+		foreach ($cases as $name => [$input, $expected]) {
+			$this->assertSame($expected, $this->callPrivate('sanitizeForSave', ['data' => $input]), $name);
+		}
+	}//end testSanitizeForSaveNormalisesTheStoredRecord()
+
+	/**
+	 * Golden: the shared date and retry-state readers the due check and the
+	 * attempt counter use.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
+	 */
+	public function testDateAndRetryStateReaders(): void {
+		$this->assertNull($this->callPrivate('parseDate', ['value' => '']));
+		$this->assertNull($this->callPrivate('parseDate', ['value' => 'not a date']));
+		$this->assertSame(
+			'2026-03-01T08:00:00+00:00',
+			$this->callPrivate('parseDate', ['value' => '2026-03-01T10:00:00+02:00'])->format('c')
+		);
+
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => 'x']));
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => 1]]));
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => 'one', 'nextAttemptAt' => 'a']]));
+		$this->assertSame(
+			['attempt' => 3, 'nextAttemptAt' => '7'],
+			$this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => '3', 'nextAttemptAt' => 7]])
+		);
+	}//end testDateAndRetryStateReaders()
+
+	/**
+	 * Call one of ScheduleService's private run-step helpers.
+	 *
+	 * @param string $method The private method name.
+	 * @param array<string, mixed> $arguments Its named arguments.
+	 *
+	 * @return mixed The method's return value.
+	 */
+	private function callStepHelper(string $method, array $arguments): mixed {
+		$reflection = new \ReflectionMethod(ScheduleService::class, $method);
+		$reflection->setAccessible(true);
+		return $reflection->invokeArgs($this->service, $arguments);
+	}//end callStepHelper()
+
+	/**
+	 * Golden: the coarse context/history/llm timeline is chained backward from
+	 * the anchor at millisecond precision, skips legs that are absent or do not
+	 * parse as `<number>s`, and numbers the steps in call order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+	 */
+	public function testCoarseStepTimelineFromTimings(): void {
+		$anchor = new \DateTimeImmutable('2026-01-01T00:00:10.000+00:00');
+
+		$this->assertSame(
+			[
+				[
+					'type' => 'context',
+					'name' => 'Context retrieval',
+					'startedAt' => '2026-01-01T00:00:06+00:00',
+					'endedAt' => '2026-01-01T00:00:07+00:00',
+					'durationMs' => 500,
+					'outcome' => 'ok',
+					'seq' => 0,
+				],
+				[
+					'type' => 'llm',
+					'name' => 'LLM generation',
+					'startedAt' => '2026-01-01T00:00:07+00:00',
+					'endedAt' => '2026-01-01T00:00:10+00:00',
+					'durationMs' => 2750,
+					'outcome' => 'ok',
+					'seq' => 1,
+				],
+			],
+			$this->callStepHelper(
+				'buildCoarseStepsFromTimings',
+				['timings' => ['context' => '0.5s', 'history' => '12ms', 'llm' => '2.75s', 'total' => '9s'], 'anchorEnd' => $anchor]
+			)
+		);
+		$this->assertSame([], $this->callStepHelper('buildCoarseStepsFromTimings', ['timings' => [], 'anchorEnd' => $anchor]));
+		$this->assertSame(
+			[['type' => 'history', 'name' => 'History build', 'startedAt' => '2026-01-01T00:00:09+00:00', 'endedAt' => '2026-01-01T00:00:10+00:00', 'durationMs' => 1000, 'outcome' => 'ok', 'seq' => 0]],
+			$this->callStepHelper('buildCoarseStepsFromTimings', ['timings' => ['history' => '1s', 'llm' => 3], 'anchorEnd' => $anchor])
+		);
+
+		$chained = $this->callStepHelper(
+			'buildCoarseStepsFromTimings',
+			['timings' => ['context' => '0.6s', 'history' => '0.6s', 'llm' => '0.6s'], 'anchorEnd' => $anchor]
+		);
+		$this->assertSame(
+			['2026-01-01T00:00:08+00:00', '2026-01-01T00:00:08+00:00', '2026-01-01T00:00:09+00:00'],
+			array_column($chained, 'startedAt'),
+			'Legs chain at millisecond precision, not at the formatted second.'
+		);
+	}//end testCoarseStepTimelineFromTimings()
+
+	/**
+	 * Golden: a step list counts as having tool steps only when one is typed `tool`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+	 */
+	public function testToolStepDetection(): void {
+		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => []]));
+		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['name' => 'x']]]));
+		$this->assertTrue($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['type' => 'tool']]]));
+	}//end testToolStepDetection()
 }//end class

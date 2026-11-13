@@ -43,12 +43,12 @@ use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -91,11 +91,11 @@ class SkillConsolidationServiceTest extends TestCase {
 	private ProviderFactory&MockObject $providerFactory;
 
 	/**
-	 * The prepared ScheduleService mock (kill-switch).
+	 * The ObjectService mock the kill-switch reads TenantControl objects from.
 	 *
-	 * @var ScheduleService&MockObject
+	 * @var ObjectService&MockObject
 	 */
-	private ScheduleService&MockObject $scheduleService;
+	private ObjectService&MockObject $killSwitchControls;
 
 	/**
 	 * The prepared BudgetService mock.
@@ -198,7 +198,9 @@ class SkillConsolidationServiceTest extends TestCase {
 	private function service(): SkillConsolidationService {
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->providerFactory = $this->createMock(ProviderFactory::class);
-		$this->scheduleService = $this->createMock(ScheduleService::class);
+		$this->killSwitchControls = $this->createMock(ObjectService::class);
+		$this->killSwitchControls->method('setRegister')->willReturnSelf();
+		$this->killSwitchControls->method('setSchema')->willReturnSelf();
 		$this->budgetService = $this->createMock(BudgetService::class);
 		$this->contentScanService = $this->createMock(ContentScanService::class);
 		$this->evalRunService = $this->createMock(EvalRunService::class);
@@ -299,7 +301,7 @@ class SkillConsolidationServiceTest extends TestCase {
 			promotionService: new SkillLearningsPromotionService($this->objectService, $captureService, new NullLogger()),
 			captureService: $captureService,
 			providerFactory: $this->providerFactory,
-			scheduleService: $this->scheduleService,
+			tenantKillSwitch: new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			budgetService: $this->budgetService,
 			contentScanService: $this->contentScanService,
 			evalRunService: $this->evalRunService,
@@ -481,7 +483,10 @@ class SkillConsolidationServiceTest extends TestCase {
 		$service = $this->service();
 		$skill = $this->skill(entryCount: 25);
 
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(true);
+		$control = new ObjectEntity();
+		$control->setOrganisation('org-1');
+		$control->setObject(['engaged' => true]);
+		$this->killSwitchControls->method('findAll')->willReturn([$control]);
 		$this->providerFactory->expects($this->never())->method('generateText');
 
 		$result = $service->proposeForSkill(skill: $skill, trigger: 'threshold');

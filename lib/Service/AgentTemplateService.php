@@ -112,7 +112,7 @@ class AgentTemplateService {
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param AgentTemplateSerializer $serializer The JSON package (de)serialiser.
 	 * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
-	 * @param OrganisationModelPolicyService $modelPolicyService Per-org provider/model allowlist.
+	 * @param EffectiveModelPolicy $modelPolicyService Per-org provider/model allowlist.
 	 * @param SkillService $skillService Best-effort skill-ref resolution.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Distinct collaborators (mirrors
@@ -122,7 +122,7 @@ class AgentTemplateService {
 		private readonly ObjectService $objectService,
 		private readonly AgentTemplateSerializer $serializer,
 		private readonly ContentScanService $contentScanService,
-		private readonly OrganisationModelPolicyService $modelPolicyService,
+		private readonly EffectiveModelPolicy $modelPolicyService,
 		private readonly SkillService $skillService,
 	) {
 	}//end __construct()

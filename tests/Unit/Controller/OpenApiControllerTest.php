@@ -1,16 +1,21 @@
 <?php
 
 /**
- * Unit tests for the OpenAPI document controller.
+ * Tests for the OpenAPI document endpoint.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller
- * @author   Conduction Development Team <info@conduction.nl>
- * @license  EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
- * @link     https://conduction.nl
+ *
+ * @author    Conduction Development Team <info@conduction.nl>
+ * @copyright 2026 Conduction B.V.
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
+ *
+ * @version GIT: <git-id>
+ *
+ * @link https://conduction.nl
  */
 
 declare(strict_types=1);
@@ -23,87 +28,83 @@ use OCP\AppFramework\Http\Response;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
+use stdClass;
 
 /**
- * Pins what GET /api/openapi.json serves.
+ * The served document, its version, and the missing-document answer.
  *
  * @covers \OCA\Hermiq\Controller\OpenApiController
  */
 class OpenApiControllerTest extends TestCase {
 
 	/**
-	 * Build the controller over an app directory.
+	 * A scratch app directory.
 	 *
-	 * @param string $appPath The app directory.
-	 *
-	 * @return OpenApiController The controller.
+	 * @var string
 	 */
-	private function controller(string $appPath): OpenApiController {
-		$appManager = $this->createMock(originalClassName: IAppManager::class);
-		$appManager->method('getAppPath')->willReturn($appPath);
-		$appManager->method('getAppVersion')->willReturn('9.8.7');
+	private string $dir;
 
-		return new OpenApiController(
-			request: $this->createMock(originalClassName: IRequest::class),
-			appManager: $appManager
-		);
+	protected function setUp(): void {
+		$this->dir = sys_get_temp_dir().'/hermiq-openapi-'.bin2hex(random_bytes(4));
+		mkdir($this->dir);
+	}//end setUp()
+
+	protected function tearDown(): void {
+		@unlink($this->dir.'/openapi.json');
+		@rmdir($this->dir);
+	}//end tearDown()
+
+	private function controller(string $appPath): OpenApiController {
+		$apps = $this->createMock(IAppManager::class);
+		$apps->method('getAppPath')->with('hermiq')->willReturn($appPath);
+		$apps->method('getAppVersion')->with('hermiq')->willReturn('0.3.1');
+
+		return new OpenApiController($this->createMock(IRequest::class), $apps);
 	}//end controller()
 
 	/**
-	 * The shipped document is served with the installed version, readable from any origin.
-	 *
-	 * @return void
+	 * The headers set on a response, without the defaults getHeaders() merges in from the server.
 	 */
-	public function testServesTheShippedDocument(): void {
-		$response = $this->controller(appPath: dirname(__DIR__, 3))->show();
-		$document = json_decode((string) json_encode($response->getData()), true);
+	private function headers(Response $response): array {
+		return (new ReflectionProperty(Response::class, 'headers'))->getValue($response);
+	}//end headers()
 
-		$this->assertSame(expected: 200, actual: $response->getStatus());
-		$this->assertSame(expected: '*', actual: $this->headersOf(response: $response)['Access-Control-Allow-Origin']);
-		$this->assertSame(expected: '9.8.7', actual: $document['info']['version']);
-		$this->assertArrayHasKey(key: '/openapi.json', array: $document['paths']);
-	}//end testServesTheShippedDocument()
+	public function testTheDocumentIsServedWithTheInstalledVersion(): void {
+		file_put_contents($this->dir.'/openapi.json', '{"openapi":"3.0.3","info":{"title":"hermiq","version":"0.0.0"},"paths":{},"components":{"schemas":{}}}');
 
-	/**
-	 * Empty JSON objects in the document stay objects when served.
-	 *
-	 * @return void
-	 */
-	public function testEmptyObjectsStayObjects(): void {
-		$dir = sys_get_temp_dir().'/openapi-'.uniqid();
-		mkdir($dir);
-		file_put_contents($dir.'/openapi.json', '{"openapi":"3.0.3","info":{"version":"0"},"paths":{"/x":{"get":{"security":[{}]}}}}');
+		$response = $this->controller($this->dir)->show();
+		$data     = $response->getData();
 
-		$response = $this->controller(appPath: $dir)->show();
-		unlink($dir.'/openapi.json');
-		rmdir($dir);
+		$this->assertSame(200, $response->getStatus());
+		$this->assertInstanceOf(stdClass::class, $data);
+		$this->assertSame('0.3.1', $data->info->version);
+		$this->assertSame('3.0.3', $data->openapi);
+		$this->assertSame('{"openapi":"3.0.3","info":{"title":"hermiq","version":"0.3.1"},"paths":{},"components":{"schemas":{}}}', json_encode($data));
+		$this->assertSame('*', $this->headers($response)['Access-Control-Allow-Origin']);
+	}//end testTheDocumentIsServedWithTheInstalledVersion()
 
-		$this->assertStringContainsString(needle: '"security":[{}]', haystack: (string) json_encode($response->getData()));
-	}//end testEmptyObjectsStayObjects()
+	public function testAMissingDocumentIs404(): void {
+		$response = $this->controller($this->dir)->show();
 
-	/**
-	 * Without a document the endpoint answers 404 rather than an empty document.
-	 *
-	 * @return void
-	 */
-	public function testMissingDocumentIsNotFound(): void {
-		$response = $this->controller(appPath: sys_get_temp_dir().'/no-such-app-'.uniqid())->show();
+		$this->assertSame(404, $response->getStatus());
+		$this->assertSame(['error' => 'The OpenAPI document is not installed'], $response->getData());
+		$this->assertSame('*', $this->headers($response)['Access-Control-Allow-Origin']);
+	}//end testAMissingDocumentIs404()
 
-		$this->assertSame(expected: 404, actual: $response->getStatus());
-		$this->assertSame(expected: '*', actual: $this->headersOf(response: $response)['Access-Control-Allow-Origin']);
-	}//end testMissingDocumentIsNotFound()
+	public function testAFileWithoutAnInfoObjectIs404(): void {
+		file_put_contents($this->dir.'/openapi.json', '["not", "a", "document"]');
 
-	/**
-	 * The headers a response set, read without the server container that
-	 * Response::getHeaders() needs.
-	 *
-	 * @param Response $response The response.
-	 *
-	 * @return array<string,string> The headers by name.
-	 */
-	private function headersOf(Response $response): array {
-		$property = new ReflectionProperty(Response::class, 'headers');
+		$this->assertSame(404, $this->controller($this->dir)->show()->getStatus());
+	}//end testAFileWithoutAnInfoObjectIs404()
 
-		return $property->getValue($response);
-	}//end headersOf()
+	public function testTheShippedDocumentIsServed(): void {
+		$response = $this->controller(dirname(__DIR__, 3))->show();
+		$data     = $response->getData();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame('0.3.1', $data->info->version);
+		$this->assertObjectHasProperty('/openapi.json', $data->paths);
+		$this->assertObjectHasProperty('contact', $data->info);
+		$this->assertNotEmpty($data->servers);
+	}//end testTheShippedDocumentIsServed()
 }//end class

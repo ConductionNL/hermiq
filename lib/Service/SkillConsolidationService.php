@@ -223,7 +223,7 @@ class SkillConsolidationService {
 	 * @param SkillLearningsPromotionService $promotionService Learnings grammar owner (entry counting, file name).
 	 * @param SkillLearningsCaptureService $captureService `files` map helpers (fileContent).
 	 * @param ProviderFactory $providerFactory The governed LLM chokepoint (ONE pass per proposal).
-	 * @param ScheduleService $scheduleService Org kill-switch check (same gate as a schedule tick).
+	 * @param TenantKillSwitch $tenantKillSwitch Org kill-switch check (same gate as a schedule tick).
 	 * @param BudgetService $budgetService Budget hard-cap gate (same gate as a schedule tick).
 	 * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
 	 * @param EvalRunService $evalRunService Paired draft-vs-active comparison (skill-evals seam).
@@ -248,7 +248,7 @@ class SkillConsolidationService {
 		private readonly SkillLearningsPromotionService $promotionService,
 		private readonly SkillLearningsCaptureService $captureService,
 		private readonly ProviderFactory $providerFactory,
-		private readonly ScheduleService $scheduleService,
+		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly BudgetService $budgetService,
 		private readonly ContentScanService $contentScanService,
 		private readonly EvalRunService $evalRunService,
@@ -408,7 +408,7 @@ class SkillConsolidationService {
 		$organisation = (string)($skill->getOrganisation() ?? '');
 
 		// GATE — KILL-SWITCH (exactly as a schedule tick / eval run is gated).
-		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+		if ($organisation !== '' && $this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation) === true) {
 			$this->auditSkill(skill: $skill, context: ['transition' => 'blocked', 'reason' => 'killswitch', 'trigger' => $trigger]);
 			return [
 				'created' => false,

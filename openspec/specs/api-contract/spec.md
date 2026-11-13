@@ -50,7 +50,7 @@ A JSON error response (status 400 or higher) of an endpoint under `/api/v1/` MUS
 
 ### Requirement: Every API path is served under its major version
 
-Every route under `/api/` MUST also be served under `/api/v1/`, with the same controller, requirements and defaults (/core/uri-version). A route the app already declares under `/api/v1/` keeps its path; an unversioned path whose versioned form such a route answers keeps no successor and is listed in `ApiPathAliases::WITHOUT_SUCCESSOR`. The unversioned path MUST keep answering exactly as before, and its responses MUST carry a `Deprecation` header and a `Link` header naming the `/api/v1/` successor with `rel="successor-version"` (/core/deprecation-schedule). The OpenAPI document MUST name `/index.php/apps/hermiq/api/v1` as its server and MUST describe every versioned path the app routes, and no other path.
+Every route under `/api/` MUST also be served under `/api/v1/`, with the same controller, requirements and defaults (/core/uri-version). A route the app already declares under `/api/v1/` keeps its path; an unversioned path whose versioned form such a route answers keeps no successor and is listed in `ApiPathAliases::WITHOUT_SUCCESSOR`. The deprecated `/api/conversations` routes get no `/api/v1/` copy; their successor is the matching `/api/v1/sessions` path (`ApiPathAliases::RENAMED`). The unversioned path MUST keep answering exactly as before, and its responses MUST carry a `Deprecation` header and a `Link` header naming the `/api/v1/` successor with `rel="successor-version"` (/core/deprecation-schedule). The OpenAPI document MUST name `/index.php/apps/hermiq/api/v1` as its server and MUST describe every versioned path the app routes, and no other path.
 
 #### Scenario: An unversioned path names its successor
 
@@ -71,7 +71,7 @@ Every route under `/api/` MUST also be served under `/api/v1/`, with the same co
 
 ### Requirement: Standard protocol paths keep their own formats
 
-Paths that implement a protocol defined elsewhere (MCP (JSON-RPC 2.0), Inbound agent webhooks, Server-sent event streams, Health check, Prometheus metrics) MUST NOT get a `/api/v1/` alias, a `Deprecation` header, an `API-Version` header or a problem details rewrite: their formats belong to their standard. They are listed in `lib/Middleware/Support/StandardProtocolPaths.php` and are not described in the OpenAPI document.
+Paths that implement a protocol defined elsewhere (MCP (JSON-RPC 2.0), Inbound agent webhooks, Server-sent event streams, Health check, Prometheus metrics) MUST NOT get a `Deprecation` header or a problem details rewrite from the API contract middleware: their formats belong to their standard. Like every `/api/` route they also answer under `/api/v1/`. They are listed in `lib/Middleware/Support/StandardProtocolPaths.php` and are not described in the OpenAPI document.
 
 #### Scenario: A protocol path is left alone
 

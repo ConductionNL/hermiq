@@ -141,6 +141,7 @@ import {
 } from '../api/agents.js'
 import { agentModalTarget, loadWhenShown } from '../dialogs/agentModalTarget.js'
 import { gitActions, repoLink } from '../utils/agentGit.js'
+import { githubCredentialChoices } from './settingsModalMixins.js'
 
 export default {
 	name: 'AgentGitModal',
@@ -153,7 +154,7 @@ export default {
 		NcTextField,
 	},
 
-	mixins: [agentModalTarget, loadWhenShown],
+	mixins: [agentModalTarget, githubCredentialChoices, loadWhenShown],
 
 	emits: ['close'],
 
@@ -191,18 +192,6 @@ export default {
 		 */
 		link() {
 			return repoLink(this.agent)
-		},
-
-		/**
-		 * The caller's GitHub credentials in the broker.
-		 *
-		 * @return {Array<object>} NcSelect options.
-		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-an-agent-owner-can-keep-an-agent-in-a-git-repository-req-agexp-004
-		 */
-		githubCredentials() {
-			return this.credentials
-				.filter((c) => c.provider === 'github')
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
 		},
 	},
 

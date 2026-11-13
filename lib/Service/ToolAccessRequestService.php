@@ -629,53 +629,151 @@ class ToolAccessRequestService {
 			return [];
 		}
 
+		return $this->collectPendingApprovals(agentId: $agentId);
+
+	}//end pendingApprovals()
+
+	/**
+	 * The agent's pending requests as approvals; a failure part-way is logged and
+	 * keeps the approvals already collected.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, array<string, string>> The pending approvals.
+	 */
+	private function collectPendingApprovals(string $agentId): array {
 		$out = [];
 		try {
-			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
-			$results = $objectService->findAll([
-				'filters' => [
-					'register' => self::REGISTER_SLUG,
-					'schema' => self::REQUEST_SCHEMA,
-					'agentId' => $agentId,
-					'status' => 'pending',
-				],
-			]);
-
-			foreach ($results as $row) {
-				$record = $this->asRecord(value: $row);
-				$id = (string)($record['id'] ?? ($record['@self']['id'] ?? ''));
-				$toolId = (string)($record['toolId'] ?? '');
-				if ($id === '' || $toolId === '') {
-					continue;
+			foreach ($this->findPendingRequests(agentId: $agentId) as $row) {
+				$approval = $this->pendingApproval(record: $this->asRecord(value: $row), agentId: $agentId);
+				if ($approval !== null) {
+					$out[] = $approval;
 				}
-
-				$out[] = [
-					'id' => $id,
-					'kind' => 'tool-access',
-					// What the owner is deciding, in their words rather than the
-					// model's: the tool's identity and reach are facts, the
-					// reason beside them is agent-authored.
-					'title' => $toolId,
-					'toolId' => $toolId,
-					'app' => $this->appOf(toolId: $toolId),
-					'reach' => (string)($record['reach'] ?? 'read'),
-					'reason' => (string)($record['reason'] ?? ''),
-					'agentId' => $agentId,
-					// The tool rides along, so the decision is about the tool shown.
-					'resolveUrl' => '/index.php/apps/hermiq/api/agents/'
-						. rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($id)
-						. '?toolId=' . rawurlencode($toolId),
-				];
 			}
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				'[ToolAccessRequestService] pending approvals lookup failed: ' . $e->getMessage()
-			);
-		}//end try
+			$this->logPendingApprovalsFailure(error: $e);
+		}
 
 		return $out;
 
-	}//end pendingApprovals()
+	}//end collectPendingApprovals()
+
+	/**
+	 * Read the agent's pending request records from OpenRegister.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<int, mixed> The request rows.
+	 */
+	private function findPendingRequests(string $agentId): array {
+		$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
+		return $objectService->findAll([
+			'filters' => [
+				'register' => self::REGISTER_SLUG,
+				'schema' => self::REQUEST_SCHEMA,
+				'agentId' => $agentId,
+				'status' => 'pending',
+			],
+		]);
+
+	}//end findPendingRequests()
+
+	/**
+	 * One request record as an approval; a record without an id or a tool yields none.
+	 *
+	 * @param array<string, mixed> $record The request record.
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<string, string>|null The approval, or null when the record is skipped.
+	 */
+	private function pendingApproval(array $record, string $agentId): ?array {
+		if ($this->requestIdOf(record: $record) === '' || $this->requestToolOf(record: $record) === '') {
+			return null;
+		}
+
+		return $this->approvalEntry(record: $record, agentId: $agentId);
+
+	}//end pendingApproval()
+
+	/**
+	 * The approval the chat shows for one request record.
+	 *
+	 * @param array<string, mixed> $record The request record (with an id and a tool).
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array<string, string> The approval.
+	 */
+	private function approvalEntry(array $record, string $agentId): array {
+		$id = $this->requestIdOf(record: $record);
+		$toolId = $this->requestToolOf(record: $record);
+		return [
+			'id' => $id,
+			'kind' => 'tool-access',
+			// What the owner is deciding, in their words rather than the
+			// model's: the tool's identity and reach are facts, the
+			// reason beside them is agent-authored.
+			'title' => $toolId,
+			'toolId' => $toolId,
+			'app' => $this->appOf(toolId: $toolId),
+			'reach' => (string)($record['reach'] ?? 'read'),
+			'reason' => (string)($record['reason'] ?? ''),
+			'agentId' => $agentId,
+			// The tool rides along, so the decision is about the tool shown.
+			'resolveUrl' => $this->resolvePath(agentId: $agentId, requestId: $id) . '?toolId=' . rawurlencode($toolId),
+		];
+
+	}//end approvalEntry()
+
+	/**
+	 * The id of a request record, from the record or its `@self` metadata.
+	 *
+	 * @param array<string, mixed> $record The request record.
+	 *
+	 * @return string The id, or `''`.
+	 */
+	private function requestIdOf(array $record): string {
+		return (string)($record['id'] ?? ($record['@self']['id'] ?? ''));
+
+	}//end requestIdOf()
+
+	/**
+	 * The tool a request record asks for.
+	 *
+	 * @param array<string, mixed> $record The request record.
+	 *
+	 * @return string The tool id, or `''`.
+	 */
+	private function requestToolOf(array $record): string {
+		return (string)($record['toolId'] ?? '');
+
+	}//end requestToolOf()
+
+	/**
+	 * The path the owner posts a decision on one request to.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $requestId The request id.
+	 *
+	 * @return string The path.
+	 */
+	private function resolvePath(string $agentId, string $requestId): string {
+		return '/index.php/apps/hermiq/api/agents/' . rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($requestId);
+
+	}//end resolvePath()
+
+	/**
+	 * Log a failed pending approvals lookup.
+	 *
+	 * @param Throwable $error The failure.
+	 *
+	 * @return void
+	 */
+	private function logPendingApprovalsFailure(Throwable $error): void {
+		$this->logger->warning(
+			'[ToolAccessRequestService] pending approvals lookup failed: ' . $error->getMessage()
+		);
+
+	}//end logPendingApprovalsFailure()
 
 	/**
 	 * Whether OpenRegister is installed on this instance.

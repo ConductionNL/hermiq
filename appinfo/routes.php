@@ -18,11 +18,8 @@
 
 declare(strict_types=1);
 
-// Every unversioned API route is also served under /api/v1/; see ApiPathAliases.
-return \OCA\Hermiq\Middleware\Support\ApiPathAliases::withVersionedAliases([
+$routes = [
     'routes' => [
-        // The OpenAPI document of hermiq's own API, public, served under /api/v1/ too.
-        ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
         // Dashboard + Settings.
         ['name' => 'dashboard#page', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'settings#index', 'url' => '/api/settings', 'verb' => 'GET'],
@@ -52,6 +49,8 @@ return \OCA\Hermiq\Middleware\Support\ApiPathAliases::withVersionedAliases([
         ['name' => 'metrics#index', 'url' => '/api/metrics', 'verb' => 'GET'],
         // Health check endpoint.
         ['name' => 'health#index', 'url' => '/api/health', 'verb' => 'GET'],
+        // The OpenAPI document, public (NL API Design Rules, /core/publish-openapi).
+        ['name' => 'openApi#show', 'url' => '/api/openapi.json', 'verb' => 'GET'],
 
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
@@ -807,4 +806,28 @@ return \OCA\Hermiq\Middleware\Support\ApiPathAliases::withVersionedAliases([
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
     ],
-]);
+];
+
+// The versioned API base (NL API Design Rules, /core/uri-version): every /api/ route
+// also answers under /api/v1/, the server URL the OpenAPI document names. The unversioned
+// route stays, so existing clients and the URLs the app generates keep working. Each
+// copy gets its own route name through 'postfix', and the copies go before the SPA
+// catch-all, which would otherwise answer /api/v1/ paths first. The deprecated
+// /api/conversations aliases of the session routes (postfix 'legacy', see
+// SessionController::noteDeprecatedAlias) get no versioned copy: new clients use
+// /api/v1/sessions.
+$versioned = [];
+foreach ($routes['routes'] as $route) {
+    if (str_starts_with($route['url'], '/api/') === false || ($route['postfix'] ?? '') === 'legacy') {
+        continue;
+    }
+
+    $route['url']     = '/api/v1/'.substr($route['url'], strlen('/api/'));
+    $route['postfix'] = ($route['postfix'] ?? '').'V1';
+    $versioned[]      = $route;
+}
+
+$catchAll = array_search('dashboard#catchAll', array_column($routes['routes'], 'name'), true);
+array_splice($routes['routes'], ($catchAll === false ? count($routes['routes']) : $catchAll), 0, $versioned);
+
+return $routes;

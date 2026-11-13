@@ -102,8 +102,7 @@
 
 <script>
 import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
-import { useSkillStore } from '../store/store.js'
-import { errorMessage } from '../utils/errorMessage.js'
+import { routeSkill } from './routeSkill.js'
 
 export default {
 	name: 'SkillProvenance',
@@ -113,25 +112,9 @@ export default {
 		NcNoteCard,
 	},
 
-	data() {
-		return {
-			skill: null,
-			loading: true,
-			error: '',
-		}
-	},
+	mixins: [routeSkill],
 
 	computed: {
-		/**
-		 * This skill's uuid from the route param.
-		 *
-		 * @spec exclude trivial route-param accessor (framework plumbing), no domain behaviour
-		 * @return {string} The skill uuid.
-		 */
-		skillId() {
-			return this.$route.params.id
-		},
-
 		/**
 		 * Whether this skill is awaiting review.
 		 *
@@ -207,41 +190,7 @@ export default {
 		},
 	},
 
-	/**
-	 * Wire the skill store (agentskill object type) and self-fetch the skill.
-	 *
-	 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-local-learnings-are-never-overwritten-by-an-update
-	 * @return {void}
-	 */
-	created() {
-		this.skillStore = useSkillStore()
-		this.skillStore.registerObjectType('agentskill', 'agentskill', 'hermiq')
-		this.load()
-	},
-
 	methods: {
-		/**
-		 * Load the skill. A missing skill is an error state; a skill with no
-		 * provenance at all is a legitimate empty state (authored here), never an
-		 * error.
-		 *
-		 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-installing-a-skill-that-is-already-present-updates-it
-		 * @return {Promise<void>}
-		 */
-		async load() {
-			this.loading = true
-			this.error = ''
-			try {
-				this.skill =
-					(await this.skillStore.fetchObject('agentskill', this.skillId))
-					|| null
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Could not load the skill.'))
-			} finally {
-				this.loading = false
-			}
-		},
-
 		/**
 		 * Format a stored timestamp, with an honest dash when absent.
 		 *

@@ -261,7 +261,7 @@ class ApiPathAliasesTest extends TestCase {
 	 */
 	private static function isAlias(array $route): bool {
 		return $route !== []
-			&& str_ends_with((string) ($route['postfix'] ?? ''), 'v1') === true
+			&& str_ends_with(strtolower((string) ($route['postfix'] ?? '')), 'v1') === true
 			&& str_starts_with(self::url(route: $route), '/api/v1/') === true;
 	}//end isAlias()
 

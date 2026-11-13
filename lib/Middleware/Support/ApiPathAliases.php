@@ -69,6 +69,8 @@ final class ApiPathAliases {
 	 * @var array<non-empty-string,string>
 	 */
 	public const RENAMED = [
+		// The deprecated /api/conversations routes are the sessions routes under their old name.
+		'#^/api/conversations(?=(?:/[^/]+(?:/messages|/restore|/permanent)?)?$)#' => '/api/sessions',
 	];
 
 	/**

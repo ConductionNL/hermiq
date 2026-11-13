@@ -58,7 +58,7 @@ class TalkBotInstaller {
 	 *
 	 * @var string
 	 */
-	private const SECRET_KEY = 'talk_bot_secret';
+	private const BOT_CREDENTIAL_CONFIG_NAME = 'talk_bot_secret';
 
 	/**
 	 * Spreed's BotInstallEvent class, referenced by name so Hermiq does not
@@ -506,13 +506,13 @@ class TalkBotInstaller {
 	 * @return string The bot secret.
 	 */
 	private function secret(): string {
-		$secret = $this->appConfig->getValueString('hermiq', self::SECRET_KEY, '');
+		$secret = $this->appConfig->getValueString('hermiq', self::BOT_CREDENTIAL_CONFIG_NAME, '');
 		if ($secret !== '') {
 			return $secret;
 		}
 
 		$secret = $this->secureRandom->generate(64, ISecureRandom::CHAR_ALPHANUMERIC);
-		$this->appConfig->setValueString('hermiq', self::SECRET_KEY, $secret, sensitive: true);
+		$this->appConfig->setValueString('hermiq', self::BOT_CREDENTIAL_CONFIG_NAME, $secret, sensitive: true);
 
 		return $secret;
 	}//end secret()

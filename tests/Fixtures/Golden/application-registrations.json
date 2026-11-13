@@ -149,6 +149,11 @@
         [
             "registerTaskProcessingProvider",
             "OCA\\Hermiq\\TaskProcessing\\ContextAgentProvider"
+        ],
+        [
+            "registerMiddleware",
+            "OCA\\Hermiq\\Middleware\\ApiVersionMiddleware",
+            false
         ]
     ]
 }
