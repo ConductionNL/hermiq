@@ -159,33 +159,13 @@ class EvalRunController extends Controller {
 		// agent-scoped behaviour is byte-identical for every pre-existing caller.
 		$baseline = filter_var($this->request->getParam('baseline', false), FILTER_VALIDATE_BOOLEAN);
 		if ($baseline === true) {
-			$skillRefs = $this->linkedSkillRefs(dataset: $dataset);
-			if ($skillRefs === []) {
-				return new JSONResponse(
-					['error' => 'Baseline mode requires a dataset with linked skills'],
-					Http::STATUS_BAD_REQUEST
-				);
-			}
-
-			// Widened owner guard: the paired run writes l5 evidence onto every
-			// linked skill, so the caller must own each — any missing, invisible,
-			// or non-owned skill is 404, never 403 (no existence oracle for any
-			// of the three object kinds).
-			if ($this->ownsEverySkill(skillRefs: $skillRefs, uid: $user->getUID()) === false) {
-				return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+			$refusal = $this->baselineRefusal(dataset: $dataset, uid: $user->getUID());
+			if ($refusal !== null) {
+				return $refusal;
 			}
 		}
 
-		$agentVersionId = $this->request->getParam('agentVersionId', null);
-		if ($agentVersionId !== null) {
-			$agentVersionId = (string)$agentVersionId;
-		}
-
-		$thresholdOverride = null;
-		$thresholdRaw = $this->request->getParam('regressionThresholdPercent', null);
-		if ($thresholdRaw !== null && is_numeric($thresholdRaw) === true) {
-			$thresholdOverride = (int)$thresholdRaw;
-		}
+		[$agentVersionId, $thresholdOverride] = $this->runOptions();
 
 		try {
 			$result = $this->evalRunService->run(
@@ -211,6 +191,54 @@ class EvalRunController extends Controller {
 
 		return new JSONResponse($result);
 	}//end run()
+
+	/**
+	 * The paired-baseline guard: a dataset without linked skills is a 400, and the
+	 * caller must own every linked skill, because the paired run writes l5
+	 * evidence onto each. Any missing, invisible or non-owned skill is a 404,
+	 * never a 403 (no existence oracle for any of the three object kinds).
+	 *
+	 * @param ObjectEntity $dataset The owned dataset.
+	 * @param string       $uid     The caller's uid.
+	 *
+	 * @return JSONResponse|null The refusal, or null when the baseline run may go ahead.
+	 */
+	private function baselineRefusal(ObjectEntity $dataset, string $uid): ?JSONResponse {
+		$skillRefs = $this->linkedSkillRefs(dataset: $dataset);
+		if ($skillRefs === []) {
+			return new JSONResponse(
+				['error' => 'Baseline mode requires a dataset with linked skills'],
+				Http::STATUS_BAD_REQUEST
+			);
+		}
+
+		if ($this->ownsEverySkill(skillRefs: $skillRefs, uid: $uid) === false) {
+			return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		return null;
+	}//end baselineRefusal()
+
+	/**
+	 * The optional run parameters: the agent version id as a string, and the
+	 * regression threshold as an integer when it is numeric.
+	 *
+	 * @return array{0: ?string, 1: ?int} The agent version id and the threshold override.
+	 */
+	private function runOptions(): array {
+		$agentVersionId = $this->request->getParam('agentVersionId', null);
+		if ($agentVersionId !== null) {
+			$agentVersionId = (string)$agentVersionId;
+		}
+
+		$thresholdOverride = null;
+		$thresholdRaw = $this->request->getParam('regressionThresholdPercent', null);
+		if ($thresholdRaw !== null && is_numeric($thresholdRaw) === true) {
+			$thresholdOverride = (int)$thresholdRaw;
+		}
+
+		return [$agentVersionId, $thresholdOverride];
+	}//end runOptions()
 
 	/**
 	 * Load the dataset only if the given user may act as its owner (IDOR guard).
