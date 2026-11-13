@@ -9,16 +9,18 @@ Kind: code. Size M. Rows `hermiq:dm-ask-mid-run`, `hermiq:ov-draft-hold`.
 - **files**: `lib/Settings/hermiq_register.json`
 - **acceptance_criteria**:
   - GIVEN the re-import WHEN it runs THEN Approval accepts `question` and `draft`, and Agent and Schedule have `holdOutput`
-- [ ] Implement
-- [ ] Test (npm run check:register; coordinate the enum with the open approval-task-convergence and name it in the PR)
+- [x] Implement
+- [x] Test (npm run check:register; coordinate the enum with the open approval-task-convergence and name it in the PR)
+  - Approval.sourceType gains `question` and `draft`, Approval gains `editedOutput`, and Agent and Schedule gain `holdOutput`. Schemas: Approval 0.9.0, Agent 0.14.0, Schedule 0.5.0; register 0.53.0. `npm run check:register` PASS. The enum was not coordinated with approval-task-convergence (not open on development at build time); whichever lands second keeps both sets of values.
 
 ### Task 2: askPerson in the tool provider and the invoker
 - **spec_ref**: `openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001`
 - **files**: `lib/Mcp/HermiqToolProvider.php`, `lib/Service/Engine/FacadeToolInvoker.php`, `lib/Controller/ChatStreamController.php`, `lib/Controller/ChatController.php`
 - **acceptance_criteria**:
   - GIVEN a call with five options WHEN invoked THEN refused as invalid; GIVEN a valid call in chat THEN the final event carries the question
-- [ ] Implement
-- [ ] Test (PHPUnit on validation and the final payload)
+- [x] Implement
+- [x] Test (PHPUnit on validation and the final payload)
+  - `hermiq.askPerson` is in `HermiqToolProvider` (reach self, read; the facade answers internal_only). `FacadeToolInvoker` routes it to `AskPersonCall`, which validates through `AskPersonQuestion`, allows one question per run, records it on the run trace and stops the turn through `TurnGuard::stop()`. `ChatStreamController` (`final` payload `question`) and `ChatController` (`question` on the result) carry it. Test: `FacadeToolInvokerAskPersonTest` (5).
 
 ### Task 3: The question card in chat
 - **spec_ref**: `openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001`

@@ -45,6 +45,7 @@ use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -229,6 +230,8 @@ class ChatStreamController extends Controller {
 			// Compliance-ai-literacy: an organisation may require the course first.
 			$this->literacy?->assertMayUseAgents(uid: $turn['userId']);
 
+			// The trace carries a question the agent asks the person (oversight-ask-and-hold).
+			$trace = new RunTraceCollector();
 			$result = $this->engine->processMessage(
 				conversationId: $turn['conversationId'],
 				userId: $turn['userId'],
@@ -238,8 +241,10 @@ class ChatStreamController extends Controller {
 				ragSettings: [],
 				context: $turn['contextArr'],
 				channel: $channel,
+				trace: $trace,
 				attachments: $turn['attachments']
 			);
+			$result['question'] = $trace->question();
 
 			$this->replayRunSteps(conversationId: $turn['conversationId']);
 			$this->emitAndExit(eventType: 'final', payload: $this->finalPayload(result: $result, turn: $turn));
@@ -480,6 +485,9 @@ class ChatStreamController extends Controller {
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),
+			// Oversight-ask-and-hold: the question the agent asked, with its suggested
+			// answers, or null. On `final`, so the six-event envelope is unchanged.
+			'question' => ($result['question'] ?? null),
 		];
 	}//end finalPayload()
 

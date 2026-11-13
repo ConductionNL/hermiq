@@ -76,6 +76,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -554,7 +555,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -668,7 +670,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -848,7 +851,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -941,6 +945,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -1618,7 +1623,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -1993,6 +1999,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -2171,6 +2178,7 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -2644,6 +2652,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -2719,7 +2728,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -2977,7 +2987,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -3256,7 +3267,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -3296,7 +3308,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -3484,7 +3497,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -3552,7 +3566,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -3608,7 +3623,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -3802,7 +3818,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -3856,7 +3873,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -3997,6 +4015,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -4286,6 +4305,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -4366,7 +4386,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -4451,7 +4472,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -4511,7 +4533,8 @@
                         {
                             "fileId": 3
                         }
-                    ]
+                    ],
+                    "question": null
                 }
             },
             {
@@ -5526,6 +5549,7 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -5566,7 +5590,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -5724,7 +5749,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -5976,7 +6002,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -6179,6 +6206,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -6229,7 +6257,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "42",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -6340,7 +6369,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-alice",
@@ -6359,7 +6389,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -6476,6 +6507,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -6659,7 +6691,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -6879,6 +6912,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -6940,7 +6974,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -7610,7 +7645,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -7840,6 +7876,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -7875,7 +7912,8 @@
                         {
                             "fileId": 3
                         }
-                    ]
+                    ],
+                    "question": null
                 }
             },
             {
@@ -8111,7 +8149,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -8242,7 +8281,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -8402,6 +8442,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -8464,7 +8505,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -8918,7 +8960,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -9043,6 +9086,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -9332,6 +9376,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -9390,7 +9435,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -9715,7 +9761,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -9838,6 +9885,7 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -10022,7 +10070,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -10091,7 +10140,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -10135,7 +10185,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "42",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -10206,7 +10257,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -10383,7 +10435,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -10437,7 +10490,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -10854,7 +10908,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-alice",
@@ -10909,7 +10964,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -10997,7 +11053,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -11173,6 +11230,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -11270,6 +11328,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -11363,7 +11422,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -11527,6 +11587,7 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -11997,7 +12058,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -12097,7 +12159,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -12136,7 +12199,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -12217,7 +12281,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -12583,7 +12648,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -12721,7 +12787,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -12946,6 +13013,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -13045,7 +13113,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -13327,7 +13396,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -13384,7 +13454,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -13445,7 +13516,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -13649,6 +13721,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -13745,7 +13818,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -14174,7 +14248,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -14243,7 +14318,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -14498,6 +14574,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -14822,6 +14899,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -15118,6 +15196,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -15236,6 +15315,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -15287,7 +15367,8 @@
                         {
                             "fileId": 3
                         }
-                    ]
+                    ],
+                    "question": null
                 }
             },
             {
@@ -15360,6 +15441,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -15422,7 +15504,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -15625,6 +15708,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -15779,7 +15863,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -16551,6 +16636,7 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -16861,7 +16947,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -17010,6 +17097,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -17418,7 +17506,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -17621,7 +17710,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -17901,6 +17991,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -18111,6 +18202,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -18464,7 +18556,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -18594,6 +18687,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -18751,6 +18845,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -18826,7 +18921,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -19199,6 +19295,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -19634,7 +19731,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -19686,6 +19784,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -20378,6 +20477,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -20605,6 +20705,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -20974,6 +21075,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -21035,7 +21137,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -21246,7 +21349,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -21265,7 +21369,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -21323,6 +21428,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -21555,6 +21661,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -21602,7 +21709,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -21677,7 +21785,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -21829,7 +21938,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -21917,7 +22027,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -22035,7 +22146,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -22079,7 +22191,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -22283,6 +22396,7 @@
                     "userId": "alice",
                     "userMessage": "hi there",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -22537,7 +22651,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "42",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -22628,7 +22743,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -22683,7 +22799,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -22984,7 +23101,8 @@
                         "appId": "dossiq",
                         "page": "p1"
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -23132,7 +23250,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -23184,7 +23303,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -23272,6 +23392,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -24076,6 +24197,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -24148,6 +24270,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -24212,6 +24335,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -24337,6 +24461,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -24400,7 +24525,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -24599,6 +24725,7 @@
                     "userId": "alice",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -24684,7 +24811,8 @@
                         {
                             "fileId": 3
                         }
-                    ]
+                    ],
+                    "question": null
                 }
             },
             {
@@ -25177,6 +25305,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "path": "\/x.txt"
@@ -25325,7 +25454,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "hi there",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -25688,6 +25818,7 @@
                         "page": "p1"
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -25781,7 +25912,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -25866,7 +25998,8 @@
                     "conversationId": "conv-new",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             "bus.drain:conv-new",
@@ -25885,7 +26018,8 @@
                         }
                     ],
                     "attachmentNotices": [],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -26040,7 +26174,8 @@
                     "conversationId": "conv-bob",
                     "userId": "bob",
                     "userMessage": "42",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -26255,7 +26390,8 @@
                     "context": {
                         "appId": "  pipelinq "
                     },
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -26405,6 +26541,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -26432,7 +26569,8 @@
                     "attachmentNotices": [
                         "one"
                     ],
-                    "attachments": []
+                    "attachments": [],
+                    "question": null
                 }
             },
             {
@@ -26791,7 +26929,8 @@
                     "conversationId": "conv-alice",
                     "userId": "alice",
                     "userMessage": "answer me",
-                    "channel": "channel"
+                    "channel": "channel",
+                    "trace": []
                 }
             },
             {
@@ -26910,6 +27049,7 @@
                     "userId": "alice",
                     "userMessage": "42",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -26970,6 +27110,7 @@
                     "userId": "bob",
                     "userMessage": "answer me",
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7
@@ -27210,6 +27351,7 @@
                         "appId": "  pipelinq "
                     },
                     "channel": "channel",
+                    "trace": [],
                     "attachments": [
                         {
                             "fileId": 7

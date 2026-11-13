@@ -182,6 +182,13 @@ class FacadeToolInvoker {
 	private const SEARCH_TOOLS_NAMES = ['hermiq.searchTools', 'hermiq_searchTools'];
 
 	/**
+	 * The `hermiq.askPerson` tool's registry id and LLPhant-safe name (oversight-ask-and-hold).
+	 *
+	 * @var array<int, string>
+	 */
+	private const ASK_PERSON_NAMES = ['hermiq.askPerson', 'hermiq_askPerson'];
+
+	/**
 	 * The three agent-memory-tools registry ids that need to know which agent is
 	 * running. `HermiqToolProvider::invokeTool(toolId, arguments)` has no other way
 	 * to learn this: the `IMcpToolProvider` ABI threads no acting-agent identity
@@ -527,6 +534,10 @@ class FacadeToolInvoker {
 	private function route(string $name, array $arguments): string {
 		if ($this->isSearchToolsCall(name: $name) === true) {
 			return $this->handleSearchTools(arguments: $arguments);
+		}
+
+		if (in_array($name, self::ASK_PERSON_NAMES, true) === true) {
+			return (new AskPersonCall(turnGuard: $this->turnGuard, trace: $this->trace, channel: $this->channel))->answer(arguments: $arguments);
 		}
 
 		// Agent-guardrails: the GuardrailPolicy's per-tool classification is
