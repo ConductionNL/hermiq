@@ -106,6 +106,11 @@ class RegisterAgentLeafListenerTest extends TestCase {
 		// the JS registration under the shared id (openregister#2127, gate-24).
 		$this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
 
+		// Hermiq loads its own bundle on every page (Util::addInitScript) and ships
+		// no `hermiq-leaves.js`, so the descriptor must say so; left unsaid,
+		// OpenRegister's LeafRegistry logs an error on every page load.
+		$this->assertSame(LeafDescriptor::LOADS_VIA_OWN_SCRIPT, $descriptor->getLoadStrategy());
+
 		// Render-only: no data provider.
 		$this->assertNull($leaves[0]['provider']);
 	}//end testRegistersHermiqAgentLeaf()
