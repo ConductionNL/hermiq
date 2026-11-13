@@ -45,6 +45,8 @@ use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -235,7 +237,7 @@ class ChatStreamController extends Controller {
 				userMessage: $turn['message'],
 				selectedViews: [],
 				selectedTools: [],
-				ragSettings: [],
+				ragSettings: $turn['ragSettings'],
 				context: $turn['contextArr'],
 				channel: $channel,
 				attachments: $turn['attachments']
@@ -269,7 +271,8 @@ class ChatStreamController extends Controller {
 	 *
 	 * @param string $userId The session user.
 	 *
-	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed, contextArr: array, attachments: array}
+	 * @return array{userId: string, message: string, agentUuid: string, conversationUuid: string, context: mixed,
+	 *     contextArr: array, attachments: array, ragSettings: array<string, mixed>}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-2
 	 */
@@ -304,6 +307,19 @@ class ChatStreamController extends Controller {
 
 		if (is_array($body['attachments'] ?? null) === true) {
 			$turn['attachments'] = array_values($body['attachments']);
+		}
+
+		// Chat-about-a-document: an optional scope of one file or folder; any
+		// other shape ends the stream before anything is stored.
+		$turn['ragSettings'] = [];
+		try {
+			$scope = (new TurnScope())->parse(value: ($body['scope'] ?? null));
+		} catch (TurnScopeException $e) {
+			$this->emitAndExit(eventType: 'error', payload: ['code' => $e->errorCode(), 'message' => $e->getMessage()]);
+		}
+
+		if ($scope !== null) {
+			$turn['ragSettings']['scope'] = $scope;
 		}
 
 		return $turn;
@@ -480,6 +496,9 @@ class ChatStreamController extends Controller {
 			// Chat-attachments-and-images D8: the answer's attachments, such as an
 			// image the agent created, so a client can show them without a reload.
 			'attachments' => array_values((array)($result['attachments'] ?? [])),
+			// Chat-about-a-document: the answer's sources in citation order, so
+			// marker [n] is sources[n-1] without a reload.
+			'sources' => array_values((array)($result['sources'] ?? [])),
 		];
 	}//end finalPayload()
 

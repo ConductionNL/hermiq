@@ -205,6 +205,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	public function generateResponse(
 		string $userMessage,
@@ -222,6 +223,14 @@ class ResponseGenerationHandler {
 		array $attachments = [],
 		string $speaker = '',
 	): string {
+		// Chat-about-a-document: a scoped turn with nothing in scope is answered
+		// with that fact, and the model is never asked to answer from general knowledge.
+		if (($context['scoped'] ?? false) === true && ($context['sources'] ?? []) === [] && (string)($context['noMatch'] ?? '') !== '') {
+			$this->attachmentNotices = [];
+			$this->lastUsage = [];
+			return (string)$context['noMatch'];
+		}
+
 		$run = $this->startTurn(run: new ResponseTurnRun(userMessage: $userMessage, context: $context), agent: $agent);
 		$run->selectedTools = $selectedTools;
 		$run->messageHistory = $messageHistory;

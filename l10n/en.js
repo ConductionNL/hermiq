@@ -2682,7 +2682,12 @@ OC.L10N.register(
         "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).": "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).",
         "Unused because": "Unused because",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.",
-        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "The tool grants could not be read, so nothing was saved. Reload the page and try again."
+        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "The tool grants could not be read, so nothing was saved. Reload the page and try again.",
+        "page {page}": "page {page}",
+        "The documents in this folder do not answer this question.": "The documents in this folder do not answer this question.",
+        "This document does not answer this question.": "This document does not answer this question.",
+        "The document or folder this question is about cannot be opened.": "The document or folder this question is about cannot be opened.",
+        "This question names its document or folder in a way hermiq does not understand.": "This question names its document or folder in a way hermiq does not understand."
     },
     "nplurals=2; plural=(n != 1);"
 )
