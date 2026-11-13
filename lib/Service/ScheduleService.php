@@ -44,6 +44,7 @@ use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
+use OCA\Hermiq\Service\Schedule\ScheduleRecordNormaliser;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -150,19 +151,6 @@ class ScheduleService {
 	 * @var string
 	 */
 	private const ENGINE_FLAG_KEY = 'engine.enabled';
-
-	/**
-	 * Schedule properties declared as `date-time` in the schema.
-	 *
-	 * OpenRegister's getObject() returns stored date-times as `Y-m-d H:i:s`
-	 * (space, no `T`), but saveObject re-validates the WHOLE object against the
-	 * schema's `date-time` format, which requires ISO-8601 with `T`. Every one of
-	 * these fields must be re-normalised to `format('c')` before a full-object
-	 * save, or the write is rejected.
-	 *
-	 * @var array<int, string>
-	 */
-	private const DATE_TIME_FIELDS = ['nextRun', 'runAt'];
 
 	/**
 	 * Per-run LLM token/latency usage captured from OpenRegister's ChatService result, so
@@ -3110,153 +3098,18 @@ class ScheduleService {
 	}//end persist()
 
 	/**
-	 * Neutralise OpenRegister read-modify-write round-trip artifacts before a save.
-	 *
-	 * The dispatcher reads a whole object via getObject(), edits a few fields, and
-	 * saves the whole array back — so OR re-validates the ENTIRE payload against the
-	 * schema, including fields OR itself materialised on read in a shape the schema
-	 * rejects. This single seam repairs the artifacts on the fields this change owns
-	 * (`nextRun`/`runAt` date-time format, and the nullable `repeat` object) so a
-	 * full-object save passes OR's own validation. It repairs OR's own read-side
-	 * shape only — it does not mask genuinely user-supplied invalid data.
+	 * Repair OpenRegister read-modify-write round-trip artifacts before a save
+	 * (see ScheduleRecordNormaliser::sanitizeForSave()).
 	 *
 	 * @param array<string,mixed> $data The payload about to be saved.
 	 *
 	 * @return array<string,mixed> The sanitised payload.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
 	 */
 	private function sanitizeForSave(array $data): array {
-		$data = $this->normaliseDates(data: $data);
-		$data = $this->sanitizeRepeat(data: $data);
-		$data = $this->sanitizeRetryState(data: $data);
-		return $data;
+		return (new ScheduleRecordNormaliser())->sanitizeForSave(data: $data);
 	}//end sanitizeForSave()
-
-	/**
-	 * Normalise all date-time fields in a schedule payload to ISO-8601 with `T`.
-	 *
-	 * Reparses each present `date-time` field (from any parseable form, notably OR's
-	 * `Y-m-d H:i:s`) and rewrites it with `format('c')`. Null/empty values are left
-	 * as-is; genuinely unparseable values are left untouched so validation surfaces
-	 * them rather than this method silently masking a bad payload.
-	 *
-	 * @param array<string,mixed> $data The payload about to be saved.
-	 *
-	 * @return array<string,mixed> The payload with normalised date-time fields.
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 */
-	private function normaliseDates(array $data): array {
-		foreach (self::DATE_TIME_FIELDS as $field) {
-			if (array_key_exists($field, $data) === false) {
-				continue;
-			}
-
-			$value = $data[$field];
-			if ($value === null || $value === '') {
-				continue;
-			}
-
-			$parsed = $this->parseDate(value: (string)$value);
-			if ($parsed !== null) {
-				$data[$field] = $parsed->format('c');
-			}
-		}
-
-		return $data;
-	}//end normaliseDates()
-
-	/**
-	 * Sanitise the nullable `repeat` object against its schema constraints.
-	 *
-	 * `repeat` is optional: a schedule with no valid finite-repeat is INFINITE and
-	 * must serialise as `repeat = null`. OR's getObject() materialises the nullable
-	 * object as `{"times": 0, "completed": 0}` on read, which then fails the schema's
-	 * `repeat.times` `minimum: 1` when the whole object is saved back. This collapses
-	 * any non-finite repeat (missing, non-array, or `times < 1`) to `null`, and keeps
-	 * a genuine finite repeat only when `times >= 1` (with `completed` coerced to an
-	 * int >= 0). It repairs OR's round-trip artifact, not user intent: a user who
-	 * wants a finite repeat supplies `times >= 1`, which is preserved verbatim.
-	 *
-	 * @param array<string,mixed> $data The payload about to be saved.
-	 *
-	 * @return array<string,mixed> The payload with a schema-valid `repeat`.
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
-	 */
-	private function sanitizeRepeat(array $data): array {
-		if (array_key_exists('repeat', $data) === false) {
-			return $data;
-		}
-
-		$repeat = $data['repeat'];
-		if (is_array($repeat) === false || isset($repeat['times']) === false || is_numeric($repeat['times']) === false) {
-			$data['repeat'] = null;
-			return $data;
-		}
-
-		$times = (int)$repeat['times'];
-		if ($times < 1) {
-			// A times value below 1 means an infinite schedule; drop the artifact.
-			$data['repeat'] = null;
-			return $data;
-		}
-
-		$completed = 0;
-		if (isset($repeat['completed']) === true && is_numeric($repeat['completed']) === true) {
-			$completed = max(0, (int)$repeat['completed']);
-		}
-
-		$data['repeat'] = [
-			'times' => $times,
-			'completed' => $completed,
-		];
-
-		return $data;
-	}//end sanitizeRepeat()
-
-	/**
-	 * Sanitise the nullable `retryState` object against its schema constraints
-	 * (run-reliability) — mirrors sanitizeRepeat()'s OR round-trip repair.
-	 *
-	 * `retryState` is optional: no open retry sequence serialises as `null`. OR's
-	 * getObject() may materialise the nullable object as `{}` (or an incomplete
-	 * shape) on read, which this collapses back to `null`, and re-normalises a
-	 * genuine retry state's `nextAttemptAt` to ISO-8601 (the same round-trip
-	 * artifact `nextRun`/`runAt` have — see normaliseDates()).
-	 *
-	 * @param array<string,mixed> $data The payload about to be saved.
-	 *
-	 * @return array<string,mixed> The payload with a schema-valid `retryState`.
-	 *
-	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-	 */
-	private function sanitizeRetryState(array $data): array {
-		if (array_key_exists('retryState', $data) === false) {
-			return $data;
-		}
-
-		$state = $this->normaliseRetryState(raw: $data['retryState']);
-		if ($state === null) {
-			$data['retryState'] = null;
-			return $data;
-		}
-
-		$parsed = $this->parseDate(value: $state['nextAttemptAt']);
-		$nextAttemptAt = $state['nextAttemptAt'];
-		if ($parsed !== null) {
-			$nextAttemptAt = $parsed->format('c');
-		}
-
-		$data['retryState'] = [
-			'attempt' => $state['attempt'],
-			'nextAttemptAt' => $nextAttemptAt,
-		];
-
-		return $data;
-	}//end sanitizeRetryState()
 
 	/**
 	 * Normalise a raw `retryState` value into a `{attempt:int, nextAttemptAt:string}`
@@ -3269,21 +3122,7 @@ class ScheduleService {
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 */
 	private function normaliseRetryState(mixed $raw): ?array {
-		if (is_array($raw) === false) {
-			return null;
-		}
-
-		$attempt = ($raw['attempt'] ?? null);
-		$nextAttemptAt = ($raw['nextAttemptAt'] ?? null);
-		if (is_numeric($attempt) === false || empty($nextAttemptAt) === true) {
-			return null;
-		}
-
-		return [
-			'attempt' => (int)$attempt,
-			'nextAttemptAt' => (string)$nextAttemptAt,
-		];
-
+		return (new ScheduleRecordNormaliser())->normaliseRetryState(raw: $raw);
 	}//end normaliseRetryState()
 
 	/**
@@ -3389,16 +3228,7 @@ class ScheduleService {
 	 * @return DateTimeImmutable|null The parsed UTC moment, or null when unparseable.
 	 */
 	private function parseDate(string $value): ?DateTimeImmutable {
-		if ($value === '') {
-			return null;
-		}
-
-		try {
-			return (new DateTimeImmutable($value))->setTimezone(new DateTimeZone('UTC'));
-		} catch (Throwable $e) {
-			return null;
-		}
-
+		return (new ScheduleRecordNormaliser())->parseDate(value: $value);
 	}//end parseDate()
 	/**
 	 * The session a run creates: its title, owner and agent, plus the schedule's
