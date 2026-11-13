@@ -155,6 +155,7 @@ class SeedAiFeatures implements IRepairStep {
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-2-the-feature-its-residency-and-the-pre-start-notice
 	 */
 	private function seedFeatures(): array {
 		return [
@@ -202,6 +203,19 @@ class SeedAiFeatures implements IRepairStep {
 				'name' => 'Create images in chat',
 				'description' => 'Creates an image from a description through the instance\'s text-to-image provider. '
 					. 'Every image is saved in the requester\'s Files and tagged Agent authored.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Chat-translate-a-recording D2: off until the organisation's DPO
+				// acknowledges it. Its binding and required residency govern the one
+				// step that may leave the instance, the translation of the transcript.
+				'slug' => 'speech-translation',
+				'name' => 'Translate a recording',
+				'description' => 'Transcribes a recording on this server, translates the text with the model bound to this '
+					. 'feature, and speaks the translation. The spoken result is saved in the requester\'s Files and '
+					. 'tagged Agent authored.',
 				'riskCategory' => 'limited',
 				'lifecycle' => 'disabled',
 				'tenantId' => '',

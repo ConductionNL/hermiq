@@ -51,6 +51,8 @@ interface MessageHistoryHandlerInterface {
 	 * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
 	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
 	 *                           size, origin), resolved as the speaker; never bytes or text.
+	 * @param array|null $translation The record of a translated recording: the languages and
+	 *                                the engines used (chat-translate-a-recording).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -58,6 +60,7 @@ interface MessageHistoryHandlerInterface {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -68,5 +71,6 @@ interface MessageHistoryHandlerInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?array $translation = null,
 	): ObjectEntity;
 }//end interface

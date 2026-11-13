@@ -485,6 +485,9 @@ $routes = [
         // cleanup job last enforced it and how much it removed.
         ['name' => 'Settings\RunRetentionSettings#get', 'url' => '/api/settings/run-retention', 'verb' => 'GET'],
         ['name' => 'Settings\RunRetentionSettings#update', 'url' => '/api/settings/run-retention', 'verb' => 'PUT'],
+        // Chat-translate-a-recording D3: the administrator's voice per language (admin only).
+        ['name' => 'Settings\SpeechVoiceSettings#get', 'url' => '/api/settings/speech-voices', 'verb' => 'GET'],
+        ['name' => 'Settings\SpeechVoiceSettings#update', 'url' => '/api/settings/speech-voices', 'verb' => 'PUT'],
         // Working with AI (compliance-ai-literacy): the lessons and answer check for the
         // signed-in person, and the organisation report and requirement switch for its admin.
         ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],
@@ -591,6 +594,10 @@ $routes = [
         ['name' => 'speech#transcribe',   'url' => '/api/speech/transcriptions', 'verb' => 'POST'],
         ['name' => 'speech#synthesise',   'url' => '/api/speech/speech', 'verb' => 'POST'],
         ['name' => 'speech#capabilities', 'url' => '/api/speech/capabilities', 'verb' => 'GET'],
+        // Chat-translate-a-recording: transcribe, translate and speak one recording, and
+        // where the translation step will run (shown before the person starts).
+        ['name' => 'speechTranslation#translate', 'url' => '/api/speech/translations', 'verb' => 'POST'],
+        ['name' => 'speechTranslation#where', 'url' => '/api/speech/translations/where', 'verb' => 'GET'],
 
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],

@@ -340,6 +340,23 @@
 								class="chat-page__text"
 								v-html="renderMarkdown(message.content)" />
 
+							<!-- A translated recording: the player and what was used (chat-translate-a-recording). -->
+							<div
+								v-if="message.translation"
+								class="chat-page__translation"
+								data-testid="chat-message-translation">
+								<audio
+									v-if="message.translation.audioPath"
+									class="chat-page__translation-player"
+									controls
+									preload="none"
+									:src="translationAudioUrl(message.translation)"
+									:aria-label="t('hermiq', 'Spoken translation')" />
+								<p class="chat-page__translation-line">
+									{{ translationLine(message.translation, locale) }}
+								</p>
+							</div>
+
 							<!-- Files attached to this turn (chat-attachments-and-images). -->
 							<ul
 								v-if="
@@ -642,6 +659,16 @@
 								</template>
 								{{ t('hermiq', 'Create an image') }}
 							</NcActionButton>
+							<!-- Shown while the on-instance speech service answers (chat-translate-a-recording D5). -->
+							<NcActionButton
+								v-if="speechService && speechService.available && activeSession"
+								data-testid="chat-translate-recording"
+								@click="showTranslateForm = true">
+								<template #icon>
+									<Translate :size="20" />
+								</template>
+								{{ t('hermiq', 'Translate a recording') }}
+							</NcActionButton>
 						</NcActions>
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
@@ -699,6 +726,11 @@
 			:session="activeSession"
 			@close="showImageForm = false"
 			@created="onImageCreated" />
+		<TranslateRecordingModal
+			:show="showTranslateForm"
+			:session="activeSession"
+			@close="showTranslateForm = false"
+			@translated="onRecordingTranslated" />
 		<GoalFormModal
 			:show="showGoalForm"
 			:session="activeSession"
@@ -754,7 +786,8 @@
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
 import { getFilePickerBuilder, showError, showSuccess } from '@nextcloud/dialogs'
-import { generateUrl } from '@nextcloud/router'
+import { getLanguage } from '@nextcloud/l10n'
+import { generateRemoteUrl, generateUrl } from '@nextcloud/router'
 import {
 	NcActionButton,
 	NcActions,
@@ -799,6 +832,7 @@ import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
+import Translate from 'vue-material-design-icons/Translate.vue'
 import Upload from 'vue-material-design-icons/Upload.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
@@ -813,6 +847,7 @@ import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
+import TranslateRecordingModal from '../modals/TranslateRecordingModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
 	answerStartFields,
@@ -846,6 +881,7 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { translationLine } from '../utils/recordingTranslation.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
@@ -884,6 +920,8 @@ export default {
 		SessionParticipantsModal,
 		SessionRenameModal,
 		GenerateImageModal,
+		TranslateRecordingModal,
+		Translate,
 		GoalFormModal,
 		ImageOutline,
 		FlagCheckered,
@@ -988,6 +1026,8 @@ export default {
 			// "Create an image" (chat-attachments-and-images D7).
 			imageAvailable: false,
 			showImageForm: false,
+			// "Translate a recording" (chat-translate-a-recording D5).
+			showTranslateForm: false,
 
 			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
@@ -1019,6 +1059,20 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The reader's language, for naming the languages of a translated recording.
+		 *
+		 * @return {string} The language code.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
+		 */
+		locale() {
+			try {
+				return getLanguage() || 'en'
+			} catch {
+				return 'en'
+			}
+		},
+
 		/**
 		 * Whether this person can set a goal here: their own session without an active goal.
 		 *
@@ -1353,6 +1407,41 @@ export default {
 			this.messages.push(turns.userTurn, turns.assistantTurn)
 			this.scrollToBottom()
 			await this.refreshThread(uuid)
+		},
+
+		translationLine,
+
+		/**
+		 * Show the request and the translated recording in the thread, then re-sync.
+		 *
+		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-front-office-employee-translates-a-voicemail
+		 */
+		async onRecordingTranslated(turns) {
+			this.showTranslateForm = false
+			const uuid = this.activeSession?.uuid
+			if (!uuid || !turns?.userTurn || !turns?.assistantTurn) {
+				return
+			}
+			this.messages.push(turns.userTurn, turns.assistantTurn)
+			this.scrollToBottom()
+			await this.refreshThread(uuid)
+		},
+
+		/**
+		 * The spoken translation's WebDAV URL in the signed-in person's Files.
+		 *
+		 * @param {object} translation The translation record.
+		 * @return {string} The URL.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
+		 */
+		translationAudioUrl(translation) {
+			const path = String(translation?.audioPath || '')
+				.split('/')
+				.map(encodeURIComponent)
+				.join('/')
+			return `${generateRemoteUrl('dav')}/files/${encodeURIComponent(this.currentUserId)}/${path}`
 		},
 
 		/**
@@ -2910,6 +2999,23 @@ export default {
 	margin-top: 4px;
 	font-weight: bold;
 	text-decoration: underline;
+}
+
+.chat-page__translation {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 8px;
+}
+
+.chat-page__translation-player {
+	max-width: 100%;
+}
+
+.chat-page__translation-line {
+	margin: 0;
+	font-size: 0.9em;
+	color: var(--color-text-maxcontrast);
 }
 
 .chat-page__attachments {
