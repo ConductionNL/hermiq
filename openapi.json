@@ -136,6 +136,10 @@
             "description": "Self-scoped course-recommendation read endpoint."
         },
         {
+            "name": "custom-tool",
+            "description": "The custom tools of an organisation."
+        },
+        {
             "name": "egress-authorize",
             "description": "The token-gated egress PDP: answers allow/deny per CONNECT from the shared `WebResearchEgressGuard` policy."
         },
@@ -4860,6 +4864,231 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/custom-tools": {
+            "get": {
+                "operationId": "custom-tool-index",
+                "summary": "The custom tools of an organisation, the caller's active one by default",
+                "description": "The custom tools of an organisation, the caller's active one by default. Only the owner of the organisation or an instance admin. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "custom-tool"
+                ],
+                "parameters": [
+                    {
+                        "name": "organisation",
+                        "in": "query",
+                        "required": false,
+                        "description": "The organisation.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "custom-tool-create",
+                "summary": "Create a custom tool in an organisation",
+                "description": "Create a custom tool in an organisation, the caller's active one by default. Only the owner of the organisation or an instance admin. A refused field is named in the 400. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "custom-tool"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "slug": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "inputSchema": {
+                                        "type": "object"
+                                    },
+                                    "changesData": {
+                                        "type": "string",
+                                        "enum": [
+                                            "no",
+                                            "yes",
+                                            "irreversible"
+                                        ]
+                                    },
+                                    "target": {
+                                        "type": "object"
+                                    },
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "organisation": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "slug",
+                                    "name",
+                                    "description",
+                                    "target"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/custom-tools/{id}": {
+            "put": {
+                "operationId": "custom-tool-update",
+                "summary": "Edit a custom tool",
+                "description": "Edit a custom tool. Only the owner of its organisation or an instance admin. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "custom-tool"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The custom tool.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "slug": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "inputSchema": {
+                                        "type": "object"
+                                    },
+                                    "changesData": {
+                                        "type": "string",
+                                        "enum": [
+                                            "no",
+                                            "yes",
+                                            "irreversible"
+                                        ]
+                                    },
+                                    "target": {
+                                        "type": "object"
+                                    },
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "organisation": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "slug",
+                                    "name",
+                                    "description",
+                                    "target"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
                     }
                 }
             }

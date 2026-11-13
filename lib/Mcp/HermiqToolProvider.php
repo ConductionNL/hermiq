@@ -106,6 +106,7 @@ use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebFetchServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\WebSearchClientInterface;
+use OCA\Hermiq\Service\CustomTool\CustomToolService;
 use OCA\Hermiq\Service\Workspace\WorkspaceToolset;
 use OCA\Hermiq\Service\Workspace\WorkspaceWrites;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -663,9 +664,33 @@ class HermiqToolProvider implements IMcpToolProvider {
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
-			$this->imageDescriptors()
+			$this->imageDescriptors(),
+			$this->customToolDescriptors()
 		);
 	}//end getTools()
+
+	/**
+	 * The enabled custom tools of the acting user's organisation, as
+	 * `hermiq.custom_<slug>` (tools-custom-tools-without-code). Read lazily so a
+	 * catalogue built without OpenRegister still has every built-in tool.
+	 *
+	 * @return array<int, array<string, mixed>> The descriptors.
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 */
+	private function customToolDescriptors(): array {
+		try {
+			$customTools = $this->container->get(CustomToolService::class);
+		} catch (Throwable) {
+			return [];
+		}
+
+		if ($customTools instanceof CustomToolService === false) {
+			return [];
+		}
+
+		return $customTools->descriptors();
+	}//end customToolDescriptors()
 
 	/**
 	 * The task tool descriptors this instance can honour: completeTask only when a
