@@ -38,6 +38,7 @@ use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
+use OCA\Hermiq\Middleware\ApiVersionMiddleware;
 use OCA\Hermiq\Notification\Notifier;
 use OCA\Hermiq\Service\Llm\DatabaseRunTokenStore;
 use OCA\Hermiq\Service\Llm\RunTokenStore;
@@ -121,6 +122,9 @@ class Application extends App implements IBootstrap {
 		$this->registerUserAndTalkListeners(context: $context);
 		$this->registerServices(context: $context);
 		$this->registerTaskProcessingProviders(context: $context);
+
+		// Every /api/ response names the answering API version (NL API Design Rules, /core/version-header).
+		$context->registerMiddleware(ApiVersionMiddleware::class);
 
 	}//end register()
 
