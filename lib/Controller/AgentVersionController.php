@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-versioning/tasks.md#task-2-agentversioncontroller-routes-owner-scoped-readrollback-endpoints
+ * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-2-agentversioncontroller-routes-owner-scoped-readrollback-endpoints
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
  * Every `@NoAdminRequired` method guards per-object access/ownership in the
  * method body (gate-7 no-admin-idor), exactly like AgentsController.
  *
- * @spec openspec/changes/agent-versioning/tasks.md#task-2-agentversioncontroller-routes-owner-scoped-readrollback-endpoints
+ * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-2-agentversioncontroller-routes-owner-scoped-readrollback-endpoints
  */
 class AgentVersionController extends Controller {
 

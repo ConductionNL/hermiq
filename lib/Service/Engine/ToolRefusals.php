@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 /**
  * The refusals of one run, over its trace and stream; built by FacadeToolInvoker.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
  */
 final class ToolRefusals {
 
@@ -55,7 +55,7 @@ final class ToolRefusals {
 	 *
 	 * @return string JSON-encoded refusal for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
 	 */
 	public function refuse(ToolRefusal $refusal): string {
 		$call = $refusal->call;
@@ -84,7 +84,7 @@ final class ToolRefusals {
 	 *
 	 * @return string JSON-encoded refusal for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
 	 */
 	public function confirm(ToolCall $call, ConfirmRefusal $confirm): string {
 		$envelope = [
@@ -112,7 +112,7 @@ final class ToolRefusals {
 	 *
 	 * @return string JSON-encoded refusal for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
 	 */
 	public function unavailable(ToolCall $call): string {
 		$confirm = new ConfirmRefusal(
@@ -132,7 +132,7 @@ final class ToolRefusals {
 	 *
 	 * @return ConfirmRefusal The refusal reason.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
 	 */
 	public function awaiting(string $message, ObjectEntity $approval): ConfirmRefusal {
 		$confirm = new ConfirmRefusal(status: 'pending', message: $message);
@@ -150,7 +150,7 @@ final class ToolRefusals {
 	 *
 	 * @return array{status: string, approvalId: string, message: string} The verdict fields.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
 	 */
 	public function gateVerdict(?ObjectEntity $decided, ?ObjectEntity $pending): array {
 		if ($decided !== null) {
@@ -175,7 +175,7 @@ final class ToolRefusals {
 	 *
 	 * @return string The JSON.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
 	 */
 	public function encoded(array $envelope): string {
 		$encoded = json_encode($envelope);

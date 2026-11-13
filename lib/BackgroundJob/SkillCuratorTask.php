@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#3-curator-background-job
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#3-curator-background-job
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use OCP\BackgroundJob\TimedJob;
  * @psalm-api
  * @SuppressWarnings(PHPMD.UnusedFormalParameter)
  *
- * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#task-3-1
  */
 class SkillCuratorTask extends TimedJob {
 	/**
@@ -43,7 +43,7 @@ class SkillCuratorTask extends TimedJob {
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
 	 * @param SkillMarketplaceService $marketplaceService Service that curates skill lifecycle.
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#task-3-1
 	 */
 	public function __construct(
 		ITimeFactory $time,
@@ -66,7 +66,7 @@ class SkillCuratorTask extends TimedJob {
 	 *
 	 * @phpstan-param mixed $argument
 	 *
-	 * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#task-3-1
 	 */
 	public function run(mixed $argument): void {
 		$this->marketplaceService->curate();
