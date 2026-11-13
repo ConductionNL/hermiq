@@ -256,91 +256,24 @@ class ContextAssembler {
 	 *                                                               test doubles or a future assembler swap; this implementation always
 	 *                                                               returns both keys.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-skill
-	 *   guard (string uuid, resolvable, found, active state, content override) is a
-	 *   single flat condition preserving the never-fatal contract.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the guards are independent
-	 *   skips, multiplying paths without nesting.
-	 *
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
 	 */
 	public function assembleSkillsForRun(?ObjectEntity $agent, ?array $skillSetOverride = null): array {
-		$effective = $skillSetOverride;
-		if ($effective === null) {
-			$effective = [];
-			if ($agent !== null) {
-				$stored = ($agent->getObject()['skillInstalls'] ?? []);
-				if (is_array($stored) === true) {
-					$effective = $stored;
-				}
-			}
-		}
-
 		$blocks = [];
 		$skillsUsed = [];
-		foreach ($effective as $skillId) {
+		foreach ($this->effectiveSkillIds(agent: $agent, skillSetOverride: $skillSetOverride) as $skillId) {
 			if (is_string($skillId) === false || $skillId === '') {
 				continue;
 			}
 
-			try {
-				$skill = $this->objectService->find(
-					id: $skillId,
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
-					_rbac: false,
-					_multitenancy: false
-				);
-			} catch (Throwable $e) {
-				$this->logger->warning(
-					sprintf('Hermiq ContextAssembler could not resolve skill %s: %s', $skillId, $e->getMessage()),
-					['exception' => $e]
-				);
-				continue;
-			}
-
+			$skill = $this->activeSkill(skillId: $skillId);
 			if ($skill === null) {
-				$this->logger->info(sprintf('Hermiq ContextAssembler: skill not found, skipping: %s', $skillId));
 				continue;
 			}
 
-			$data = $skill->getObject();
-			$state = (string)($data['state'] ?? self::SKILL_ACTIVE_STATE);
-			if ($state !== self::SKILL_ACTIVE_STATE) {
-				// Marketplace approval gate: an agent MUST NOT use an unapproved skill —
-				// neither via install nor via a dataset's skillRefs reaching an override.
-				$this->logger->info(
-					sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
-				);
-				continue;
-			}
-
-			$name = (string)($data['name'] ?? 'skill');
-			$description = (string)($data['description'] ?? '');
-			$body = (string)($data['body'] ?? '');
-
-			// Skill-self-improvement: the paired draft-vs-active eval's draft half
-			// swaps in the DRAFT's content in memory — the stored object above was
-			// still consulted for existence and the marketplace state gate.
-			$override = ($this->skillContentOverride[(string)$skill->getUuid()] ?? null);
-			if (is_array($override) === true) {
-				$name = (string)($override['name'] ?? $name);
-				$description = (string)($override['description'] ?? $description);
-				$body = (string)($override['body'] ?? $body);
-			}
-
-			$block = "Skill: {$name}";
-			if ($description !== '') {
-				$block .= "\n" . $description;
-			}
-
-			if ($body !== '') {
-				$block .= "\n\n" . $body;
-			}
-
-			$blocks[] = $block;
+			$blocks[] = $this->skillBlock(skill: $skill);
 			$skillsUsed[] = (string)$skill->getUuid();
-		}//end foreach
+		}
 
 		return [
 			'text' => implode("\n\n", $blocks),
@@ -348,6 +281,120 @@ class ContextAssembler {
 		];
 
 	}//end assembleSkillsForRun()
+
+	/**
+	 * The skill uuids a run is exposed to: the per-run override when given,
+	 * otherwise the agent's stored installs (none without an agent).
+	 *
+	 * @param ObjectEntity|null       $agent            Agent object (optional).
+	 * @param array<int, string>|null $skillSetOverride Per-run override, or null.
+	 *
+	 * @return array<int, mixed> The effective skill set, unvalidated.
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 */
+	private function effectiveSkillIds(?ObjectEntity $agent, ?array $skillSetOverride): array {
+		if ($skillSetOverride !== null) {
+			return $skillSetOverride;
+		}
+
+		if ($agent === null) {
+			return [];
+		}
+
+		$stored = ($agent->getObject()['skillInstalls'] ?? []);
+		if (is_array($stored) === true) {
+			return $stored;
+		}
+
+		return [];
+
+	}//end effectiveSkillIds()
+
+	/**
+	 * Resolve one skill and return it only when it is active. An unresolvable,
+	 * missing or non-active skill is logged and skipped (null), never fatal.
+	 *
+	 * @param string $skillId The skill uuid.
+	 *
+	 * @return ObjectEntity|null The active skill, or null when it must not be exposed.
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 */
+	private function activeSkill(string $skillId): ?ObjectEntity {
+		try {
+			$skill = $this->objectService->find(
+				id: $skillId,
+				register: self::REGISTER_SLUG,
+				schema: self::SKILL_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf('Hermiq ContextAssembler could not resolve skill %s: %s', $skillId, $e->getMessage()),
+				['exception' => $e]
+			);
+			return null;
+		}
+
+		if ($skill === null) {
+			$this->logger->info(sprintf('Hermiq ContextAssembler: skill not found, skipping: %s', $skillId));
+			return null;
+		}
+
+		$state = (string)($skill->getObject()['state'] ?? self::SKILL_ACTIVE_STATE);
+		if ($state !== self::SKILL_ACTIVE_STATE) {
+			// Marketplace approval gate: an agent MUST NOT use an unapproved skill —
+			// neither via install nor via a dataset's skillRefs reaching an override.
+			$this->logger->info(
+				sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
+			);
+			return null;
+		}
+
+		return $skill;
+
+	}//end activeSkill()
+
+	/**
+	 * The text block one exposed skill contributes to the run preamble.
+	 *
+	 * Skill-self-improvement: the paired draft-vs-active eval's draft half swaps
+	 * in the DRAFT's content in memory — the stored object was still consulted
+	 * for existence and the marketplace state gate.
+	 *
+	 * @param ObjectEntity $skill The active skill.
+	 *
+	 * @return string The block: name, then description and body when present.
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+	 */
+	private function skillBlock(ObjectEntity $skill): string {
+		$data = $skill->getObject();
+		$name = (string)($data['name'] ?? 'skill');
+		$description = (string)($data['description'] ?? '');
+		$body = (string)($data['body'] ?? '');
+
+		$override = ($this->skillContentOverride[(string)$skill->getUuid()] ?? null);
+		if (is_array($override) === true) {
+			$name = (string)($override['name'] ?? $name);
+			$description = (string)($override['description'] ?? $description);
+			$body = (string)($override['body'] ?? $body);
+		}
+
+		$block = "Skill: {$name}";
+		if ($description !== '') {
+			$block .= "\n" . $description;
+		}
+
+		if ($body !== '') {
+			$block .= "\n\n" . $body;
+		}
+
+		return $block;
+
+	}//end skillBlock()
 
 	/**
 	 * Resolve ONE Context object into its budgeted preamble text.

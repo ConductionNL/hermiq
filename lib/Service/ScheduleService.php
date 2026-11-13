@@ -2130,14 +2130,6 @@ class ScheduleService {
 	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
 	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parent-s-acting-user-attribution
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity)  Sub-agent-delegation's `forceOwner`
-	 *   branch pushed this over the threshold; the method is still one linear
-	 *   impersonate → dispatch (flag-on/flag-off) → restore sequence, not incidental
-	 *   branching — splitting further would duplicate the impersonation try/finally.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)       Same reasoning as above.
-	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Same reasoning as above; the
-	 *   flag-off legacy branch is removed wholesale by or-chat-proxy-deprecation,
-	 *   which brings this back under the threshold — splitting now would be churn.
 	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag)   `$dryRun`/`$forceOwner` are
 	 *   genuine two-mode authorisation inputs (preview vs. real; parent-forced vs.
 	 *   self-resolved identity), not a responsibility split — mirrors this class's
@@ -2158,62 +2150,17 @@ class ScheduleService {
 		array $startValues = [],
 		?string $continueSessionUuid = null,
 	): string {
-		// Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
-		// on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
-		// BEFORE any impersonation/LLM call, rather than silently running for real.
-		if ($dryRun === true && $this->isEngineEnabled() === false) {
-			throw new EngineRequiredException();
-		}
+		$this->refuseADryRunWithoutTheEngine(dryRun: $dryRun);
 
-		// Reset per-run usage/steps so a failed run never records the previous run's
-		// tokens, step timeline, or exposed skill set.
-		$this->lastRunUsage = [];
-		$this->lastRunSteps = [];
-		$this->lastRunDisclosure = null;
-		$this->lastRunAsUser = $owner;
-		$this->lastRunId = '';
-		$this->lastRunSkillsUsed = [];
+		$this->resetRunState(owner: $owner);
 
-		// Agents-switch-off-and-stop: the shared entry of schedules, run now, webhooks,
-		// flows and delegation refuses a switched-off agent before impersonating anyone.
-		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
-			throw new AgentSwitchedOffException();
-		}
+		$this->refuseASwitchedOffAgent(agentId: $agentId);
 
 		// Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
 		$guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
 
-		// Agent-capability-profile: on the engine-enabled path only, an Agent may name
-		// an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
-		// impersonation so the whole turn (conversation + messages + tool writes) runs
-		// as that identity; falls back to $owner (silently, logged) when it is UNSET.
-		// A DECLARED one that does not resolve refuses the run instead — see
-		// resolveActingUser().
-		// Sub-agent-delegation: `$forceOwner` skips this resolution entirely — `$owner`
-		// (the parent's already-impersonated acting uid) is used verbatim, so a target
-		// agent's own `actingUser` can never launder attribution via delegation.
-		$impersonateAs = $owner;
-		if ($forceOwner === false && $this->isEngineEnabled() === true) {
-			// 🔴 A REFUSAL MUST NOT LEAVE THE OWNER IN THE AUDIT RECORD.
-			//
-			// `lastRunAsUser` was pre-seeded with $owner above (and again by the
-			// runNow/dispatch callers), and `writeRunAudit()` publishes it as
-			// "the identity that actually ran the turn". Letting the throw escape
-			// with that value intact writes the exact substitution this refusal
-			// exists to prevent: the run is attributed to the schedule owner in
-			// the append-only trail while never having run as anybody at all.
-			// Refusing in the control flow and conceding in the record is not a
-			// refusal.
-			//
-			// Blanked rather than set to the unresolvable uid: nobody ran this
-			// turn, and naming the ghost would read as "the turn ran as them".
-			try {
-				$impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
-			} catch (Throwable $e) {
-				$this->lastRunAsUser = '';
-				throw $e;
-			}
-		}
+		// Agent-capability-profile / sub-agent-delegation: who the turn runs as.
+		$impersonateAs = $this->impersonationTarget(owner: $owner, agentId: $agentId, forceOwner: $forceOwner);
 
 		$this->lastRunAsUser = $impersonateAs;
 
@@ -2226,15 +2173,9 @@ class ScheduleService {
 		$this->userSession->setUser($user);
 
 		try {
-			// Agent-engine-port pivot (task 6.2): with the feature flag ON, the run
-			// goes through the in-app Engine against hermiq-register objects — still
-			// inside the same impersonation try/finally, and only reached AFTER the
-			// kill-switch/approval gating upstream of this method. With the flag OFF
-			// (default) the OpenRegister ChatService path below is byte-for-byte the
-			// pre-flag behavior. Engine::processMessage() already applies its OWN
-			// input/output filter internally; the output filter is re-applied here
-			// too (defense-in-depth at the delivery/persistence trust boundary,
-			// design.md Decision 7) — idempotent on already-filtered text.
+			// Agent-engine-port pivot (task 6.2): flag ON runs the in-app Engine, flag OFF
+			// the legacy ChatService path; both inside this impersonation. The output
+			// filter is re-applied here too (design.md Decision 7) — idempotent.
 			if ($this->isEngineEnabled() === true) {
 				$output = $this->runAgentViaEngine(
 					owner: $impersonateAs,
@@ -2249,64 +2190,198 @@ class ScheduleService {
 				return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
 			}
 
-			// Agent-guardrails: the input filter's ONLY seam on this legacy
-			// ChatService branch — Engine::processMessage() is never invoked here,
-			// so nothing else would ever filter this prompt. A `block` match throws
-			// BEFORE the legacy ChatService call, so no conversation/message is ever
-			// created for this attempt; a `redact` match replaces $prompt so the
-			// masked text is what the agent actually receives.
-			$inputFilter = $this->guardrailPolicyService->filterInput(policy: $guardrailPolicy, text: $prompt);
-			if ($this->guardrailActed(filter: $inputFilter, originalText: $prompt) === true) {
-				$this->appendGuardrailStep(name: 'Input filter', filter: $inputFilter);
-			}
-
-			if ($inputFilter['blocked'] === true) {
-				throw new GuardrailBlockedException(reason: (string)$inputFilter['reason']);
-			}
-
-			$prompt = (string)$inputFilter['text'];
-
-			$agent = $this->agentMapper->findByUuid($agentId);
-			$conversation = new Conversation();
-			$conversation->setUserId($owner);
-			$conversation->setOwner($owner);
-			$conversation->setAgentId($agent->getId());
-			$conversation->setTitle('Hermiq scheduled run');
-			$conversation = $this->conversationMapper->insert($conversation);
-
-			$result = $this->chatService->processMessage(
-				conversationId: (int)$conversation->getId(),
-				userId: $owner,
-				userMessage: $prompt
-			);
-
-			// Capture the LLM token/latency usage OpenRegister now reports, so writeRunAudit
-			// records it for run-analytics (run-cost recording). Empty when unavailable.
-			$usage = ($result['usage'] ?? []);
-			if (is_array($usage) === true) {
-				$this->lastRunUsage = $usage;
-			}
-
-			// Run-trace-observability: Hermiq does not instrument OR's internal tool
-			// loop on this path, so only coarse context/history/llm steps are ever
-			// captured here — derived from the `timings` bucket the call already
-			// returns (never a fabricated duration when a leg is absent/malformed).
-			$timings = ($result['timings'] ?? []);
-			if (is_array($timings) === true) {
-				$this->lastRunSteps = $this->buildCoarseStepsFromTimings(
-					timings: $timings,
-					anchorEnd: new DateTimeImmutable('now', new DateTimeZone('UTC'))
-				);
-			}
-
-			$output = (string)($result['message'] ?? '');
-			return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
+			return $this->runViaLegacyChat(owner: $owner, agentId: $agentId, prompt: $prompt, guardrailPolicy: $guardrailPolicy);
 		} finally {
 			// Restore the pre-impersonation identity (OpenConnector #1006 pattern).
 			$this->userSession->setUser($priorUser);
 		}//end try
 
 	}//end runAgentAsOwner()
+
+	/**
+	 * The identity a run impersonates.
+	 *
+	 * Agent-capability-profile: on the engine-enabled path only, an Agent may name
+	 * an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
+	 * impersonation so the whole turn (conversation + messages + tool writes) runs
+	 * as that identity; falls back to $owner (silently, logged) when it is UNSET.
+	 * A DECLARED one that does not resolve refuses the run instead — see
+	 * resolveActingUser().
+	 * Sub-agent-delegation: `$forceOwner` skips this resolution entirely — `$owner`
+	 * (the parent's already-impersonated acting uid) is used verbatim, so a target
+	 * agent's own `actingUser` can never launder attribution via delegation.
+	 *
+	 * @param string $owner      The run's owner.
+	 * @param string $agentId    The agent uuid.
+	 * @param bool   $forceOwner Whether the owner is used verbatim.
+	 *
+	 * @return string The uid to impersonate.
+	 *
+	 * @throws Throwable When a declared acting user does not resolve; the audit
+	 *                   identity is blanked first.
+	 *
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parent-s-acting-user-attribution
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentAsOwner()'s `$forceOwner` mode.
+	 */
+	private function impersonationTarget(string $owner, string $agentId, bool $forceOwner): string {
+		if ($forceOwner === true || $this->isEngineEnabled() === false) {
+			return $owner;
+		}
+
+		// 🔴 A REFUSAL MUST NOT LEAVE THE OWNER IN THE AUDIT RECORD.
+		//
+		// `lastRunAsUser` was pre-seeded with $owner (and again by the
+		// runNow/dispatch callers), and `writeRunAudit()` publishes it as
+		// "the identity that actually ran the turn". Letting the throw escape
+		// with that value intact writes the exact substitution this refusal
+		// exists to prevent: the run is attributed to the schedule owner in
+		// the append-only trail while never having run as anybody at all.
+		// Refusing in the control flow and conceding in the record is not a
+		// refusal.
+		//
+		// Blanked rather than set to the unresolvable uid: nobody ran this
+		// turn, and naming the ghost would read as "the turn ran as them".
+		try {
+			return $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+		} catch (Throwable $e) {
+			$this->lastRunAsUser = '';
+			throw $e;
+		}
+
+	}//end impersonationTarget()
+
+	/**
+	 * Reset the per-run usage, steps, disclosure, identity, run id and exposed
+	 * skill set, so a failed run never records the previous run's.
+	 *
+	 * @param string $owner The run's owner, the identity until resolved further.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 */
+	private function resetRunState(string $owner): void {
+		$this->lastRunUsage = [];
+		$this->lastRunSteps = [];
+		$this->lastRunDisclosure = null;
+		$this->lastRunAsUser = $owner;
+		$this->lastRunId = '';
+		$this->lastRunSkillsUsed = [];
+
+	}//end resetRunState()
+
+	/**
+	 * Run-replay-and-dry-run: dry-run's tool-call interception depends entirely on
+	 * the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and BEFORE any
+	 * impersonation/LLM call, rather than silently running for real.
+	 *
+	 * @param bool $dryRun Whether the run is a dry run.
+	 *
+	 * @return void
+	 *
+	 * @throws EngineRequiredException When a dry run is asked without the engine.
+	 *
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Mirrors runAgentAsOwner()'s `$dryRun` mode.
+	 */
+	private function refuseADryRunWithoutTheEngine(bool $dryRun): void {
+		if ($dryRun === true && $this->isEngineEnabled() === false) {
+			throw new EngineRequiredException();
+		}
+
+	}//end refuseADryRunWithoutTheEngine()
+
+	/**
+	 * Agents-switch-off-and-stop: the shared entry of schedules, run now, webhooks,
+	 * flows and delegation refuses a switched-off agent before impersonating anyone.
+	 *
+	 * @param string $agentId The agent uuid.
+	 *
+	 * @return void
+	 *
+	 * @throws AgentSwitchedOffException When the agent is switched off.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+	 */
+	private function refuseASwitchedOffAgent(string $agentId): void {
+		if ($this->agentIsSwitchedOff(agentId: $agentId) === true) {
+			throw new AgentSwitchedOffException();
+		}
+
+	}//end refuseASwitchedOffAgent()
+
+	/**
+	 * Run the turn on the legacy (flag-off) OpenRegister ChatService path, inside
+	 * the caller's impersonation.
+	 *
+	 * @param string               $owner           The run's owner.
+	 * @param string               $agentId         The agent uuid.
+	 * @param string               $prompt          The prompt.
+	 * @param array<string, mixed> $guardrailPolicy The run's effective GuardrailPolicy.
+	 *
+	 * @return string The output, after the output guardrail.
+	 *
+	 * @throws GuardrailBlockedException When the input filter refuses the prompt.
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 */
+	private function runViaLegacyChat(string $owner, string $agentId, string $prompt, array $guardrailPolicy): string {
+		// Agent-guardrails: the input filter's ONLY seam on this legacy
+		// ChatService branch — Engine::processMessage() is never invoked here,
+		// so nothing else would ever filter this prompt. A `block` match throws
+		// BEFORE the legacy ChatService call, so no conversation/message is ever
+		// created for this attempt; a `redact` match replaces $prompt so the
+		// masked text is what the agent actually receives.
+		$inputFilter = $this->guardrailPolicyService->filterInput(policy: $guardrailPolicy, text: $prompt);
+		if ($this->guardrailActed(filter: $inputFilter, originalText: $prompt) === true) {
+			$this->appendGuardrailStep(name: 'Input filter', filter: $inputFilter);
+		}
+
+		if ($inputFilter['blocked'] === true) {
+			throw new GuardrailBlockedException(reason: (string)$inputFilter['reason']);
+		}
+
+		$prompt = (string)$inputFilter['text'];
+
+		$agent = $this->agentMapper->findByUuid($agentId);
+		$conversation = new Conversation();
+		$conversation->setUserId($owner);
+		$conversation->setOwner($owner);
+		$conversation->setAgentId($agent->getId());
+		$conversation->setTitle('Hermiq scheduled run');
+		$conversation = $this->conversationMapper->insert($conversation);
+
+		$result = $this->chatService->processMessage(
+			conversationId: (int)$conversation->getId(),
+			userId: $owner,
+			userMessage: $prompt
+		);
+
+		// Capture the LLM token/latency usage OpenRegister now reports, so writeRunAudit
+		// records it for run-analytics (run-cost recording). Empty when unavailable.
+		$usage = ($result['usage'] ?? []);
+		if (is_array($usage) === true) {
+			$this->lastRunUsage = $usage;
+		}
+
+		// Run-trace-observability: Hermiq does not instrument OR's internal tool
+		// loop on this path, so only coarse context/history/llm steps are ever
+		// captured here — derived from the `timings` bucket the call already
+		// returns (never a fabricated duration when a leg is absent/malformed).
+		$timings = ($result['timings'] ?? []);
+		if (is_array($timings) === true) {
+			$this->lastRunSteps = $this->buildCoarseStepsFromTimings(
+				timings: $timings,
+				anchorEnd: new DateTimeImmutable('now', new DateTimeZone('UTC'))
+			);
+		}
+
+		$output = (string)($result['message'] ?? '');
+		return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
+
+	}//end runViaLegacyChat()
 
 	/**
 	 * The just-completed `runAgentAsOwner()` call's own fresh run identifier
