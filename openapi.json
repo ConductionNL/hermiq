@@ -3982,6 +3982,119 @@
                 }
             }
         },
+        "/assistant/form-fill": {
+            "post": {
+                "operationId": "form-fill-fill",
+                "summary": "Propose form field values from pasted text (forms-smart-paste-fill)",
+                "description": "Propose form field values from pasted text (forms-smart-paste-fill). Gated by the form-fill AI feature; answers {values, draft: true, notice}, or {available: false, reason}. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "assistant"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "maxLength": 10000,
+                                        "description": "The pasted text, 1 to 10,000 characters."
+                                    },
+                                    "fields": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 50,
+                                        "description": "The fields the proposals may fill.",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "key": {
+                                                    "type": "string",
+                                                    "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+                                                },
+                                                "label": {
+                                                    "type": "string"
+                                                },
+                                                "type": {
+                                                    "type": "string"
+                                                },
+                                                "options": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                }
+                                            },
+                                            "required": [
+                                                "key"
+                                            ]
+                                        }
+                                    },
+                                    "language": {
+                                        "type": "string",
+                                        "description": "BCP-47 tag of the form's language; nl when absent."
+                                    }
+                                },
+                                "required": [
+                                    "text",
+                                    "fields"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/assistant/form-fill/available": {
+            "get": {
+                "operationId": "form-fill-available",
+                "summary": "Whether Paste to fill may show (forms-smart-paste-fill)",
+                "description": "Whether Paste to fill may show: {available: bool} from the form-fill AI feature alone, without a model call. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "assistant"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
         "/assistant/summarise": {
             "post": {
                 "operationId": "record-summary-summarise",

@@ -74,6 +74,7 @@ use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\InstructionVariablesServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\IntakeServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\IntakeSettingsInterface;
+use OCA\Hermiq\Kernel\Contracts\FormFillEngineInterface;
 use OCA\Hermiq\Kernel\Contracts\LessonAuthoringEngineInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyCourseInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyReportInterface;
@@ -293,6 +294,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(InstructionVariablesServiceInterface::class, InstructionVariablesService::class);
 		$context->registerServiceAlias(IntakeServiceInterface::class, IntakeService::class);
 		$context->registerServiceAlias(IntakeSettingsInterface::class, IntakeSettings::class);
+		$context->registerServiceAlias(FormFillEngineInterface::class, FormFillEngine::class);
 		$context->registerServiceAlias(LessonAuthoringEngineInterface::class, LessonAuthoringEngine::class);
 		$context->registerServiceAlias(LiteracyCourseInterface::class, LiteracyCourse::class);
 		$context->registerServiceAlias(LiteracyReportInterface::class, LiteracyReport::class);
