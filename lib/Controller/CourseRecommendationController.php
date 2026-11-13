@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#3-controller-routes-self-scoped-no-action-matrix-gate-needed
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#3-controller-routes-self-scoped-no-action-matrix-gate-needed
  */
 
 declare(strict_types=1);
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Self-scoped course-recommendation read endpoint.
  *
- * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
+ * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-3-1
  */
 class CourseRecommendationController extends Controller {
 	/**
@@ -73,8 +73,8 @@ class CourseRecommendationController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-recommendation-access-is-self-scoped-to-the-callers-own-learner-identity
+	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-3-1
+	 * @spec openspec/specs/course-recommendations/spec.md#requirement-recommendation-access-is-self-scoped-to-the-callers-own-learner-identity
 	 */
 	public function index(): JSONResponse {
 		$user = $this->userSession->getUser();

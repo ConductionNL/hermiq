@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Seed the compliance-control-packs catalogue via ObjectService (idempotent).
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
  */
 class SeedComplianceControls implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -85,7 +85,7 @@ class SeedComplianceControls implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
 	 */
 	public function getName(): string {
 		return 'Seed compliance-control-packs catalogue (EU AI Act, ISO/IEC 42001, NIST AI RMF)';
@@ -98,7 +98,7 @@ class SeedComplianceControls implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
 	 */
 	public function run(IOutput $output): void {
 		try {

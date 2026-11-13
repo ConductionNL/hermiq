@@ -547,4 +547,42 @@ class SkillLearningsPromotionServiceTest extends TestCase {
 		}
 
 	}//end testPromotionMatchesTheRecordedFixture()
+
+	/**
+	 * Each candidate lands in exactly one bucket: an unparseable line is kept unless its
+	 * loose date expired; a parsed candidate is promoted on enough distinct runs or an
+	 * eval failure (before expiry is considered), else dropped when expired, else kept.
+	 *
+	 * @return void
+	 */
+	public function testEveryCandidateLandsInOneBucket(): void {
+		$candidate = static fn (string $id, ?string $raw, array $runs = [], string $evalFail = '', string $date = '2026-07-20'): array => [
+			'id' => $id,
+			'raw' => $raw,
+			'runs' => $runs,
+			'evalFail' => $evalFail,
+			'date' => $date,
+		];
+		$candidates = [
+			$candidate('raw-undated', 'legacy note'),
+			$candidate('raw-stale', 'legacy [2026-01-01] note'),
+			$candidate('raw-fresh', 'legacy [2026-07-20] note'),
+			$candidate('two-runs', null, ['r1', 'r1', 'r2']),
+			$candidate('three-runs', null, ['r1', 'r2', 'r3']),
+			$candidate('eval-fail', null, ['r1'], 'failed case 4'),
+			$candidate('stale', null, ['r1'], '', '2026-06-01'),
+			$candidate('undated', null, ['r1'], '', 'garbage'),
+			$candidate('stale-but-confirmed', null, ['r1', 'r2', 'r3'], '', '2026-01-01'),
+		];
+
+		$sorted = (new \ReflectionMethod(SkillLearningsPromotionService::class, 'sortCandidates'))->invoke($this->service(), $candidates);
+
+		$ids = static fn (array $bucket): array => array_column($bucket, 'id');
+		$this->assertSame(['kept', 'promoted', 'dropped'], array_keys($sorted));
+		$this->assertSame(['raw-undated', 'raw-fresh', 'two-runs', 'undated'], $ids($sorted['kept']));
+		$this->assertSame(['three-runs', 'eval-fail', 'stale-but-confirmed'], $ids($sorted['promoted']));
+		$this->assertSame(2, $sorted['dropped']);
+		$this->assertSame($candidates[0], $sorted['kept'][0]);
+
+	}//end testEveryCandidateLandsInOneBucket()
 }//end class

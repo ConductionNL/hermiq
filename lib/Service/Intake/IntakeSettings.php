@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
+ * @spec openspec/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use OCP\IAppConfig;
 /**
  * Reads and writes the abstention threshold.
  *
- * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+ * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
  */
 class IntakeSettings {
 
@@ -71,26 +71,35 @@ class IntakeSettings {
 	 *
 	 * @return float The threshold.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
 	 */
 	public function abstentionThreshold(): float {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
-		if ($raw === '') {
-			return self::DEFAULT_THRESHOLD;
-		}
-
-		$decoded = json_decode($raw, true);
-		if (is_array($decoded) === false || is_numeric($decoded['abstentionThreshold'] ?? null) === false) {
-			return self::DEFAULT_THRESHOLD;
-		}
-
-		$threshold = (float)$decoded['abstentionThreshold'];
-		if ($threshold < 0.0 || $threshold > 1.0) {
+		$threshold = $this->storedThreshold();
+		if ($threshold === null || $threshold < 0.0 || $threshold > 1.0) {
 			return self::DEFAULT_THRESHOLD;
 		}
 
 		return $threshold;
 	}//end abstentionThreshold()
+
+	/**
+	 * The stored threshold as a number, or null when nothing usable is stored.
+	 *
+	 * @return float|null The stored value, not yet range-checked.
+	 */
+	private function storedThreshold(): ?float {
+		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		if ($raw === '') {
+			return null;
+		}
+
+		$decoded = json_decode($raw, true);
+		if (is_array($decoded) === false || is_numeric($decoded['abstentionThreshold'] ?? null) === false) {
+			return null;
+		}
+
+		return (float)$decoded['abstentionThreshold'];
+	}//end storedThreshold()
 
 	/**
 	 * Set the abstention threshold.
@@ -101,7 +110,7 @@ class IntakeSettings {
 	 *
 	 * @throws InvalidArgumentException When the value is outside 0..1.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
+	 * @spec openspec/specs/conversational-intake/spec.md#requirement-a-classification-must-carry-a-confidence-and-must-be-able-to-abstain
 	 */
 	public function setAbstentionThreshold(float $threshold): float {
 		if ($threshold < 0.0 || $threshold > 1.0) {
@@ -124,7 +133,7 @@ class IntakeSettings {
 	 *
 	 * @return array{abstentionThreshold: float, default: float} The settings.
 	 *
-	 * @spec openspec/changes/a-conversational-intake-that-files-for-the-citizen/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
+	 * @spec openspec/specs/conversational-intake/spec.md#scenario-the-threshold-is-readable
 	 */
 	public function all(): array {
 		return [

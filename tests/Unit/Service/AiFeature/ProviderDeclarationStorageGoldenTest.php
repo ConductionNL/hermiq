@@ -35,6 +35,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @covers \OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry
  * @covers \OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry
+ * @uses \OCA\Hermiq\Service\AiFeature\ProviderDeclarationStore
  *
  * @spec openspec/specs/provider-data-use/spec.md#requirement-a-configured-provider-states-what-it-does-with-data-req-notrain-001
  */

@@ -222,18 +222,17 @@ class MigrateAgentData implements IRepairStep {
 	];
 
 	/**
-	 * Running count of dangling foreign keys nulled during the run (reported at the end).
+	 * Optional integer foreign keys: FK label → [source column, schema slug of the
+	 * referenced table], resolved against that table's id → uuid map.
 	 *
-	 * @var integer
+	 * @var array<string, array{0: string, 1: string}>
 	 */
-	private int $danglingCount = 0;
-
-	/**
-	 * Conversation uuids already reported as unmigratable in an earlier run (warn-once).
-	 *
-	 * @var array<int, string>
-	 */
-	private array $reportedUnmigratable = [];
+	private const FOREIGN_KEYS = [
+		'Message.conversationId' => ['conversation_id', 'conversation'],
+		'Feedback.messageId' => ['message_id', 'message'],
+		'Feedback.conversationId' => ['conversation_id', 'conversation'],
+		'Feedback.agentId' => ['agent_id', 'agent'],
+	];
 
 	/**
 	 * Constructor.
@@ -312,338 +311,314 @@ class MigrateAgentData implements IRepairStep {
 	 * @return void
 	 */
 	private function runInner(object $objectService, IOutput $output): void {
-		$this->danglingCount = 0;
+		$run = new AgentDataMigrationRun(objectService: $objectService, output: $output);
 		$previouslyReported = $this->loadReportedUnmigratable();
-		$this->reportedUnmigratable = $previouslyReported;
+		$run->reportedUnmigratable = $previouslyReported;
 
-		// Id → uuid maps, built across the whole pass (including already-migrated rows) so a
-		// child table's FK resolution works on a re-run / partial migration too.
-		$agentIdToUuid = [];
-		$conversationIdToUuid = [];
-		$messageIdToUuid = [];
-
-		$agents = $this->migrateAgents(objectService: $objectService, output: $output, agentIdToUuid: $agentIdToUuid);
-		$conversations = $this->migrateConversations(
-			objectService: $objectService,
-			output: $output,
-			agentIdToUuid: $agentIdToUuid,
-			conversationIdToUuid: $conversationIdToUuid
-		);
-		$messages = $this->migrateMessages(
-			objectService: $objectService,
-			output: $output,
-			conversationIdToUuid: $conversationIdToUuid,
-			messageIdToUuid: $messageIdToUuid
-		);
-		$feedback = $this->migrateFeedback(
-			objectService: $objectService,
-			output: $output,
-			agentIdToUuid: $agentIdToUuid,
-			conversationIdToUuid: $conversationIdToUuid,
-			messageIdToUuid: $messageIdToUuid
-		);
-
-		if ($this->reportedUnmigratable !== $previouslyReported) {
-			$encoded = json_encode(array_values($this->reportedUnmigratable));
-			if (is_string($encoded) === false) {
-				$encoded = '[]';
-			}
-
-			$this->appConfig->setValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
+		// Tables in FK-dependency order (parents first). The id → uuid maps are built
+		// across the whole pass (including already-migrated rows) so a child table's
+		// FK resolution works on a re-run / partial migration too.
+		$written = [];
+		foreach (array_keys(self::SCHEMA_SLUG) as $table) {
+			$written[] = $this->migrateTable(run: $run, table: $table);
 		}
 
-		$output->info(
-			sprintf(
-				'agent-data migration complete: %d agents, %d conversations, %d messages, %d feedback new; %d dangling FK(s) nulled.',
-				$agents,
-				$conversations,
-				$messages,
-				$feedback,
-				$this->danglingCount
-			)
-		);
+		$this->storeReportedUnmigratable(run: $run, previouslyReported: $previouslyReported);
+		$this->reportSummary(run: $run, written: $written);
 
 	}//end runInner()
 
 	/**
-	 * Migrate `openregister_agents` → `Agent` objects (uuid + owner/organisation preserved).
+	 * Report the pass's per-table write counts and the dangling FKs it nulled.
 	 *
-	 * @param ObjectService $objectService The OpenRegister object write-path.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<int, string> $agentIdToUuid Out-param: source agent id → uuid, filled for every row
-	 *                                          read.
+	 * @param AgentDataMigrationRun $run     The finished pass.
+	 * @param array<int, int>       $written Objects newly written per table, in SCHEMA_SLUG order.
 	 *
-	 * @return int The number of Agent objects newly written this run.
+	 * @return void
+	 */
+	private function reportSummary(AgentDataMigrationRun $run, array $written): void {
+		$run->output->info(
+			vsprintf(
+				'agent-data migration complete: %d agents, %d conversations, %d messages, %d feedback new; %d dangling FK(s) nulled.',
+				[...$written, $run->danglingCount]
+			)
+		);
+
+	}//end reportSummary()
+
+	/**
+	 * Remember the conversations reported as unmigratable, when the pass reported new ones.
+	 *
+	 * @param AgentDataMigrationRun $run                The finished pass.
+	 * @param array<int, string>    $previouslyReported The uuids reported before this pass.
+	 *
+	 * @return void
+	 */
+	private function storeReportedUnmigratable(AgentDataMigrationRun $run, array $previouslyReported): void {
+		if ($run->reportedUnmigratable === $previouslyReported) {
+			return;
+		}
+
+		$encoded = json_encode(array_values($run->reportedUnmigratable));
+		if (is_string($encoded) === false) {
+			$encoded = '[]';
+		}
+
+		$this->appConfig->setValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
+
+	}//end storeReportedUnmigratable()
+
+	/**
+	 * Migrate one OR table into objects of its target schema (uuid + owner/organisation
+	 * preserved), skipping rows that are already migrated.
+	 *
+	 * @param AgentDataMigrationRun $run   The pass.
+	 * @param string                $table The OR table (a key of SCHEMA_SLUG).
+	 *
+	 * @return int The number of objects newly written this run.
 	 *
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-agent-row-is-migrated-with-its-uuid-preserved
+	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#re-running-the-repair-step-is-a-no-op-on-migrated-records
 	 */
-	private function migrateAgents(ObjectService $objectService, IOutput $output, array &$agentIdToUuid): int {
-		$table = 'openregister_agents';
-		if ($this->guardTable(table: $table, output: $output) === false) {
+	private function migrateTable(AgentDataMigrationRun $run, string $table): int {
+		if ($this->guardTable(table: $table, output: $run->output) === false) {
 			return 0;
 		}
 
+		$run->schema = self::SCHEMA_SLUG[$table];
 		$written = 0;
 		foreach ($this->readTable(table: $table) as $row) {
-			$uuid = $this->rowUuid(row: $row);
-			if ($uuid === null) {
-				continue;
-			}
-
-			$agentIdToUuid[(int)$row['id']] = $uuid;
-
-			if ($this->objectExists(objectService: $objectService, schema: 'agent', uuid: $uuid) === true) {
-				continue;
-			}
-
-			$data = $this->buildData(row: $row, fields: self::AGENT_FIELDS);
-			$this->persist(objectService: $objectService, schema: 'agent', uuid: $uuid, data: $data, row: $row);
-			$written++;
+			$written += $this->migrateRow(run: $run, row: $row);
 		}
 
 		return $written;
-	}//end migrateAgents()
+
+	}//end migrateTable()
 
 	/**
-	 * Migrate `openregister_conversations` → `Conversation` objects, resolving agentId int → uuid.
+	 * Migrate one source row, recording its id → uuid first.
 	 *
-	 * @param ObjectService $objectService The OpenRegister object write-path.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<int, string> $agentIdToUuid Source agent id → uuid (read-only here).
-	 * @param array<int, string> $conversationIdToUuid Out-param: source conversation id → uuid.
+	 * @param AgentDataMigrationRun $run The pass.
+	 * @param array<string, mixed>  $row The source row.
 	 *
-	 * @return int The number of Conversation objects newly written this run.
+	 * @return int 1 when the row was written, 0 when it was skipped.
+	 */
+	private function migrateRow(AgentDataMigrationRun $run, array $row): int {
+		$uuid = $this->rowUuid(row: $row);
+		if ($uuid === null) {
+			return 0;
+		}
+
+		$run->uuids[$run->schema][(int)$row['id']] = $uuid;
+		if ($this->objectExists(objectService: $run->objectService, schema: $run->schema, uuid: $uuid) === true) {
+			return 0;
+		}
+
+		$run->row = $row;
+		$run->uuid = $uuid;
+
+		return $this->writeRow(run: $run);
+
+	}//end migrateRow()
+
+	/**
+	 * Write the row being migrated, unless it cannot be migrated.
+	 *
+	 * @param AgentDataMigrationRun $run The pass, at the row being migrated.
+	 *
+	 * @return int 1 when the row was written, 0 when it was skipped.
+	 */
+	private function writeRow(AgentDataMigrationRun $run): int {
+		$data = $this->rowData(run: $run);
+		if ($data === null) {
+			return 0;
+		}
+
+		$this->persist(objectService: $run->objectService, schema: $run->schema, uuid: $run->uuid, data: $data, row: $run->row);
+		return 1;
+
+	}//end writeRow()
+
+	/**
+	 * The object payload of the row being migrated, or null when it cannot be migrated.
+	 *
+	 * @param AgentDataMigrationRun $run The pass, at the row being migrated.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function rowData(AgentDataMigrationRun $run): ?array {
+		return match ($run->schema) {
+			'agent' => $this->buildData(row: $run->row, fields: self::AGENT_FIELDS),
+			'conversation' => $this->conversationData(run: $run),
+			'message' => $this->messageData(run: $run),
+			default => $this->feedbackData(run: $run),
+		};
+
+	}//end rowData()
+
+	/**
+	 * A Conversation payload with agentId resolved from the int FK to the agent's uuid,
+	 * or null (reported once) when the agent is missing.
+	 *
+	 * @param AgentDataMigrationRun $run The pass, at the conversation row.
+	 *
+	 * @return array<string, mixed>|null
 	 *
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#conversationagentid-is-resolved-from-an-integer-fk-to-the-agents-uuid
 	 */
-	private function migrateConversations(
-		ObjectService $objectService,
-		IOutput $output,
-		array $agentIdToUuid,
-		array &$conversationIdToUuid,
-	): int {
-		$table = 'openregister_conversations';
-		if ($this->guardTable(table: $table, output: $output) === false) {
-			return 0;
+	private function conversationData(AgentDataMigrationRun $run): ?array {
+		$data = $this->buildData(row: $run->row, fields: self::CONVERSATION_FIELDS);
+		$data['agentId'] = $this->conversationAgentUuid(run: $run);
+
+		// `agentId` is REQUIRED on the Conversation schema — a conversation
+		// that runs against no agent is not a conversation. resolveFk()
+		// nulls a dangling FK and says "row still migrated", which is right
+		// for an optional reference and impossible for this one: the write
+		// can only ever fail validation.
+		//
+		// It did, eight times per repair, as "failed to write conversation
+		// <uuid>: Property 'agentId' should be type 'string' but is 'null'"
+		// — an error describing the symptom, from a step that had already
+		// decided to continue. Skipping says the true thing: these
+		// conversations reference agents that no longer exist, so there is
+		// nothing to migrate them ONTO.
+		if ($data['agentId'] === null) {
+			$this->reportUnmigratable(run: $run);
+			return null;
 		}
 
-		$written = 0;
-		$skipped = 0;
-		foreach ($this->readTable(table: $table) as $row) {
-			$uuid = $this->rowUuid(row: $row);
-			if ($uuid === null) {
-				continue;
-			}
+		return $data;
 
-			$conversationIdToUuid[(int)$row['id']] = $uuid;
-
-			if ($this->objectExists(objectService: $objectService, schema: 'conversation', uuid: $uuid) === true) {
-				continue;
-			}
-
-			$data = $this->buildData(row: $row, fields: self::CONVERSATION_FIELDS);
-			// Resolved directly instead of via resolveFk(): that helper warns
-			// "nulled (row still migrated)" for a dangling id, which is wrong
-			// on both counts here — an agentless conversation is SKIPPED, and
-			// the skip branch below does its own (warn-once) reporting.
-			$agentSourceId = $this->intOrNull(value: ($row['agent_id'] ?? null));
-			$data['agentId'] = null;
-			if ($agentSourceId !== null && $agentSourceId !== 0) {
-				$data['agentId'] = ($agentIdToUuid[$agentSourceId] ?? null);
-			}
-
-			// `agentId` is REQUIRED on the Conversation schema — a conversation
-			// that runs against no agent is not a conversation. resolveFk()
-			// nulls a dangling FK and says "row still migrated", which is right
-			// for an optional reference and impossible for this one: the write
-			// can only ever fail validation.
-			//
-			// It did, eight times per repair, as "failed to write conversation
-			// <uuid>: Property 'agentId' should be type 'string' but is 'null'"
-			// — an error describing the symptom, from a step that had already
-			// decided to continue. Skipping says the true thing: these
-			// conversations reference agents that no longer exist, so there is
-			// nothing to migrate them ONTO. The warning fires ONCE per row:
-			// the source row can never become migratable, so re-warning on
-			// every later upgrade is a permanent false alarm.
-			if ($data['agentId'] === null) {
-				$skipped++;
-				if (in_array($uuid, $this->reportedUnmigratable, true) === true) {
-					$this->logger->debug(
-						'[hermiq] agent-data-migration: conversation ' . $uuid
-						. ' still references a missing agent — already reported, skipped quietly.'
-					);
-					continue;
-				}
-
-				$message = sprintf(
-					'Conversation %s references a missing agent; not migrated (a Conversation requires an agent).',
-					$uuid
-				);
-				$output->warning('hermiq: ' . $message);
-				$this->logger->warning('[hermiq] agent-data-migration: ' . $message);
-				$this->reportedUnmigratable[] = $uuid;
-				continue;
-			}
-
-			$this->persist(objectService: $objectService, schema: 'conversation', uuid: $uuid, data: $data, row: $row);
-			$written++;
-		}//end foreach
-
-		return $written;
-	}//end migrateConversations()
+	}//end conversationData()
 
 	/**
-	 * Migrate `openregister_messages` → `Message` objects, resolving conversationId and copying context.
+	 * The uuid of the conversation's agent, or null when unset or missing.
 	 *
-	 * @param ObjectService $objectService The OpenRegister object write-path.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<int, string> $conversationIdToUuid Source conversation id → uuid (read-only here).
-	 * @param array<int, string> $messageIdToUuid Out-param: source message id → uuid.
+	 * Resolved directly instead of via resolveFk(): that helper warns "nulled (row
+	 * still migrated)" for a dangling id, which is wrong on both counts here — an
+	 * agentless conversation is SKIPPED, and reportUnmigratable() does its own
+	 * (warn-once) reporting.
 	 *
-	 * @return int The number of Message objects newly written this run.
+	 * @param AgentDataMigrationRun $run The pass, at the conversation row.
+	 *
+	 * @return string|null
+	 */
+	private function conversationAgentUuid(AgentDataMigrationRun $run): ?string {
+		$agentSourceId = $this->intOrNull(value: ($run->row['agent_id'] ?? null));
+		if ($agentSourceId === null || $agentSourceId === 0) {
+			return null;
+		}
+
+		return ($run->uuids['agent'][$agentSourceId] ?? null);
+
+	}//end conversationAgentUuid()
+
+	/**
+	 * Report a conversation that references a missing agent — ONCE per row: the
+	 * source row can never become migratable, so re-warning on every later upgrade
+	 * is a permanent false alarm.
+	 *
+	 * @param AgentDataMigrationRun $run The pass, at the conversation row.
+	 *
+	 * @return void
+	 */
+	private function reportUnmigratable(AgentDataMigrationRun $run): void {
+		$uuid = $run->uuid;
+		if (in_array($uuid, $run->reportedUnmigratable, true) === true) {
+			$this->logger->debug(
+				'[hermiq] agent-data-migration: conversation ' . $uuid
+				. ' still references a missing agent — already reported, skipped quietly.'
+			);
+			return;
+		}
+
+		$message = sprintf('Conversation %s references a missing agent; not migrated (a Conversation requires an agent).', $uuid);
+		$run->output->warning('hermiq: ' . $message);
+		$this->logger->warning('[hermiq] agent-data-migration: ' . $message);
+		$run->reportedUnmigratable[] = $uuid;
+
+	}//end reportUnmigratable()
+
+	/**
+	 * A Message payload with conversationId resolved; `context` is copied verbatim.
+	 *
+	 * @param AgentDataMigrationRun $run The pass, at the message row.
+	 *
+	 * @return array<string, mixed>
 	 *
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#a-message-with-an-ai-chat-companion-context-snapshot-round-trips-unchanged
 	 */
-	private function migrateMessages(
-		ObjectService $objectService,
-		IOutput $output,
-		array $conversationIdToUuid,
-		array &$messageIdToUuid,
-	): int {
-		$table = 'openregister_messages';
-		if ($this->guardTable(table: $table, output: $output) === false) {
-			return 0;
-		}
+	private function messageData(AgentDataMigrationRun $run): array {
+		$data = $this->buildData(row: $run->row, fields: self::MESSAGE_FIELDS);
+		$data['conversationId'] = $this->resolveFk(run: $run, label: 'Message.conversationId');
 
-		$written = 0;
-		foreach ($this->readTable(table: $table) as $row) {
-			$uuid = $this->rowUuid(row: $row);
-			if ($uuid === null) {
-				continue;
-			}
+		return $data;
 
-			$messageIdToUuid[(int)$row['id']] = $uuid;
-
-			if ($this->objectExists(objectService: $objectService, schema: 'message', uuid: $uuid) === true) {
-				continue;
-			}
-
-			$data = $this->buildData(row: $row, fields: self::MESSAGE_FIELDS);
-			$data['conversationId'] = $this->resolveFk(
-				sourceId: $this->intOrNull(value: ($row['conversation_id'] ?? null)),
-				map: $conversationIdToUuid,
-				fromUuid: $uuid,
-				label: 'Message.conversationId',
-				output: $output
-			);
-
-			$this->persist(objectService: $objectService, schema: 'message', uuid: $uuid, data: $data, row: $row);
-			$written++;
-		}//end foreach
-
-		return $written;
-	}//end migrateMessages()
+	}//end messageData()
 
 	/**
-	 * Migrate `openregister_feedback` → `Feedback` objects, resolving all three int FKs.
+	 * A Feedback payload with all three int FKs resolved.
 	 *
-	 * @param ObjectService $objectService The OpenRegister object write-path.
-	 * @param IOutput $output Repair output channel.
-	 * @param array<int, string> $agentIdToUuid Source agent id → uuid (read-only here).
-	 * @param array<int, string> $conversationIdToUuid Source conversation id → uuid (read-only here).
-	 * @param array<int, string> $messageIdToUuid Source message id → uuid (read-only here).
+	 * @param AgentDataMigrationRun $run The pass, at the feedback row.
 	 *
-	 * @return int The number of Feedback objects newly written this run.
+	 * @return array<string, mixed>
 	 *
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#integer-foreign-keys-are-resolved-to-uuid-references-during-migration
 	 */
-	private function migrateFeedback(
-		ObjectService $objectService,
-		IOutput $output,
-		array $agentIdToUuid,
-		array $conversationIdToUuid,
-		array $messageIdToUuid,
-	): int {
-		$table = 'openregister_feedback';
-		if ($this->guardTable(table: $table, output: $output) === false) {
-			return 0;
-		}
+	private function feedbackData(AgentDataMigrationRun $run): array {
+		$data = $this->buildData(row: $run->row, fields: self::FEEDBACK_FIELDS);
+		$data['messageId'] = $this->resolveFk(run: $run, label: 'Feedback.messageId');
+		$data['conversationId'] = $this->resolveFk(run: $run, label: 'Feedback.conversationId');
+		$data['agentId'] = $this->resolveFk(run: $run, label: 'Feedback.agentId');
 
-		$written = 0;
-		foreach ($this->readTable(table: $table) as $row) {
-			$uuid = $this->rowUuid(row: $row);
-			if ($uuid === null) {
-				continue;
-			}
+		return $data;
 
-			if ($this->objectExists(objectService: $objectService, schema: 'feedback', uuid: $uuid) === true) {
-				continue;
-			}
-
-			$data = $this->buildData(row: $row, fields: self::FEEDBACK_FIELDS);
-			$data['messageId'] = $this->resolveFk(
-				sourceId: $this->intOrNull(value: ($row['message_id'] ?? null)),
-				map: $messageIdToUuid,
-				fromUuid: $uuid,
-				label: 'Feedback.messageId',
-				output: $output
-			);
-			$data['conversationId'] = $this->resolveFk(
-				sourceId: $this->intOrNull(value: ($row['conversation_id'] ?? null)),
-				map: $conversationIdToUuid,
-				fromUuid: $uuid,
-				label: 'Feedback.conversationId',
-				output: $output
-			);
-			$data['agentId'] = $this->resolveFk(
-				sourceId: $this->intOrNull(value: ($row['agent_id'] ?? null)),
-				map: $agentIdToUuid,
-				fromUuid: $uuid,
-				label: 'Feedback.agentId',
-				output: $output
-			);
-
-			$this->persist(objectService: $objectService, schema: 'feedback', uuid: $uuid, data: $data, row: $row);
-			$written++;
-		}//end foreach
-
-		return $written;
-	}//end migrateFeedback()
+	}//end feedbackData()
 
 	/**
-	 * Resolve an integer foreign key to the referenced row's uuid.
+	 * Resolve an integer foreign key of the row being migrated to the referenced row's uuid.
 	 *
 	 * A null/zero source id means "no reference" (returns null, not counted). A non-zero id
 	 * that is absent from the map is a dangling reference: it is logged, counted, and nulled,
 	 * but the owning row is still migrated (Decisions — Ruben 2026-07-06).
 	 *
-	 * @param int|null $sourceId The source integer FK value.
-	 * @param array<int, string> $map The id → uuid map to resolve against.
-	 * @param string $fromUuid The migrating row's own uuid (for the log line).
-	 * @param string $label Human label of the FK field (for the log line).
-	 * @param IOutput $output Repair output channel.
+	 * @param AgentDataMigrationRun $run   The pass, at the row being migrated.
+	 * @param string                $label Human label of the FK field (a key of FOREIGN_KEYS).
 	 *
 	 * @return string|null The resolved uuid, or null when unset/dangling.
 	 *
 	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-unresolvable-foreign-key-is-skipped-not-fatal
 	 */
-	private function resolveFk(?int $sourceId, array $map, string $fromUuid, string $label, IOutput $output): ?string {
+	private function resolveFk(AgentDataMigrationRun $run, string $label): ?string {
+		[$column, $schema] = self::FOREIGN_KEYS[$label];
+		$sourceId = $this->intOrNull(value: ($run->row[$column] ?? null));
 		if ($sourceId === null || $sourceId === 0) {
 			return null;
 		}
 
-		$resolved = ($map[$sourceId] ?? null);
+		$resolved = ($run->uuids[$schema][$sourceId] ?? null);
 		if ($resolved === null) {
-			$this->danglingCount++;
-			$message = sprintf('Dangling %s=%d on %s — nulled (row still migrated).', $label, $sourceId, $fromUuid);
-			$output->warning($message);
-			$this->logger->warning('[hermiq] agent-data-migration: ' . $message);
-			return null;
+			$this->reportDanglingFk(run: $run, reference: $label . '=' . $sourceId);
 		}
 
 		return $resolved;
 	}//end resolveFk()
+
+	/**
+	 * Count, log and report a dangling foreign key of the row being migrated.
+	 *
+	 * @param AgentDataMigrationRun $run       The pass, at the row being migrated.
+	 * @param string                $reference The FK label and its source id (`Label=id`).
+	 *
+	 * @return void
+	 */
+	private function reportDanglingFk(AgentDataMigrationRun $run, string $reference): void {
+		$run->danglingCount++;
+		$message = sprintf('Dangling %s on %s — nulled (row still migrated).', $reference, $run->uuid);
+		$run->output->warning($message);
+		$this->logger->warning('[hermiq] agent-data-migration: ' . $message);
+
+	}//end reportDanglingFk()
 
 	/**
 	 * Persist one migrated object through ObjectService, preserving uuid, owner, organisation.

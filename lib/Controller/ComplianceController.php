@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
  */
 
 declare(strict_types=1);
@@ -60,7 +60,7 @@ use Throwable;
  *   (compliance service, action auth, org mapper, user session, logger) plus the HTTP
  *   response/exception types every endpoint returns.
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
  */
 class ComplianceController extends Controller {
 	/**
@@ -94,7 +94,7 @@ class ComplianceController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
 	 */
 	public function dashboard(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -127,7 +127,7 @@ class ComplianceController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
 	 */
 	public function export(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -166,7 +166,7 @@ class ComplianceController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
 	 */
 	public function factsheet(string $agentId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -209,7 +209,7 @@ class ComplianceController extends Controller {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
 	 */
 	private function maySeeFactsheet(ObjectEntity $agent, IUser $user): bool {
 		$uid = $user->getUID();
@@ -235,7 +235,7 @@ class ComplianceController extends Controller {
 	 *
 	 * @return string The organisation identifier, or '' when none resolves.
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
 	 */
 	private function resolveActiveOrganisation(string $uid): string {
 		try {

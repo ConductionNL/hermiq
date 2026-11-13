@@ -9,8 +9,8 @@
   (action-auth-gated), NOT the generic createObjectStore object path — incident
   creation is a governance action (ADR-023), not ordinary CRUD.
 
-  @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
-  @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
+  @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+  @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-linked-to-runs-and-agents
 -->
 <template>
 	<NcDialog
@@ -131,7 +131,7 @@ export default {
 		 * actionsTaken are all required (matches the Incident schema).
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		canSave() {
 			return (
@@ -147,7 +147,7 @@ export default {
 		 * A blank incident form.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		blankForm() {
 			return {
@@ -162,7 +162,7 @@ export default {
 		 * Seed the form from the default props (create-only; no edit mode).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		resetForm() {
 			this.error = ''
@@ -174,7 +174,7 @@ export default {
 		 * Persist the incident and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 * @spec openspec/changes/archive/2026-07-13-agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		async save() {
 			this.saving = true

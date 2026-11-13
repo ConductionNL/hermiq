@@ -34,14 +34,13 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
@@ -51,7 +50,7 @@ use Throwable;
 /**
  * Installs published skill bundles.
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+ * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
  */
 class SkillBundleInstaller {
 	/**
@@ -105,7 +104,7 @@ class SkillBundleInstaller {
 	 *
 	 * @throws RuntimeException When the repository does not carry a bundle.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	public function installFromRepo(
 		string $owner,
@@ -233,17 +232,7 @@ class SkillBundleInstaller {
 				_multitenancy: false
 			);
 
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['name'] ?? '') === $name) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new NamedObjectRows(objects: $objects))->first(name: $name) !== null;
 	}//end agentExists()
 
 	/**
@@ -259,7 +248,7 @@ class SkillBundleInstaller {
 	 *
 	 * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	public function installParsed(array $parsed, string $createdBy, string $owner = '', string $repo = ''): array {
 		$outcomes = [];

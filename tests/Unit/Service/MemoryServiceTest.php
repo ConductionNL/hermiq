@@ -668,4 +668,66 @@ class MemoryServiceTest extends TestCase {
 		$this->assertSame([], $result['userProfileEntries'], 'No subjectUid was supplied — userprofile is never searched.');
 
 	}//end testRecallEntriesReusesSearchSubstrateAndExcludesSoftDeleted()
+	/**
+	 * Golden: every read path (sessions, profiles, turn recall, entry recall, the
+	 * memory lookup) asks OpenRegister with exactly the recorded schema, filters,
+	 * search term and limit, scoped to the session user and failing closed without
+	 * one, and returns exactly what was recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testEveryReadPathMatchesTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/memory-read-paths.json';
+		$actual = [];
+		foreach (['alice', null] as $uid) {
+			$calls = [];
+			$schema = '';
+			$stored = $this->memory(
+				[
+					'agentId' => 'agent-1',
+					'entries' => [
+						['id' => 'e1', 'text' => 'Prefers tea', 'createdAt' => '2026-01-01T00:00:00+00:00'],
+						['id' => 'e2', 'text' => 'Prefers coffee', 'createdAt' => '2026-01-02T00:00:00+00:00', 'deletedAt' => '2026-01-03T00:00:00+00:00'],
+					],
+				]
+			);
+			$service = $this->createMock(ObjectService::class);
+			$service->method('setRegister')->willReturnSelf();
+			$service->method('setSchema')->willReturnCallback(
+				function (mixed $value) use (&$schema, $service): ObjectService {
+					$schema = (string)$value;
+					return $service;
+				}
+			);
+			$service->method('findAll')->willReturnCallback(
+				function (array $config = []) use (&$calls, &$schema, $stored): array {
+					$calls[] = [$schema, $config];
+					return [$stored, 'not-an-entity'];
+				}
+			);
+
+			$memory = new MemoryService($service, $this->redactionService(), $this->userSession($uid));
+			$reads = [
+				'sessions' => count($memory->listSessions(agentId: 'agent-1')),
+				'profiles' => count($memory->listUserProfiles(agentId: 'agent-1')),
+				'turns' => count($memory->recallSessions(agentId: 'agent-1', query: 'tea', limit: 5)),
+				'turnsNoQuery' => count($memory->recallSessions(agentId: 'agent-1', query: '')),
+				'entries' => $memory->recallEntries(agentId: 'agent-1', subjectUid: 'bob', query: 'tea', limit: 7),
+				'entriesNoSubject' => $memory->recallEntries(agentId: 'agent-1', subjectUid: '', query: ''),
+				'entriesNullSubject' => $memory->recallEntries(agentId: 'agent-1', subjectUid: null, query: 'coffee'),
+				'memory' => $memory->getMemory(agentId: 'agent-1')->getUuid(),
+			];
+			$actual[(string)json_encode($uid)] = ['reads' => $reads, 'calls' => $calls];
+		}//end foreach
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testEveryReadPathMatchesTheRecordedFixture()
 }//end class

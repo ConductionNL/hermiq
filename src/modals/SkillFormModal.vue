@@ -226,9 +226,11 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
-import { errorMessage } from '../utils/errorMessage.js'
+import { busyAction, BusyFields, SAVING_FIELDS } from '../utils/busyAction.js'
 import { formDialogSlot } from './formDialogSlot.js'
 import { resetOnOpen } from './resetOnOpen.js'
+
+const PASTE_FIELDS = new BusyFields('pasteBusy', 'pasteError')
 
 export default {
 	name: 'SkillFormModal',
@@ -537,16 +539,10 @@ export default {
 				return
 			}
 
-			this.pasteBusy = true
-			this.pasteError = ''
-			try {
+			await busyAction(this, PASTE_FIELDS)(async () => {
 				this.applyImportedSkill(await importSkill(text))
 				this.pasteText = ''
-			} catch (e) {
-				this.pasteError = errorMessage(e, this.t('hermiq', 'Could not import the pasted package.'))
-			} finally {
-				this.pasteBusy = false
-			}
+			}, () => this.t('hermiq', 'Could not import the pasted package.'))
 		},
 
 		/**
@@ -627,9 +623,7 @@ export default {
 				return
 			}
 
-			this.saving = true
-			this.error = ''
-			try {
+			await busyAction(this, SAVING_FIELDS)(async () => {
 				let saved
 				if (this.effectiveSkill && this.effectiveSkill.id) {
 					saved = await this.saveEdit()
@@ -643,11 +637,7 @@ export default {
 
 				this.$emit('saved', saved)
 				this.handleClose()
-			} catch (e) {
-				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
-			} finally {
-				this.saving = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }
