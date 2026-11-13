@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Repair\Seed\LearningsSeedTarget;
 use OCA\Hermiq\Repair\SeedMaturityExampleSkills;
 use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -195,7 +196,7 @@ class SeedLearningsUpgradeGoldenTest extends TestCase {
 			freshness: new SeedFreshnessService()
 		);
 		$method = new ReflectionMethod(SeedMaturityExampleSkills::class, 'ensureLearningsSeed');
-		$method->invoke($step, $objectService, $skill, $output, $refreshed);
+		$method->invoke($step, $objectService, new LearningsSeedTarget(skill: $skill, output: $output, refreshed: $refreshed));
 
 		return ['saved' => $saved, 'output' => $lines];
 

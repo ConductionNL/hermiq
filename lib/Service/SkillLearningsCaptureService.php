@@ -50,6 +50,7 @@ use OCA\Hermiq\Kernel\Contracts\SkillLearningsCaptureServiceInterface;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\SkillLearnings\CaptureSource;
 use OCA\Hermiq\Service\SkillLearnings\CaptureUsage;
+use OCA\Hermiq\Service\SkillLearnings\ExtractionInput;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Service\ObjectService;
@@ -354,7 +355,7 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 		}
 
 		// (c) ONE cheap extraction call per exercised skill via the governed chokepoint.
-		$prompt = $this->buildExtractionPrompt(data: $data, candidates: $parsedCandidates, trace: $trace);
+		$prompt = $this->buildExtractionPrompt(data: $data, input: new ExtractionInput(candidates: $parsedCandidates, trace: $trace));
 		$response = $this->providerFactory->generateText(
 			prompt: $prompt,
 			userId: null,
@@ -717,14 +718,15 @@ class SkillLearningsCaptureService implements SkillLearningsCaptureServiceInterf
 	 * is already paid for), and the persisted run-trace excerpt.
 	 *
 	 * @param array<string, mixed> $data The skill payload.
-	 * @param array<int, array<string, mixed>> $candidates The parsed current candidates.
-	 * @param string $trace The run-trace excerpt.
+	 * @param ExtractionInput $input The candidates and run trace learnings are extracted from.
 	 *
 	 * @return string The extraction prompt.
 	 *
 	 * @spec openspec/specs/skill-learnings/spec.md#requirement-a-post-run-capture-pass-appends-dated-atomic-candidates-per-exercised-skill
 	 */
-	private function buildExtractionPrompt(array $data, array $candidates, string $trace): string {
+	private function buildExtractionPrompt(array $data, ExtractionInput $input): string {
+		$candidates = $input->candidates;
+		$trace = $input->trace;
 		$existing = [];
 		foreach ($candidates as $index => $candidate) {
 			if (($candidate['raw'] ?? null) !== null) {

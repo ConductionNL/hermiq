@@ -32,6 +32,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Event\CollectAgentTemplatesEvent;
 use OCA\Hermiq\Kernel\Contracts\AppTemplateOffersInterface;
+use OCA\Hermiq\Service\AppTemplate\OfferSave;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -129,9 +130,11 @@ class AppTemplateOffers implements AppTemplateOffersInterface {
 		try {
 			$saved = $this->save(
 				parsed: $parsed,
-				appId: $appId,
-				offerHash: $hash,
-				replaceUuid: ($earlier['uuid'] ?? null)
+				target: new OfferSave(
+					appId: $appId,
+					offerHash: $hash,
+					replaceUuid: ($earlier['uuid'] ?? null)
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->error('[hermiq] Could not import the agent template "' . $key . '": ' . $e->getMessage());
@@ -226,15 +229,16 @@ class AppTemplateOffers implements AppTemplateOffersInterface {
 	 * overwritten and goes back to review, because its content changed.
 	 *
 	 * @param array<string, mixed> $parsed The package, parsed by AgentTemplateSerializer::fromPackage().
-	 * @param string $appId The offering app.
-	 * @param string $offerHash The sha256 of the offered package.
-	 * @param string|null $replaceUuid The earlier template of this offer, or null for a new one.
+	 * @param OfferSave $target Which app offered a template, and which stored offer it replaces.
 	 *
 	 * @return ObjectEntity The persisted template.
 	 *
 	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-installed-app-can-offer-an-agent-template-for-itself-req-appag-005
 	 */
-	private function save(array $parsed, string $appId, string $offerHash, ?string $replaceUuid = null): ObjectEntity {
+	private function save(array $parsed, OfferSave $target): ObjectEntity {
+		$appId = $target->appId;
+		$offerHash = $target->offerHash;
+		$replaceUuid = $target->replaceUuid;
 		$scan = $this->scan(systemPrompt: (string)$parsed['systemPrompt']);
 
 		$reason = 'Offered by the app ' . $appId . '. Review before use.';

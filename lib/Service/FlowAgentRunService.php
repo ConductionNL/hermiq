@@ -55,6 +55,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\Kernel\Contracts\FlowAgentRunServiceInterface;
 use OCA\Hermiq\Service\AgentRun\AgentRunOutcome;
+use OCA\Hermiq\Service\AgentRun\FlowRunInput;
 use OCA\Hermiq\Service\AgentRun\ResultFieldWrite;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -175,7 +176,14 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 
 		// GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
 		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
-			$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: 'skipped_killswitch', summary: '', payload: $payload));
+			$this->writeRunAudit(
+				object: $object,
+				outcome: new AgentRunOutcome(
+					status: 'skipped_killswitch',
+					summary: '',
+					payload: $payload
+				)
+			);
 			return false;
 		}
 
@@ -193,7 +201,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 			return false;
 		}
 
-		return $this->runAgentAndWriteBack(object: $object, payload: $payload, organisation: $organisation);
+		return $this->runAgentAndWriteBack(object: $object, input: new FlowRunInput(payload: $payload, organisation: $organisation));
 	}//end dispatch()
 
 	/**
@@ -289,12 +297,7 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 	 * to the triggering object's configured `resultField`.
 	 *
 	 * @param ObjectEntity $object The triggering object.
-	 * @param array<string,mixed> $payload The event payload.
-	 * @param string $organisation The triggering object's organisation —
-	 *                             threaded to `runAgentAsOwner()` so its
-	 *                             defense-in-depth output-filter re-check
-	 *                             resolves the correct GuardrailPolicy
-	 *                             (agent-guardrails).
+	 * @param FlowRunInput $input The flow payload an agent run starts from, and its organisation.
 	 *
 	 * @return bool Whether the run completed successfully (result written).
 	 *
@@ -303,7 +306,9 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
 	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 	 */
-	private function runAgentAndWriteBack(ObjectEntity $object, array $payload, string $organisation = ''): bool {
+	private function runAgentAndWriteBack(ObjectEntity $object, FlowRunInput $input): bool {
+		$payload = $input->payload;
+		$organisation = $input->organisation;
 		$agentRef = (string)($payload['agent'] ?? '');
 		$resultField = (string)($payload['resultField'] ?? '');
 		$prompt = (string)($payload['prompt'] ?? '');
@@ -373,7 +378,15 @@ class FlowAgentRunService implements FlowAgentRunServiceInterface {
 			);
 		}//end try
 
-		$this->writeRunAudit(object: $object, outcome: new AgentRunOutcome(status: $status, summary: $summary, payload: $payload, startedAt: $startedAt));
+		$this->writeRunAudit(
+			object: $object,
+			outcome: new AgentRunOutcome(
+				status: $status,
+				summary: $summary,
+				payload: $payload,
+				startedAt: $startedAt
+			)
+		);
 
 		return $status === 'ok';
 	}//end runAgentAndWriteBack()

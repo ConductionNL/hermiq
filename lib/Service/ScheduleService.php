@@ -45,6 +45,7 @@ use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Schedule\CoarseStepTimeline;
+use OCA\Hermiq\Service\Schedule\DispatchOptions;
 use OCA\Hermiq\Service\Schedule\EngineRunRequest;
 use OCA\Hermiq\Service\Schedule\FailedAttempt;
 use OCA\Hermiq\Service\Schedule\GateSkip;
@@ -368,7 +369,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		foreach ($due as $schedule) {
 			// Per-schedule isolation: one bad schedule must not block the tick.
 			try {
-				$this->dispatch(schedule: $schedule, now: $now, engagedOrganisations: $engagedOrganisations);
+				$this->dispatch(schedule: $schedule, options: new DispatchOptions(now: $now, engagedOrganisations: $engagedOrganisations));
 			} catch (Throwable $e) {
 				$this->recordFailure(schedule: $schedule, error: $e);
 			}
@@ -753,9 +754,11 @@ class ScheduleService implements ScheduleServiceInterface {
 		try {
 			$this->dispatch(
 				schedule: $schedule,
-				now: $now,
-				engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
-				bypassApprovalGate: $bypassApprovalGate
+				options: new DispatchOptions(
+					now: $now,
+					engagedOrganisations: $this->tenantKillSwitch->engagedOrganisations(),
+					bypassApprovalGate: $bypassApprovalGate
+				)
 			);
 		} catch (Throwable $e) {
 			// Same isolation as the tick loop, then re-throw so the caller can surface it.
@@ -911,10 +914,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * Only when none of the gates apply does the normal commit-before-run dispatch fire.
 	 *
 	 * @param ObjectEntity $schedule The schedule object to fire.
-	 * @param DateTimeImmutable $now The current UTC moment.
-	 * @param array<int,string> $engagedOrganisations Organisations whose kill-switch is engaged.
-	 * @param bool $bypassApprovalGate When true, skip the requiresApproval gate
-	 *                                 (an approved occurrence running via approve()).
+	 * @param DispatchOptions $options When a schedule is dispatched and which gates apply.
 	 *
 	 * @return void
 	 *
@@ -926,12 +926,10 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
 	 */
-	private function dispatch(
-		ObjectEntity $schedule,
-		DateTimeImmutable $now,
-		array $engagedOrganisations = [],
-		bool $bypassApprovalGate = false,
-	): void {
+	private function dispatch(ObjectEntity $schedule, DispatchOptions $options): void {
+		$now = $options->now;
+		$engagedOrganisations = $options->engagedOrganisations;
+		$bypassApprovalGate = $options->bypassApprovalGate;
 		$data = $schedule->getObject();
 		$owner = (string)($schedule->getOwner() ?? '');
 		$organisation = (string)($schedule->getOrganisation() ?? '');

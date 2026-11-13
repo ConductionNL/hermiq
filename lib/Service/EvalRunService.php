@@ -59,6 +59,7 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\EvalRunServiceInterface;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\Eval\EvalRunRecord;
+use OCA\Hermiq\Service\Eval\L5EvidenceContext;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -989,9 +990,11 @@ class EvalRunService implements EvalRunServiceInterface {
 
 		$this->writeL5Evidence(
 			skillResults: $outcome['paired']['skillResults'],
-			datasetId: $run['datasetId'],
-			attributionMode: $run['mode'],
-			endedAt: $outcome['endedAt']
+			l5Context: new L5EvidenceContext(
+				datasetId: $run['datasetId'],
+				attributionMode: $run['mode'],
+				endedAt: $outcome['endedAt']
+			)
 		);
 	}//end recordPairedEvidence()
 
@@ -1731,15 +1734,16 @@ class EvalRunService implements EvalRunServiceInterface {
 	 * others' evidence.
 	 *
 	 * @param array<int,array<string,mixed>> $skillResults The run's per-skill entries.
-	 * @param string $datasetId The dataset UUID.
-	 * @param string $attributionMode joint|per-skill (the run's snapshot).
-	 * @param DateTimeImmutable $endedAt The run's endedAt (becomes lastValidated).
+	 * @param L5EvidenceContext $l5Context The dataset, attribution and time the level-5 evidence belongs to.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-evals/spec.md#requirement-a-completed-paired-run-is-the-only-writer-of-l5-evidence
 	 */
-	private function writeL5Evidence(array $skillResults, string $datasetId, string $attributionMode, DateTimeImmutable $endedAt): void {
+	private function writeL5Evidence(array $skillResults, L5EvidenceContext $l5Context): void {
+		$datasetId = $l5Context->datasetId;
+		$attributionMode = $l5Context->attributionMode;
+		$endedAt = $l5Context->endedAt;
 		foreach ($skillResults as $entry) {
 			$skillId = (string)($entry['skillId'] ?? '');
 			if ($skillId === '') {
