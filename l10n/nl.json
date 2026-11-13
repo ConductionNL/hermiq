@@ -1982,7 +1982,21 @@
         "The approval state machine: pending -> approved/denied for every gating sourceType. `overridden` is ADVISORY-ONLY and terminal-at-creation — the human accepted the AI's suggestion in principle but supplied a different value (advisoryContext.actualValue). It is not reachable from `pending` and no gating flow may produce it. `unused` is ADVISORY-ONLY and terminal-at-creation too: the suggestion was shown and nobody acted on it before the surface was closed, the suggestion expired or a newer one replaced it (advisoryContext.unusedBecause).": "De goedkeuringsstatus: pending -> approved/denied voor elk blokkerend sourceType. `overridden` is ALLEEN ADVIES en definitief bij aanmaken: de mens nam het AI-voorstel in principe over maar gebruikte een andere waarde (advisoryContext.actualValue). Het is niet bereikbaar vanuit `pending` en geen blokkerende flow mag het opleveren. `unused` is ook ALLEEN ADVIES en definitief bij aanmaken: het voorstel werd getoond en niemand deed er iets mee voordat het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel het verving (advisoryContext.unusedBecause).",
         "Unused because": "Niet gebruikt omdat",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Waarom een getoond voorstel niet is gebruikt (status=unused): het scherm werd gesloten, het voorstel verliep of een nieuwer voorstel verving het. Leeg bij elke andere status.",
-        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens."
+        "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "De toolrechten konden niet worden gelezen, dus er is niets opgeslagen. Laad de pagina opnieuw en probeer het nog eens.",
+        "Backups": "Back-ups",
+        "Back up every night": "Elke nacht een back-up maken",
+        "Back up now": "Nu een back-up maken",
+        "Backup queued": "Back-up ingepland",
+        "Back up every organisation's hermiq data into a folder in your Files every night: agents, skills, memories, schedules, policies and the other hermiq objects, one file per organisation. Only an administrator sees this section.": "Maak elke nacht een back-up van de hermiq-gegevens van elke organisatie in een map in je Bestanden: agents, skills, herinneringen, planningen, beleid en de andere hermiq-objecten, één bestand per organisatie. Alleen een beheerder ziet dit onderdeel.",
+        "Backups contain your agents, skills, memories and settings. With sessions included they also contain every chat of every person in the organisation. Only people who can open this folder can read them.": "Back-ups bevatten je agents, skills, herinneringen en instellingen. Met sessies erbij bevatten ze ook elk gesprek van iedereen in de organisatie. Alleen wie deze map kan openen, kan ze lezen.",
+        "Backups to keep per organisation": "Te bewaren back-ups per organisatie",
+        "Configure backups": "Back-ups instellen",
+        "Every night at {hour}:00 into \"{folder}\", keeping {keep} per organisation.": "Elke nacht om {hour}:00 in \"{folder}\", met {keep} bewaard per organisatie.",
+        "Folder in your Files": "Map in je Bestanden",
+        "Hour of the day (0 to 23)": "Uur van de dag (0 tot 23)",
+        "Include chat sessions": "Chatsessies meenemen",
+        "Nightly backups are off.": "Nachtelijke back-ups staan uit.",
+        "The backup settings could not be saved.": "De back-upinstellingen konden niet worden opgeslagen."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

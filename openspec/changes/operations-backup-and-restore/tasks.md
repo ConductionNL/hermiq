@@ -10,8 +10,10 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
 - **acceptance_criteria**:
   - GIVEN an administrator WHEN they save a folder, hour, keep and sessions choice THEN `backup` holds them
   - GIVEN a non-admin WHEN they call any backup route THEN the answer is 403
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on auth; Newman as admin and non-admin)
+  - [x] PHPUnit: `BackupSettingsControllerTest` (every action carries `AuthorizedAdminSetting` and nothing opens it), `BackupSettingsTest`; vitest on the admin section.
+  - [ ] Newman as admin and non-admin: needs a running instance.
 
 ### Task 2: The backup writer and the nightly job
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001`
@@ -21,8 +23,8 @@ Kind: code. Size L. Row `hermiq:dm-backup-restore`.
   - GIVEN sessions excluded WHEN the file is written THEN it holds no `agentsession` or `agentsessionturn` object
   - GIVEN 15 files and keep 14 WHEN the job runs THEN the oldest is deleted
   - GIVEN the four schemas missing from the register list WHEN the schema set is built THEN they are included
-- [ ] Implement
-- [ ] Test (PHPUnit with two tenants and a fake Files folder)
+- [x] Implement
+- [x] Test (PHPUnit with two tenants and a fake Files folder)
 
 ### Task 3: The restore preview
 - **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002`
