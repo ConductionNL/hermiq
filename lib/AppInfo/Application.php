@@ -26,10 +26,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
-use OCA\Hermiq\Middleware\ApiContractMiddleware;
 use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Listener\ListenerRegistrar;
-use OCA\Hermiq\Middleware\ApiVersionMiddleware;
+use OCA\Hermiq\Middleware\MiddlewareRegistrar;
 use OCA\Hermiq\Mcp\McpRegistrar;
 use OCA\Hermiq\Notification\NotificationRegistrar;
 use OCA\Hermiq\Service\ServiceRegistrar;
@@ -45,8 +44,8 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
  *
  * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires the middleware
- * and the component registrars — one reference per registered integration point, no
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires the component
+ * registrars — one reference per registered integration point, no
  * behavioural coupling.
  */
 class Application extends App implements IBootstrap {
@@ -75,10 +74,8 @@ class Application extends App implements IBootstrap {
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	public function register(IRegistrationContext $context): void {
-		// The API contract (version header, deprecation of unversioned paths,
-		// problem details). Registered first: Nextcloud runs afterController in
-		// reverse order, so it sees the final response of every other middleware.
-		$context->registerMiddleware(class: ApiContractMiddleware::class);
+		$middleware = new MiddlewareRegistrar();
+		$middleware->registerFirst(context: $context);
 		// Load the app's own composer autoloader so bundled dependencies (e.g.
 		// dragonmantank/cron-expression, used by ScheduleService) resolve at
 		// runtime — Nextcloud does not auto-load an app's vendor/autoload.php.
@@ -102,8 +99,7 @@ class Application extends App implements IBootstrap {
 		(new McpRegistrar())->register(context: $context);
 		(new ProviderRegistrar())->register(context: $context);
 
-		// Every /api/ response names the answering API version (NL API Design Rules, /core/version-header).
-		$context->registerMiddleware(ApiVersionMiddleware::class);
+		$middleware->registerLast(context: $context);
 
 	}//end register()
 
