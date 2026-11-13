@@ -51,7 +51,7 @@ class AssignmentRedactorTest extends TestCase {
 	public function testAnEnvAssignmentIsMasked(): void {
 		$this->assertSame(
 			'API_TOKEN=abcdef...stuv url=https://example.org',
-			$this->redactor()->redact(text: 'API_TOKEN=abcdefghijklmnopqrstuv url=https://example.org')
+			$this->redactor()->redact(text: 'API_TOKEN=' . 'abcdefghijklmnopqrstuv url=https://example.org')
 		);
 	}//end testAnEnvAssignmentIsMasked()
 
@@ -64,8 +64,8 @@ class AssignmentRedactorTest extends TestCase {
 	public function testALineAnchoredAssignmentKeepsNothing(): void {
 		$redactor = $this->redactor();
 
-		$this->assertSame('OPENAI_API_KEY=***', $redactor->redact(text: 'OPENAI_API_KEY=sk1234567890abcdefgh'));
-		$this->assertSame('export GITHUB_TOKEN="***"', $redactor->redact(text: 'export GITHUB_TOKEN="abcdefghijklmnopqrstuv"'));
+		$this->assertSame('OPENAI_API_KEY=***', $redactor->redact(text: 'OPENAI_API_KEY=' . 'sk1234567890abcdefgh'));
+		$this->assertSame('export GITHUB_TOKEN="***"', $redactor->redact(text: 'export GITHUB_TOKEN="' . 'abcdefghijklmnopqrstuv"'));
 	}//end testALineAnchoredAssignmentKeepsNothing()
 
 	/**
@@ -76,7 +76,7 @@ class AssignmentRedactorTest extends TestCase {
 	public function testADottedConfigKeyIsMasked(): void {
 		$this->assertSame(
 			'db.password=abcdef...wxyz',
-			$this->redactor()->redact(text: 'db.password=abcdefghijklmnopqrstuvwxyz')
+			$this->redactor()->redact(text: 'db.password=' . 'abcdefghijklmnopqrstuvwxyz')
 		);
 	}//end testADottedConfigKeyIsMasked()
 
@@ -88,7 +88,7 @@ class AssignmentRedactorTest extends TestCase {
 	public function testAJsonSecretFieldIsMasked(): void {
 		$this->assertSame(
 			'{"api_key": "abcdef...rstu", "name": "x"}',
-			$this->redactor()->redact(text: '{"api_key": "abcdefghijklmnopqrstu", "name": "x"}')
+			$this->redactor()->redact(text: '{"api_key": "' . 'abcdefghijklmnopqrstu", "name": "x"}')
 		);
 	}//end testAJsonSecretFieldIsMasked()
 

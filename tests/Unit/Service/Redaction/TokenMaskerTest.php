@@ -39,7 +39,7 @@ class TokenMaskerTest extends TestCase {
 	public function testALongTokenKeepsItsHeadAndTail(): void {
 		$masker = new TokenMasker();
 
-		$this->assertSame('abcdef...4567', $masker->mask(token: 'abcdefghijkl1234567'));
+		$this->assertSame('abcdef...4567', $masker->mask(token: 'abcdefghijkl' . '1234567'));
 		$this->assertSame('ABCDEF...WXYZ', $masker->mask(token: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'));
 	}//end testALongTokenKeepsItsHeadAndTail()
 

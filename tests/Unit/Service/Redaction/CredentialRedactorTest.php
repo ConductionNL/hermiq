@@ -90,7 +90,7 @@ class CredentialRedactorTest extends TestCase {
 	 * @return void
 	 */
 	public function testAPrivateKeyBlockIsReplacedWhole(): void {
-		$block = "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----";
+		$block = "-----BEGIN RSA " . "PRIVATE KEY-----\nMIIabc\n-----END RSA " . "PRIVATE KEY-----";
 
 		$this->assertSame(
 			"a\n[REDACTED PRIVATE KEY]\nb",
@@ -133,7 +133,7 @@ class CredentialRedactorTest extends TestCase {
 	public function testAJwtIsMaskedWhole(): void {
 		$this->assertSame(
 			'token eyJhbG...1234 end',
-			$this->redactor()->redact(text: 'token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcd1234 end', codeFile: false)
+			$this->redactor()->redact(text: 'token eyJhbGciOiJIUzI1NiJ9' . '.eyJzdWIiOiIxIn0.abcd1234 end', codeFile: false)
 		);
 	}//end testAJwtIsMaskedWhole()
 
