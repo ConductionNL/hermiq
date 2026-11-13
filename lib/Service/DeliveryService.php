@@ -58,6 +58,7 @@ use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkSafeText;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
+use OCP\Http\Client\IResponse;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
@@ -190,6 +191,17 @@ class DeliveryService {
 	private const WEBHOOK_SIGNATURE_HEADER = 'X-Hermiq-Signature';
 
 	/**
+	 * The webhook retry settings a schedule may carry: key → [default, minimum,
+	 * maximum], the bounds the schema documents.
+	 *
+	 * @var array<string, array{0: int, 1: int, 2: int}>
+	 */
+	private const WEBHOOK_SETTING_BOUNDS = [
+		'deliverWebhookMaxAttempts' => [3, 1, 5],
+		'deliverWebhookBackoffBaseSeconds' => [2, 1, 30],
+	];
+
+	/**
 	 * Hard, non-user-configurable per-attempt HTTP timeout in seconds
 	 * (delivery-channels design.md Decision 2) — a hung endpoint cannot itself
 	 * defeat the attempt budget.
@@ -250,17 +262,6 @@ class DeliveryService {
 	}//end __construct()
 
 	/**
-	 * The conversation this delivery's run produced, when the caller knows it.
-	 *
-	 * Set by `deliver()` for the duration of one delivery so `deliverTalk()`
-	 * can bind that conversation to the room it posts into. Deliberately NOT a
-	 * constructor dependency: it is per-delivery state, not configuration.
-	 *
-	 * @var string|null
-	 */
-	private ?string $boundConversationUuid = null;
-
-	/**
 	 * Deliver a run's output for one schedule.
 	 *
 	 * Never throws for a delivery problem: the outcome (including any warning to
@@ -286,30 +287,47 @@ class DeliveryService {
 		// room delivery can bind it and become repliable. Null for every caller
 		// that does not know (and for every non-Talk channel), which leaves the
 		// binding step a no-op.
-		$this->boundConversationUuid = $conversationUuid;
+		$delivery = new ScheduleDelivery(schedule: $schedule, output: $output);
+		$delivery->conversationUuid = $conversationUuid;
 
-		// None / empty channel, or silent/empty output → deliberate no-op.
-		if ($channel === '' || $channel === 'none' || trim($output) === '') {
+		return $this->deliverOn(delivery: $delivery, channel: $channel);
+
+	}//end deliver()
+
+	/**
+	 * Deliver over the named channel; an empty or `none` channel, or silent/empty
+	 * output, is a deliberate no-op and an unknown channel a warning, never a failure.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 * @param string           $channel  The delivery channel.
+	 *
+	 * @return DeliveryResult The delivery outcome.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
+	 */
+	private function deliverOn(ScheduleDelivery $delivery, string $channel): DeliveryResult {
+		if ($channel === '' || $channel === 'none' || trim($delivery->output) === '') {
 			return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
 		}
 
-		if ($channel === 'notification') {
-			return $this->deliverNotification(schedule: $schedule, output: $output, fellBack: false);
-		}
+		return match ($channel) {
+			'notification' => $this->deliverNotification(delivery: $delivery),
+			'talk' => $this->deliverTalk(delivery: $delivery),
+			'email' => $this->deliverEmail(schedule: $delivery->schedule, output: $delivery->output),
+			'webhook' => $this->deliverWebhook(delivery: $delivery),
+			default => $this->unknownChannel(channel: $channel),
+		};
 
-		if ($channel === 'talk') {
-			return $this->deliverTalk(schedule: $schedule, output: $output);
-		}
+	}//end deliverOn()
 
-		if ($channel === 'email') {
-			return $this->deliverEmail(schedule: $schedule, output: $output);
-		}
-
-		if ($channel === 'webhook') {
-			return $this->deliverWebhook(schedule: $schedule, output: $output);
-		}
-
-		// Unknown channel: record a warning but never fail the run.
+	/**
+	 * Unknown channel: record a warning but never fail the run.
+	 *
+	 * @param string $channel The unknown channel name.
+	 *
+	 * @return DeliveryResult The undelivered outcome with its warning.
+	 */
+	private function unknownChannel(string $channel): DeliveryResult {
 		return new DeliveryResult(
 			delivered: false,
 			channel: $channel,
@@ -317,7 +335,7 @@ class DeliveryService {
 			warning: sprintf("Unknown delivery channel '%s'", $channel)
 		);
 
-	}//end deliver()
+	}//end unknownChannel()
 
 	/**
 	 * Notify a schedule's resolved reviewer(s) that an approval is pending (Art. 14).
@@ -596,7 +614,7 @@ class DeliveryService {
 			$failures[] = $this->sendNotification(uid: $uid, configure: $notice->configure);
 
 			if ($talkOk === true) {
-				$this->tryPostToNoteToSelf(owner: $uid, output: ($notice->talkText)());
+				$this->tryPostToNoteToSelf(post: new TalkPost(owner: $uid, message: ($notice->talkText)()));
 			}
 		}
 
@@ -844,104 +862,121 @@ class DeliveryService {
 	 * Each fall-through accumulates a warning; the returned DeliveryResult carries the
 	 * combined warning (to be persisted as lastDeliveryError) and the channel used.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $output The agent output to post.
+	 * @param ScheduleDelivery $delivery The delivery.
 	 *
 	 * @return DeliveryResult The Talk delivery outcome.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
-	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function deliverTalk(ObjectEntity $schedule, string $output): DeliveryResult {
-		$owner = (string)($schedule->getOwner() ?? '');
-		$data = $schedule->getObject();
-		$target = trim((string)($data['deliverTarget'] ?? ''));
-		$reasons = [];
-
+	private function deliverTalk(ScheduleDelivery $delivery): DeliveryResult {
 		if ($this->isTalkAvailable() === false) {
-			return $this->deliverNotification(
-				schedule: $schedule,
-				output: $output,
-				fellBack: true,
-				reason: 'Talk (spreed) is not available'
-			);
+			return $this->deliverNotification(delivery: $delivery, fallbackReason: 'Talk (spreed) is not available');
 		}
 
-		// When the schedule names no room, fall back to the owner's default
-		// delivery room (Personal settings) — lazily creating a "Hermiq" room the
-		// first time so a user with nothing configured still gets a real room
-		// rather than only Note-to-self. Any failure leaves $target empty and the
-		// Note-to-self fallback below still applies.
-		if ($target === '') {
-			$target = $this->resolveDefaultRoom(owner: $owner);
-		}
+		$reasons = [];
+		$target = $this->talkTarget(delivery: $delivery);
 
 		// 1) Targeted room (membership-checked) when deliverTarget is set.
 		if ($target !== '') {
-			$posted = $this->tryPostToTargetRoom(token: $target, owner: $owner, output: $output);
+			$posted = $this->tryPostToTargetRoom(token: $target, post: $delivery->talkPost());
 			if ($posted === null) {
-				// The report reached a room, so bind the conversation this run
-				// produced to that room — a reply there then continues THIS
-				// session instead of dead-ending (talk-chat-bridge). Strictly
-				// best-effort: bindByUuid() swallows its own failures, so a
-				// binding problem can never fail a delivery or a run.
-				if ($this->boundConversationUuid !== null) {
-					$this->talkRoomBinding->bindByUuid(
-						conversationUuid: $this->boundConversationUuid,
-						roomToken: $target
-					);
-				}
-
-				return new DeliveryResult(delivered: true, channel: 'talk', fellBack: false, warning: null);
+				return $this->deliveredToRoom(delivery: $delivery, token: $target);
 			}
 
 			$reasons[] = $posted;
 		}
 
-		// 2) Owner's Note-to-self conversation.
-		$noteReason = $this->tryPostToNoteToSelf(owner: $owner, output: $output);
+		return $this->deliverToNoteToSelf(delivery: $delivery, reasons: $reasons);
+
+	}//end deliverTalk()
+
+	/**
+	 * The Talk room to deliver to: the schedule's target, or else the owner's default
+	 * delivery room.
+	 *
+	 * When the schedule names no room, fall back to the owner's default delivery room
+	 * (Personal settings) — lazily creating a "Hermiq" room the first time so a user
+	 * with nothing configured still gets a real room rather than only Note-to-self.
+	 * Any failure leaves the target empty and the Note-to-self fallback still applies.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return string The room token, or '' for none.
+	 */
+	private function talkTarget(ScheduleDelivery $delivery): string {
+		$target = $delivery->target();
+		if ($target === '') {
+			$target = $this->resolveDefaultRoom(owner: $delivery->owner());
+		}
+
+		return $target;
+
+	}//end talkTarget()
+
+	/**
+	 * The report reached a room: bind the conversation this run produced to that
+	 * room, so a reply there continues THIS session instead of dead-ending
+	 * (talk-chat-bridge). Strictly best-effort: bindByUuid() swallows its own
+	 * failures, so a binding problem can never fail a delivery or a run.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 * @param string           $token    The room the output was posted into.
+	 *
+	 * @return DeliveryResult The delivered outcome.
+	 */
+	private function deliveredToRoom(ScheduleDelivery $delivery, string $token): DeliveryResult {
+		if ($delivery->conversationUuid !== null) {
+			$this->talkRoomBinding->bindByUuid(conversationUuid: $delivery->conversationUuid, roomToken: $token);
+		}
+
+		return new DeliveryResult(delivered: true, channel: 'talk', fellBack: false, warning: null);
+
+	}//end deliveredToRoom()
+
+	/**
+	 * 2) The owner's Note-to-self conversation; 3) else, a Nextcloud notification.
+	 *
+	 * @param ScheduleDelivery   $delivery The delivery.
+	 * @param array<int, string> $reasons  Why the earlier steps fell through.
+	 *
+	 * @return DeliveryResult The Talk or notification outcome.
+	 */
+	private function deliverToNoteToSelf(ScheduleDelivery $delivery, array $reasons): DeliveryResult {
+		$noteReason = $this->tryPostToNoteToSelf(post: $delivery->talkPost());
 		if ($noteReason === null) {
 			$warning = null;
 			if ($reasons !== []) {
 				$warning = implode('; ', $reasons) . ' — delivered to Note-to-self';
 			}
 
-			$this->logWarning(warning: $warning, uuid: (string)$schedule->getUuid(), channel: 'talk');
+			$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'talk');
 			return new DeliveryResult(delivered: true, channel: 'talk', fellBack: ($reasons !== []), warning: $warning);
 		}
 
 		$reasons[] = $noteReason;
 
-		// 3) Final fallback: a Nextcloud notification.
-		return $this->deliverNotification(
-			schedule: $schedule,
-			output: $output,
-			fellBack: true,
-			reason: implode('; ', $reasons)
-		);
+		return $this->deliverNotification(delivery: $delivery, fallbackReason: implode('; ', $reasons));
 
-	}//end deliverTalk()
+	}//end deliverToNoteToSelf()
 
 	/**
-	 * Attempt to post to a specific Talk room the owner must be a member of.
+	 * Attempt to post to a specific Talk room the poster must be a member of.
 	 *
 	 * Membership is enforced by resolving the room owner-scoped via
 	 * Manager::getRoomForUserByToken(token, owner), which throws when the owner has no
 	 * access — Hermiq never posts to a room the owner is not in.
 	 *
-	 * @param string $token The deliverTarget room token.
-	 * @param string $owner The schedule owner UID (already impersonated).
-	 * @param string $output The message to post.
+	 * @param string   $token The deliverTarget room token.
+	 * @param TalkPost $post  The message and its poster (already impersonated).
 	 *
 	 * @return string|null Null on success, or a reason string when the room is unusable.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function tryPostToTargetRoom(string $token, string $owner, string $output): ?string {
+	private function tryPostToTargetRoom(string $token, TalkPost $post): ?string {
 		try {
-			$room = $this->talkManager()->getRoomForUserByToken($token, $owner);
-			$participant = $this->talkParticipantService()->getParticipant($room, $owner);
-			$this->postToRoom(room: $room, participant: $participant, owner: $owner, output: $output);
+			$room = $this->talkManager()->getRoomForUserByToken($token, $post->owner);
+			$this->postToRoom(room: $room, post: $post);
 			return null;
 		} catch (Throwable $e) {
 			return sprintf("target room '%s' unavailable: %s", $token, $e->getMessage());
@@ -982,20 +1017,18 @@ class DeliveryService {
 	}//end toolApprovalTalkText()
 
 	/**
-	 * Attempt to post to the owner's Note-to-self conversation.
+	 * Attempt to post to the poster's Note-to-self conversation.
 	 *
-	 * @param string $owner The schedule owner UID.
-	 * @param string $output The message to post.
+	 * @param TalkPost $post The message and its poster.
 	 *
 	 * @return string|null Null on success, or a reason string on failure.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function tryPostToNoteToSelf(string $owner, string $output): ?string {
+	private function tryPostToNoteToSelf(TalkPost $post): ?string {
 		try {
-			$room = $this->talkNoteToSelfService()->ensureNoteToSelfExistsForUser($owner);
-			$participant = $this->talkParticipantService()->getParticipant($room, $owner);
-			$this->postToRoom(room: $room, participant: $participant, owner: $owner, output: $output);
+			$room = $this->talkNoteToSelfService()->ensureNoteToSelfExistsForUser($post->owner);
+			$this->postToRoom(room: $room, post: $post);
 			return null;
 		} catch (Throwable $e) {
 			return 'Note-to-self unavailable: ' . $e->getMessage();
@@ -1004,24 +1037,23 @@ class DeliveryService {
 	}//end tryPostToNoteToSelf()
 
 	/**
-	 * Post a message to a resolved Talk room as the owner via ChatManager::sendMessage.
+	 * Post a message to a resolved Talk room as its poster via ChatManager::sendMessage.
 	 *
-	 * @param object $room The resolved spreed Room (owner is a member).
-	 * @param object|null $participant The owner's Participant, or null.
-	 * @param string $owner The owner UID (actorId).
-	 * @param string $output The message body.
+	 * @param object   $room The resolved spreed Room (the poster is a member).
+	 * @param TalkPost $post The message and its poster (actorId).
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function postToRoom(object $room, ?object $participant, string $owner, string $output): void {
+	private function postToRoom(object $room, TalkPost $post): void {
+		$participant = $this->talkParticipantService()->getParticipant($room, $post->owner);
 		$this->talkChatManager()->sendMessage(
 			$room,
 			$participant,
 			self::ACTOR_USERS,
-			$owner,
-			$output,
+			$post->owner,
+			$post->message,
 			new DateTime()
 		);
 
@@ -1033,44 +1065,48 @@ class DeliveryService {
 	 * The baseline channel and the terminal fallback of the Talk chain. Has no Talk
 	 * dependency. A failure here is still non-fatal — it is caught and reported.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $output The agent output (used to size a short summary).
-	 * @param bool $fellBack Whether this was reached as a fallback.
-	 * @param string|null $reason The accumulated Talk fallback reason, if any.
+	 * @param ScheduleDelivery $delivery       The delivery.
+	 * @param string|null      $fallbackReason The accumulated Talk fallback reason when this
+	 *                                         is reached as a fallback; null otherwise.
 	 *
 	 * @return DeliveryResult The notification delivery outcome.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
-	private function deliverNotification(ObjectEntity $schedule, string $output, bool $fellBack, ?string $reason = null): DeliveryResult {
-		$uuid = (string)$schedule->getUuid();
-
+	private function deliverNotification(ScheduleDelivery $delivery, ?string $fallbackReason = null): DeliveryResult {
+		$fellBack = ($fallbackReason !== null);
 		try {
-			$notification = $this->notificationManager->createNotification();
-			$notification->setApp('hermiq')
-				->setUser((string)($schedule->getOwner() ?? ''))
-				->setDateTime(new DateTime())
-				->setObject('schedule', $uuid)
-				->setSubject('run_complete', ['name' => (string)($schedule->getObject()['name'] ?? '')])
-				->setMessage('run_summary', ['length' => strlen($output)])
-				->setLink($this->buildScheduleLink(uuid: $uuid));
-			$this->notificationManager->notify($notification);
-
-			$warning = null;
-			if ($fellBack === true) {
-				$warning = $reason;
-			}
-
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'notification');
-			return new DeliveryResult(delivered: true, channel: 'notification', fellBack: $fellBack, warning: $warning);
+			$this->notifyOwner(delivery: $delivery);
+			$this->logWarning(warning: $fallbackReason, uuid: $delivery->uuid(), channel: 'notification');
+			return new DeliveryResult(delivered: true, channel: 'notification', fellBack: $fellBack, warning: $fallbackReason);
 		} catch (Throwable $e) {
-			$parts = array_filter([$reason, 'notification failed: ' . $e->getMessage()]);
-			$warning = implode('; ', $parts);
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'notification');
+			$warning = implode('; ', array_filter([$fallbackReason, 'notification failed: ' . $e->getMessage()]));
+			$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'notification');
 			return new DeliveryResult(delivered: false, channel: 'notification', fellBack: $fellBack, warning: $warning);
 		}//end try
 
 	}//end deliverNotification()
+
+	/**
+	 * Notify the schedule owner that the run completed, linking to the schedule.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return void
+	 */
+	private function notifyOwner(ScheduleDelivery $delivery): void {
+		$uuid = $delivery->uuid();
+		$notification = $this->notificationManager->createNotification();
+		$notification->setApp('hermiq')
+			->setUser($delivery->owner())
+			->setDateTime(new DateTime())
+			->setObject('schedule', $uuid)
+			->setSubject('run_complete', ['name' => (string)($delivery->schedule->getObject()['name'] ?? '')])
+			->setMessage('run_summary', ['length' => strlen($delivery->output)])
+			->setLink($this->buildScheduleLink(uuid: $uuid));
+		$this->notificationManager->notify($notification);
+
+	}//end notifyOwner()
 
 	/**
 	 * Deliver via email (delivery-channels): the redacted output is sent to the
@@ -1156,8 +1192,7 @@ class DeliveryService {
 	 * exponential-backoff retry. NEVER throws: a missing URL/secret or an
 	 * exhausted retry budget is reported as a warning, never fails the run.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $output The agent output to POST (redacted before send).
+	 * @param ScheduleDelivery $delivery The delivery (output redacted before send).
 	 *
 	 * @return DeliveryResult The webhook delivery outcome.
 	 *
@@ -1166,51 +1201,125 @@ class DeliveryService {
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
-	private function deliverWebhook(ObjectEntity $schedule, string $output): DeliveryResult {
-		$uuid = (string)$schedule->getUuid();
-		$data = $schedule->getObject();
-		$url = trim((string)($data['deliverTarget'] ?? ''));
-
+	private function deliverWebhook(ScheduleDelivery $delivery): DeliveryResult {
+		$url = $delivery->target();
 		if ($url === '') {
-			$warning = 'No destination URL is configured';
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
-			return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+			return $this->webhookNotSent(delivery: $delivery, warning: 'No destination URL is configured');
 		}
 
-		$secret = $this->scheduleWebhookSecretService->retrieveSecret(schedule: $schedule);
+		$secret = $this->scheduleWebhookSecretService->retrieveSecret(schedule: $delivery->schedule);
 		if ($secret === null) {
-			$warning = 'No signing secret is configured';
-			$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
-			return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+			return $this->webhookNotSent(delivery: $delivery, warning: 'No signing secret is configured');
 		}
 
-		$redacted = $this->redactionService->redact(text: $output);
-		$body = $this->capWebhookPayload(
-			envelope: $this->buildWebhookEnvelope(schedule: $schedule, agentId: (string)($data['agentId'] ?? ''), output: $redacted)
+		$webhook = new WebhookDelivery(url: $url, secret: $secret);
+		$this->prepareWebhook(webhook: $webhook, delivery: $delivery);
+
+		return $this->sendWebhook(webhook: $webhook, delivery: $delivery);
+	}//end deliverWebhook()
+
+	/**
+	 * A webhook that could not be sent at all: logged, undelivered, never thrown.
+	 *
+	 * @param ScheduleDelivery $delivery The delivery.
+	 * @param string           $warning  Why it was not sent.
+	 *
+	 * @return DeliveryResult The undelivered outcome.
+	 */
+	private function webhookNotSent(ScheduleDelivery $delivery, string $warning): DeliveryResult {
+		$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'webhook');
+		return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+	}//end webhookNotSent()
+
+	/**
+	 * Set the webhook's HMAC-covered body (the redacted, size-capped envelope) and its
+	 * attempt and backoff bounds from the schedule.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+	 */
+	private function prepareWebhook(WebhookDelivery $webhook, ScheduleDelivery $delivery): void {
+		$redacted = $this->redactionService->redact(text: $delivery->output);
+		$webhook->body = $this->capWebhookPayload(
+			envelope: $this->buildWebhookEnvelope(schedule: $delivery->schedule, output: $redacted)
 		);
 
-		$maxAttempts = $this->clampInt(value: ($data['deliverWebhookMaxAttempts'] ?? 3), min: 1, max: 5);
-		$backoffBase = $this->clampInt(value: ($data['deliverWebhookBackoffBaseSeconds'] ?? 2), min: 1, max: 30);
+		$data = $delivery->schedule->getObject();
+		$webhook->maxAttempts = $this->boundedWebhookSetting(data: $data, key: 'deliverWebhookMaxAttempts');
+		$webhook->backoffBase = $this->boundedWebhookSetting(data: $data, key: 'deliverWebhookBackoffBaseSeconds');
+	}//end prepareWebhook()
 
-		$lastError = '';
-		for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-			if ($attempt > 1) {
-				$this->sleep(seconds: $backoffBase * (2 ** ($attempt - 2)));
-			}
-
-			$lastError = $this->tryPostWebhook(url: $url, body: $body, secret: $secret);
-			if ($lastError === '') {
-				$this->logWarning(warning: null, uuid: $uuid, channel: 'webhook');
-				$this->reportWebhookOutcome(url: $url, delivered: true, attempts: $attempt);
-				return new DeliveryResult(delivered: true, channel: 'webhook', fellBack: false, warning: null);
+	/**
+	 * Post the webhook until an attempt succeeds or the attempts run out.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return DeliveryResult The webhook delivery outcome.
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+	 */
+	private function sendWebhook(WebhookDelivery $webhook, ScheduleDelivery $delivery): DeliveryResult {
+		for ($attempt = 1; $attempt <= $webhook->maxAttempts; $attempt++) {
+			$this->waitBeforeAttempt(webhook: $webhook, attempt: $attempt);
+			$webhook->attempts = $attempt;
+			$webhook->lastError = $this->tryPostWebhook(webhook: $webhook);
+			if ($webhook->lastError === '') {
+				return $this->webhookDelivered(webhook: $webhook, delivery: $delivery);
 			}
 		}
 
-		$warning = sprintf('Webhook delivery failed after %d attempt(s): %s', $maxAttempts, $lastError);
-		$this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
-		$this->reportWebhookOutcome(url: $url, delivered: false, attempts: $maxAttempts);
+		return $this->webhookFailed(webhook: $webhook, delivery: $delivery);
+	}//end sendWebhook()
+
+	/**
+	 * A webhook a 2xx answer acknowledged: logged clean and reported.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return DeliveryResult The delivered outcome.
+	 */
+	private function webhookDelivered(WebhookDelivery $webhook, ScheduleDelivery $delivery): DeliveryResult {
+		$this->logWarning(warning: null, uuid: $delivery->uuid(), channel: 'webhook');
+		$this->reportWebhookOutcome(webhook: $webhook, delivered: true);
+		return new DeliveryResult(delivered: true, channel: 'webhook', fellBack: false, warning: null);
+	}//end webhookDelivered()
+
+	/**
+	 * A webhook whose every attempt failed: the last failure is the warning.
+	 *
+	 * @param WebhookDelivery  $webhook  The webhook delivery, its attempts spent.
+	 * @param ScheduleDelivery $delivery The delivery.
+	 *
+	 * @return DeliveryResult The undelivered outcome.
+	 */
+	private function webhookFailed(WebhookDelivery $webhook, ScheduleDelivery $delivery): DeliveryResult {
+		$warning = sprintf('Webhook delivery failed after %d attempt(s): %s', $webhook->maxAttempts, $webhook->lastError);
+		$this->logWarning(warning: $warning, uuid: $delivery->uuid(), channel: 'webhook');
+		$this->reportWebhookOutcome(webhook: $webhook, delivered: false);
 		return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
-	}//end deliverWebhook()
+	}//end webhookFailed()
+
+	/**
+	 * Back off before every attempt after the first: base × 2^(attempt − 2) seconds.
+	 *
+	 * @param WebhookDelivery $webhook The webhook delivery.
+	 * @param int             $attempt The attempt about to be made (1-based).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+	 */
+	private function waitBeforeAttempt(WebhookDelivery $webhook, int $attempt): void {
+		if ($attempt > 1) {
+			$this->sleep(seconds: $webhook->backoffBase * (2 ** ($attempt - 2)));
+		}
+	}//end waitBeforeAttempt()
 
 	/**
 	 * Tell integriq what a webhook delivery met, at most once an hour per status.
@@ -1220,68 +1329,62 @@ class DeliveryService {
 	 * The message names the target host only: the full URL may carry a token.
 	 * A missing target or secret is a gap in one schedule and sends nothing.
 	 *
-	 * @param string $url       The target URL the POST went to.
-	 * @param bool   $delivered Whether a 2xx answer came back.
-	 * @param int    $attempts  The attempts made.
+	 * @param WebhookDelivery $webhook   The webhook delivery (target and attempts made).
+	 * @param bool            $delivered Whether a 2xx answer came back.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
-	private function reportWebhookOutcome(string $url, bool $delivered, int $attempts): void {
+	private function reportWebhookOutcome(WebhookDelivery $webhook, bool $delivered): void {
 		if ($this->connectionReporter === null) {
 			return;
 		}
 
-		$host = parse_url($url, PHP_URL_HOST);
+		[$status, $message] = $this->webhookOutcomeReport(webhook: $webhook, delivered: $delivered);
+		$this->connectionReporter->reportThrottled(
+			key: 'webhook-delivery',
+			status: $status,
+			message: $message
+		);
+	}//end reportWebhookOutcome()
+
+	/**
+	 * The connection status and message for a webhook outcome, naming the host only.
+	 *
+	 * @param WebhookDelivery $webhook   The webhook delivery.
+	 * @param bool            $delivered Whether a 2xx answer came back.
+	 *
+	 * @return array{0: string, 1: string} The status and the message.
+	 */
+	private function webhookOutcomeReport(WebhookDelivery $webhook, bool $delivered): array {
+		$host = parse_url($webhook->url, PHP_URL_HOST);
 		if (is_string($host) === false || $host === '') {
 			$host = 'its target';
 		}
 
 		if ($delivered === true) {
-			$this->connectionReporter->reportThrottled(
-				key: 'webhook-delivery',
-				status: 'configured',
-				message: 'The last webhook delivery reached ' . $host . '.'
-			);
-			return;
+			return ['configured', 'The last webhook delivery reached ' . $host . '.'];
 		}
 
-		$this->connectionReporter->reportThrottled(
-			key: 'webhook-delivery',
-			status: 'error',
-			message: sprintf('The last webhook delivery to %s failed after %d attempt(s).', $host, $attempts)
-		);
-	}//end reportWebhookOutcome()
+		return ['error', sprintf('The last webhook delivery to %s failed after %d attempt(s).', $host, $webhook->attempts)];
+	}//end webhookOutcomeReport()
 
 	/**
 	 * Attempt a single signed webhook POST.
 	 *
-	 * @param string $url The destination URL.
-	 * @param string $body The exact, final (redacted, capped) JSON body to sign and send.
-	 * @param string $secret The schedule's webhook signing secret.
+	 * @param WebhookDelivery $webhook The webhook delivery: URL, secret and the exact,
+	 *                                 final (redacted, capped) JSON body the HMAC covers and that is sent.
 	 *
 	 * @return string '' on a successful (2xx) response, or a reason string on failure.
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
 	 */
-	private function tryPostWebhook(string $url, string $body, string $secret): string {
-		$signature = 'sha256=' . hash_hmac('sha256', $body, $secret);
+	private function tryPostWebhook(WebhookDelivery $webhook): string {
+		$signature = 'sha256=' . hash_hmac('sha256', $webhook->body, $webhook->secret);
 
 		try {
-			$response = $this->clientService->newClient()->post(
-				$url,
-				[
-					'body' => $body,
-					'headers' => [
-						'Content-Type' => 'application/json',
-						self::WEBHOOK_SIGNATURE_HEADER => $signature,
-					],
-					'timeout' => self::WEBHOOK_HTTP_TIMEOUT_SECONDS,
-				]
-			);
-
-			$status = $response->getStatusCode();
+			$status = $this->postWebhook(webhook: $webhook, signature: $signature)->getStatusCode();
 			if ($status >= 200 && $status < 300) {
 				return '';
 			}
@@ -1294,24 +1397,47 @@ class DeliveryService {
 	}//end tryPostWebhook()
 
 	/**
+	 * POST the webhook body with its HMAC header.
+	 *
+	 * @param WebhookDelivery $webhook   The webhook delivery.
+	 * @param string          $signature The `sha256=<hex>` HMAC over the body.
+	 *
+	 * @return IResponse The response.
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+	 */
+	private function postWebhook(WebhookDelivery $webhook, string $signature): IResponse {
+		return $this->clientService->newClient()->post(
+			$webhook->url,
+			[
+				'body' => $webhook->body,
+				'headers' => [
+					'Content-Type' => 'application/json',
+					self::WEBHOOK_SIGNATURE_HEADER => $signature,
+				],
+				'timeout' => self::WEBHOOK_HTTP_TIMEOUT_SECONDS,
+			]
+		);
+	}//end postWebhook()
+
+	/**
 	 * Build the outbound webhook JSON envelope (delivery-channels design.md
 	 * Decision 4). `deliver()` only invokes webhook delivery from the SUCCESS
 	 * path of a run (`ScheduleService::runDue()` calls it after
 	 * `runAgentAsOwner()` returns without throwing), so `status` is always `ok`
 	 * here — a failed run never reaches this method.
 	 *
-	 * @param ObjectEntity $schedule The schedule being delivered.
-	 * @param string $agentId The bound agent's UUID.
+	 * @param ObjectEntity $schedule The schedule being delivered (its bound agent's UUID is `agentId`).
 	 * @param string $output The already-redacted output.
 	 *
 	 * @return array<string, mixed> The envelope (pre-size-cap).
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
 	 */
-	private function buildWebhookEnvelope(ObjectEntity $schedule, string $agentId, string $output): array {
+	private function buildWebhookEnvelope(ObjectEntity $schedule, string $output): array {
 		return [
 			'scheduleId' => (string)$schedule->getUuid(),
-			'agentId' => $agentId,
+			'agentId' => (string)($schedule->getObject()['agentId'] ?? ''),
 			'status' => 'ok',
 			'deliveredAt' => (new DateTime())->format('c'),
 			'output' => $output,
@@ -1355,21 +1481,20 @@ class DeliveryService {
 	}//end capWebhookPayload()
 
 	/**
-	 * Clamp an integer schedule field to its documented schema bounds,
-	 * tolerating a missing/non-numeric stored value by falling back within range.
+	 * A webhook retry setting of the schedule, clamped to its documented schema
+	 * bounds; a missing value takes its default and a non-numeric one clamps from zero.
 	 *
-	 * @param mixed $value The raw stored value.
-	 * @param int $min The minimum allowed value.
-	 * @param int $max The maximum allowed value.
+	 * @param array<string, mixed> $data The schedule data.
+	 * @param string               $key  A key of WEBHOOK_SETTING_BOUNDS.
 	 *
 	 * @return int The clamped value.
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
 	 */
-	private function clampInt(mixed $value, int $min, int $max): int {
-		$int = (int)$value;
-		return max($min, min($max, $int));
-	}//end clampInt()
+	private function boundedWebhookSetting(array $data, string $key): int {
+		[$default, $min, $max] = self::WEBHOOK_SETTING_BOUNDS[$key];
+		return max($min, min($max, (int)($data[$key] ?? $default)));
+	}//end boundedWebhookSetting()
 
 	/**
 	 * Pause the current tick for the given number of seconds before the next
