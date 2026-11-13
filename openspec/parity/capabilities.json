@@ -3145,11 +3145,12 @@
 			"source": "own-code",
 			"hermiq": "yes",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "lib/Service/Talk/TalkBridge.php:248-297 postToRoom/postToRoomReturningId post a message to a spreed room; lib/Service/DeliveryService.php:951-1003 use it for deliver=talk schedules; lib/Service/Talk/TalkTurnService.php:129-167 post agent replies; openspec/specs/talk-agent-sessions/spec.md documents one Talk bot identity per Talk-enabled agent.",
+				"evidence": "Not built: lib/Mcp has no Talk message tool; an agent reaches Talk only through delivery (deliver=talk schedules, Talk-bound agent replies). HmMcpTools and HmAgentBewerken draw a granted tool \"Talk-bericht plaatsen\" (talk.message.send), decision 406. (13 Nov) Was: lib/Service/Talk/TalkBridge.php:248-297 postToRoom/postToRoomReturningId post a message to a spreed room; lib/Service/DeliveryService.php:951-1003 use it for deliver=talk schedules; lib/Service/Talk/TalkTurnService.php:129-167 post agent replies; openspec/specs/talk-agent-sessions/spec.md documents one Talk bot identity per Talk-enabled agent.",
 				"spec": "openspec/specs/talk-delivery",
-				"requirement": "openspec/specs/talk-delivery :: Deliver run output to Nextcloud Talk [MVP]"
+				"requirement": "openspec/changes/tools-post-a-talk-message/specs/nc-native-tools :: An agent can post a message in a Talk conversation it is a member of (REQ-NCTALK-001)",
+				"plan": "openspec/changes/tools-post-a-talk-message"
 			},
 			"reachedOn": "Schedule deliver=talk, or a Talk-bound agent's turn -> TalkBridge::postToRoom",
 			"provider": "hermiq",
@@ -3173,7 +3174,8 @@
 			"screen": {
 				"canvas": "design-system",
 				"board": "HmAgentBewerken"
-			}
+			},
+			"note": "Board canon (decision 406): the row is the agent's own granted tool, not run delivery. Delivery to Talk is built and covered by dl-talk."
 		},
 		{
 			"id": "tl-tasks",
@@ -6799,14 +6801,19 @@
 			"source": "demand-derived",
 			"hermiq": "partial",
 			"built": {
-				"state": "built",
+				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "appinfo/routes.php OrganisationControlController routes (approvals.js TENANT_CONTROL_BASE '/apps/hermiq/api/tenant-control'); lib/Controller/OrganisationControlController.php show()/toggle() halt every agent run for an OpenRegister organisation (Art. 14 stop mechanism), guarded to instance admin or the organisation's owner; src/components/KillSwitchToggle.vue reads/toggles via src/api/approvals.js, mounted in src/views/ApprovalInbox.vue:28.",
+				"evidence": "Not built: the kill-switch (OrganisationControlController show()/toggle()) switches a whole OpenRegister organisation; there is no department, no per-department switch and no evidence download, as HmGoedkeuringen draws (decision 406). (13 Nov) Was: appinfo/routes.php OrganisationControlController routes (approvals.js TENANT_CONTROL_BASE '/apps/hermiq/api/tenant-control'); lib/Controller/OrganisationControlController.php show()/toggle() halt every agent run for an OpenRegister organisation (Art. 14 stop mechanism), guarded to instance admin or the organisation's owner; src/components/KillSwitchToggle.vue reads/toggles via src/api/approvals.js, mounted in src/views/ApprovalInbox.vue:28.",
 				"spec": "openspec/specs/human-approval-gate",
-				"requirement": "openspec/specs/human-approval-gate :: Org-level kill-switch halts all runs"
+				"requirement": [
+					"openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate :: An admin SHALL be able to switch AI off for one department",
+					"openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate :: An admin SHALL be able to download evidence that AI was off for a department",
+					"openspec/specs/human-approval-gate :: Org-level kill-switch halts all runs"
+				],
+				"plan": "openspec/changes/oversight-switch-ai-off-per-department"
 			},
 			"reachedOn": "/approvals page -> KillSwitchToggle in the header",
-			"note": "The scope is an OpenRegister organisation (tenant), not a finer-grained 'department'; no separate department concept exists in the schema. show() also lets the admin/owner confirm the current engaged state, which covers 'prove it is off'.",
+			"note": "Board canon (decision 406): HmGoedkeuringen draws a switch per department next to the organisation-wide emergency stop, with who switched it off, when, the refused runs, and \"Bewijs downloaden\". Built today: only the organisation-wide kill-switch, whose show() reports the engaged state.",
 			"provider": "hermiq",
 			"providerHow": "read-from-code",
 			"feature": "kill-switch",
