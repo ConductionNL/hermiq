@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use RuntimeException;
 /**
  * Handler for the `hermiq.llm` IAppConfig key.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 class LlmSettingsHandler {
 
@@ -119,7 +119,7 @@ class LlmSettingsHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function __construct(
 		private readonly IAppConfig $appConfig,
@@ -135,7 +135,7 @@ class LlmSettingsHandler {
 	 *
 	 * @throws \RuntimeException If the stored config cannot be decoded.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function getLLMSettingsOnly(): array {
 		try {
@@ -192,7 +192,7 @@ class LlmSettingsHandler {
 	 *
 	 * @throws \RuntimeException If persisting fails.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
 	 */
 	public function updateLLMSettingsOnly(array $llmData): array {
 		try {

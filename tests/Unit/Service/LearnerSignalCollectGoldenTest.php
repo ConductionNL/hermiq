@@ -38,6 +38,7 @@ use Stringable;
  * Golden comparison of the learner signal collection.
  *
  * @covers \OCA\Hermiq\Service\LearnerSignalReader
+ * @uses \OCA\Hermiq\Service\LearnerSignalScope
  *
  * @spec openspec/changes/ai-course-recommendations/tasks.md#task-2-5
  */

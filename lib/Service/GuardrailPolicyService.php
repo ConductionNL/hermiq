@@ -46,10 +46,10 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
  */
 
 declare(strict_types=1);
@@ -70,7 +70,7 @@ use RuntimeException;
  *   surface (policy CRUD, resolution chain, input/output filtering, tool-risk checks)
  *   so the policy-application invariants stay in a single place.
  *
- * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+ * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
  */
 class GuardrailPolicyService {
 
@@ -158,7 +158,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return ObjectEntity|null The policy object, or null when none exists at this scope.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function getForOrganisation(string $organisation): ?ObjectEntity {
 		$objects = $this->objectService
@@ -188,7 +188,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return ObjectEntity|null The policy, or null when not found.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function findById(string $uuid): ?ObjectEntity {
 		if ($uuid === '') {
@@ -210,7 +210,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return array<int, ObjectEntity> Every policy object.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function listAll(): array {
 		$objects = $this->objectService
@@ -232,23 +232,40 @@ class GuardrailPolicyService {
 	 * @return array{source:string,inputFilters:array{piiAction:string,promptInjectionAction:string},outputFilters:array{piiAction:string},toolPolicy:list<array{toolId:string,classification:string}>,enabled:bool}
 	 *                                                                                                                                                                                                               The effective, shaped policy.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function effectivePolicyFor(string $organisation): array {
 		if ($organisation !== '') {
-			$own = $this->getForOrganisation(organisation: $organisation);
-			if ($own !== null && $this->isEnabled(policy: $own) === true) {
+			$own = $this->enabledPolicyFor(organisation: $organisation);
+			if ($own !== null) {
 				return $this->shape(policy: $own, source: 'organisation');
 			}
 		}
 
-		$instanceDefault = $this->getForOrganisation(organisation: '');
-		if ($instanceDefault !== null && $this->isEnabled(policy: $instanceDefault) === true) {
+		$instanceDefault = $this->enabledPolicyFor(organisation: '');
+		if ($instanceDefault !== null) {
 			return $this->shape(policy: $instanceDefault, source: 'instance');
 		}
 
 		return $this->fallbackPolicy();
 	}//end effectivePolicyFor()
+
+	/**
+	 * An organisation's stored policy when it is enabled ('' = the instance default).
+	 *
+	 * @param string $organisation The organisation identifier.
+	 *
+	 * @return ObjectEntity|null The enabled policy, or null.
+	 */
+	private function enabledPolicyFor(string $organisation): ?ObjectEntity {
+		$policy = $this->getForOrganisation(organisation: $organisation);
+		if ($policy !== null && $this->isEnabled(policy: $policy) === true) {
+			return $policy;
+		}
+
+		return null;
+
+	}//end enabledPolicyFor()
 
 	/**
 	 * The fully-open fallback used when no GuardrailPolicy is enabled anywhere
@@ -257,7 +274,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return array{source:string,inputFilters:array{piiAction:string,promptInjectionAction:string},outputFilters:array{piiAction:string},toolPolicy:list<array{toolId:string,classification:string}>,enabled:bool}
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	private function fallbackPolicy(): array {
 		return [
@@ -294,7 +311,7 @@ class GuardrailPolicyService {
 	 *                                                        whether the turn must be refused (the caller decides what "refused"
 	 *                                                        means at its own boundary — Engine throws, ScheduleService fails the run).
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
 	 */
 	public function filterInput(array $policy, string $text): array {
 		$inputFilters = (array)($policy['inputFilters'] ?? []);
@@ -306,7 +323,7 @@ class GuardrailPolicyService {
 
 		$piiAction = (string)($inputFilters['piiAction'] ?? 'off');
 
-		return $this->applyPiiAction(text: $text, action: $piiAction, boundary: 'input');
+		return $this->applyPiiAction(text: $text, action: $piiAction);
 	}//end filterInput()
 
 	/**
@@ -321,13 +338,18 @@ class GuardrailPolicyService {
 	 * @return array{text:string,blocked:bool,reason:?string} The filtered (possibly
 	 *                                                        placeholder) text.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function filterOutput(array $policy, string $text): array {
 		$outputFilters = (array)($policy['outputFilters'] ?? []);
 		$piiAction = (string)($outputFilters['piiAction'] ?? 'off');
 
-		return $this->applyPiiAction(text: $text, action: $piiAction, boundary: 'output');
+		$result = $this->applyPiiAction(text: $text, action: $piiAction);
+		if ($result['blocked'] === true) {
+			$result['text'] = $this->withheldPlaceholder();
+		}
+
+		return $result;
 	}//end filterOutput()
 
 	/**
@@ -341,7 +363,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return string One of `auto`, `confirm`, `deny`.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	public function classifyTool(array $policy, string $toolId): string {
 		foreach (($policy['toolPolicy'] ?? []) as $entry) {
@@ -389,31 +411,26 @@ class GuardrailPolicyService {
 	 * DIFFING `RedactionService::redact()`'s output against its input (design.md
 	 * Decision 2) — zero new pattern set.
 	 *
+	 * A blocked text is withheld as `''`; the output boundary replaces it with the
+	 * withheld-response placeholder (see `filterOutput()`).
+	 *
 	 * @param string $text The text to filter.
 	 * @param string $action `off`|`redact`|`block`.
-	 * @param string $boundary `input`|`output` — selects the block placeholder shape.
 	 *
 	 * @return array{text:string,blocked:bool,reason:?string}
 	 */
-	private function applyPiiAction(string $text, string $action, string $boundary): array {
+	private function applyPiiAction(string $text, string $action): array {
 		if ($action === 'off' || $text === '') {
 			return ['text' => $text, 'blocked' => false, 'reason' => null];
 		}
 
 		$redacted = $this->redactionService->redact($text);
-		$hasSensitive = ($redacted !== $text);
-
-		if ($hasSensitive === false) {
+		if ($redacted === $text) {
 			return ['text' => $text, 'blocked' => false, 'reason' => null];
 		}
 
 		if ($action === 'block') {
-			$placeholder = '';
-			if ($boundary === 'output') {
-				$placeholder = $this->withheldPlaceholder();
-			}
-
-			return ['text' => $placeholder, 'blocked' => true, 'reason' => 'sensitive_content'];
+			return ['text' => '', 'blocked' => true, 'reason' => 'sensitive_content'];
 		}
 
 		return ['text' => $redacted, 'blocked' => false, 'reason' => null];
@@ -424,7 +441,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function withheldPlaceholder(): string {
 		return 'This response was withheld because it contained sensitive content blocked by the organisation\'s guardrail policy.';
@@ -444,7 +461,7 @@ class GuardrailPolicyService {
 	 *
 	 * @return mixed The value to show in its place.
 	 *
-	 * @spec openspec/changes/output-filter-tool-details/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
 	 */
 	public function filterOutputValue(array $policy, mixed $value): mixed {
 		$outputFilters = (array)($policy['outputFilters'] ?? []);
@@ -452,27 +469,53 @@ class GuardrailPolicyService {
 			return $value;
 		}
 
-		$text = $value;
-		if (is_string($value) === false) {
-			$text = (string)json_encode($value, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
-		}
-
+		$text = $this->filterableText(value: $value);
 		$filtered = $this->filterOutput(policy: $policy, text: $text);
 		if ($filtered['text'] === $text) {
 			return $value;
 		}
 
+		return $this->inValueShape(value: $value, filteredText: $filtered['text']);
+	}//end filterOutputValue()
+
+	/**
+	 * A value as the text the output filter reads: a string as is, anything else as JSON.
+	 *
+	 * @param mixed $value The value.
+	 *
+	 * @return string The text.
+	 */
+	private function filterableText(mixed $value): string {
 		if (is_string($value) === true) {
-			return $filtered['text'];
+			return $value;
 		}
 
-		$decoded = json_decode($filtered['text'], true);
+		return (string)json_encode($value, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+
+	}//end filterableText()
+
+	/**
+	 * Filtered text back in the value's shape: text for a string, the decoded JSON for
+	 * anything else, or the text itself when it no longer decodes.
+	 *
+	 * @param mixed $value The original value.
+	 * @param string $filteredText The filtered text.
+	 *
+	 * @return mixed The filtered value.
+	 */
+	private function inValueShape(mixed $value, string $filteredText): mixed {
+		if (is_string($value) === true) {
+			return $filteredText;
+		}
+
+		$decoded = json_decode($filteredText, true);
 		if (json_last_error() !== JSON_ERROR_NONE) {
-			return $filtered['text'];
+			return $filteredText;
 		}
 
 		return $decoded;
-	}//end filterOutputValue()
+
+	}//end inValueShape()
 
 	/**
 	 * Create-or-update the GuardrailPolicy for an organisation (at most one per
@@ -486,7 +529,7 @@ class GuardrailPolicyService {
 	 *
 	 * @throws InvalidArgumentException When the payload fails validation.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
 	 */
 	public function upsertForOrganisation(string $organisation, array $payload): array {
 		$inputFilters = $this->normaliseInputFilters(raw: ($payload['inputFilters'] ?? []));
@@ -543,7 +586,7 @@ class GuardrailPolicyService {
 	 * @throws RuntimeException When the policy cannot be found.
 	 * @throws InvalidArgumentException When the merged payload fails validation.
 	 *
-	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
 	 */
 	public function update(string $uuid, array $payload): array {
 		$existing = $this->findById(uuid: $uuid);
@@ -628,27 +671,55 @@ class GuardrailPolicyService {
 
 		$out = [];
 		foreach ($raw as $entry) {
-			if (is_array($entry) === false) {
-				throw new InvalidArgumentException('Each toolPolicy entry must be an object with toolId/classification');
-			}
-
-			$toolId = (string)($entry['toolId'] ?? '');
-			if ($toolId === '') {
-				throw new InvalidArgumentException('Each toolPolicy entry requires a non-empty toolId');
-			}
-
-			$classification = (string)($entry['classification'] ?? 'auto');
-			if (in_array($classification, self::TOOL_CLASSIFICATIONS, true) === false) {
-				throw new InvalidArgumentException(
-					"Unsupported toolPolicy classification '{$classification}' — must be one of: " . implode(', ', self::TOOL_CLASSIFICATIONS)
-				);
-			}
-
-			$out[] = ['toolId' => $toolId, 'classification' => $classification];
-		}//end foreach
+			$out[] = $this->normaliseToolPolicyEntry(entry: $entry);
+		}
 
 		return $out;
 	}//end normaliseToolPolicy()
+
+	/**
+	 * Validate one requested toolPolicy entry.
+	 *
+	 * @param mixed $entry The entry.
+	 *
+	 * @return array{toolId: string, classification: string} The entry.
+	 *
+	 * @throws InvalidArgumentException When the entry is malformed.
+	 */
+	private function normaliseToolPolicyEntry(mixed $entry): array {
+		if (is_array($entry) === false) {
+			throw new InvalidArgumentException('Each toolPolicy entry must be an object with toolId/classification');
+		}
+
+		$toolId = (string)($entry['toolId'] ?? '');
+		if ($toolId === '') {
+			throw new InvalidArgumentException('Each toolPolicy entry requires a non-empty toolId');
+		}
+
+		return ['toolId' => $toolId, 'classification' => $this->requestedClassification(entry: $entry)];
+
+	}//end normaliseToolPolicyEntry()
+
+	/**
+	 * The classification a requested entry names, `auto` when it names none.
+	 *
+	 * @param array<string, mixed> $entry The entry.
+	 *
+	 * @return string The classification.
+	 *
+	 * @throws InvalidArgumentException When the classification is not supported.
+	 */
+	private function requestedClassification(array $entry): string {
+		$classification = (string)($entry['classification'] ?? 'auto');
+		if (in_array($classification, self::TOOL_CLASSIFICATIONS, true) === false) {
+			throw new InvalidArgumentException(
+				"Unsupported toolPolicy classification '{$classification}' — must be one of: " . implode(', ', self::TOOL_CLASSIFICATIONS)
+			);
+		}
+
+		return $classification;
+
+	}//end requestedClassification()
 
 	/**
 	 * Shape a GuardrailPolicy ObjectEntity into the API response payload / the
@@ -735,23 +806,39 @@ class GuardrailPolicyService {
 
 		$out = [];
 		foreach ($raw as $entry) {
-			if (is_array($entry) === false) {
-				continue;
+			$policyEntry = $this->storedToolPolicyEntry(entry: $entry);
+			if ($policyEntry !== null) {
+				$out[] = $policyEntry;
 			}
-
-			$toolId = (string)($entry['toolId'] ?? '');
-			if ($toolId === '') {
-				continue;
-			}
-
-			$classification = (string)($entry['classification'] ?? 'auto');
-			if (in_array($classification, self::TOOL_CLASSIFICATIONS, true) === false) {
-				$classification = 'auto';
-			}
-
-			$out[] = ['toolId' => $toolId, 'classification' => $classification];
 		}
 
 		return $out;
 	}//end lenientToolPolicy()
+
+	/**
+	 * Read one stored toolPolicy entry; a malformed one is skipped and an unknown
+	 * classification reads as `auto`.
+	 *
+	 * @param mixed $entry The entry.
+	 *
+	 * @return array{toolId: string, classification: string}|null The entry, or null when skipped.
+	 */
+	private function storedToolPolicyEntry(mixed $entry): ?array {
+		if (is_array($entry) === false) {
+			return null;
+		}
+
+		$toolId = (string)($entry['toolId'] ?? '');
+		if ($toolId === '') {
+			return null;
+		}
+
+		$classification = (string)($entry['classification'] ?? 'auto');
+		if (in_array($classification, self::TOOL_CLASSIFICATIONS, true) === false) {
+			$classification = 'auto';
+		}
+
+		return ['toolId' => $toolId, 'classification' => $classification];
+
+	}//end storedToolPolicyEntry()
 }//end class

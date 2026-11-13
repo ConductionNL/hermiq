@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  * @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
  */
 
@@ -94,7 +94,7 @@ use Throwable;
  *   promoted constructor collaborator named after its class
  *   (ScheduleWebhookSecretService) — shortening it would obscure which service is injected.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  * @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
  */
 class DeliveryService {
@@ -266,7 +266,7 @@ class DeliveryService {
 	 *
 	 * @return DeliveryResult The delivery outcome.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
 	 */
@@ -291,7 +291,7 @@ class DeliveryService {
 	 *
 	 * @return DeliveryResult The delivery outcome.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function deliverOn(ScheduleDelivery $delivery, string $channel): DeliveryResult {
 		if ($channel === '' || $channel === 'none' || trim($delivery->output) === '') {
@@ -342,7 +342,7 @@ class DeliveryService {
 	 *
 	 * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	public function deliverApprovalRequest(ObjectEntity $schedule, ObjectEntity $approval, array $reviewerUids): DeliveryResult {
 		$scheduleName = (string)($schedule->getObject()['name'] ?? '');
@@ -371,7 +371,7 @@ class DeliveryService {
 	 *
 	 * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 */
 	public function deliverApprovalRequestForFlowRun(ObjectEntity $approval, array $reviewerUids): DeliveryResult {
 		$data = $approval->getObject();
@@ -854,7 +854,7 @@ class DeliveryService {
 	 *
 	 * @return DeliveryResult The Talk delivery outcome.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function deliverTalk(ScheduleDelivery $delivery): DeliveryResult {
 		if ($this->isTalkAvailable() === false) {
@@ -959,7 +959,7 @@ class DeliveryService {
 	 *
 	 * @return string|null Null on success, or a reason string when the room is unusable.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function tryPostToTargetRoom(string $token, TalkPost $post): ?string {
 		try {
@@ -1011,7 +1011,7 @@ class DeliveryService {
 	 *
 	 * @return string|null Null on success, or a reason string on failure.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function tryPostToNoteToSelf(TalkPost $post): ?string {
 		try {
@@ -1032,7 +1032,7 @@ class DeliveryService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function postToRoom(object $room, TalkPost $post): void {
 		$participant = $this->talkParticipantService()->getParticipant($room, $post->owner);
@@ -1059,7 +1059,7 @@ class DeliveryService {
 	 *
 	 * @return DeliveryResult The notification delivery outcome.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function deliverNotification(ScheduleDelivery $delivery, ?string $fallbackReason = null): DeliveryResult {
 		$fellBack = ($fallbackReason !== null);
@@ -1421,7 +1421,7 @@ class DeliveryService {
 	 *
 	 * @return \OCA\Talk\Manager The spreed room manager.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function talkManager(): object {
 		return $this->container->get(self::TALK_MANAGER);
@@ -1432,7 +1432,7 @@ class DeliveryService {
 	 *
 	 * @return \OCA\Talk\Service\ParticipantService The spreed participant service.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function talkParticipantService(): object {
 		return $this->container->get(self::TALK_PARTICIPANT_SERVICE);
@@ -1443,7 +1443,7 @@ class DeliveryService {
 	 *
 	 * @return \OCA\Talk\Service\NoteToSelfService The spreed Note-to-self service.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function talkNoteToSelfService(): object {
 		return $this->container->get(self::TALK_NOTE_TO_SELF_SERVICE);
@@ -1454,7 +1454,7 @@ class DeliveryService {
 	 *
 	 * @return \OCA\Talk\Chat\ChatManager The spreed chat manager.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function talkChatManager(): object {
 		return $this->container->get(self::TALK_CHAT_MANAGER);
@@ -1527,7 +1527,7 @@ class DeliveryService {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	private function isTalkAvailable(): bool {
 		return $this->talkBroker->hasBackend() === true && class_exists(self::TALK_MANAGER) === true;
@@ -1560,7 +1560,7 @@ class DeliveryService {
 	 *
 	 * @return string The absolute URL.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	private function buildApprovalLink(string $uuid): string {
 		return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/approvals/' . $uuid);
@@ -1602,7 +1602,7 @@ class DeliveryService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#3-wire-into-the-dispatcher
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#3-wire-into-the-dispatcher
 	 */
 	private function logWarning(?string $warning, string $uuid, string $channel): void {
 		if ($warning === null || $warning === '') {

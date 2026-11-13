@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 /**
  * One schedule output delivery.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
  */
 final class ScheduleDelivery {
 
@@ -61,7 +61,7 @@ final class ScheduleDelivery {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	public function uuid(): string {
 		return (string)$this->schedule->getUuid();
@@ -72,7 +72,7 @@ final class ScheduleDelivery {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	public function owner(): string {
 		return (string)($this->schedule->getOwner() ?? '');
@@ -83,7 +83,7 @@ final class ScheduleDelivery {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	public function target(): string {
 		return trim((string)($this->schedule->getObject()['deliverTarget'] ?? ''));
@@ -94,7 +94,7 @@ final class ScheduleDelivery {
 	 *
 	 * @return TalkPost
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#1-deliveryservice-core
 	 */
 	public function talkPost(): TalkPost {
 		return new TalkPost(owner: $this->owner(), message: $this->output);

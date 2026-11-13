@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#4-tests
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#4-tests
  * @spec openspec/changes/delivery-channels/tasks.md#task-4-deliveryservicedeliveremail-redact-resolve-recipient-send-via-imailer
  * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
  */
@@ -102,7 +102,7 @@ class DeliveryServiceTestable extends DeliveryService {
 /**
  * Tests for the talk-delivery / delivery-channels DeliveryService.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#4-tests
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#4-tests
  * @spec openspec/changes/delivery-channels/tasks.md#task-4-deliveryservicedeliveremail-redact-resolve-recipient-send-via-imailer
  * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
  */
@@ -343,7 +343,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-4
 	 */
 	public function testTalkWithDeliverTargetPostsToRoom(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -396,7 +396,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-4
 	 */
 	public function testEmptyDeliverTargetUsesNoteToSelf(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -691,7 +691,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-5
 	 */
 	public function testNonMemberTargetFallsBackToNoteToSelf(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -737,7 +737,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-5
 	 */
 	public function testTargetAndNoteToSelfFailFallBackToNotification(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(true);
@@ -776,7 +776,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-5
 	 */
 	public function testTalkAbsentFallsBackToNotification(): void {
 		$this->talkBroker->method('hasBackend')->willReturn(false);
@@ -802,7 +802,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-3
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-3
 	 */
 	public function testNotificationChannel(): void {
 		$this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
@@ -826,7 +826,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-1
 	 */
 	public function testNoneChannelNoOp(): void {
 		$this->notificationManager->expects($this->never())->method('notify');
@@ -848,7 +848,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-1
 	 */
 	public function testEmptyOutputNoOp(): void {
 		$this->notificationManager->expects($this->never())->method('notify');
@@ -870,7 +870,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#task-1-2
 	 */
 	public function testDeliveryFailureIsReportedNotThrown(): void {
 		$this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
@@ -894,7 +894,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#task-2-2
 	 */
 	public function testApprovalRequestNotifiesEachReviewer(): void {
 		// Talk unavailable → notification-only path.
@@ -924,7 +924,7 @@ class DeliveryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-3-2
 	 */
 	public function testFlowRunApprovalRequestNotifiesEachReviewer(): void {
 		// Talk unavailable → notification-only path.

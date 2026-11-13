@@ -12,8 +12,8 @@
   quota fields never appear here even if they happen to differ between the two
   points in time (design.md Decision 4).
 
-  @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
-  @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
+  @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+  @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
 -->
 <template>
 	<NcDialog
@@ -125,7 +125,7 @@ export default {
 		 * consistently across every comparison.
 		 *
 		 * @return {Array<string>} The changed field names.
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		fields() {
 			return Object.keys(this.diff || {})
@@ -134,7 +134,7 @@ export default {
 
 	watch: {
 		/**
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		show(open) {
 			if (open) {
@@ -148,7 +148,7 @@ export default {
 		 * Load the diff between fromId and toId.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async load() {
 			if (!this.fromId || !this.toId) {
@@ -175,7 +175,7 @@ export default {
 		 *
 		 * @param {string} field The field key.
 		 * @return {string} The localised label.
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		fieldLabel(field) {
 			const labels = {
@@ -206,7 +206,7 @@ export default {
 		 *
 		 * @param {*} value The value to render.
 		 * @return {string} The display string.
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		formatValue(value) {
 			if (value === null || value === undefined || value === '') {
@@ -227,7 +227,7 @@ export default {
 		 *
 		 * @param {boolean} open The new open state.
 		 * @return {void}
-		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		onUpdateOpen(open) {
 			if (!open) {

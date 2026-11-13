@@ -202,6 +202,7 @@ import HistoryIcon from 'vue-material-design-icons/History.vue'
 import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
 import { toggleSelection } from '../utils/runCompare.js'
+import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 /** Page size. The server clamps anything above 200. */
 const PAGE_SIZE = 50
@@ -249,10 +250,7 @@ export default {
 		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**

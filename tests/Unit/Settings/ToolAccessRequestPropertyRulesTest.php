@@ -33,9 +33,11 @@ use OCA\OpenRegister\Db\Schema;
 use OCA\OpenRegister\Service\ConditionMatcher;
 use OCA\OpenRegister\Service\Lifecycle\StateFieldRuleResolver;
 use OCA\OpenRegister\Service\Lifecycle\StateFieldRules;
+use OCA\OpenRegister\Service\PropertyAccessRequest;
 use OCA\OpenRegister\Service\PropertyRbacCaller;
 use OCA\OpenRegister\Service\PropertyRbacHandler;
 use OCA\OpenRegister\Service\PropertyRbacRules;
+use OCA\OpenRegister\Service\PropertyWriteCheck;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -62,6 +64,7 @@ class ToolAccessRequestPropertyRulesTest extends TestCase {
 		'OCA\\OpenRegister\\Service\\PropertyRbacRules',
 		'OCA\\OpenRegister\\Service\\PropertyAccessRequest',
 		'OCA\\OpenRegister\\Service\\PropertyWriteCheck',
+		'OCA\\OpenRegister\\Service\\SchemaProperty',
 		'OCA\\OpenRegister\\Service\\ProtectedCarryForward',
 		'OCA\\OpenRegister\\Service\\ProtectedPropertyRead',
 		'OCA\\OpenRegister\\Service\\Lifecycle\\StateFieldRuleResolverInterface',
@@ -155,10 +158,11 @@ class ToolAccessRequestPropertyRulesTest extends TestCase {
 		}
 
 		return $handler->getUnauthorizedProperties(
-			schema: $this->schema(),
-			object: $stored,
-			incomingData: $incoming,
-			isCreate: $isCreate
+			write: new PropertyWriteCheck(
+				schema: $this->schema(),
+				request: new PropertyAccessRequest(object: $stored, isCreate: $isCreate),
+				incoming: $incoming
+			)
 		);
 
 	}//end refused()

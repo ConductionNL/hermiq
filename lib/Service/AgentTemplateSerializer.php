@@ -27,7 +27,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
  */
 
 declare(strict_types=1);
@@ -39,7 +39,7 @@ use JsonException;
 /**
  * Lossy-by-design (portable-fields-only) JSON package (de)serialiser for AgentTemplate.
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
+ * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
  */
 class AgentTemplateSerializer {
 	/**

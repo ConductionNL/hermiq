@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
  */
 
@@ -83,7 +83,7 @@ use Throwable;
  *   seam (catalog, marketplace, bundle serialiser, push service) plus the response
  *   and exception types the routes return.
  *
- * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
  */
 class SkillController extends Controller {
 	/**
@@ -120,7 +120,7 @@ class SkillController extends Controller {
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function __construct(
 		IRequest $request,
@@ -146,7 +146,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function index(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -171,7 +171,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function import(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -204,7 +204,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function export(string $id): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -290,7 +290,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#4-controller-routes
 	 */
 	public function install(string $id): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -331,7 +331,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
 	 */
 	public function uninstall(string $id, string $agentId): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -564,7 +564,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	public function bundlePublish(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -682,7 +682,7 @@ class SkillController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	public function bundleInstall(): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -790,7 +790,7 @@ class SkillController extends Controller {
 	 *
 	 * @return JSONResponse|null A 400 when the coordinates are unusable, else null.
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/contract.md
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/contract.md
 	 */
 	private function rejectBadCoordinates(string $owner, string $repo, ?string $ref): ?JSONResponse {
 		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
@@ -822,7 +822,7 @@ class SkillController extends Controller {
 	 *
 	 * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
 	private function collectPublishablePayloads(array $skillIds): array {
 		return (new PublishableSkills(skillService: $this->skillService, logger: $this->logger))->collect(skillIds: $skillIds);
@@ -897,7 +897,7 @@ class SkillController extends Controller {
 	 *
 	 * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+	 * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
 	 */
 	private function installBundleSkills(array $parsed, string $createdBy, string $owner = '', string $repo = ''): array {
 		return $this->bundleInstaller->installParsed(

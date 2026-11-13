@@ -153,8 +153,23 @@ class ScheduleFlowBridge {
 			return $stats;
 		}
 
+		$schedules = $this->loadSchedules();
+		if ($schedules === null) {
+			$stats['failed']++;
+			return $stats;
+		}
+
+		return $this->syncSchedules(schedules: $schedules, stats: $stats);
+	}//end syncAll()
+
+	/**
+	 * Every schedule, system-wide; a read failure is logged.
+	 *
+	 * @return array<int, mixed>|null The schedules, or null when they could not be read.
+	 */
+	private function loadSchedules(): ?array {
 		try {
-			$schedules = $this->objectService
+			return $this->objectService
 				->setRegister(self::REGISTER_SLUG)
 				->setSchema(self::SCHEMA_SLUG)
 				->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
@@ -163,33 +178,54 @@ class ScheduleFlowBridge {
 				'[hermiq] Schedule flow sync could not load schedules: ' . $e->getMessage(),
 				['exception' => $e]
 			);
-			$stats['failed']++;
-			return $stats;
+			return null;
 		}
 
-		foreach ($schedules as $schedule) {
-			if (($schedule instanceof ObjectEntity) === false) {
-				continue;
-			}
+	}//end loadSchedules()
 
-			try {
-				$outcome = $this->syncOne(schedule: $schedule);
-				$stats[$outcome]++;
-			} catch (Throwable $e) {
-				$stats['failed']++;
-				$this->logger->warning(
-					sprintf(
-						'[hermiq] Schedule flow sync failed for %s: %s',
-						(string)$schedule->getUuid(),
-						$e->getMessage()
-					),
-					['exception' => $e]
-				);
+	/**
+	 * Sync each schedule and count its outcome; anything that is not a schedule is
+	 * skipped uncounted.
+	 *
+	 * @param array<int, mixed> $schedules The schedules read.
+	 * @param array<string, int> $stats The counts so far.
+	 *
+	 * @return array<string, int> The counts.
+	 */
+	private function syncSchedules(array $schedules, array $stats): array {
+		foreach ($schedules as $schedule) {
+			if (($schedule instanceof ObjectEntity) === true) {
+				$stats[$this->syncOutcome(schedule: $schedule)]++;
 			}
 		}
 
 		return $stats;
-	}//end syncAll()
+
+	}//end syncSchedules()
+
+	/**
+	 * Sync one schedule; a failure is logged and counted as `failed`, never thrown.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 *
+	 * @return string The outcome.
+	 */
+	private function syncOutcome(ObjectEntity $schedule): string {
+		try {
+			return $this->syncOne(schedule: $schedule);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf(
+					'[hermiq] Schedule flow sync failed for %s: %s',
+					(string)$schedule->getUuid(),
+					$e->getMessage()
+				),
+				['exception' => $e]
+			);
+			return 'failed';
+		}
+
+	}//end syncOutcome()
 
 	/**
 	 * Sync one schedule: mirror, refresh, retire, or leave alone.
@@ -291,18 +327,34 @@ class ScheduleFlowBridge {
 	public function resolveRunAs(ObjectEntity $schedule): ?string {
 		$data = $schedule->getObject();
 
-		$actingUser = $this->agentActingUser(agentId: (string)($data['agentId'] ?? ''));
-		if ($actingUser !== null && $this->isLiveUser(uid: $actingUser) === true) {
+		$actingUser = $this->liveUserOrNull(uid: $this->agentActingUser(agentId: (string)($data['agentId'] ?? '')));
+		if ($actingUser !== null) {
 			return $actingUser;
 		}
 
 		$owner = trim((string)($schedule->getOwner() ?? ''));
-		if ($owner !== '' && $this->isLiveUser(uid: $owner) === true) {
-			return $owner;
+		if ($owner === '') {
+			return null;
+		}
+
+		return $this->liveUserOrNull(uid: $owner);
+	}//end resolveRunAs()
+
+	/**
+	 * A uid when it names a live user, null otherwise.
+	 *
+	 * @param string|null $uid The uid.
+	 *
+	 * @return string|null The live uid, or null.
+	 */
+	private function liveUserOrNull(?string $uid): ?string {
+		if ($uid !== null && $this->isLiveUser(uid: $uid) === true) {
+			return $uid;
 		}
 
 		return null;
-	}//end resolveRunAs()
+
+	}//end liveUserOrNull()
 
 	/**
 	 * The bound agent's raw actingUser, or null when unset or unreadable.
@@ -445,69 +497,126 @@ class ScheduleFlowBridge {
 	 */
 	private function refresh(ObjectEntity $schedule, string $flowId): string {
 		$mapper = $this->container->get(FlowMapper::class);
-		$data = $schedule->getObject();
-
 		try {
 			$flow = $mapper->findByUuid($flowId);
 		} catch (Throwable $e) {
-			// The delegated clock does not exist: take the schedule back so
-			// the local dispatcher covers it, and let the next pass re-mirror.
-			$this->scheduleService->clearEngineDelegation(schedule: $schedule);
-			$this->logger->warning(
-				sprintf(
-					'[hermiq] Schedule %s was delegated to missing flow %s; the local clock takes over until the next sync.',
-					(string)$schedule->getUuid(),
-					$flowId
-				)
-			);
-
-			return 'refreshed';
+			return $this->reclaimFromMissingFlow(schedule: $schedule, flowId: $flowId);
 		}
 
-		$cron = (string)$this->mappedCron(schedule: $schedule);
-		$runAs = (string)$this->resolveRunAs(schedule: $schedule);
-		$enabled = (($data['enabled'] ?? false) === true);
+		$wanted = $this->wantedMirror(schedule: $schedule);
+		if ($this->storedMirror(flow: $flow) === $wanted) {
+			return $this->publishIfUnpublished(flow: $flow, flowId: $flowId);
+		}
 
-		$storedCron = trim((string)($flow->getCron() ?? ''));
-		$storedRunAs = $this->definition->triggerRunAs(nodes: $flow->getNodes());
-		$storedEnabled = ($flow->getEnabled() === true);
+		$this->redefineMirror(flow: $flow, mirror: $wanted + ['scheduleUuid' => (string)$schedule->getUuid()]);
+		return 'refreshed';
+	}//end refresh()
 
-		if ($storedCron === $cron && $storedRunAs === $runAs && $storedEnabled === $enabled) {
-			if ($this->publisher->lacksPublishedVersion(flow: $flow) === true) {
-				// The definition is current but the pin still refuses it: a
-				// mirror created before publishing existed, or a crash
-				// between an update and its republish. Publish the head so
-				// the engine's clock actually ticks.
-				$this->publisher->publishHead(flow: $flow);
-				$this->logger->info(
-					sprintf('[hermiq] Mirror flow %s had no published version; published its head.', $flowId)
-				);
+	/**
+	 * The delegated clock does not exist: take the schedule back so the local
+	 * dispatcher covers it, and let the next pass re-mirror.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 * @param string $flowId The missing mirror flow's uuid.
+	 *
+	 * @return string The outcome (`refreshed`).
+	 */
+	private function reclaimFromMissingFlow(ObjectEntity $schedule, string $flowId): string {
+		$this->scheduleService->clearEngineDelegation(schedule: $schedule);
+		$this->logger->warning(
+			sprintf(
+				'[hermiq] Schedule %s was delegated to missing flow %s; the local clock takes over until the next sync.',
+				(string)$schedule->getUuid(),
+				$flowId
+			)
+		);
 
-				return 'refreshed';
-			}
+		return 'refreshed';
 
+	}//end reclaimFromMissingFlow()
+
+	/**
+	 * The mirror a schedule wants: its mapped cron, run-as identity and enabled state.
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 *
+	 * @return array{cron: string, runAs: string, enabled: bool} The wanted mirror.
+	 */
+	private function wantedMirror(ObjectEntity $schedule): array {
+		return [
+			'cron' => (string)$this->mappedCron(schedule: $schedule),
+			'runAs' => (string)$this->resolveRunAs(schedule: $schedule),
+			'enabled' => (($schedule->getObject()['enabled'] ?? false) === true),
+		];
+
+	}//end wantedMirror()
+
+	/**
+	 * The mirror a flow holds: its cron, its trigger's run-as identity and enabled state.
+	 *
+	 * @param Flow $flow The mirror flow.
+	 *
+	 * @return array{cron: string, runAs: string, enabled: bool} The stored mirror.
+	 */
+	private function storedMirror(Flow $flow): array {
+		return [
+			'cron' => trim((string)($flow->getCron() ?? '')),
+			'runAs' => $this->definition->triggerRunAs(nodes: $flow->getNodes()),
+			'enabled' => ($flow->getEnabled() === true),
+		];
+
+	}//end storedMirror()
+
+	/**
+	 * Publish an undrifted mirror whose pin still refuses it: a mirror created
+	 * before publishing existed, or a crash between an update and its republish.
+	 * Publishing the head makes the engine's clock actually tick.
+	 *
+	 * @param Flow $flow The mirror flow.
+	 * @param string $flowId The mirror flow's uuid.
+	 *
+	 * @return string The outcome: `refreshed` when published, `skipped` otherwise.
+	 */
+	private function publishIfUnpublished(Flow $flow, string $flowId): string {
+		if ($this->publisher->lacksPublishedVersion(flow: $flow) === false) {
 			return 'skipped';
 		}
 
-		// Draft FIRST, update SECOND, publish LAST. `FlowRunVersionPin` runs
-		// the PUBLISHED version, not the flow row, so an update without a
-		// republish would keep firing the old cadence forever. Drafting
-		// before the update flips the head off `published`, which is what
-		// lets the no-drift branch above heal a crash between the update and
-		// the publish; the old published version keeps serving in between.
+		$this->publisher->publishHead(flow: $flow);
+		$this->logger->info(
+			sprintf('[hermiq] Mirror flow %s had no published version; published its head.', $flowId)
+		);
+
+		return 'refreshed';
+
+	}//end publishIfUnpublished()
+
+	/**
+	 * Redefine a drifted mirror. Draft FIRST, update SECOND, publish LAST.
+	 * `FlowRunVersionPin` runs the PUBLISHED version, not the flow row, so an update
+	 * without a republish would keep firing the old cadence forever. Drafting before
+	 * the update flips the head off `published`, which is what lets the no-drift
+	 * branch heal a crash between the update and the publish; the old published
+	 * version keeps serving in between.
+	 *
+	 * @param Flow $flow The mirror flow.
+	 * @param array{cron: string, runAs: string, enabled: bool, scheduleUuid: string} $mirror The wanted mirror.
+	 *
+	 * @return void
+	 */
+	private function redefineMirror(Flow $flow, array $mirror): void {
 		$this->publisher->draftForRedefinition(flow: $flow);
 
-		$flow->setCron($cron);
-		$flow->setNodes($this->definition->nodes(scheduleUuid: (string)$schedule->getUuid(), cron: $cron, runAs: $runAs));
+		$flow->setCron($mirror['cron']);
+		$flow->setNodes($this->definition->nodes(scheduleUuid: $mirror['scheduleUuid'], cron: $mirror['cron'], runAs: $mirror['runAs']));
 		$flow->setEdges($this->definition->edges());
-		$flow->setEnabled($enabled);
+		$flow->setEnabled($mirror['enabled']);
 		$flow->setUpdated(new DateTime());
-		$mapper->update($flow);
+		$this->container->get(FlowMapper::class)->update($flow);
 
 		$this->publisher->publishHead(flow: $flow);
 
-		return 'refreshed';
-	}//end refresh()
+	}//end redefineMirror()
 
 	/**
 	 * Take a schedule's clock back and delete its mirror flow.
