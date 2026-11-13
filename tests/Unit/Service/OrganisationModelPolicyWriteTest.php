@@ -21,6 +21,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -33,6 +34,7 @@ use RuntimeException;
  * Tests for upsert, update, lookup and the allow-list validation.
  *
  * @covers \OCA\Hermiq\Service\OrganisationModelPolicyService
+ * @uses   \OCA\Hermiq\Service\EffectiveModelPolicy
  */
 class OrganisationModelPolicyWriteTest extends TestCase {
 
@@ -49,6 +51,13 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 	 * @var list<array{0: array<string, mixed>, 1: ?string, 2: bool, 3: bool}>
 	 */
 	private array $saved = [];
+
+	/**
+	 * The effective policy the service reads through, over the same object service.
+	 *
+	 * @var EffectiveModelPolicy
+	 */
+	private EffectiveModelPolicy $effective;
 
 	/**
 	 * Wire the object service over a set of stored policies.
@@ -71,9 +80,14 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 			}
 		);
 
-		return new OrganisationModelPolicyService(
+		$this->effective = new EffectiveModelPolicy(
 			objectService: $this->objects,
 			settingsHandler: $this->createMock(LlmSettingsHandler::class)
+		);
+
+		return new OrganisationModelPolicyService(
+			objectService: $this->objects,
+			effectivePolicy: $this->effective
 		);
 	}//end service()
 
@@ -262,14 +276,14 @@ class OrganisationModelPolicyWriteTest extends TestCase {
 	}//end testAnEmptyModelListAdmitsAnyDefaultOfThatProvider()
 
 	/**
-	 * requiresNoTraining() reads the effective policy's flag.
+	 * requiresNoTraining() reads the effective policy's flag (EffectiveModelPolicy owns it).
 	 *
 	 * @return void
 	 */
 	public function testRequiresNoTrainingReadsTheEffectivePolicy(): void {
-		$service = $this->service([$this->policy('org-a', 'p-1', ['requireNoTraining' => true]), $this->policy('', 'p-0', ['requireNoTraining' => 1])]);
+		$this->service([$this->policy('org-a', 'p-1', ['requireNoTraining' => true]), $this->policy('', 'p-0', ['requireNoTraining' => 1])]);
 
-		$this->assertTrue($service->requiresNoTraining('org-a'));
-		$this->assertFalse($service->requiresNoTraining('org-b'));
+		$this->assertTrue($this->effective->requiresNoTraining('org-a'));
+		$this->assertFalse($this->effective->requiresNoTraining('org-b'));
 	}//end testRequiresNoTrainingReadsTheEffectivePolicy()
 }//end class

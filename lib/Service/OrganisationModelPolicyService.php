@@ -11,11 +11,8 @@
  * read must work for a system-wide schedule tick or flow-triggered run — which run
  * before any per-user RBAC context exists — exactly as the kill-switch read does.
  *
- * Resolution order (design.md "Decisions"): (1) the organisation's own ModelPolicy
- * if one exists; (2) else the organisation-less instance-wide default ModelPolicy
- * (`ObjectEntity.organisation === ''`) if one exists; (3) else — no policy anywhere —
- * a synthetic, fail-CLOSED policy restricting to whatever `hermiq.llm.chatProvider`
- * is currently configured, never fully open.
+ * Which policy governs an organisation (own policy → instance default → fail-closed
+ * fallback) is resolved by EffectiveModelPolicy.
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance
  * service, not a derived value or declarative lifecycle (same role as
@@ -48,8 +45,8 @@ use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
 
 /**
- * Reads/writes ModelPolicy objects and resolves the effective policy for an
- * organisation (own policy → instance default → fail-closed fallback).
+ * Reads/writes ModelPolicy objects. Which policy governs an organisation, and what it
+ * allows, is EffectiveModelPolicy's.
  *
  * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
  */
@@ -73,12 +70,12 @@ class OrganisationModelPolicyService {
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
-	 * @param LlmSettingsHandler $settingsHandler Reads `hermiq.llm.chatProvider` for the
-	 *                                            fail-closed fallback policy.
+	 * @param EffectiveModelPolicy $effectivePolicy Reads a stored policy and its shape, and
+	 *                                              checks a pair against the effective policy.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly LlmSettingsHandler $settingsHandler,
+		private readonly EffectiveModelPolicy $effectivePolicy,
 	) {
 	}//end __construct()
 
@@ -97,22 +94,7 @@ class OrganisationModelPolicyService {
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
 	 */
 	public function getForOrganisation(string $organisation): ?ObjectEntity {
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::SCHEMA_SLUG)
-			->findAll(config: [], _rbac: false, _multitenancy: false);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getOrganisation() ?? '') === $organisation) {
-				return $object;
-			}
-		}
-
-		return null;
+		return $this->effectivePolicy->getForOrganisation(organisation: $organisation);
 	}//end getForOrganisation()
 
 	/**
@@ -158,61 +140,6 @@ class OrganisationModelPolicyService {
 	}//end listAll()
 
 	/**
-	 * Resolve the effective policy for an organisation: its own ModelPolicy, else
-	 * the organisation-less instance default, else a fail-closed synthetic policy
-	 * restricting to the currently-configured `hermiq.llm.chatProvider` only.
-	 *
-	 * @param string $organisation The organisation identifier (may be '').
-	 *
-	 * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null}
-	 *                                                                                                                                             The effective, shaped policy.
-	 *
-	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
-	 */
-	public function effectivePolicyFor(string $organisation): array {
-		if ($organisation !== '') {
-			$own = $this->getForOrganisation(organisation: $organisation);
-			if ($own !== null) {
-				return $this->shape(policy: $own, source: 'organisation');
-			}
-		}
-
-		$instanceDefault = $this->getForOrganisation(organisation: '');
-		if ($instanceDefault !== null) {
-			return $this->shape(policy: $instanceDefault, source: 'instance');
-		}
-
-		return $this->fallbackPolicy();
-	}//end effectivePolicyFor()
-
-	/**
-	 * The fail-closed synthetic policy used when no ModelPolicy exists anywhere
-	 * (organisation-specific or instance-wide): the single provider currently
-	 * configured in `hermiq.llm.chatProvider`, or nothing when even that is unset
-	 * — never "every provider is allowed".
-	 *
-	 * @return array{source: string, allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: null}
-	 *
-	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
-	 */
-	private function fallbackPolicy(): array {
-		$chatProvider = $this->settingsHandler->getLLMSettingsOnly()['chatProvider'] ?? null;
-
-		$allowed = [];
-		if (is_string($chatProvider) === true && $chatProvider !== '') {
-			$allowed[] = ['provider' => $chatProvider, 'models' => []];
-		}
-
-		return [
-			'source' => 'fallback',
-			'allowed' => $allowed,
-			'defaultModel' => null,
-			'requireNoTraining' => false,
-		];
-
-	}//end fallbackPolicy()
-
-	/**
 	 * Whether a resolved (provider, model) pair is within an organisation's
 	 * effective policy. An empty `models[]` for an allowed provider means "any
 	 * model for that provider is permitted".
@@ -226,25 +153,8 @@ class OrganisationModelPolicyService {
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	public function isAllowed(string $organisation, string $provider, string $model): bool {
-		$policy = $this->effectivePolicyFor(organisation: $organisation);
-
-		return $this->matchesAllowed(allowed: $policy['allowed'], provider: $provider, model: $model);
+		return $this->effectivePolicy->isAllowed(organisation: $organisation, provider: $provider, model: $model);
 	}//end isAllowed()
-
-	/**
-	 * Whether an organisation's effective policy only allows providers that never
-	 * train on its data (models-no-training-guarantee). An organisation without a
-	 * policy of its own inherits the instance default's answer.
-	 *
-	 * @param string $organisation The organisation identifier (may be '').
-	 *
-	 * @return bool True when the requirement is on.
-	 *
-	 * @spec openspec/specs/provider-data-use/spec.md#requirement-an-organisation-can-require-providers-that-never-train-on-its-data-req-notrain-002
-	 */
-	public function requiresNoTraining(string $organisation): bool {
-		return ($this->effectivePolicyFor(organisation: $organisation)['requireNoTraining'] ?? false) === true;
-	}//end requiresNoTraining()
 
 	/**
 	 * Create-or-update the ModelPolicy for an organisation (at most one per
@@ -431,7 +341,7 @@ class OrganisationModelPolicyService {
 			return null;
 		}
 
-		if ($this->matchesAllowed(allowed: $allowed, provider: $provider, model: $model) === false) {
+		if ($this->effectivePolicy->matchesAllowed(allowed: $allowed, provider: $provider, model: $model) === false) {
 			throw new InvalidArgumentException(
 				"defaultModel '{$provider}/{$model}' must itself be one of the allowed provider/model combinations"
 			);
@@ -445,35 +355,6 @@ class OrganisationModelPolicyService {
 	}//end normaliseDefaultModel()
 
 	/**
-	 * Whether (provider, model) matches an `allowed` list — an empty `models[]`
-	 * for a matched provider means "any model".
-	 *
-	 * @param array<int, array{provider: string, models: array<int, string>}> $allowed The allowlist.
-	 * @param string $provider The provider to check.
-	 * @param string $model The model id to check.
-	 *
-	 * @return bool True when allowed.
-	 */
-	private function matchesAllowed(array $allowed, string $provider, string $model): bool {
-		foreach ($allowed as $entry) {
-			if ($entry['provider'] !== $provider) {
-				continue;
-			}
-
-			$models = $entry['models'];
-			if ($models === []) {
-				return true;
-			}
-
-			if (in_array($model, $models, true) === true) {
-				return true;
-			}
-		}
-
-		return false;
-	}//end matchesAllowed()
-
-	/**
 	 * Shape a ModelPolicy ObjectEntity into the API response payload.
 	 *
 	 * @param ObjectEntity $policy The policy object.
@@ -482,16 +363,6 @@ class OrganisationModelPolicyService {
 	 * @return array<string, mixed> The response payload.
 	 */
 	private function shape(ObjectEntity $policy, string $source): array {
-		$data = $policy->getObject();
-
-		return [
-			'id' => (string)($policy->getUuid() ?? ''),
-			'organisation' => (string)($policy->getOrganisation() ?? ''),
-			'source' => $source,
-			'allowed' => $data['allowed'] ?? [],
-			'defaultModel' => $data['defaultModel'] ?? null,
-			'requireNoTraining' => (($data['requireNoTraining'] ?? false) === true),
-		];
-
+		return $this->effectivePolicy->shape(policy: $policy, source: $source);
 	}//end shape()
 }//end class

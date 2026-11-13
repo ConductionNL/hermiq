@@ -31,7 +31,7 @@ namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
 use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 
@@ -60,13 +60,13 @@ class AiFeatureBindingService {
 	 * Constructor.
 	 *
 	 * @param AiFeatureService $features Reads the AiFeature register (RBAC + tenancy scoped).
-	 * @param OrganisationModelPolicyService $modelPolicy The ceiling a binding must stay within.
+	 * @param EffectiveModelPolicy $modelPolicy The ceiling a binding must stay within.
 	 * @param ProviderResidencyRegistry $residency Validates the residency vocabulary.
 	 * @param ObjectService $objectService OpenRegister single write-path.
 	 */
 	public function __construct(
 		private readonly AiFeatureService $features,
-		private readonly OrganisationModelPolicyService $modelPolicy,
+		private readonly EffectiveModelPolicy $modelPolicy,
 		private readonly ProviderResidencyRegistry $residency,
 		private readonly ObjectService $objectService,
 	) {

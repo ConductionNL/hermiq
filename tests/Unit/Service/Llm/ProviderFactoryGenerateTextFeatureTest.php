@@ -31,7 +31,7 @@ use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\OrganisationModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -80,7 +80,7 @@ class ProviderFactoryGenerateTextFeatureTest extends TestCase {
 			}
 		);
 
-		$policy = $this->createMock(OrganisationModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('isAllowed')->willReturn(true);
 		$policy->method('effectivePolicyFor')->willReturn(['source' => 'organisation', 'allowed' => [], 'defaultModel' => null]);
 
