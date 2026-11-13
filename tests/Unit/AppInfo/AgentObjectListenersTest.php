@@ -19,9 +19,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\AppInfo;
 
-use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentWaiverChangeListener;
+use OCA\Hermiq\Listener\ListenerRegistrar;
 use OCA\OpenRegister\Event\DraftCreatedEvent;
 use OCA\OpenRegister\Event\DraftUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
@@ -29,13 +29,12 @@ use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 
 /**
  * Nextcloud delivers an event only to the listeners registered on its own
  * class, so the draft events need their own registration.
  *
- * @covers \OCA\Hermiq\AppInfo\Application
+ * @covers \OCA\Hermiq\Listener\ListenerRegistrar
  */
 class AgentObjectListenersTest extends TestCase {
 
@@ -53,8 +52,8 @@ class AgentObjectListenersTest extends TestCase {
 			}
 		);
 
-		$application = (new ReflectionClass(Application::class))->newInstanceWithoutConstructor();
-		$register = new \ReflectionMethod(Application::class, 'registerAgentObjectListeners');
+		$application = new ListenerRegistrar();
+		$register = new \ReflectionMethod(ListenerRegistrar::class, 'registerAgentObjectListeners');
 		$register->invoke($application, $context);
 
 		$this->assertSame(
