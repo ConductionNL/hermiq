@@ -10,7 +10,9 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 - **acceptance_criteria**:
   - GIVEN the register import WHEN it runs THEN `agentknowledgebase` exists and `Agent.knowledgeBaseRefs` is declared, and the register version is bumped
 - [ ] Implement
+  - Schema half done: `KnowledgeBase` (`agentknowledgebase`, read by signed-in users, writes owner-only), `Agent.knowledgeBaseRefs`, register v0.53.0, Agent v0.14.0. Open: `lib/Repair/SeedKnowledgeBases.php`; the seed names the demo agent "Inkoopassistent" and Gemeente Tilburg, neither of which is seeded yet.
 - [ ] Test (`tests/validate-register.js`; PHPUnit on the seed step)
+  - `tests/validate-register.js` passes; `KnowledgeBaseSchemaTest` (4) validates both payloads with Opis against the register file. The seed-step test waits on the seed.
 
 ### Task 2: Upload into the knowledge base folder
 - **spec_ref**: `openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001`
