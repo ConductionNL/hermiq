@@ -61,6 +61,9 @@
                         "headers": {
                             "API-Version": {
                                 "$ref": "#/components/headers/API-Version"
+                            },
+                            "access-control-allow-origin": {
+                                "$ref": "#/components/headers/access-control-allow-origin"
                             }
                         },
                         "content": {
@@ -76,6 +79,9 @@
                         "headers": {
                             "API-Version": {
                                 "$ref": "#/components/headers/API-Version"
+                            },
+                            "access-control-allow-origin": {
+                                "$ref": "#/components/headers/access-control-allow-origin"
                             }
                         },
                         "content": {
@@ -267,6 +273,16 @@
                 "schema": {
                     "type": "string",
                     "example": "0.2.17"
+                }
+            },
+            "access-control-allow-origin": {
+                "description": "Lets a page on any origin read this document: always `*`.",
+                "schema": {
+                    "type": "string",
+                    "enum": [
+                        "*"
+                    ],
+                    "example": "*"
                 }
             }
         },
