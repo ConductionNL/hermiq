@@ -47,6 +47,7 @@ use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\SessionSearchService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -149,6 +150,27 @@ class SessionController extends Controller {
 	private readonly SessionPendingApprovalsInterface $pendingApprovals;
 
 	/**
+	 * Finds the caller's own sessions by title and turn text, built on first use.
+	 *
+	 * @var SessionSearchService|null
+	 */
+	private ?SessionSearchService $sessionSearch = null;
+
+	/**
+	 * The actions `POST /api/sessions/bulk` accepts.
+	 *
+	 * @var list<string>
+	 */
+	private const BULK_ACTIONS = ['archive', 'restore', 'delete'];
+
+	/**
+	 * The most sessions one bulk request names.
+	 *
+	 * @var integer
+	 */
+	private const BULK_LIMIT = 100;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
@@ -184,6 +206,8 @@ class SessionController extends Controller {
 	 * Supports filtering with query parameters:
 	 * - _deleted: boolean (true = archived conversations, false/default = active)
 	 * - subject: string (only sessions about this record, latest activity first)
+	 * - search: string (at least two characters: only the caller's own sessions whose
+	 *   title or turn text matches, each with its `match`)
 	 * - limit / _limit: int (default: 50)
 	 * - offset / _offset: int (default: 0)
 	 *
@@ -194,6 +218,7 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-surface/spec.md#requirement-the-session-list-can-be-narrowed-to-one-record
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
 	 */
 	public function index(): JSONResponse {
 		try {
@@ -219,6 +244,16 @@ class SessionController extends Controller {
 				if ($this->isArchived(conversation: $conversation) === $showDeleted) {
 					$matching[] = $conversation;
 				}
+			}
+
+			$term = (string)($params['search'] ?? '');
+			if (SessionSearchService::searches(term: $term) === true) {
+				return $this->searchResponse(
+					userId: $userId,
+					term: trim($term),
+					sessions: $matching,
+					window: ['limit' => $limit, 'offset' => $offset, 'truncated' => count($all) >= self::MAX_CONVERSATION_SCAN]
+				);
 			}
 
 			$total = count($matching);
@@ -256,6 +291,40 @@ class SessionController extends Controller {
 			);
 		}//end try
 	}//end index()
+
+	/**
+	 * The list envelope of a search: the caller's own matching sessions in the
+	 * tab, each serialised with its `match`.
+	 *
+	 * @param string                                          $userId   The caller.
+	 * @param string                                          $term     The search term.
+	 * @param ObjectEntity[]                                  $sessions The sessions of the current tab.
+	 * @param array{limit: int, offset: int, truncated: bool} $window   The page, and whether the session scan hit its cap.
+	 *
+	 * @return JSONResponse The list envelope.
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 */
+	private function searchResponse(string $userId, string $term, array $sessions, array $window): JSONResponse {
+		$this->sessionSearch ??= new SessionSearchService(objectService: $this->objectService);
+		$hits = $this->sessionSearch->search(userId: $userId, term: $term, sessions: $sessions);
+		$page = array_slice($hits, $window['offset'], $window['limit']);
+
+		return new JSONResponse(
+			data: [
+				'results' => array_map(
+					fn (array $hit): array => $this->serializeConversation(conversation: $hit['session'], userId: $userId) + ['match' => $hit['match']],
+					$page
+				),
+				'total' => count($hits),
+				'limit' => $window['limit'],
+				'offset' => $window['offset'],
+				'search' => $term,
+				'truncated' => $window['truncated'],
+			],
+			statusCode: 200
+		);
+	}//end searchResponse()
 
 	/**
 	 * Get a single conversation (without messages).
@@ -731,9 +800,7 @@ class SessionController extends Controller {
 					]
 				);
 
-				// Delete feedback first, then messages, then the conversation
-				// (OR's ordering).
-				$this->deleteRelatedObjects(schema: self::FEEDBACK_SCHEMA, conversationId: $uuid);
+				// Feedback, then messages, then the conversation (OR's ordering).
 				return $this->purgeConversation(uuid: $uuid);
 			}
 
@@ -790,25 +857,7 @@ class SessionController extends Controller {
 				return $this->accessDeniedResponse(action: 'restore');
 			}
 
-			// Clear the archive marker.
-			$data = $conversation->getObject();
-			$metadata = ($data['metadata'] ?? []);
-			if (is_array($metadata) === false) {
-				$metadata = [];
-			}
-
-			unset($metadata['deletedAt'], $metadata['deletedBy']);
-			$data['metadata'] = $metadata;
-			if ($metadata === []) {
-				$data['metadata'] = null;
-			}
-
-			$restored = $this->objectService->saveObject(
-				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $uuid
-			);
+			$restored = $this->clearArchiveMarker(conversation: $conversation, uuid: $uuid);
 
 			$this->logger->info(
 				message: '[SessionController] Conversation restored',
@@ -843,10 +892,185 @@ class SessionController extends Controller {
 	}//end restore()
 
 	/**
+	 * Clear a conversation's archive marker and save it.
+	 *
+	 * @param ObjectEntity $conversation The archived conversation.
+	 * @param string       $uuid         Its uuid.
+	 *
+	 * @return ObjectEntity The saved conversation.
+	 *
+	 * @throws Exception If the conversation could not be saved; the callers translate it.
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 */
+	private function clearArchiveMarker(ObjectEntity $conversation, string $uuid): ObjectEntity {
+		$data = $conversation->getObject();
+		$metadata = ($data['metadata'] ?? []);
+		if (is_array($metadata) === false) {
+			$metadata = [];
+		}
+
+		unset($metadata['deletedAt'], $metadata['deletedBy']);
+		$data['metadata'] = $metadata;
+		if ($metadata === []) {
+			$data['metadata'] = null;
+		}
+
+		return $this->objectService->saveObject(
+			object: $this->sanitizeForSave(data: $data),
+			register: self::REGISTER_SLUG,
+			schema: self::CONVERSATION_SCHEMA,
+			uuid: $uuid
+		);
+	}//end clearArchiveMarker()
+
+	/**
+	 * Archive, restore or permanently delete several of the caller's sessions.
+	 *
+	 * Body `{action, uuids}`: `action` is `archive`, `restore` or `delete`, and
+	 * `uuids` names 1 to 100 sessions. Each uuid is checked as the caller's own,
+	 * like the single routes; one that is not, or that does not exist, answers
+	 * `not_found`, so the route cannot probe other people's sessions. A request
+	 * that does not fit answers 400 and changes nothing.
+	 *
+	 * @return JSONResponse Each uuid with `ok`, `not_found` or `refused`.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 */
+	public function bulk(): JSONResponse {
+		try {
+			$userId = $this->requireUserId();
+		} catch (Exception $e) {
+			return new JSONResponse(data: ['error' => 'Authentication required'], statusCode: 401);
+		}
+
+		$action = $this->request->getParam('action');
+		$uuids = $this->request->getParam('uuids');
+		$refusal = $this->bulkRefusal(action: $action, uuids: $uuids);
+		if ($refusal !== null) {
+			return new JSONResponse(data: ['error' => $refusal], statusCode: 400);
+		}
+
+		$results = [];
+		foreach (array_values(array_unique(array_map('strval', $uuids))) as $uuid) {
+			$results[] = ['uuid' => $uuid, 'status' => $this->bulkOne(action: (string)$action, uuid: $uuid, userId: $userId)];
+		}
+
+		return new JSONResponse(data: ['action' => $action, 'results' => $results], statusCode: 200);
+	}//end bulk()
+
+	/**
+	 * Why a bulk request cannot run, or null when it can.
+	 *
+	 * @param mixed $action The requested action.
+	 * @param mixed $uuids  The requested uuids.
+	 *
+	 * @return string|null The refusal.
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 */
+	private function bulkRefusal(mixed $action, mixed $uuids): ?string {
+		if (in_array($action, self::BULK_ACTIONS, true) === false) {
+			return 'action must be one of: ' . implode(', ', self::BULK_ACTIONS);
+		}
+
+		if (is_array($uuids) === false || $uuids === [] || count($uuids) > self::BULK_LIMIT) {
+			return 'uuids must name 1 to ' . self::BULK_LIMIT . ' sessions';
+		}
+
+		foreach ($uuids as $uuid) {
+			if (is_string($uuid) === false || trim($uuid) === '') {
+				return 'uuids must be non-empty strings';
+			}
+		}
+
+		return null;
+	}//end bulkRefusal()
+
+	/**
+	 * Run one bulk action on one session the caller owns.
+	 *
+	 * @param string $action `archive`, `restore` or `delete`.
+	 * @param string $uuid   The session.
+	 * @param string $userId The caller.
+	 *
+	 * @return string `ok`, `not_found` (missing or not the caller's) or `refused` (the write failed).
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 */
+	private function bulkOne(string $action, string $uuid, string $userId): string {
+		try {
+			$conversation = $this->objectService->find(
+				id: $uuid,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA
+			);
+		} catch (Exception $e) {
+			return 'not_found';
+		}
+
+		// Modify guard (gate-7): only the owning user; anyone else's reads as missing.
+		if ($conversation === null || ($conversation->getObject()['userId'] ?? null) !== $userId) {
+			return 'not_found';
+		}
+
+		try {
+			$this->applyBulkAction(action: $action, conversation: $conversation, userId: $userId);
+		} catch (Exception $e) {
+			$this->logger->error(
+				message: '[SessionController] Bulk action failed on a session',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'action' => $action,
+					'uuid' => $uuid,
+					'error' => $e->getMessage(),
+				]
+			);
+			return 'refused';
+		}
+
+		return 'ok';
+	}//end bulkOne()
+
+	/**
+	 * Apply one bulk action to an owned session. Archiving an archived session
+	 * changes nothing.
+	 *
+	 * @param string       $action       `archive`, `restore` or `delete`.
+	 * @param ObjectEntity $conversation The owned session.
+	 * @param string       $userId       The caller.
+	 *
+	 * @return void
+	 *
+	 * @throws Exception If the write failed; bulkOne() reports it as `refused`.
+	 *
+	 * @spec openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+	 */
+	private function applyBulkAction(string $action, ObjectEntity $conversation, string $userId): void {
+		$uuid = (string)$conversation->getUuid();
+		if ($action === 'delete') {
+			$this->purgeConversation(uuid: $uuid);
+			return;
+		}
+
+		if ($action === 'restore') {
+			$this->clearArchiveMarker(conversation: $conversation, uuid: $uuid);
+			return;
+		}
+
+		if ($this->isArchived(conversation: $conversation) === false) {
+			$this->setArchiveMarker(conversation: $conversation, deletedBy: $userId);
+		}
+	}//end applyBulkAction()
+
+	/**
 	 * Hard delete a conversation permanently.
 	 *
 	 * Mirrors OR ConversationController::destroyPermanent(): deletes the
-	 * conversation's messages first, then the conversation itself.
+	 * conversation's feedback, then its messages, then the conversation itself.
 	 *
 	 * @param string $uuid Conversation UUID.
 	 *
@@ -897,7 +1121,8 @@ class SessionController extends Controller {
 	}//end destroyPermanent()
 
 	/**
-	 * Delete a conversation's messages, then the conversation itself (OR's ordering).
+	 * Delete a conversation's feedback, then its messages, then the conversation
+	 * itself (OR's ordering). The one deletion routine for the single and bulk deletes.
 	 *
 	 * The caller has already checked that the user owns the conversation.
 	 *
@@ -911,6 +1136,7 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function purgeConversation(string $uuid): JSONResponse {
+		$this->deleteRelatedObjects(schema: self::FEEDBACK_SCHEMA, conversationId: $uuid);
 		$this->deleteRelatedObjects(schema: self::MESSAGE_SCHEMA, conversationId: $uuid);
 		$this->objectService->deleteObject(
 			uuid: $uuid,

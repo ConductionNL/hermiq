@@ -11,7 +11,7 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
   - GIVEN a caller with a turn containing "monument" WHEN they call `GET /api/sessions?search=monument` THEN the session is returned with an excerpt and the turn uuid
   - GIVEN a shared session owned by someone else WHEN the caller searches a word only it contains THEN nothing is returned
   - GIVEN no `search` parameter WHEN the list is called THEN the answer is identical to today's
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on the service with two identities; Newman that seeds a turn and finds it)
 
 ### Task 2: The search field and opening a result at its turn
@@ -27,8 +27,8 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 - **files**: `lib/Controller/SessionController.php`
 - **acceptance_criteria**:
   - GIVEN a session with feedback WHEN it is deleted through `/permanent` THEN its feedback, turns and the session are gone
-- [ ] Implement
-- [ ] Test (PHPUnit on `destroy()` and `destroyPermanent()` asserting the feedback delete)
+- [x] Implement
+- [x] Test (PHPUnit on `destroy()` and `destroyPermanent()` asserting the feedback delete)
 
 ### Task 4: The bulk route
 - **spec_ref**: `openspec/changes/chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002`
@@ -36,7 +36,7 @@ Kind: code. Size M. Rows `hermiq:ch-search-history`, `dm-bulk-delete-chats`.
 - **acceptance_criteria**:
   - GIVEN three uuids of which one is foreign WHEN action `delete` is posted THEN two are deleted and the third is reported `not_found`
   - GIVEN 101 uuids WHEN posted THEN the answer is 400 and nothing changes
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit; Newman for each action)
 
 ### Task 5: Selection mode and the bulk bar
