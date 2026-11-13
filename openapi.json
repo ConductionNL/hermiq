@@ -252,6 +252,10 @@
             "description": "The settings report similarity settings endpoints."
         },
         {
+            "name": "settings-computer-target",
+            "description": "The machines an agent may operate, reached only through an integriq source (admin-only)."
+        },
+        {
             "name": "settings-run-retention-settings",
             "description": "The settings run retention settings endpoints."
         },
@@ -7622,6 +7626,175 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/settings/computer-targets": {
+            "get": {
+                "operationId": "settings-computer-target-index",
+                "summary": "List computer targets",
+                "description": "Every machine an agent may operate. Needs an administrator, or a user the matching admin setting is delegated to.",
+                "tags": [
+                    "settings-computer-target"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "settings-computer-target-create",
+                "summary": "Create a computer target",
+                "description": "Register a machine, reached through the integriq source named in `source`. Needs an administrator, or a user the matching admin setting is delegated to.",
+                "tags": [
+                    "settings-computer-target"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The computer target was created.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/computer-targets/{id}": {
+            "put": {
+                "operationId": "settings-computer-target-update",
+                "summary": "Update a computer target",
+                "description": "Change a registered machine. Needs an administrator, or a user the matching admin setting is delegated to.",
+                "tags": [
+                    "settings-computer-target"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The computer target's uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "settings-computer-target-destroy",
+                "summary": "Remove a computer target",
+                "description": "Remove a registered machine. Needs an administrator, or a user the matching admin setting is delegated to.",
+                "tags": [
+                    "settings-computer-target"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The computer target's uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/computer-targets/{id}/screenshot": {
+            "post": {
+                "operationId": "settings-computer-target-screenshot",
+                "summary": "Take a test screenshot",
+                "description": "Ask the machine's remote-control service for a screenshot through its integriq source. The screenshot is returned, never stored. Needs an administrator, or a user the matching admin setting is delegated to.",
+                "tags": [
+                    "settings-computer-target"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The computer target's uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
                     }
                 }
             }
