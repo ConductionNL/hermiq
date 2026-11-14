@@ -50,3 +50,50 @@ export async function runEval(datasetId, agentId, options = {}) {
 	)
 	return response.data
 }
+
+/**
+ * "Use for this agent": copy a template dataset into a dataset of the caller's
+ * own for one of their agents (reuse-scheduled-bias-evals).
+ *
+ * @param {string} datasetId The template's uuid.
+ * @param {string} agentId The agent's uuid.
+ * @return {Promise<object>} The new dataset: { id, name, agentId, caseCount }.
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+ */
+export async function useEvalTemplateForAgent(datasetId, agentId) {
+	const response = await axios.post(
+		generateUrl(`${EVALS_BASE}/${datasetId}/use-for-agent`),
+		{ agentId },
+	)
+	return response.data
+}
+
+/**
+ * The caller's schedules of a dataset they own.
+ *
+ * @param {string} datasetId The dataset's uuid.
+ * @return {Promise<Array<object>>} The schedules.
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ */
+export async function listEvalSchedules(datasetId) {
+	const response = await axios.get(
+		generateUrl(`${EVALS_BASE}/${datasetId}/schedules`),
+	)
+	return Array.isArray(response.data?.results) ? response.data.results : []
+}
+
+/**
+ * Create or change a schedule that runs the dataset against an agent.
+ *
+ * @param {string} datasetId The dataset's uuid.
+ * @param {object} schedule { id?, agentId, cronExpr, enabled, regressionThresholdPercent }.
+ * @return {Promise<object>} The saved schedule with its next run.
+ * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+ */
+export async function saveEvalSchedule(datasetId, schedule) {
+	const response = await axios.post(
+		generateUrl(`${EVALS_BASE}/${datasetId}/schedules`),
+		schedule,
+	)
+	return response.data
+}

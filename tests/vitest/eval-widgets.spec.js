@@ -17,7 +17,7 @@ vi.mock('../../src/store/store.js', () => ({
 }))
 
 vi.mock('../../src/api/skills.js', () => ({ listSkills: vi.fn() }))
-vi.mock('../../src/api/evals.js', () => ({ runEval: vi.fn() }))
+vi.mock('../../src/api/evals.js', () => ({ runEval: vi.fn(), listEvalSchedules: vi.fn(), saveEvalSchedule: vi.fn(), useEvalTemplateForAgent: vi.fn() }))
 
 const skillsApi = await import('../../src/api/skills.js')
 const { default: EvalRunPanelWidget } = await import('../../src/widgets/EvalRunPanelWidget.vue')

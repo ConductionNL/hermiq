@@ -1004,6 +1004,48 @@
       {
         "@self": {
           "register": "hermiq",
+          "schema": "evalschedule",
+          "slug": "evalschedule-biastoets-1"
+        },
+        "datasetId": "00000000-0000-4000-8000-000000000000",
+        "agentId": "00000000-0000-4000-8000-000000000000",
+        "cronExpr": "0 6 1 * *",
+        "enabled": false,
+        "nextRun": "2026-12-01T06:00:00+00:00",
+        "regressionThresholdPercent": 10,
+        "owner": "anna.devries"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "evalschedule",
+          "slug": "evalschedule-biastoets-2"
+        },
+        "datasetId": "00000000-0000-4000-8000-000000000000",
+        "agentId": "00000000-0000-4000-8000-000000000000",
+        "cronExpr": "0 6 1 */3 *",
+        "enabled": false,
+        "nextRun": "2027-01-01T06:00:00+00:00",
+        "regressionThresholdPercent": 5,
+        "owner": "anna.devries"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
+          "schema": "evalschedule",
+          "slug": "evalschedule-biastoets-3"
+        },
+        "datasetId": "00000000-0000-4000-8000-000000000000",
+        "agentId": "00000000-0000-4000-8000-000000000000",
+        "cronExpr": "0 6 * * 1",
+        "enabled": false,
+        "nextRun": "2026-11-16T06:00:00+00:00",
+        "regressionThresholdPercent": 15,
+        "owner": "anna.devries"
+      },
+      {
+        "@self": {
+          "register": "hermiq",
           "schema": "feedback",
           "slug": "feedback-feedback-1-1"
         },

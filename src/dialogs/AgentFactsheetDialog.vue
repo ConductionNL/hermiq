@@ -70,6 +70,17 @@
 						<dd>{{ factsheet.agent.actingUser || '—' }}</dd>
 						<dt>{{ t('hermiq', 'Last access review') }}</dt>
 						<dd>{{ formatDate(factsheet.lastReviewedAt) }}</dd>
+						<dt>{{ t('hermiq', 'Bias check') }}</dt>
+						<dd>
+							<a
+								v-if="factsheet.biasCheck"
+								:href="biasCheckUrl(factsheet.biasCheck)">
+								{{ biasCheckLabel(factsheet.biasCheck) }}
+							</a>
+							<template v-else>
+								{{ biasCheckLabel(null) }}
+							</template>
+						</dd>
 					</dl>
 				</section>
 
@@ -148,6 +159,7 @@
 </template>
 
 <script>
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcDialog,
@@ -158,6 +170,7 @@ import {
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAgentFactsheet } from '../api/compliance.js'
 import { dateOrDash } from '../utils/displayDate.js'
+import { biasCheckLabel } from '../widgets/evalSchedules.js'
 import { agentModalTarget, loadWhenShown } from './agentModalTarget.js'
 
 export default {
@@ -226,6 +239,18 @@ export default {
 		 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		formatDate: dateOrDash,
+		biasCheckLabel,
+
+		/**
+		 * The page of the dataset the latest bias check ran (reuse-scheduled-bias-evals).
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+		 * @param {object} biasCheck The factsheet's biasCheck.
+		 * @return {string} The URL.
+		 */
+		biasCheckUrl(biasCheck) {
+			return generateUrl(`/apps/hermiq/evals/${encodeURIComponent(biasCheck.datasetId)}`)
+		},
 	},
 }
 </script>

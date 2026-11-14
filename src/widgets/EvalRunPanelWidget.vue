@@ -46,7 +46,7 @@
 				trackBy="value"
 				:placeholder="t('hermiq', 'Select an agent')" />
 			<NcButton
-				type="primary"
+				variant="primary"
 				:disabled="running || !selectedAgent"
 				@click="run">
 				<template v-if="running" #icon>
@@ -54,7 +54,47 @@
 				</template>
 				{{ t('hermiq', 'Run') }}
 			</NcButton>
+			<NcButton
+				v-if="isTemplate"
+				:disabled="copying || !selectedAgent"
+				@click="useForAgent">
+				{{ t('hermiq', 'Use for this agent') }}
+			</NcButton>
+			<NcButton v-else @click="openScheduleForm(null)">
+				{{ t('hermiq', 'Run on a schedule') }}
+			</NcButton>
 		</div>
+
+		<p v-if="isTemplate" class="eval-run-panel-widget__hint">
+			{{
+				t(
+					'hermiq',
+					'This is a read-only template. Pick one of your agents and choose Use for this agent to get a copy you can edit and run.',
+				)
+			}}
+		</p>
+
+		<div
+			v-if="schedules.length > 0"
+			class="eval-run-panel-widget__schedules">
+			<h4>{{ t('hermiq', 'Schedules') }}</h4>
+			<ul>
+				<li v-for="schedule in schedules" :key="schedule.id">
+					{{ scheduleLine(schedule) }}
+					<NcButton variant="tertiary" @click="openScheduleForm(schedule)">
+						{{ t('hermiq', 'Change') }}
+					</NcButton>
+				</li>
+			</ul>
+		</div>
+
+		<EvalScheduleFormModal
+			v-if="scheduleForm"
+			:agentOptions="agentOptions"
+			:schedule="scheduleForm.schedule"
+			:saving="savingSchedule"
+			@close="scheduleForm = null"
+			@save="saveSchedule" />
 
 		<div class="eval-run-panel-widget__baseline">
 			<NcCheckboxRadioSwitch
@@ -123,7 +163,7 @@
 							<td>
 								<NcButton
 									v-if="runRow.baselineMode"
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="
 										t('hermiq', 'Toggle paired run details')
 									"
@@ -241,7 +281,13 @@ import {
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
-import { runEval } from '../api/evals.js'
+import EvalScheduleFormModal from '../modals/EvalScheduleFormModal.vue'
+import {
+	listEvalSchedules,
+	runEval,
+	saveEvalSchedule,
+	useEvalTemplateForAgent,
+} from '../api/evals.js'
 import { listSkills } from '../api/skills.js'
 import {
 	useAgentStore,
@@ -259,11 +305,13 @@ import {
 	loadErrorMessage,
 	passRateLabel,
 } from './evalRunLabels.js'
+import { scheduleSummary } from './evalSchedules.js'
 
 export default {
 	name: 'EvalRunPanelWidget',
 
 	components: {
+		EvalScheduleFormModal,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -282,6 +330,10 @@ export default {
 			running: false,
 			expandedRunId: null,
 			error: '',
+			schedules: [],
+			scheduleForm: null,
+			savingSchedule: false,
+			copying: false,
 		}
 	},
 
@@ -317,6 +369,16 @@ export default {
 			return Array.isArray(refs)
 				? refs.filter((ref) => typeof ref === 'string' && ref !== '')
 				: []
+		},
+
+		/**
+		 * Whether this dataset is a read-only template (reuse-scheduled-bias-evals).
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 * @return {boolean} True for a template.
+		 */
+		isTemplate() {
+			return this.dataset?.template === true
 		},
 
 		/**
@@ -363,6 +425,7 @@ export default {
 		this.datasetStore = useEvalDatasetStore()
 		this.datasetStore.registerObjectType('evaldataset', 'evaldataset', 'hermiq')
 		this.load()
+		this.loadSchedules()
 	},
 
 	methods: {
@@ -441,6 +504,103 @@ export default {
 			} finally {
 				this.running = false
 			}
+		},
+
+		/**
+		 * Load the caller's schedules of this dataset; none when it is not theirs.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @return {Promise<void>}
+		 */
+		async loadSchedules() {
+			try {
+				this.schedules = await listEvalSchedules(this.datasetId)
+			} catch {
+				// A dataset that is not the caller's has no schedules to show.
+				this.schedules = []
+			}
+		},
+
+		/**
+		 * Open the schedule form, for a new schedule (null) or to change one.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object|null} schedule The schedule to change.
+		 * @return {void}
+		 */
+		openScheduleForm(schedule) {
+			this.scheduleForm = { schedule }
+		},
+
+		/**
+		 * Save the form's schedule and show it with its next run.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object} payload What the form sends.
+		 * @return {Promise<void>}
+		 */
+		async saveSchedule(payload) {
+			this.savingSchedule = true
+			try {
+				const saved = await saveEvalSchedule(this.datasetId, payload)
+				this.scheduleForm = null
+				showSuccess(this.scheduleLine(saved))
+				await this.loadSchedules()
+			} catch (e) {
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'The schedule could not be saved.'),
+				)
+			} finally {
+				this.savingSchedule = false
+			}
+		},
+
+		/**
+		 * Copy this template for the selected agent and open the copy.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-ready-made-bias-test-set-can-be-used-for-an-agent-req-biaseval-002
+		 * @return {Promise<void>}
+		 */
+		async useForAgent() {
+			if (!this.selectedAgent) {
+				return
+			}
+			this.copying = true
+			try {
+				const copy = await useEvalTemplateForAgent(
+					this.datasetId,
+					this.selectedAgent.value,
+				)
+				showSuccess(
+					this.t('hermiq', '"{name}" was created with {count} cases.', {
+						name: copy.name,
+						count: copy.caseCount,
+					}),
+				)
+				this.$router.push({
+					name: 'EvalDatasetDetail',
+					params: { id: copy.id },
+				})
+			} catch (e) {
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'The template could not be copied.'),
+				)
+			} finally {
+				this.copying = false
+			}
+		},
+
+		/**
+		 * One line for a schedule, with the agent's name.
+		 *
+		 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+		 * @param {object} schedule The schedule.
+		 * @return {string} The line.
+		 */
+		scheduleLine(schedule) {
+			return scheduleSummary(schedule, this.agents)
 		},
 
 		/**
@@ -600,6 +760,18 @@ export default {
 </script>
 
 <style scoped>
+.eval-run-panel-widget__schedules ul {
+	list-style: none;
+	padding: 0;
+	margin: 4px 0 12px;
+}
+
+.eval-run-panel-widget__schedules li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 .eval-run-panel-widget__controls {
 	display: flex;
 	align-items: flex-end;
