@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Service\NcNative;
 
 use OCP\Calendar\ICalendar;
 use OCP\Calendar\IManager as ICalendarManager;
+use OCP\IAddressBook;
 use OCP\Contacts\IManager as IContactsManager;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -78,37 +79,17 @@ class MarkedObjectCounter {
 	 * @spec openspec/changes/agent-authored-marking/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
 	 */
 	public function contacts(string $property): array {
-		$count = 0;
-		$read = 0;
+		$batches = [];
 		foreach ($this->contactsManager->getUserAddressBooks() as $book) {
-			if ($book->isSystemAddressBook() === true) {
-				continue;
+			if ($book->isSystemAddressBook() === false) {
+				$batches[] = fn (int $limit): array => $this->cards(book: $book, limit: $limit);
 			}
+		}
 
-			if ($read >= self::MAX_OBJECTS) {
-				return ['count' => $count, 'truncated' => true];
-			}
-
-			try {
-				$cards = $book->search('', ['FN'], ['limit' => (self::MAX_OBJECTS - $read + 1)]);
-			} catch (Throwable $e) {
-				$this->logger->warning('Hermiq: an address book could not be read for the AI label count', ['exception' => $e]);
-				continue;
-			}
-
-			foreach ($cards as $card) {
-				if ($read >= self::MAX_OBJECTS) {
-					return ['count' => $count, 'truncated' => true];
-				}
-
-				$read++;
-				if (is_array($card) === true && isset($card[$property]) === true) {
-					$count++;
-				}
-			}
-		}//end foreach
-
-		return ['count' => $count, 'truncated' => false];
+		return $this->tally(
+			batches: $batches,
+			matches: static fn (mixed $card): bool => is_array($card) === true && isset($card[$property]) === true
+		);
 	}//end contacts()
 
 	/**
@@ -129,31 +110,69 @@ class MarkedObjectCounter {
 			return ['count' => 0, 'truncated' => false];
 		}
 
+		$batches = [];
+		foreach ($this->calendarManager->getCalendarsForPrincipal('principals/users/' . $uid) as $calendar) {
+			if ($calendar->isDeleted() === false) {
+				$batches[] = fn (int $limit): array => $this->calendarObjects(calendar: $calendar, limit: $limit);
+			}
+		}
+
+		return $this->tally(
+			batches: $batches,
+			matches: fn (mixed $object): bool => $this->carries(object: $object, property: $property)
+		);
+	}//end calendarItems()
+
+	/**
+	 * Count the rows that match over the sources in turn, reading at most MAX_OBJECTS rows.
+	 *
+	 * Each source is read only when the walk reaches it, with room for one row more
+	 * than is left, so a full read can tell that more exist.
+	 *
+	 * @param array<int, callable(int): array<int, mixed>> $batches The sources, each read with a row limit.
+	 * @param callable(mixed): bool                        $matches Whether a row counts.
+	 *
+	 * @return array{count: int, truncated: bool} `truncated` says more rows exist than were read.
+	 */
+	private function tally(array $batches, callable $matches): array {
 		$count = 0;
 		$read = 0;
-		foreach ($this->calendarManager->getCalendarsForPrincipal('principals/users/' . $uid) as $calendar) {
-			if ($calendar->isDeleted() === true) {
-				continue;
-			}
-
+		foreach ($batches as $batch) {
 			if ($read >= self::MAX_OBJECTS) {
 				return ['count' => $count, 'truncated' => true];
 			}
 
-			foreach ($this->calendarObjects(calendar: $calendar, limit: (self::MAX_OBJECTS - $read + 1)) as $object) {
+			foreach ($batch(self::MAX_OBJECTS - $read + 1) as $row) {
 				if ($read >= self::MAX_OBJECTS) {
 					return ['count' => $count, 'truncated' => true];
 				}
 
 				$read++;
-				if ($this->carries(object: $object, property: $property) === true) {
+				if ($matches($row) === true) {
 					$count++;
 				}
 			}
-		}//end foreach
+		}
 
 		return ['count' => $count, 'truncated' => false];
-	}//end calendarItems()
+	}//end tally()
+
+	/**
+	 * The cards of one address book, at most $limit of them; none when it cannot be read.
+	 *
+	 * @param IAddressBook $book  The address book.
+	 * @param int          $limit The most cards to read.
+	 *
+	 * @return array<int, mixed> The search rows.
+	 */
+	private function cards(IAddressBook $book, int $limit): array {
+		try {
+			return $book->search('', ['FN'], ['limit' => $limit]);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq: an address book could not be read for the AI label count', ['exception' => $e]);
+			return [];
+		}
+	}//end cards()
 
 	/**
 	 * The events of one calendar, at most $limit of them; none when it cannot be read.
