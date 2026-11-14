@@ -50,6 +50,8 @@ use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
 use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -1009,17 +1011,29 @@ class ChatController extends Controller {
 	}//end arrayParam()
 
 	/**
-	 * The turn's RAG configuration, each setting defaulted when absent.
+	 * The turn's RAG configuration, each setting defaulted when absent, plus the
+	 * turn's `scope` (one file or folder) when it carries one.
 	 *
 	 * @return array<string, mixed> The RAG settings.
+	 *
+	 * @throws TurnScopeException With code 400 when the scope has any other shape.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	private function ragSettingsParam(): array {
-		return [
+		$settings = [
 			'includeObjects' => ($this->request->getParam('includeObjects') ?? true),
 			'includeFiles' => ($this->request->getParam('includeFiles') ?? true),
 			'numSourcesFiles' => ($this->request->getParam('numSourcesFiles') ?? 5),
 			'numSourcesObjects' => ($this->request->getParam('numSourcesObjects') ?? 5),
 		];
+
+		$scope = (new TurnScope())->parse(value: $this->request->getParam('scope'));
+		if ($scope !== null) {
+			$settings['scope'] = $scope;
+		}
+
+		return $settings;
 
 	}//end ragSettingsParam()
 

@@ -11,7 +11,7 @@ Kind: code. Size M. Rows `hermiq:dm-ask-mid-run`, `hermiq:ov-draft-hold`.
   - GIVEN the re-import WHEN it runs THEN Approval accepts `question` and `draft`, and Agent and Schedule have `holdOutput`
 - [x] Implement
 - [x] Test (npm run check:register; coordinate the enum with the open approval-task-convergence and name it in the PR)
-  - Approval.sourceType gains `question` and `draft`, Approval gains `editedOutput`, and Agent and Schedule gain `holdOutput`. Schemas: Approval 0.9.0, Agent 0.14.0, Schedule 0.5.0; register 0.53.0. `npm run check:register` PASS. The enum was not coordinated with approval-task-convergence (not open on development at build time); whichever lands second keeps both sets of values.
+  - Approval.sourceType gains `question` and `draft`, Approval gains `editedOutput`, and Agent and Schedule gain `holdOutput`. Schemas: Approval 0.9.0, Agent 0.15.0, Schedule 0.5.0; register 0.55.0. `npm run check:register` PASS. The enum was not coordinated with approval-task-convergence (not open on development at build time); whichever lands second keeps both sets of values.
 
 ### Task 2: askPerson in the tool provider and the invoker
 - **spec_ref**: `openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001`
