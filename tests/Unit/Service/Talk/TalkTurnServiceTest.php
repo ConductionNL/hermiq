@@ -51,18 +51,37 @@ final class TalkTurnServiceTest extends TestCase {
 	 *
 	 * @param string|\Throwable $reply      The engine's answer, or what it throws.
 	 * @param bool              $knownUser  Whether the speaker resolves.
+	 * @param string            $displayName The speaker's display name.
+	 * @param bool              $vanishes   Whether the speaker stops resolving after the first lookup.
+	 * @param array<string, mixed> $bound   The bound conversation's object.
 	 *
 	 * @return TalkTurnService
 	 */
-	private function service(string|\Throwable $reply, bool $knownUser = true): TalkTurnService {
+	private function service(
+		string|\Throwable $reply,
+		bool $knownUser = true,
+		string $displayName = 'Alice A.',
+		bool $vanishes = false,
+		array $bound = ['agentId' => 'agent-9']
+	): TalkTurnService {
 		$prior = $this->createMock(IUser::class);
 		$prior->method('getUID')->willReturn('prior');
 		$speaker = $this->createMock(IUser::class);
 		$speaker->method('getUID')->willReturn('alice');
-		$speaker->method('getDisplayName')->willReturn('Alice A.');
+		$speaker->method('getDisplayName')->willReturn($displayName);
 
 		$users = $this->createMock(IUserManager::class);
-		$users->method('get')->willReturnCallback(fn (string $uid) => ($knownUser === true && $uid === 'alice' ? $speaker : null));
+		$lookups = 0;
+		$users->method('get')->willReturnCallback(
+			function (string $uid) use ($knownUser, $speaker, $vanishes, &$lookups): ?IUser {
+				$lookups++;
+				if ($vanishes === true && $lookups > 1) {
+					return null;
+				}
+
+				return ($knownUser === true && $uid === 'alice' ? $speaker : null);
+			}
+		);
 
 		$session = $this->createMock(IUserSession::class);
 		$session->method('getUser')->willReturn($prior);
@@ -93,7 +112,7 @@ final class TalkTurnServiceTest extends TestCase {
 		);
 
 		$conversation = new ObjectEntity();
-		$conversation->setObject(['agentId' => 'agent-9']);
+		$conversation->setObject($bound);
 		$binding = $this->createMock(TalkRoomBinding::class);
 		$binding->method('findByRoomToken')->willReturnCallback(fn (string $token) => ($token === 'room-1' ? $conversation : null));
 
@@ -175,4 +194,43 @@ final class TalkTurnServiceTest extends TestCase {
 		$this->assertSame(['post', 'room-1', '⚠️ I could not complete that turn: model down', null], $this->events[3]);
 		$this->assertSame(['setUser', 'prior'], $this->events[4]);
 	}//end testAFailingTurnIsLoggedReportedAndRestored()
+	/**
+	 * An empty display name is recorded as no display name, not as ''.
+	 *
+	 * @return void
+	 */
+	public function testAnEmptyDisplayNameIsRecordedAsNone(): void {
+		$this->assertTrue($this->service('Answer', displayName: '')->runTurn('conv-1', 'alice', 'Hallo', 'room-1'));
+
+		$this->assertSame(['alice', null], array_slice($this->events[1][1], 11, 2));
+	}//end testAnEmptyDisplayNameIsRecordedAsNone()
+
+	/**
+	 * A speaker who no longer resolves when the display name is read still
+	 * gets the turn, with no display name.
+	 *
+	 * @return void
+	 */
+	public function testASpeakerGoneAtNameLookupHasNoDisplayName(): void {
+		$this->assertTrue($this->service('Answer', vanishes: true)->runTurn('conv-1', 'alice', 'Hallo', 'room-1'));
+
+		$this->assertSame(['alice', null], array_slice($this->events[1][1], 11, 2));
+		$this->assertSame(['post', 'room-1', 'Answer', 'agent-9'], $this->events[2]);
+	}//end testASpeakerGoneAtNameLookupHasNoDisplayName()
+
+	/**
+	 * A bound session without an agent, or with a blank one, posts under the
+	 * shared bot.
+	 *
+	 * @return void
+	 */
+	public function testABoundSessionWithoutAnAgentPostsUnderTheSharedBot(): void {
+		$this->service('Answer', bound: ['agentId' => ''])->runTurn('conv-1', 'alice', 'Hallo', 'room-1');
+		$this->assertSame(['post', 'room-1', 'Answer', null], $this->events[2]);
+
+		$this->events = [];
+		$this->service('Answer', bound: ['title' => 'x'])->runTurn('conv-1', 'alice', 'Hallo', 'room-1');
+		$this->assertSame(['post', 'room-1', 'Answer', null], $this->events[2]);
+	}//end testABoundSessionWithoutAnAgentPostsUnderTheSharedBot()
+
 }//end class
