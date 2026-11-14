@@ -86,6 +86,15 @@
 						type="checkbox">
 						{{ t('hermiq', 'This is a server on our own network') }}
 					</NcCheckboxRadioSwitch>
+					<NcSelect
+						:modelValue="apiModeOption(form.openaiConfig.apiMode)"
+						:options="apiModeOptions"
+						:inputLabel="t('hermiq', 'API mode')"
+						:clearable="false"
+						label="label"
+						trackBy="value"
+						data-testid="llm-openai-api-mode"
+						@update:modelValue="(option) => (form.openaiConfig.apiMode = option.value)" />
 				</template>
 
 				<!-- OpenAI-compatible endpoint (models-provider-connections) -->
@@ -126,6 +135,15 @@
 						type="checkbox">
 						{{ t('hermiq', 'This is a server on our own network') }}
 					</NcCheckboxRadioSwitch>
+					<NcSelect
+						:modelValue="apiModeOption(form.openaiCompatibleConfig.apiMode)"
+						:options="apiModeOptions"
+						:inputLabel="t('hermiq', 'API mode')"
+						:clearable="false"
+						label="label"
+						trackBy="value"
+						data-testid="llm-compatible-api-mode"
+						@update:modelValue="(option) => (form.openaiCompatibleConfig.apiMode = option.value)" />
 				</template>
 
 				<!-- Ollama -->
@@ -357,6 +375,12 @@ export default {
 				{ value: 'oauth', label: 'Claude Max subscription (OAuth)' },
 			],
 
+			// models-provider-connections D4: which OpenAI API a turn is sent to.
+			apiModeOptions: [
+				{ value: 'chat_completions', label: this.t('hermiq', 'Chat completions') },
+				{ value: 'responses', label: this.t('hermiq', 'Responses API') },
+			],
+
 			providerOptions: [
 				{ value: 'openai', label: 'OpenAI' },
 				{ value: 'anthropic', label: 'Anthropic (Claude)' },
@@ -373,8 +397,8 @@ export default {
 			modelCapabilities: {},
 
 			form: {
-				openaiConfig: { chatModel: '', credentialId: '', baseUrl: '', ownNetwork: false },
-				openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false },
+				openaiConfig: { chatModel: '', credentialId: '', baseUrl: '', ownNetwork: false, apiMode: 'chat_completions' },
+				openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false, apiMode: 'chat_completions' },
 				ollamaConfig: { url: '', chatModel: '' },
 				fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
 				anthropicConfig: {
@@ -745,6 +769,7 @@ export default {
 				credentialId: this.openaiCredential ? this.openaiCredential.value : '',
 				baseUrl,
 				ownNetwork: baseUrl !== '' && this.form.openaiConfig.ownNetwork === true,
+				apiMode: this.form.openaiConfig.apiMode === 'responses' ? 'responses' : 'chat_completions',
 			}
 		},
 
@@ -770,6 +795,7 @@ export default {
 				chatModel: String(block.chatModel).trim(),
 				credentialId,
 				ownNetwork: credentialId === '' && block.ownNetwork === true,
+				apiMode: block.apiMode === 'responses' ? 'responses' : 'chat_completions',
 			}
 		},
 
@@ -833,6 +859,17 @@ export default {
 				// Admin settings are always organisation scope.
 				scope: 'organisation',
 			}
+		},
+
+		/**
+		 * The API mode option for a stored value; anything unknown is chat completions.
+		 *
+		 * @param {string} value The stored apiMode.
+		 * @return {object} The option.
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+		 */
+		apiModeOption(value) {
+			return optionWithValue(this.apiModeOptions, value) || this.apiModeOptions[0]
 		},
 
 		/**

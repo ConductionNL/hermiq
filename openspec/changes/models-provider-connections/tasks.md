@@ -33,8 +33,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
 - **acceptance_criteria**:
   - GIVEN apiMode responses WHEN a turn runs THEN the request goes to /responses with store false, and each function call runs through the governed executor
   - GIVEN a function call for an ungranted tool WHEN it arrives THEN it is refused like on the other paths
-- [ ] Implement
+- [x] Implement
+      > 2026-11-14: `apiMode` (`chat_completions` default, `responses`) on `openaiConfig` and `openaiCompatibleConfig`, carried on the ChatDriver. `OpenAiResponsesLoop` maps the system blocks to `instructions`, the history to `input` (attachments as input images and files), the tools to function tools, sends `store: false`, runs every `function_call` through the governed executor the Anthropic path uses and returns its result as `function_call_output`, up to the agent's tool call cap; hosted tools and other output are refused with a clear error. `ProviderFactory::callOpenAiResponses()` posts to `{base}/responses` through the broker with a credential and straight to the base URL without one; the chat turn, background generation and conversation titles all follow the mode. The modal has an "API mode" choice for both providers.
 - [ ] Test (PHPUnit on mapping both ways and the tool loop; one live OpenAI check)
+      > PHPUnit done: `OpenAiResponsesLoopTest` (9) and `ProviderFactoryResponsesTest` (5). The live OpenAI check needs an account and is left open.
 
 ### Task 4: The runner's sign-in route
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001`

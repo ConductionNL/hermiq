@@ -77,8 +77,8 @@ describe('LlmProviderModal load', () => {
 		expect(vm.openaiKeySet).toBe(true)
 		expect(vm.fireworksKeySet).toBe(false)
 		expect(JSON.parse(JSON.stringify(vm.form))).toEqual({
-			openaiConfig: { chatModel: 'gpt-x', credentialId: 'c-openai', baseUrl: '', ownNetwork: false },
-			openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false },
+			openaiConfig: { chatModel: 'gpt-x', credentialId: 'c-openai', baseUrl: '', ownNetwork: false, apiMode: 'chat_completions' },
+			openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false, apiMode: 'chat_completions' },
 			ollamaConfig: { url: 'http://ollama:11434', chatModel: 'llama3' },
 			// The broker locks the host to the credential, so only the path is kept.
 			fireworksConfig: { baseUrl: '/inference/v1', chatModel: 'fw-1', credentialId: 'c-fw' },
@@ -96,8 +96,8 @@ describe('LlmProviderModal load', () => {
 		const vm = (await open({ chatProvider: 'unknown', anthropicConfig: { authMode: 'weird' } })).vm
 
 		expect(JSON.parse(JSON.stringify(vm.form))).toEqual({
-			openaiConfig: { chatModel: '', credentialId: '', baseUrl: '', ownNetwork: false },
-			openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false },
+			openaiConfig: { chatModel: '', credentialId: '', baseUrl: '', ownNetwork: false, apiMode: 'chat_completions' },
+			openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false, apiMode: 'chat_completions' },
 			ollamaConfig: { url: '', chatModel: '' },
 			fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
 			anthropicConfig: { chatModel: '', credentialId: '', authMode: 'weird' },
@@ -156,7 +156,7 @@ describe('LlmProviderModal save', () => {
 		const wrapper = await open(stored)
 		if (provider === 'openai') {
 			wrapper.vm.form.openaiConfig.chatModel = ''
-			expected = { chatProvider: 'openai', openaiConfig: { chatModel: '', credentialId: 'c-openai', baseUrl: '', ownNetwork: false } }
+			expected = { chatProvider: 'openai', openaiConfig: { chatModel: '', credentialId: 'c-openai', baseUrl: '', ownNetwork: false, apiMode: 'chat_completions' } }
 		}
 		await wrapper.vm.save()
 
@@ -207,6 +207,7 @@ describe('LlmProviderModal OpenAI-compatible endpoint and OpenAI base URL', () =
 				chatModel: 'mistral-small-3.2',
 				credentialId: '',
 				ownNetwork: true,
+				apiMode: 'chat_completions',
 			},
 			modelCapabilities: { 'openai-compatible/mistral-small-3.2': [] },
 		})
@@ -225,7 +226,7 @@ describe('LlmProviderModal OpenAI-compatible endpoint and OpenAI base URL', () =
 			await vm.save()
 
 			expect(api.patchLlmSettings.mock.calls[0][0].openaiCompatibleConfig).toEqual({
-				label: 'Gateway', baseUrl: 'https://gw/v1', chatModel: 'm', credentialId: 'c-compat', ownNetwork: false,
+				label: 'Gateway', baseUrl: 'https://gw/v1', chatModel: 'm', credentialId: 'c-compat', ownNetwork: false, apiMode: 'chat_completions',
 			})
 		} finally {
 			CREDENTIALS.pop()
@@ -248,8 +249,18 @@ describe('LlmProviderModal OpenAI-compatible endpoint and OpenAI base URL', () =
 		await vm.save()
 
 		expect(api.patchLlmSettings.mock.calls[0][0].openaiConfig).toEqual({
-			chatModel: 'gpt-x', credentialId: '', baseUrl: 'http://10.0.0.5/v1', ownNetwork: true,
+			chatModel: 'gpt-x', credentialId: '', baseUrl: 'http://10.0.0.5/v1', ownNetwork: true, apiMode: 'chat_completions',
 		})
+	})
+
+	it('sends the Responses API mode it was set to', async () => {
+		const vm = (await open({ chatProvider: 'openai-compatible', openaiCompatibleConfig: { baseUrl: 'https://gw/v1', chatModel: 'm', apiMode: 'responses' } })).vm
+
+		expect(vm.apiModeOption(vm.form.openaiCompatibleConfig.apiMode).value).toBe('responses')
+		expect(vm.apiModeOption('unknown').value).toBe('chat_completions')
+		await vm.save()
+
+		expect(api.patchLlmSettings.mock.calls[0][0].openaiCompatibleConfig.apiMode).toBe('responses')
 	})
 })
 

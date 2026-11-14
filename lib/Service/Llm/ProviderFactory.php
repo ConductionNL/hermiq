@@ -55,6 +55,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Llm;
 
+use Closure;
 use Exception;
 use GuzzleHttp\Psr7\Request;
 use LLPhant\Chat\Message as LLPhantMessage;
@@ -70,6 +71,8 @@ use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
+use OCP\Http\Client\IClient;
+use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use OCP\IAppConfig;
 use OCP\IURLGenerator;
@@ -248,6 +251,20 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @var string
 	 */
 	private const KEYLESS_API_KEY = 'hermiq-keyless';
+
+	/**
+	 * The OpenAI API base when the admin set none (models-provider-connections D2).
+	 *
+	 * @var string
+	 */
+	private const OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
+	/**
+	 * The apiMode that sends a turn to the Responses API (models-provider-connections D4).
+	 *
+	 * @var string
+	 */
+	public const API_MODE_RESPONSES = 'responses';
 
 	/**
 	 * Tool calls per turn on the Anthropic loop when the caller names no cap: the
@@ -969,6 +986,163 @@ class ProviderFactory implements ProviderFactoryInterface {
 
 		return $this->fireworksAnswer(response: $response);
 	}//end callFireworksChat()
+
+	/**
+	 * One turn on the OpenAI Responses API, for an OpenAI or OpenAI-compatible
+	 * driver in `apiMode: responses` (models-provider-connections D4).
+	 *
+	 * The request goes to `{base}/responses` with `store: false`, through the
+	 * broker when the driver has a credential and straight to the base URL when
+	 * it has none, as the driver's chat completions calls do. Each function call
+	 * runs through `$toolExecutor`, the turn's governed executor.
+	 *
+	 * @param ChatDriver    $driver         The driver: model, credential, base URL, ceiling.
+	 * @param array         $messageHistory The LLPhant messages, system prompt first.
+	 * @param array         $functions      The turn's tools.
+	 * @param Closure|null  $toolExecutor   Runs a requested tool, or null for a text-only turn.
+	 * @param int|null      $maxToolCalls   The agent's tool call cap, or null for the default.
+	 *
+	 * @return string The answer text.
+	 *
+	 * @throws ProviderCallFailedException When the endpoint answers with an error status.
+	 * @throws ProviderUnavailableException When the answer asks for something Hermiq does not run.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	public function callOpenAiResponses(
+		ChatDriver $driver,
+		array $messageHistory,
+		array $functions = [],
+		?Closure $toolExecutor = null,
+		?int $maxToolCalls = null,
+	): string {
+		$this->lastCallUsage = [];
+		$this->lastCallHitToolCap = false;
+		$url = rtrim((string)$driver->baseUrl, '/') . '/responses';
+		$post = function (array $payload) use ($driver, $url): array {
+			return $this->postResponses(driver: $driver, url: $url, payload: $payload);
+		};
+
+		$loop = new OpenAiResponsesLoop(post: $post, toolExecutor: $toolExecutor, maxToolCalls: ($maxToolCalls ?? self::MAX_TOOL_ITERATIONS));
+		try {
+			return $loop->run(
+				payload: $loop->payload(model: $driver->model, messageHistory: $messageHistory, functions: $functions, maxTokens: $driver->maxTokens)
+			);
+		} finally {
+			$this->lastCallUsage = $loop->usage();
+			$this->lastCallHitToolCap = $loop->hitToolCap();
+		}
+	}//end callOpenAiResponses()
+
+	/**
+	 * Post one Responses API request and return the decoded body.
+	 *
+	 * @param ChatDriver          $driver  The driver.
+	 * @param string              $url     The `/responses` address.
+	 * @param array<string,mixed> $payload The request.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @throws ProviderCallFailedException When the endpoint answers with an error status.
+	 * @throws ProviderUnavailableException When it cannot be reached or answers with no JSON object.
+	 */
+	private function postResponses(ChatDriver $driver, string $url, array $payload): array {
+		$body = (string)json_encode($payload);
+		if ((string)$driver->credentialId !== '') {
+			try {
+				$response = (new BrokerHttpClient(
+					credentialId: (string)$driver->credentialId,
+					logger: $this->logger,
+					actingUserId: $this->currentUid(),
+					container: $this->container
+				))->sendRequest(new Request('POST', $url, ['Content-Type' => 'application/json'], $body));
+			} catch (Throwable $e) {
+				throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
+			}
+
+			return $this->responsesBody(
+				status: $response->getStatusCode(),
+				body: (string)$response->getBody(),
+				retryAfter: $response->getHeaderLine('retry-after')
+			);
+		}
+
+		try {
+			$response = $this->keylessClient()->post(
+				$url,
+				[
+					'body' => $body,
+					'headers' => ['Content-Type' => 'application/json'],
+					'http_errors' => false,
+					'timeout' => 120,
+					'nextcloud' => ['allow_local_address' => $driver->ownNetwork],
+				]
+			);
+		} catch (Throwable $e) {
+			throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
+		}
+
+		return $this->responsesBody(
+			status: $response->getStatusCode(),
+			body: (string)$response->getBody(),
+			retryAfter: (string)$response->getHeader('retry-after')
+		);
+	}//end postResponses()
+
+	/**
+	 * A Responses API answer as an array, or the failure its status names.
+	 *
+	 * @param int    $status     The HTTP status.
+	 * @param string $body       The body.
+	 * @param string $retryAfter The retry-after header.
+	 *
+	 * @return array<string,mixed>
+	 *
+	 * @throws ProviderCallFailedException When the status is not 200.
+	 * @throws ProviderUnavailableException When the body is not a JSON object.
+	 */
+	private function responsesBody(int $status, string $body, string $retryAfter): array {
+		$decoded = json_decode($body, true);
+		if ($status !== 200) {
+			$message = 'no message';
+			if (is_array($decoded) === true && (string)($decoded['error']['message'] ?? '') !== '') {
+				$message = (string)$decoded['error']['message'];
+			}
+
+			throw ProviderCallFailedException::fromHttpStatus(
+				status: $status,
+				message: 'Responses API error (HTTP ' . $status . '): ' . $message,
+				retryAfter: $retryAfter
+			);
+		}
+
+		if (is_array($decoded) === false) {
+			throw new ProviderUnavailableException('The Responses API answered with no JSON object.', 502);
+		}
+
+		return $decoded;
+	}//end responsesBody()
+
+	/**
+	 * The Nextcloud HTTP client a keyless base URL is called with.
+	 *
+	 * @return IClient
+	 *
+	 * @throws ProviderUnavailableException When the container cannot give one.
+	 */
+	private function keylessClient(): IClient {
+		try {
+			$service = $this->container?->get(IClientService::class);
+		} catch (Throwable $e) {
+			$service = null;
+		}
+
+		if ($service instanceof IClientService === false) {
+			throw new ProviderUnavailableException('No HTTP client is available on this instance.', 503);
+		}
+
+		return $service->newClient();
+	}//end keylessClient()
 
 	/**
 	 * Function calling is not supported for Fireworks AI: say so when a turn
@@ -2564,6 +2738,10 @@ class ProviderFactory implements ProviderFactoryInterface {
 			);
 		}
 
+		if ($driver->apiMode === self::API_MODE_RESPONSES) {
+			return $this->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
+		}
+
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
 	}//end generateWithDriver()
@@ -2645,7 +2823,21 @@ class ProviderFactory implements ProviderFactoryInterface {
 		// credential a personal/organisation override actually resolved to
 		// (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
 		// today; this is metadata only, not a behaviour change.
-		return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId, maxTokens: $request->agentMaxTokens);
+		$driverBaseUrl = self::OPENAI_BASE_URL;
+		if ($baseUrl !== '') {
+			$driverBaseUrl = $baseUrl;
+		}
+
+		return new ChatDriver(
+			provider: 'openai',
+			chat: $chat,
+			model: $config->model,
+			credentialId: $credentialId,
+			baseUrl: $driverBaseUrl,
+			maxTokens: $request->agentMaxTokens,
+			apiMode: $this->apiModeOf(config: $openaiConfig),
+			ownNetwork: (($openaiConfig['ownNetwork'] ?? false) === true)
+		);
 	}//end createOpenAiDriver()
 
 	/**
@@ -2705,9 +2897,28 @@ class ProviderFactory implements ProviderFactoryInterface {
 			model: $config->model,
 			credentialId: $driverCredential,
 			maxTokens: $request->agentMaxTokens,
-			baseUrl: $baseUrl
+			baseUrl: $baseUrl,
+			apiMode: $this->apiModeOf(config: $compatibleConfig),
+			ownNetwork: (($compatibleConfig['ownNetwork'] ?? false) === true)
 		);
 	}//end createOpenAiCompatibleDriver()
+
+	/**
+	 * The OpenAI API a provider block asks for: `responses`, else `chat_completions`.
+	 *
+	 * @param array $config The provider's settings block.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function apiModeOf(array $config): string {
+		if (($config['apiMode'] ?? '') === self::API_MODE_RESPONSES) {
+			return self::API_MODE_RESPONSES;
+		}
+
+		return 'chat_completions';
+	}//end apiModeOf()
 
 	/**
 	 * The name an OpenAI-compatible endpoint goes by in a message.

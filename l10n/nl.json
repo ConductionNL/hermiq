@@ -2037,7 +2037,10 @@
         "Host": "Host",
         "Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.": "Laat leeg om api.openai.com te gebruiken. Een basis-URL zonder credential wordt rechtstreeks aangeroepen; met een credential verstuurt de broker de aanroep.",
         "No key: call the base URL directly": "Geen sleutel: de basis-URL rechtstreeks aanroepen",
-        "This is a server on our own network": "Dit is een server op ons eigen netwerk"
+        "This is a server on our own network": "Dit is een server op ons eigen netwerk",
+        "API mode": "API-modus",
+        "Chat completions": "Chat completions (berichten)",
+        "Responses API": "Responses-API"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

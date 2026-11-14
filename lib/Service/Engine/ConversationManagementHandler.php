@@ -523,6 +523,11 @@ class ConversationManagementHandler {
 			return $this->providerFactory->generateViaNextcloud(prompt: $prompt);
 		}
 
+		// OpenAI and OpenAI-compatible in Responses API mode (models-provider-connections D4).
+		if ($driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->providerFactory->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
+		}
+
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
 	}//end generateTextViaConfiguredLlm()

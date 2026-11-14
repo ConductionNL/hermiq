@@ -68,8 +68,8 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 	 * broker. `openaiCompatibleConfig` is an OpenAI-compatible endpoint named by its
 	 * admin-chosen `label`, under the same transport rule. `ownNetwork` is the
 	 * admin's statement that a keyless base URL is a server on the organisation's
-	 * own network: only then may it resolve to a private address or use plain HTTP
-	 * (models-provider-connections).
+	 * own network: only then may it resolve to a private address or use plain HTTP.
+	 * `apiMode` on both is `chat_completions` or `responses` (models-provider-connections).
 	 *
 	 * @var array<string, mixed>
 	 */
@@ -85,6 +85,7 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 			'executionMode' => 'http',
 			'baseUrl' => '',
 			'ownNetwork' => false,
+			'apiMode' => 'chat_completions',
 		],
 		'ollamaConfig' => [
 			'url' => 'http://localhost:11434',
@@ -111,6 +112,7 @@ class LlmSettingsHandler implements LlmSettingsHandlerInterface {
 			'chatModel' => null,
 			'credentialId' => '',
 			'ownNetwork' => false,
+			'apiMode' => 'chat_completions',
 		],
 		'vectorConfig' => [
 			'backend' => 'php',

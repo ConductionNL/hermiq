@@ -514,8 +514,38 @@ class ResponseGenerationHandler {
 			return $this->callAnthropic(run: $run);
 		}
 
+		if ($run->progress->driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->callResponses(run: $run);
+		}
+
 		return $this->callLlphant(run: $run);
 	}//end callProvider()
+
+	/**
+	 * OpenAI and OpenAI-compatible in Responses API mode: direct HTTP
+	 * (ProviderFactory::callOpenAiResponses), every function call through the
+	 * same governed executor the Anthropic path uses (models-provider-connections D4).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The response text.
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+	 */
+	private function callResponses(ResponseTurnRun $run): string {
+		$response = $this->providerFactory->callOpenAiResponses(
+			driver: $run->progress->driver,
+			messageHistory: $run->messageHistory,
+			functions: $run->progress->functions,
+			toolExecutor: $this->anthropicToolExecutor(run: $run),
+			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent)
+		);
+		$this->markLlmDone(run: $run);
+
+		$run->trace?->recordStopWhen(stopped: $this->providerFactory->lastCallHitToolCap(), reason: TurnGuard::LIMIT_REACHED);
+		$this->recordFactoryUsage(run: $run);
+		return $response;
+	}//end callResponses()
 
 	/**
 	 * Fireworks uses direct HTTP (ProviderFactory::callFireworksChat). Function

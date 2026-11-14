@@ -2728,7 +2728,10 @@ OC.L10N.register(
         "Host": "Host",
         "Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.": "Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.",
         "No key: call the base URL directly": "No key: call the base URL directly",
-        "This is a server on our own network": "This is a server on our own network"
+        "This is a server on our own network": "This is a server on our own network",
+        "API mode": "API mode",
+        "Chat completions": "Chat completions",
+        "Responses API": "Responses API"
     },
     "nplurals=2; plural=(n != 1);"
 )
