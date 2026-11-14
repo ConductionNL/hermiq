@@ -205,9 +205,10 @@ class PublicChannelStoreTest extends TestCase {
 	 * @return void
 	 */
 	public function testIsToken(): void {
-		self::assertTrue(PublicChannelStore::isToken(token: 'abcDEF0123456789'));
-		self::assertFalse(PublicChannelStore::isToken(token: 'short'));
-		self::assertFalse(PublicChannelStore::isToken(token: 'abc-DEF0123456789'));
-		self::assertFalse(PublicChannelStore::isToken(token: str_repeat('a', 65)));
+		$store = $this->store([]);
+		self::assertTrue($store->isToken(token: 'abcDEF0123456789'));
+		self::assertFalse($store->isToken(token: 'short'));
+		self::assertFalse($store->isToken(token: 'abc-DEF0123456789'));
+		self::assertFalse($store->isToken(token: str_repeat('a', 65)));
 	}//end testIsToken()
 }//end class

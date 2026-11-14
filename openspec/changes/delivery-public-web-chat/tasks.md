@@ -33,8 +33,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **files**: `lib/Controller/PublicChatController.php`, `appinfo/routes.php`
 - **acceptance_criteria**:
   - GIVEN a disallowed origin WHEN it posts THEN no CORS headers; GIVEN the daily limit WHEN exceeded THEN 429
-- [ ] Implement
-- [ ] Test (PHPUnit; Newman for origin, limit and feature off)
+- [x] Implement (`POST` and `OPTIONS /api/public/{channelToken}/messages`; `#[AnonRateLimit]` and `#[UserRateLimit]` 20 per minute, the channel's daily limit in `PublicChatGate`; CORS only for the channel's exact origins)
+- [ ] Test (PHPUnit done: `PublicChatControllerTest`; the Newman run for origin, limit and feature off needs a running instance)
 
 ### Task 5: The chat window and the embed script
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002`

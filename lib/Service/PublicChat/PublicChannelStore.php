@@ -86,7 +86,7 @@ class PublicChannelStore {
 	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
 	public function channelByToken(string $token): ?array {
-		if (self::isToken(token: $token) === false) {
+		if ($this->isToken(token: $token) === false) {
 			return null;
 		}
 
@@ -172,7 +172,7 @@ class PublicChannelStore {
 	 */
 	public function conversation(string $channelId, ?string $token): array {
 		$token = (string)$token;
-		if (self::isToken(token: $token) === true) {
+		if ($this->isToken(token: $token) === true) {
 			$rows = $this->read(
 				schema: self::CONVERSATION_SCHEMA,
 				filters: ['conversationToken' => $token, 'channelId' => $channelId]
@@ -232,7 +232,7 @@ class PublicChannelStore {
 	 *
 	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
 	 */
-	public static function isToken(string $token): bool {
+	public function isToken(string $token): bool {
 		return preg_match(self::TOKEN_PATTERN, $token) === 1;
 	}//end isToken()
 
