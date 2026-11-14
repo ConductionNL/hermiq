@@ -10,8 +10,8 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - **acceptance_criteria**:
   - GIVEN a policy allowing anthropic and ollama WHEN an organisation admin saves an ollama fallback THEN the effective policy returns it
   - GIVEN a policy allowing only ollama WHEN an openai fallback is saved THEN the save is refused and nothing changes
-- [ ] Implement
-- [ ] Test (PHPUnit on TenantModelPolicyService validation; Newman on PUT and GET /api/model-policy)
+- [x] Implement — `ModelPolicy` 0.4.0 `fallbackChain` (register 0.55.0); `OrganisationModelPolicyService::normaliseFallbackChain()` refuses an entry the same policy does not allow ("This fallback is not allowed by the model policy.", 400 through `OrganisationModelPolicyController`), more than four entries, or a malformed list; an update without `fallbackChain` keeps the stored chain; `EffectiveModelPolicy::shape()` returns it, so `GET /api/model-policy/effective` does. (The service is `OrganisationModelPolicyService`; there is no `TenantModelPolicyService`.)
+- [ ] Test (PHPUnit on TenantModelPolicyService validation; Newman on PUT and GET /api/model-policy) — PHPUnit done (`OrganisationModelPolicyWriteTest`, `EffectiveModelPolicyTest`); the Newman run needs a live instance and is left
 
 ### Task 2: Typed provider failures
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003`
@@ -19,7 +19,7 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - **acceptance_criteria**:
   - GIVEN a provider answer of 429, 500, 401 or 400 WHEN the call fails THEN the exception carries kind rate_limit, server, auth or bad_request, and retry-after when sent
 - [x] Implement
-- [ ] Test (PHPUnit per status code on both direct-HTTP paths and the LLPhant wrapper) — both direct-HTTP paths done (`ProviderCallFailedTypingTest`); the wrapper in `LlphantChatCall::invokeChat()` is covered through `ProviderCallFailedException::fromThrowable()` only, a test through `invokeChat()` itself is left
+- [x] Test (PHPUnit per status code on both direct-HTTP paths and the LLPhant wrapper) — both direct-HTTP paths in `ProviderCallFailedTypingTest`; the wrapper through `LlphantChatCall::invokeChat()` in `LlphantChatCallTest` (429, 503, 401, 403, 400, timeout, connection; hermiq's own exceptions keep their class)
 
 ### Task 3: The fallback loop with the same gates per hop
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002`
