@@ -132,8 +132,8 @@ class TurnChannelTest extends TestCase {
 		$history = $this->createMock(MessageHistoryHandler::class);
 		$history->method('storeMessage')->willReturnCallback(
 			static function (...$args) use (&$captured): void {
-				// By position, in the order of storeMessage(): channel is the 9th.
-				$captured = ($args[8] ?? null);
+				// By position, in the order of storeMessage(): channel is the 10th, after provenance.
+				$captured = ($args[9] ?? null);
 				throw new RuntimeException('stop after the user turn is stored');
 			}
 		);
