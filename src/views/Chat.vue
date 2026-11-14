@@ -1955,6 +1955,7 @@ export default {
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
 		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
 		async sendViaStream(text, uuid, attachments = []) {
 			this.isStreaming = true
@@ -2168,6 +2169,7 @@ export default {
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -2196,6 +2198,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/changes/chat-streaming-and-feedback/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
