@@ -168,6 +168,18 @@
             "description": "Lessons, answers, report and requirement."
         },
         {
+            "name": "schedule-when",
+            "description": "Reading when a schedule runs from plain English or Dutch."
+        },
+        {
+            "name": "schedule-list",
+            "description": "The Schedules page: the schedules a person may see."
+        },
+        {
+            "name": "manual-run",
+            "description": "Running an agent by hand without a schedule."
+        },
+        {
             "name": "memory",
             "description": "Tenant-scoped agent-memory read/manage endpoints."
         },
@@ -214,10 +226,6 @@
         {
             "name": "run-now",
             "description": "Owner-scoped \"Run now\" endpoint that fires a schedule via ScheduleService."
-        },
-        {
-            "name": "schedule-when",
-            "description": "Reading when a schedule runs from plain English or Dutch."
         },
         {
             "name": "schedule-webhook-secret",
@@ -302,14 +310,6 @@
         {
             "name": "ai-label",
             "description": "The AI label on what agents write."
-        },
-        {
-            "name": "schedule-list",
-            "description": "The Schedules page: the schedules a person may see."
-        },
-        {
-            "name": "manual-run",
-            "description": "Running an agent by hand without a schedule."
         }
     ],
     "paths": {
@@ -5579,6 +5579,391 @@
                 }
             }
         },
+        "/schedules/parse-when": {
+            "post": {
+                "operationId": "schedule-when-parse",
+                "summary": "Read a plain English or Dutch description of when a schedule runs",
+                "description": "Turns text such as \"every weekday at eight\" or \"elke maandag om negen uur\" into a schedule rule, with a readback and the next three runs. Stores nothing. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "schedule-when"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "text"
+                                ],
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "maxLength": 200,
+                                        "description": "What the person typed."
+                                    },
+                                    "locale": {
+                                        "type": "string",
+                                        "description": "The readback language; nl for Dutch, otherwise English.",
+                                        "example": "en"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                                "cron",
+                                                "interval",
+                                                "once"
+                                            ]
+                                        },
+                                        "cronExpr": {
+                                            "type": "string",
+                                            "example": "0 8 * * 1-5"
+                                        },
+                                        "intervalMinutes": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "runAt": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "readback": {
+                                            "type": "string",
+                                            "example": "Every weekday at 08:00, Europe/Amsterdam"
+                                        },
+                                        "nextRuns": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "format": "date-time"
+                                            }
+                                        },
+                                        "source": {
+                                            "type": "string",
+                                            "enum": [
+                                                "rules",
+                                                "model"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/schedules": {
+            "get": {
+                "operationId": "schedule-list-index",
+                "summary": "List the schedules the caller may see",
+                "description": "Every schedule the caller owns, of an agent the caller may use, or of an organisation the caller administers, ordered by next run. Filters on agent, enabled and a failed last result. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "schedule-list"
+                ],
+                "parameters": [
+                    {
+                        "name": "agentId",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Only this agent's schedules."
+                    },
+                    {
+                        "name": "enabled",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
+                        },
+                        "description": "Only schedules that are on, or off."
+                    },
+                    {
+                        "name": "failed",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
+                        },
+                        "description": "Only schedules whose last result failed, or did not."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "agentId": {
+                                                        "type": "string"
+                                                    },
+                                                    "agentName": {
+                                                        "type": "string"
+                                                    },
+                                                    "owner": {
+                                                        "type": "string"
+                                                    },
+                                                    "when": {
+                                                        "type": "string",
+                                                        "example": "Every weekday at 08:00"
+                                                    },
+                                                    "nextRun": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "nullable": true
+                                                    },
+                                                    "lastStatus": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "lastError": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "failed": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "enabled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "kind": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "cron",
+                                                            "interval",
+                                                            "once"
+                                                        ]
+                                                    },
+                                                    "cronExpr": {
+                                                        "type": "string"
+                                                    },
+                                                    "intervalMinutes": {
+                                                        "type": "integer"
+                                                    },
+                                                    "runAt": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "total": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/agents/{id}/run": {
+            "post": {
+                "operationId": "manual-run-run",
+                "summary": "Run an agent by hand, without a schedule",
+                "description": "Runs the agent now with the prompt, as the caller, through the same gates as a scheduled run (switched off, emergency stop, budget). The run is recorded in run history with trigger manual. Needs a signed-in Nextcloud user who may use the agent.",
+                "tags": [
+                    "manual-run"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The agent uuid."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "prompt"
+                                ],
+                                "properties": {
+                                    "prompt": {
+                                        "type": "string",
+                                        "maxLength": 10000,
+                                        "description": "What the agent should do."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The run finished.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "ok"
+                                            ]
+                                        },
+                                        "trigger": {
+                                            "type": "string",
+                                            "enum": [
+                                                "manual"
+                                            ]
+                                        },
+                                        "output": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "402": {
+                        "description": "The budget for this period is used up; the agent did not run.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "skipped_budget"
+                                            ]
+                                        },
+                                        "trigger": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Problem409"
+                    },
+                    "423": {
+                        "description": "The organisation's emergency stop is on; the agent did not run.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "skipped_killswitch"
+                                            ]
+                                        },
+                                        "trigger": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/Problem502"
+                    }
+                }
+            }
+        },
         "/intake/conversations/{conversationId}/review": {
             "post": {
                 "operationId": "intake-review",
@@ -6719,107 +7104,6 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/Problem404"
-                    },
-                    "500": {
-                        "$ref": "#/components/responses/Problem500"
-                    }
-                }
-            }
-        },
-        "/schedules/parse-when": {
-            "post": {
-                "operationId": "schedule-when-parse",
-                "summary": "Read a plain English or Dutch description of when a schedule runs",
-                "description": "Turns text such as \"every weekday at eight\" or \"elke maandag om negen uur\" into a schedule rule, with a readback and the next three runs. Stores nothing. Needs a signed-in Nextcloud user.",
-                "tags": [
-                    "schedule-when"
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "text"
-                                ],
-                                "properties": {
-                                    "text": {
-                                        "type": "string",
-                                        "maxLength": 200,
-                                        "description": "What the person typed."
-                                    },
-                                    "locale": {
-                                        "type": "string",
-                                        "description": "The readback language; nl for Dutch, otherwise English.",
-                                        "example": "en"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "The request succeeded.",
-                        "headers": {
-                            "API-Version": {
-                                "$ref": "#/components/headers/API-Version"
-                            }
-                        },
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "kind": {
-                                            "type": "string",
-                                            "enum": [
-                                                "cron",
-                                                "interval",
-                                                "once"
-                                            ]
-                                        },
-                                        "cronExpr": {
-                                            "type": "string",
-                                            "example": "0 8 * * 1-5"
-                                        },
-                                        "intervalMinutes": {
-                                            "type": "integer",
-                                            "minimum": 1
-                                        },
-                                        "runAt": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        },
-                                        "readback": {
-                                            "type": "string",
-                                            "example": "Every weekday at 08:00, Europe/Amsterdam"
-                                        },
-                                        "nextRuns": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string",
-                                                "format": "date-time"
-                                            }
-                                        },
-                                        "source": {
-                                            "type": "string",
-                                            "enum": [
-                                                "rules",
-                                                "model"
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/Problem401"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/Problem422"
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
@@ -10451,290 +10735,6 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
-                    }
-                }
-            }
-        },
-        "/schedules": {
-            "get": {
-                "operationId": "schedule-list-index",
-                "summary": "List the schedules the caller may see",
-                "description": "Every schedule the caller owns, of an agent the caller may use, or of an organisation the caller administers, ordered by next run. Filters on agent, enabled and a failed last result. Needs a signed-in Nextcloud user.",
-                "tags": [
-                    "schedule-list"
-                ],
-                "parameters": [
-                    {
-                        "name": "agentId",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "Only this agent's schedules."
-                    },
-                    {
-                        "name": "enabled",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
-                        },
-                        "description": "Only schedules that are on, or off."
-                    },
-                    {
-                        "name": "failed",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
-                        },
-                        "description": "Only schedules whose last result failed, or did not."
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The request succeeded.",
-                        "headers": {
-                            "API-Version": {
-                                "$ref": "#/components/headers/API-Version"
-                            }
-                        },
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "results": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    },
-                                                    "name": {
-                                                        "type": "string"
-                                                    },
-                                                    "agentId": {
-                                                        "type": "string"
-                                                    },
-                                                    "agentName": {
-                                                        "type": "string"
-                                                    },
-                                                    "owner": {
-                                                        "type": "string"
-                                                    },
-                                                    "when": {
-                                                        "type": "string",
-                                                        "example": "Every weekday at 08:00"
-                                                    },
-                                                    "nextRun": {
-                                                        "type": "string",
-                                                        "format": "date-time",
-                                                        "nullable": true
-                                                    },
-                                                    "lastStatus": {
-                                                        "type": "string",
-                                                        "nullable": true
-                                                    },
-                                                    "lastError": {
-                                                        "type": "string",
-                                                        "nullable": true
-                                                    },
-                                                    "failed": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "enabled": {
-                                                        "type": "boolean"
-                                                    },
-                                                    "kind": {
-                                                        "type": "string",
-                                                        "enum": [
-                                                            "cron",
-                                                            "interval",
-                                                            "once"
-                                                        ]
-                                                    },
-                                                    "cronExpr": {
-                                                        "type": "string"
-                                                    },
-                                                    "intervalMinutes": {
-                                                        "type": "integer"
-                                                    },
-                                                    "runAt": {
-                                                        "type": "string",
-                                                        "format": "date-time"
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        "total": {
-                                            "type": "integer"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/Problem401"
-                    },
-                    "500": {
-                        "$ref": "#/components/responses/Problem500"
-                    }
-                }
-            }
-        },
-        "/agents/{id}/run": {
-            "post": {
-                "operationId": "manual-run-run",
-                "summary": "Run an agent by hand, without a schedule",
-                "description": "Runs the agent now with the prompt, as the caller, through the same gates as a scheduled run (switched off, emergency stop, budget). The run is recorded in run history with trigger manual. Needs a signed-in Nextcloud user who may use the agent.",
-                "tags": [
-                    "manual-run"
-                ],
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "The agent uuid."
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "prompt"
-                                ],
-                                "properties": {
-                                    "prompt": {
-                                        "type": "string",
-                                        "maxLength": 10000,
-                                        "description": "What the agent should do."
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "The run finished.",
-                        "headers": {
-                            "API-Version": {
-                                "$ref": "#/components/headers/API-Version"
-                            }
-                        },
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string",
-                                            "enum": [
-                                                "ok"
-                                            ]
-                                        },
-                                        "trigger": {
-                                            "type": "string",
-                                            "enum": [
-                                                "manual"
-                                            ]
-                                        },
-                                        "output": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "$ref": "#/components/responses/Problem400"
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/Problem401"
-                    },
-                    "402": {
-                        "description": "The budget for this period is used up; the agent did not run.",
-                        "headers": {
-                            "API-Version": {
-                                "$ref": "#/components/headers/API-Version"
-                            }
-                        },
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string",
-                                            "enum": [
-                                                "skipped_budget"
-                                            ]
-                                        },
-                                        "trigger": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/Problem403"
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/Problem404"
-                    },
-                    "409": {
-                        "$ref": "#/components/responses/Problem409"
-                    },
-                    "423": {
-                        "description": "The organisation's emergency stop is on; the agent did not run.",
-                        "headers": {
-                            "API-Version": {
-                                "$ref": "#/components/headers/API-Version"
-                            }
-                        },
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string",
-                                            "enum": [
-                                                "skipped_killswitch"
-                                            ]
-                                        },
-                                        "trigger": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "502": {
-                        "$ref": "#/components/responses/Problem502"
                     }
                 }
             }
