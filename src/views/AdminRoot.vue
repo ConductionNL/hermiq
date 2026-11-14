@@ -161,6 +161,18 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			id="section-trace-export"
+			:name="t('hermiq', 'Trace export')"
+			:description="
+				t(
+					'hermiq',
+					'Send run and chat traces over OpenTelemetry (OTLP) to a tool such as Langfuse, Grafana Tempo or Jaeger. The export runs in the background and never slows a run.',
+				)
+			">
+			<TraceExportSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -199,6 +211,7 @@ import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
+import TraceExportSettings from '../components/settings/TraceExportSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
@@ -233,6 +246,7 @@ export default {
 		RunRetentionSettings,
 		ComputerTargets,
 		TalkBridgeSettings,
+		TraceExportSettings,
 		WebResearchSettingsModal,
 	},
 
