@@ -43,6 +43,7 @@ final class ProviderRegistrar {
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-other-apps-can-use-the-chain-through-taskprocessing-where-nextcloud-defines-it-req-strn-004
 	 */
 	public function register(IRegistrationContext $context): void {
 		// TaskProcessing PROVIDERS (SPECTR-NEXTCLOUD-PLAN.md §8 moves 2 + 3). Hermiq
@@ -57,5 +58,12 @@ final class ProviderRegistrar {
 		$context->registerTaskProcessingProvider(Text2TextSummaryProvider::class);
 		$context->registerTaskProcessingProvider(Text2TextHeadlineProvider::class);
 		$context->registerTaskProcessingProvider(ContextAgentProvider::class);
+
+		// Chat-translate-a-recording D6: `core:audio2audio:translate` exists from
+		// Nextcloud 35 only. Registered behind the class check, so 32 to 34 boot
+		// without it and without error.
+		if (AudioToAudioTranslateProvider::isSupported() === true) {
+			$context->registerTaskProcessingProvider(AudioToAudioTranslateProvider::class);
+		}
 	}//end register()
 }//end class

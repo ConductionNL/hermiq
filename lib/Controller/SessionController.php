@@ -1229,6 +1229,7 @@ class SessionController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1258,6 +1259,8 @@ class SessionController extends Controller {
 			// and its sentences in the reader's language; null on a turn without one.
 			'provenance' => ($data['provenance'] ?? null),
 			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
+			// The record of a translated recording (chat-translate-a-recording), null otherwise.
+			'translation' => ($data['translation'] ?? null),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()

@@ -768,6 +768,10 @@
             "OCA\\Hermiq\\TaskProcessing\\ContextAgentProvider"
         ],
         [
+            "registerTaskProcessingProvider",
+            "OCA\\Hermiq\\TaskProcessing\\AudioToAudioTranslateProvider"
+        ],
+        [
             "registerMiddleware",
             "OCA\\Hermiq\\Middleware\\ApiVersionMiddleware",
             false

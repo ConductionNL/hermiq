@@ -10074,6 +10074,199 @@
                     }
                 }
             }
+        },
+        "/speech/translations": {
+            "post": {
+                "operationId": "speech-translation-translate",
+                "summary": "Translate a recording",
+                "description": "Transcribe a recording on this server, translate the transcript with the model bound to the AI feature speech-translation, speak it with the voice mapped to the target language, and keep the spoken file in the caller's Files tagged Agent authored. With a sessionId the request and the result are stored as two turns. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "speech"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "targetLanguage": {
+                                        "type": "string",
+                                        "description": "The language to translate into, e.g. nl."
+                                    },
+                                    "sourceLanguage": {
+                                        "type": "string",
+                                        "description": "The language of the recording; empty to detect it."
+                                    },
+                                    "fileId": {
+                                        "type": "integer",
+                                        "description": "A recording in the caller's own Files; omit to upload one."
+                                    },
+                                    "audio": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "description": "An uploaded recording, at most 12 MB."
+                                    },
+                                    "sessionId": {
+                                        "type": "string",
+                                        "description": "The chat session to add the request and the result to."
+                                    }
+                                },
+                                "required": [
+                                    "targetLanguage"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Problem409"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/Problem502"
+                    }
+                }
+            }
+        },
+        "/speech/translations/where": {
+            "get": {
+                "operationId": "speech-translation-where",
+                "summary": "Where the translation step will run",
+                "description": "Where the translation step of a recording will run for the caller: the bound provider and model, its declared residency, a refusal when a gate refuses, and the languages that can be spoken. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "speech"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/speech-voices": {
+            "get": {
+                "operationId": "settings-speech-voice-settings-get",
+                "summary": "Get (settings speech voice settings)",
+                "description": "The administrator's voice per language for translated recordings. Admin only.",
+                "tags": [
+                    "settings-speech-voice-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-speech-voice-settings-update",
+                "summary": "Update (settings speech voice settings)",
+                "description": "Replace the administrator's voice per language for translated recordings; 422 for an invalid language code or voice id. Admin only.",
+                "tags": [
+                    "settings-speech-voice-settings"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "voices": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        },
+                                        "description": "Voice id per language code."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    }
+                }
+            }
         }
     },
     "components": {

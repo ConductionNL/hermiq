@@ -150,6 +150,17 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Voices for translated recordings')"
+			:description="
+				t(
+					'hermiq',
+					'The voice that speaks a translated recording in each language. A language without a voice gets a written translation only.',
+				)
+			">
+			<SpeechVoiceSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
 			:description="
 				t(
@@ -186,6 +197,7 @@ import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrar
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunRetentionSettings from '../components/settings/RunRetentionSettings.vue'
+import SpeechVoiceSettings from '../components/settings/SpeechVoiceSettings.vue'
 import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
@@ -219,6 +231,7 @@ export default {
 		NcSettingsSection,
 		ReportGroupingSettings,
 		RunRetentionSettings,
+		SpeechVoiceSettings,
 		TalkBridgeSettings,
 		WebResearchSettingsModal,
 	},

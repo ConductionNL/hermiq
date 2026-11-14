@@ -53,6 +53,8 @@ interface MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param array|null $translation The record of a translated recording: the languages and
+	 *                                the engines used (chat-translate-a-recording).
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -61,6 +63,7 @@ interface MessageHistoryHandlerInterface {
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-the-languages-and-engines-used-are-recorded-req-strn-002
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -72,5 +75,6 @@ interface MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?array $translation = null,
 	): ObjectEntity;
 }//end interface
