@@ -20,8 +20,10 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 - **acceptance_criteria**:
   - GIVEN the owner WHEN they upload two PDFs THEN both land in `folderPath` and appear as `file` sources
   - GIVEN a non-owner WHEN they upload THEN the answer is 404
-- [ ] Implement
+- [x] Implement
+  - `POST /api/knowledge-bases/{id}/documents` (`KnowledgeBaseController::upload`, multipart `files[]` or `file`): `KnowledgeBaseService` opens the knowledge base as the caller, answers 404 to anyone but its owner, writes each document into `folderPath` (default `Hermiq/Knowledge bases/<name>`, created when missing, `..` and empty segments dropped) in the owner's Files under a free name, and adds each as a `file` source. At most 20 documents of up to 100 MB per request. Documented in `openapi.json`.
 - [ ] Test (PHPUnit; Newman upload as owner and non-owner)
+  - PHPUnit done: `KnowledgeBaseServiceTest` (6), `KnowledgeBaseControllerTest` (5). Newman needs a live instance and is left open.
 
 ### Task 3: Retrieval scoped to the knowledge bases
 - **spec_ref**: `openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002`
@@ -52,9 +54,9 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
   - GIVEN a folder only the owner can read WHEN a colleague's turn resolves scope THEN that folder's files are not in the scope
   - GIVEN the same folder WHEN the owner opens the detail page THEN the notice is shown
 - [ ] Implement
-  - Person-scoped read done: `KnowledgeBaseScopeResolver` opens every source by file id in the speaker's own Files, so a folder only the owner can read gives a colleague nothing (at most 500 files per knowledge base). Open: `SourceSharingInspector` and the owner's notice on the detail page.
-- [ ] Test (PHPUnit with two users and a share)
-  - `KnowledgeBaseScopeResolverTest` (5) covers the two-person read; the notice test waits on the inspector.
+  - Person-scoped read done: `KnowledgeBaseScopeResolver` opens every source by file id in the speaker's own Files, so a folder only the owner can read gives a colleague nothing (at most 500 files per knowledge base). `SourceSharingInspector` marks each file and folder source `onlyYou` when it is in the owner's own storage and neither it nor a folder above it is shared with a user, group, team or room (a team folder or someone else's share is not), and `missing` when it is gone; `GET /api/knowledge-bases/{id}/sources` gives the owner those flags with each file's indexing state and `searchAvailable`. Open: showing the notice on the detail page (Task 6).
+- [x] Test (PHPUnit with two users and a share)
+  - `KnowledgeBaseScopeResolverTest` (5) covers the two-person read; `SourceSharingInspectorTest` (5) the unshared folder, a share higher up, a team folder, someone else's share and a gone file.
 
 ### Task 6: Pages, agent form picker and integriq labels
 - **spec_ref**: `openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-outside-sources-come-in-through-integriq-req-kb-004`
