@@ -282,6 +282,14 @@ final class ListenerRegistrar {
 			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
 		);
 
+		// Flows-hand-off-and-wait: a flow an agent started closes its handoff
+		// when OpenRegister persists the run in a terminal status. By event
+		// name for the same reason as the task listener above.
+		$context->registerEventListener(
+			event: \OCA\Hermiq\Service\Handoff\FlowHandoffs::EVENT_CLASS,
+			listener: \OCA\Hermiq\Listener\FlowRunTerminalListener::class
+		);
+
 		// Approvals decided by reaction (talk-approval-reactions): spreed
 		// invokes bots on reactions with the SAME BotInvokeEvent, so this is a
 		// second listener on the same event — each ignores the invocation types

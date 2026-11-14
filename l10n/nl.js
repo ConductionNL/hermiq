@@ -2798,7 +2798,9 @@ OC.L10N.register(
         "counterfactualPair: the first of the two requests. When absent the case's prompt is used.": "counterfactualPair: het eerste van de twee verzoeken. Als dit ontbreekt, wordt de prompt van de case gebruikt.",
         "counterfactualPair: the one attribute in which the two requests differ.": "counterfactualPair: het ene kenmerk waarin de twee verzoeken verschillen.",
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
-        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren."
+        "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
+        "Your assistant has the result of “%s”.": "Uw assistent heeft het resultaat van “%s”.",
+        "Open the conversation to read its answer.": "Open het gesprek om het antwoord te lezen."
     },
     "nplurals=2; plural=(n != 1);"
 )

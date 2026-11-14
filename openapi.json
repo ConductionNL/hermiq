@@ -10341,6 +10341,200 @@
                     }
                 }
             }
+        },
+        "/handoffs/{id}/result": {
+            "post": {
+                "operationId": "handoff-result-post",
+                "summary": "Accept a webhook workflow's late result for a handoff",
+                "description": "Accept a webhook workflow's late result for a handoff, once, with the handoff's single-use token in the X-Hermiq-Result-Token header or the hermiqResultToken body field. Every refusal (unknown handoff, wrong token, a repeat, a closed handoff) answers the same 404. The body is capped at 1 MB. Public: it needs no login.",
+                "tags": [
+                    "handoff-result"
+                ],
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The handoff UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The result closed the handoff.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/remote-agents": {
+            "get": {
+                "operationId": "remote-agent-index",
+                "summary": "List the registered remote agents",
+                "description": "List the registered remote agents: agents on other servers asked over A2A through an integriq source. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "remote-agent-create",
+                "summary": "Register a remote agent",
+                "description": "Register a remote agent: its card is fetched once through the integriq source and kept as a snapshot, and it starts switched off. Body: name, source, and optionally slug and description. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The remote agent was registered.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/Problem502"
+                    }
+                }
+            }
+        },
+        "/remote-agents/{id}": {
+            "put": {
+                "operationId": "remote-agent-update",
+                "summary": "Change a remote agent's name, description or switch",
+                "description": "Change a remote agent's name, description or switch; its source and card stay as registered. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The remote agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "remote-agent-destroy",
+                "summary": "Remove a remote agent",
+                "description": "Remove a remote agent. Needs a Nextcloud admin.",
+                "tags": [
+                    "remote-agent"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The remote agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
         }
     },
     "components": {
