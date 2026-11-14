@@ -71,6 +71,12 @@ use Psr\Log\NullLogger;
  * @uses   \OCA\Hermiq\Service\Agent\AgentAvailability
  * @uses   \OCA\Hermiq\Service\RedactionService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\FormBodyRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\PhoneRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\TokenMasker
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
  */
 final class ToolDetailOutputFilterTest extends TestCase {
 
