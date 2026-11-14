@@ -23,6 +23,10 @@ use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Handoff\FlowHandoffs;
 use OCA\Hermiq\Service\Handoff\FlowTurn;
 use OCA\Hermiq\Service\Handoff\HandoffService;
+use OCA\Hermiq\Service\Handoff\TurnHandoffs;
+use OCA\Hermiq\Mcp\HermiqToolProvider;
+use OCA\Hermiq\Service\RemoteAgent\RemoteTasks;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Event\FlowRunTerminalEvent;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\EventDispatcher\Event;
@@ -37,6 +41,7 @@ use RuntimeException;
  * @covers \OCA\Hermiq\Service\Handoff\FlowHandoffs
  * @covers \OCA\Hermiq\Service\Handoff\FlowTurn
  * @covers \OCA\Hermiq\Listener\FlowRunTerminalListener
+ * @covers \OCA\Hermiq\Service\Handoff\TurnHandoffs
  */
 class FlowHandoffsTest extends TestCase {
 
@@ -224,7 +229,7 @@ class FlowHandoffsTest extends TestCase {
 			agentId: 'agent-1',
 			mcpIdByName: ['openregister_runFlow' => 'openregister.runFlow'],
 			ownerUid: 'alice',
-			flowHandoffs: $this->flows(),
+			handoffs: new TurnHandoffs(flows: $this->flows(), remoteTasks: $this->createMock(RemoteTasks::class)),
 			conversationId: 'conv-1'
 		);
 
@@ -233,4 +238,54 @@ class FlowHandoffsTest extends TestCase {
 		$this->assertSame('h-1', $out['handoff']);
 		$this->assertSame(FlowHandoffs::RUNNING_NOTE, $out['note']);
 	}//end testTheInvokerOpensTheHandoffOfAQueuedRun()
+
+	/**
+	 * A working remote task becomes an a2a handoff through the same hook; another tool's result passes untouched.
+	 *
+	 * @return void
+	 */
+	public function testTheHookRoutesRemoteTasksAndLeavesOtherToolsAlone(): void {
+		$remote = $this->createMock(RemoteTasks::class);
+		$turn = new FlowTurn(agentId: 'agent-1', conversationId: 'conv-1', owner: 'anne');
+		$remote->expects($this->once())->method('afterAsk')
+			->with(['status' => 'working', 'taskId' => 't-9'], $turn)
+			->willReturn(['status' => 'working', 'taskId' => 't-9', 'handoff' => 'h-2']);
+		$hook = new TurnHandoffs(flows: $this->flows(), remoteTasks: $remote);
+
+		$this->assertSame('h-2', $hook->afterToolCall(toolId: 'hermiq.askRemoteAgent', arguments: [], result: ['status' => 'working', 'taskId' => 't-9'], turn: $turn)['handoff']);
+		$this->assertSame(['x' => 1], $hook->afterToolCall(toolId: 'hermiq.webFetch', arguments: [], result: ['x' => 1], turn: $turn));
+	}//end testTheHookRoutesRemoteTasksAndLeavesOtherToolsAlone()
+
+	/**
+	 * askRemoteAgent is a default-denied external tool, and a grant naming one remote agent refuses another before anything is sent.
+	 *
+	 * @return void
+	 */
+	public function testAskRemoteAgentIsExternalAndHonoursAGrantForOneAgent(): void {
+		$descriptor = null;
+		foreach ((new \ReflectionClassConstant(HermiqToolProvider::class, 'TOOL_DESCRIPTORS'))->getValue() as $tool) {
+			if ($tool['id'] === 'hermiq.askRemoteAgent') {
+				$descriptor = $tool;
+			}
+		}
+
+		$this->assertSame('external', $descriptor['reach']);
+		$this->assertTrue($descriptor['destructiveHint']);
+		$this->assertFalse($descriptor['readOnlyHint']);
+		$this->assertFalse($descriptor['idempotentHint']);
+		$this->assertSame('create', $descriptor['scope']);
+		$this->assertSame(['remoteAgent', 'task'], $descriptor['inputSchema']['required']);
+
+		$this->tools->expects($this->never())->method('invokeTool');
+		$invoker = new FacadeToolInvoker(
+			facade: $this->tools,
+			mcpIdByName: ['hermiq_askRemoteAgent' => 'hermiq.askRemoteAgent'],
+			argumentConstraints: (new ToolGrantResolver())->argumentConstraints(grants: ['hermiq.askRemoteAgent?remoteAgent=kvk-assistent']),
+			ownerUid: 'alice'
+		);
+
+		$out = json_decode($invoker->hermiq_askRemoteAgent(remoteAgent: 'other-agent', task: 'x'), true);
+
+		$this->assertSame('grant_constraint_violated', $out['error']);
+	}//end testAskRemoteAgentIsExternalAndHonoursAGrantForOneAgent()
 }//end class

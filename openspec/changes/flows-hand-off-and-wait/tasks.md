@@ -54,8 +54,13 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 - **acceptance_criteria**:
   - GIVEN an integriq source WHEN an admin registers a remote agent THEN its card is fetched through the source and stored as a snapshot, and no credential is stored in hermiq
   - GIVEN a non-admin WHEN they call the admin routes THEN they are refused
+- **status**: backend built, admin screen not yet.
+  - `RemoteAgent` is declared as `remoteagent` (register v0.57.0), admins only.
+  - `RemoteAgentService::register()` fetches the card once through the integriq source (`A2aClient::fetchCard()`, `GET /.well-known/agent-card.json` via `CallService::call()`). It keeps a snapshot of name, description, url, version and skills, without security schemes or credentials, and starts the agent switched off.
+  - `RemoteAgentController` serves `GET`/`POST /api/remote-agents` and `PUT`/`DELETE /api/remote-agents/{id}`, every one `#[AuthorizedAdminSetting]`.
+  - Left: `src/views/RemoteAgents.vue`, `src/modals/RemoteAgentFormModal.vue` and the manifest entry.
 - [ ] Implement
-- [ ] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/)
+- [ ] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/). PHPUnit is done: `tests/Unit/Service/RemoteAgent/RemoteAgentTest.php` and `tests/Unit/Controller/RemoteAgentControllerTest.php`. Playwright waits for the screen.
 
 ### Task 6: The askRemoteAgent tool and its polling job
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003`
@@ -64,8 +69,14 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - GIVEN a completed A2A answer WHEN the tool runs THEN it returns the text, through CallService only
   - GIVEN a working task WHEN the tool runs THEN an a2a handoff opens and the job polls tasks/get until done or the deadline
   - GIVEN a grant naming one remote agent WHEN another is asked THEN the call is refused
-- [ ] Implement
-- [ ] Test (PHPUnit on descriptor hints, grant constraint, request mapping and polling; a live check against a test A2A peer)
+- **status**: built.
+  - `hermiq.askRemoteAgent` has reach `external`, `destructiveHint: true`, `scope: create` and is not idempotent. It is served by `RemoteTasks::ask()`, which sends `message/send` through `A2aClient`, so through integriq's `CallService` only.
+  - A completed answer returns its text.
+  - A task still working comes back to the turn, where `TurnHandoffs` (the one hook in `FacadeToolInvoker` that also opens flow handoffs) opens an `a2a` handoff with the task id.
+  - `RemoteTaskPollJob` runs every minute and wraps `HandoffSweep`. The sweep expires every handoff past its deadline and asks `tasks/get` once for each waiting a2a task.
+  - A grant `hermiq.askRemoteAgent?remoteAgent=…` refuses another remote agent with `grant_constraint_violated`.
+- [x] Implement
+- [ ] Test (PHPUnit on descriptor hints, grant constraint, request mapping and polling; a live check against a test A2A peer). The PHPUnit part is done in `RemoteAgentTest` and `FlowHandoffsTest`. The live check against an A2A peer is not.
 
 ### Task 7: The waiting state in the chat
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001`

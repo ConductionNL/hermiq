@@ -65,7 +65,7 @@ use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
-use OCA\Hermiq\Service\Handoff\FlowHandoffs;
+use OCA\Hermiq\Service\Handoff\TurnHandoffs;
 use OCA\Hermiq\Service\PersonalPreferences;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -163,8 +163,8 @@ class ToolLoop implements ToolLoopInterface {
 	 *                                                        agent is switched off. Null: never stops.
 	 * @param PersonalPreferences|null      $preferences         The signed-in person's own preferences, for
 	 *                                                        ask-before-sending. Null: asks nothing extra.
-	 * @param FlowHandoffs|null             $flowHandoffs        Opens the handoff of a flow an agent queued
-	 *                                                        (flows-hand-off-and-wait). Null: opens none.
+	 * @param TurnHandoffs|null             $handoffs            Opens the handoff of work a tool started and
+	 *                                                        did not wait for (flows-hand-off-and-wait). Null: none.
 	 *
 	 * @return void
 	 *
@@ -189,7 +189,7 @@ class ToolLoop implements ToolLoopInterface {
 		private readonly ?IUserSession $userSession = null,
 		private readonly ?AgentAvailabilityService $availabilityService = null,
 		private readonly ?PersonalPreferences $preferences = null,
-		private readonly ?FlowHandoffs $flowHandoffs = null,
+		private readonly ?TurnHandoffs $handoffs = null,
 	) {
 	}//end __construct()
 
@@ -572,7 +572,7 @@ class ToolLoop implements ToolLoopInterface {
 			maxToolCalls: (new AgentAvailability())->maxToolCalls(agent: $run->agent),
 			agentStillOn: $this->agentStillOn(agentId: $agentId),
 			askFirst: $this->askFirst(functions: $run->functions),
-			flowHandoffs: $this->flowHandoffs,
+			handoffs: $this->handoffs,
 			conversationId: $run->conversationId
 		);
 	}//end createInvoker()

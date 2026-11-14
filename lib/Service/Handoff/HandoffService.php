@@ -247,6 +247,31 @@ class HandoffService {
 	}//end find()
 
 	/**
+	 * Every waiting handoff, by id.
+	 *
+	 * @param int $limit The most to answer.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 */
+	public function allWaiting(int $limit = 500): array {
+		$found   = $this->objectService->setRegister(self::REGISTER_SLUG)->setSchema(self::SCHEMA_SLUG)->findAll(
+			config: ['filters' => ['status' => self::WAITING], 'limit' => $limit],
+			_rbac: false,
+			_multitenancy: false
+		);
+		$waiting = [];
+		foreach ($found as $object) {
+			if ($object instanceof ObjectEntity && ($object->getObject()['status'] ?? null) === self::WAITING) {
+				$waiting[(string) $object->getUuid()] = $object->getObject();
+			}
+		}
+
+		return $waiting;
+	}//end allWaiting()
+
+	/**
 	 * The id of the waiting handoff of this kind whose work has this external reference, or null.
 	 *
 	 * @param string $kind        `flow`, `webhook` or `a2a`.
