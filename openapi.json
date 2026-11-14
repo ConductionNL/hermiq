@@ -260,6 +260,10 @@
             "description": "The settings talk bridge settings endpoints."
         },
         {
+            "name": "settings-trace-export-settings",
+            "description": "The settings trace export settings endpoints."
+        },
+        {
             "name": "settings-web-research-settings",
             "description": "The settings web research settings endpoints."
         },
@@ -8312,6 +8316,60 @@
                 "description": "Bind room (settings talk bridge settings). Needs a signed-in Nextcloud user.",
                 "tags": [
                     "settings-talk-bridge-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/settings/trace-export": {
+            "get": {
+                "operationId": "settings-trace-export-settings-get",
+                "summary": "Get (settings trace export settings)",
+                "description": "Get (settings trace export settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-trace-export-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-trace-export-settings-update",
+                "summary": "Update (settings trace export settings)",
+                "description": "Update (settings trace export settings). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "settings-trace-export-settings"
                 ],
                 "responses": {
                     "200": {

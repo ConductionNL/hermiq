@@ -51,6 +51,7 @@ use OCA\Hermiq\Service\Schedule\FailedAttempt;
 use OCA\Hermiq\Service\Schedule\GateSkip;
 use OCA\Hermiq\Service\Schedule\RunAuditRecord;
 use OCA\Hermiq\Service\Schedule\ScheduleRecordNormaliser;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -307,6 +308,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
+	 * @param TraceExportQueue|null $traceExportQueue Hands the finished run to trace export (observability-export-traces).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -333,6 +335,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
 		private readonly ?RunRetentionPolicy $retentionPolicy = null,
+		private readonly ?TraceExportQueue $traceExportQueue = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
@@ -1905,6 +1908,7 @@ class ScheduleService implements ScheduleServiceInterface {
 				context: $context
 			)
 		);
+		$this->traceExportQueue?->enqueueRun(context: $context, trigger: 'schedule', organisation: (string)($context['organisation'] ?? ''));
 	}//end persistRunAudit()
 
 	/**
