@@ -2027,7 +2027,11 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n aanroep is geweigerd: %s.",
             "%n aanroepen zijn geweigerd: %s."
-        ]
+        ],
+        "Ask a question": "Stel een vraag",
+        "Something went wrong. Try again.": "Er ging iets mis. Probeer het opnieuw.",
+        "This assistant is not available right now.": "Deze assistent is nu niet beschikbaar.",
+        "Your question": "Je vraag"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

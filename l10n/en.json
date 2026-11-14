@@ -2738,7 +2738,11 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Ask a question": "Ask a question",
+        "Something went wrong. Try again.": "Something went wrong. Try again.",
+        "This assistant is not available right now.": "This assistant is not available right now.",
+        "Your question": "Your question"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

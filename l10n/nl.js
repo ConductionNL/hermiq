@@ -1992,7 +1992,11 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "Ask a question": "Stel een vraag",
+        "Something went wrong. Try again.": "Er ging iets mis. Probeer het opnieuw.",
+        "This assistant is not available right now.": "Deze assistent is nu niet beschikbaar.",
+        "Your question": "Je vraag"
     },
     "nplurals=2; plural=(n != 1);"
 )

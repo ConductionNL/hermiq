@@ -41,8 +41,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **files**: `templates/public-chat.php`, `src/public-chat/`, `webpack.config.js` entry, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN the iframe page WHEN opened THEN the disclosure shows before the input and answers show sources as links
-- [ ] Implement
-- [ ] Test (Playwright on the standalone page, logged out; axe on the page)
+- [x] Implement (`GET /public/{channelToken}` renders `templates/public-chat.php`, framed only by the channel's origins; `src/public-chat/window.js` shows the disclosure before the input and sources as links; `js/public-chat.js` is the embed script; both self-contained webpack entries; en/nl strings)
+- [ ] Test (vitest done: `tests/vitest/public-chat.spec.js`, and `PublicChatControllerTest` for the page; Playwright logged out and axe need a running instance)
 
 ### Task 6: The Public chat settings page
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001`

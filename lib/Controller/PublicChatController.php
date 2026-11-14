@@ -45,9 +45,13 @@ use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
+use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\TemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
 use OCP\IRequest;
+use OCP\IURLGenerator;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -69,6 +73,8 @@ class PublicChatController extends Controller {
 	 * @param IRequest           $request The request.
 	 * @param PublicChannelStore $store   Finds the channel by its token.
 	 * @param PublicChatService  $chat    Runs the turn.
+	 * @param IInitialState      $state   Hands the chat page its channel.
+	 * @param IURLGenerator      $urls    Builds the endpoint the page posts to.
 	 * @param LoggerInterface    $logger  Records a failed turn.
 	 *
 	 * @return void
@@ -79,6 +85,8 @@ class PublicChatController extends Controller {
 		IRequest $request,
 		private readonly PublicChannelStore $store,
 		private readonly PublicChatService $chat,
+		private readonly IInitialState $state,
+		private readonly IURLGenerator $urls,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
@@ -177,6 +185,50 @@ class PublicChatController extends Controller {
 
 		return $response;
 	}//end preflight()
+
+	/**
+	 * The standalone chat page a website frames.
+	 *
+	 * GET /public/{channelToken}. Only the channel's allowed origins may frame
+	 * it. The disclosure is part of the page before the input.
+	 *
+	 * @param string $channelToken The channel's token from the embed code.
+	 *
+	 * @return TemplateResponse 200, or 404 with an unavailable window for an unknown token.
+	 *
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	#[AnonRateLimit(limit: 60, period: 60)]
+	public function page(string $channelToken): TemplateResponse {
+		$channel = $this->store->channelByToken(token: $channelToken);
+		$this->state->provideInitialState(
+			'public-chat',
+			[
+				'available'  => ($channel !== null && ($channel['enabled'] ?? false) === true),
+				'disclosure' => $this->chat->disclosureFor(channel: ($channel ?? [])),
+				'endpoint'   => $this->urls->linkToRoute(AppIdentity::APP_ID . '.publicChat.message', ['channelToken' => $channelToken]),
+				'title'      => (string)($channel['name'] ?? ''),
+			]
+		);
+
+		$response = new TemplateResponse(AppIdentity::APP_ID, 'public-chat', [], TemplateResponse::RENDER_AS_BASE);
+		$policy   = new ContentSecurityPolicy();
+		foreach (self::allowedOrigins(channel: ($channel ?? [])) as $origin) {
+			$policy->addAllowedFrameAncestorDomain($origin);
+		}
+
+		$response->setContentSecurityPolicy($policy);
+		if ($channel === null) {
+			$response->setStatus(Http::STATUS_NOT_FOUND);
+		}
+
+		return $response;
+	}//end page()
 
 	/**
 	 * Whether an origin may post to a channel.

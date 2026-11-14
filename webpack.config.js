@@ -68,6 +68,18 @@ webpackConfig.entry = {
 		import: path.join(__dirname, 'src', 'companion.js'),
 		filename: appId + '-companion.js',
 	},
+	// Public web chat (delivery-public-web-chat). `public-chat.js` is the embed
+	// script a WEBSITE loads, so its name is the one in the embed snippet and it
+	// must be one self-contained file. The window is the standalone page the
+	// script frames; it is loaded on a public page with no other hermiq chunk.
+	'public-chat': {
+		import: path.join(__dirname, 'src', 'public-chat', 'embed.js'),
+		filename: 'public-chat.js',
+	},
+	'public-chat-window': {
+		import: path.join(__dirname, 'src', 'public-chat', 'window.js'),
+		filename: appId + '-public-chat-window.js',
+	},
 }
 
 // Use local source when available (monorepo dev), otherwise fall back to npm package.
@@ -335,7 +347,7 @@ webpackConfig.plugins = [
 //
 // `chunk.runtime` names the ENTRY a chunk belongs to and is carried by async
 // chunks too, so it covers the whole reachable graph rather than the entry file.
-const SELF_CONTAINED_RUNTIMES = ['agent-leaf', 'companion']
+const SELF_CONTAINED_RUNTIMES = ['agent-leaf', 'companion', 'public-chat', 'public-chat-window']
 
 /**
  * May this chunk take part in the shared cacheGroups?
