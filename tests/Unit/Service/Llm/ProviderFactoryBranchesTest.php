@@ -63,6 +63,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 	 * The factory's guard and fallback branches, one decision per test.
 	 *
 	 * @covers \OCA\Hermiq\Service\Llm\ProviderFactory
+	 * @uses   \OCA\Hermiq\Service\Llm\ProviderCallFailedException
 	 * @uses   \OCA\Hermiq\Service\Llm\BrokerHttpClient
 	 * @uses   \OCA\Hermiq\Service\Llm\ChatDriver
 	 * @uses   \OCA\Hermiq\Service\Llm\CliRunTokens
@@ -453,7 +454,10 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm {
 				);
 				self::fail('A refused call was answered.');
 			} catch (Exception $e) {
-				self::assertSame(Exception::class, get_class($e));
+				// Typed since models-several-models-per-turn task 2: a broker
+				// refusal is not a temporary failure, so it never moves a turn.
+				self::assertSame(\OCA\Hermiq\Service\Llm\ProviderCallFailedException::class, get_class($e));
+				self::assertSame(\OCA\Hermiq\Service\Llm\ProviderCallFailedException::UNKNOWN, $e->kind);
 				self::assertSame(
 					'Fireworks API request failed: Hermiq LLM: the credential broker refused or could not make the call.',
 					$e->getMessage()
