@@ -49,8 +49,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **files**: `src/manifest.json`, `src/views/PublicChatSettings.vue`, `src/modals/PublicChannelFormModal.vue`
 - **acceptance_criteria**:
   - GIVEN an admin WHEN they create a channel THEN both snippets show; an agent with tools is refused
-- [ ] Implement
-- [ ] Test (Playwright; tell the portaliq lane the entry point name and signature)
+- [x] Implement (the `PublicChat` settings page is manifest configuration, an index page over `agentpublicchannel` with `slots.form-dialog` -> `PublicChannelFormModal`, rather than a hand-built `PublicChatSettings.vue`; `PublicChannelGuardListener` refuses an agent with tools with "A public assistant cannot use tools. Pick an agent without tools.", refuses an origin with a path, and gives a new channel its token; the form shows the script and iframe snippets once a website channel is saved)
+- [ ] Test (PHPUnit `PublicChannelGuardListenerTest` and vitest `public-channel-settings.spec.js` done; Playwright needs a running instance. Entry point for the portaliq lane: `OCA\Hermiq\PublicChat\PublicChatEntryPoint::ask(string $channelKey, string $question, string $locale, array $sourceScope, ?string $conversationToken): PublicAnswer`, channel key `app:portaliq:<portal-slug>`)
 
 ## Verification
 - [ ] `openspec validate delivery-public-web-chat --type change --strict` passes

@@ -1005,7 +1005,7 @@
 			},
 			"PublicChannel": {
 				"slug": "agentpublicchannel",
-				"icon": "WebMessage",
+				"icon": "ChatOutline",
 				"version": "0.1.0",
 				"title": "Public chat channel",
 				"description": "A website or an app that may put a question to an agent without the asker signing in. The channel declares which agent answers, which origins may embed it, which registers and schemas the answers may come from, the AI disclosure shown above the input and a daily question limit. The agent must have no tool grants. Off until an organisation admin enables it.",

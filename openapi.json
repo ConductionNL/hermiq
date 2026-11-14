@@ -10341,6 +10341,144 @@
                     }
                 }
             }
+        },
+        "/public/{channelToken}/messages": {
+            "post": {
+                "operationId": "public-chat-message",
+                "summary": "Answer a visitor's question on a website chat channel",
+                "description": "Answer a visitor's question on a website chat channel, from public content only and without tools. Public: it needs no login, and a signed-in session is ignored. Answered across origins only for the channel's allowed origins; rate limited per client and per channel per day.",
+                "tags": [
+                    "public-chat"
+                ],
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "channelToken",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website channel's token from its embed code. It names the channel; it is not a secret.",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9]{16,64}$"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "question"
+                                ],
+                                "properties": {
+                                    "question": {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                    },
+                                    "conversationToken": {
+                                        "type": "string"
+                                    },
+                                    "locale": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "answer": {
+                                            "type": "string"
+                                        },
+                                        "sources": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "url": {
+                                                        "type": "string",
+                                                        "format": "uri"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "conversationToken": {
+                                            "type": "string"
+                                        },
+                                        "disclosure": {
+                                            "type": "string"
+                                        },
+                                        "available": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "429": {
+                        "description": "The client's rate limit or the channel's daily question limit is reached."
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/Problem503"
+                    }
+                }
+            },
+            "options": {
+                "operationId": "public-chat-preflight",
+                "summary": "Answer the CORS preflight of a website chat channel",
+                "description": "Answer the CORS preflight of a website chat channel: 204 with the CORS headers for an allowed origin, 403 without them otherwise. Public: it needs no login.",
+                "tags": [
+                    "public-chat"
+                ],
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "channelToken",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website channel's token from its embed code. It names the channel; it is not a secret.",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9]{16,64}$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The origin may post to the channel."
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
         }
     },
     "components": {

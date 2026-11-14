@@ -33,10 +33,7 @@ use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
-use OCP\AppFramework\Http\TemplateResponse;
-use OCP\AppFramework\Services\IInitialState;
 use OCP\IRequest;
-use OCP\IURLGenerator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use ReflectionMethod;
@@ -46,6 +43,7 @@ use RuntimeException;
  * @covers \OCA\Hermiq\Controller\PublicChatController
  * @uses   \OCA\Hermiq\Service\PublicChat\PublicAnswer
  * @uses   \OCA\Hermiq\Service\PublicChat\PublicChatRefusedException
+ * @uses   \OCA\Hermiq\Service\PublicChat\PublicChannelStore
  */
 class PublicChatControllerTest extends TestCase {
 
@@ -53,13 +51,6 @@ class PublicChatControllerTest extends TestCase {
 	 * The channel token in every test URL.
 	 */
 	private const TOKEN = 'Chan0123456789abcdef';
-
-	/**
-	 * The initial state the page provided.
-	 *
-	 * @var array<string, mixed>
-	 */
-	private array $state = [];
 
 	/**
 	 * What the turn received.
@@ -85,7 +76,8 @@ class PublicChatControllerTest extends TestCase {
 		$request->method('getServerProtocol')->willReturn('https');
 		$request->method('getServerHost')->willReturn('cloud.example.nl');
 
-		$store = $this->createMock(PublicChannelStore::class);
+		// allowedOrigins() stays real: the origin rule is what these tests pin.
+		$store = $this->getMockBuilder(PublicChannelStore::class)->disableOriginalConstructor()->onlyMethods(['channelByToken', 'isToken'])->getMock();
 		$store->method('channelByToken')->willReturnCallback(
 			fn (string $token): ?array => ($token === self::TOKEN ? ['id' => 'ch-1', 'kind' => 'website', 'name' => 'Website', 'enabled' => true, 'disclosureText' => 'You chat with an AI.', 'allowedOrigins' => ['https://WWW.example.nl/', 'not an origin', 42]] : null)
 		);
@@ -101,16 +93,7 @@ class PublicChatControllerTest extends TestCase {
 			return ($outcome ?? new PublicAnswer(answer: 'Monday.', sources: [['title' => 'Waste', 'url' => 'https://www.example.nl/waste']], conversationToken: 'Conv0123456789abcdef', disclosure: 'AI.'));
 		});
 
-		$chat->method('disclosureFor')->willReturnCallback(fn (array $channel): string => (string)($channel['disclosureText'] ?? 'Default disclosure.'));
-
-		$state = $this->createMock(IInitialState::class);
-		$state->method('provideInitialState')->willReturnCallback(function (string $key, mixed $data): void {
-			$this->state[$key] = $data;
-		});
-		$urls = $this->createMock(IURLGenerator::class);
-		$urls->method('linkToRoute')->willReturnCallback(fn (string $route, array $args): string => '/index.php/apps/hermiq/api/public/' . $args['channelToken'] . '/messages#' . $route);
-
-		return new PublicChatController($request, $store, $chat, $state, $urls, ($logger ?? $this->createMock(LoggerInterface::class)));
+		return new PublicChatController($request, $store, $chat, ($logger ?? $this->createMock(LoggerInterface::class)));
 	}//end controller()
 
 	/**
@@ -232,44 +215,4 @@ class PublicChatControllerTest extends TestCase {
 		self::assertSame(['limit' => 20, 'period' => 60], $anon);
 		self::assertSame(['limit' => 20, 'period' => 60], $user);
 	}//end testTheEndpointIsPublicAndRateLimited()
-
-	/**
-	 * The chat page carries the channel's disclosure and endpoint, and only the allowed origins may frame it.
-	 *
-	 * @return void
-	 */
-	public function testThePageIsFramedOnlyByAllowedOrigins(): void {
-		$page = $this->controller()->page(channelToken: self::TOKEN);
-
-		self::assertInstanceOf(TemplateResponse::class, $page);
-		self::assertSame(200, $page->getStatus());
-		self::assertSame('public-chat', $page->getTemplateName());
-		self::assertSame('base', $page->getRenderAs());
-		self::assertSame(
-			['available' => true, 'disclosure' => 'You chat with an AI.', 'endpoint' => '/index.php/apps/hermiq/api/public/' . self::TOKEN . '/messages#hermiq.publicChat.message', 'title' => 'Website'],
-			$this->state['public-chat']
-		);
-		$policy = $page->getContentSecurityPolicy()->buildPolicy();
-		self::assertStringContainsString("frame-ancestors 'self' https://www.example.nl", $policy);
-		self::assertStringNotContainsString('not an origin', $policy);
-
-		$unknown = $this->controller()->page(channelToken: 'Unknown0123456789abc');
-		self::assertSame(404, $unknown->getStatus());
-		self::assertFalse($this->state['public-chat']['available']);
-		self::assertSame('Default disclosure.', $this->state['public-chat']['disclosure']);
-		self::assertStringNotContainsString('example.nl', $unknown->getContentSecurityPolicy()->buildPolicy());
-	}//end testThePageIsFramedOnlyByAllowedOrigins()
-
-	/**
-	 * Allowed origins are exact origins: scheme and host, no path, case and trailing slash ignored.
-	 *
-	 * @return void
-	 */
-	public function testAllowedOrigins(): void {
-		self::assertSame(
-			['https://www.example.nl', 'http://localhost:8080'],
-			PublicChatController::allowedOrigins(channel: ['allowedOrigins' => ['https://WWW.example.nl/', 'http://localhost:8080', 'https://x.nl/path', 'ftp://x.nl', '*', null]])
-		);
-		self::assertSame([], PublicChatController::allowedOrigins(channel: []));
-	}//end testAllowedOrigins()
 }//end class

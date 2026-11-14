@@ -237,6 +237,26 @@ class PublicChannelStore {
 	}//end isToken()
 
 	/**
+	 * The channel's allowed origins, normalised, without a trailing slash.
+	 *
+	 * @param array<string, mixed> $channel The channel.
+	 *
+	 * @return list<string>
+	 *
+	 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 */
+	public function allowedOrigins(array $channel): array {
+		$origins = [];
+		foreach ((array)($channel['allowedOrigins'] ?? []) as $origin) {
+			if (is_string($origin) === true && preg_match('#^https?://[^/\s]+$#i', rtrim(trim($origin), '/')) === 1) {
+				$origins[] = strtolower(rtrim(trim($origin), '/'));
+			}
+		}
+
+		return $origins;
+	}//end allowedOrigins()
+
+	/**
 	 * The first channel matching the filters, checked again against them.
 	 *
 	 * @param array<string, string> $filters The filters.

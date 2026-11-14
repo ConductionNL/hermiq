@@ -211,4 +211,17 @@ class PublicChannelStoreTest extends TestCase {
 		self::assertFalse($store->isToken(token: 'abc-DEF0123456789'));
 		self::assertFalse($store->isToken(token: str_repeat('a', 65)));
 	}//end testIsToken()
+
+	/**
+	 * Allowed origins are exact origins: scheme and host, no path, case and trailing slash ignored.
+	 *
+	 * @return void
+	 */
+	public function testAllowedOrigins(): void {
+		self::assertSame(
+			['https://www.example.nl', 'http://localhost:8080'],
+			$this->store([])->allowedOrigins(channel: ['allowedOrigins' => ['https://WWW.example.nl/', 'http://localhost:8080', 'https://x.nl/path', 'ftp://x.nl', '*', null]])
+		);
+		self::assertSame([], $this->store([])->allowedOrigins(channel: []));
+	}//end testAllowedOrigins()
 }//end class
