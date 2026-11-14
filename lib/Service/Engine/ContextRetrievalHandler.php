@@ -51,6 +51,7 @@ use OCA\Hermiq\Service\Chat\ScopedPassageSource;
 use OCA\Hermiq\Service\Chat\TurnScope;
 use OCA\Hermiq\Service\Chat\TurnScopeException;
 use OCA\Hermiq\Service\Graph\GraphContextRetriever;
+use OCA\Hermiq\Service\KnowledgeBase\KnowledgeBaseRetrieval;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -75,6 +76,7 @@ class ContextRetrievalHandler {
 	 * @param FileScopeResolver|null $fileScope The agent's file filters as a file set (memory-retrieval-scope).
 	 * @param ScopedPassageSource|null $scopedSource The passages of a turn scoped to a file or folder; null refuses such a turn.
 	 * @param ValidatedFileSet|null $validatedFiles The files carrying the validated tag (memory-retrieval-scope); null is no file.
+	 * @param KnowledgeBaseRetrieval|null $knowledgeBases The agent's knowledge bases (memory-knowledge-bases); null searches none.
 	 *
 	 * @return void
 	 *
@@ -88,6 +90,7 @@ class ContextRetrievalHandler {
 		private readonly ?FileScopeResolver $fileScope = null,
 		private readonly ?ScopedPassageSource $scopedSource = null,
 		private readonly ?ValidatedFileSet $validatedFiles = null,
+		private readonly ?KnowledgeBaseRetrieval $knowledgeBases = null,
 	) {
 	}//end __construct()
 
@@ -159,6 +162,7 @@ class ContextRetrievalHandler {
 
 		$run = [
 			'query' => $query,
+			'speaker' => $speaker,
 			'agentData' => $agentData,
 			'settings' => $this->retrievalSettings(agentData: $agentData, ragSettings: $ragSettings),
 			'viewFilters' => $this->resolveViewFilters(
@@ -184,6 +188,14 @@ class ContextRetrievalHandler {
 		try {
 			$found = $this->candidateResults(run: $run);
 			$found['results'] = self::withinFileScope(results: $found['results'], fileIds: $run['fileIds']);
+			// The agent's knowledge bases are their own scope (memory-knowledge-bases); a
+			// validated turn still answers from validated files only (memory-retrieval-scope).
+			$knowledge = $this->knowledgeBaseRows(run: $run);
+			if ($validated === true) {
+				$knowledge = self::withinFileScope(results: $knowledge, fileIds: ($run['fileIds'] ?? []));
+			}
+
+			$found['results'] = array_merge($knowledge, (array)$found['results']);
 			$floor = null;
 			if ($validated === true) {
 				$floor = ValidatedMode::floor(agentData: $agentData);
@@ -443,6 +455,31 @@ class ContextRetrievalHandler {
 			'text' => ($graph['relations'] ?? ''),
 		];
 	}//end candidateResults()
+
+	/**
+	 * The file rows of the agent's knowledge bases, first in the source list.
+	 *
+	 * Searched as the person in the session through the vector facade's file
+	 * scope; none without the knowledge base retrieval, the facade or its scope.
+	 *
+	 * @param array<string, mixed> $run The query, speaker, agent payload and settings.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-agent-answers-from-its-attached-knowledge-bases-req-kb-002
+	 */
+	private function knowledgeBaseRows(array $run): array {
+		if ($this->knowledgeBases === null) {
+			return [];
+		}
+
+		return $this->knowledgeBases->rows(
+			agentData: $run['agentData'],
+			query: $run['query'],
+			speaker: (string)$run['speaker'],
+			limit: (int)$run['settings']['limit']['file']
+		);
+	}//end knowledgeBaseRows()
 
 	/**
 	 * Log what one retrieval run collected.

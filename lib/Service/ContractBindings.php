@@ -111,6 +111,7 @@ use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ServerSideWorkspaceProviderInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionParticipantServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Kernel\Contracts\SettingsServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\SkillBundleInstallerInterface;
@@ -333,6 +334,7 @@ final class ContractBindings {
 		$context->registerServiceAlias(SeedFreshnessServiceInterface::class, SeedFreshnessService::class);
 		$context->registerServiceAlias(ServerSideWorkspaceProviderInterface::class, ServerSideWorkspaceProvider::class);
 		$context->registerServiceAlias(SessionParticipantServiceInterface::class, SessionParticipantService::class);
+		$context->registerServiceAlias(SessionShareServiceInterface::class, SessionShareService::class);
 		$context->registerServiceAlias(SessionPendingApprovalsInterface::class, SessionPendingApprovals::class);
 		$context->registerServiceAlias(SettingsServiceInterface::class, SettingsService::class);
 		$context->registerServiceAlias(SkillBundleInstallerInterface::class, SkillBundleInstaller::class);
