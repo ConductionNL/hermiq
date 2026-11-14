@@ -1,6 +1,6 @@
 ## 1. Traceability
 
-- [ ] 1.1 Point the `@spec` tags on `ChatStreamController::stream()` and on
+- [x] 1.1 Point the `@spec` tags on `ChatStreamController::stream()` and on
       `Chat.vue` `sendViaStream()` at REQ-CHSTRM-001, and on `ChatController::sendFeedback()`,
       `Chat.vue` `sendFeedback()` and `saveFeedbackComment()` at REQ-CHFB-001 (gate 16).
       Verify: the gate 46 anchor check resolves every new tag.
