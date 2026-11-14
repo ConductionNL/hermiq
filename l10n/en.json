@@ -2738,7 +2738,14 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Oversight": "Oversight",
+        "Misuse": "Misuse",
+        "Mark": "Mark",
+        "by {operator} on {date}": "by {operator} on {date}",
+        "Mark tool call": "Mark tool call",
+        "Could not mark the tool call": "Could not mark the tool call",
+        "Why is this call misuse? A mark needs a reason.": "Why is this call misuse? A mark needs a reason."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

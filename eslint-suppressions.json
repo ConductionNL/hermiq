@@ -19,11 +19,6 @@
       "count": 1
     }
   },
-  "src/components/ToolInvocationTable.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    }
-  },
   "src/components/settings/TalkBridgeSettings.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 4

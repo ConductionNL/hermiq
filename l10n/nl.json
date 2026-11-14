@@ -2027,7 +2027,14 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n aanroep is geweigerd: %s.",
             "%n aanroepen zijn geweigerd: %s."
-        ]
+        ],
+        "Oversight": "Toezicht",
+        "Misuse": "Misbruik",
+        "Mark": "Markeren",
+        "by {operator} on {date}": "door {operator} op {date}",
+        "Mark tool call": "Toolaanroep markeren",
+        "Could not mark the tool call": "De toolaanroep kon niet worden gemarkeerd",
+        "Why is this call misuse? A mark needs a reason.": "Waarom is deze aanroep misbruik? Een markering heeft een reden nodig."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
