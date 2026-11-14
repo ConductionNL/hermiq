@@ -220,7 +220,7 @@ class SeedComplianceControls implements IRepairStep {
 
 	/**
 	 * The seed Control rows (design.md Seed Data): 3 EU AI Act + 3 ISO/IEC 42001 + 4
-	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams.
+	 * NIST AI RMF, each mapped to exactly one evidenceSource seam, plus the two fairness measure controls on bias-eval-recency.
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
@@ -350,6 +350,29 @@ class SeedComplianceControls implements IRepairStep {
 				'evidenceSource' => 'kill-switch-stop-mechanism',
 				'evidenceDescription' => 'Satisfied when the organisation has a provisioned stop mechanism '
 					. '(kill-switch), regardless of whether it is currently engaged.',
+			],
+			// Reuse-scheduled-bias-evals (REQ-BIASEVAL-004): the fairness measure controls.
+			[
+				'frameworkSlug' => 'iso-42001',
+				'controlId' => 'A.6.2.4',
+				'title' => 'AI system verification and validation',
+				'description' => 'The organisation defines and documents verification and validation measures for '
+					. 'the AI system, including tests for unwanted bias.',
+				'sourceUrl' => 'https://www.iso.org/standard/81230.html',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => 'Satisfied when every agent with a scheduled bias check had a bias check '
+					. 'run in the last 45 days; partial when some did.',
+			],
+			[
+				'frameworkSlug' => 'nist-ai-rmf',
+				'controlId' => 'MEASURE-2.11',
+				'title' => 'Fairness and bias',
+				'description' => 'Fairness and bias, as identified in the MAP function, are evaluated and the results '
+					. 'are documented.',
+				'sourceUrl' => 'https://www.nist.gov/itl/ai-risk-management-framework',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => 'Satisfied when every agent with a scheduled bias check had a bias check '
+					. 'run in the last 45 days; partial when some did.',
 			],
 		];
 

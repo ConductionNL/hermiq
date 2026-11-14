@@ -46,7 +46,8 @@ class AgentSwitchSchemaTest extends TestCase {
 	/**
 	 * Deleting an agent deletes its schedules and its standing goals:
 	 * `onDelete: CASCADE` on Schedule.agentId and Goal.agentId
-	 * (agents-standing-goal D1), and on nothing else that points at an agent.
+	 * (agents-standing-goal D1) and EvalSchedule.agentId (reuse-scheduled-bias-evals
+	 * D3), and on nothing else that points at an agent.
 	 *
 	 * @return void
 	 */
@@ -57,9 +58,12 @@ class AgentSwitchSchemaTest extends TestCase {
 		$this->assertSame('CASCADE', $schemas->Schedule->properties->agentId->onDelete ?? null);
 		$this->assertSame('agent', $schemas->Goal->properties->agentId->{'$ref'});
 		$this->assertSame('CASCADE', $schemas->Goal->properties->agentId->onDelete ?? null);
+		// reuse-scheduled-bias-evals D3: an eval schedule goes with its agent too.
+		$this->assertSame('agent', $schemas->EvalSchedule->properties->agentId->{'$ref'});
+		$this->assertSame('CASCADE', $schemas->EvalSchedule->properties->agentId->onDelete ?? null);
 
 		foreach ((array)$schemas as $name => $schema) {
-			if ($name === 'Schedule' || $name === 'Goal') {
+			if ($name === 'Schedule' || $name === 'Goal' || $name === 'EvalSchedule') {
 				continue;
 			}
 

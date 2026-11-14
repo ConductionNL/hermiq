@@ -97,7 +97,7 @@ class NotifierTest extends TestCase {
 	/**
 	 * Each subject with and without a name.
 	 *
-	 * @return array<string, array{0: string, 1: array<string, string>, 2: string, 3: string}>
+	 * @return array<string, array{0: string, 1: array<string, mixed>, 2: string, 3: string}>
 	 */
 	public static function subjects(): array {
 		return [
@@ -117,6 +117,9 @@ class NotifierTest extends TestCase {
 			'rollback named' => ['skill_rollback_suggested', ['name' => 'Samenvatten'], '“Samenvatten” regressed after its last accepted version', 'The first eval run after acceptance failed the regression gate. Review the versions and roll back if you agree.'],
 			'participant' => ['session_participant_added', ['name' => 'Sessie'], 'You were invited to a chat session', 'Open Chat and find it under Shared with me. You can ask the agent questions in it.'],
 			'participant full' => ['session_participant_added', ['owner' => 'Alice', 'name' => 'Sessie'], 'Alice invited you to the session Sessie', 'Open Chat and find it under Shared with me. You can ask the agent questions in it.'],
+			// reuse-scheduled-bias-evals: a scheduled eval run dropped past its threshold.
+			'bias check dropped' => ['eval_schedule_regressed', ['agent' => 'Permit intake helper', 'dataset' => 'Bias check', 'bias' => true, 'previous' => 95, 'current' => 80], 'Bias check for Permit intake helper dropped from 95% to 80%', 'Open the dataset to compare the run with the previous one.'],
+			'eval dropped' => ['eval_schedule_regressed', ['agent' => 'Helper', 'dataset' => 'Woo triage', 'bias' => false, 'previous' => 90, 'current' => 70], 'Eval “Woo triage” for Helper dropped from 90% to 70%', 'Open the dataset to compare the run with the previous one.'],
 		];
 	}//end subjects()
 
@@ -124,7 +127,7 @@ class NotifierTest extends TestCase {
 	 * Each subject renders its own subject line and message, with the app icon, in the requested language.
 	 *
 	 * @param string                $subjectKey The subject key.
-	 * @param array<string, string> $params     The subject parameters.
+	 * @param array<string, mixed>  $params     The subject parameters.
 	 * @param string                $subject    The expected subject line.
 	 * @param string                $message    The expected message.
 	 *

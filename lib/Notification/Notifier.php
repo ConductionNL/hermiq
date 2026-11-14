@@ -68,6 +68,7 @@ class Notifier implements INotifier {
 		'session_participant_added',
 		'goal_reached',
 		'goal_exhausted',
+		'eval_schedule_regressed',
 	];
 
 	/**
@@ -169,6 +170,7 @@ class Notifier implements INotifier {
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
+			'eval_schedule_regressed' => $this->evalRegressedText(subjectRaw: $subjectRaw, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
@@ -364,4 +366,32 @@ class Notifier implements INotifier {
 			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
 		];
 	}//end goalText()
+
+	/**
+	 * Text for `eval_schedule_regressed`: a scheduled eval run's pass rate dropped
+	 * past its threshold (reuse-scheduled-bias-evals). A run of a bias check names
+	 * itself a bias check; any other dataset is named.
+	 *
+	 * @param array<string,mixed> $subjectRaw agent, dataset, bias, previous and current (whole percentages).
+	 * @param IL10N               $l          The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
+	 */
+	private function evalRegressedText(array $subjectRaw, IL10N $l): array {
+		$agent = (string)($subjectRaw['agent'] ?? '');
+		$previous = (string)($subjectRaw['previous'] ?? '?');
+		$current = (string)($subjectRaw['current'] ?? '?');
+		$message = $l->t('Open the dataset to compare the run with the previous one.');
+
+		if (($subjectRaw['bias'] ?? false) === true) {
+			return [$l->t('Bias check for %1$s dropped from %2$s%% to %3$s%%', [$agent, $previous, $current]), $message];
+		}
+
+		return [
+			$l->t('Eval “%1$s” for %2$s dropped from %3$s%% to %4$s%%', [(string)($subjectRaw['dataset'] ?? ''), $agent, $previous, $current]),
+			$message,
+		];
+	}//end evalRegressedText()
 }//end class

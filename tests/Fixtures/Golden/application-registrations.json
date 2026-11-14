@@ -255,6 +255,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\BiasCheckEvidenceInterface",
+            "OCA\\Hermiq\\Service\\BiasCheckEvidence"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\BudgetServiceInterface",
             "OCA\\Hermiq\\Service\\BudgetService"
         ],
@@ -312,6 +317,16 @@
             "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\EvalRunServiceInterface",
             "OCA\\Hermiq\\Service\\EvalRunService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\EvalScheduleServiceInterface",
+            "OCA\\Hermiq\\Service\\EvalScheduleService"
+        ],
+        [
+            "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\EvalTemplateServiceInterface",
+            "OCA\\Hermiq\\Service\\EvalTemplateService"
         ],
         [
             "registerServiceAlias",

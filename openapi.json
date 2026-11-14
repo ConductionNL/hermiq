@@ -144,6 +144,10 @@
             "description": "Owner-scoped \"run this EvalDataset against this Agent\" endpoint."
         },
         {
+            "name": "eval-schedule",
+            "description": "Use an eval template for an agent, and run a dataset against an agent on a schedule."
+        },
+        {
             "name": "goal",
             "description": "Set, read and stop a standing goal."
         },
@@ -5229,6 +5233,180 @@
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/evals/{datasetId}/use-for-agent": {
+            "post": {
+                "operationId": "eval-schedule-use-for-agent",
+                "summary": "Copy a template EvalDataset into a dataset of the caller's own for one of their agents",
+                "description": "Copy a template EvalDataset into a dataset of the caller's own for one of their agents. Needs a signed-in Nextcloud user who owns the agent.",
+                "tags": [
+                    "eval-schedule"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The EvalDataset object UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "description": "The agent the copy is for."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The dataset was created.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
+        },
+        "/evals/{datasetId}/schedules": {
+            "get": {
+                "operationId": "eval-schedule-index",
+                "summary": "List the caller's schedules of an EvalDataset they own",
+                "description": "List the caller's schedules of an EvalDataset they own. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "eval-schedule"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The EvalDataset object UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "eval-schedule-save",
+                "summary": "Create or change a schedule that runs an EvalDataset against an agent",
+                "description": "Create or change a schedule that runs an EvalDataset against an agent. Needs a signed-in Nextcloud user who owns the dataset and the agent.",
+                "tags": [
+                    "eval-schedule"
+                ],
+                "parameters": [
+                    {
+                        "name": "datasetId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The EvalDataset object UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "description": "The schedule to change; empty creates one."
+                                    },
+                                    "agentId": {
+                                        "description": "The agent id."
+                                    },
+                                    "cronExpr": {
+                                        "description": "A five-field cron expression in UTC."
+                                    },
+                                    "enabled": {
+                                        "description": "Whether the schedule runs."
+                                    },
+                                    "regressionThresholdPercent": {
+                                        "description": "The regression threshold percent."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
                     }
                 }
             }

@@ -48,6 +48,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\BiasCheckEvidenceInterface;
 use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Literacy\LiteracyReport;
@@ -118,6 +119,7 @@ class ComplianceService implements ComplianceServiceInterface {
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
 	 * @param AiFeatureLookup $aiFeatureLookup Finds the AI feature an agent type names.
 	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
+	 * @param BiasCheckEvidenceInterface|null $biasCheck The bias check evidence (reuse-scheduled-bias-evals).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator (one per evidence seam), not a logic-bearing argument list.
@@ -131,6 +133,7 @@ class ComplianceService implements ComplianceServiceInterface {
 		private readonly AiFeatureService $aiFeatureService,
 		private readonly AiFeatureLookup $aiFeatureLookup,
 		private readonly ?LiteracyReport $literacyReport = null,
+		private readonly ?BiasCheckEvidenceInterface $biasCheck = null,
 	) {
 	}//end __construct()
 
@@ -256,6 +259,8 @@ class ComplianceService implements ComplianceServiceInterface {
 				$this->loadIncidentsForAgent(agentId: $agentId)
 			),
 			'lastReviewedAt' => ($data['reviewedAt'] ?? null),
+			// Reuse-scheduled-bias-evals (REQ-BIASEVAL-004): null reads "No bias check run".
+			'biasCheck' => $this->biasCheck?->latestFor(agentId: (string)$agent->getUuid()),
 		];
 
 	}//end factsheet()
@@ -307,6 +312,8 @@ class ComplianceService implements ComplianceServiceInterface {
 			'dpo-ack-design-time-gate' => $this->evidenceFromAiFeatures(),
 			'ai-literacy-completion' => $this->literacyReport?->evidence(organisation: $organisation)
 				?? ['status' => 'unevidenced', 'detail' => 'The AI literacy report is not available.'],
+			'bias-eval-recency' => $this->biasCheck?->recency()
+				?? ['status' => 'unevidenced', 'detail' => 'The bias check evidence is not available.'],
 			default => ['status' => 'unevidenced', 'detail' => 'No evidence source mapped for this control.'],
 		};
 

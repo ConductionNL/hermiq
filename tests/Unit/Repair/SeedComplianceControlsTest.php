@@ -176,7 +176,13 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		$this->assertCount(3, $frameworks, 'EU AI Act, ISO/IEC 42001, and NIST AI RMF must all be seeded.');
-		$this->assertCount(11, $controls, 'All 11 seeded controls must be created.');
+		$this->assertCount(13, $controls, 'All 13 seeded controls must be created.');
+		$biasControls = array_filter($controls, static fn (array $s) => $s['object']['evidenceSource'] === 'bias-eval-recency');
+		$this->assertSame(
+			[['iso-42001', 'A.6.2.4'], ['nist-ai-rmf', 'MEASURE-2.11']],
+			array_values(array_map(static fn (array $s) => [$s['object']['frameworkSlug'], $s['object']['controlId']], $biasControls)),
+			'reuse-scheduled-bias-evals: the fairness measure controls read the bias check recency.'
+		);
 
 		$slugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertSame(['eu-ai-act', 'iso-42001', 'nist-ai-rmf'], array_values($slugs));
@@ -213,9 +219,9 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		// The eu-ai-act framework and its art.12 control are skipped (already exist);
-		// the remaining 2 frameworks and 10 controls are still created.
+		// the remaining 2 frameworks and 12 controls are still created.
 		$this->assertCount(2, $frameworks);
-		$this->assertCount(10, $controls);
+		$this->assertCount(12, $controls);
 
 		$newFrameworkSlugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertNotContains('eu-ai-act', $newFrameworkSlugs);
@@ -262,7 +268,7 @@ class SeedComplianceControlsTest extends TestCase {
 			$warnings
 		);
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
-		$this->assertCount(11, $controls, 'An array row is not a stored control, so art.12 is still seeded.');
+		$this->assertCount(13, $controls, 'An array row is not a stored control, so art.12 is still seeded.');
 
 		$objectService->failSchema = 'agentcompliancecontrol';
 		$objectService->saved = [];
@@ -270,7 +276,7 @@ class SeedComplianceControlsTest extends TestCase {
 		$quiet = new SeedComplianceControls(container: $this->container(objectService: $objectService), logger: $this->createMock(LoggerInterface::class));
 		$quiet->run(output: $output);
 
-		$this->assertCount(11, $warnings);
+		$this->assertCount(13, $warnings);
 		$this->assertContains('Could not seed control "eu-ai-act/art.12": register is read-only', $warnings);
 	}//end testFailedSavesAreWarnedAndNonObjectRowsIgnored()
 }//end class

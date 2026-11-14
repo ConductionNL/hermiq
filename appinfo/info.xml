@@ -56,6 +56,7 @@
         <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
         <job>OCA\Hermiq\BackgroundJob\RunRetentionCleanupJob</job>
         <job>OCA\Hermiq\BackgroundJob\WorkspaceReaperJob</job>
+        <job>OCA\Hermiq\BackgroundJob\EvalScheduleTask</job>
     </background-jobs>
 
     <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
@@ -114,6 +115,7 @@
             <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <step>OCA\Hermiq\Repair\SeedBiasEvalTemplate</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
             <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
@@ -204,6 +206,7 @@
             <step>OCA\Hermiq\Repair\SeedAgentBuilder</step>
             <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
             <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <step>OCA\Hermiq\Repair\SeedBiasEvalTemplate</step>
             <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
             <!-- Flow BEFORE agent: the agent step names the agent, so seeding the

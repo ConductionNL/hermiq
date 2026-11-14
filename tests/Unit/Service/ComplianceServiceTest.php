@@ -582,4 +582,50 @@ class ComplianceServiceTest extends TestCase {
 		$this->assertNull($service->factsheet(agentId: 'does-not-exist'));
 
 	}//end testFactsheetAssemblesAllFourSourcesAndNullsWhenAgentMissing()
+
+	/**
+	 * reuse-scheduled-bias-evals: the bias-eval-recency control reads the bias
+	 * check evidence, and the factsheet carries the agent's latest bias check
+	 * (null reads "No bias check run").
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 */
+	public function testTheBiasCheckFeedsTheControlAndTheFactsheet(): void {
+		$bias = $this->createMock(\OCA\Hermiq\Kernel\Contracts\BiasCheckEvidenceInterface::class);
+		$bias->expects($this->once())->method('recency')->willReturn(
+			['status' => 'partial', 'detail' => '1 of 2 agent(s) with a scheduled bias check had one in the last 45 days.']
+		);
+		$latest = ['runId' => 'run-1', 'datasetId' => 'ds-1', 'passRate' => 0.95, 'date' => '2026-09-01T06:00:00+00:00'];
+		$bias->method('latestFor')->willReturnCallback(static fn (string $agentId): ?array => $agentId === 'agent-1' ? $latest : null);
+
+		$make = fn (ObjectService $objectService): ComplianceService => new ComplianceService(
+			objectService: $objectService,
+			tenantOpsService: $this->createMock(OrganisationOpsService::class),
+			approvalService: $this->createMock(ApprovalService::class),
+			tenantControlService: $this->createMock(OrganisationControlService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
+			aiFeatureService: $this->createMock(AiFeatureService::class),
+			aiFeatureLookup: $this->createMock(AiFeatureLookup::class),
+			biasCheck: $bias,
+		);
+
+		$control = $make($this->catalogueWith(evidenceSource: 'bias-eval-recency'))->dashboard(organisation: 'org-a')['frameworks'][0]['controls'][0];
+		$this->assertSame('partial', $control['status']);
+		$this->assertSame('1 of 2 agent(s) with a scheduled bias check had one in the last 45 days.', $control['detail']);
+
+		$agents = $make(
+			$this->objectService(['agent' => [$this->object('agent-1', ['name' => 'A'], 'alice'), $this->object('agent-2', ['name' => 'B'], 'alice')]])
+		);
+		$this->assertSame($latest, $agents->factsheet(agentId: 'agent-1')['biasCheck']);
+		$this->assertNull($agents->factsheet(agentId: 'agent-2')['biasCheck']);
+
+		$this->assertSame(
+			'unevidenced',
+			$this->statusFor(evidenceSource: 'bias-eval-recency')['status'],
+			'Without the evidence service the control is unevidenced, never satisfied.'
+		);
+
+	}//end testTheBiasCheckFeedsTheControlAndTheFactsheet()
 }//end class
