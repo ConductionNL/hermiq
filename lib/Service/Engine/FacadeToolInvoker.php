@@ -427,6 +427,9 @@ class FacadeToolInvoker {
 	 *                                   null, every pre-existing caller, is no cap.
 	 * @param Closure|null $agentStillOn Fresh read of the agent's switch before each call;
 	 *                                   null is always on.
+	 * @param array<int,string> $askFirst Registry ids the person who started the run asks to
+	 *                                    approve first (personal-preferences, ask before sending);
+	 *                                    empty, every pre-existing caller, asks nothing extra.
 	 *
 	 * @return void
 	 *
@@ -461,6 +464,7 @@ class FacadeToolInvoker {
 		private readonly array $waivedConstraintSets = [],
 		?int $maxToolCalls = null,
 		?Closure $agentStillOn = null,
+		private readonly array $askFirst = [],
 	) {
 		$this->turnGuard = new TurnGuard(maxToolCalls: $maxToolCalls, agentStillOn: $agentStillOn);
 	}//end __construct()
@@ -594,7 +598,7 @@ class FacadeToolInvoker {
 
 	/**
 	 * Route a granted call through the human gates — `confirm` unless waived, then the
-	 * approval gate — to the facade.
+	 * approval gate, then the person's own ask-before-sending — to the facade.
 	 *
 	 * Agent-capability-reach: an owner may waive the human confirmation for
 	 * ONE grant entry with a `#noapproval` fragment. It is consulted HERE
@@ -616,6 +620,13 @@ class FacadeToolInvoker {
 
 		if ($this->requiresApprovalGate(name: $name) === true) {
 			return $this->handleGatedInvocation(name: $name, arguments: $arguments);
+		}
+
+		// The person who started the run asked to approve anything sent on their
+		// behalf. Read after every other gate: it only adds a question, and an
+		// owner's waiver never answers it for them (personal-preferences).
+		if (in_array($this->resolveToolId(name: $name), $this->askFirst, true) === true) {
+			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
 		}
 
 		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
