@@ -75,4 +75,17 @@ interface DelegationServiceInterface {
 	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
 	 */
 	public function delegateMany(string $callerAgentId, array $parts): array;
+
+	/**
+	 * Claim and run one stored part of a parallel delegation (a background
+	 * worker's entry point).
+	 *
+	 * @param string $delegatedRunId The part's DelegatedRun id.
+	 * @param string $claimant       worker or parent.
+	 *
+	 * @return bool True when this claim won and the part ran; false when someone else had it.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function runStoredPart(string $delegatedRunId, string $claimant): bool;
 }//end interface

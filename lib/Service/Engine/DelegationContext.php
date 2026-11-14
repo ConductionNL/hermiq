@@ -159,6 +159,21 @@ class DelegationContext {
 	}//end push()
 
 	/**
+	 * Push a frame as it stood in another process: a background worker running
+	 * a part of a parallel delegation takes up the parent run's frame, so the
+	 * part runs at the parent's own depth and ancestry (delegation-runs-in-parallel D2).
+	 *
+	 * @param DelegationFrame $frame The parent run's frame.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function resume(DelegationFrame $frame): void {
+		$this->stack[] = $frame;
+	}//end resume()
+
+	/**
 	 * Pop the current frame — MUST be called in a `finally` around the turn
 	 * `push()` was called for, so a thrown exception never leaves a stale
 	 * frame behind for a later, unrelated run in the same process.
