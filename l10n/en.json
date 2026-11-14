@@ -2738,7 +2738,12 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Download": "Download",
+        "Save to my Files": "Save to my Files",
+        "Only the first files are shown.": "Only the first files are shown.",
+        "Saved to your Files as {path}.": "Saved to your Files as {path}.",
+        "The file could not be saved to your Files.": "The file could not be saved to your Files."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

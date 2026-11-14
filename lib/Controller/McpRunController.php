@@ -363,13 +363,42 @@ class McpRunController extends Controller {
 	 */
 	private function enterRunWorkspace(array $binding): void {
 		$this->runId = (string)$binding['runId'];
-		$this->workspaceScope?->enter(
+		if ($this->workspaceScope === null) {
+			return;
+		}
+
+		// The lifetime is the AGENT's setting, read from the stored agent; the
+		// conversation comes from the verified token. Neither is taken from the
+		// request body.
+		$this->workspaceScope->enter(
 			runId: $binding['runId'],
 			agentId: $binding['agentId'],
-			userId: $binding['userId']
+			userId: $binding['userId'],
+			conversationId: (string)($binding['conversationId'] ?? ''),
+			workspaceMode: $this->workspaceModeOf(agentId: (string)$binding['agentId'])
 		);
 
 	}//end enterRunWorkspace()
+
+	/**
+	 * The agent's `workspaceMode`, or '' when the agent cannot be read.
+	 *
+	 * An unreadable agent keys its workspace by the run, the narrowest lifetime.
+	 *
+	 * @param string $agentId The agent from the token.
+	 *
+	 * @return string The mode.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 */
+	private function workspaceModeOf(string $agentId): string {
+		$agent = $this->loadAgent(agentId: $agentId);
+		if ($agent === null) {
+			return '';
+		}
+
+		return (string)($agent->getObject()['workspaceMode'] ?? '');
+	}//end workspaceModeOf()
 
 	/**
 	 * Refuse a token that failed verification, and count it with the brute-force

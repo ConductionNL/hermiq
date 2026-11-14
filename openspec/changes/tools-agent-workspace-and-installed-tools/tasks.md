@@ -10,8 +10,9 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - **acceptance_criteria**:
   - GIVEN workspaceMode session WHEN two runs share a conversation THEN they reach one workspace, and a run of another conversation, user or agent does not
   - GIVEN a conversation deleted or idle for 14 days WHEN the job runs THEN its workspace is gone
-- [ ] Implement
-- [ ] Test (PHPUnit on keying, isolation and expiry)
+- [x] Implement
+- [x] Test (PHPUnit on keying, isolation and expiry)
+  > 2026-11-13: `Agent.workspaceMode` (register v0.53.0); `WorkspaceRunScope` keys a `session` agent's workspace by `SessionWorkspaceKey` (agent, conversation, user from the token); the provider records the lifetime, gives a session 14 days of idleness and 5,000 files, and `WorkspaceExpiryJob` ends the workspace of a deleted conversation. `none` keys by the run like `run`: withholding the workspace tools from `none` agents would change agents that use them today, so it is left to the change that adds the sandbox tools.
 
 ### Task 2: Copy in and write back around sandbox runs
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-sandbox-runs-work-on-the-workspace-and-write-back-what-they-change-req-wksp-002`
@@ -28,8 +29,9 @@ Kind: code. Size L. Rows `hermiq:dm-agent-workspace`, `hermiq:dm-install-cli-too
 - **acceptance_criteria**:
   - GIVEN the session user WHEN they save a file THEN it lands in their Files with the agent-authored tag, and a failed tag fails the save
   - GIVEN another user WHEN they call the routes for this workspace THEN they are refused
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Newman on the routes including another user; Playwright under tests/e2e/spec-coverage/ on the panel)
+  > 2026-11-14: `WorkspaceFiles` lists, opens (through `WorkspacePathGuard`) and saves a session workspace file into the person's Files under "Hermiq" with the agent-authored tag, deleting the copy when the tag fails. `WorkspaceFilesController` keys the workspace by the session's agent, the session and the signed-in user and answers 404 to anyone who takes no part in the session; three routes, documented in `openapi.json`. `WorkspaceFilesPanel.vue` sits under the chat header. Covered by PHPUnit (`WorkspaceFilesTest`, `WorkspaceFilesControllerTest`, including another user) and Vitest (`workspace-files-panel.spec.js`); Newman and Playwright need a live instance and were not run. `WorkspaceToolsetReadTest` still refuses every other route naming the workspace; the Files panel's three routes are the stated exception.
 
 ### Task 4: The installer and installTool
 - **spec_ref**: `openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004`

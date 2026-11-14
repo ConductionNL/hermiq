@@ -96,13 +96,13 @@ class WorkspaceToolset {
 	public function invoke(string $toolId, array $arguments): array {
 		try {
 			$run = $this->scope->current();
-			$this->assertOwnWorkspace(runKey: $run['runId'], arguments: $arguments);
+			$this->assertOwnWorkspace(runKey: $run['workspaceKey'], arguments: $arguments);
 
 			if ($toolId === WorkspaceToolDescriptors::OPEN) {
-				return $this->open(runKey: $run['runId'], arguments: $arguments);
+				return $this->open(runKey: $run['workspaceKey'], arguments: $arguments);
 			}
 
-			$root = $this->provider->root(runKey: $run['runId']);
+			$root = $this->provider->root(runKey: $run['workspaceKey']);
 			return $this->dispatch(toolId: $toolId, root: $root, arguments: $arguments);
 		} catch (WorkspaceException $e) {
 			return ['error' => ['code' => $e->getErrorCode(), 'message' => $e->getMessage()]];

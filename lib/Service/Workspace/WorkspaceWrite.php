@@ -63,7 +63,7 @@ final class WorkspaceWrite {
 	 * Constructor.
 	 *
 	 * @param string                                               $toolId The tool id.
-	 * @param array{runId: string, agentId: string, userId: string} $run    The verified run.
+	 * @param array{runId: string, agentId: string, userId: string, conversationId: string, workspaceKey: string} $run The verified run.
 	 */
 	public function __construct(
 		public readonly string $toolId,

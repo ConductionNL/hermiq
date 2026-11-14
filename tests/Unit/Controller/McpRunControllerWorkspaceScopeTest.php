@@ -29,6 +29,7 @@ use OCA\Hermiq\Service\Workspace\WorkspaceException;
 use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IRequest;
 use OCP\IUser;
@@ -66,11 +67,47 @@ final class McpRunControllerWorkspaceScopeTest extends TestCase {
 		$body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"runId":"run-other","agentId":"agent-9"}}';
 		$this->controller(body: $body, tokens: $tokens, objects: $objects, scope: $scope)->handle();
 
-		self::assertSame(['runId' => 'run-7', 'agentId' => 'agent-1', 'userId' => 'alice'], $this->seen, 'The body cannot name the run.');
+		self::assertSame(['runId' => 'run-7', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => '', 'workspaceKey' => 'run-7'], $this->seen, 'The body cannot name the run.');
 
 		$this->expectException(WorkspaceException::class);
 		$scope->current();
 	}//end testTheDispatchRunsInsideTheTokensRunAndLeavesItAfterwards()
+
+	/**
+	 * A session agent's runs reach the conversation's workspace: the mode comes
+	 * from the stored agent, the conversation from the token, never the body.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 */
+	public function testASessionAgentsRunReachesTheConversationsWorkspace(): void {
+		$scope = new WorkspaceRunScope();
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturn(['runId' => 'run-7', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1']);
+
+		$agent = new ObjectEntity();
+		$agent->setObject(['workspaceMode' => 'session']);
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('find')->willReturnCallback(
+			function () use ($scope, $agent) {
+				try {
+					$this->seen = $scope->current();
+				} catch (WorkspaceException) {
+					// Looked up before the run is entered: the agent's own mode.
+					return $agent;
+				}
+
+				return null;
+			}
+		);
+
+		$body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"conversationId":"conv-9","workspaceMode":"run"}}';
+		$this->controller(body: $body, tokens: $tokens, objects: $objects, scope: $scope)->handle();
+
+		self::assertSame('session:agent-1:conv-1:alice', $this->seen['workspaceKey'] ?? null);
+		self::assertSame('run-7', $this->seen['runId'] ?? null);
+	}//end testASessionAgentsRunReachesTheConversationsWorkspace()
 
 	/**
 	 * Build the controller.

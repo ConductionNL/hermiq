@@ -638,6 +638,10 @@ $routes = [
         // aliases rather than being removed with the rename.
         ['name' => 'session#index', 'url' => '/api/sessions', 'verb' => 'GET'],
         ['name' => 'session#create', 'url' => '/api/sessions', 'verb' => 'POST'],
+        // The chat's Files panel over the caller's session workspace (tools-agent-workspace-and-installed-tools REQ-WKSP-003).
+        ['name' => 'workspaceFiles#index', 'url' => '/api/sessions/{sessionId}/workspace/files', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#download', 'url' => '/api/sessions/{sessionId}/workspace/download', 'verb' => 'GET', 'requirements' => ['sessionId' => '[^/]+']],
+        ['name' => 'workspaceFiles#save', 'url' => '/api/sessions/{sessionId}/workspace/save', 'verb' => 'POST', 'requirements' => ['sessionId' => '[^/]+']],
         ['name' => 'session#show', 'url' => '/api/sessions/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         [
             'name'         => 'session#messages',

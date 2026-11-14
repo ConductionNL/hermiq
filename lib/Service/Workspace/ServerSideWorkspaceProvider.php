@@ -58,6 +58,20 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	public const DEFAULT_RETENTION_SECONDS = 3600;
 
 	/**
+	 * A conversation-long workspace ends 14 days after the conversation's last activity.
+	 *
+	 * @var int
+	 */
+	public const DEFAULT_SESSION_RETENTION_SECONDS = 1209600;
+
+	/**
+	 * A conversation-long workspace holds at most this many files by default.
+	 *
+	 * @var int
+	 */
+	public const DEFAULT_SESSION_MAX_FILES = 5000;
+
+	/**
 	 * Budget for a clone.
 	 *
 	 * @var int
@@ -110,7 +124,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 			return $this->summary(runKey: $runKey, dir: $dir, meta: $meta);
 		}
 
-		return $this->summary(runKey: $runKey, dir: $dir, meta: $this->checkOut(dir: $dir, checkout: $checkout));
+		return $this->summary(runKey: $runKey, dir: $dir, meta: $this->checkOut(dir: $dir, checkout: $checkout, runKey: $runKey));
 	}//end open()
 
 	/**
@@ -137,21 +151,22 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	 *
 	 * @param string          $dir      The workspace directory (a leftover one is replaced).
 	 * @param CheckoutRequest $checkout The checkout asked for.
+	 * @param string          $runKey   The workspace key.
 	 *
 	 * @return array<string, mixed> The new workspace's metadata.
 	 *
 	 * @throws WorkspaceException git_failed when the clone fails, workspace_quota when the tree is over budget.
 	 */
-	private function checkOut(string $dir, CheckoutRequest $checkout): array {
+	private function checkOut(string $dir, CheckoutRequest $checkout, string $runKey): array {
 		if (is_dir($dir) === true) {
 			$this->removeTree(path: $dir);
 		}
 
 		mkdir($dir, 0700, true);
 		$this->cloneInto(dir: $dir, checkout: $checkout);
-		$this->assertWithinBudget(dir: $dir);
+		$this->assertWithinBudget(dir: $dir, runKey: $runKey);
 
-		$meta = $this->freshMeta(checkout: $checkout);
+		$meta = $this->freshMeta(checkout: $checkout, runKey: $runKey);
 		$this->writeMeta(dir: $dir, meta: $meta);
 		return $meta;
 	}//end checkOut()
@@ -159,17 +174,32 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	/**
 	 * The metadata of a just-cloned workspace: what it holds, created and last used now.
 	 *
-	 * @param CheckoutRequest $checkout The checkout cloned.
+	 * A conversation-long workspace also records its lifetime and conversation,
+	 * so the reaper can give it the session retention and end it with its
+	 * conversation without reversing the hashed directory name.
 	 *
-	 * @return array{repository: string, ref: string, createdAt: int, lastUsedAt: int}
+	 * @param CheckoutRequest $checkout The checkout cloned.
+	 * @param string          $runKey   The workspace key.
+	 *
+	 * @return array<string, int|string> The metadata.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
 	 */
-	private function freshMeta(CheckoutRequest $checkout): array {
-		return [
+	private function freshMeta(CheckoutRequest $checkout, string $runKey): array {
+		$meta = [
 			'repository' => $checkout->repository,
 			'ref' => $checkout->ref,
 			'createdAt' => $this->time->getTime(),
 			'lastUsedAt' => $this->time->getTime(),
 		];
+
+		$conversationId = SessionWorkspaceKey::conversationOf(key: $runKey);
+		if ($conversationId !== null) {
+			$meta['lifetime']       = SessionWorkspaceKey::MODE_SESSION;
+			$meta['conversationId'] = $conversationId;
+		}
+
+		return $meta;
 	}//end freshMeta()
 
 	/**
@@ -215,15 +245,16 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	/**
 	 * Refuse a cloned tree over the byte or file budget; nothing of it stays.
 	 *
-	 * @param string $dir The workspace directory.
+	 * @param string $dir    The workspace directory.
+	 * @param string $runKey The workspace key.
 	 *
 	 * @return void
 	 *
 	 * @throws WorkspaceException workspace_quota when the tree is over budget.
 	 */
-	private function assertWithinBudget(string $dir): void {
+	private function assertWithinBudget(string $dir, string $runKey): void {
 		$usage = $this->usage(root: $dir . '/repo');
-		if ($usage['bytes'] > $this->maxBytes() || $usage['files'] > $this->maxFiles()) {
+		if ($usage['bytes'] > $this->maxBytes() || $usage['files'] > $this->maxFiles(runKey: $runKey)) {
 			$this->removeTree(path: $dir);
 			throw $this->quota();
 		}
@@ -302,7 +333,7 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	 */
 	public function reserve(string $runKey, int $addBytes, int $addFiles): void {
 		$usage = $this->usage(root: $this->root(runKey: $runKey));
-		if (($usage['bytes'] + $addBytes) > $this->maxBytes() || ($usage['files'] + $addFiles) > $this->maxFiles()) {
+		if (($usage['bytes'] + $addBytes) > $this->maxBytes() || ($usage['files'] + $addFiles) > $this->maxFiles(runKey: $runKey)) {
 			throw $this->quota();
 		}
 	}//end reserve()
@@ -333,13 +364,49 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
 	 */
 	public function reap(): int {
+		return $this->reapWhere(
+			ended: function (array $meta): bool {
+				$lastUsed = (int)($meta['lastUsedAt'] ?? 0);
+				return ($lastUsed + $this->retentionFor(meta: $meta)) < $this->time->getTime();
+			}
+		);
+	}//end reap()
+
+	/**
+	 * Remove every conversation-long workspace whose conversation is gone.
+	 *
+	 * A run workspace is never touched here: it ends by idleness alone.
+	 *
+	 * @param callable(string): bool $conversationGone Whether a conversation id no longer exists.
+	 *
+	 * @return int How many workspaces were removed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 */
+	public function reapEndedSessions(callable $conversationGone): int {
+		return $this->reapWhere(
+			ended: static function (array $meta) use ($conversationGone): bool {
+				$conversationId = (string)($meta['conversationId'] ?? '');
+				return ($meta['lifetime'] ?? null) === SessionWorkspaceKey::MODE_SESSION
+					&& $conversationId !== ''
+					&& $conversationGone($conversationId) === true;
+			}
+		);
+	}//end reapEndedSessions()
+
+	/**
+	 * Remove every workspace the predicate says has ended.
+	 *
+	 * @param callable(array<string, mixed>): bool $ended Judges one workspace's metadata.
+	 *
+	 * @return int How many workspaces were removed.
+	 */
+	private function reapWhere(callable $ended): int {
 		$base = $this->base();
 		if (is_dir($base) === false) {
 			return 0;
 		}
 
-		$retention = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_retention_seconds', self::DEFAULT_RETENTION_SECONDS);
-		$now = $this->time->getTime();
 		$removed = 0;
 		foreach ((array)scandir($base) as $entry) {
 			$dir = $base . '/' . (string)$entry;
@@ -347,16 +414,31 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 				continue;
 			}
 
-			$meta = $this->readMeta(dir: $dir);
-			$lastUsed = (int)($meta['lastUsedAt'] ?? 0);
-			if (($lastUsed + $retention) < $now) {
+			if ($ended((array)$this->readMeta(dir: $dir)) === true) {
 				$this->removeTree(path: $dir);
 				$removed++;
 			}
 		}
 
 		return $removed;
-	}//end reap()
+	}//end reapWhere()
+
+	/**
+	 * How long a workspace may sit idle: 14 days for a conversation-long one, the run retention otherwise.
+	 *
+	 * @param array<string, mixed> $meta The workspace metadata.
+	 *
+	 * @return int Seconds.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 */
+	private function retentionFor(array $meta): int {
+		if (($meta['lifetime'] ?? null) === SessionWorkspaceKey::MODE_SESSION) {
+			return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_session_retention_seconds', self::DEFAULT_SESSION_RETENTION_SECONDS);
+		}
+
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_retention_seconds', self::DEFAULT_RETENTION_SECONDS);
+	}//end retentionFor()
 
 	/**
 	 * The workspace directory for a run key.
@@ -513,11 +595,17 @@ class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorksp
 	}//end maxBytes()
 
 	/**
-	 * The file-count ceiling.
+	 * The file-count ceiling: 5,000 by default for a conversation-long workspace.
+	 *
+	 * @param string $runKey The workspace key.
 	 *
 	 * @return int
 	 */
-	private function maxFiles(): int {
+	private function maxFiles(string $runKey): int {
+		if (SessionWorkspaceKey::isSession(key: $runKey) === true) {
+			return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_session_max_files', self::DEFAULT_SESSION_MAX_FILES);
+		}
+
 		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_max_files', self::DEFAULT_MAX_FILES);
 	}//end maxFiles()
 
