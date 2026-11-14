@@ -922,6 +922,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			// carry per-agent data — attribution lives in the run trace.
 			AppIdentity::APP_ID . '.createNote' => $this->writeService->createNote(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.updateNote' => $this->writeService->updateNote(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.createFile' => $this->writeService->createFile(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.moveFile' => $this->writeService->moveFile(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.listMailAccounts' => $this->mailReadService->listAccounts(uid: $call->uid),
 			AppIdentity::APP_ID . '.listMailMessages' => $this->mailReadService->listMessages(uid: $call->uid, arguments: $call->arguments),
 			AppIdentity::APP_ID . '.readMailMessage' => $this->mailReadService->readMessage(uid: $call->uid, arguments: $call->arguments),
