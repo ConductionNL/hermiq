@@ -74,6 +74,8 @@ class DelegatedRunStore {
 	 * @param ObjectService    $objectService OpenRegister's object service (server-side, no user context in a worker).
 	 * @param ILockingProvider $locking       The instance-wide lock a claim is taken under.
 	 * @param PollClock        $clock         Timestamps.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -214,6 +216,8 @@ class DelegatedRunStore {
 	 * @param callable $change Takes the record, returns the changed record or null for no change.
 	 *
 	 * @return array<string, mixed>|null The saved record, or null when nothing was saved.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private function underLock(string $id, callable $change): ?array {
 		$lock = self::LOCK_PREFIX.$id;
@@ -248,6 +252,8 @@ class DelegatedRunStore {
 	 * @param array<string, mixed> $record The record.
 	 *
 	 * @return \OCA\OpenRegister\Db\ObjectEntity The saved object.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private function save(array $record): \OCA\OpenRegister\Db\ObjectEntity {
 		$id = $record['id'] ?? null;
@@ -267,6 +273,8 @@ class DelegatedRunStore {
 	 * Now, as ISO 8601 UTC.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private function timestamp(): string {
 		return gmdate('Y-m-d\TH:i:s\Z', $this->clock->now());

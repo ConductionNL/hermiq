@@ -74,6 +74,8 @@ class ParallelDelegation {
 	 * @param IJobList          $jobList   Queues a DelegatedRunJob per part.
 	 * @param PollClock         $clock     Time and the pause between polls.
 	 * @param IAppConfig        $appConfig The three settings.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	public function __construct(
 		private readonly DelegatedRunStore $store,
@@ -150,6 +152,8 @@ class ParallelDelegation {
 	 * @param array<string, mixed> $record The part's record.
 	 *
 	 * @return array{id: string, since: int}
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private function handOut(array $record): array {
 		$id = $this->store->queue(record: $record);
@@ -203,6 +207,8 @@ class ParallelDelegation {
 	 * @param array<string, mixed> $record The part's record.
 	 *
 	 * @return array<string, mixed>|null
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private static function outcomeOf(array $record): ?array {
 		return match ($record['state'] ?? '') {
@@ -220,6 +226,8 @@ class ParallelDelegation {
 	 * @param string $message The message.
 	 *
 	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private static function error(string $code, string $message): array {
 		return ['error' => ['code' => $code, 'message' => $message]];
@@ -231,6 +239,8 @@ class ParallelDelegation {
 	 * @param string $key The setting.
 	 *
 	 * @return int
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	private function setting(string $key): int {
 		$value = (int)$this->appConfig->getValueString(AppIdentity::APP_ID, $key, (string)self::SETTINGS[$key]);

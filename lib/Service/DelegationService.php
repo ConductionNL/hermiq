@@ -932,6 +932,8 @@ class DelegationService implements DelegationServiceInterface {
 	 * @param string|null $schema The schema in this register, or null for any object.
 	 *
 	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
 	 */
 	private function findObject(string $id, ?string $schema = null): ?ObjectEntity {
 		$agentId = $id;

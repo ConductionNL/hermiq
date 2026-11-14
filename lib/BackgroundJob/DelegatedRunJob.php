@@ -43,6 +43,8 @@ class DelegatedRunJob extends QueuedJob {
 	 *
 	 * @param ITimeFactory               $time       Core time factory required by QueuedJob.
 	 * @param DelegationServiceInterface $delegation Claims and runs the part.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
 	 */
 	public function __construct(
 		ITimeFactory $time,
