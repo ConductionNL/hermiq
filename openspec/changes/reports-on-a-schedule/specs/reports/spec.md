@@ -16,7 +16,11 @@ Rows: `ob-reports` (hermiq matrix).
 - **WHEN** a week has passed since the last one was sent
 - **THEN** they get a notification that opens the AI oversight report for that week
 
+@e2e exclude a browser test cannot wait out a week for the hourly job; the due calculation and the notification's link to that week are asserted in ReportSubscriptionJobTest::testAWeeklySubscriptionSendsTheReportForThatWeek and ReportSubscriptionScheduleTest.
+
 #### Scenario: A cancelled subscription sends nothing
 - **GIVEN** a person cancelled their subscription to a report
 - **WHEN** the next period ends
 - **THEN** no notification for that report reaches them
+
+@e2e exclude the absence of a notification after a period ends needs the hourly job and a period to pass; asserted in ReportSubscriptionJobTest::testACancelledSubscriptionSendsNothing.
