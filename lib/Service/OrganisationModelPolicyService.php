@@ -68,6 +68,16 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 	private const SCHEMA_SLUG = 'modelpolicy';
 
 	/**
+	 * The most fallbacks a policy may name (models-several-models-per-turn D1).
+	 */
+	public const MAX_FALLBACKS = 4;
+
+	/**
+	 * The refusal of a fallback the same policy does not allow.
+	 */
+	public const FALLBACK_NOT_ALLOWED = 'This fallback is not allowed by the model policy.';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
@@ -188,6 +198,9 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 		$data['allowed'] = $allowed;
 		$data['defaultModel'] = $defaultModel;
 		$data['requireNoTraining'] = (($payload['requireNoTraining'] ?? ($data['requireNoTraining'] ?? false)) === true);
+		if (array_key_exists('fallbackChain', $payload) === true) {
+			$data['fallbackChain'] = $this->normaliseFallbackChain(raw: $payload['fallbackChain'], allowed: $allowed);
+		}
 
 		// Pin the policy to the TARGET organisation, not the actor's active
 		// organisation (mirrors OrganisationControlService::toggle()'s @self.organisation
@@ -251,6 +264,13 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 		$data['defaultModel'] = $this->normaliseDefaultModel(raw: $defaultModelRaw, allowed: $allowed);
 		if (array_key_exists('requireNoTraining', $payload) === true) {
 			$data['requireNoTraining'] = ($payload['requireNoTraining'] === true);
+		}
+
+		// A chain is checked when it is written. A policy narrowed later keeps
+		// its chain: every hop is checked again at run time
+		// (models-several-models-per-turn D1).
+		if (array_key_exists('fallbackChain', $payload) === true) {
+			$data['fallbackChain'] = $this->normaliseFallbackChain(raw: $payload['fallbackChain'], allowed: $allowed);
 		}
 
 		$organisation = (string)($existing->getOrganisation() ?? '');
@@ -354,6 +374,53 @@ class OrganisationModelPolicyService implements OrganisationModelPolicyServiceIn
 		];
 
 	}//end normaliseDefaultModel()
+
+	/**
+	 * Validate + normalise the `fallbackChain` payload: an ordered list of at
+	 * most four `{provider, model}` pairs, each one of the policy's own
+	 * allowed combinations. Null or an empty list clears the chain.
+	 *
+	 * @param mixed $raw The raw `fallbackChain` payload value.
+	 * @param array<int, array{provider: string, models: array<int, string>}> $allowed The normalised allowlist to validate against.
+	 *
+	 * @return array<int, array{provider: string, model: string}> The normalised chain.
+	 *
+	 * @throws InvalidArgumentException When the chain is malformed, too long, or names a pair the policy does not allow.
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001
+	 */
+	private function normaliseFallbackChain(mixed $raw, array $allowed): array {
+		if ($raw === null) {
+			return [];
+		}
+
+		if (is_array($raw) === false || array_is_list($raw) === false) {
+			throw new InvalidArgumentException('fallbackChain must be a list of {provider, model} entries');
+		}
+
+		if (count($raw) > self::MAX_FALLBACKS) {
+			throw new InvalidArgumentException('A model policy names at most ' . self::MAX_FALLBACKS . ' fallbacks.');
+		}
+
+		$chain = [];
+		foreach ($raw as $entry) {
+			if (is_array($entry) === false) {
+				throw new InvalidArgumentException('Each fallback must be an object with provider/model');
+			}
+
+			$provider = trim((string)($entry['provider'] ?? ''));
+			$model = trim((string)($entry['model'] ?? ''));
+			if ($provider === '' || $model === ''
+				|| $this->effectivePolicy->matchesAllowed(allowed: $allowed, provider: $provider, model: $model) === false
+			) {
+				throw new InvalidArgumentException(self::FALLBACK_NOT_ALLOWED);
+			}
+
+			$chain[] = ['provider' => $provider, 'model' => $model];
+		}
+
+		return $chain;
+	}//end normaliseFallbackChain()
 
 	/**
 	 * Shape a ModelPolicy ObjectEntity into the API response payload.

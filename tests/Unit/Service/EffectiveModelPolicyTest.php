@@ -199,6 +199,7 @@ class EffectiveModelPolicyTest extends TestCase {
 				'allowed' => [['provider' => 'ollama', 'models' => ['qwen']]],
 				'defaultModel' => ['provider' => 'ollama', 'model' => 'qwen'],
 				'requireNoTraining' => true,
+				'fallbackChain' => [],
 			],
 			$check->effectivePolicyFor(organisation: 'org-a')
 		);
@@ -234,7 +235,7 @@ class EffectiveModelPolicyTest extends TestCase {
 		$unconfigured = $this->check([], chatProvider: '');
 
 		$this->assertSame(
-			['source' => 'fallback', 'allowed' => [['provider' => 'ollama', 'models' => []]], 'defaultModel' => null, 'requireNoTraining' => false],
+			['source' => 'fallback', 'allowed' => [['provider' => 'ollama', 'models' => []]], 'defaultModel' => null, 'requireNoTraining' => false, 'fallbackChain' => []],
 			$configured->effectivePolicyFor(organisation: 'org-a')
 		);
 		$this->assertTrue($configured->isAllowed(organisation: 'org-a', provider: 'ollama', model: 'any'));
@@ -276,11 +277,11 @@ class EffectiveModelPolicyTest extends TestCase {
 		$updated = $service->update(uuid: 'p-org', payload: ['requireNoTraining' => false]);
 
 		$this->assertSame(
-			['id' => 'p-org', 'organisation' => 'org-a', 'source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => ['gpt-4o']]], 'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'requireNoTraining' => true],
+			['id' => 'p-org', 'organisation' => 'org-a', 'source' => 'organisation', 'allowed' => [['provider' => 'openai', 'models' => ['gpt-4o']]], 'defaultModel' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'requireNoTraining' => true, 'fallbackChain' => []],
 			$upserted
 		);
-		$this->assertSame(['new-uuid', '', 'instance', [], null, false], array_values($instance));
-		$this->assertSame(['p-org', 'org-of-record', 'organisation', [], null, false], array_values($updated));
+		$this->assertSame(['new-uuid', '', 'instance', [], null, false, []], array_values($instance));
+		$this->assertSame(['p-org', 'org-of-record', 'organisation', [], null, false, []], array_values($updated));
 		$this->assertSame('p-org', $objects->saves[0]['uuid']);
 		$this->assertNull($objects->saves[1]['uuid']);
 	}//end testAWriteReturnsTheStoredShape()

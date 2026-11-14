@@ -154,6 +154,7 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 			'allowed' => $allowed,
 			'defaultModel' => null,
 			'requireNoTraining' => false,
+			'fallbackChain' => [],
 		];
 
 	}//end fallbackPolicy()
@@ -243,6 +244,8 @@ class EffectiveModelPolicy implements EffectiveModelPolicyInterface {
 			'allowed' => $data['allowed'] ?? [],
 			'defaultModel' => $data['defaultModel'] ?? null,
 			'requireNoTraining' => (($data['requireNoTraining'] ?? false) === true),
+			// The providers a turn moves to when its own fails (models-several-models-per-turn).
+			'fallbackChain' => array_values((array)($data['fallbackChain'] ?? [])),
 		];
 
 	}//end shape()
