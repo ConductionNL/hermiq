@@ -41,6 +41,7 @@ use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
 use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
 use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Chat\ChatRefusalFrame;
@@ -152,6 +153,7 @@ class ChatStreamController extends Controller {
 	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
 	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param TalkTurnMirrorInterface|null $mirror Mirrors a turn into the session's Talk room.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -171,6 +173,7 @@ class ChatStreamController extends Controller {
 		private readonly AgentAccessServiceInterface $agentAccess,
 		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?TalkTurnMirrorInterface $mirror = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
@@ -249,6 +252,15 @@ class ChatStreamController extends Controller {
 			);
 
 			$this->replayRunSteps(conversationId: $turn['conversationId']);
+			// A session with a Talk room gets this turn in the room too, queued so
+			// the stream never waits on Talk (chat-carry-a-conversation-across-channels D2).
+			$this->mirror?->enqueue(
+				session: (array)$conversation->getObject(),
+				sessionId: $turn['conversationId'],
+				userId: $turn['userId'],
+				question: (string)$turn['message'],
+				answer: (string)($result['response'] ?? ($result['message'] ?? ''))
+			);
 			$this->emitAndExit(eventType: 'final', payload: $this->finalPayload(result: $result, turn: $turn));
 		} catch (ToolGrantResolutionException $e) {
 			$this->emitToolGrantsUnresolved(exception: $e);

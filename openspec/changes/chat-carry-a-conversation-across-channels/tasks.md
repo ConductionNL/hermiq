@@ -28,8 +28,8 @@ Kind: code. Size S to M. Row `hermiq:dm-cross-channel`.
   - GIVEN a session with a room WHEN a turn is sent on `/chat` THEN the job posts the question and the answer as the agent's bot
   - GIVEN a mirrored message WHEN the bot listener sees it THEN no turn is created
   - GIVEN Talk refuses the post WHEN the job runs THEN it logs and the turn stays stored
-- [ ] Implement
-- [ ] Test (PHPUnit with the real Talk event class; one live round-trip on the dev instance)
+- [x] Implement: `TalkTurnMirror::enqueue()` queues `MirrorTurnToTalkJob` from `ChatController` and `ChatStreamController` for a session with `talkRoomToken`; the job posts "<display name> via Hermiq: <question>" and then the answer through the agent's bot (cut at 30,000 characters with a link to the session); a Talk refusal is logged and the turn stays stored. `TalkBotInvokeListener` ignores every message whose actor is a bot (`bots/…`), so a mirrored question never becomes a turn. Spreed's bot API takes no message metadata through `ChatManager::sendMessage()`, so the actor check is the marker.
+- [x] Test (PHPUnit): `TalkTurnMirrorTest`, `MirrorTurnToTalkJobTest`, `TalkBotInvokeListenerTest::testAMirroredBotMessageTakesNoTurn` (on the listener's event shape; spreed is not installed in the unit environment). The live round-trip on the dev instance was not run.
 
 ### Task 4: The doors on the Chat page and in the room
 - **spec_ref**: `openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-door-points-at-the-other-req-schan-003`

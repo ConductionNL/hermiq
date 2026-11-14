@@ -321,6 +321,13 @@ class TalkBotInvokeListener implements IEventListener {
 		$speakerUid = (string)($payload['actor']['id'] ?? '');
 		$content = (new TalkMessageText())->plainText(raw: (string)($payload['object']['content'] ?? ''));
 
+		// A bot's own message is never a turn: a question mirrored from the Chat
+		// page is posted by the agent's bot and is already a stored turn
+		// (chat-carry-a-conversation-across-channels D2).
+		if (str_starts_with($speakerUid, 'bots/') === true) {
+			return null;
+		}
+
 		// Spreed prefixes user actors with `users/`.
 		if (str_starts_with($speakerUid, 'users/') === true) {
 			$speakerUid = substr($speakerUid, strlen('users/'));

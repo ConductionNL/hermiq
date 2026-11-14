@@ -458,4 +458,28 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->listener->handle($this->makeEvent(content: 'hello', actorId: 'users/alice'));
 
 	}//end testActorPrefixIsStripped()
+
+	/**
+	 * A message posted by the agent's own bot, such as a question mirrored from
+	 * the Chat page, is never a new turn (chat-carry-a-conversation-across-channels D2).
+	 *
+	 * @return void
+	 */
+	public function testAMirroredBotMessageTakesNoTurn(): void {
+		$this->bridge->method('isAvailable')->willReturn(true);
+		$this->bridge->method('isOneToOne')->willReturn(true);
+		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
+		$this->roomBinding->method('findByRoomToken')->willReturn(
+			// Even a conversation the bot's actor id would pass the participant check for.
+			$this->makeConversation(['userId' => 'bots/bot-agent-1', 'participants' => []])
+		);
+
+		$this->dispatcher->expects($this->never())->method('dispatch');
+
+		$event = $this->makeEvent(content: 'Anne de Vries via Hermiq: Welke offertes lopen nog?', actorId: 'bots/bot-agent-1');
+		$this->listener->handle($event);
+
+		$this->assertSame([], $event->reactions, 'A mirrored message is not acknowledged either.');
+
+	}//end testAMirroredBotMessageTakesNoTurn()
 }//end class

@@ -686,6 +686,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnMirrorInterface",
+            "OCA\\Hermiq\\Service\\Talk\\TalkTurnMirror"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\TalkTurnServiceInterface",
             "OCA\\Hermiq\\Service\\Talk\\TalkTurnService"
         ],
