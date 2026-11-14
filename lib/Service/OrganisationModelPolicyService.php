@@ -39,6 +39,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\OrganisationModelPolicyServiceInterface;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -50,7 +51,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/tenant-model-policy/spec.md#requirement-per-organisation-model-policy-object
  */
-class OrganisationModelPolicyService {
+class OrganisationModelPolicyService implements OrganisationModelPolicyServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

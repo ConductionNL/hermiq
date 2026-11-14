@@ -32,8 +32,10 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\AiFeature\FeatureTransition;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
 use OCA\OpenRegister\Service\ObjectService;
@@ -44,7 +46,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
-class AiFeatureService {
+class AiFeatureService implements AiFeatureServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -68,39 +70,11 @@ class AiFeatureService {
 	private const ACK_KEY_PREFIX = 'dpo_ack';
 
 	/**
-	 * Transition outcome: the feature is now enabled.
-	 *
-	 * @var string
-	 */
-	public const RESULT_ENABLED = 'enabled';
-
-	/**
-	 * Transition outcome: the feature is now disabled.
-	 *
-	 * @var string
-	 */
-	public const RESULT_DISABLED = 'disabled';
-
-	/**
-	 * Transition outcome: the guard refused the transition (e.g. no DPO ack).
-	 *
-	 * @var string
-	 */
-	public const RESULT_BLOCKED = 'blocked';
-
-	/**
 	 * Transition outcome: the transition is not allowed from the current state.
 	 *
 	 * @var string
 	 */
 	public const RESULT_INVALID = 'invalid';
-
-	/**
-	 * Transition outcome: the feature was not found (or is cross-tenant).
-	 *
-	 * @var string
-	 */
-	public const RESULT_NOT_FOUND = 'notfound';
 
 	/**
 	 * Constructor.
@@ -224,7 +198,7 @@ class AiFeatureService {
 
 		// Authoritative acknowledgement the guard reads (admin/DPO-only config write).
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			$this->ackKey(slug: $slug, tenantId: $tenantId),
 			$uid . '@' . $timestamp
 		);
@@ -315,7 +289,7 @@ class AiFeatureService {
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function enable(string $id): string {
-		return $this->transition(id: $id, target: self::RESULT_ENABLED, from: [self::RESULT_DISABLED]);
+		return $this->transition(id: $id, change: new FeatureTransition(target: self::RESULT_ENABLED, from: [self::RESULT_DISABLED]));
 	}//end enable()
 
 	/**
@@ -328,7 +302,7 @@ class AiFeatureService {
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function disable(string $id): string {
-		return $this->transition(id: $id, target: self::RESULT_DISABLED, from: [self::RESULT_ENABLED]);
+		return $this->transition(id: $id, change: new FeatureTransition(target: self::RESULT_DISABLED, from: [self::RESULT_ENABLED]));
 	}//end disable()
 
 	/**
@@ -341,14 +315,15 @@ class AiFeatureService {
 	 * so a genuinely-disallowed transition is reported as RESULT_INVALID without a write.
 	 *
 	 * @param string $id The AiFeature UUID.
-	 * @param string $target The target lifecycle value.
-	 * @param array<int,string> $from The lifecycle values from which the transition is allowed.
+	 * @param FeatureTransition $change The lifecycle state an AI feature moves to, and the states it may move from.
 	 *
 	 * @return string One of the RESULT_* outcomes.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
-	private function transition(string $id, string $target, array $from): string {
+	private function transition(string $id, FeatureTransition $change): string {
+		$target = $change->target;
+		$from = $change->from;
 		$feature = $this->getFeature(id: $id);
 		if ($feature === null) {
 			return self::RESULT_NOT_FOUND;

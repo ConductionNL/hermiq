@@ -62,10 +62,11 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Service\AiFeature\DataUseGate;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
-use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
-use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -105,7 +106,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
-class ProviderFactory {
+class ProviderFactory implements ProviderFactoryInterface {
 
 	/**
 	 * App id of the AppAPI app — required for any ExApp (`cli` execution mode) detection.

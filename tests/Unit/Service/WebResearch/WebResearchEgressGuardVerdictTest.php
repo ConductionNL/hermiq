@@ -89,6 +89,22 @@ final class WebResearchEgressGuardVerdictTest extends TestCase {
 		);
 	}//end testTheMetadataBlockOutranksThePrivateBlockWhateverTheOrder()
 
+	public function testAnyEquivalentSpellingOfAMetadataAddressIsBlocked(): void {
+		$expected = ['allowed' => false, 'code' => 'metadata_address', 'message' => 'The destination resolves to a cloud-metadata address, which is always blocked.'];
+
+		self::assertSame($expected, $this->guard(['FD00:EC2:0:0:0:0:0:254'])->assertSafe(url: 'https://meta.example/', isAdminConfiguredEndpoint: true));
+		self::assertSame($expected, $this->guard(['fd00:0ec2::0254'])->assertSafe(url: 'https://meta.example/', isAdminConfiguredEndpoint: false, allowlist: ['meta.example']));
+		self::assertSame(['allowed' => true, 'code' => null, 'message' => null], $this->guard(['fd00:ec2::255'])->assertSafe(url: 'https://meta.example/', isAdminConfiguredEndpoint: true));
+	}//end testAnyEquivalentSpellingOfAMetadataAddressIsBlocked()
+
+	public function testAResolvedValueThatIsNotAnAddressFailsClosedForFetch(): void {
+		self::assertSame(
+			['allowed' => false, 'code' => 'private_address', 'message' => "Host 'odd.example' resolves to a private/loopback/link-local address, which is blocked."],
+			$this->guard(['8.8.8.8', 'Not-An-Address'])->assertSafe(url: 'https://odd.example/', isAdminConfiguredEndpoint: false)
+		);
+		self::assertSame(['odd.example'], $this->resolved);
+	}//end testAResolvedValueThatIsNotAnAddressFailsClosedForFetch()
+
 	public function testResolutionCollectsAThenAaaaRecordsAndSkipsAFailedType(): void {
 		$lookups = [];
 		$guard = new class($lookups) extends WebResearchEgressGuard {

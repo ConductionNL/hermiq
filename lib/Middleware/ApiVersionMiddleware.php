@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Middleware;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Middleware;
@@ -83,7 +83,7 @@ class ApiVersionMiddleware extends Middleware {
 			return $response;
 		}
 
-		$version = $this->appManager->getAppVersion(Application::APP_ID);
+		$version = $this->appManager->getAppVersion(AppIdentity::APP_ID);
 		if ($version === '') {
 			return $response;
 		}

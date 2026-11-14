@@ -33,7 +33,8 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\OrganisationOpsServiceInterface;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -53,7 +54,7 @@ use RuntimeException;
  *
  * @spec openspec/changes/archive/2026-09-06-multi-tenant-ops/tasks.md#1-tenantopsservice
  */
-class OrganisationOpsService {
+class OrganisationOpsService implements OrganisationOpsServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -155,8 +156,8 @@ class OrganisationOpsService {
 			}
 		}
 
-		$scheduleLimit = $this->appConfig->getValueInt(Application::APP_ID, 'scheduleQuota', self::DEFAULT_SCHEDULE_QUOTA);
-		$agentLimit = $this->appConfig->getValueInt(Application::APP_ID, 'agentQuota', self::DEFAULT_AGENT_QUOTA);
+		$scheduleLimit = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'scheduleQuota', self::DEFAULT_SCHEDULE_QUOTA);
+		$agentLimit = $this->appConfig->getValueInt(AppIdentity::APP_ID, 'agentQuota', self::DEFAULT_AGENT_QUOTA);
 		$agentCount = count($agentIds);
 
 		return [

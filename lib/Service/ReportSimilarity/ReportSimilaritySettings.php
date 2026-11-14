@@ -32,7 +32,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\ReportSimilarity;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilaritySettingsInterface;
 use OCP\IAppConfig;
 
 /**
@@ -40,7 +41,7 @@ use OCP\IAppConfig;
  *
  * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
  */
-class ReportSimilaritySettings {
+class ReportSimilaritySettings implements ReportSimilaritySettingsInterface {
 
 	/**
 	 * At or above this score a report joins a group and is counted into it.
@@ -176,7 +177,7 @@ class ReportSimilaritySettings {
 			$stored['windows'] = $this->cleanWindows(windows: $windows);
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
 
 		return $this->all();
 	}//end store()
@@ -261,7 +262,7 @@ class ReportSimilaritySettings {
 	 * @return array<string, mixed> The settings.
 	 */
 	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return [];
 		}

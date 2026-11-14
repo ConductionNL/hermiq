@@ -28,10 +28,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
+use OCA\Hermiq\Kernel\Contracts\RecordSummaryServiceInterface;
 use OCA\Hermiq\Repair\Support\AiFeatureRows;
 use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
-use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
-use OCA\Hermiq\Service\Assistant\RecordSummaryService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -106,7 +106,7 @@ class SeedRecordSummary implements IRepairStep {
 	public function run(IOutput $output): void {
 		try {
 			$objectService = $this->container->get(ObjectService::class);
-			$library = $this->container->get(AssistantPromptLibrary::class);
+			$library = $this->container->get(AssistantPromptLibraryInterface::class);
 		} catch (Throwable $e) {
 			$output->warning('OpenRegister not available, skipping the record-summary seed.');
 			$this->logger->warning('[hermiq] record-summary seed skipped: ' . $e->getMessage());
@@ -140,7 +140,7 @@ class SeedRecordSummary implements IRepairStep {
 
 			$objectService->saveObject(
 				object: [
-					'slug' => RecordSummaryService::FEATURE_SLUG,
+					'slug' => RecordSummaryServiceInterface::FEATURE_SLUG,
 					'name' => 'Record summary',
 					'description' => 'Writes a short summary of a record on its page, with the assistant of the '
 						. 'record\'s app. Limited risk under the EU AI Act: the text is labelled as written by AI '
@@ -166,22 +166,22 @@ class SeedRecordSummary implements IRepairStep {
 	/**
 	 * Ship the record-summary prompt into the library.
 	 *
-	 * @param AssistantPromptLibrary $library The prompt library.
+	 * @param AssistantPromptLibraryInterface $library The prompt library.
 	 * @param IOutput $output The repair output.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
-	private function seedPrompt(AssistantPromptLibrary $library, IOutput $output): void {
+	private function seedPrompt(AssistantPromptLibraryInterface $library, IOutput $output): void {
 		try {
 			$result = $library->seed(
 				appId: 'hermiq',
 				prompts: [
 					[
 						'label' => 'Record summary',
-						'prompt' => RecordSummaryService::DEFAULT_PROMPT,
-						'usageScope' => RecordSummaryService::PROMPT_SCOPE,
+						'prompt' => RecordSummaryServiceInterface::DEFAULT_PROMPT,
+						'usageScope' => RecordSummaryServiceInterface::PROMPT_SCOPE,
 						'order' => 0,
 						'enabled' => true,
 					],
@@ -204,6 +204,6 @@ class SeedRecordSummary implements IRepairStep {
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
 	private function featureExists(ObjectService $objectService): bool {
-		return (new AiFeatureRows(objectService: $objectService))->exists(slug: RecordSummaryService::FEATURE_SLUG);
+		return (new AiFeatureRows(objectService: $objectService))->exists(slug: RecordSummaryServiceInterface::FEATURE_SLUG);
 	}//end featureExists()
 }//end class

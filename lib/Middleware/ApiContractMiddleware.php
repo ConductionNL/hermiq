@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Middleware;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Middleware\Support\ApiPathAliases;
 use OCA\Hermiq\Middleware\Support\StandardProtocolPaths;
 use OCP\App\IAppManager;
@@ -145,7 +145,7 @@ class ApiContractMiddleware extends Middleware {
 			return $response;
 		}
 
-		$response->addHeader(name: 'API-Version', value: $this->appManager->getAppVersion(appId: Application::APP_ID));
+		$response->addHeader(name: 'API-Version', value: $this->appManager->getAppVersion(appId: AppIdentity::APP_ID));
 		$this->announceSuccessor(response: $response);
 		// Only the versioned surface is new; an unversioned path keeps its error body and content type.
 		if ($response instanceof JSONResponse

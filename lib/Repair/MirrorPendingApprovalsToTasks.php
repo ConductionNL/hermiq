@@ -38,7 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Kernel\Contracts\ApprovalTaskBridgeInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -71,12 +71,12 @@ class MirrorPendingApprovalsToTasks implements IRepairStep {
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService Reads pending Approvals and writes the backlink.
-	 * @param ApprovalTaskBridge $taskBridge Creates the mirror tasks (never throws).
+	 * @param ApprovalTaskBridgeInterface $taskBridge Creates the mirror tasks (never throws).
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
-		private readonly ApprovalTaskBridge $taskBridge,
+		private readonly ApprovalTaskBridgeInterface $taskBridge,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

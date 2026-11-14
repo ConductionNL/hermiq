@@ -48,6 +48,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Literacy\LiteracyReport;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -67,7 +68,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
  */
-class ComplianceService {
+class ComplianceService implements ComplianceServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

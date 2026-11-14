@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCS\OCSForbiddenException;
@@ -45,11 +45,11 @@ final class ActionGate {
 	 * The gate.
 	 *
 	 * @param IUserSession $userSession Resolves the requesting user.
-	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization.
 	 */
 	public function __construct(
 		private readonly IUserSession $userSession,
-		private readonly ActionAuthService $actionAuth,
+		private readonly ActionAuthServiceInterface $actionAuth,
 	) {
 	}//end __construct()
 

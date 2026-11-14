@@ -34,6 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -49,7 +50,7 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
  */
-class SkillVersionService {
+class SkillVersionService implements SkillVersionServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

@@ -29,9 +29,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AgentVersionServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -72,22 +72,22 @@ class AgentVersionController extends Controller {
 	 *
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (owner/access guard).
-	 * @param AgentVersionService $agentVersionService Reads/diffs/rolls back the agent's version history.
+	 * @param AgentVersionServiceInterface $agentVersionService Reads/diffs/rolls back the agent's version history.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess The one per-agent access predicate.
+	 * @param AgentAccessServiceInterface $agentAccess The one per-agent access predicate.
 	 *
 	 * @spec openspec/specs/agent-versioning/spec.md
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly ObjectService $objectService,
-		private readonly AgentVersionService $agentVersionService,
+		private readonly AgentVersionServiceInterface $agentVersionService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

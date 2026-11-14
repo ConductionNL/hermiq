@@ -31,6 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkBridgeStatusInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Container\ContainerInterface;
@@ -44,7 +45,7 @@ use Throwable;
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
  */
-class TalkBridgeStatus {
+class TalkBridgeStatus implements TalkBridgeStatusInterface {
 
 	/**
 	 * OpenRegister register slug.

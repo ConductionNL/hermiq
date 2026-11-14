@@ -60,6 +60,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
 use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
@@ -99,7 +100,7 @@ use Throwable;
  *   constructor collaborator named after its class (GuardrailPolicyService) —
  *   shortening it would obscure which service is injected.
  */
-class Engine {
+class Engine implements EngineInterface {
 	use SanitizesForSaveTrait;
 
 	/**
@@ -363,6 +364,8 @@ class Engine {
 				'answerAttachments' => ($this->images?->takeCreated() ?? []),
 				'sources' => $ragContext['sources'],
 			];
+			// Chat-how-an-answer-came-about D1: identities and outcomes, never content.
+			$turn['provenance'] = (new AnswerProvenance())->build(trace: $trace, sources: $turn['sources']);
 			$turn['assistantStored'] = $this->storeAnswer(turn: $turn);
 
 			return $this->turnEnvelope(turn: $turn, timings: $timings);
@@ -597,10 +600,12 @@ class Engine {
 				conversationId: $turn['conversationId'],
 				promptVariables: $this->promptVariablesFor(
 					userId: $turn['userId'],
-					agent: $turn['agent'],
-					organisation: $turn['organisation'],
-					appContext: $turn['cnAiContext'],
-					conversationData: $turn['conversationData']
+					scope: new PromptVariableScope(
+						agent: $turn['agent'],
+						organisation: $turn['organisation'],
+						appContext: $turn['cnAiContext'],
+						conversationData: $turn['conversationData']
+					)
 				),
 				attachments: $turn['resolvedAttachments'],
 				speaker: ($turn['authorId'] ?? $turn['userId'])
@@ -653,6 +658,8 @@ class Engine {
 			// Run-trace-observability: the collector's full ordered step
 			// timeline, empty when no collector was supplied.
 			'steps' => $turn['trace']?->toArray() ?? [],
+			// Chat-how-an-answer-came-about: the record stored on the answer.
+			'provenance' => $turn['provenance'],
 			// Skill-evals: the skill uuids actually exposed to this run's context,
 			// recorded on the run's audit entry for ALL runs.
 			'skillsUsed' => $turn['skillsUsed'],
@@ -702,6 +709,7 @@ class Engine {
 	 * @return ObjectEntity The stored assistant Message.
 	 *
 	 * @spec openspec/specs/agent-engine-port/spec.md
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	private function storeAnswer(array $turn): ObjectEntity {
 		$assistantStored = $this->historyHandler->storeMessage(
@@ -709,7 +717,8 @@ class Engine {
 			role: 'assistant',
 			content: $turn['aiResponse'],
 			sources: $turn['sources'],
-			attachments: $turn['answerAttachments']
+			attachments: $turn['answerAttachments'],
+			provenance: $turn['provenance']
 		);
 
 		$this->queueTitleGeneration(
@@ -857,22 +866,17 @@ class Engine {
 	 * sent as written.
 	 *
 	 * @param string               $userId           The acting person.
-	 * @param ObjectEntity|null    $agent            The session's agent.
-	 * @param string               $organisation     The session's organisation.
-	 * @param array<string, mixed> $appContext       The companion's snapshot.
-	 * @param array<string, mixed> $conversationData The session's data.
+	 * @param PromptVariableScope $scope The agent, organisation and context a turn's prompt variables are resolved in.
 	 *
 	 * @return array<string, string>
 	 *
 	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
 	 */
-	private function promptVariablesFor(
-		string $userId,
-		?ObjectEntity $agent,
-		string $organisation,
-		array $appContext,
-		array $conversationData,
-	): array {
+	private function promptVariablesFor(string $userId, PromptVariableScope $scope): array {
+		$agent = $scope->agent;
+		$organisation = $scope->organisation;
+		$appContext = $scope->appContext;
+		$conversationData = $scope->conversationData;
 		if ($this->promptVariables === null || $agent === null) {
 			return [];
 		}

@@ -57,6 +57,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use RuntimeException;
@@ -72,7 +73,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
  */
-class GuardrailPolicyService {
+class GuardrailPolicyService implements GuardrailPolicyServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

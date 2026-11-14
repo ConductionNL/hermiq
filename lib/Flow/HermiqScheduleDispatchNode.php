@@ -34,7 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Flow\FlowNodeCall;
@@ -79,7 +79,7 @@ class HermiqScheduleDispatchNode implements IFlowNode {
 	/**
 	 * Constructor.
 	 *
-	 * @param ScheduleService $scheduleService The governed dispatch path (runNow).
+	 * @param ScheduleServiceInterface $scheduleService The governed dispatch path (runNow).
 	 * @param ObjectService $objectService Loads the schedule object.
 	 * @param ContainerInterface $container Lazy FlowMapper resolution, so a stale
 	 *                                      mirror can be disabled without making
@@ -90,7 +90,7 @@ class HermiqScheduleDispatchNode implements IFlowNode {
 	 * @param IURLGenerator $urls For the palette icon.
 	 */
 	public function __construct(
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly ObjectService $objectService,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,

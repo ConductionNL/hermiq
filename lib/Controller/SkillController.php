@@ -24,7 +24,7 @@
  * (catalog/discovery operations, mirroring how `import`/`export` already live here):
  * `githubSearch()` + `githubInstall()`, a close port of
  * `AgentTemplateController::githubSearch()`/`::githubInstall()` scoped to
- * `GitHubTemplateCatalogService::KIND_SKILL`. `githubInstall()` is a thin adapter in
+ * `GitHubTemplateCatalogServiceInterface::KIND_SKILL`. `githubInstall()` is a thin adapter in
  * front of the UNCHANGED `SkillMarketplaceService::installFromSource(source: 'hub')`
  * — no new quarantine/scan logic (design.md Decision 2). The GitHub token never
  * enters Hermiq: both endpoints only ever pass a broker `credentialId` to
@@ -50,15 +50,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
-use OCA\Hermiq\Service\SeedCustodyService;
-use OCA\Hermiq\Service\SkillBundleInstaller;
-use OCA\Hermiq\Service\SkillBundleSerializer;
-use OCA\Hermiq\Service\SkillMarketplaceService;
-use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplateCatalogServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\GitHubTemplatePushServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillBundleInstallerInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillBundleSerializerInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -106,16 +106,16 @@ class SkillController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param SkillService $skillService The skill read/write path.
+	 * @param SkillServiceInterface $skillService The skill read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param GitHubTemplateCatalogService $catalogService GitHub search/fetch (hermiq-github-store).
-	 * @param SkillMarketplaceService $marketplaceService Quarantine install path (hermiq-github-store).
-	 * @param SkillBundleSerializer $bundleSerializer Bundle tree (de)serialiser (skill-bundle-publish).
-	 * @param GitHubTemplatePushService $pushService Bundle publish (skill-bundle-publish).
-	 * @param SkillBundleInstaller $bundleInstaller Bundle install, shared with OpenBuild (apply-v2-channels).
-	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (skill write guard).
-	 * @param AgentAccessService $agentAccess Per-agent authorization (install/uninstall guard).
+	 * @param GitHubTemplateCatalogServiceInterface $catalogService GitHub search/fetch (hermiq-github-store).
+	 * @param SkillMarketplaceServiceInterface $marketplaceService Quarantine install path (hermiq-github-store).
+	 * @param SkillBundleSerializerInterface $bundleSerializer Bundle tree (de)serialiser (skill-bundle-publish).
+	 * @param GitHubTemplatePushServiceInterface $pushService Bundle publish (skill-bundle-publish).
+	 * @param SkillBundleInstallerInterface $bundleInstaller Bundle install, shared with OpenBuild (apply-v2-channels).
+	 * @param SeedCustodyServiceInterface $seedCustody Owner-or-seed-custodian check (skill write guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (install/uninstall guard).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -124,18 +124,18 @@ class SkillController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly SkillService $skillService,
+		private readonly SkillServiceInterface $skillService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly GitHubTemplateCatalogService $catalogService,
-		private readonly SkillMarketplaceService $marketplaceService,
-		private readonly SkillBundleSerializer $bundleSerializer,
-		private readonly GitHubTemplatePushService $pushService,
-		private readonly SkillBundleInstaller $bundleInstaller,
-		private readonly SeedCustodyService $seedCustody,
-		private readonly AgentAccessService $agentAccess,
+		private readonly GitHubTemplateCatalogServiceInterface $catalogService,
+		private readonly SkillMarketplaceServiceInterface $marketplaceService,
+		private readonly SkillBundleSerializerInterface $bundleSerializer,
+		private readonly GitHubTemplatePushServiceInterface $pushService,
+		private readonly SkillBundleInstallerInterface $bundleInstaller,
+		private readonly SeedCustodyServiceInterface $seedCustody,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -363,7 +363,7 @@ class SkillController extends Controller {
 	/**
 	 * Search GitHub for `topic:hermiq-skill` repos (hermiq-github-store) — a close
 	 * port of `AgentTemplateController::githubSearch()` scoped to
-	 * `GitHubTemplateCatalogService::KIND_SKILL`.
+	 * `GitHubTemplateCatalogServiceInterface::KIND_SKILL`.
 	 *
 	 * Login-required (in-body 401 guard). Returns the normalised, kind-tagged cards
 	 * plus a `brokerCredentialAvailable`/`brokerUsed`/`rateLimited` hint; never
@@ -394,7 +394,7 @@ class SkillController extends Controller {
 				query: $query,
 				actingUserId: $user->getUID(),
 				credentialId: $this->credentialParam(),
-				kind: GitHubTemplateCatalogService::KIND_SKILL
+				kind: GitHubTemplateCatalogServiceInterface::KIND_SKILL
 			);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq skill github search failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -442,7 +442,7 @@ class SkillController extends Controller {
 			$store = new GitHubSkillStore(catalog: $this->catalogService, marketplace: $this->marketplaceService);
 			$skill = $store->install(target: $target);
 			if ($skill === null) {
-				return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+				return new JSONResponse(['error' => GitHubTemplateCatalogServiceInterface::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
 			}
 
 			return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);

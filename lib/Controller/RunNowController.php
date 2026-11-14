@@ -35,10 +35,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Service\EngineRequiredException;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -76,9 +76,9 @@ class RunNowController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (ownership check + status re-read).
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param ScheduleService $scheduleService Runs the schedule via the shared dispatch path.
+	 * @param ScheduleServiceInterface $scheduleService Runs the schedule via the shared dispatch path.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param LiteracyRequirement|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
+	 * @param LiteracyRequirementInterface|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
@@ -86,11 +86,11 @@ class RunNowController extends Controller {
 		IRequest $request,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
-		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?LiteracyRequirementInterface $literacy = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

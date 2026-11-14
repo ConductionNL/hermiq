@@ -38,6 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillBundleSerializerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -45,7 +46,7 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/archive/2026-09-06-skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
-class SkillBundleSerializer {
+class SkillBundleSerializer implements SkillBundleSerializerInterface {
 
 	/**
 	 * The bundle manifest at the repository root. Its presence is what makes a

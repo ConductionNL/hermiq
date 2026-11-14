@@ -35,13 +35,13 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\AiFeature\AiFeatureBindingService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureBindingServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AlgoritmekaderMapperInterface;
+use OCA\Hermiq\Kernel\Contracts\PublicationGatewayInterface;
 use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
-use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\AlgoritmekaderMapper;
-use OCA\Hermiq\Service\PublicationGateway;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -66,29 +66,29 @@ class AiFeatureController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AiFeatureService $aiFeatureService The AiFeature read/govern path.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param AiFeatureServiceInterface $aiFeatureService The AiFeature read/govern path.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AlgoritmekaderMapper $algoritmekader Publish-readiness gate + Algoritmekader mapping.
-	 * @param PublicationGateway $publicationGateway Runtime seam to the fleet publication path (OpenCatalogi).
-	 * @param AiFeatureBindingService $bindingService Writes a feature's provider binding and required residency.
+	 * @param AlgoritmekaderMapperInterface $algoritmekader Publish-readiness gate + Algoritmekader mapping.
+	 * @param PublicationGatewayInterface $publicationGateway Runtime seam to the fleet publication path (OpenCatalogi).
+	 * @param AiFeatureBindingServiceInterface $bindingService Writes a feature's provider binding and required residency.
 	 * @param FeatureProviderResolver $featureResolver Resolves which provider each feature will use.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AiFeatureService $aiFeatureService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly AiFeatureServiceInterface $aiFeatureService,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AlgoritmekaderMapper $algoritmekader,
-		private readonly PublicationGateway $publicationGateway,
-		private readonly AiFeatureBindingService $bindingService,
+		private readonly AlgoritmekaderMapperInterface $algoritmekader,
+		private readonly PublicationGatewayInterface $publicationGateway,
+		private readonly AiFeatureBindingServiceInterface $bindingService,
 		private readonly FeatureProviderResolver $featureResolver,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -481,9 +481,9 @@ class AiFeatureController extends Controller {
 	 */
 	private function mapTransition(string $id, string $result): JSONResponse {
 		return match ($result) {
-			AiFeatureService::RESULT_ENABLED, AiFeatureService::RESULT_DISABLED => new JSONResponse(['id' => $id, 'lifecycle' => $result]),
-			AiFeatureService::RESULT_NOT_FOUND => $this->notFound(),
-			AiFeatureService::RESULT_BLOCKED => new JSONResponse(
+			AiFeatureServiceInterface::RESULT_ENABLED, AiFeatureServiceInterface::RESULT_DISABLED => new JSONResponse(['id' => $id, 'lifecycle' => $result]),
+			AiFeatureServiceInterface::RESULT_NOT_FOUND => $this->notFound(),
+			AiFeatureServiceInterface::RESULT_BLOCKED => new JSONResponse(
 				['error' => 'Transition blocked: the DPO has not acknowledged this AI feature.'],
 				Http::STATUS_CONFLICT
 			),

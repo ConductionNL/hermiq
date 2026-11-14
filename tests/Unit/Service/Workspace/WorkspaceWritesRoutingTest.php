@@ -63,6 +63,7 @@ use Psr\Log\NullLogger;
  * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
  * @uses   \OCA\Hermiq\Service\Redaction\FormBodyRedactor
  * @uses   \OCA\Hermiq\Service\Redaction\PhoneRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\TokenMasker
  * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
  */
 final class WorkspaceWritesRoutingTest extends TestCase {
