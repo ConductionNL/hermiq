@@ -228,6 +228,10 @@
             "description": "List, add and remove the participants of a session; the owner only."
         },
         {
+            "name": "session-share",
+            "description": "Read-only shares of a session"
+        },
+        {
             "name": "session-fork",
             "description": "Fork a session at an answer."
         },
@@ -7724,6 +7728,168 @@
                         "in": "path",
                         "required": true,
                         "description": "The colleague.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/sessions/{uuid}/shares": {
+            "get": {
+                "operationId": "session-share-index",
+                "summary": "The read-only shares of a session the caller owns",
+                "description": "The read-only shares of a session the caller owns, with display names. Anyone else gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-share"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "session-share-create",
+                "summary": "Share a session the caller owns read-only (body: type user|group, id)",
+                "description": "Share a session the caller owns read-only with a user or a group. Refused (403) when the instance's sharing settings do not allow it; anyone but the owner gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-share"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "user",
+                                            "group"
+                                        ],
+                                        "description": "Whether id names a user or a group."
+                                    },
+                                    "id": {
+                                        "type": "string",
+                                        "description": "The user id or group id."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/sessions/{uuid}/shares/{type}/{id}": {
+            "delete": {
+                "operationId": "session-share-destroy",
+                "summary": "Take a read-only share back",
+                "description": "Take a read-only share back; the recipient loses access at once. Anyone but the owner gets 404. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "session-share"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The session uuid.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "path",
+                        "required": true,
+                        "description": "`user` or `group`.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "user",
+                                "group"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The user id or group id.",
                         "schema": {
                             "type": "string"
                         }

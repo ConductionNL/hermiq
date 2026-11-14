@@ -36,7 +36,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
   - GIVEN the owner WHEN they add a user and a group THEN `sharedWith` holds both and the audit trail shows the save
   - GIVEN "share only with group members" WHEN the owner adds an outsider THEN the share is refused
   - GIVEN a non-owner WHEN they call any share route THEN the answer is 404
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit with a fake `IManager`; Newman for owner and non-owner)
 
 ### Task 5: Read access for recipients, nothing more
@@ -44,7 +44,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `lib/Controller/SessionController.php`, `lib/Service/SessionShareService.php`
 - **acceptance_criteria**:
   - GIVEN a user in a shared group WHEN they read the session and its turns THEN both answer 200, and rename, archive, delete, fork and send are refused
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit per method; Newman as a recipient)
 
 ### Task 6: Share dialog, notification and the shared view
