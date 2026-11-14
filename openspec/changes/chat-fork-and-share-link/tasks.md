@@ -18,7 +18,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN an owner and an assistant turn WHEN they fork THEN a new session holds copies up to that turn with `forkedFrom`, and the source is untouched
   - GIVEN a user turn or a foreign session WHEN a fork is requested THEN the answer is 400 or 404 and nothing is created
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on the service including full-payload saves; Newman for the three outcomes)
 
 ### Task 3: "Fork from here" on the Chat page
@@ -26,7 +26,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `src/views/Chat.vue`, `src/api/chat.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a ten-turn session WHEN the owner forks at the fourth answer THEN the new session opens with four turns and the list shows both
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts`)
 
 ### Task 4: The share list and its routes
