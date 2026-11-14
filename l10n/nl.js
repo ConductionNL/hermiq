@@ -1992,7 +1992,21 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "Het uitvoerfilter van de organisatie heeft een deel van het antwoord afgeschermd.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "In a project the agent remembers what belongs to that project apart from its shared memory.": "In een project onthoudt de agent wat bij dat project hoort, los van zijn gedeelde geheugen.",
+        "Memory layers": "Geheugenlagen",
+        "Move": "Verplaatsen",
+        "Move to project": "Naar project verplaatsen",
+        "Move to project…": "Naar project verplaatsen…",
+        "Move to shared": "Naar gedeeld verplaatsen",
+        "Name a project to keep what the agent remembers in it apart.": "Geef een project een naam om wat de agent daarin onthoudt apart te houden.",
+        "Name of the new project": "Naam van het nieuwe project",
+        "New project": "Nieuw project",
+        "New project (optional)": "Nieuw project (optioneel)",
+        "No project": "Geen project",
+        "Project": "Project",
+        "Project: {project}": "Project: {project}",
+        "Shared": "Gedeeld"
     },
     "nplurals=2; plural=(n != 1);"
 )

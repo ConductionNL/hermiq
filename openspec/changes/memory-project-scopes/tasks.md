@@ -35,7 +35,7 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **files**: `lib/Settings/hermiq_register.json`, `lib/Controller/SessionController.php`, `src/views/Chat.vue`, `src/api/chat.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN an agent with projects WHEN a person starts a session THEN they can pick a project, start a new one or choose none, and the header shows the project
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`)
 
 ### Task 5: Layers and moves on the Memory page
@@ -43,7 +43,7 @@ Kind: code. Size M. Row `hermiq:dm-project-memory`.
 - **files**: `appinfo/routes.php`, `lib/Controller/MemoryController.php`, `src/views/AgentMemory.vue`, `src/api/memory.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a project entry WHEN the owner moves it to shared THEN it leaves the project and appears under Shared, redacted again
-- [ ] Implement
+- [x] Implement
 - [ ] Test (PHPUnit on the move; Playwright for the tabs and the move)
 
 ## Verification

@@ -129,12 +129,22 @@ export async function listMessages(uuid, { limit = 50, offset = 0 } = {}) {
  *
  * @param {string} agentUuid The agent object UUID.
  * @param {string} [title] Optional explicit title.
+ * @param {{projectKey?: string, projectName?: string}|null} [project] The project the
+ *        session works in (memory-project-scopes): an existing key, or a name for a new
+ *        project. Fixed for the life of the session.
  * @return {Promise<object>} The created session.
+ * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
-export async function createSession(agentUuid, title) {
+export async function createSession(agentUuid, title, project = null) {
 	const payload = { agentUuid }
 	if (title) {
 		payload.title = title
+	}
+	if (project?.projectKey) {
+		payload.projectKey = project.projectKey
+	}
+	if (project?.projectName) {
+		payload.projectName = project.projectName
 	}
 	const response = await axios.post(generateUrl(SESSIONS_BASE), payload)
 	return response.data
