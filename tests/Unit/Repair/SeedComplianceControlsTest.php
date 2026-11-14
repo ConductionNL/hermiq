@@ -56,6 +56,13 @@ class SeedComplianceControlsTest extends TestCase {
 			public array $saved = [];
 
 			/**
+			 * Schema whose saves fail, or null.
+			 *
+			 * @var string|null
+			 */
+			public ?string $failSchema = null;
+
+			/**
 			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
 			 */
 			public function __construct(
@@ -98,6 +105,10 @@ class SeedComplianceControlsTest extends TestCase {
 				bool $_dedupOverride = false,
 				?string $_owner = null,
 			): ObjectEntity {
+				if ((string)$schema === $this->failSchema) {
+					throw new \RuntimeException('register is read-only');
+				}
+
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 
@@ -213,4 +224,53 @@ class SeedComplianceControlsTest extends TestCase {
 		$this->assertNotContains('art.12', $newControlIds);
 
 	}//end testReRunIsIdempotent()
+
+	/**
+	 * A failing save is reported per row and does not stop the rest; rows that
+	 * are not objects never count as an existing seed.
+	 *
+	 * @return void
+	 */
+	public function testFailedSavesAreWarnedAndNonObjectRowsIgnored(): void {
+		$objectService = $this->objectService(
+			[
+				'agentcontrolframework' => [['slug' => 'eu-ai-act']],
+				'agentcompliancecontrol' => [['frameworkSlug' => 'eu-ai-act', 'controlId' => 'art.12']],
+			]
+		);
+		$objectService->failSchema = 'agentcontrolframework';
+
+		$warnings = [];
+		$output = $this->createMock(IOutput::class);
+		$output->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
+		);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->exactly(3))->method('error');
+
+		$step = new SeedComplianceControls(container: $this->container(objectService: $objectService), logger: $logger);
+		$step->run(output: $output);
+
+		$this->assertSame(
+			[
+				'Could not seed control framework "eu-ai-act": register is read-only',
+				'Could not seed control framework "iso-42001": register is read-only',
+				'Could not seed control framework "nist-ai-rmf": register is read-only',
+			],
+			$warnings
+		);
+		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
+		$this->assertCount(11, $controls, 'An array row is not a stored control, so art.12 is still seeded.');
+
+		$objectService->failSchema = 'agentcompliancecontrol';
+		$objectService->saved = [];
+		$warnings = [];
+		$quiet = new SeedComplianceControls(container: $this->container(objectService: $objectService), logger: $this->createMock(LoggerInterface::class));
+		$quiet->run(output: $output);
+
+		$this->assertCount(11, $warnings);
+		$this->assertContains('Could not seed control "eu-ai-act/art.12": register is read-only', $warnings);
+	}//end testFailedSavesAreWarnedAndNonObjectRowsIgnored()
 }//end class
