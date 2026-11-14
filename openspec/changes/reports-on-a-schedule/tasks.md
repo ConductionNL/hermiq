@@ -9,4 +9,5 @@ Build note: the schema is `reportsubscription` in `lib/Settings/hermiq_register.
 
 ## 2. Hand-over
 
-- [ ] 2.1 `@spec` tags and an e2e test or a reason-bearing `@e2e exclude` per scenario.
+- [x] 2.1 `@spec` tags and an e2e test or a reason-bearing `@e2e exclude` per scenario.
+  - The new methods carry `@spec openspec/changes/reports-on-a-schedule/...`; both scenarios are background-job timing a browser cannot wait out, so each carries an `@e2e exclude` naming the unit test that asserts it.
