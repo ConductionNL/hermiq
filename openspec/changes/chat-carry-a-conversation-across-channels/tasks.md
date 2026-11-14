@@ -37,12 +37,12 @@ Kind: code. Size S to M. Row `hermiq:dm-cross-channel`.
 - **acceptance_criteria**:
   - GIVEN a session with a room WHEN the list renders THEN it shows the Talk icon and the menu offers "Open in Talk"
   - GIVEN the agent's first answer in a room THEN it ends with the "Continue in Hermiq" link; the second answer does not
-- [ ] Implement
-- [ ] Test (Playwright `tests/e2e/spec-coverage/chat-carry-a-conversation-across-channels.spec.ts`; PHPUnit on the formatter)
+- [x] Implement: a session with a room shows the Talk icon in the list and "Open in Talk" in its menu (`src/services/sessionChannel.js`); a person's turn typed in Talk reads "via Talk" (`SessionController` returns `channel`); the agent's first answer in a room ends with "Continue in Hermiq: <link>" (`TalkTurnService::continueInHermiq()`, claimed once per session through `TalkRoomBinding::claimFirstAnswerLink()` and `Session.talkLinkPosted`, Session 0.5.0).
+- [ ] Test (Playwright `tests/e2e/spec-coverage/chat-carry-a-conversation-across-channels.spec.ts`; PHPUnit on the formatter) — PHPUnit (`TalkTurnServiceTest`, `TalkRoomBindingFirstAnswerTest`) and vitest (`tests/vitest/sessionChannel.spec.js`) are in; the Playwright file is not written yet.
 
 ### Task 5: Seed data
 - **files**: `lib/Settings/hermiq_register.json` seed section
-- [ ] Add the "Inkoop overleg" demo session with mixed channels
+- [x] Add the "Inkoop overleg" demo session with mixed channels — in `lib/Settings/example-sets/zuiddrecht.json` (the register holds no seed objects; the example set is where demo sessions live): a Talk question and answer, then a Chat-page question and answer (`ExampleSetInkoopOverlegTest`). Its Talk room is not example data, as for the set's other session.
 
 ## Verification
 - [ ] `openspec validate chat-carry-a-conversation-across-channels --type change --strict` passes

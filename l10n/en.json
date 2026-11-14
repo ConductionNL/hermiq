@@ -2738,7 +2738,9 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Open in Talk": "Open in Talk",
+        "via Talk": "via Talk"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

@@ -1252,6 +1252,9 @@ class SessionController extends Controller {
 			// Who asked this turn (null on the agent's own turns), so a shared session shows it.
 			'authorId' => ($data['authorId'] ?? null),
 			'authorDisplayName' => ($data['authorDisplayName'] ?? null),
+			// Where a human turn was typed, `talk` or `hermiq`; null on the agent's own
+			// turns and on turns stored before it was recorded (chat-carry-a-conversation-across-channels).
+			'channel' => ($data['channel'] ?? null),
 			// The files attached to this turn, as references (chat-attachments-and-images).
 			'attachments' => ($data['attachments'] ?? []),
 			// How the answer came about (chat-how-an-answer-came-about): the stored record
