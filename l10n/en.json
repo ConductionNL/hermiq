@@ -1,5 +1,12 @@
 {
     "translations": {
+        "Oversight": "Oversight",
+        "Misuse": "Misuse",
+        "Mark": "Mark",
+        "by {operator} on {date}": "by {operator} on {date}",
+        "Mark tool call": "Mark tool call",
+        "Could not mark the tool call": "Could not mark the tool call",
+        "Why is this call misuse? A mark needs a reason.": "Why is this call misuse? A mark needs a reason.",
         "Open {name} in Files": "Open {name} in Files",
         "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.": "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.",
         "Use the provider’s prompt cache": "Use the provider’s prompt cache",

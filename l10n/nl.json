@@ -1,5 +1,12 @@
 {
     "translations": {
+        "Oversight": "Toezicht",
+        "Misuse": "Misbruik",
+        "Mark": "Markeren",
+        "by {operator} on {date}": "door {operator} op {date}",
+        "Mark tool call": "Toolaanroep markeren",
+        "Could not mark the tool call": "De toolaanroep kon niet worden gemarkeerd",
+        "Why is this call misuse? A mark needs a reason.": "Waarom is deze aanroep misbruik? Een markering heeft een reden nodig.",
         "Open {name} in Files": "{name} openen in Bestanden",
         "Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.": "Anthropic leest het ongewijzigde begin van elk verzoek uit zijn cache. Herhaalde beurten worden daardoor goedkoper en sneller. Het antwoord blijft hetzelfde.",
         "Use the provider’s prompt cache": "De promptcache van de provider gebruiken",
