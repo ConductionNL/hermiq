@@ -47,8 +47,9 @@ use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\SessionSearchService;
+use OCA\Hermiq\Service\Engine\AnswerProvenanceWriter;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\SessionSearchService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -180,6 +181,7 @@ class SessionController extends Controller {
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param SessionCollaborators $collaborators The Talk room, agent access, subject and pending approvals.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
+	 * @param AnswerProvenanceWriter|null $provenanceWriter How an answer came about, in the reader's language.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
@@ -192,6 +194,7 @@ class SessionController extends Controller {
 		private readonly LoggerInterface $logger,
 		SessionCollaborators $collaborators,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
+		private readonly ?AnswerProvenanceWriter $provenanceWriter = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->sessionRoom = $collaborators->sessionRoom;
@@ -1451,6 +1454,7 @@ class SessionController extends Controller {
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1476,9 +1480,30 @@ class SessionController extends Controller {
 			'authorDisplayName' => ($data['authorDisplayName'] ?? null),
 			// The files attached to this turn, as references (chat-attachments-and-images).
 			'attachments' => ($data['attachments'] ?? []),
+			// How the answer came about (chat-how-an-answer-came-about): the stored record
+			// and its sentences in the reader's language; null on a turn without one.
+			'provenance' => ($data['provenance'] ?? null),
+			'provenanceAccount' => $this->provenanceAccount(record: ($data['provenance'] ?? null)),
 			'created' => $message->getCreated()?->format('c'),
 		];
 	}//end serializeMessage()
+
+	/**
+	 * The sentences saying how an answer came about, or none without a record.
+	 *
+	 * @param mixed $record The turn's stored provenance record.
+	 *
+	 * @return list<string> The sentences.
+	 *
+	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-can-read-how-an-answer-came-about-in-plain-language-req-atrn-002
+	 */
+	private function provenanceAccount(mixed $record): array {
+		if ($this->provenanceWriter === null) {
+			return [];
+		}
+
+		return $this->provenanceWriter->sentences(record: $record);
+	}//end provenanceAccount()
 
 	/**
 	 * The 404 "conversation not found" response.
