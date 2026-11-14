@@ -26,56 +26,30 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
-use OCA\Hermiq\Service\Workspace\ServerSideWorkspaceProvider;
-use OCA\Hermiq\Service\Workspace\WorkspaceProvider;
-use OCA\Hermiq\Listener\AgentBotLifecycleListener;
-use OCA\Hermiq\Listener\AgentWaiverChangeListener;
-use OCA\Hermiq\Listener\AgentRunRequestedListener;
-use OCA\Hermiq\Event\AiOversightRecordedEvent;
-use OCA\Hermiq\Listener\AiOversightRecordedListener;
-use OCA\Hermiq\Listener\RegisterAgentLeafListener;
-use OCA\Hermiq\Listener\TalkApprovalReactionListener;
-use OCA\Hermiq\Listener\TalkBotInvokeListener;
-use OCA\Hermiq\Listener\UserLifecycleListener;
-use OCA\Hermiq\Mcp\HermiqToolProvider;
-use OCA\Hermiq\Middleware\ApiVersionMiddleware;
-use OCA\Hermiq\Notification\Notifier;
-use OCA\Hermiq\Service\Llm\DatabaseRunTokenStore;
-use OCA\Hermiq\Service\Llm\RunTokenStore;
-use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
-use OCA\Hermiq\TaskProcessing\AudioToTextProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextProvider;
-use OCA\Hermiq\TaskProcessing\TextToSpeechProvider;
-use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
-use OCA\Hermiq\Tenant\ManageableOrganisations;
-use OCA\Hermiq\Tenant\OpenRegisterManageableOrganisations;
-use OCA\OpenRegister\Contract\RegisterSlugResolverInterface;
-use OCA\OpenRegister\Event\AgentRunRequestedEvent;
-use OCA\OpenRegister\Event\DraftCreatedEvent;
-use OCA\OpenRegister\Event\DraftUpdatedEvent;
-use OCA\OpenRegister\Event\ObjectCreatedEvent;
-use OCA\OpenRegister\Event\ObjectDeletedEvent;
-use OCA\OpenRegister\Event\ObjectUpdatedEvent;
-use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Listener\ListenerRegistrar;
+use OCA\Hermiq\Middleware\MiddlewareRegistrar;
+use OCA\Hermiq\Mcp\McpRegistrar;
+use OCA\Hermiq\Notification\NotificationRegistrar;
+use OCA\Hermiq\Service\ServiceRegistrar;
+use OCA\Hermiq\TaskProcessing\ProviderRegistrar;
+use OCA\Hermiq\Tenant\TenantRegistrar;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
-use OCP\User\Events\UserChangedEvent;
-use OCP\User\Events\UserDeletedEvent;
 
 /**
  * Main application class for the Hermiq Nextcloud app.
  *
  * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires every listener,
- * notifier, tool provider and TaskProcessing provider the app ships — one reference per
- * registered integration point, no behavioural coupling.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires the component
+ * registrars — one reference per registered integration point, no
+ * behavioural coupling.
  */
 class Application extends App implements IBootstrap {
-	public const APP_ID = 'hermiq';
+	public const APP_ID = AppIdentity::APP_ID;
 
 	/**
 	 * Constructor for the Application class.
@@ -100,6 +74,8 @@ class Application extends App implements IBootstrap {
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
 	 */
 	public function register(IRegistrationContext $context): void {
+		$middleware = new MiddlewareRegistrar();
+		$middleware->registerFirst(context: $context);
 		// Load the app's own composer autoloader so bundled dependencies (e.g.
 		// dragonmantank/cron-expression, used by ScheduleService) resolve at
 		// runtime — Nextcloud does not auto-load an app's vendor/autoload.php.
@@ -116,321 +92,16 @@ class Application extends App implements IBootstrap {
 		// absent, and the guards below then do the right thing.
 		OpenRegisterAutoloader::register();
 
-		$this->registerAgentRunListeners(context: $context);
-		$this->registerAgentObjectListeners(context: $context);
-		$this->registerOpenRegisterContributions(context: $context);
-		$this->registerUserAndTalkListeners(context: $context);
-		$this->registerServices(context: $context);
-		$this->registerTaskProcessingProviders(context: $context);
+		(new ListenerRegistrar())->register(context: $context, addInitScript: $this->addInitScript(...));
+		(new NotificationRegistrar())->register(context: $context);
+		(new TenantRegistrar())->register(context: $context);
+		(new ServiceRegistrar())->register(context: $context);
+		(new McpRegistrar())->register(context: $context);
+		(new ProviderRegistrar())->register(context: $context);
 
-		// Every /api/ response names the answering API version (NL API Design Rules, /core/version-header).
-		$context->registerMiddleware(ApiVersionMiddleware::class);
+		$middleware->registerLast(context: $context);
 
 	}//end register()
-
-	/**
-	 * The listeners that start an agent run or store what a person decided about one.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerAgentRunListeners(IRegistrationContext $context): void {
-		// Flow-triggered agent runs (SPECTR-NEXTCLOUD-PLAN.md §5.2, ADR-041): a
-		// declarative `x-openregister-flows` action of `type: "agent"` dispatches
-		// OpenRegister's AgentRunRequestedEvent; this listener enqueues the governed
-		// dispatch (AgentRunRequestedJob → FlowAgentRunService). No class_exists()
-		// guard is needed on THIS line specifically — `::class` is a compile-time
-		// string, it does not require the class to be loaded — but OpenRegister is
-		// NOT enforceable as a versioned dependency via info.xml (NC has no
-		// inter-app version-pin mechanism); it is documented in <description> and
-		// checked at install/upgrade by Repair\CheckOpenRegisterCompatibility,
-		// which is what actually catches a stale-OpenRegister fleet instance.
-		$context->registerEventListener(
-			event: AgentRunRequestedEvent::class,
-			listener: AgentRunRequestedListener::class
-		);
-
-		// Hermiq owns human oversight; the apps that run AI against their own
-		// domain objects own the moment the human decides. This is how the
-		// second tells the first, so Art. 14 evidence lands in one register
-		// rather than one per app. Unlike the run-request listener above this
-		// one is synchronous: it stores a fact the user already produced, and
-		// the consumer reads isHandled() right after dispatch.
-		$context->registerEventListener(
-			event: AiOversightRecordedEvent::class,
-			listener: AiOversightRecordedListener::class
-		);
-	}//end registerAgentRunListeners()
-
-	/**
-	 * What Hermiq contributes to OpenRegister's engines, and the bundles it loads on every page.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerOpenRegisterContributions(IRegistrationContext $context): void {
-		// Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
-		// contributes the agent step as a flow NODE, and nothing else. Flows now
-		// live in OpenRegister's one native store, so there is no hermiq flow
-		// resolver, no hermiq flow store and no hermiq executor — node
-		// contribution is the whole of the integration surface. Guarded on the
-		// class existing so an instance whose OpenRegister predates the flow
-		// engine still boots.
-		if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class) === true) {
-			$context->registerEventListener(
-				\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class,
-				\OCA\Hermiq\Flow\HermiqFlowNodeListener::class
-			);
-		}
-
-		// Oversight (schedules-onto-engine-triggers, EU AI Act Art. 14): contribute
-		// hermiq's per-organisation kill switch to the engine's oversight registry,
-		// so a `hermiq.*` hop of an engaged organisation's run is vetoed BEFORE it
-		// executes — the operator's stop control reaches engine-timed and
-		// canvas-authored runs, not only the app-local tick. Guarded on the event
-		// class existing so an instance whose OpenRegister predates the oversight
-		// registry still boots.
-		if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class) === true) {
-			$context->registerEventListener(
-				\OCA\OpenRegister\Service\Flow\RegisterFlowOversightEvent::class,
-				\OCA\Hermiq\Listener\FlowOversightRegistrationListener::class
-			);
-		}
-
-		// Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
-		// `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
-		// sibling-app leaf-registration hook (RegisterLeafProvidersEvent). This makes
-		// an Agent tab/widget discoverable on any OpenRegister object in any OpenBuild
-		// app. Guarded on the event class existing so an instance whose OpenRegister
-		// predates the leaf hook still boots. The matching JS registration
-		// (registerIntegration under the SAME id) ships in the always-loaded
-		// `hermiq-agent-leaf` bundle added below.
-		if (class_exists(RegisterLeafProvidersEvent::class) === true) {
-			$context->registerEventListener(
-				RegisterLeafProvidersEvent::class,
-				RegisterAgentLeafListener::class
-			);
-
-			// Load the leaf's render-registration bundle on EVERY Nextcloud page so
-			// `registerIntegration('hermiq-agent', …)` runs wherever an OpenBuild app
-			// renders the OpenRegister integration registry — not only on Hermiq's own
-			// pages. The load-order-safe registry shim queues the call when OR's bundle
-			// has not loaded yet and replays it on install (ADR-019 cross-bundle trap).
-			$this->addInitScript(suffix: '-agent-leaf');
-		}
-
-		// AI companion on EVERY page (companion-everywhere). Until now the chat
-		// existed only inside Hermiq's own Vue app, where CnAppRoot renders it from
-		// `:aiCompanion="true"` -- which put the assistant one navigation away from
-		// the document the user was actually looking at.
-		//
-		// The office editors are THIRD-PARTY apps (onlyoffice, eurooffice,
-		// richdocuments), so there is no CnAppRoot of ours to switch on and no
-		// template of ours to edit. An init script is the only seam that reaches
-		// them, and it is the same one the agent leaf above already uses.
-		//
-		// The bundle itself declines to mount on Hermiq's own pages, where
-		// CnAppRoot already renders a companion.
-		$this->addInitScript(suffix: '-companion');
-
-		// Federated configuration sharing: contribute hermiq's skill type to
-		// OpenRegister's shareable-config engine (agent templates ride the schema
-		// marker instead). Guarded on the event class existing so an instance whose
-		// OpenRegister predates the engine still boots.
-		if (class_exists(\OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent::class) === true) {
-			$context->registerEventListener(
-				\OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent::class,
-				\OCA\Hermiq\Listener\ShareableConfigTypeListener::class
-			);
-		}
-	}//end registerOpenRegisterContributions()
-
-	/**
-	 * The listeners on Nextcloud's user events, Talk's bot events and OpenRegister's tasks.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerUserAndTalkListeners(IRegistrationContext $context): void {
-		// Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
-		// or disabled auto-pauses their schedules (ScheduleService::pauseForUser())
-		// and flags the owning Agent(s) for reassignment. This NC version has no
-		// dedicated `DisableUserEvent` — disabling a user fires `UserChangedEvent`
-		// with feature='enabled'/value=false (see UserLifecycleListener docblock),
-		// so both events are registered against the SAME listener.
-		$context->registerEventListener(
-			event: UserDeletedEvent::class,
-			listener: UserLifecycleListener::class
-		);
-		$context->registerEventListener(
-			event: UserChangedEvent::class,
-			listener: UserLifecycleListener::class
-		);
-
-		// Inbound Talk chat bridge (talk-chat-bridge): spreed dispatches
-		// BotInvokeEvent IN-PROCESS for bots registered with the
-		// `nextcloudapp://` URL scheme, so this is a plain listener rather than
-		// a webhook endpoint — nothing is exposed to the network.
-		//
-		// Registered UNCONDITIONALLY and by event NAME, deliberately. Guarding
-		// it with `class_exists('OCA\Talk\...')` is the obvious-looking move and
-		// is wrong: at register() time a sibling app may not be loaded yet, so
-		// the check can return false on a perfectly healthy instance and
-		// silently disable the whole feature with nothing in the logs.
-		// Registration is cheap and listener resolution is lazy, so the guard
-		// would buy nothing and cost the feature. Talk availability is checked
-		// at INVOKE time instead, inside the listener (TalkBridge::isAvailable()).
-		$context->registerEventListener(
-			event: 'OCA\\Talk\\Events\\BotInvokeEvent',
-			listener: TalkBotInvokeListener::class
-		);
-
-		// Approval-task convergence (phase 1): every pending Approval is
-		// mirrored as an OpenRegister task, and a task completed in
-		// OpenRegister's shared inbox decides the Approval here. Registered by
-		// event NAME (the filinq#988 pattern), deliberately: at register()
-		// time the OCA\OpenRegister\ prefix may not be autoloadable yet, so a
-		// class_exists() guard could silently disable the whole surface, while
-		// registering for a name that is never dispatched is harmless.
-		$context->registerEventListener(
-			event: \OCA\Hermiq\Listener\TaskTerminalListener::EVENT_TASK_TERMINAL,
-			listener: \OCA\Hermiq\Listener\TaskTerminalListener::class
-		);
-
-		// Approvals decided by reaction (talk-approval-reactions): spreed
-		// invokes bots on reactions with the SAME BotInvokeEvent, so this is a
-		// second listener on the same event — each ignores the invocation types
-		// that are not its own. Registered unconditionally and by event name for
-		// the same reason as the message listener above.
-		$context->registerEventListener(
-			event: 'OCA\\Talk\\Events\\BotInvokeEvent',
-			listener: TalkApprovalReactionListener::class
-		);
-	}//end registerUserAndTalkListeners()
-
-	/**
-	 * The notifier and the service bindings named at this composition root.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerServices(IRegistrationContext $context): void {
-		// Renders Hermiq's Nextcloud notifications (talk-delivery): the notification
-		// delivery channel and the Talk fallback both raise notifications that this
-		// INotifier turns into localised bell-menu entries. See lib/Notification/Notifier.php.
-		$context->registerNotifierService(Notifier::class);
-
-		// ADR-083 rule 3: the dashboard is the app's DEFAULT ROUTE, so it depends on
-		// hermiq's own ManageableOrganisations contract instead of OpenRegister's
-		// OrganisationMapper. The binding names the implementation here, at the
-		// composition root; the implementation itself takes only core services and
-		// reaches OpenRegister behind an isInstalled() guard, so the container can
-		// build the controller — and the start screen can render — on an instance
-		// where OpenRegister is absent.
-		$context->registerServiceAlias(
-			ManageableOrganisations::class,
-			OpenRegisterManageableOrganisations::class
-		);
-
-		// The governed workspace seam (hermiq-runner-git-capability): Hermiq's
-		// runtime keeps run-keyed checkouts in app data on the governed side.
-		$context->registerServiceAlias(
-			WorkspaceProvider::class,
-			ServerSideWorkspaceProvider::class
-		);
-
-		// Run tokens live in the database, the one store every PHP process of the
-		// instance shares (hermiq ADR-025). The distributed cache is not that store
-		// on an instance without `memcache.distributed`: there it is APCu, per
-		// process pool, and a token a cron job minted was invisible to the web
-		// server verifying it.
-		$context->registerServiceAlias(
-			RunTokenStore::class,
-			DatabaseRunTokenStore::class
-		);
-
-		// The register-slug resolver, published by OpenRegister (ADR-084's shape:
-		// one definition owned by the app that implements it).
-		//
-		// Register slugs live in `openregister_registers`, and nine fleet apps
-		// ship a repair step that renames theirs. The step is per instance, so
-		// both slugs are live across the estate at once and a literal is wrong on
-		// half of it. The old-slug case is the quiet one: OpenRegister finds no
-		// register, matches no rows, and returns an empty set that is
-		// byte-for-byte what a healthy empty register returns. No exception, no
-		// 404, no log line. `CourseRecommendationEngine` read the learner-signal
-		// register that way, which for a recommendation engine means it
-		// recommends nothing and reports success.
-		//
-		// Verified against this container rather than assumed: resolving this
-		// interface from hermiq's own DIContainer on the running instance returns
-		// a working resolver. OpenRegister registers the concrete class in its OWN
-		// container and none of that registration reaches here; what reaches here
-		// is this alias plus autowiring of the concrete class, whose dependencies
-		// are `RegisterMapper` and `LoggerInterface`, both resolvable from a leaf
-		// app's container. The one thing lost is OpenRegister's shared-instance
-		// registration: a leaf container autowires a fresh resolver per injection
-		// point, so the request-scoped memo is per consumer rather than per
-		// request. That costs one indexed read per consumer and changes no answer.
-		//
-		// An ALIAS specifically, and not a factory that touches the class. Apps
-		// register in sorted order, so `OCA\OpenRegister\` is not autoloadable at
-		// `register()` time on every instance; both sides of an alias are strings
-		// and neither triggers an autoload, so the binding is safe whatever the
-		// order. `OpenRegisterAutoloader::register()` at the top of register()
-		// already removes that hazard here, and the alias would hold without it.
-		$context->registerServiceAlias(
-			RegisterSlugResolverInterface::class,
-			'OCA\\OpenRegister\\Service\\RegisterSlugResolver'
-		);
-
-		// NC-native agent tools (nc-native-tools): expose Files/Contacts/Calendar/Deck/email
-		// to the agent runtime as an IMcpToolProvider. OpenRegister's McpToolsService
-		// discovers per-app providers by the alias OCA\OpenRegister\Mcp\IMcpToolProvider::{appId}
-		// AND, as a fallback, by the conventional FQCN OCA\Hermiq\Mcp\HermiqToolProvider —
-		// the class is named to match that convention so discovery resolves it even when the
-		// alias is not visible from OR's container. See lib/Mcp/HermiqToolProvider.php.
-		$context->registerServiceAlias(
-			'OCA\\OpenRegister\\Mcp\\IMcpToolProvider::' . self::APP_ID,
-			HermiqToolProvider::class
-		);
-	}//end registerServices()
-
-	/**
-	 * The TaskProcessing providers Hermiq offers Nextcloud's AI API.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 */
-	private function registerTaskProcessingProviders(IRegistrationContext $context): void {
-		// TaskProcessing PROVIDERS (SPECTR-NEXTCLOUD-PLAN.md §8 moves 2 + 3). Hermiq
-		// backs Nextcloud's own AI API with its configured LLM, so the whole instance
-		// (Assistant, Mail, decidesk — which 503s without any provider) gets AI from
-		// one Hermiq config. The text2text family shares the identical input→output
-		// shape; the contextagent provider is the governed alternative to NC's stock
-		// `context_agent` ExApp (admin picks the preferred provider per task type).
-		$context->registerTaskProcessingProvider(AudioToTextProvider::class);
-		$context->registerTaskProcessingProvider(TextToSpeechProvider::class);
-		$context->registerTaskProcessingProvider(Text2TextProvider::class);
-		$context->registerTaskProcessingProvider(Text2TextSummaryProvider::class);
-		$context->registerTaskProcessingProvider(Text2TextHeadlineProvider::class);
-		$context->registerTaskProcessingProvider(ContextAgentProvider::class);
-	}//end registerTaskProcessingProviders()
 
 
 	/**
@@ -448,35 +119,6 @@ class Application extends App implements IBootstrap {
 	protected function addInitScript(string $suffix): void {
 		\OCP\Util::addInitScript(self::APP_ID, self::APP_ID . $suffix);
 	}//end addInitScript()
-
-	/**
-	 * Listeners on the object lifecycle of Hermiq's agents.
-	 *
-	 * Agents are written straight through OpenRegister's API (ADR-022), so the
-	 * object events are the only place that sees every write, including ones
-	 * made from OR's own UI or its generic objects API.
-	 *
-	 * - Each Talk-enabled agent carries its own Talk bot, because the bot record
-	 *   is the ONLY carrier of the name Talk displays (talk-agent-sessions).
-	 * - Adding or removing an approval waiver is audited on every write, drafts
- *   included: OpenRegister raises only the draft events for a draft.
-	 *
-	 * @param IRegistrationContext $context The registration context.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
-	 */
-	private function registerAgentObjectListeners(IRegistrationContext $context): void {
-		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
-		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
-		$context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
-
-		$context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentWaiverChangeListener::class);
-		$context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
-		$context->registerEventListener(event: DraftCreatedEvent::class, listener: AgentWaiverChangeListener::class);
-		$context->registerEventListener(event: DraftUpdatedEvent::class, listener: AgentWaiverChangeListener::class);
-	}//end registerAgentObjectListeners()
 
 	/**
 	 * Boot the application.

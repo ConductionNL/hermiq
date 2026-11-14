@@ -578,4 +578,29 @@ class FlowAgentRunServiceTest extends TestCase {
 		$this->assertFalse($ran);
 
 	}//end testAgentWithNoOwnerIsSkipped()
+
+	/**
+	 * A gated run whose agent cannot be resolved asks for the approval with no
+	 * owner, and a failing approval setup is logged and still leaves the run
+	 * awaiting approval without running the agent.
+	 *
+	 * @return void
+	 */
+	public function testApprovalGateWithoutAgentAndFailingSetupStillAwaitsApproval(): void {
+		$this->objectService->method('find')->willReturn($this->object());
+		$this->agentMapper->method('findByUuid')->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('gone'));
+		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+		$this->approvalService->expects($this->once())
+			->method('ensurePendingApprovalForFlowRun')
+			->with($this->anything(), '')
+			->willThrowException(new \RuntimeException('approvals register missing'));
+
+		$ran = $this->service->run($this->payload(['requiresApproval' => true]));
+
+		$this->assertFalse($ran);
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+
+	}//end testApprovalGateWithoutAgentAndFailingSetupStillAwaitsApproval()
 }//end class

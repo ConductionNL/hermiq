@@ -251,4 +251,20 @@ class ModelCapabilityRegistryTest extends TestCase {
 		$this->assertSame(['openai/gpt-4o' => ['image'], 'ollama/x' => []], $registry->all());
 		$this->assertSame([], $registry->forModel(provider: 'ollama', model: 'x'));
 	}//end testAStoredValueIsReadDefensively()
+
+	/**
+	 * A capability value that is not a list is refused with the key it was given under.
+	 *
+	 * @return void
+	 */
+	public function testANonListCapabilityValueIsRefused(): void {
+		$registry = $this->registry();
+
+		try {
+			$registry->normalizeDeclarations(declarations: ['openai/gpt-4o' => 'image']);
+			$this->fail('A non-list capability value was accepted.');
+		} catch (InvalidArgumentException $e) {
+			$this->assertSame("Capabilities for 'openai/gpt-4o' must be a list.", $e->getMessage());
+		}
+	}//end testANonListCapabilityValueIsRefused()
 }//end class

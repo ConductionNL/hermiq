@@ -40,6 +40,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\PublicationGatewayInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -49,7 +50,7 @@ use OCP\App\IAppManager;
  *
  * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
  */
-class PublicationGateway {
+class PublicationGateway implements PublicationGatewayInterface {
 
 	/**
 	 * The fleet publication leaf whose presence makes the publish action available.

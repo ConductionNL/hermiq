@@ -39,7 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\SeedFreshnessService;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -83,12 +83,12 @@ class SeedSkillCreator implements IRepairStep {
 	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
 	 *                                      (OpenRegister may not be installed yet).
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
+	 * @param SeedFreshnessServiceInterface $freshness Seed lifecycle freshness rules.
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly SeedFreshnessService $freshness,
+		private readonly SeedFreshnessServiceInterface $freshness,
 	) {
 	}//end __construct()
 

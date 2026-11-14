@@ -56,20 +56,21 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Mcp\ToolCallRequest;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
-use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Engine\RunStepBus;
-use OCA\Hermiq\Service\GuardrailPolicyService;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\Hermiq\Service\Engine\ToolLoop;
-use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
+use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -159,23 +160,23 @@ class McpRunController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenService $runTokenService Verifies the per-run bearer token.
+	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token.
 	 * @param ObjectService $objectService Loads the run's agent (under the impersonated user).
 	 * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface.
 	 * @param ToolGrantResolver $grantResolver Expands `Agent.tools` against the catalog.
-	 * @param ToolLoop $toolLoop Builds the governed `FacadeToolInvoker` (reused,
+	 * @param ToolLoopInterface $toolLoop Builds the governed `FacadeToolInvoker` (reused,
 	 *                           not reimplemented).
-	 * @param ToolSearchService $toolSearchService Holds the run's resolved set for the approval gate.
+	 * @param ToolSearchServiceInterface $toolSearchService Holds the run's resolved set for the approval gate.
 	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
 	 * @param IUserSession $userSession Impersonates that user for RBAC on dispatch.
 	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
 	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
 	 *                                              workspace tools for the length of one dispatch.
 	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
 	 *                                                 for the agent's tool call cap.
-	 * @param GuardrailPolicyService|null $guardrailService Applies the output filters to
+	 * @param GuardrailPolicyServiceInterface|null $guardrailService Applies the output filters to
 	 *                                                      the steps shown in the chat.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -183,22 +184,22 @@ class McpRunController extends Controller {
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenService $runTokenService,
+		private readonly RunTokenServiceInterface $runTokenService,
 		private readonly ObjectService $objectService,
 		private readonly ToolRegistryFacade $toolRegistryFacade,
 		private readonly ToolGrantResolver $grantResolver,
-		private readonly ToolLoop $toolLoop,
-		private readonly ToolSearchService $toolSearchService,
+		private readonly ToolLoopInterface $toolLoop,
+		private readonly ToolSearchServiceInterface $toolSearchService,
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly IThrottler $throttler,
-		private readonly RunStepBus $runStepBus,
+		private readonly RunStepBusInterface $runStepBus,
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
-		private readonly ?GuardrailPolicyService $guardrailService = null,
+		private readonly ?GuardrailPolicyServiceInterface $guardrailService = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -458,7 +459,14 @@ class McpRunController extends Controller {
 		}
 
 		if ($method === 'tools/call') {
-			return $this->handleToolCall(id: $id, params: $params, agentId: $agentId, conversationId: $conversationId);
+			return $this->handleToolCall(
+				id: $id,
+				call: new ToolCallRequest(
+					params: $params,
+					agentId: $agentId,
+					conversationId: $conversationId
+				)
+			);
 		}
 
 		return $this->jsonRpcError(
@@ -534,16 +542,16 @@ class McpRunController extends Controller {
 	 * or a pending approval returns `result.isError: true` and executes nothing.
 	 *
 	 * @param mixed $id The JSON-RPC request id.
-	 * @param array<string, mixed> $params The call params (`name`, `arguments`).
-	 * @param string $agentId The run's agent UUID.
-	 * @param string $conversationId The conversation this run belongs to, so a step
-	 *                               published on the bus reaches the right stream.
+	 * @param ToolCallRequest $call One MCP tool call and the agent and conversation it runs for.
 	 *
 	 * @return Response The JSON-RPC response (200; tool-level errors carry isError).
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
 	 */
-	private function handleToolCall(mixed $id, array $params, string $agentId, string $conversationId = ''): Response {
+	private function handleToolCall(mixed $id, ToolCallRequest $call): Response {
+		$params = $call->params;
+		$agentId = $call->agentId;
+		$conversationId = $call->conversationId;
 		$name = (string)($params['name'] ?? '');
 		if ($name === '') {
 			return $this->jsonRpcError(id: $id, code: -32602, message: 'Invalid params', status: Http::STATUS_BAD_REQUEST);
@@ -611,7 +619,7 @@ class McpRunController extends Controller {
 					arguments: $shownArguments,
 					result: 'The tool call could not be completed.',
 					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
-					outcome: RunStepBus::OUTCOME_ERROR
+					outcome: RunStepBusInterface::OUTCOME_ERROR
 				);
 
 				return $this->jsonRpcSuccess(id: $id, result: $this->toolError(text: 'The tool call could not be completed.'));

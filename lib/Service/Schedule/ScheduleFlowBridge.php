@@ -38,7 +38,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Schedule;
 
 use DateTime;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ScheduleFlowBridgeInterface;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
@@ -63,7 +64,7 @@ use Throwable;
  *
  * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
  */
-class ScheduleFlowBridge {
+class ScheduleFlowBridge implements ScheduleFlowBridgeInterface {
 
 	/**
 	 * OpenRegister register slug that holds hermiq schedule objects.
@@ -438,7 +439,7 @@ class ScheduleFlowBridge {
 
 		$flow = new Flow();
 		$flow->setUuid($uuid);
-		$flow->setApp(Application::APP_ID);
+		$flow->setApp(AppIdentity::APP_ID);
 		$flow->setName('Schedule mirror: ' . (string)($data['name'] ?? (string)$schedule->getUuid()));
 		$flow->setDescription(
 			'Mirror of hermiq schedule ' . (string)$schedule->getUuid()

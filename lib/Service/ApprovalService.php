@@ -87,9 +87,12 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Service\Approval\ApprovalDecision;
+use OCA\Hermiq\Service\Approval\ApprovalTarget;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
@@ -119,7 +122,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
-class ApprovalService {
+class ApprovalService implements ApprovalServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -237,7 +240,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		// Notify the resolved reviewer(s). Never fatal to the dispatch tick.
 		try {
@@ -308,7 +311,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $agentOwner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $agentOwner));
 
 		// Notify the resolved reviewer(s). Never fatal to the run.
 		try {
@@ -389,7 +392,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $agentOwner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $agentOwner));
 
 		// Notify the resolved reviewer(s). Never fatal to the run.
 		try {
@@ -459,7 +462,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		try {
 			$this->deliveryService->deliverApprovalRequestForToolInvocation(
@@ -540,7 +543,7 @@ class ApprovalService {
 			'consumedAt' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		try {
 			$this->deliveryService->deliverApprovalRequestForToolInvocation(
@@ -613,7 +616,7 @@ class ApprovalService {
 			'reviewerType' => $reviewerType,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		try {
 			$this->deliveryService->deliverApprovalRequestForToolInvocation(
@@ -693,7 +696,7 @@ class ApprovalService {
 			'reason' => null,
 		];
 
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		// Notify the resolved reviewer(s) — the existing pending-approval ping.
 		// Never fatal to the pipeline.
@@ -915,7 +918,7 @@ class ApprovalService {
 		// The decision fields (decidedAt, decidedBy, reason) are OMITTED rather
 		// than null: the register types them string and date-time and refuses a
 		// null, and a pending record has none.
-		$approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+		$approval = $this->persistApproval(data: $payload, target: new ApprovalTarget(uuid: null, owner: $owner));
 
 		try {
 			$this->deliveryService->deliverApprovalRequestForToolInvocation(
@@ -989,8 +992,10 @@ class ApprovalService {
 
 		$this->persistApproval(
 			data: $data,
-			uuid: (string)$approval->getUuid(),
-			owner: (string)($approval->getOwner() ?? '')
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
 		);
 
 	}//end markToolCallApprovalConsumed()
@@ -1511,10 +1516,12 @@ class ApprovalService {
 
 		$this->persistApproval(
 			data: $data,
-			uuid: (string)$approval->getUuid(),
-			owner: (string)($approval->getOwner() ?? '')
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
 		);
-		$this->writeDecisionAudit(approval: $approval, action: 'approve', reason: '');
+		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'approve', reason: ''));
 
 		// Release the OpenRegister mirror BEFORE resuming: a resume crash must
 		// not leave a decided approval dangling in anyone's task inbox. When
@@ -1624,10 +1631,12 @@ class ApprovalService {
 
 		$this->persistApproval(
 			data: $data,
-			uuid: (string)$approval->getUuid(),
-			owner: (string)($approval->getOwner() ?? '')
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
 		);
-		$this->writeDecisionAudit(approval: $approval, action: 'deny', reason: $cleanReason);
+		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'deny', reason: $cleanReason));
 
 		// Release the OpenRegister mirror: idempotent when the denial came
 		// from the task itself (design.md Decision 1).
@@ -1914,14 +1923,15 @@ class ApprovalService {
 	 * owner around the agent turn. The prior session user is always restored.
 	 *
 	 * @param array<string,mixed> $data The approval payload.
-	 * @param string|null $uuid The target UUID (null to create).
-	 * @param string $owner The schedule owner UID to impersonate.
+	 * @param ApprovalTarget $target Which approval is stored, and for whom.
 	 *
 	 * @return ObjectEntity The persisted approval.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
-	private function persistApproval(array $data, ?string $uuid, string $owner): ObjectEntity {
+	private function persistApproval(array $data, ApprovalTarget $target): ObjectEntity {
+		$uuid = $target->uuid;
+		$owner = $target->owner;
 		$priorUser = $this->userSession->getUser();
 
 		$user = null;
@@ -2015,14 +2025,15 @@ class ApprovalService {
 	 * raised, so it never fails a decision.
 	 *
 	 * @param ObjectEntity $approval The approval the decision is about.
-	 * @param string $action The audit action (`approve`|`deny`).
-	 * @param string $reason The raw reason (redacted here).
+	 * @param ApprovalDecision $decision What was decided on an approval, and why.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
 	 */
-	private function writeDecisionAudit(ObjectEntity $approval, string $action, string $reason): void {
+	private function writeDecisionAudit(ObjectEntity $approval, ApprovalDecision $decision): void {
+		$action = $decision->action;
+		$reason = $decision->reason;
 		try {
 			$status = 'denied';
 			if ($action === 'approve') {

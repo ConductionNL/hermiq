@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Service;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\GoalServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IUserManager;
@@ -48,7 +49,7 @@ use Throwable;
  *
  * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
  */
-class GoalService {
+class GoalService implements GoalServiceInterface {
 
 	private const REGISTER = 'hermiq';
 	private const GOAL_SCHEMA = 'agentgoal';

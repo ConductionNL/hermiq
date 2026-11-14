@@ -36,6 +36,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Agent;
 
+use OCA\Hermiq\Kernel\Contracts\InstructionVariablesServiceInterface;
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\Engine\PromptVariableResolver;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
@@ -49,7 +50,7 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-management-ui/spec.md#requirement-placeholders-in-an-agents-instructions-are-filled-in-per-turn-req-agvar-001
  */
-class InstructionVariablesService {
+class InstructionVariablesService implements InstructionVariablesServiceInterface {
 	use SanitizesForSaveTrait;
 
 	/**

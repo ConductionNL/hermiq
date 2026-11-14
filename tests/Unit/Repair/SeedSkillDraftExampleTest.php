@@ -21,6 +21,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillVersionServiceInterface;
 use OCA\Hermiq\Repair\SeedSkillDraftExample;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillVersionService;
@@ -217,8 +219,8 @@ class SeedSkillDraftExampleTest extends TestCase {
 		$step = new SeedSkillDraftExample(
 			$this->container([
 				ObjectService::class => $objects,
-				SkillConsolidationService::class => $consolidation,
-				SkillVersionService::class => $versions,
+				SkillConsolidationServiceInterface::class => $consolidation,
+				SkillVersionServiceInterface::class => $versions,
 			]),
 			$this->urls(),
 			$this->createMock(LoggerInterface::class)
@@ -287,7 +289,7 @@ class SeedSkillDraftExampleTest extends TestCase {
 		$consolidation = $this->createMock(SkillConsolidationService::class);
 		$consolidation->method('drivingEntries')->willReturn([]);
 		$step = new SeedSkillDraftExample(
-			$this->container([ObjectService::class => $objects, SkillConsolidationService::class => $consolidation]),
+			$this->container([ObjectService::class => $objects, SkillConsolidationServiceInterface::class => $consolidation]),
 			$this->urls(),
 			$this->createMock(LoggerInterface::class)
 		);

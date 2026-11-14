@@ -31,6 +31,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Agent;
 
 use Cron\CronExpression;
+use OCA\Hermiq\Kernel\Contracts\AgentDraftServiceInterface;
 use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
@@ -43,7 +44,7 @@ use Throwable;
  *
  * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
-class AgentDraftService {
+class AgentDraftService implements AgentDraftServiceInterface {
 
 	/**
 	 * The schedule kinds the schedule form offers.

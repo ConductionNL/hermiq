@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\AgentTemplateServiceInterface;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
@@ -52,28 +53,8 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
  */
-class AgentTemplateService {
+class AgentTemplateService implements AgentTemplateServiceInterface {
 	use SanitizesForSaveTrait;
-
-	/**
-	 * OpenRegister register slug that holds Hermiq objects.
-	 *
-	 * Public because `AgentTemplateController` addresses the same register when it
-	 * reads (ownership guard) and deletes through OpenRegister directly (ADR-022: no
-	 * app-local CRUD wrapper) — the slug is declared once, here.
-	 *
-	 * @var string
-	 */
-	public const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * Schema slug for AgentTemplate objects.
-	 *
-	 * Public for the same reason as REGISTER_SLUG above.
-	 *
-	 * @var string
-	 */
-	public const TEMPLATE_SCHEMA = 'agenttemplate';
 
 	/**
 	 * Schema slug for Agent objects (instantiate's write target).

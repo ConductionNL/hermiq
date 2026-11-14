@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\OrganisationControlServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 
@@ -42,7 +43,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
-class OrganisationControlService {
+class OrganisationControlService implements OrganisationControlServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -57,7 +57,7 @@ class PreferencesController extends Controller {
 		private readonly IConfig $config,
 		private readonly IUserSession $userSession,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -81,7 +81,7 @@ class PreferencesController extends Controller {
 
 		$value = $this->config->getUserValue(
 			userId: $target['uid'],
-			appName: Application::APP_ID,
+			appName: AppIdentity::APP_ID,
 			key: $target['key'],
 			default: ''
 		);
@@ -116,7 +116,7 @@ class PreferencesController extends Controller {
 		if ($value === '') {
 			$this->config->deleteUserValue(
 				userId: $target['uid'],
-				appName: Application::APP_ID,
+				appName: AppIdentity::APP_ID,
 				key: $target['key']
 			);
 			return new JSONResponse(data: ['value' => null]);
@@ -124,7 +124,7 @@ class PreferencesController extends Controller {
 
 		$this->config->setUserValue(
 			userId: $target['uid'],
-			appName: Application::APP_ID,
+			appName: AppIdentity::APP_ID,
 			key: $target['key'],
 			value: $value
 		);

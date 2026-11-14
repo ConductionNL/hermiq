@@ -28,9 +28,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller\Settings;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Talk\TalkAgentBinding;
-use OCA\Hermiq\Service\Talk\TalkBridgeStatus;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBridgeStatusInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -52,17 +52,17 @@ class TalkBridgeSettingsController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param TalkBridgeStatus $status Reports the bridge's effective configuration.
-	 * @param TalkAgentBinding $agentBinding Reads and writes the room→agent map.
+	 * @param TalkBridgeStatusInterface $status Reports the bridge's effective configuration.
+	 * @param TalkAgentBindingInterface $agentBinding Reads and writes the room→agent map.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly TalkBridgeStatus $status,
-		private readonly TalkAgentBinding $agentBinding,
+		private readonly TalkBridgeStatusInterface $status,
+		private readonly TalkAgentBindingInterface $agentBinding,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 

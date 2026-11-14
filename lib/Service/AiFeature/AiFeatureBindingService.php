@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\AiFeature;
 
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureBindingServiceInterface;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -40,7 +41,7 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
  */
-class AiFeatureBindingService {
+class AiFeatureBindingService implements AiFeatureBindingServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.

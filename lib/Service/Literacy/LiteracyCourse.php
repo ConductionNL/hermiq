@@ -30,6 +30,7 @@ namespace OCA\Hermiq\Service\Literacy;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
+use OCA\Hermiq\Kernel\Contracts\LiteracyCourseInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -39,7 +40,7 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/specs/compliance-control-packs/spec.md#requirement-people-can-follow-short-lessons-on-working-with-ai-req-ailit-001
  */
-class LiteracyCourse {
+class LiteracyCourse implements LiteracyCourseInterface {
 
 	public const REGISTER_SLUG = 'hermiq';
 

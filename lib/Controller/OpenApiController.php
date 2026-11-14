@@ -25,7 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -63,7 +63,7 @@ class OpenApiController extends Controller {
 		IRequest $request,
 		private readonly IAppManager $appManager,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -88,7 +88,7 @@ class OpenApiController extends Controller {
 			Http::STATUS_NOT_FOUND
 		);
 		if ($document !== null) {
-			$document->info->version = $this->appManager->getAppVersion(Application::APP_ID);
+			$document->info->version = $this->appManager->getAppVersion(AppIdentity::APP_ID);
 			$response = new JSONResponse($document);
 		}
 
@@ -105,7 +105,7 @@ class OpenApiController extends Controller {
 	 * @psalm-suppress MixedAssignment json_decode() is mixed; the result is checked with instanceof before use.
 	 */
 	private function document(): ?stdClass {
-		$path = $this->appManager->getAppPath(Application::APP_ID).'/openapi.json';
+		$path = $this->appManager->getAppPath(AppIdentity::APP_ID).'/openapi.json';
 		if (is_readable($path) === false) {
 			return null;
 		}

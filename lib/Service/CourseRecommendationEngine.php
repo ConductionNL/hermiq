@@ -62,7 +62,9 @@ namespace OCA\Hermiq\Service;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\Course\RecommendationRegeneration;
 use OCA\Hermiq\Service\Llm\ChatDriver;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -87,7 +89,7 @@ use Throwable;
  *
  * @spec openspec/specs/course-recommendations/spec.md
  */
-class CourseRecommendationEngine {
+class CourseRecommendationEngine implements CourseRecommendationEngineInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq's own objects.
@@ -261,9 +263,11 @@ class CourseRecommendationEngine {
 
 		return $this->regenerate(
 			learnerUid: $learnerUid,
-			existing: $existing,
-			now: $now,
-			registerSlug: $registerSlug
+			regeneration: new RecommendationRegeneration(
+				existing: $existing,
+				now: $now,
+				registerSlug: $registerSlug
+			)
 		);
 	}//end getOrRegenerate()
 
@@ -271,10 +275,7 @@ class CourseRecommendationEngine {
 	 * Compute a fresh recommendation set (both gates already passed) and persist it.
 	 *
 	 * @param string $learnerUid The learner's NC user id.
-	 * @param ObjectEntity|null $existing The previously-persisted CourseRecommendation, if any.
-	 * @param DateTimeImmutable $now The current time (UTC).
-	 * @param string $registerSlug The resolved slug, passed rather than re-resolved
-	 *                             so the read cannot disagree with the gate above it.
+	 * @param RecommendationRegeneration $regeneration The stored recommendation being regenerated, and where it lives.
 	 *
 	 * @return array<string, mixed> The persisted (or, on a write failure, in-memory) payload.
 	 *
@@ -282,12 +283,10 @@ class CourseRecommendationEngine {
 	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-6
 	 * @spec openspec/changes/archive/2026-07-16-ai-course-recommendations/tasks.md#task-2-7
 	 */
-	private function regenerate(
-		string $learnerUid,
-		?ObjectEntity $existing,
-		DateTimeImmutable $now,
-		string $registerSlug,
-	): array {
+	private function regenerate(string $learnerUid, RecommendationRegeneration $regeneration): array {
+		$existing = $regeneration->existing;
+		$now = $regeneration->now;
+		$registerSlug = $regeneration->registerSlug;
 		$organisation = $this->resolveOrganisation(uid: $learnerUid);
 		$signals = $this->signalReader->collect(learnerUid: $learnerUid, registerSlug: $registerSlug);
 

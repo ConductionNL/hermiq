@@ -25,19 +25,19 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Mcp;
 
+use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\TaskWriteServiceInterface;
 use OCA\Hermiq\Mcp\GraphToolDescriptors;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Mcp\ImageToolDescriptors;
 use OCA\Hermiq\Mcp\NcTaskToolDescriptors;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
-use OCA\Hermiq\Service\Graph\GraphTools;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
-use OCA\Hermiq\Service\NcNative\TaskWriteService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -141,9 +141,9 @@ class HermiqToolProviderRoutingGoldenTest extends TestCase {
 		$provider = $this->provider();
 		$arguments = ['q' => 1];
 		$cases = [
-			[GraphToolDescriptors::NEIGHBORS, GraphTools::class],
-			[NcTaskToolDescriptors::LIST_TASKS, TaskWriteService::class],
-			[ImageToolDescriptors::GENERATE_IMAGE, ImageGenerationService::class],
+			[GraphToolDescriptors::NEIGHBORS, GraphToolsInterface::class],
+			[NcTaskToolDescriptors::LIST_TASKS, TaskWriteServiceInterface::class],
+			[ImageToolDescriptors::GENERATE_IMAGE, ImageGenerationServiceInterface::class],
 			[WorkspaceToolDescriptors::OPEN, WorkspaceToolset::class],
 			[WorkspaceToolDescriptors::WRITE_FILE, WorkspaceWrites::class],
 		];
@@ -153,9 +153,9 @@ class HermiqToolProviderRoutingGoldenTest extends TestCase {
 
 		$this->assertSame(
 			[
-				[GraphTools::class, ['uid' => 'alice', 'toolId' => GraphToolDescriptors::NEIGHBORS, 'arguments' => $arguments]],
-				[TaskWriteService::class, ['uid' => 'alice', 'toolId' => NcTaskToolDescriptors::LIST_TASKS, 'arguments' => $arguments]],
-				[ImageGenerationService::class, ['uid' => 'alice', 'toolId' => ImageToolDescriptors::GENERATE_IMAGE, 'arguments' => $arguments]],
+				[GraphToolsInterface::class, ['uid' => 'alice', 'toolId' => GraphToolDescriptors::NEIGHBORS, 'arguments' => $arguments]],
+				[TaskWriteServiceInterface::class, ['uid' => 'alice', 'toolId' => NcTaskToolDescriptors::LIST_TASKS, 'arguments' => $arguments]],
+				[ImageGenerationServiceInterface::class, ['uid' => 'alice', 'toolId' => ImageToolDescriptors::GENERATE_IMAGE, 'arguments' => $arguments]],
 				[WorkspaceToolset::class, ['toolId' => WorkspaceToolDescriptors::OPEN, 'arguments' => $arguments]],
 				[WorkspaceWrites::class, ['toolId' => WorkspaceToolDescriptors::WRITE_FILE, 'arguments' => $arguments]],
 			],
