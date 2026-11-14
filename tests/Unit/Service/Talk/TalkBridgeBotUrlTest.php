@@ -90,4 +90,23 @@ class TalkBridgeBotUrlTest extends TestCase {
 
 	}//end testAUrlThatOnlyResemblesOursCarriesNoAgent()
 
+	/**
+	 * Hermiq owns the legacy shared bot and every per-agent bot, and nothing
+	 * else: a blank agent suffix or a lookalike is foreign.
+	 *
+	 * @return void
+	 */
+	public function testOnlyTheSharedAndPerAgentBotsAreHermiqBots(): void {
+		$this->assertTrue(TalkBridge::isHermiqBotUrl(TalkBridge::BOT_URL));
+		$this->assertTrue(TalkBridge::isHermiqBotUrl('nextcloudapp://hermiq-agent-1'));
+		$this->assertTrue(TalkBridge::isHermiqBotUrl(TalkBridge::botUrlFor(agentId: 'agent-7')));
+
+		$this->assertFalse(TalkBridge::isHermiqBotUrl(''));
+		$this->assertFalse(TalkBridge::isHermiqBotUrl('nextcloudapp://hermiq-'));
+		$this->assertFalse(TalkBridge::isHermiqBotUrl('nextcloudapp://hermiq-  '));
+		$this->assertFalse(TalkBridge::isHermiqBotUrl('nextcloudapp://other'));
+		$this->assertFalse(TalkBridge::isHermiqBotUrl('NEXTCLOUDAPP://HERMIQ'));
+
+	}//end testOnlyTheSharedAndPerAgentBotsAreHermiqBots()
+
 }//end class
