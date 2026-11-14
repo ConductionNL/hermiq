@@ -665,6 +665,8 @@ $routes = [
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+'],
         ],
+        // chat-fork-and-share-link: the owner starts a new session from one of the session's answers.
+        ['name' => 'sessionFork#create', 'url' => '/api/sessions/{uuid}/fork', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
         // chat-work-together-in-one-session: the owner invites colleagues into a web session.
         ['name' => 'sessionParticipant#index', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
         ['name' => 'sessionParticipant#create', 'url' => '/api/sessions/{uuid}/participants', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
@@ -673,6 +675,15 @@ $routes = [
             'url'          => '/api/sessions/{uuid}/participants/{uid}',
             'verb'         => 'DELETE',
             'requirements' => ['uuid' => '[^/]+', 'uid' => '[^/]+'],
+        ],
+        // chat-fork-and-share-link: the owner shares a session read-only with users and groups.
+        ['name' => 'sessionShare#index', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'sessionShare#create', 'url' => '/api/sessions/{uuid}/shares', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'sessionShare#destroy',
+            'url'          => '/api/sessions/{uuid}/shares/{type}/{id}',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+', 'type' => 'user|group', 'id' => '[^/]+'],
         ],
 
         // DEPRECATED aliases. Same controller, same methods, same auth. Retire them on

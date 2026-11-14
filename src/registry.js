@@ -52,6 +52,7 @@ import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import Chat from './views/Chat.vue'
+import SharedSession from './views/SharedSession.vue'
 import TenantOps from './views/TenantOps.vue'
 import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
@@ -248,6 +249,15 @@ export default {
 	Chat: {
 		kind: 'page',
 		component: Chat,
+	},
+
+	/**
+	 * SharedSession — the read-only page of a session shared with the reader
+	 * (chat-fork-and-share-link): the thread, "Shared by", no message box.
+	 */
+	SharedSession: {
+		kind: 'page',
+		component: SharedSession,
 	},
 
 	/**

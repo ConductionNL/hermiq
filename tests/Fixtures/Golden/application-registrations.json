@@ -565,6 +565,11 @@
         ],
         [
             "registerServiceAlias",
+            "OCA\\Hermiq\\Kernel\\Contracts\\SessionShareServiceInterface",
+            "OCA\\Hermiq\\Service\\SessionShareService"
+        ],
+        [
+            "registerServiceAlias",
             "OCA\\Hermiq\\Kernel\\Contracts\\SessionPendingApprovalsInterface",
             "OCA\\Hermiq\\Service\\Chat\\SessionPendingApprovals"
         ],

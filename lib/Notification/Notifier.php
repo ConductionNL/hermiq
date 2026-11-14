@@ -66,6 +66,7 @@ class Notifier implements INotifier {
 		'skill_published_behind',
 		'skill_rollback_suggested',
 		'session_participant_added',
+		'session_shared',
 		'goal_reached',
 		'goal_exhausted',
 	];
@@ -138,6 +139,15 @@ class Notifier implements INotifier {
 			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
 		);
 
+		// Chat-fork-and-share-link: a shared session opens on its read-only page.
+		if ($subjectKey === 'session_shared' && $notification->getObjectId() !== '') {
+			$notification->setLink(
+				$this->urlGenerator->getAbsoluteURL(
+					rtrim($this->urlGenerator->linkToRoute('hermiq.dashboard.page'), '/') . '/chat/shared/' . rawurlencode($notification->getObjectId())
+				)
+			);
+		}
+
 		return $notification;
 	}//end prepare()
 
@@ -167,6 +177,7 @@ class Notifier implements INotifier {
 			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
 			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'session_shared' => $this->sessionSharedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
@@ -339,6 +350,26 @@ class Notifier implements INotifier {
 
 		return [$subject, $l->t('Open Chat and find it under Shared with me. You can ask the agent questions in it.')];
 	}//end sessionParticipantAddedText()
+
+	/**
+	 * Text for `session_shared`: an owner shared a session read-only with the recipient.
+	 *
+	 * @param string $owner The owner's display name.
+	 * @param string $name  The session title.
+	 * @param IL10N  $l     The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 */
+	private function sessionSharedText(string $owner, string $name, IL10N $l): array {
+		$subject = $l->t('A chat session was shared with you');
+		if ($owner !== '' && $name !== '') {
+			$subject = $l->t('%1$s shared the session \'%2$s\' with you', [$owner, $name]);
+		}
+
+		return [$subject, $l->t('You can read it in Chat under Shared with you. You cannot add to it.')];
+	}//end sessionSharedText()
 
 	/**
 	 * Text for `goal_reached` and `goal_exhausted`: a standing goal ended (agents-standing-goal).

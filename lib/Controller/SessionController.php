@@ -44,11 +44,13 @@ use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\EngineInterface;
 use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
+use OCA\Hermiq\Kernel\Contracts\SessionShareServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkSessionRoomInterface;
 use OCA\Hermiq\Service\Chat\SessionCollaborators;
 use OCA\Hermiq\Service\Chat\SessionSubject;
 use OCA\Hermiq\Service\Engine\AnswerProvenanceWriter;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\SessionShareService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -160,6 +162,7 @@ class SessionController extends Controller {
 	 * @param SessionCollaborators $collaborators The Talk room, agent access, subject and pending approvals.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant read check.
 	 * @param AnswerProvenanceWriter|null $provenanceWriter How an answer came about, in the reader's language.
+	 * @param SessionShareServiceInterface|null $shares Who a session is shared with, read-only (chat-fork-and-share-link).
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 * @spec openspec/specs/session-participants/spec.md#requirement-an-invited-colleague-reads-and-takes-turns-req-spart-002
@@ -173,6 +176,7 @@ class SessionController extends Controller {
 		SessionCollaborators $collaborators,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 		private readonly ?AnswerProvenanceWriter $provenanceWriter = null,
+		private readonly ?SessionShareServiceInterface $shares = null,
 	) {
 		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 		$this->sessionRoom = $collaborators->sessionRoom;
@@ -207,6 +211,9 @@ class SessionController extends Controller {
 			$limit = (int)($params['limit'] ?? $params['_limit'] ?? 50);
 			$offset = (int)($params['offset'] ?? $params['_offset'] ?? 0);
 			$showDeleted = filter_var(($params['_deleted'] ?? false), FILTER_VALIDATE_BOOLEAN);
+			if (filter_var(($params['shared'] ?? false), FILTER_VALIDATE_BOOLEAN) === true) {
+				return $this->sharedIndex(userId: $userId, limit: $limit, offset: $offset);
+			}
 
 			// Fetch the caller's conversations (org-scoped by ObjectService
 			// multitenancy, user-scoped by the payload filter) and partition
@@ -275,6 +282,18 @@ class SessionController extends Controller {
 	public function show(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
+			[$readAs, $shared] = $this->readThroughShare(uuid: $uuid, userId: $userId);
+			if ($readAs === 'refused') {
+				return $this->notFoundResponse();
+			}
+
+			if ($readAs === 'recipient' && $shared !== null) {
+				$response = $this->serializeSharedConversation(conversation: $shared, userId: $userId);
+				$response['messageCount'] = $this->countMessages(conversationId: $uuid);
+
+				return new JSONResponse(data: $response, statusCode: 200);
+			}
+
 			$conversation = $this->objectService->find(
 				id: $uuid,
 				register: self::REGISTER_SLUG,
@@ -333,6 +352,16 @@ class SessionController extends Controller {
 	public function messages(string $uuid): JSONResponse {
 		try {
 			$userId = $this->requireUserId();
+			[$readAs] = $this->readThroughShare(uuid: $uuid, userId: $userId);
+			if ($readAs === 'refused') {
+				return $this->notFoundResponse();
+			}
+
+			if ($readAs === 'recipient') {
+				// A recipient reads the turns and acts on nothing: no pending approvals.
+				return $this->messagePage(uuid: $uuid, pendingApprovals: []);
+			}
+
 			$conversation = $this->objectService->find(
 				id: $uuid,
 				register: self::REGISTER_SLUG,
@@ -1123,6 +1152,11 @@ class SessionController extends Controller {
 	 */
 	private function serializeConversation(ObjectEntity $conversation, string $userId = ''): array {
 		$data = $conversation->getObject();
+		$shareCount = 0;
+		if ($this->roleOf(data: $data, userId: $userId) === 'owner') {
+			$shareCount = count(SessionShareService::shares(sessionData: $data));
+		}
+
 		$deletedAt = null;
 		$metadata = ($data['metadata'] ?? null);
 		if (is_array($metadata) === true) {
@@ -1153,6 +1187,10 @@ class SessionController extends Controller {
 			// shown in the session header.
 			'startValues' => (array)($data['startValues'] ?? []),
 			'deletedAt' => $deletedAt,
+			// Chat-fork-and-share-link: the session and answer a fork was made from.
+			'forkedFrom' => ($data['forkedFrom'] ?? null),
+			// Chat-fork-and-share-link: how many read-only shares the owner made; others see 0.
+			'shareCount' => $shareCount,
 			'created' => $conversation->getCreated()?->format('c'),
 			'updated' => $conversation->getUpdated()?->format('c'),
 		];
@@ -1200,6 +1238,105 @@ class SessionController extends Controller {
 
 		return $sessions;
 	}//end listReadableSessions()
+
+	/**
+	 * How the caller reads the session through a share. `owner` covers the
+	 * owner and a participant, who read through the normal path below;
+	 * `recipient` is a user the session is shared with, directly or through a
+	 * group, who reads and does nothing else; `refused` is anyone else, who
+	 * gets the same 404 as a session that does not exist. A session that
+	 * cannot be read at all is left to the normal path too.
+	 *
+	 * @param string $uuid   The session uuid.
+	 * @param string $userId The caller.
+	 *
+	 * @return array{0: string, 1: ObjectEntity|null} The way in and, for a recipient, the session.
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 */
+	private function readThroughShare(string $uuid, string $userId): array {
+		if ($this->shares === null) {
+			return ['owner', null];
+		}
+
+		try {
+			$session = $this->objectService->find(
+				id: $uuid,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA,
+				_rbac: false
+			);
+		} catch (Exception) {
+			return ['owner', null];
+		}
+
+		if ($session === null || $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $userId) === true) {
+			return ['owner', null];
+		}
+
+		if ($this->shares->shareFor(sessionData: $session->getObject(), uid: $userId) !== null) {
+			return ['recipient', $session];
+		}
+
+		return ['refused', null];
+	}//end readThroughShare()
+
+	/**
+	 * The sessions shared with the caller, for the "Shared with you" group on /chat.
+	 *
+	 * @param string $userId The caller.
+	 * @param int    $limit  The page size.
+	 * @param int    $offset The page start.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 */
+	private function sharedIndex(string $userId, int $limit, int $offset): JSONResponse {
+		$shared = [];
+		foreach (($this->shares?->sharedWith(uid: $userId) ?? []) as $session) {
+			if ($this->isArchived(conversation: $session) === false
+				&& $this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $userId) === false
+			) {
+				$shared[] = $session;
+			}
+		}
+
+		return new JSONResponse(
+			data: [
+				'results' => array_map(
+					fn (ObjectEntity $conv): array => $this->serializeSharedConversation(conversation: $conv, userId: $userId),
+					array_slice($shared, $offset, $limit)
+				),
+				'total' => count($shared),
+				'limit' => $limit,
+				'offset' => $offset,
+			],
+			statusCode: 200
+		);
+	}//end sharedIndex()
+
+	/**
+	 * A session as its share recipient sees it: the thread's header with the
+	 * share that admits them, and nothing about who else it is shared with
+	 * or who takes part.
+	 *
+	 * @param ObjectEntity $conversation The session.
+	 * @param string       $userId       The recipient.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+	 */
+	private function serializeSharedConversation(ObjectEntity $conversation, string $userId): array {
+		$response = $this->serializeConversation(conversation: $conversation, userId: $userId);
+		$response['role'] = 'recipient';
+		$response['participants'] = [];
+		$response['shareCount'] = 0;
+		$response['share'] = $this->shares?->shareFor(sessionData: $conversation->getObject(), uid: $userId);
+
+		return $response;
+	}//end serializeSharedConversation()
 
 	/**
 	 * Whether the caller owns a session or was invited into it.

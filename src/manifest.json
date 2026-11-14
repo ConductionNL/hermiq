@@ -180,6 +180,14 @@
 			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a session archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
 		},
 		{
+			"id": "SharedSession",
+			"route": "/chat/shared/:id",
+			"type": "custom",
+			"component": "SharedSession",
+			"title": "Shared session",
+			"_note": "chat-fork-and-share-link: the read-only page of a session shared with the reader. Custom because it reads through the session routes, which decide per request whether a share admits the reader; there is no message box and no action on it."
+		},
+		{
 			"id": "AgentCatalog",
 			"route": "/agents",
 			"type": "index",
