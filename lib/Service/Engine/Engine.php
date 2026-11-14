@@ -325,6 +325,7 @@ class Engine implements EngineInterface {
 					'authorId' => $authorId,
 					'authorDisplayName' => $authorDisplayName,
 					'attachments' => $attachments,
+					'ragSettings' => $ragSettings,
 				]
 			);
 			$turn += [
@@ -437,6 +438,13 @@ class Engine implements EngineInterface {
 			speaker: ($turn['authorId'] ?? $request['userId'])
 		);
 
+		// Chat-about-a-document: a turn scoped to a file or folder the speaker
+		// cannot open is refused (404), read as the speaker like an attachment.
+		$this->contextHandler->assertScopeReadable(
+			ragSettings: $request['ragSettings'],
+			speaker: ($turn['authorId'] ?? $request['userId'])
+		);
+
 		$turn['agent'] = null;
 		$agentId = $turn['conversationData']['agentId'] ?? null;
 		if (is_string($agentId) === true && $agentId !== '') {
@@ -507,7 +515,8 @@ class Engine implements EngineInterface {
 			query: $turn['userMessage'],
 			agent: $turn['agent'],
 			selectedViews: $turn['selectedViews'],
-			ragSettings: $turn['ragSettings']
+			ragSettings: $turn['ragSettings'],
+			speaker: $this->scopeSpeaker(turn: $turn)
 		);
 		$timings['context'] = microtime(true) - $startTime;
 		if ($token !== null) {
@@ -516,6 +525,24 @@ class Engine implements EngineInterface {
 
 		return $context;
 	}//end turnContext()
+
+	/**
+	 * The uid a scoped turn's files are read as: the speaker, never the owner.
+	 * An unscoped turn reads no Files, so it passes none.
+	 *
+	 * @param array<string, mixed> $turn The turn.
+	 *
+	 * @return string The speaker's uid, or ''.
+	 *
+	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function scopeSpeaker(array $turn): string {
+		if (is_array($turn['ragSettings']['scope'] ?? null) === false) {
+			return '';
+		}
+
+		return (string)($turn['authorId'] ?? $turn['userId']);
+	}//end scopeSpeaker()
 
 	/**
 	 * Build the turn's history of earlier turns, timed as a `history` step.

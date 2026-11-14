@@ -27,7 +27,9 @@ use OCA\OpenRegister\Db\Register;
 use OCA\OpenRegister\Db\RegisterMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use RuntimeException;
 
 /**
  * The record's app is the app that imported its register.
@@ -58,4 +60,40 @@ final class AppRegisterScopeTest extends TestCase {
 
 		self::assertSame('', (new AppRegisterScope(registerMapper: $mapper, logger: new NullLogger()))->appOf(register: '3'));
 	}//end testARegisterWithoutAnAppNamesNoApp()
+
+	public function testABlankAppHasNoRegistersAndReadsNothing(): void {
+		$mapper = $this->createMock(RegisterMapper::class);
+		$mapper->expects(self::never())->method('findAll');
+
+		self::assertSame([], (new AppRegisterScope(registerMapper: $mapper, logger: new NullLogger()))->registersFor(app: '   '));
+	}//end testABlankAppHasNoRegistersAndReadsNothing()
+
+	public function testUnreadableRegistersAreLoggedAndScopeNothing(): void {
+		$mapper = $this->createMock(RegisterMapper::class);
+		$mapper->method('findAll')->willThrowException(new RuntimeException('db down'));
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects(self::once())->method('warning')->with('[AppRegisterScope] Registers of subsidies could not be read: db down');
+
+		self::assertSame([], (new AppRegisterScope(registerMapper: $mapper, logger: $logger))->registersFor(app: ' subsidies '));
+	}//end testUnreadableRegistersAreLoggedAndScopeNothing()
+
+	public function testOnlySavedRegistersAreScopedByTitleElseSlug(): void {
+		$titled = new Register();
+		$titled->setId(4);
+		$titled->setTitle('Subsidies');
+		$slugOnly = new Register();
+		$slugOnly->setId(7);
+		$slugOnly->setSlug('subsidy-requests');
+		$unsaved = new Register();
+		$unsaved->setTitle('Not saved');
+
+		$mapper = $this->createMock(RegisterMapper::class);
+		$mapper->expects(self::once())->method('findAll')->with(null, null, ['application' => 'subsidies'])
+			->willReturn([$titled, 'junk', $unsaved, $slugOnly]);
+
+		self::assertSame(
+			[['id' => 4, 'name' => 'Subsidies'], ['id' => 7, 'name' => 'subsidy-requests']],
+			(new AppRegisterScope(registerMapper: $mapper, logger: new NullLogger()))->registersFor(app: 'subsidies')
+		);
+	}//end testOnlySavedRegistersAreScopedByTitleElseSlug()
 }//end class

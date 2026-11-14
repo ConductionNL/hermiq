@@ -419,9 +419,23 @@
 										v-if="source.type === 'file'"
 										:size="16" />
 									<CubeOutline v-else :size="16" />
-									<span class="chat-page__source-name">{{
-										source.name || source.id
+									<span
+										v-if="message.sources.length > 1 || source.passage"
+										class="chat-page__source-number">[{{ sourceIndex + 1 }}]</span>
+									<a
+										v-if="sourceFileId(source)"
+										class="chat-page__source-name"
+										:href="fileLink({ fileId: sourceFileId(source) })"
+										target="_blank"
+										rel="noopener noreferrer">{{ sourceName(source) }}</a>
+									<span v-else class="chat-page__source-name">{{
+										sourceName(source)
 									}}</span>
+									<span
+										v-if="sourcePage(source)"
+										class="chat-page__source-page">
+										{{ t('hermiq', 'page {page}', { page: sourcePage(source) }) }}
+									</span>
 									<span
 										v-if="source.similarity"
 										class="chat-page__source-match">
@@ -853,6 +867,7 @@ import {
 	stopGoal,
 	streamChatMessage,
 	uploadChatAttachment,
+	warmChat,
 } from '../api/chat.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
@@ -862,6 +877,7 @@ import {
 	findingsByField,
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
+import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -1284,6 +1300,10 @@ export default {
 	},
 
 	methods: {
+		sourceFileId,
+		sourceName,
+		sourcePage,
+
 		/**
 		 * The name shown on a person's turn: "You" for the caller, the author's name
 		 * captured at send time for a colleague in a shared session.
@@ -1743,6 +1763,9 @@ export default {
 			if (!session.agentId) {
 				return
 			}
+			// Start the agent's CLI process while the person reads and types, not
+			// inside their first question. Fire and forget: it never throws.
+			warmChat(session.agentId, session.uuid)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
@@ -1760,6 +1783,7 @@ export default {
 			this.startError = ''
 			try {
 				const session = await createSession(agentUuid)
+				warmChat(agentUuid, session?.uuid)
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -2853,6 +2877,17 @@ export default {
 }
 
 .chat-page__source-match {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast);
+}
+
+a.chat-page__source-name {
+	color: var(--color-main-text);
+	text-decoration: underline;
+}
+
+.chat-page__source-number,
+.chat-page__source-page {
 	font-size: 11px;
 	color: var(--color-text-maxcontrast);
 }
