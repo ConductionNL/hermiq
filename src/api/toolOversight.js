@@ -68,3 +68,23 @@ export async function getToolInvocations(agentId, params = {}) {
 export function toolInvocationsExportUrl(agentId, format) {
 	return generateUrl(`${AGENTS_BASE}/${agentId}/tool-invocations?format=${format}`)
 }
+
+/**
+ * Mark one recorded tool call as misuse, with the operator's reason (owner-only).
+ *
+ * The server refuses a mark without a reason and records the mark, with the
+ * operator and the time, on the agent, so the agent's audit trail holds it.
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} callId The tool call's audit entry uuid (the row's callId).
+ * @param {string} reason Why the call is misuse.
+ * @return {Promise<object>} The mark: { callId, label, reason, markedBy, markedAt }.
+ * @spec openspec/changes/verify-row-scenarios/tasks.md
+ */
+export async function markToolCall(agentId, callId, reason) {
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/tool-invocations/${callId}/mark`),
+		{ reason },
+	)
+	return response.data
+}
