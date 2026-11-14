@@ -59,9 +59,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
+use LLPhant\Chat\FunctionInfo\FunctionInfo;
+use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
 use OCA\Hermiq\Service\Agent\AgentAvailabilityService;
-use LLPhant\Chat\FunctionInfo\FunctionInfo;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
@@ -69,16 +70,17 @@ use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\IAppConfig;
 use OCP\IUserSession;
+use Psr\Log\LoggerInterface;
+
 // 🔴 THESE TWO USED TO NEED NO IMPORT — see the note in FacadeToolInvoker. They
 // lived in this namespace until ADR-099 §5 moved the capability grammar to
 // OpenRegister; a relocation that only rewrote files with an explicit `use`
 // would leave this class referencing classes that are no longer here, and PHP
 // would not say so until the line ran.
-use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use Psr\Log\LoggerInterface;
 
 /**
  * Resolves an agent's allowed tool functions from the OR tool-registry facade
@@ -97,7 +99,7 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-3-1
  */
-class ToolLoop {
+class ToolLoop implements ToolLoopInterface {
 
 	/**
 	 * The `hermiq.searchTools` meta-tool's registry id (nc-native-tools provider).

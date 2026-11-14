@@ -25,9 +25,9 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\AppTemplateOffers;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AppTemplateOffersInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -49,19 +49,19 @@ class AppTemplateOffersController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request.
-	 * @param AppTemplateOffers $offers The collect.
-	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
+	 * @param AppTemplateOffersInterface $offers The collect.
+	 * @param ActionAuthServiceInterface $actionAuth ADR-023 action authorization.
 	 * @param IUserSession $userSession The signed-in user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AppTemplateOffers $offers,
-		private readonly ActionAuthService $actionAuth,
+		private readonly AppTemplateOffersInterface $offers,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

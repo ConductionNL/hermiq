@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\SkillLearningsCaptureService;
+use OCA\Hermiq\Kernel\Contracts\SkillLearningsCaptureServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\QueuedJob;
 use Psr\Log\LoggerInterface;
@@ -48,13 +48,13 @@ class SkillLearningsCaptureJob extends QueuedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for the base job.
-	 * @param SkillLearningsCaptureService $captureService Runs the capture pass (idempotent,
+	 * @param SkillLearningsCaptureServiceInterface $captureService Runs the capture pass (idempotent,
 	 *                                                     budget-gated, redaction-inherited).
 	 * @param LoggerInterface $logger PSR-3 logger (catch-all diagnostics).
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly SkillLearningsCaptureService $captureService,
+		private readonly SkillLearningsCaptureServiceInterface $captureService,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(time: $time);

@@ -41,7 +41,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Lifecycle;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Lifecycle\GuardResult;
 use OCA\OpenRegister\Lifecycle\LifecycleGuardInterface;
 use OCP\IAppConfig;
@@ -114,7 +114,7 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 		}
 
 		$key = $this->ackKey(slug: $slug, tenantId: $this->resolveTenant(object: $object));
-		$ack = $this->appConfig->getValueString(Application::APP_ID, $key, '');
+		$ack = $this->appConfig->getValueString(AppIdentity::APP_ID, $key, '');
 		if ($ack === '') {
 			return GuardResult::deny(
 				message: 'This AI feature has not been acknowledged by the Data Protection Officer and cannot be enabled.'

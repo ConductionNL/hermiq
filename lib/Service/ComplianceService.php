@@ -48,6 +48,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\ComplianceServiceInterface;
 use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Literacy\LiteracyReport;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -67,7 +68,7 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
  */
-class ComplianceService {
+class ComplianceService implements ComplianceServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -113,7 +114,7 @@ class ComplianceService {
 	 *                                           retention (existing evidence seams).
 	 * @param ApprovalService $approvalService Human-approval-gate decision records.
 	 * @param OrganisationControlService $tenantControlService Per-org kill-switch (stop mechanism).
-	 * @param OrganisationModelPolicyService $modelPolicyService Per-org model-provider allowlist.
+	 * @param EffectiveModelPolicy $modelPolicyService Per-org model-provider allowlist.
 	 * @param AiFeatureService $aiFeatureService DPO-ack design-time AI-feature gate.
 	 * @param AiFeatureLookup $aiFeatureLookup Finds the AI feature an agent type names.
 	 * @param LiteracyReport|null $literacyReport The article 4 evidence (compliance-ai-literacy).
@@ -126,7 +127,7 @@ class ComplianceService {
 		private readonly OrganisationOpsService $tenantOpsService,
 		private readonly ApprovalService $approvalService,
 		private readonly OrganisationControlService $tenantControlService,
-		private readonly OrganisationModelPolicyService $modelPolicyService,
+		private readonly EffectiveModelPolicy $modelPolicyService,
 		private readonly AiFeatureService $aiFeatureService,
 		private readonly AiFeatureLookup $aiFeatureLookup,
 		private readonly ?LiteracyReport $literacyReport = null,

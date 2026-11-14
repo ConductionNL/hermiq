@@ -38,6 +38,8 @@ use RuntimeException;
  * Tests for the conversation paths after intake: escalation scoring, reviews and the ending.
  *
  * @covers \OCA\Hermiq\Service\Intake\IntakeService
+ * @uses   \OCA\Hermiq\Service\Intake\IntakeConclusion
+ * @uses   \OCA\Hermiq\Service\Intake\IntakeReview
  */
 class IntakeServiceFlowTest extends TestCase {
 

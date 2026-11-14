@@ -48,11 +48,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
+use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
 use OCA\Hermiq\Service\Engine\Engine;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -69,7 +71,7 @@ use Throwable;
  *
  * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
  */
-class ContextAgentInteractionService {
+class ContextAgentInteractionService implements ContextAgentInteractionServiceInterface {
 	/**
 	 * OpenRegister register slug holding Hermiq agent-engine objects.
 	 *
@@ -111,7 +113,7 @@ class ContextAgentInteractionService {
 	 * @param ObjectService $objectService OR object read/write.
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
 	 * @param ApprovalService $approvalService Approval-gate decisions (confirmation mapping).
-	 * @param ScheduleService $scheduleService Kill-switch source (isOrganisationEngaged).
+	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
 	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
 	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
 	 * @param IAppConfig $appConfig Reads the configured ContextAgent agent id.
@@ -131,7 +133,7 @@ class ContextAgentInteractionService {
 		private readonly ObjectService $objectService,
 		private readonly Engine $engine,
 		private readonly ApprovalService $approvalService,
-		private readonly ScheduleService $scheduleService,
+		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly RedactionService $redactionService,
 		private readonly IAppConfig $appConfig,
@@ -182,7 +184,7 @@ class ContextAgentInteractionService {
 
 		// GATE — org kill-switch (EU-AI-Act Art. 14 / governance differentiator).
 		$organisation = (string)($agent->getOrganisation() ?? '');
-		if ($this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+		if ($this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation) === true) {
 			$this->audit(object: $agent, status: 'skipped_killswitch', summary: '', agentId: $agentId);
 			throw new ProcessingException('Hermiq kill-switch is engaged for this organisation; the agent will not run.');
 		}
@@ -199,8 +201,10 @@ class ContextAgentInteractionService {
 		// exists (the common single-turn case).
 		$confirmationOutcome = $this->applyConfirmation(
 			confirmation: $confirmation,
-			userId: $userId,
-			agentId: $agentId
+			actor: new ConfirmationActor(
+				userId: $userId,
+				agentId: $agentId
+			)
 		);
 
 		// Run one governed turn through Hermiq's engine (its own allowlist-gated tool
@@ -247,7 +251,7 @@ class ContextAgentInteractionService {
 	 * @return ObjectEntity|null The agent, or null when none is available.
 	 */
 	private function resolveAgent(string $userId): ?ObjectEntity {
-		$configured = $this->appConfig->getValueString(Application::APP_ID, self::AGENT_CONFIG_KEY, '');
+		$configured = $this->appConfig->getValueString(AppIdentity::APP_ID, self::AGENT_CONFIG_KEY, '');
 		if ($configured !== '') {
 			// _rbac false: this agent was named in app configuration for every user,
 			// and new agents are private by default, so the Agent read rule
@@ -337,13 +341,14 @@ class ContextAgentInteractionService {
 	 * summary of what happened (for the audit line).
 	 *
 	 * @param int|null $confirmation The confirmation value (1 confirm, 0 deny, null absent).
-	 * @param string $userId The confirming user (must be the approval's reviewer).
-	 * @param string $agentId The agent the approval must belong to.
+	 * @param ConfirmationActor $actor The person and agent a confirmation is applied for.
 	 *
 	 * @return string A summary: 'no-confirmation', 'confirmation:no-pending',
 	 *                'confirmation:approved' or 'confirmation:denied'.
 	 */
-	private function applyConfirmation(?int $confirmation, string $userId, string $agentId): string {
+	private function applyConfirmation(?int $confirmation, ConfirmationActor $actor): string {
+		$userId = $actor->userId;
+		$agentId = $actor->agentId;
 		if ($confirmation === null) {
 			return 'no-confirmation';
 		}

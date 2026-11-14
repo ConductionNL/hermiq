@@ -33,12 +33,12 @@ use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillLearningsCaptureService;
 use OCA\Hermiq\Service\SkillLearningsPromotionService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillVersionService;
+use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -53,6 +53,7 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Psr\Log\NullLogger;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
 use ReflectionMethod;
@@ -263,7 +264,10 @@ class SkillDraftApplyGoldenTest extends TestCase {
 			promotionService: $this->createMock(originalClassName: SkillLearningsPromotionService::class),
 			captureService: $this->createMock(originalClassName: SkillLearningsCaptureService::class),
 			providerFactory: $this->createMock(originalClassName: ProviderFactory::class),
-			scheduleService: $this->createMock(originalClassName: ScheduleService::class),
+			tenantKillSwitch: new TenantKillSwitch(
+				objectService: $this->createMock(originalClassName: ObjectService::class),
+				logger: new NullLogger()
+			),
 			budgetService: $this->createMock(originalClassName: BudgetService::class),
 			contentScanService: $this->createMock(originalClassName: ContentScanService::class),
 			evalRunService: $this->createMock(originalClassName: EvalRunService::class),

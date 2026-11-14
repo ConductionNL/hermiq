@@ -29,8 +29,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 
 /**
@@ -50,10 +50,10 @@ final class AgentMemoryTools {
 	/**
 	 * Build the memory tools over the agent memory store.
 	 *
-	 * @param MemoryService $memoryService The agent memory store.
+	 * @param MemoryServiceInterface $memoryService The agent memory store.
 	 */
 	public function __construct(
-		private readonly MemoryService $memoryService,
+		private readonly MemoryServiceInterface $memoryService,
 	) {
 		$this->errors = new ToolErrorEnvelope();
 	}//end __construct()
@@ -70,9 +70,9 @@ final class AgentMemoryTools {
 	 */
 	public function invoke(string $toolId, NativeToolCall $call): ?array {
 		return match ($toolId) {
-			Application::APP_ID . '.rememberMemory' => $this->rememberMemory(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.recallMemory' => $this->recallMemory(uid: $call->uid, arguments: $call->arguments),
-			Application::APP_ID . '.forgetMemory' => $this->forgetMemory(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.rememberMemory' => $this->rememberMemory(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.recallMemory' => $this->recallMemory(uid: $call->uid, arguments: $call->arguments),
+			AppIdentity::APP_ID . '.forgetMemory' => $this->forgetMemory(uid: $call->uid, arguments: $call->arguments),
 			default => null,
 		};
 	}//end invoke()

@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\BackgroundJob;
 
+use OCA\Hermiq\Kernel\Contracts\SkillConsolidationServiceInterface;
 use OCA\Hermiq\BackgroundJob\RunRetentionCleanupJob;
 use OCA\Hermiq\BackgroundJob\SkillConsolidationTask;
 use OCA\Hermiq\BackgroundJob\SkillCuratorTask;
@@ -163,7 +164,7 @@ final class TimedJobsTest extends TestCase {
 		$service->expects($this->once())->method('runPass')->willReturn([]);
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')
-			->with(SkillConsolidationService::class)
+			->with(SkillConsolidationServiceInterface::class)
 			->willReturnOnConsecutiveCalls($service, $this->throwException(new RuntimeException('not registered')));
 		$job = new SkillConsolidationTask(time: $this->createMock(ITimeFactory::class), container: $container, logger: $this->logger());
 

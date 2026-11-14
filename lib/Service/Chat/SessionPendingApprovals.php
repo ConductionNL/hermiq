@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
+use OCA\Hermiq\Kernel\Contracts\SessionPendingApprovalsInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 
@@ -35,7 +36,7 @@ use OCA\Hermiq\Service\ToolAccessRequestService;
  *
  * @spec openspec/changes/archive/2026-11-12-session-about-a-subject/tasks.md
  */
-class SessionPendingApprovals {
+class SessionPendingApprovals implements SessionPendingApprovalsInterface {
 
 	/**
 	 * Constructor.

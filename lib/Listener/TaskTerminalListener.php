@@ -40,7 +40,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -86,11 +86,11 @@ class TaskTerminalListener implements IEventListener {
 	/**
 	 * Constructor.
 	 *
-	 * @param ApprovalService $approvalService The approval gate's decision write-path.
+	 * @param ApprovalServiceInterface $approvalService The approval gate's decision write-path.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
-		private readonly ApprovalService $approvalService,
+		private readonly ApprovalServiceInterface $approvalService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()

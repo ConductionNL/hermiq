@@ -157,6 +157,7 @@ import {
 import AgentVersionDiffDialog from './AgentVersionDiffDialog.vue'
 import { listAgentVersions, rollbackAgentVersion } from '../../api/agents.js'
 import { useAgentStore } from '../../store/store.js'
+import { dateOrDash } from '../../utils/displayDate.js'
 import { agentModalTarget } from '../agentModalTarget.js'
 
 export default {
@@ -372,13 +373,7 @@ export default {
 		 * @return {string} The localised date, or '—'.
 		 * @spec openspec/changes/archive/2026-07-13-agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-		},
+		formatDate: dateOrDash,
 
 		/**
 		 * Close the dialog when NcDialog reports its open state changed to false.

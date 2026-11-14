@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\AiOversightAccessInterface;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
@@ -36,17 +37,7 @@ use Throwable;
  *
  * @spec openspec/specs/ai-oversight/spec.md
  */
-class AiOversightAccess {
-
-    /**
-     * Nextcloud group whose members read every advisory Approval.
-     *
-     * The same id stands in the Approval schema's read rule in
-     * hermiq_register.json; the two must stay equal.
-     *
-     * @var string
-     */
-    public const OVERSIGHT_GROUP = 'ai-oversight';
+class AiOversightAccess implements AiOversightAccessInterface {
 
     /**
      * A subject resolved through OpenRegister must be an object uuid.
@@ -57,7 +48,6 @@ class AiOversightAccess {
      * @var string
      */
     private const UUID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
-
 
     /**
      * Constructor.
@@ -75,7 +65,6 @@ class AiOversightAccess {
     ) {
 
     }//end __construct()
-
 
     /**
      * Whether the user holds the AI-oversight role or is an administrator.
@@ -98,7 +87,6 @@ class AiOversightAccess {
         return $this->groupManager->isInGroup($userId, self::OVERSIGHT_GROUP);
 
     }//end hasOversightRole()
-
 
     /**
      * Whether the signed-in user may read the advisory Approvals about a subject.
@@ -141,6 +129,5 @@ class AiOversightAccess {
         return $subject !== null;
 
     }//end maySeeSubject()
-
 
 }//end class

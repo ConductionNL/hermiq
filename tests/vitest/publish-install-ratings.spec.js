@@ -61,8 +61,8 @@ afterEach(() => {
 
 describe.each([
 	['SkillGithubPublishModal', SkillGithubPublishModal, { skillId: 'k1' }, {
-		form: 'githubPublishForm', visibility: 'githubPublishVisibility', credential: 'githubPublishCredential', list: 'githubCredentialsList',
-		can: 'canGithubPublish', publish: 'doGithubPublish', error: 'githubPublishError', busy: 'githubPublishing',
+		form: 'form', visibility: 'visibility', credential: 'credential', list: 'credentials',
+		can: 'canPublish', publish: 'doPublish', error: 'publishError', busy: 'publishing',
 		api: () => skills.publishSkillToGithub, id: 'k1',
 	}],
 	['AgentTemplatePublishModal', AgentTemplatePublishModal, { templateId: 't1' }, {
