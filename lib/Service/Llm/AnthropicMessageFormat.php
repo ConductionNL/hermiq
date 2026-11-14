@@ -227,10 +227,24 @@ final class AnthropicMessageFormat {
 			return [];
 		}
 
-		return [
-			'promptTokens' => (int)($rawUsage['input_tokens'] ?? 0),
+		// `input_tokens` counts only the uncached input; the prompt read from or
+		// written to the cache is counted apart. promptTokens is every input token
+		// the model read, so a budget stays conservative (REQ-PCACHE-003).
+		$cacheRead  = (int)($rawUsage['cache_read_input_tokens'] ?? 0);
+		$cacheWrite = (int)($rawUsage['cache_creation_input_tokens'] ?? 0);
+		$usage      = [
+			'promptTokens' => ((int)($rawUsage['input_tokens'] ?? 0) + $cacheRead + $cacheWrite),
 			'completionTokens' => (int)($rawUsage['output_tokens'] ?? 0),
 		];
+		if (array_key_exists('cache_read_input_tokens', $rawUsage) === true) {
+			$usage['cacheReadTokens'] = $cacheRead;
+		}
+
+		if (array_key_exists('cache_creation_input_tokens', $rawUsage) === true) {
+			$usage['cacheWriteTokens'] = $cacheWrite;
+		}
+
+		return $usage;
 	}//end anthropicUsage()
 
 	/**
