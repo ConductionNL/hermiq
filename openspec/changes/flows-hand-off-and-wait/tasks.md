@@ -58,9 +58,9 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - `RemoteAgent` is declared as `remoteagent` (register v0.57.0), admins only.
   - `RemoteAgentService::register()` fetches the card once through the integriq source (`A2aClient::fetchCard()`, `GET /.well-known/agent-card.json` via `CallService::call()`). It keeps a snapshot of name, description, url, version and skills, without security schemes or credentials, and starts the agent switched off.
   - `RemoteAgentController` serves `GET`/`POST /api/remote-agents` and `PUT`/`DELETE /api/remote-agents/{id}`, every one `#[AuthorizedAdminSetting]`.
-  - Left: `src/views/RemoteAgents.vue`, `src/modals/RemoteAgentFormModal.vue` and the manifest entry.
-- [ ] Implement
-- [ ] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/). PHPUnit is done: `tests/Unit/Service/RemoteAgent/RemoteAgentTest.php` and `tests/Unit/Controller/RemoteAgentControllerTest.php`. Playwright waits for the screen.
+  - Admin screen built as an admin settings section rather than an app page, because every route is admin-only and app settings belong in admin: `src/components/settings/RemoteAgents.vue` (in `src/views/AdminRoot.vue`, "Remote agents") lists each remote agent with the card kept at registration and its skills, switches it on or off, edits and deletes it; `src/modals/RemoteAgentFormModal.vue` registers one through a chosen integriq source (name, handle, description) and later changes its name and description; `src/api/remoteAgents.js`. No manifest entry is needed. en/nl strings.
+- [x] Implement
+- [ ] Test (PHPUnit with a stubbed CallService; Playwright under tests/e2e/spec-coverage/). PHPUnit is done: `tests/Unit/Service/RemoteAgent/RemoteAgentTest.php` and `tests/Unit/Controller/RemoteAgentControllerTest.php`. Playwright waits for a live instance; vitest `remote-agents-settings.spec.js` covers the screen.
 
 ### Task 6: The askRemoteAgent tool and its polling job
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003`
@@ -83,8 +83,10 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 - **files**: `src/views/Chat.vue`, `src/api/chat.js`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN an open handoff WHEN the conversation is shown THEN the waiting line appears under the message that started it, and changes when it closes
-- [ ] Implement
+- [x] Implement
+  - `listHandoffs()` in `src/api/chat.js` reads the session's `agenthandoff` objects with the person's own session (the schema's read rule shows only their own). `src/utils/handoffLines.js` places each under the last message written at or before it was requested (a handoff records no message id) and words it: "Waiting for “X” (started 14:02)", or how it ended. `src/views/Chat.vue` reads them when a session opens and every time the thread reloads, so a closed handoff's line changes with the turn that brings its result. en/nl strings.
 - [ ] Test (Playwright under tests/e2e/spec-coverage/ on a seeded handoff)
+  - vitest done: `handoff-lines.spec.js`. Playwright needs a live instance.
 
 ## Verification
 - [ ] `openspec validate flows-hand-off-and-wait --type change --strict` passes
