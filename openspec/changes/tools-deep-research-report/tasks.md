@@ -37,8 +37,9 @@ Kind: code. Size M. Row `hermiq:dm-deep-research`.
 - **acceptance_criteria**:
   - GIVEN a finished run WHEN the report is written THEN it is in the user's Files with the tag, and the conversation has the summary, counts and link
   - GIVEN a failed mark WHEN writing THEN the file is removed and the run fails
-- [ ] Implement
-- [ ] Test (PHPUnit with the tag manager stubbed to fail)
+- [x] Implement
+- [x] Test (PHPUnit with the tag manager stubbed to fail)
+  - `ReportWriter::write()` saves the report as the user into `Hermiq/Onderzoek/<yyyy-mm-dd> <title>.md` (folders made when missing, a free name when taken), marks it "Agent authored" in the same operation and on a failed mark deletes it and throws, so the run fails; `message()` words the conversation message: at most five summary lines, "14 sources, 31 citations checked, 2 unverified" and the link. `ReportWriterTest` (4). The runner (task 1) posts the message once it exists.
 
 ### Task 5: Caps, budget, kill switch and stop
 - **spec_ref**: `openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-research-run-stops-at-its-caps-the-budget-the-kill-switch-or-the-user-req-research-005`
