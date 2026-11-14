@@ -188,6 +188,22 @@ class ScheduleWhenParser {
 	 * @return array{kind: string, intervalMinutes: int}|null
 	 */
 	private function interval(string $phrase): ?array {
+		$minutes = ($this->fixedInterval(phrase: $phrase) ?? $this->countedInterval(phrase: $phrase));
+		if ($minutes === null) {
+			return null;
+		}
+
+		return ['kind' => 'interval', 'intervalMinutes' => $minutes];
+	}//end interval()
+
+	/**
+	 * The minutes of a named interval: a minute, a quarter, half an hour, an hour.
+	 *
+	 * @param string $phrase The phrase.
+	 *
+	 * @return int|null
+	 */
+	private function fixedInterval(string $phrase): ?int {
 		$fixed = [
 			'/^(?:every|each) (?:quarter of an hour|quarter hour)$/' => 15,
 			'/^(?:elk|ieder|elke|iedere) kwartier$/' => 15,
@@ -200,10 +216,21 @@ class ScheduleWhenParser {
 		];
 		foreach ($fixed as $pattern => $minutes) {
 			if (preg_match($pattern, $phrase) === 1) {
-				return ['kind' => 'interval', 'intervalMinutes' => $minutes];
+				return $minutes;
 			}
 		}
 
+		return null;
+	}//end fixedInterval()
+
+	/**
+	 * The minutes of a counted interval: `every 5 minutes`, `elke twee uur`.
+	 *
+	 * @param string $phrase The phrase.
+	 *
+	 * @return int|null
+	 */
+	private function countedInterval(string $phrase): ?int {
 		if (preg_match('/^(?:every|each|elke|iedere|elk|ieder) (\S+) (minutes?|mins?|minuten|minuut|hours?|uur|uren)$/u', $phrase, $m) !== 1) {
 			return null;
 		}
@@ -217,8 +244,8 @@ class ScheduleWhenParser {
 			$count *= 60;
 		}
 
-		return ['kind' => 'interval', 'intervalMinutes' => $count];
-	}//end interval()
+		return $count;
+	}//end countedInterval()
 
 	/**
 	 * Every day, every weekday, or named weekdays, at a time.
@@ -228,18 +255,15 @@ class ScheduleWhenParser {
 	 * @return array{kind: string, cronExpr: string}|null
 	 */
 	private function weekly(string $phrase): ?array {
-		$english = '/^(?:(?:every|each|on) (.+?)|(daily)) at (.+)$/u';
-		$dutch   = '/^(?:(?:elke|iedere|op) (.+?)|(dagelijks)) om (.+)$/u';
-		if (preg_match($english, $phrase, $m) !== 1 && preg_match($dutch, $phrase, $m) !== 1) {
+		$m = self::firstMatch(
+			patterns: ['/^(?:(?:every|each|on) (.+?)|(daily)) at (.+)$/u', '/^(?:(?:elke|iedere|op) (.+?)|(dagelijks)) om (.+)$/u'],
+			phrase: $phrase
+		);
+		if ($m === null) {
 			return null;
 		}
 
-		$days = $m[1];
-		if ($days === '') {
-			$days = $m[2];
-		}
-
-		$days = $this->daysField(days: $days);
+		$days = $this->daysField(days: ($m[1] . $m[2]));
 		$time = $this->time(text: $m[3]);
 		if ($days === null || $time === null) {
 			return null;
@@ -247,6 +271,24 @@ class ScheduleWhenParser {
 
 		return ['kind' => 'cron', 'cronExpr' => sprintf('%d %d * * %s', $time[1], $time[0], $days)];
 	}//end weekly()
+
+	/**
+	 * The groups of the first pattern that matches, or null.
+	 *
+	 * @param array<int, string> $patterns The patterns, in order.
+	 * @param string             $phrase   The phrase.
+	 *
+	 * @return array<int, string>|null
+	 */
+	private static function firstMatch(array $patterns, string $phrase): ?array {
+		foreach ($patterns as $pattern) {
+			if (preg_match($pattern, $phrase, $m) === 1) {
+				return $m;
+			}
+		}
+
+		return null;
+	}//end firstMatch()
 
 	/**
 	 * The cron day-of-week field of a day phrase: every day, weekdays or a list of names.
@@ -264,6 +306,25 @@ class ScheduleWhenParser {
 			return '1-5';
 		}
 
+		$numbers = $this->dayNumbers(days: $days);
+		if ($numbers === null || $numbers === []) {
+			return null;
+		}
+
+		$numbers = array_values(array_unique($numbers));
+		sort($numbers);
+
+		return implode(',', $numbers);
+	}//end daysField()
+
+	/**
+	 * The cron day numbers of a list of day names, or null for an unknown name.
+	 *
+	 * @param string $days The day names: `monday, wednesday and friday`.
+	 *
+	 * @return array<int, int>|null
+	 */
+	private function dayNumbers(string $days): ?array {
 		$numbers = [];
 		foreach (preg_split('/\s*(?:,|\band\b|\ben\b)\s*/u', $days) as $name) {
 			$name = (string)preg_replace('/s$/', '', trim($name));
@@ -278,15 +339,8 @@ class ScheduleWhenParser {
 			$numbers[] = self::DAYS[$name];
 		}
 
-		if ($numbers === []) {
-			return null;
-		}
-
-		$numbers = array_values(array_unique($numbers));
-		sort($numbers);
-
-		return implode(',', $numbers);
-	}//end daysField()
+		return $numbers;
+	}//end dayNumbers()
 
 	/**
 	 * The first day of the month, at a time or at midnight.
@@ -359,17 +413,12 @@ class ScheduleWhenParser {
 	 * @return DateTimeImmutable|null The date at midnight, or null.
 	 */
 	private function date(string $text, DateTimeImmutable $now): ?DateTimeImmutable {
-		$year = null;
-		if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $text, $m) === 1) {
-			[$year, $month, $day] = [(int)$m[1], (int)$m[2], (int)$m[3]];
-		} elseif (preg_match('/^(\d{1,2}) ([a-z]+)(?: (\d{4}))?$/u', $text, $m) === 1 && isset(self::MONTHS[$m[2]]) === true) {
-			[$day, $month, $year] = [(int)$m[1], self::MONTHS[$m[2]], self::yearOf(digits: ($m[3] ?? ''))];
-		} elseif (preg_match('/^([a-z]+) (\d{1,2})(?:,? (\d{4}))?$/u', $text, $m) === 1 && isset(self::MONTHS[$m[1]]) === true) {
-			[$month, $day, $year] = [self::MONTHS[$m[1]], (int)$m[2], self::yearOf(digits: ($m[3] ?? ''))];
-		} else {
+		$parts = self::dateParts(text: $text);
+		if ($parts === null) {
 			return null;
 		}
 
+		[$year, $month, $day] = $parts;
 		$guess = $year ?? (int)$now->format('Y');
 		if (checkdate($month, $day, $guess) === false) {
 			return null;
@@ -384,6 +433,49 @@ class ScheduleWhenParser {
 	}//end date()
 
 	/**
+	 * The year (null when not given), month and day of a date text.
+	 *
+	 * @param string $text The date text.
+	 *
+	 * @return array{0: int|null, 1: int, 2: int}|null
+	 */
+	private static function dateParts(string $text): ?array {
+		if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $text, $m) === 1) {
+			return [(int)$m[1], (int)$m[2], (int)$m[3]];
+		}
+
+		// `1 december [2026]`, then `december 1[, 2026]`: [pattern, day group, month group].
+		$named = [
+			['/^(\d{1,2}) ([a-z]+)(?: (\d{4}))?$/u', 1, 2],
+			['/^([a-z]+) (\d{1,2})(?:,? (\d{4}))?$/u', 2, 1],
+		];
+		foreach ($named as [$pattern, $dayGroup, $monthGroup]) {
+			if (preg_match($pattern, $text, $m) === 1) {
+				return self::namedDate(month: $m[$monthGroup], day: (int)$m[$dayGroup], year: ($m[3] ?? ''));
+			}
+		}
+
+		return null;
+	}//end dateParts()
+
+	/**
+	 * A date with a month name, or null for a name that is not a month.
+	 *
+	 * @param string $month The month name.
+	 * @param int    $day   The day.
+	 * @param string $year  The year digits, '' when not given.
+	 *
+	 * @return array{0: int|null, 1: int, 2: int}|null
+	 */
+	private static function namedDate(string $month, int $day, string $year): ?array {
+		if (isset(self::MONTHS[$month]) === false) {
+			return null;
+		}
+
+		return [self::yearOf(digits: $year), self::MONTHS[$month], $day];
+	}//end namedDate()
+
+	/**
 	 * A time of day as [hour, minute].
 	 *
 	 * English: `8`, `8:30`, `08.30`, `8am`, `8 pm`, `eight`, `eight o'clock`,
@@ -396,12 +488,28 @@ class ScheduleWhenParser {
 	 * @return array{0: int, 1: int}|null
 	 */
 	private function time(string $text): ?array {
-		$text = trim((string)preg_replace("/\s*(?:o'clock|uur)$/u", '', trim($text)));
+		$text  = trim((string)preg_replace("/\s*(?:o'clock|uur)$/u", '', trim($text)));
 		$named = ['noon' => [12, 0], 'midday' => [12, 0], 'midnight' => [0, 0], 'middernacht' => [0, 0]];
 		if (isset($named[$text]) === true) {
 			return $named[$text];
 		}
 
+		$relative = $this->relativeTime(text: $text);
+		if ($relative !== false) {
+			return $relative;
+		}
+
+		return $this->clockTime(text: $text);
+	}//end time()
+
+	/**
+	 * A time told against an hour: `half past eight`, `kwart voor negen`, `half negen`.
+	 *
+	 * @param string $text The time text.
+	 *
+	 * @return array{0: int, 1: int}|null|false The time, null for a bad hour, false when not this form.
+	 */
+	private function relativeTime(string $text): array|null|false {
 		$relative = [
 			'/^half past (\S+)$/u' => [0, 30],
 			'/^quarter past (\S+)$/u' => [0, 15],
@@ -421,30 +529,66 @@ class ScheduleWhenParser {
 			}
 		}
 
+		return false;
+	}//end relativeTime()
+
+	/**
+	 * A clock time: `8`, `8:30`, `08.30`, `8am`, `eight pm`.
+	 *
+	 * @param string $text The time text.
+	 *
+	 * @return array{0: int, 1: int}|null
+	 */
+	private function clockTime(string $text): ?array {
 		if (preg_match('/^(\d{1,2}|[a-zé]+)(?:[:.](\d{2}))?\s*(am|pm|a\.m\.?|p\.m\.?)?$/u', $text, $m) !== 1) {
 			return null;
 		}
 
 		$hour   = $this->number(word: $m[1]);
 		$minute = (int)($m[2] ?? 0);
-		if ($hour === null || $hour > 23 || $minute > 59) {
+		if (self::onTheClock(hour: $hour, minute: $minute) === false) {
 			return null;
 		}
 
-		$meridiem = str_replace('.', '', ($m[3] ?? ''));
-		if ($meridiem !== '') {
-			if ($hour < 1 || $hour > 12) {
-				return null;
-			}
-
-			$hour %= 12;
-			if ($meridiem === 'pm') {
-				$hour += 12;
-			}
+		$hour = self::withMeridiem(hour: $hour, meridiem: str_replace('.', '', ($m[3] ?? '')));
+		if ($hour === null) {
+			return null;
 		}
 
 		return [$hour, $minute];
-	}//end time()
+	}//end clockTime()
+
+	/**
+	 * Whether an hour and minute are on a 24-hour clock.
+	 *
+	 * @param int|null $hour   The hour, null when it was not a number.
+	 * @param int      $minute The minute.
+	 *
+	 * @return bool
+	 */
+	private static function onTheClock(?int $hour, int $minute): bool {
+		return $hour !== null && $hour <= 23 && $minute <= 59;
+	}//end onTheClock()
+
+	/**
+	 * An hour read with `am` or `pm`, or as it is without one.
+	 *
+	 * @param int    $hour     The hour as written.
+	 * @param string $meridiem `am`, `pm` or ''.
+	 *
+	 * @return int|null The hour on the 24-hour clock, or null for an hour that cannot carry am/pm.
+	 */
+	private static function withMeridiem(int $hour, string $meridiem): ?int {
+		if ($meridiem === '') {
+			return $hour;
+		}
+
+		if ($hour < 1 || $hour > 12) {
+			return null;
+		}
+
+		return (($hour % 12) + (['pm' => 12][$meridiem] ?? 0));
+	}//end withMeridiem()
 
 	/**
 	 * A count in digits or as a word.
@@ -494,7 +638,7 @@ class ScheduleWhenParser {
 	 */
 	private function cronReadback(string $cron, bool $dutch): string {
 		$parts = explode(' ', $cron);
-		if (count($parts) !== 5 || ctype_digit($parts[0]) === false || ctype_digit($parts[1]) === false || $parts[3] !== '*') {
+		if (self::isDailyClock(parts: $parts) === false) {
 			return $this->word(key: 'rule', dutch: $dutch) . ' ' . $cron;
 		}
 
@@ -509,6 +653,21 @@ class ScheduleWhenParser {
 
 		return $this->daysReadback(field: $parts[4], dutch: $dutch) . ' ' . $this->word(key: 'at', dutch: $dutch) . ' ' . $at;
 	}//end cronReadback()
+
+	/**
+	 * Whether a cron expression runs at one fixed minute and hour, in every month.
+	 *
+	 * @param array<int, string> $parts The five cron fields.
+	 *
+	 * @return bool
+	 */
+	private static function isDailyClock(array $parts): bool {
+		if (count($parts) !== 5 || $parts[3] !== '*') {
+			return false;
+		}
+
+		return ctype_digit($parts[0]) === true && ctype_digit($parts[1]) === true;
+	}//end isDailyClock()
 
 	/**
 	 * "Every day", "Every weekday" or "Every Monday and Thursday", in either language.
