@@ -154,10 +154,14 @@ class RunTokenService implements RunTokenServiceInterface {
 	 *                             The caller passes its OWN ceiling, so the token still dies
 	 *                             with the work it belongs to and never becomes a long-lived
 	 *                             credential. Null keeps the turn default.
+	 * @param string $projectKey The session's project (memory-project-scopes), or '' outside
+	 *                           a project. Bound into the token so the memory tools called over
+	 *                           the governed MCP endpoint act on that project's memory.
 	 *
 	 * @return string The plaintext bearer token.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function mint(
 		string $runId,
@@ -165,11 +169,13 @@ class RunTokenService implements RunTokenServiceInterface {
 		string $userId,
 		string $conversationId = '',
 		?int $ttlSeconds = null,
+		string $projectKey = '',
 	): string {
 		$request = new RunTokenRequest(runId: $runId, agentId: $agentId);
 		$request->userId = $userId;
 		$request->conversationId = $conversationId;
 		$request->ttlSeconds = $ttlSeconds;
+		$request->projectKey = $projectKey;
 		return $this->mintFor(request: $request);
 	}//end mint()
 
@@ -221,6 +227,10 @@ class RunTokenService implements RunTokenServiceInterface {
 			// The token's own digest — re-checked with hash_equals() on verify().
 			'hash' => $this->digest(token: $token),
 		];
+		// Only a run in a project carries one, so every other record keeps its shape.
+		if ($request->projectKey !== '') {
+			$record['projectKey'] = $request->projectKey;
+		}
 
 		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (is_string($encoded) === false) {
@@ -256,8 +266,9 @@ class RunTokenService implements RunTokenServiceInterface {
 	 *
 	 * @param string $token The presented bearer token.
 	 *
-	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string, projectKey?: string}|null
 	 *                                                                                            The binding, or null when the token is not valid.
+	 *                                                                                            `projectKey` is present only for a run in a project.
 	 *
 	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
@@ -276,12 +287,18 @@ class RunTokenService implements RunTokenServiceInterface {
 			return null;
 		}
 
-		return [
+		$binding = [
 			'runId' => (string)($record['runId'] ?? ''),
 			'agentId' => (string)($record['agentId'] ?? ''),
 			'userId' => (string)($record['userId'] ?? ''),
 			'conversationId' => (string)($record['conversationId'] ?? ''),
 		];
+		$projectKey = (string)($record['projectKey'] ?? '');
+		if ($projectKey !== '') {
+			$binding['projectKey'] = $projectKey;
+		}
+
+		return $binding;
 
 	}//end verify()
 

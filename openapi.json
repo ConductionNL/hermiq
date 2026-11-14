@@ -1151,6 +1151,15 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "project",
+                        "in": "query",
+                        "required": false,
+                        "description": "A project key: the project's memory instead of the shared memory. Unknown keys answer 404.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -1169,6 +1178,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
                     },
                     "500": {
                         "$ref": "#/components/responses/Problem500"
@@ -1293,6 +1305,51 @@
                 }
             }
         },
+        "/agents/{agentId}/memory/projects": {
+            "get": {
+                "operationId": "memory-projects",
+                "summary": "List the projects the agent keeps a memory for",
+                "description": "List the projects the agent keeps a memory for (memory-project-scopes), each with its key and readable name. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "memory"
+                ],
+                "parameters": [
+                    {
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
         "/agents/{agentId}/memory/entries/{entryId}": {
             "put": {
                 "operationId": "memory-correct-entry",
@@ -1316,6 +1373,15 @@
                         "in": "path",
                         "required": true,
                         "description": "The id of the entry to correct.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "project",
+                        "in": "query",
+                        "required": false,
+                        "description": "A project key: the project's memory instead of the shared memory. Unknown keys answer 404.",
                         "schema": {
                             "type": "string"
                         }
@@ -1390,6 +1456,15 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "project",
+                        "in": "query",
+                        "required": false,
+                        "description": "A project key: the project's memory instead of the shared memory. Unknown keys answer 404.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -1405,6 +1480,82 @@
                                 "schema": {}
                             }
                         }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/agents/{agentId}/memory/entries/{entryId}/move": {
+            "post": {
+                "operationId": "memory-move-entry",
+                "summary": "Move one entry between the shared memory and a project memory (owner only)",
+                "description": "Move one entry between the shared memory and a project memory (owner only). The entry is forgotten in the source and appended to the target, so it passes redaction again. Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "memory"
+                ],
+                "parameters": [
+                    {
+                        "name": "agentId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The agent UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "entryId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The id of the entry to move.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "from": {
+                                        "description": "The project the entry is in; empty for the shared memory."
+                                    },
+                                    "to": {
+                                        "description": "The project to move it to; empty for the shared memory."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/Problem400"
                     },
                     "401": {
                         "$ref": "#/components/responses/Problem401"

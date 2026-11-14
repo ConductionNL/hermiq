@@ -2738,7 +2738,21 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "In a project the agent remembers what belongs to that project apart from its shared memory.": "In a project the agent remembers what belongs to that project apart from its shared memory.",
+        "Memory layers": "Memory layers",
+        "Move": "Move",
+        "Move to project": "Move to project",
+        "Move to project…": "Move to project…",
+        "Move to shared": "Move to shared",
+        "Name a project to keep what the agent remembers in it apart.": "Name a project to keep what the agent remembers in it apart.",
+        "Name of the new project": "Name of the new project",
+        "New project": "New project",
+        "New project (optional)": "New project (optional)",
+        "No project": "No project",
+        "Project": "Project",
+        "Project: {project}": "Project: {project}",
+        "Shared": "Shared"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

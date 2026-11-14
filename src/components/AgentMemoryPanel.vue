@@ -181,6 +181,22 @@
 									@click="forgetTarget = entry">
 									{{ t('hermiq', 'Forget') }}
 								</NcButton>
+								<NcButton
+									v-if="project"
+									variant="tertiary"
+									:disabled="busy"
+									data-testid="memory-move-to-shared"
+									@click="moveEntry(entry, '')">
+									{{ t('hermiq', 'Move to shared') }}
+								</NcButton>
+								<NcButton
+									v-else-if="projects.length > 0"
+									variant="tertiary"
+									:disabled="busy"
+									data-testid="memory-move-to-project"
+									@click="moveTarget = entry">
+									{{ t('hermiq', 'Move to project…') }}
+								</NcButton>
 							</span>
 						</template>
 					</li>
@@ -191,6 +207,13 @@
 					:busy="busy"
 					@close="forgetTarget = null"
 					@confirm="confirmForget" />
+				<MoveMemoryEntryDialog
+					v-if="moveTarget"
+					:text="moveTarget.text"
+					:projects="projects"
+					:busy="busy"
+					@close="moveTarget = null"
+					@confirm="(to) => moveEntry(moveTarget, to)" />
 			</section>
 		</template>
 	</div>
@@ -209,12 +232,14 @@ import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
 import ForgetMemoryDialog from '../dialogs/ForgetMemoryDialog.vue'
+import MoveMemoryEntryDialog from '../dialogs/MoveMemoryEntryDialog.vue'
 import {
 	addMemory,
 	consolidateMemory,
 	correctMemoryEntry,
 	forgetMemoryEntry,
 	getMemory,
+	moveMemoryEntry,
 } from '../api/memory.js'
 import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
 import { errorMessage } from '../utils/errorMessage.js'
@@ -227,6 +252,7 @@ export default {
 		BrainIcon,
 		EyeOffIcon,
 		ForgetMemoryDialog,
+		MoveMemoryEntryDialog,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcEmptyContent,
@@ -241,7 +267,24 @@ export default {
 			type: String,
 			default: '',
 		},
+
+		/**
+		 * The project whose memory this panel shows (memory-project-scopes);
+		 * '' for the shared memory.
+		 */
+		project: {
+			type: String,
+			default: '',
+		},
+
+		/** The agent's projects, the targets of "Move to project…". */
+		projects: {
+			type: Array,
+			default: () => [],
+		},
 	},
+
+	emits: ['moved'],
 
 	data() {
 		return {
@@ -254,6 +297,7 @@ export default {
 			editingId: '',
 			editText: '',
 			forgetTarget: null,
+			moveTarget: null,
 		}
 	},
 
@@ -340,6 +384,10 @@ export default {
 	},
 
 	watch: {
+		project() {
+			this.load()
+		},
+
 		agentId: {
 			immediate: true,
 			/**
@@ -370,7 +418,7 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				const memory = await getMemory(this.agentId)
+				const memory = await getMemory(this.agentId, ...this.layerArgs())
 				this.memory = memory || {
 					entries: [],
 					charBudget: 8000,
@@ -451,7 +499,12 @@ export default {
 				return
 			}
 			await busyAction(this, BUSY_FIELDS)(async () => {
-				this.memory = await correctMemoryEntry(this.agentId, entry.id, text)
+				this.memory = await correctMemoryEntry(
+					this.agentId,
+					entry.id,
+					text,
+					...this.layerArgs(),
+				)
 				this.cancelCorrection()
 			}, () => this.t('hermiq', 'Unknown error'))
 		},
@@ -470,8 +523,41 @@ export default {
 				this.memory = await forgetMemoryEntry(
 					this.agentId,
 					this.forgetTarget.id,
+					...this.layerArgs(),
 				)
 				this.forgetTarget = null
+			}, () => this.t('hermiq', 'Unknown error'))
+		},
+
+		/**
+		 * The trailing project argument of the memory API calls: none for the
+		 * shared memory, so those calls stay exactly as they were.
+		 *
+		 * @return {Array<string>} `[]` or `[project]`.
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		layerArgs() {
+			return this.project ? [this.project] : []
+		},
+
+		/**
+		 * Move one entry to the shared memory (`to` '') or to a project. The
+		 * entry leaves this layer; the panel reloads it and tells the page.
+		 *
+		 * @param {object} entry The entry to move.
+		 * @param {string} to The target project key, or '' for the shared memory.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		async moveEntry(entry, to) {
+			if (!entry?.id || !this.agentId || (to || '') === this.project) {
+				return
+			}
+			await busyAction(this, BUSY_FIELDS)(async () => {
+				await moveMemoryEntry(this.agentId, entry.id, this.project, to || '')
+				this.moveTarget = null
+				this.memory = await getMemory(this.agentId, ...this.layerArgs())
+				this.$emit('moved', { entryId: entry.id, to: to || '' })
 			}, () => this.t('hermiq', 'Unknown error'))
 		},
 

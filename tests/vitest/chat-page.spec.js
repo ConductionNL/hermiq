@@ -650,3 +650,74 @@ describe('presentation', () => {
 		expect(w.vm.speechControls).toEqual({ dictate: false, readAloud: true })
 	})
 })
+
+const axios = (await import('@nextcloud/axios')).default
+
+describe('starting in a project (memory-project-scopes)', () => {
+	const projects = [{ projectKey: 'omgevingsvisie-2040', projectName: 'Omgevingsvisie 2040' }]
+
+	afterEach(() => {
+		vi.restoreAllMocks()
+	})
+
+	it('asks which project when the agent already has some, and starts nothing yet', async () => {
+		vi.spyOn(axios, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/memory/projects') ? { projects } : {} }))
+		const w = await mountChat()
+		await w.vm.startWithAgent({ uuid: 'a1', name: 'Beleidsondersteuner' })
+		expect(api.createSession).not.toHaveBeenCalled()
+		expect(w.vm.projectPicker).toEqual({ agent: { uuid: 'a1', name: 'Beleidsondersteuner' }, projects })
+	})
+
+	it('starts in the chosen project and shows it in the header', async () => {
+		vi.spyOn(axios, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/memory/projects') ? { projects } : {} }))
+		api.createSession.mockResolvedValueOnce({ uuid: 'new', projectKey: 'omgevingsvisie-2040' })
+		const w = await mountChat()
+		await w.vm.startWithAgent({ uuid: 'a1' })
+		await w.vm.onProjectChosen({ projectKey: 'omgevingsvisie-2040' })
+		expect(api.createSession).toHaveBeenCalledWith('a1', undefined, { projectKey: 'omgevingsvisie-2040' })
+		expect(w.vm.projectPicker).toBeNull()
+		expect(w.vm.sessionProjectName).toBe('Omgevingsvisie 2040')
+	})
+
+	it('starts without a project when the person chooses none', async () => {
+		vi.spyOn(axios, 'get').mockImplementation(async (url) => ({ data: url.endsWith('/memory/projects') ? { projects } : {} }))
+		api.createSession.mockResolvedValueOnce({ uuid: 'new' })
+		const w = await mountChat()
+		await w.vm.startWithAgent({ uuid: 'a1' })
+		await w.vm.onProjectChosen(null)
+		expect(api.createSession).toHaveBeenCalledWith('a1')
+		expect(w.vm.sessionProjectName).toBe('')
+	})
+
+	it('starts a named new project directly, for an agent without projects too', async () => {
+		api.createSession.mockResolvedValueOnce({ uuid: 'new', projectKey: 'begroting-2027' })
+		const w = await mountChat()
+		w.vm.newProjectName = '  Begroting 2027 '
+		await w.vm.startWithAgent({ uuid: 'a1' })
+		expect(api.createSession).toHaveBeenCalledWith('a1', undefined, { projectName: 'Begroting 2027' })
+		expect(w.vm.newProjectName).toBe('')
+		expect(w.vm.sessionProjectName).toBe('Begroting 2027')
+	})
+
+	it('names a reopened project session from the agent\'s projects, else by its key', async () => {
+		const get = vi.spyOn(axios, 'get').mockResolvedValue({ data: { projects } })
+		const w = await mountChat()
+		w.vm.activeSession = { uuid: 's1', agentId: 'a1', projectKey: 'omgevingsvisie-2040' }
+		await w.vm.loadSessionProjects(w.vm.activeSession)
+		expect(w.vm.sessionProjectName).toBe('Omgevingsvisie 2040')
+
+		get.mockRejectedValueOnce(new Error('down'))
+		await w.vm.loadSessionProjects(w.vm.activeSession)
+		expect(w.vm.sessionProjectName).toBe('omgevingsvisie-2040')
+
+		get.mockClear()
+		await w.vm.loadSessionProjects({ uuid: 's2', agentId: 'a1' })
+		expect(get).not.toHaveBeenCalled()
+	})
+
+	it('ignores a choice after the picker was closed', async () => {
+		const w = await mountChat()
+		await w.vm.onProjectChosen({ projectKey: 'x' })
+		expect(api.createSession).not.toHaveBeenCalled()
+	})
+})

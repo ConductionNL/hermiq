@@ -2718,7 +2718,21 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "In a project the agent remembers what belongs to that project apart from its shared memory.": "In a project the agent remembers what belongs to that project apart from its shared memory.",
+        "Memory layers": "Memory layers",
+        "Move": "Move",
+        "Move to project": "Move to project",
+        "Move to project…": "Move to project…",
+        "Move to shared": "Move to shared",
+        "Name a project to keep what the agent remembers in it apart.": "Name a project to keep what the agent remembers in it apart.",
+        "Name of the new project": "Name of the new project",
+        "New project": "New project",
+        "New project (optional)": "New project (optional)",
+        "No project": "No project",
+        "Project": "Project",
+        "Project: {project}": "Project: {project}",
+        "Shared": "Shared"
     },
     "nplurals=2; plural=(n != 1);"
 )

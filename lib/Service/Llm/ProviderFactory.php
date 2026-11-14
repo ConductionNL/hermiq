@@ -1175,6 +1175,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @param int|null $maxToolCalls The tool calls this turn may make (Agent.maxToolCalls);
 	 *                               null is the default of 10. Past it no tool runs and
 	 *                               the turn ends with the model's last answer.
+	 * @param string $projectKey The session's project (memory-project-scopes); on `cli` it
+	 *                           is bound into the run token for the memory tools. '' outside
+	 *                           a project.
 	 *
 	 * @return string Generated response text (the final assistant turn).
 	 *
@@ -1198,6 +1201,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		?string $agentId = null,
 		string $conversationId = '',
 		?int $maxToolCalls = null,
+		string $projectKey = '',
 	): string {
 		$this->resetCallState();
 		$run = new AnthropicChatRun(credentialId: $credentialId, model: $model);
@@ -1210,6 +1214,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$run->agentId = $agentId;
 		$run->conversationId = $conversationId;
 		$run->maxToolCalls = $maxToolCalls;
+		$run->projectKey = $projectKey;
 
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -1246,7 +1251,8 @@ class ProviderFactory implements ProviderFactoryInterface {
 			messageHistory: $run->messageHistory,
 			functions: $run->functions,
 			agentId: $run->agentId,
-			conversationId: $run->conversationId
+			conversationId: $run->conversationId,
+			projectKey: $run->projectKey
 		);
 	}//end callAnthropicCliTurn()
 
@@ -1475,6 +1481,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                             for a tool-requiring turn; unused for a text-only one.
 	 * @param string $conversationId The conversation this turn belongs to, so a tool step
 	 *                               published on the run-step bus reaches the right stream.
+	 * @param string $projectKey The session's project, bound into the run token; '' outside one.
 	 *
 	 * @return string The completion text.
 	 *
@@ -1493,12 +1500,14 @@ class ProviderFactory implements ProviderFactoryInterface {
 		array $functions = [],
 		?string $agentId = null,
 		string $conversationId = '',
+		string $projectKey = '',
 	): string {
 		$turn = new CliTurn(model: $model, agentId: $agentId);
 		$turn->credentialId = $credentialId;
 		$turn->messageHistory = $messageHistory;
 		$turn->functions = $functions;
 		$turn->conversationId = $conversationId;
+		$turn->projectKey = $projectKey;
 		return $this->answerCliTurn(turn: $turn);
 	}//end callAnthropicCli()
 

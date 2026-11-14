@@ -40,6 +40,7 @@ final class ToolCallRequest {
 	 * @param string $agentId The run's agent UUID.
 	 * @param string $conversationId The conversation this run belongs to, so a step
 	 *                               published on the bus reaches the right stream.
+	 * @param string $projectKey The run's project, from the token; '' outside a project.
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
 	 */
@@ -47,6 +48,7 @@ final class ToolCallRequest {
 		public readonly array $params,
 		public readonly string $agentId,
 		public readonly string $conversationId = '',
+		public readonly string $projectKey = '',
 	) {
 	}//end __construct()
 }//end class

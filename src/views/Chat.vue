@@ -239,6 +239,12 @@
 				</NcButton>
 			</div>
 			<p
+				v-if="activeSession && sessionProjectName"
+				class="chat-page__start-values"
+				data-testid="chat-project">
+				{{ t('hermiq', 'Project: {project}', { project: sessionProjectName }) }}
+			</p>
+			<p
 				v-if="activeSession && sessionStartValues.length > 0"
 				class="chat-page__start-values"
 				data-testid="chat-start-values">
@@ -265,12 +271,28 @@
 						class="chat-page__start-error">
 						<p>{{ startError }}</p>
 					</NcNoteCard>
+					<NcTextField
+						v-model="newProjectName"
+						class="chat-page__new-project"
+						data-testid="chat-new-project"
+						:label="t('hermiq', 'New project (optional)')"
+						:helperText="
+							t(
+								'hermiq',
+								'Name a project to keep what the agent remembers in it apart.',
+							)
+						" />
 					<AgentSelector
 						:agents="agents"
 						:loading="agentsLoading"
 						:error="agentsError"
 						:startingId="startingId"
 						@start="startWithAgent" />
+					<ProjectPickerDialog
+						v-if="projectPicker"
+						:projects="projectPicker.projects"
+						@close="projectPicker = null"
+						@start="onProjectChosen" />
 				</div>
 			</div>
 
@@ -800,6 +822,7 @@ import {
 	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcNoteCard,
+	NcTextField,
 } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
@@ -841,6 +864,7 @@ import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
+import ProjectPickerDialog from '../dialogs/ProjectPickerDialog.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import GenerateImageModal from '../modals/GenerateImageModal.vue'
@@ -869,6 +893,7 @@ import {
 	uploadChatAttachment,
 	warmChat,
 } from '../api/chat.js'
+import { listMemoryProjects } from '../api/memory.js'
 import { speechCapabilities } from '../api/speech.js'
 import { useAgentStore } from '../store/store.js'
 import {
@@ -885,6 +910,7 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { projectNameOf } from '../utils/memoryProjects.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
 import { goalLine as describeGoal } from './chatGoalLine.js'
@@ -914,6 +940,7 @@ export default {
 	components: {
 		AccountMultiplePlus,
 		AgentSelector,
+		ProjectPickerDialog,
 		Archive,
 		ChatSettingsModal,
 		Close,
@@ -942,6 +969,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextField,
 		Paperclip,
 		Pencil,
 		Plus,
@@ -1000,6 +1028,11 @@ export default {
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
+			// Memory-project-scopes: the picker for an agent with projects, the
+			// name typed for a new project, and the active agent's projects.
+			projectPicker: null,
+			newProjectName: '',
+			sessionProjects: [],
 			startError: '',
 
 			// Agents-instruction-variables: the answers to the agent's start
@@ -1245,6 +1278,16 @@ export default {
 		 */
 		startFieldsMissing() {
 			return missingRequired(this.startFields, this.startAnswers)
+		},
+
+		/**
+		 * The readable name of the active session's project, or '' outside one.
+		 *
+		 * @return {string}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		sessionProjectName() {
+			return projectNameOf(this.activeSession?.projectKey || '', this.sessionProjects)
 		},
 
 		/**
@@ -1766,24 +1809,108 @@ export default {
 			// Start the agent's CLI process while the person reads and types, not
 			// inside their first question. Fire and forget: it never throws.
 			warmChat(session.agentId, session.uuid)
+			this.loadSessionProjects(session)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
 
 		/**
-		 * Create a session with the picked agent and activate it.
+		 * The agent's projects, for the name in a project session's header.
+		 * Non-fatal: the header falls back to the key.
+		 *
+		 * @param {object} session The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async loadSessionProjects(session) {
+			this.sessionProjects = []
+			if (!session?.projectKey || !session.agentId) {
+				return
+			}
+			try {
+				this.sessionProjects = await listMemoryProjects(session.agentId)
+			} catch {
+				this.sessionProjects = []
+			}
+		},
+
+		/**
+		 * The agent's projects, or none when they cannot be read.
+		 *
+		 * @param {string} agentUuid The agent.
+		 * @return {Promise<Array<object>>}
+		 */
+		async projectsOf(agentUuid) {
+			try {
+				return await listMemoryProjects(agentUuid)
+			} catch {
+				return []
+			}
+		},
+
+		/**
+		 * The person chose the project in the picker: start the session in it.
+		 *
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null for none.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async onProjectChosen(project) {
+			const picker = this.projectPicker
+			this.projectPicker = null
+			if (picker) {
+				await this.startSession(picker.agent, project, picker.projects)
+			}
+		},
+
+		/**
+		 * The person picked an agent: start right away, in the new project they
+		 * named, or ask which project when the agent already has some
+		 * (memory-project-scopes, design D2).
 		 *
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async startWithAgent(agent) {
+			const agentUuid = agent.uuid || agent.id
+			const newName = this.newProjectName.trim()
+			if (newName) {
+				await this.startSession(agent, { projectName: newName }, [])
+				return
+			}
+			const projects = await this.projectsOf(agentUuid)
+			if (projects.length > 0) {
+				this.projectPicker = { agent, projects }
+				return
+			}
+			await this.startSession(agent, null, [])
+		},
+
+		/**
+		 * Create a session with the picked agent, in a project or none, and activate it.
+		 *
+		 * @param {object} agent The agent to start with.
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null.
+		 * @param {Array<object>} projects The agent's known projects, for the header.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async startSession(agent, project, projects) {
 			const agentUuid = agent.uuid || agent.id
 			this.startingId = agentUuid
 			this.startError = ''
 			try {
-				const session = await createSession(agentUuid)
+				const session = project
+					? await createSession(agentUuid, undefined, project)
+					: await createSession(agentUuid)
 				warmChat(agentUuid, session?.uuid)
+				this.sessionProjects = project?.projectName && session?.projectKey
+					? [{ projectKey: session.projectKey, projectName: project.projectName }]
+					: projects
+				this.newProjectName = ''
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -2662,6 +2789,11 @@ export default {
 	margin: 0;
 	padding: 4px 16px;
 	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__new-project {
+	max-width: 420px;
+	margin: 0 auto 16px;
 }
 
 .chat-page__heading {

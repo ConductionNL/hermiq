@@ -47,6 +47,14 @@ final class RunTokenRequest {
 	public string $conversationId = '';
 
 	/**
+	 * The session's project (memory-project-scopes), or '' outside a project: the
+	 * governed MCP endpoint hands it to the memory tools.
+	 *
+	 * @var string
+	 */
+	public string $projectKey = '';
+
+	/**
 	 * A lifetime override in seconds (the workload plane's own ceiling), or null for the turn default.
 	 *
 	 * @var int|null

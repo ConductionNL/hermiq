@@ -399,15 +399,18 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'reach' => ToolReachResolver::REACH_SELF,
 			'name' => 'Remember a fact',
 			'description' => 'Append a durable fact to your own memory (scope: agent) or to what you know about the '
-				. 'person you are talking with (scope: user), so you can recall it in a future turn or session.',
+				. 'person you are talking with (scope: user), so you can recall it in a future turn or session. '
+				. 'In a project session scope agent stores it in that project\'s memory. Use shared only for a fact '
+				. 'that holds for every project, such as a naming convention of the organisation.',
 			'inputSchema' => [
 				'type' => 'object',
 				'properties' => [
 					'content' => ['type' => 'string', 'description' => 'The fact to remember.'],
 					'scope' => [
 						'type' => 'string',
-						'enum' => ['agent', 'user'],
-						'description' => 'Whose memory to append to: your own (agent) or the acting user\'s profile (user).',
+						'enum' => ['agent', 'user', 'shared'],
+						'description' => 'Whose memory to append to: your own (agent; the project\'s memory in a project '
+							. 'session), your memory shared by every project (shared), or the acting user\'s profile (user).',
 					],
 				],
 				'required' => ['content', 'scope'],
