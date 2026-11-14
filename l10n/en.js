@@ -2690,6 +2690,8 @@ OC.L10N.register(
         "Unused because": "Unused because",
         "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.": "Why a shown suggestion went unused (status=unused): the surface was closed, the suggestion expired, or a newer suggestion replaced it. Empty for every other status.",
         "The tool grants could not be read, so nothing was saved. Reload the page and try again.": "The tool grants could not be read, so nothing was saved. Reload the page and try again.",
+        "Fork from here": "Fork from here",
+        "Could not fork the session.": "Could not fork the session.",
         "page {page}": "page {page}",
         "The documents in this folder do not answer this question.": "The documents in this folder do not answer this question.",
         "This document does not answer this question.": "This document does not answer this question.",
