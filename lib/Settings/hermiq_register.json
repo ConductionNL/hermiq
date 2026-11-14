@@ -2017,7 +2017,7 @@
 			"Skill": {
 				"slug": "agentskill",
 				"icon": "PuzzleOutline",
-				"version": "0.3.0",
+				"version": "0.4.0",
 				"title": "Skill",
 				"description": "A self-improving agent skill in the agentskills.io format (ported from Hermes). Stores the raw frontmatter block (byte-preserved for lossless round-trip), the body, auxiliary files, a lifecycle state, and which agents it is installed on. Slug namespaced (agentskill) to avoid a cross-app slug collision.",
 				"type": "object",
@@ -2131,6 +2131,52 @@
 							"type": "string",
 							"format": "uuid",
 							"$ref": "agent"
+						}
+					},
+					"mergeProposal": {
+						"type": "object",
+						"nullable": true,
+						"title": "Merge proposal",
+						"description": "The curator's proposal to merge this skill into a duplicate that stays: the surviving skill, why the pair was proposed (same-name or same-instructions) and when. Empty when none is waiting; a person approves or rejects it.",
+						"properties": {
+							"survivor": {
+								"type": "string",
+								"format": "uuid",
+								"title": "Skill that stays",
+								"description": "The skill this one would be merged into."
+							},
+							"reason": {
+								"type": "string",
+								"enum": [
+									"same-name",
+									"same-instructions"
+								],
+								"title": "Why",
+								"description": "Why the two skills were proposed as duplicates."
+							},
+							"proposedAt": {
+								"type": "string",
+								"format": "date-time",
+								"title": "Proposed at",
+								"description": "When the curator proposed the merge."
+							}
+						}
+					},
+					"mergedInto": {
+						"type": "string",
+						"format": "uuid",
+						"nullable": true,
+						"title": "Merged into",
+						"description": "The skill this one was merged into when a person approved the merge; it is archived, not deleted."
+					},
+					"mergeRejectedWith": {
+						"type": "array",
+						"default": [],
+						"title": "Not a duplicate of",
+						"description": "Skills a person decided this one does not duplicate; the curator does not propose merging them again.",
+						"items": {
+							"type": "string",
+							"format": "uuid"
 						}
 					},
 					"scanReport": {
