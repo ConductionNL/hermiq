@@ -14,7 +14,8 @@
 
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). The org
   kill-switch (KillSwitchToggle) sits in the header, shown only to org sub-admins /
-  instance admins via a backend capability flag.
+  instance admins via a backend capability flag. Below it, administrators see the
+  per-department switches (DepartmentSwitchList).
 
   @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
   @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
@@ -27,6 +28,8 @@
 			</h2>
 			<KillSwitchToggle />
 		</div>
+
+		<DepartmentSwitchList />
 
 		<NcNoteCard
 			v-if="error"
@@ -128,6 +131,7 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import DepartmentSwitchList from '../components/DepartmentSwitchList.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
@@ -143,6 +147,7 @@ export default {
 		ApprovalDenyModal,
 		ApprovalPreviewModal,
 		CheckDecagram,
+		DepartmentSwitchList,
 		KillSwitchToggle,
 		NcButton,
 		NcEmptyContent,

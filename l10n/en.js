@@ -2716,7 +2716,15 @@ OC.L10N.register(
         "The department's name as people know it, such as Sociaal domein.": "The department's name as people know it, such as Sociaal domein.",
         "When the department was last switched on or off.": "When the department was last switched on or off.",
         "When true, runs of this department's agents are refused.": "When true, runs of this department's agents are refused.",
-        "Why the department was switched off.": "Why the department was switched off."
+        "Why the department was switched off.": "Why the department was switched off.",
+        "Per department": "Per department",
+        "Department switch error": "Department switch error",
+        "AI switch": "AI switch",
+        "Refused runs": "Refused runs",
+        "AI for {department}": "AI for {department}",
+        "{user} at {time}": "{user} at {time}",
+        "Download evidence for {department}": "Download evidence for {department}",
+        "Download evidence": "Download evidence"
     },
     "nplurals=2; plural=(n != 1);"
 )
