@@ -66,9 +66,9 @@ class Notifier implements INotifier {
 		'skill_published_behind',
 		'skill_rollback_suggested',
 		'session_participant_added',
+		'run_done',
 		'goal_reached',
 		'goal_exhausted',
-		'run_done',
 	];
 
 	/**
@@ -168,9 +168,9 @@ class Notifier implements INotifier {
 			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
 			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'run_done' => $this->runDoneText(name: $name, succeeded: (($subjectRaw['result'] ?? '') === 'ok'), l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
-			'run_done' => $this->runDoneText(name: $name, succeeded: (($subjectRaw['result'] ?? '') === 'ok'), l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
