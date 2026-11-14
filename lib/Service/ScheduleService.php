@@ -302,15 +302,15 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *                          written (skill-learnings) — try/catch
 	 *                          wrapped; capture never sits on the run's
 	 *                          critical path.
+	 * @param RunDoneNotifier|null $runDoneNotifier Tells the schedule owner a run is
+	 *                          done when they asked for it (personal-preferences).
+	 *                          Nullable, after the required ones: a service built by
+	 *                          hand in a test sends no such notification.
 	 * @param RunRetentionPolicy|null $retentionPolicy Stamps each run entry with the
 	 *                          retention that applied when it was written
 	 *                          (what-the-model-reads-and-what-is-kept). Nullable and
 	 *                          trailing: a service built by hand in a test writes the
 	 *                          entry it always wrote.
-	 * @param RunDoneNotifier|null $runDoneNotifier Tells the schedule owner a run is
-	 *                          done when they asked for it (personal-preferences).
-	 *                          Nullable and trailing: a service built by hand in a
-	 *                          test sends no such notification.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
 	 *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -336,8 +336,8 @@ class ScheduleService implements ScheduleServiceInterface {
 		private readonly SkillVersionService $skillVersionService,
 		private readonly DelegationContext $delegationContext,
 		private readonly IJobList $jobList,
-		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 		private readonly ?RunDoneNotifier $runDoneNotifier = null,
+		private readonly ?RunRetentionPolicy $retentionPolicy = null,
 	) {
 		$this->tenantKillSwitch = new TenantKillSwitch(objectService: $objectService, logger: $logger);
 	}//end __construct()
