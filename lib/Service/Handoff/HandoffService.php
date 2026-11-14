@@ -177,12 +177,36 @@ class HandoffService {
 		}
 
 		$handoff['status'] = $status;
-		$handoff['result'] = $result;
+		$handoff['result'] = $this->asObject(result: $result);
 		$handoff['closedAt'] = $this->now()->format(DateTimeInterface::ATOM);
 		$this->store(handoffId: $handoffId, handoff: $handoff);
 
 		return true;
 	}//end close()
+
+	/**
+	 * The result in the shape the schema stores: a JSON object.
+	 *
+	 * A list or a single value is kept under `value`, so it is stored as it
+	 * arrived instead of being refused by the object type.
+	 *
+	 * @param mixed $result What the work returned.
+	 *
+	 * @return array<string, mixed>|null
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 */
+	private function asObject(mixed $result): ?array {
+		if ($result === null) {
+			return null;
+		}
+
+		if (is_array($result) === true && ($result === [] || array_is_list($result) === false)) {
+			return $result;
+		}
+
+		return ['value' => $result];
+	}//end asObject()
 
 	/**
 	 * Expire a waiting handoff whose deadline has passed.

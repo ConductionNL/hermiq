@@ -206,6 +206,45 @@ class HandoffServiceTest extends TestCase {
 	}//end testAWaitingHandoffClosesWithItsResult()
 
 	/**
+	 * A result that is not a JSON object is kept under value, so the object-typed property stores it.
+	 *
+	 * @param mixed                $result The result the work returned.
+	 * @param array<string, mixed> $stored The result as it is saved.
+	 *
+	 * @return void
+	 *
+	 * @dataProvider nonObjectResults
+	 */
+	public function testANonObjectResultIsKeptUnderValue(mixed $result, array $stored): void {
+		$this->objects->method('find')->willReturn($this->entity(uuid: 'h-1', data: $this->waitingHandoff()));
+		$this->objects->expects($this->once())->method('saveObject')
+			->with(
+				['status' => 'done', 'result' => $stored, 'closedAt' => '2026-11-13T14:02:00+00:00'] + $this->waitingHandoff(),
+				[],
+				'hermiq',
+				'agenthandoff',
+				'h-1',
+				false,
+				false
+			)
+			->willReturn($this->entity(uuid: 'h-1', data: []));
+
+		$this->assertTrue($this->service->close(handoffId: 'h-1', status: 'done', result: $result));
+	}//end testANonObjectResultIsKeptUnderValue()
+
+	/**
+	 * Results that are not a JSON object, and how they are stored.
+	 *
+	 * @return array<string, array{mixed, array<string, mixed>}>
+	 */
+	public static function nonObjectResults(): array {
+		return [
+			'a list of flow items' => [[['id' => 1], ['id' => 2]], ['value' => [['id' => 1], ['id' => 2]]]],
+			'a single value'       => ['vergunning vereist', ['value' => 'vergunning vereist']],
+		];
+	}//end nonObjectResults()
+
+	/**
 	 * A second close is ignored: the first answer stands.
 	 *
 	 * @return void
