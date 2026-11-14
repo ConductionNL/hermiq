@@ -108,7 +108,7 @@ class HandoffService {
 	 * Open a handoff for work an agent just started.
 	 *
 	 * @param array<string, mixed> $handoff kind, agentId, conversationId, requestedBy, label and target;
-	 *                                      optionally externalRef and deadlineHours.
+	 *                                      optionally externalRef, deadlineHours and resultTokenHash.
 	 *
 	 * @return array<string, mixed> The stored handoff, with its `id`.
 	 *
@@ -144,6 +144,9 @@ class HandoffService {
 			'deadline'       => $now->add(new DateInterval('PT' . $hours . 'H'))->format(DateTimeInterface::ATOM),
 			'closedAt'       => null,
 		];
+		if (is_string($handoff['resultTokenHash'] ?? null) === true && $handoff['resultTokenHash'] !== '') {
+			$data['resultTokenHash'] = $handoff['resultTokenHash'];
+		}
 
 		$saved = $this->objectService->saveObject(
 			object: $data,
@@ -214,6 +217,34 @@ class HandoffService {
 
 		return ['value' => $result];
 	}//end asObject()
+
+	/**
+	 * A stored handoff in any state, or null when it does not exist.
+	 *
+	 * @param string $handoffId The handoff's uuid.
+	 *
+	 * @return array<string, mixed>|null
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 */
+	public function find(string $handoffId): ?array {
+		if ($handoffId === '') {
+			return null;
+		}
+
+		$object = $this->objectService->find(
+			id: $handoffId,
+			register: self::REGISTER_SLUG,
+			schema: self::SCHEMA_SLUG,
+			_rbac: false,
+			_multitenancy: false
+		);
+		if (($object instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		return $object->getObject();
+	}//end find()
 
 	/**
 	 * The id of the waiting handoff of this kind whose work has this external reference, or null.

@@ -41,8 +41,12 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 - **acceptance_criteria**:
   - GIVEN a waitForCallback tool WHEN it is called THEN the payload through integriq carries the result address and token
   - GIVEN the right token once WHEN posted THEN the handoff closes; a repeat, a wrong token or a closed handoff gets 404
+- **status**: partly built.
+  - Done: the result route `POST /api/handoffs/{id}/result` (`HandoffResultController`, public, token in the `X-Hermiq-Result-Token` header or the `hermiqResultToken` body field, 404 for every refusal, 1 MB cap, documented in `openapi.json`).
+  - Done: `WebhookHandoffs`. `open()` mints 32 random bytes and stores only their SHA-256 on the handoff as `resultTokenHash` (Handoff 0.2.0, register v0.56.0). It answers `hermiqResultUrl` and `hermiqResultToken`. `acceptResult()` accepts the token once, while the handoff is waiting.
+  - Left: the `waitForCallback` switch in `CustomToolInvoker` and the editor's n8n preset. Both live in `tools-custom-tools-without-code`, which is not on development yet, so this task's checkbox stays open. When that change lands, its invoker calls `WebhookHandoffs::open()` and adds the two fields to the payload it sends through integriq.
 - [ ] Implement
-- [ ] Test (Newman on the route; PHPUnit on the token; Playwright under tests/e2e/spec-coverage/ for the n8n preset)
+- [ ] Test (Newman on the route; PHPUnit on the token; Playwright under tests/e2e/spec-coverage/ for the n8n preset). PHPUnit on the token and the route is done: `tests/Unit/Service/Handoff/WebhookHandoffsTest.php`.
 
 ### Task 5: RemoteAgent and its admin screen
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001`

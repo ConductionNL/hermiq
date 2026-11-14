@@ -350,6 +350,28 @@ class HandoffServiceTest extends TestCase {
 	}//end testTheWaitingHandoffOfARunIsFound()
 
 	/**
+	 * A webhook handoff keeps the token's hash it was opened with; find() reads a handoff in any state.
+	 *
+	 * @return void
+	 */
+	public function testAWebhookHandoffKeepsItsTokenHashAndIsFound(): void {
+		$saved = [];
+		$this->objects->method('saveObject')->willReturnCallback(function (array $object) use (&$saved): ObjectEntity {
+			$saved = $object;
+			return $this->entity(uuid: 'h-9', data: $object);
+		});
+		$this->service->open(handoff: ['kind' => 'webhook', 'resultTokenHash' => 'abc123'] + $this->waitingHandoff());
+		$this->assertSame('abc123', $saved['resultTokenHash']);
+
+		$this->objects->method('find')->willReturnCallback(
+			fn (string $id): ?ObjectEntity => ($id === 'h-9') ? $this->entity(uuid: 'h-9', data: ['status' => 'done'] + $saved) : null
+		);
+		$this->assertSame('done', $this->service->find(handoffId: 'h-9')['status']);
+		$this->assertNull($this->service->find(handoffId: 'gone'));
+		$this->assertNull($this->service->find(handoffId: ''));
+	}//end testAWebhookHandoffKeepsItsTokenHashAndIsFound()
+
+	/**
 	 * A closed handoff does not expire later.
 	 *
 	 * @return void

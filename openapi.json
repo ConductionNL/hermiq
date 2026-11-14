@@ -10341,6 +10341,46 @@
                     }
                 }
             }
+        },
+        "/handoffs/{id}/result": {
+            "post": {
+                "operationId": "handoff-result-post",
+                "summary": "Accept a webhook workflow's late result for a handoff",
+                "description": "Accept a webhook workflow's late result for a handoff, once, with the handoff's single-use token in the X-Hermiq-Result-Token header or the hermiqResultToken body field. Every refusal (unknown handoff, wrong token, a repeat, a closed handoff) answers the same 404. The body is capped at 1 MB. Public: it needs no login.",
+                "tags": [
+                    "handoff-result"
+                ],
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The handoff UUID.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The result closed the handoff.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    }
+                }
+            }
         }
     },
     "components": {
