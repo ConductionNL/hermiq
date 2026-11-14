@@ -64,8 +64,10 @@ Kind: code. Size L. Rows `hermiq:me-kb-upload`, `me-external-kb`.
 - **acceptance_criteria**:
   - GIVEN the Memory page WHEN the owner follows "Knowledge bases" THEN the list opens, and the detail page shows sources with their indexing state
   - GIVEN a folder integriq marks as synced WHEN it is a source THEN its row names the outside system
-- [ ] Implement
+- [x] Implement
+  - `src/manifest.json`: `KnowledgeBases` (`/knowledge-bases`, index over `agentknowledgebase`, create and edit through the generic schema form) and `KnowledgeBaseDetail` (`/knowledge-bases/:id`, detail) with the `knowledge-base-sources` widget (`src/widgets/KnowledgeBaseSources.vue`): sources with their indexing state, the only-you notice, the source `label` (e.g. "Synced by integriq from SharePoint"), "Search is not available on this server…" when the facade has no file scope, and Upload documents / Add from Files / Add a folder / Remove (removing never deletes the file). The detail page is a widget on a manifest detail page rather than a `KnowledgeBaseDetail.vue` view, and no `KnowledgeBaseFormModal` was needed: the schema form covers name, description and folder. No menu item (D6): the Memory page links to the list. `AgentFormModal` gains the knowledge base picker (`knowledgeBaseRefs`). en/nl strings, including the schema's. The row names the outside system from the source's `label`; detecting an integriq-synced folder by itself is not built.
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/knowledge-bases.spec.ts`)
+  - Not written: needs a running instance. Vitest: `tests/vitest/knowledge-base-sources.spec.js` (6); the agent form golden fixture gains `knowledgeBaseRefs`.
 
 ## Verification
 - [ ] `openspec validate memory-knowledge-bases --type change --strict` passes
