@@ -170,6 +170,17 @@ class VectorFacadeProbe {
 			return [];
 		}
 
+		return self::knownStates(states: $states);
+	}//end indexStatus()
+
+	/**
+	 * The states the facade reported that are one of STATES, by file id.
+	 *
+	 * @param array<int|string, mixed> $states The facade's answer.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function knownStates(array $states): array {
 		$known = [];
 		foreach ($states as $fileId => $state) {
 			if (in_array($state, self::STATES, true) === true) {
@@ -178,7 +189,7 @@ class VectorFacadeProbe {
 		}
 
 		return $known;
-	}//end indexStatus()
+	}//end knownStates()
 
 	/**
 	 * The facade, resolved once; null when OpenRegister does not offer it.

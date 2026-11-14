@@ -104,16 +104,38 @@ class KnowledgeBaseScopeResolver {
 		$scopes = [];
 		foreach ($knowledgeBases as $knowledgeBase) {
 			foreach (self::sources(knowledgeBase: $knowledgeBase) as $source) {
-				$register = trim((string)($source['register'] ?? ''));
-				$schema = trim((string)($source['schema'] ?? ''));
-				if (($source['type'] ?? '') === 'objects' && $register !== '' && $schema !== '') {
-					$scopes[$register.'/'.$schema] = ['register' => $register, 'schema' => $schema];
+				$scope = self::objectScope(source: $source);
+				if ($scope !== null) {
+					$scopes[$scope['register'].'/'.$scope['schema']] = $scope;
 				}
 			}
 		}
 
 		return array_values($scopes);
 	}//end objectScopes()
+
+	/**
+	 * The register and schema of an `objects` source, or null for any other source.
+	 *
+	 * @param array<string, mixed> $source The source.
+	 *
+	 * @return array{register: string, schema: string}|null
+	 */
+	private static function objectScope(array $source): ?array {
+		if (($source['type'] ?? '') !== 'objects') {
+			return null;
+		}
+
+		$scope = [
+			'register' => trim((string)($source['register'] ?? '')),
+			'schema' => trim((string)($source['schema'] ?? '')),
+		];
+		if (in_array('', $scope, true) === true) {
+			return null;
+		}
+
+		return $scope;
+	}//end objectScope()
 
 	/**
 	 * A knowledge base's sources that are arrays.
@@ -142,23 +164,34 @@ class KnowledgeBaseScopeResolver {
 	 */
 	private function collectSource(array $source, string $speaker, array &$files): void {
 		$type = (string)($source['type'] ?? '');
-		if ($type !== 'file' && $type !== 'folder') {
-			return;
+		$node = $this->readableSourceNode(source: $source, speaker: $speaker);
+		if ($type === 'file' && $node instanceof File) {
+			$this->add(node: $node, files: $files);
+		} elseif ($type === 'folder' && $node instanceof Folder) {
+			$this->collectFolder(folder: $node, files: $files);
+		}
+	}//end collectSource()
+
+	/**
+	 * The readable node of a `file` or `folder` source in the person's own Files, or null.
+	 *
+	 * @param array<string, mixed> $source  The source.
+	 * @param string               $speaker The person.
+	 *
+	 * @return Node|null
+	 */
+	private function readableSourceNode(array $source, string $speaker): ?Node {
+		if (in_array(($source['type'] ?? ''), ['file', 'folder'], true) === false) {
+			return null;
 		}
 
 		$node = $this->open(fileId: (int)($source['fileId'] ?? 0), speaker: $speaker);
 		if ($node === null || $node->isReadable() === false) {
-			return;
+			return null;
 		}
 
-		if ($type === 'file' && $node instanceof File) {
-			$this->add(node: $node, files: $files);
-		}
-
-		if ($type === 'folder' && $node instanceof Folder) {
-			$this->collectFolder(folder: $node, files: $files);
-		}
-	}//end collectSource()
+		return $node;
+	}//end readableSourceNode()
 
 	/**
 	 * Add every readable file under a folder.

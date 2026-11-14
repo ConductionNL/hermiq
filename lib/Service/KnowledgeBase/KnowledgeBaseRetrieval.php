@@ -91,16 +91,28 @@ class KnowledgeBaseRetrieval {
 			return [];
 		}
 
-		$rows = [];
-		foreach ($this->probe->searchFiles(query: $query, fileIds: $fileIds, limit: $limit) as $row) {
-			// Keep the scope even if a facade ignored it.
+		return self::inScope(rows: $this->probe->searchFiles(query: $query, fileIds: $fileIds, limit: $limit), fileIds: $fileIds);
+	}//end rows()
+
+	/**
+	 * The rows about the files in scope, typed as file rows: the scope is kept
+	 * even if a facade ignored it.
+	 *
+	 * @param array<int, array<string, mixed>> $rows    The facade's rows.
+	 * @param array<int, int>                  $fileIds The files in scope.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function inScope(array $rows, array $fileIds): array {
+		$kept = [];
+		foreach ($rows as $row) {
 			if (in_array(self::fileIdOf(row: $row), $fileIds, true) === true) {
-				$rows[] = ['entity_type' => 'file'] + $row;
+				$kept[] = ['entity_type' => 'file'] + $row;
 			}
 		}
 
-		return $rows;
-	}//end rows()
+		return $kept;
+	}//end inScope()
 
 	/**
 	 * The agent's knowledge base uuids, distinct and capped.
