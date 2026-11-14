@@ -237,6 +237,100 @@ export async function removeParticipant(uuid, uid) {
 }
 
 /**
+ * The read-only shares of a session (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @return {Promise<Array<{type: string, id: string, displayName: string, sharedBy: string, sharedAt: string}>>} The shares.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function listShares(uuid) {
+	const response = await axios.get(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares`),
+	)
+	return response.data.results || []
+}
+
+/**
+ * Share a session read-only with a user or a group (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} type `user` or `group`.
+ * @param {string} id The user id or group id.
+ * @return {Promise<Array<object>>} The shares after the change.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function addShare(uuid, type, id) {
+	const response = await axios.post(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares`),
+		{ type, id },
+	)
+	return response.data.results || []
+}
+
+/**
+ * Take a read-only share back (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} type `user` or `group`.
+ * @param {string} id The user id or group id.
+ * @return {Promise<Array<object>>} The shares after the change.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+ */
+export async function removeShare(uuid, type, id) {
+	const response = await axios.delete(
+		generateUrl(
+			`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,
+		),
+	)
+	return response.data.results || []
+}
+
+/**
+ * The sessions shared with the current user, for "Shared with you".
+ *
+ * @return {Promise<Array<object>>} The shared sessions, newest first.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ */
+export async function listSharedSessions() {
+	const response = await axios.get(generateUrl(SESSIONS_BASE), {
+		params: { shared: 'true', limit: 50, offset: 0 },
+	})
+	return Array.isArray(response.data?.results) ? response.data.results : []
+}
+
+/**
+ * Search users and groups the owner may share with, through Nextcloud's
+ * collaborator search, which applies the instance's sharing rules.
+ *
+ * @param {string} search The typed text.
+ * @return {Promise<Array<{type: string, id: string, displayName: string}>>} Matching users and groups.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function searchSharees(search) {
+	const response = await axios.get(generateOcsUrl('core/autocomplete/get'), {
+		params: { search, itemType: '', itemId: '', shareTypes: [0, 1], limit: 10 },
+	})
+	return shareeOptions(response.data?.ocs?.data || [])
+}
+
+/**
+ * The collaborator search's answer as share options.
+ *
+ * @param {Array<{id: string, label?: string, source?: string}>} items The autocomplete items.
+ * @return {Array<{type: string, id: string, displayName: string}>} The options.
+ * @spec openspec/changes/chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export function shareeOptions(items) {
+	return items
+		.filter((item) => item && item.id && (item.source === 'users' || item.source === 'groups'))
+		.map((item) => ({
+			type: item.source === 'groups' ? 'group' : 'user',
+			id: item.id,
+			displayName: item.label || item.id,
+		}))
+}
+
+/**
  * Search the instance's groups by name, for the agent form's sharing choice.
  *
  * @param {string} search The typed text.
