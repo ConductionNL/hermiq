@@ -88,6 +88,9 @@ use Psr\Log\NullLogger;
  * @uses   \OCA\Hermiq\Service\AgentAccessService
  * @uses   \OCA\Hermiq\Service\Workspace\RepoEffectingGrants
  * @uses \OCA\Hermiq\Service\Engine\FunctionInfoBuilder
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
  */
 final class ToolDetailDriveTest extends TestCase {
 
