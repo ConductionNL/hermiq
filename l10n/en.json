@@ -2752,7 +2752,14 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Restore of %s completed": "Restore of %s completed",
+        "Every object was written back and the agents run again.": "Every object was written back and the agents run again.",
+        "_Restore of %s completed with %n failure_::_Restore of %s completed with %n failures_": [
+            "Restore of %s completed with %n failure",
+            "Restore of %s completed with %n failures"
+        ],
+        "The agents stay stopped until an administrator releases the kill switch. Failed: %s": "The agents stay stopped until an administrator releases the kill switch. Failed: %s"
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

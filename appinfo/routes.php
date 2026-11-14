@@ -500,6 +500,11 @@ $routes = [
         ['name' => 'Settings\BackupSettings#get', 'url' => '/api/settings/backup', 'verb' => 'GET'],
         ['name' => 'Settings\BackupSettings#update', 'url' => '/api/settings/backup', 'verb' => 'PUT'],
         ['name' => 'Settings\BackupSettings#backupNow', 'url' => '/api/backup/now', 'verb' => 'POST'],
+        // Restore (operations-backup-and-restore 3-4): the backups in the folder, the
+        // preview that writes nothing, and the restore, queued as RestoreJob.
+        ['name' => 'backup#files', 'url' => '/api/backup/files', 'verb' => 'GET'],
+        ['name' => 'backup#preview', 'url' => '/api/backup/restore/preview', 'verb' => 'POST'],
+        ['name' => 'backup#restore', 'url' => '/api/backup/restore', 'verb' => 'POST'],
         // Working with AI (compliance-ai-literacy): the lessons and answer check for the
         // signed-in person, and the organisation report and requirement switch for its admin.
         ['name' => 'literacy#lessons', 'url' => '/api/literacy/lessons', 'verb' => 'GET'],

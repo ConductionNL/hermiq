@@ -260,6 +260,10 @@
             "description": "The backup settings endpoints."
         },
         {
+            "name": "backup",
+            "description": "The restore endpoints: the backups, the preview and the restore."
+        },
+        {
             "name": "settings-talk-bridge-settings",
             "description": "The settings talk bridge settings endpoints."
         },
@@ -8352,6 +8356,99 @@
                 "responses": {
                     "202": {
                         "description": "The backup is queued.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/files": {
+            "get": {
+                "operationId": "backup-files",
+                "summary": "Files (backup)",
+                "description": "The backups in the backup folder, newest first, each with its manifest. Needs a Nextcloud administrator.",
+                "tags": [
+                    "backup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/restore/preview": {
+            "post": {
+                "operationId": "backup-preview",
+                "summary": "Preview (backup)",
+                "description": "What a restore to a backup file (kind backup, file) or a moment (kind moment, organisation, at) would change, per schema; writes nothing. 422 for a point that cannot be understood, 404 for a backup that is not there, 409 for a backup from a newer register version. Needs a Nextcloud administrator.",
+                "tags": [
+                    "backup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    }
+                }
+            }
+        },
+        "/backup/restore": {
+            "post": {
+                "operationId": "backup-restore",
+                "summary": "Restore (backup)",
+                "description": "Queue a restore to a backup file or a moment; answers at once. removeCreatedAfter moves objects created after the point to the deleted objects. Refused as the preview is. Needs a Nextcloud administrator.",
+                "tags": [
+                    "backup"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The restore is queued.",
                         "headers": {
                             "API-Version": {
                                 "$ref": "#/components/headers/API-Version"

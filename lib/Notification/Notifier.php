@@ -68,6 +68,7 @@ class Notifier implements INotifier {
 		'session_participant_added',
 		'goal_reached',
 		'goal_exhausted',
+		'restore_finished',
 	];
 
 	/**
@@ -169,6 +170,7 @@ class Notifier implements INotifier {
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
+			'restore_finished' => $this->restoreFinishedText(subjectRaw: $subjectRaw, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
@@ -364,4 +366,34 @@ class Notifier implements INotifier {
 			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
 		];
 	}//end goalText()
+
+	/**
+	 * Text for `restore_finished`: a restore of an organisation ended
+	 * (operations-backup-and-restore). With failures the agents stay stopped,
+	 * and the message names the failed objects.
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored parameters (`organisation`, `failures`, `failed`).
+	 * @param IL10N $l The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+	 */
+	private function restoreFinishedText(array $subjectRaw, IL10N $l): array {
+		$organisation = (string)($subjectRaw['organisation'] ?? '');
+		$failures = (int)($subjectRaw['failures'] ?? 0);
+		if ($failures === 0) {
+			return [
+				$l->t('Restore of %s completed', [$organisation]),
+				$l->t('Every object was written back and the agents run again.'),
+			];
+		}
+
+		$failed = implode('; ', array_map('strval', (array)($subjectRaw['failed'] ?? [])));
+
+		return [
+			$l->n('Restore of %s completed with %n failure', 'Restore of %s completed with %n failures', $failures, [$organisation]),
+			$l->t('The agents stay stopped until an administrator releases the kill switch. Failed: %s', [$failed]),
+		];
+	}//end restoreFinishedText()
 }//end class
