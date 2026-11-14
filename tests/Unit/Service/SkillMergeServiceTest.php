@@ -251,4 +251,41 @@ class SkillMergeServiceTest extends TestCase {
 		self::assertSame('active', $this->skills['b']['data']['state']);
 		self::assertSame([], $this->moves);
 	}//end testADecisionNeedsAPendingProposalAndASurvivor()
+
+	/**
+	 * The pending proposals list the skill that goes and the one that stays with
+	 * their agent counts, newest first; a decided proposal and a proposal whose
+	 * survivor is gone are not listed.
+	 *
+	 * @return void
+	 */
+	public function testPendingMergesListTheUndecidedProposalsNewestFirst(): void {
+		$this->skill(uuid: 'keep-1', data: ['name' => 'Woo triage', 'description' => 'Sorts requests', 'installedOn' => ['agent-1', 'agent-2']]);
+		$this->skill(uuid: 'go-1', data: ['name' => 'woo triage', 'description' => 'Copy', 'installedOn' => ['agent-3'], 'mergeProposal' => ['survivor' => 'keep-1', 'reason' => 'same-name', 'proposedAt' => '2026-11-01T10:00:00+00:00']]);
+		$this->skill(uuid: 'keep-2', data: ['name' => 'Mail']);
+		$this->skill(uuid: 'go-2', data: ['name' => 'Mail copy', 'mergeProposal' => ['survivor' => 'keep-2', 'reason' => 'same-instructions', 'proposedAt' => '2026-11-02T10:00:00+00:00']]);
+		$this->skill(uuid: 'decided', data: ['name' => 'Old', 'mergeProposal' => null, 'mergedInto' => 'keep-1', 'state' => 'archived']);
+		$this->skill(uuid: 'orphan', data: ['name' => 'Orphan', 'mergeProposal' => ['survivor' => 'gone', 'reason' => 'same-name', 'proposedAt' => '2026-11-03T10:00:00+00:00']]);
+
+		$pending = $this->service()->pendingMerges();
+
+		self::assertSame(
+			[
+				[
+					'duplicate' => ['id' => 'go-2', 'name' => 'Mail copy', 'description' => '', 'agents' => 0],
+					'survivor' => ['id' => 'keep-2', 'name' => 'Mail', 'description' => '', 'agents' => 0],
+					'reason' => 'same-instructions',
+					'proposedAt' => '2026-11-02T10:00:00+00:00',
+				],
+				[
+					'duplicate' => ['id' => 'go-1', 'name' => 'woo triage', 'description' => 'Copy', 'agents' => 1],
+					'survivor' => ['id' => 'keep-1', 'name' => 'Woo triage', 'description' => 'Sorts requests', 'agents' => 2],
+					'reason' => 'same-name',
+					'proposedAt' => '2026-11-01T10:00:00+00:00',
+				],
+			],
+			$pending
+		);
+		self::assertSame([], $this->systemSaves);
+	}//end testPendingMergesListTheUndecidedProposalsNewestFirst()
 }//end class

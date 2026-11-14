@@ -2718,7 +2718,21 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "Merge proposals": "Merge proposals",
+        "The curator found skills that duplicate each other. Merging archives the duplicate and moves its agents to the skill that stays; nothing is deleted.": "The curator found skills that duplicate each other. Merging archives the duplicate and moves its agents to the skill that stays; nothing is deleted.",
+        "Goes": "Goes",
+        "Stays": "Stays",
+        "Merge": "Merge",
+        "Keep both": "Keep both",
+        "Could not load the merge proposals": "Could not load the merge proposals",
+        "{duplicate} was merged into {survivor}.": "{duplicate} was merged into {survivor}.",
+        "Both skills were kept.": "Both skills were kept.",
+        "Both skills have the same instructions.": "Both skills have the same instructions.",
+        "Both skills have the same name.": "Both skills have the same name.",
+        "_used by %n agent_::_used by %n agents_": ["used by %n agent","used by %n agents"],
+        "used by %n agent": "used by %n agent",
+        "used by %n agents": "used by %n agents"
     },
     "nplurals=2; plural=(n != 1);"
 )
