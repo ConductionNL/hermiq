@@ -2334,6 +2334,8 @@ OC.L10N.register(
         "_Used %n document: %s._::_Used %n documents: %s._": ["%n document gebruikt: %s.","%n documenten gebruikt: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["%n tool aangeroepen: %s.","%n tools aangeroepen: %s."],
         "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n aanroep is geweigerd: %s.","%n aanroepen zijn geweigerd: %s."],
+        "Open in Talk": "Openen in Talk",
+        "via Talk": "via Talk",
         "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install.": "Voorbeeldgegevens vullen de lijsten, detailpagina's en dashboards, zodat je de app meteen aan het werk ziet. Kies \"Geen\" op een productie-installatie.",
         "Loads what you picked. The data is obviously sample data, it is safe to run more than once, and you can delete it afterwards.": "Laadt wat je hebt gekozen. De gegevens zijn duidelijk herkenbaar als voorbeeldgegevens, het is veilig om dit meer dan eens uit te voeren en je kunt ze achteraf verwijderen.",
         "A cleanup removes what a run recorded, never the audit entry itself: the trail keeps that a run happened, when, for which feature and provider, and that the rest was deleted under retention.": "Een opschoning verwijdert wat een run heeft vastgelegd, nooit de auditregel zelf: het spoor bewaart dat een run heeft plaatsgevonden, wanneer, voor welke functie en provider, en dat de rest volgens de bewaartermijn is verwijderd.",

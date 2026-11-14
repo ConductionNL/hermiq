@@ -2719,6 +2719,8 @@ OC.L10N.register(
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
         "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "Open in Talk": "Open in Talk",
+        "via Talk": "via Talk",
         "Edit the draft before accepting": "Edit the draft before accepting",
         "Store": "Store",
         "Memory": "Memory",

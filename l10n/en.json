@@ -2739,6 +2739,8 @@
             "%n call was refused: %s.",
             "%n calls were refused: %s."
         ],
+        "Open in Talk": "Open in Talk",
+        "via Talk": "via Talk",
         "Edit the draft before accepting": "Edit the draft before accepting",
         "Store": "Store",
         "Memory": "Memory",

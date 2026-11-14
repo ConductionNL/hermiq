@@ -79,6 +79,13 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	public const ORIGIN_BOUND = 'bound';
 
 	/**
+	 * The title of a bound session when the room's name is unknown.
+	 *
+	 * @var string
+	 */
+	public const DEFAULT_BOUND_TITLE = 'Talk conversation';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write.
@@ -413,12 +420,20 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @param string $agentId The agent bound to this room.
 	 * @param string $ownerUid The session owner's uid.
 	 * @param array<int, string> $participants Additional invited uids.
+	 * @param string|null $roomName The room's display name, the session's title; the default title without one.
 	 *
 	 * @return ObjectEntity|null The stored conversation, or null when it could not be written.
 	 *
 	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
 	 */
-	public function createBound(string $roomToken, string $agentId, string $ownerUid, array $participants = []): ?ObjectEntity {
+	public function createBound(
+		string $roomToken,
+		string $agentId,
+		string $ownerUid,
+		array $participants = [],
+		?string $roomName = null,
+	): ?ObjectEntity {
 		try {
 			$roster = [];
 			foreach ($participants as $participant) {
@@ -429,7 +444,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 
 			$created = $this->objectService->saveObject(
 				object: [
-					'title' => 'Talk conversation',
+					'title' => self::boundTitle(roomName: $roomName),
 					'userId' => $ownerUid,
 					'agentId' => $agentId,
 					'talkRoomToken' => $roomToken,
@@ -465,4 +480,116 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 		}//end try
 
 	}//end createBound()
+
+	/**
+	 * Follow a rename of a bound room onto its session's title.
+	 *
+	 * Only a session whose title is still the room's old name (or the default
+	 * title) follows: a title the owner chose is never overwritten. A room
+	 * Hermiq created for a session is named after the session, not the other
+	 * way round, so it never follows. Best-effort: a failure is logged.
+	 *
+	 * @param string $roomToken The renamed room.
+	 * @param string $oldName   The room's name before the rename.
+	 * @param string $newName   The room's new name.
+	 *
+	 * @return bool True when the session's title was changed.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 */
+	public function followRoomRename(string $roomToken, string $oldName, string $newName): bool {
+		$newName = trim($newName);
+		$conversation = $this->findByRoomToken(roomToken: $roomToken);
+		if ($newName === '' || ($conversation instanceof ObjectEntity) === false) {
+			return false;
+		}
+
+		$data = $conversation->getObject();
+		$title = (string)($data['title'] ?? '');
+		if ((string)($data['talkRoomOrigin'] ?? '') === self::ORIGIN_CREATED
+			|| $title === $newName
+			|| in_array($title, [trim($oldName), self::DEFAULT_BOUND_TITLE], true) === false
+		) {
+			return false;
+		}
+
+		try {
+			// PUT-semantic: carry every existing field forward.
+			$data['title'] = $newName;
+			$this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA,
+				uuid: (string)$conversation->getUuid()
+			);
+			return true;
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkRoomBinding] Could not follow the room rename onto the session title',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
+			);
+			return false;
+		}//end try
+	}//end followRoomRename()
+
+	/**
+	 * Claim the agent's first answer in a room, for the link to the session.
+	 *
+	 * The first claim on a session marks `talkLinkPosted` and answers the
+	 * session's uuid; every later claim answers null, so only the first answer
+	 * in the room carries the link. A failure to mark is logged and answers
+	 * null: a missing link is the safe outcome, a repeated one is noise.
+	 *
+	 * @param string $roomToken The room the agent answers in.
+	 *
+	 * @return string|null The session's uuid on the first claim, else null.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+	 */
+	public function claimFirstAnswerLink(string $roomToken): ?string {
+		$session = $this->findByRoomToken(roomToken: $roomToken);
+		if (($session instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		$data = $session->getObject();
+		if (($data['talkLinkPosted'] ?? false) === true) {
+			return null;
+		}
+
+		try {
+			// PUT-semantic: carry every existing field forward.
+			$data['talkLinkPosted'] = true;
+			$this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: self::CONVERSATION_SCHEMA,
+				uuid: (string)$session->getUuid()
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkRoomBinding] Could not mark the first answer in the room',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+		return (string)$session->getUuid();
+	}//end claimFirstAnswerLink()
+
+	/**
+	 * The title of a session bound to a room: the room's name, or the default.
+	 *
+	 * @param string|null $roomName The room's display name.
+	 *
+	 * @return string The title.
+	 */
+	private static function boundTitle(?string $roomName): string {
+		$name = trim((string)$roomName);
+		if ($name === '') {
+			return self::DEFAULT_BOUND_TITLE;
+		}
+
+		return $name;
+	}//end boundTitle()
 }//end class

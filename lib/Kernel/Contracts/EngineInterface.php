@@ -114,6 +114,9 @@ interface EngineInterface {
 	 *                           ({fileId} or {path}). Resolved in the speaker's Files
 	 *                           before the turn is stored or any model is called, and
 	 *                           kept on the user turn as references only.
+	 * @param string|null $turnChannel Where the human turn was typed, `talk` or `hermiq`, stored
+	 *                                 on the user turn (chat-carry-a-conversation-across-channels).
+	 *                                 Null leaves it unset, which reads as `hermiq`.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -154,5 +157,6 @@ interface EngineInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?string $turnChannel = null,
 	): array;
 }//end interface

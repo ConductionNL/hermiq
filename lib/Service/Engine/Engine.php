@@ -261,6 +261,9 @@ class Engine implements EngineInterface {
 	 *                           ({fileId} or {path}). Resolved in the speaker's Files
 	 *                           before the turn is stored or any model is called, and
 	 *                           kept on the user turn as references only.
+	 * @param string|null $turnChannel Where the human turn was typed, `talk` or `hermiq`, stored
+	 *                                 on the user turn (chat-carry-a-conversation-across-channels).
+	 *                                 Null leaves it unset, which reads as `hermiq`.
 	 *
 	 * @return array The result envelope.
 	 *
@@ -301,6 +304,7 @@ class Engine implements EngineInterface {
 		?string $authorId = null,
 		?string $authorDisplayName = null,
 		array $attachments = [],
+		?string $turnChannel = null,
 	): array {
 		$this->logger->info(
 			message: '[Engine] Processing message',
@@ -331,6 +335,7 @@ class Engine implements EngineInterface {
 				// The CnAiContext snapshot, kept apart from the RAG context of the turn.
 				'cnAiContext' => $context,
 				'channel' => $channel,
+				'turnChannel' => $turnChannel,
 				'trace' => $trace,
 				'dryRun' => $dryRun,
 			];
@@ -715,7 +720,8 @@ class Engine implements EngineInterface {
 			context: $turn['cnAiContext'],
 			authorId: $turn['authorId'],
 			authorDisplayName: $turn['authorDisplayName'],
-			attachments: $turn['resolvedAttachments']
+			attachments: $turn['resolvedAttachments'],
+			channel: ($turn['turnChannel'] ?? null)
 		);
 
 		$this->conversationHandler->checkAndSummarize(conversation: $turn['conversation']);

@@ -250,6 +250,79 @@
 				"reviewer": "{{cast:pieter.uid}}",
 				"reviewerType": "user"
 			}
+		},
+		{
+			"key": "session-inkoop-overleg",
+			"register": "hermiq",
+			"schema": "agentsession",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"userId": "{{cast:pieter.uid}}",
+				"title": "Inkoop overleg",
+				"startedAt": "{{datetime:-2 09:02}}",
+				"lastActivityAt": "{{datetime:-2 14:31}}",
+				"triggerOrigin": "human",
+				"metadata": {}
+			}
+		},
+		{
+			"key": "session-inkoop-overleg-talk-vraag",
+			"register": "hermiq",
+			"schema": "agentsessionturn",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"sessionId": "{{object:session-inkoop-overleg.id}}",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"role": "user",
+				"content": "Welke offertes lopen nog voor de verlichting?",
+				"channel": "talk",
+				"createdAt": "{{datetime:-2 09:02}}",
+				"authorId": "{{cast:pieter.uid}}",
+				"authorDisplayName": "Pieter Jansen"
+			}
+		},
+		{
+			"key": "session-inkoop-overleg-talk-antwoord",
+			"register": "hermiq",
+			"schema": "agentsessionturn",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"sessionId": "{{object:session-inkoop-overleg.id}}",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"role": "assistant",
+				"content": "Twee offertes lopen nog: Brinkman Verlichting en De Wit Installaties. Beide sluiten vrijdag.",
+				"createdAt": "{{datetime:-2 09:03}}"
+			}
+		},
+		{
+			"key": "session-inkoop-overleg-chat-vraag",
+			"register": "hermiq",
+			"schema": "agentsessionturn",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"sessionId": "{{object:session-inkoop-overleg.id}}",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"role": "user",
+				"content": "Zet de twee naast elkaar op prijs en levertijd.",
+				"channel": "hermiq",
+				"createdAt": "{{datetime:-2 14:30}}",
+				"authorId": "{{cast:pieter.uid}}",
+				"authorDisplayName": "Pieter Jansen"
+			}
+		},
+		{
+			"key": "session-inkoop-overleg-chat-antwoord",
+			"register": "hermiq",
+			"schema": "agentsessionturn",
+			"owner": "{{cast:pieter.uid}}",
+			"data": {
+				"sessionId": "{{object:session-inkoop-overleg.id}}",
+				"agentId": "{{object:agent-woo-triage.id}}",
+				"role": "assistant",
+				"content": "Brinkman is goedkoper en levert in zes weken; De Wit is duurder en levert in drie weken.",
+				"createdAt": "{{datetime:-2 14:31}}"
+			}
 		}
 	]
 }

@@ -58,6 +58,13 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	private const MESSAGE_SCHEMA = 'agentsessionturn';
 
 	/**
+	 * Where a human turn can be typed (SessionTurn.channel).
+	 *
+	 * @var list<string>
+	 */
+	public const TURN_CHANNELS = ['talk', 'hermiq'];
+
+	/**
 	 * Number of recent messages to keep in context.
 	 *
 	 * @var int
@@ -523,6 +530,8 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
+	 * @param string|null $channel Where a human turn was typed: `talk` or `hermiq`; stored on
+	 *                             role=user turns only, anything else is left unset.
 	 *
 	 * @return ObjectEntity The persisted Message object.
 	 *
@@ -531,6 +540,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
 	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-each-turn-records-where-it-was-typed-req-schan-004
 	 */
 	public function storeMessage(
 		string $conversationId,
@@ -542,6 +552,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?string $channel = null,
 	): ObjectEntity {
 		$payload = [
 			'sessionId' => $conversationId,
@@ -571,6 +582,10 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 			authorId: $authorId,
 			authorDisplayName: $authorDisplayName
 		);
+
+		if ($role === 'user' && in_array($channel, self::TURN_CHANNELS, true) === true) {
+			$payload['channel'] = $channel;
+		}
 
 		// `_rbac: false`: SessionTurn grants an owner-only `read` and lists no
 		// `create`, on purpose (hermiq#319): a create grant would let anyone POST a

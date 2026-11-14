@@ -357,6 +357,37 @@ class TalkBridge {
 	}//end roomUserIds()
 
 	/**
+	 * A room's display name, or null when Talk is absent or the room cannot be read.
+	 *
+	 * @param string $roomToken The room token.
+	 *
+	 * @return string|null The room's name, trimmed, or null.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 */
+	public function roomName(string $roomToken): ?string {
+		if ($this->isAvailable() === false || $roomToken === '') {
+			return null;
+		}
+
+		try {
+			$name = trim((string)$this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken)->getName());
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not resolve the room name',
+				context: $this->roomFailure(roomToken: $roomToken, error: $e)
+			);
+			return null;
+		}
+
+		if ($name === '') {
+			return null;
+		}
+
+		return $name;
+	}//end roomName()
+
+	/**
 	 * Each non-empty string uid once, in the order spreed listed them.
 	 *
 	 * @param iterable<mixed> $participants The participant uids as spreed returned them.

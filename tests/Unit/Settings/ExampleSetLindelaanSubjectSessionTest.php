@@ -91,7 +91,8 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 	public function testTheSessionHoldsTheQuestionAndTheAnswer(): void {
 		$turns = [];
 		foreach ($this->objects() as $object) {
-			if ($object['schema'] === 'agentsessionturn') {
+			// This session's turns; the set holds other sessions too (Inkoop overleg).
+			if ($object['schema'] === 'agentsessionturn' && ($object['data']['sessionId'] ?? '') === '{{object:session-lindelaan-pieter.id}}') {
 				$turns[] = $object;
 			}
 		}

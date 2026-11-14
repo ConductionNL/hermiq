@@ -291,5 +291,13 @@ final class ListenerRegistrar {
 			event: 'OCA\\Talk\\Events\\BotInvokeEvent',
 			listener: TalkApprovalReactionListener::class
 		);
+
+		// A renamed room renames the session bound to it, unless its owner
+		// named the session (chat-carry-a-conversation-across-channels). By
+		// event name, for the same reason as the bot listeners above.
+		$context->registerEventListener(
+			event: TalkRoomRenameListener::EVENT_ROOM_MODIFIED,
+			listener: TalkRoomRenameListener::class
+		);
 	}//end registerUserAndTalkListeners()
 }//end class

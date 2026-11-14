@@ -38,6 +38,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -61,6 +62,7 @@ class TalkTurnService implements TalkTurnServiceInterface {
 	 * @param IUserSession $userSession Impersonates the speaker for the turn.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param IURLGenerator|null $urls Builds the link to the session on the Chat page.
 	 */
 	public function __construct(
 		private readonly Engine $engine,
@@ -70,6 +72,7 @@ class TalkTurnService implements TalkTurnServiceInterface {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?IURLGenerator $urls = null,
 	) {
 	}//end __construct()
 
@@ -147,7 +150,8 @@ class TalkTurnService implements TalkTurnServiceInterface {
 			userId: $turn->speakerUid,
 			userMessage: $turn->message,
 			authorId: $turn->speakerUid,
-			authorDisplayName: $this->displayNameOf(uid: $turn->speakerUid)
+			authorDisplayName: $this->displayNameOf(uid: $turn->speakerUid),
+			turnChannel: 'talk'
 		);
 
 		$answer = (string)$result['message'];
@@ -157,10 +161,51 @@ class TalkTurnService implements TalkTurnServiceInterface {
 
 		return $this->bridge->postToRoom(
 			roomToken: $turn->roomToken,
-			message: $answer,
+			message: $this->withSessionLink(answer: $answer, roomToken: $turn->roomToken),
 			agentId: $this->agentForRoom(roomToken: $turn->roomToken)
 		);
 	}//end answerTurn()
+
+	/**
+	 * The answer, ending with the link to the session when it is the agent's
+	 * first answer in the room (chat-carry-a-conversation-across-channels D3).
+	 *
+	 * @param string $answer    The answer.
+	 * @param string $roomToken The room.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+	 */
+	private function withSessionLink(string $answer, string $roomToken): string {
+		if ($this->urls === null) {
+			return $answer;
+		}
+
+		$sessionId = $this->roomBinding->claimFirstAnswerLink(roomToken: $roomToken);
+		if ($sessionId === null) {
+			return $answer;
+		}
+
+		return self::continueInHermiq(
+			answer: $answer,
+			url: $this->urls->getAbsoluteURL('/apps/hermiq/chat?session=' . rawurlencode($sessionId))
+		);
+	}//end withSessionLink()
+
+	/**
+	 * An answer ending with "Continue in Hermiq:" and the link.
+	 *
+	 * @param string $answer The answer.
+	 * @param string $url    The session on the Chat page.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+	 */
+	public static function continueInHermiq(string $answer, string $url): string {
+		return rtrim($answer) . "\n\nContinue in Hermiq: " . $url;
+	}//end continueInHermiq()
 
 	/**
 	 * Log a Talk-originated turn that failed.
