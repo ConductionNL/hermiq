@@ -72,6 +72,7 @@ import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import AgentToolActivityWidget from './widgets/AgentToolActivityWidget.vue'
 import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
+import AiLabelSection from './widgets/AiLabelSection.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
 // moved off TenantOps.vue onto the Compliance index page's below-header slot.
@@ -265,6 +266,21 @@ export default {
 	AgentMemory: {
 		kind: 'page',
 		component: AgentMemory,
+	},
+
+	/**
+	 * The AI label section of the AI oversight page (agent-authored-marking): counts of
+	 * agent-written files the viewer can read, the reviewed share, and a Files link.
+	 */
+	'ai-label-section': {
+		kind: 'widget',
+		component: AiLabelSection,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 4, h: 3 },
+		maxSize: { w: 12, h: 6 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Reads the computed /api/ai-label/stats endpoint, whose counts are limited to the files the viewer can read and whose label is shown as \'Made with AI\', never the stored tag name; a stat tile cannot render the share and the Files link together, so a custom widget is required (ADR-049).',
 	},
 
 	/**

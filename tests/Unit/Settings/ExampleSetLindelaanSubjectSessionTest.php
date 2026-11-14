@@ -15,23 +15,16 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Settings;
 
-use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalPreviewBuilder;
-use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Chat\SessionPendingApprovals;
 use OCA\Hermiq\Service\Chat\SessionSubject;
-use OCA\Hermiq\Service\DeliveryService;
-use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolAccessRequestService;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
-use OCP\IConfig;
 use OCP\IGroupManager;
-use OCP\IUserManager;
-use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -191,17 +184,11 @@ class ExampleSetLindelaanSubjectSessionTest extends TestCase {
 		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->willReturn($previews);
 
-		$approvals = new ApprovalService(
+		$approvals = new ApprovalInbox(
 			objectService: $objects,
-			userSession: $this->createMock(originalClassName: IUserSession::class),
-			userManager: $this->createMock(originalClassName: IUserManager::class),
 			groupManager: $this->createMock(originalClassName: IGroupManager::class),
-			deliveryService: $this->createMock(originalClassName: DeliveryService::class),
-			auditTrailMapper: $this->createMock(originalClassName: AuditTrailMapper::class),
-			redactionService: new RedactionService(config: $this->createMock(originalClassName: IConfig::class)),
 			container: $container,
 			logger: $this->createMock(originalClassName: LoggerInterface::class),
-			taskBridge: $this->createMock(originalClassName: ApprovalTaskBridge::class),
 		);
 		$service = new SessionPendingApprovals(
 			accessRequests: $this->createMock(originalClassName: ToolAccessRequestService::class),

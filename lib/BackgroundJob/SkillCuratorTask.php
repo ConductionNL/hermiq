@@ -25,6 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\BackgroundJob;
 
 use OCA\Hermiq\Kernel\Contracts\SkillMarketplaceServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\SkillMergeServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -42,12 +43,14 @@ class SkillCuratorTask extends TimedJob {
 	 *
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
 	 * @param SkillMarketplaceServiceInterface $marketplaceService Service that curates skill lifecycle.
+	 * @param SkillMergeServiceInterface       $mergeService       Proposes merging duplicate skills.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#task-3-1
 	 */
 	public function __construct(
 		ITimeFactory $time,
 		private readonly SkillMarketplaceServiceInterface $marketplaceService,
+		private readonly SkillMergeServiceInterface $mergeService,
 	) {
 		parent::__construct(time: $time);
 
@@ -67,9 +70,13 @@ class SkillCuratorTask extends TimedJob {
 	 * @phpstan-param mixed $argument
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-skills-marketplace/tasks.md#task-3-1
+	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
 	 */
 	public function run(mixed $argument): void {
 		$this->marketplaceService->curate();
+		// Then propose merging duplicates among the skills still active
+		// (skills-curator-merges-duplicates); a person decides each one.
+		$this->mergeService->proposeMerges();
 
 	}//end run()
 }//end class

@@ -760,3 +760,33 @@ export async function stopGoal(goalId) {
 	)
 	return response.data
 }
+
+/**
+ * Start an agent's pooled CLI process for a session before its first question
+ * (warm-start-and-cli-step-visibility). Called when a session opens or starts
+ * with an agent, so the process start happens while the person is still typing.
+ *
+ * Never throws: a warm-up is an optimisation the next turn does not depend on,
+ * so any failure, including a refused or unreachable request, reads as "not
+ * warmed" and is not shown.
+ *
+ * @param {string} agentUuid The session's agent.
+ * @param {string} sessionUuid The session.
+ * @return {Promise<boolean>} Whether a process was warmed.
+ * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-the-cli-process-is-warmed-before-the-first-question-not-by-it
+ */
+export async function warmChat(agentUuid, sessionUuid) {
+	if (!agentUuid || !sessionUuid) {
+		return false
+	}
+	try {
+		// wire key: ChatController::warm() reads getParam('conversation')
+		const response = await axios.post(generateUrl(`${CHAT_BASE}/warm`), {
+			agentUuid,
+			conversation: sessionUuid,
+		})
+		return response?.data?.warmed === true
+	} catch {
+		return false
+	}
+}
