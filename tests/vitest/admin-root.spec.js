@@ -147,6 +147,7 @@ describe('AdminRoot', () => {
 			'Report grouping',
 			'Assistant prompts',
 			'AI run retention',
+			'Trace export',
 			'Talk chat bridge',
 			'Organisation credentials',
 		])
