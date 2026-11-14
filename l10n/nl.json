@@ -2027,7 +2027,9 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n aanroep is geweigerd: %s.",
             "%n aanroepen zijn geweigerd: %s."
-        ]
+        ],
+        "Your assistant has the result of “%s”.": "Uw assistent heeft het resultaat van “%s”.",
+        "Open the conversation to read its answer.": "Open het gesprek om het antwoord te lezen."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"

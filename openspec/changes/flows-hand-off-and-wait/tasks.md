@@ -20,8 +20,9 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 - **acceptance_criteria**:
   - GIVEN a done handoff WHEN the job runs THEN one governed turn runs in the conversation with the result delimited as external content, and the owner is notified
   - GIVEN an inactive agent or an engaged kill switch WHEN the job runs THEN no turn runs and the result stays on the handoff
-- [ ] Implement
-- [ ] Test (PHPUnit on the job with the gates stubbed both ways)
+- **status**: built. `HandoffService` queues `HandoffResultJob` when it closes or expires a handoff; the job wraps `HandoffDelivery`, which asks `ScheduleService::gateFor()` (agent switched off, kill switch, budget) and, when nothing holds the agent, runs one turn through `ScheduleService::runAgentAsOwner()` as the owner, continuing the conversation, with the result between untrusted-content markers. The owner gets the `handoff_result` notification. An expired handoff posts the system note "No result from '…' within N hours." instead.
+- [x] Implement
+- [x] Test (PHPUnit on the job with the gates stubbed both ways): `tests/Unit/Service/Handoff/HandoffDeliveryTest.php`
 
 ### Task 3: Flow handoffs from runFlow and the terminal event
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003`

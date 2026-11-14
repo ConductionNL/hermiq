@@ -20,10 +20,12 @@ namespace OCA\Hermiq\Tests\Unit\Service\Handoff;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use OCA\Hermiq\BackgroundJob\HandoffResultJob;
 use OCA\Hermiq\Service\Handoff\HandoffService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\BackgroundJob\IJobList;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -62,6 +64,13 @@ class HandoffServiceTest extends TestCase {
 	private LoggerInterface&MockObject $logger;
 
 	/**
+	 * The background job list the delivery is queued on.
+	 *
+	 * @var IJobList&MockObject
+	 */
+	private IJobList&MockObject $jobs;
+
+	/**
 	 * The service under test.
 	 *
 	 * @var HandoffService
@@ -79,7 +88,8 @@ class HandoffServiceTest extends TestCase {
 		$this->clock = $this->createMock(ITimeFactory::class);
 		$this->clock->method('now')->willReturnCallback(fn (): DateTimeImmutable => new DateTimeImmutable(self::NOW));
 		$this->logger = $this->createMock(LoggerInterface::class);
-		$this->service = new HandoffService(objectService: $this->objects, timeFactory: $this->clock, logger: $this->logger);
+		$this->jobs = $this->createMock(IJobList::class);
+		$this->service = new HandoffService(objectService: $this->objects, timeFactory: $this->clock, logger: $this->logger, jobList: $this->jobs);
 	}//end setUp()
 
 	/**
@@ -201,6 +211,7 @@ class HandoffServiceTest extends TestCase {
 				false
 			)
 			->willReturn($this->entity(uuid: 'h-1', data: []));
+		$this->jobs->expects($this->once())->method('add')->with(HandoffResultJob::class, ['handoffId' => 'h-1']);
 
 		$this->assertTrue($this->service->close(handoffId: 'h-1', status: 'done', result: ['vergunningVereist' => true]));
 	}//end testAWaitingHandoffClosesWithItsResult()
@@ -253,6 +264,7 @@ class HandoffServiceTest extends TestCase {
 		$closed = ['status' => 'done', 'result' => ['first' => true], 'closedAt' => '2026-11-13T13:00:00+00:00'] + $this->waitingHandoff();
 		$this->objects->method('find')->willReturn($this->entity(uuid: 'h-1', data: $closed));
 		$this->objects->expects($this->never())->method('saveObject');
+		$this->jobs->expects($this->never())->method('add');
 		$this->logger->expects($this->once())->method('info')
 			->with('[HandoffService] A handoff that is no longer waiting was left as it is', ['handoffId' => 'h-1', 'status' => 'done']);
 
@@ -298,6 +310,7 @@ class HandoffServiceTest extends TestCase {
 				false
 			)
 			->willReturn($this->entity(uuid: 'late', data: []));
+		$this->jobs->expects($this->once())->method('add')->with(HandoffResultJob::class, ['handoffId' => 'late']);
 
 		$this->assertFalse($this->service->expireIfDue(handoffId: 'in-time'));
 		$this->assertTrue($this->service->expireIfDue(handoffId: 'late'));

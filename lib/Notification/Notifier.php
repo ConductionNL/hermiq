@@ -68,6 +68,7 @@ class Notifier implements INotifier {
 		'session_participant_added',
 		'goal_reached',
 		'goal_exhausted',
+		'handoff_result',
 	];
 
 	/**
@@ -169,6 +170,7 @@ class Notifier implements INotifier {
 			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
 			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
 			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
+			'handoff_result' => $this->handoffResultText(name: $name, l: $l),
 			default => $this->runCompleteText(name: $name, l: $l),
 		};
 	}//end resolveSubjectAndMessage()
@@ -364,4 +366,21 @@ class Notifier implements INotifier {
 			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
 		];
 	}//end goalText()
+
+	/**
+	 * The `handoff_result` wording: work an agent started has come back (flows-hand-off-and-wait).
+	 *
+	 * @param string $name The work's label, for example "Vergunningcheck".
+	 * @param IL10N  $l    The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 */
+	private function handoffResultText(string $name, IL10N $l): array {
+		return [
+			$l->t('Your assistant has the result of “%s”.', [$name]),
+			$l->t('Open the conversation to read its answer.'),
+		];
+	}//end handoffResultText()
 }//end class

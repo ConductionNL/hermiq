@@ -22,9 +22,11 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
 use InvalidArgumentException;
+use OCA\Hermiq\BackgroundJob\HandoffResultJob;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\BackgroundJob\IJobList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -35,8 +37,10 @@ use Psr\Log\LoggerInterface;
  * late or repeated answer can never overwrite the first. The deadline is 24
  * hours unless the caller asks for another, and never more than 7 days.
  *
- * This class only keeps the record. Starting the work, and running the
- * follow-up turn when a handoff closes, belong to the callers.
+ * This class keeps the record. Starting the work belongs to the callers;
+ * when this class closes or expires a handoff it queues HandoffResultJob,
+ * which runs the follow-up turn (HandoffDelivery), so the request that
+ * closed it never waits on an agent.
  *
  * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
@@ -88,6 +92,7 @@ class HandoffService {
 	 * @param ObjectService   $objectService OpenRegister object service.
 	 * @param ITimeFactory    $timeFactory   The clock deadlines are set and judged by.
 	 * @param LoggerInterface $logger        The logger.
+	 * @param IJobList        $jobList       Queues the delivery of a closed handoff.
 	 *
 	 * @return void
 	 */
@@ -95,6 +100,7 @@ class HandoffService {
 		private readonly ObjectService $objectService,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
+		private readonly IJobList $jobList,
 	) {
 	}//end __construct()
 
@@ -180,6 +186,7 @@ class HandoffService {
 		$handoff['result'] = $this->asObject(result: $result);
 		$handoff['closedAt'] = $this->now()->format(DateTimeInterface::ATOM);
 		$this->store(handoffId: $handoffId, handoff: $handoff);
+		$this->queueDelivery(handoffId: $handoffId);
 
 		return true;
 	}//end close()
@@ -232,9 +239,23 @@ class HandoffService {
 		$handoff['status'] = 'expired';
 		$handoff['closedAt'] = $now->format(DateTimeInterface::ATOM);
 		$this->store(handoffId: $handoffId, handoff: $handoff);
+		$this->queueDelivery(handoffId: $handoffId);
 
 		return true;
 	}//end expireIfDue()
+
+	/**
+	 * Queue the delivery of a handoff this class just closed or expired.
+	 *
+	 * @param string $handoffId The handoff's uuid.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 */
+	private function queueDelivery(string $handoffId): void {
+		$this->jobList->add(HandoffResultJob::class, ['handoffId' => $handoffId]);
+	}//end queueDelivery()
 
 	/**
 	 * A stored handoff's deadline, or null when it has none that reads as a date.

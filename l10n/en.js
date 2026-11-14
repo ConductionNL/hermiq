@@ -2718,7 +2718,9 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "Your assistant has the result of “%s”.": "Your assistant has the result of “%s”.",
+        "Open the conversation to read its answer.": "Open the conversation to read its answer."
     },
     "nplurals=2; plural=(n != 1);"
 )

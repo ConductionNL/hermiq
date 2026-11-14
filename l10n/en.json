@@ -2738,7 +2738,9 @@
         "_%n call was refused: %s._::_%n calls were refused: %s._": [
             "%n call was refused: %s.",
             "%n calls were refused: %s."
-        ]
+        ],
+        "Your assistant has the result of “%s”.": "Your assistant has the result of “%s”.",
+        "Open the conversation to read its answer.": "Open the conversation to read its answer."
     },
     "plurals": "",
     "pluralForm": "nplurals=2; plural=(n != 1);"
