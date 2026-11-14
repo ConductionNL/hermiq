@@ -12,7 +12,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 
-vi.mock('../../src/api/approvals.js', () => ({ approveApproval: vi.fn(), listPendingApprovals: vi.fn() }))
+vi.mock('../../src/api/approvals.js', () => ({ answerApproval: vi.fn(), approveApproval: vi.fn(), listPendingApprovals: vi.fn(), releaseApproval: vi.fn() }))
 
 const agentStore = { registerObjectType: vi.fn(), fetchCollection: vi.fn() }
 const scheduleStore = { registerObjectType: vi.fn(), fetchCollection: vi.fn() }
@@ -84,6 +84,8 @@ async function page() {
 				CheckDecagram: true,
 				ApprovalPreviewModal: modal('ApprovalPreviewModal', ['close', 'approve', 'deny']),
 				ApprovalDenyModal: modal('ApprovalDenyModal', ['close', 'denied']),
+				DraftReviewModal: { name: 'DraftReviewModal', props: ['draft', 'show'], emits: ['close', 'released', 'discard'], render: () => null },
+				AgentQuestionCard: { name: 'AgentQuestionCard', props: ['question', 'disabled'], emits: ['answer'], render: () => null },
 			},
 		},
 	})
@@ -174,5 +176,99 @@ describe('the Approvals page rows', () => {
 		await wrapper.vm.load()
 		await flushPromises()
 		expect(wrapper.find('aside').text()).toBe('Inbox down')
+	})
+
+	describe('questions and held drafts (oversight-ask-and-hold)', () => {
+		const question = { text: 'Close the three duplicate reports?', options: ['Yes, close them', 'No, keep them'], allowOther: false }
+		const draft = { kind: 'delivery', channel: 'email', output: 'Open tickets: 41\nSee you Monday.' }
+
+		beforeEach(() => {
+			approvals.listPendingApprovals.mockResolvedValue([
+				{ id: 'q1', scheduleId: 's1', agentId: 'a1', sourceType: 'question', question },
+				{ id: 'd1', scheduleId: 's1', agentId: 'a1', sourceType: 'draft', draft },
+				{ id: 'p1', scheduleId: 's1', agentId: 'a1', sourceType: 'schedule', prompt: 'Run it' },
+			])
+		})
+
+		it('shows a question with its suggested answers instead of an Approve button', async () => {
+			const wrapper = await page()
+			const row = wrapper.findAll('tbody tr')[0]
+
+			expect(row.findComponent({ name: 'AgentQuestionCard' }).props('question')).toEqual(question)
+			expect(row.find('button[aria-label="Approve run"]').exists()).toBe(false)
+		})
+
+		it('answers a question and reads the list again', async () => {
+			approvals.answerApproval.mockResolvedValue({ status: 'approved', ran: true })
+			const wrapper = await page()
+
+			wrapper.findAll('tbody tr')[0].findComponent({ name: 'AgentQuestionCard' }).vm.$emit('answer', 'Yes, close them')
+			await flushPromises()
+
+			expect(approvals.answerApproval).toHaveBeenCalledWith('q1', 'Yes, close them')
+			expect(approvals.listPendingApprovals).toHaveBeenCalledTimes(2)
+		})
+
+		it('shows why an answer was refused', async () => {
+			approvals.answerApproval.mockRejectedValue(new Error('Choose one of the suggested answers.'))
+			const wrapper = await page()
+
+			wrapper.findAll('tbody tr')[0].findComponent({ name: 'AgentQuestionCard' }).vm.$emit('answer', 'Maybe')
+			await flushPromises()
+
+			expect(wrapper.find('aside').text()).toBe('Choose one of the suggested answers.')
+		})
+
+		it('filters the drafts and counts them', async () => {
+			const wrapper = await page()
+
+			const drafts = wrapper.find('[data-testid="approval-filter-drafts"]')
+			expect(drafts.text()).toBe('Drafts (1)')
+			await drafts.trigger('click')
+
+			const rows = wrapper.findAll('tbody tr')
+			expect(rows).toHaveLength(1)
+			expect(rows[0].find('.approval-inbox__draft').text()).toBe('Open tickets: 41')
+
+			await wrapper.find('[data-testid="approval-filter-all"]').trigger('click')
+			expect(wrapper.findAll('tbody tr')).toHaveLength(3)
+		})
+
+		it('names an empty drafts filter', async () => {
+			approvals.listPendingApprovals.mockResolvedValue([{ id: 'p1', scheduleId: 's1', agentId: 'a1', sourceType: 'schedule' }])
+			const wrapper = await page()
+
+			await wrapper.find('[data-testid="approval-filter-drafts"]').trigger('click')
+
+			expect(wrapper.find('.empty').text()).toBe('No drafts waiting')
+			expect(wrapper.find('table').exists()).toBe(false)
+		})
+
+		it('opens a draft for review, and reloads once it is released', async () => {
+			const wrapper = await page()
+
+			await wrapper.find('[data-testid="approval-review-draft"]').trigger('click')
+			const review = wrapper.findComponent({ name: 'DraftReviewModal' })
+			expect(review.props('show')).toBe(true)
+			expect(review.props('draft').id).toBe('d1')
+
+			review.vm.$emit('released')
+			await flushPromises()
+			expect(wrapper.findComponent({ name: 'DraftReviewModal' }).props('show')).toBe(false)
+			expect(approvals.listPendingApprovals).toHaveBeenCalledTimes(2)
+		})
+
+		it('discards a draft through the deny dialog', async () => {
+			const wrapper = await page()
+
+			await wrapper.find('[data-testid="approval-review-draft"]').trigger('click')
+			wrapper.findComponent({ name: 'DraftReviewModal' }).vm.$emit('discard')
+			await flushPromises()
+
+			const deny = wrapper.findComponent({ name: 'ApprovalDenyModal' })
+			expect(deny.props('show')).toBe(true)
+			expect(deny.props('approval').id).toBe('d1')
+			expect(wrapper.findAll('tbody tr')[1].find('button[aria-label="Discard draft"]').text()).toBe('Discard')
+		})
 	})
 })

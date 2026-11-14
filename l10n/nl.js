@@ -1996,7 +1996,21 @@ OC.L10N.register(
         "Question from the agent": "Vraag van de agent",
         "Suggested answers": "Voorgestelde antwoorden",
         "Your own answer": "Je eigen antwoord",
-        "Send answer": "Antwoord versturen"
+        "Send answer": "Antwoord versturen",
+        "Review draft": "Concept nakijken",
+        "Could not release the draft": "Het concept kon niet worden vrijgegeven",
+        "Goes to": "Gaat naar",
+        "Text": "Tekst",
+        "Discard": "Weggooien",
+        "Release": "Vrijgeven",
+        "Edit and release": "Bewerken en vrijgeven",
+        "Show": "Tonen",
+        "All": "Alle",
+        "Drafts ({count})": "Concepten ({count})",
+        "No drafts waiting": "Geen concepten in afwachting",
+        "Text an agent wants to send is held here when its owner asked to check it first.": "Tekst die een agent wil versturen wacht hier als de eigenaar heeft gevraagd die eerst te controleren.",
+        "Review": "Nakijken",
+        "Discard draft": "Concept weggooien"
     },
     "nplurals=2; plural=(n != 1);"
 )

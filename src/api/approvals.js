@@ -66,6 +66,40 @@ export async function denyApproval(approvalId, reason) {
  * @param {string} organisation The organisation identifier (NC group id).
  * @return {Promise<object>} The control state ({ organisation, engaged, reason, … }).
  */
+/**
+ * Answer a question an agent asked in an unattended run (oversight-ask-and-hold).
+ * The server dispatches the run again with the answer; a refused answer is 422.
+ *
+ * @param {string} approvalId The question Approval's id.
+ * @param {string} answer The chosen or typed answer.
+ * @return {Promise<object>} `{approvalId, status, ran}`.
+ * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+ */
+export async function answerApproval(approvalId, answer) {
+	const response = await axios.post(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/answer`),
+		{ answer },
+	)
+	return response.data
+}
+
+/**
+ * Release a held draft, as written (no edits) or with edits to its text.
+ * A changed recipient is refused by the server with 422.
+ *
+ * @param {string} approvalId The draft Approval's id.
+ * @param {object} [edits] The edited fields: `output`, or `subject`/`body`.
+ * @return {Promise<object>} `{approvalId, status, ran}`.
+ * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+ */
+export async function releaseApproval(approvalId, edits = {}) {
+	const response = await axios.post(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/release`),
+		{ edits },
+	)
+	return response.data
+}
+
 export async function getKillSwitch(organisation) {
 	const response = await axios.get(
 		generateUrl(`${TENANT_CONTROL_BASE}/${organisation}`),

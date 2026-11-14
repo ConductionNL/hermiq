@@ -134,6 +134,7 @@
         "availabilityChangedBy": "admin",
         "availabilityChangedAt": "2026-09-28T09:00:00+00:00",
         "availabilityReason": "Paused until the new supplier list is approved",
+        "holdOutput": true,
         "enableRag": false,
         "views": [],
         "searchFiles": false,
