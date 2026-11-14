@@ -213,6 +213,13 @@ $routes = [
             'verb'         => 'POST',
             'requirements' => ['group' => '[^/]+'],
         ],
+        ['name' => 'departmentControl#index', 'url' => '/api/department-control', 'verb' => 'GET'],
+        [
+            'name'         => 'departmentControl#evidence',
+            'url'          => '/api/department-control/{group}/evidence',
+            'verb'         => 'GET',
+            'requirements' => ['group' => '[^/]+'],
+        ],
 
         // Agent memory (agent-memory): tenant-scoped memory, profiles, sessions, consolidate, recall.
         ['name' => 'memory#memory',        'url' => '/api/agents/{agentId}/memory', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],

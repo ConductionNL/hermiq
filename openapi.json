@@ -10141,6 +10141,88 @@
                     }
                 }
             }
+        },
+        "/department-control": {
+            "get": {
+                "operationId": "department-control-index",
+                "summary": "List the departments and their AI switches",
+                "description": "Every group marked as a department, with whether AI is on or off, who switched it last and when, its agent count, its last run and how many runs it refused since it was switched off. Administrators only.",
+                "tags": [
+                    "department-control"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The departments, under results.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
+        "/department-control/{group}/evidence": {
+            "get": {
+                "operationId": "department-control-evidence",
+                "summary": "Download the evidence that AI was off for a department",
+                "description": "A JSON file, sent as an attachment, with every switch event of the department (who, when, why) and every run of its agents refused while it was off, read from the audit trail. Administrators only; 404 when the group is not marked as a department.",
+                "tags": [
+                    "department-control"
+                ],
+                "parameters": [
+                    {
+                        "name": "group",
+                        "in": "path",
+                        "required": true,
+                        "description": "The Nextcloud group id of the department.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The evidence file.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Problem403"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/Problem404"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
         }
     },
     "components": {

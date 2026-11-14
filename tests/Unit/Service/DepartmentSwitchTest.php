@@ -20,6 +20,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\DepartmentSwitch;
+use OCA\OpenRegister\Db\AuditTrail;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -222,4 +225,74 @@ class DepartmentSwitchTest extends TestCase {
 
 		$this->assertNull($this->switch()->switch(group: 'finance', off: true, userId: 'admin'));
 	}//end testAnUnmarkedGroupIsNotSwitched()
+
+	/**
+	 * Each switch is recorded in the department object's audit trail, with who, when and why.
+	 *
+	 * @return void
+	 */
+	public function testASwitchIsRecordedInTheAuditTrail(): void {
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setUuid((string)$uuid);
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
+		$recorded = null;
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->expects($this->once())->method('recordObjectEvent')->willReturnCallback(
+			static function (ObjectAuditEvent $event) use (&$recorded): AuditTrail {
+				$recorded = $event;
+				return new AuditTrail();
+			}
+		);
+
+		(new DepartmentSwitch(objectService: $this->objectService, logger: $this->logger, auditTrailMapper: $audit))
+			->switch(group: 'burgerzaken', off: true, userId: 'admin', reason: 'incident 42');
+
+		$this->assertSame('department-switch', $recorded->action);
+		$this->assertSame('d1', $recorded->object->getUuid());
+		$this->assertSame('burgerzaken', $recorded->context['group']);
+		$this->assertTrue($recorded->context['aiOff']);
+		$this->assertSame('admin', $recorded->context['switchedBy']);
+		$this->assertSame('incident 42', $recorded->context['reason']);
+	}//end testASwitchIsRecordedInTheAuditTrail()
+
+	/**
+	 * An audit write that fails is logged and the department stays switched.
+	 *
+	 * @return void
+	 */
+	public function testAFailedAuditWriteKeepsTheSwitch(): void {
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (array|ObjectEntity $object): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setObject($object);
+				return $entity;
+			}
+		);
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$audit->method('recordObjectEvent')->willThrowException(new RuntimeException('audit down'));
+		$this->logger->expects($this->once())->method('error')->with($this->stringContains('audit down'));
+
+		$department = (new DepartmentSwitch(objectService: $this->objectService, logger: $this->logger, auditTrailMapper: $audit))
+			->switch(group: 'sociaal-domein', off: true, userId: 'admin');
+
+		$this->assertTrue($department['aiOff']);
+	}//end testAFailedAuditWriteKeepsTheSwitch()
+
+	/**
+	 * The marked departments and the one marked for a group are read back.
+	 *
+	 * @return void
+	 */
+	public function testMarkedDepartmentsAreReadBack(): void {
+		$switch = $this->switch();
+
+		$this->assertCount(2, $switch->marked());
+		$this->assertSame('d2', $switch->markedFor(group: 'sociaal-domein')?->getUuid());
+		$this->assertNull($switch->markedFor(group: 'finance'));
+	}//end testMarkedDepartmentsAreReadBack()
 }//end class

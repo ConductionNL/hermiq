@@ -30,6 +30,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -71,14 +73,24 @@ final class DepartmentSwitch {
 	public const SKIPPED_STATUS = 'skipped_department_off';
 
 	/**
+	 * The audit action of one switch event, on the department's object.
+	 *
+	 * @var string
+	 */
+	public const SWITCH_ACTION = 'department-switch';
+
+	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService   $objectService Reads departments and agents, writes a switch.
-	 * @param LoggerInterface $logger        Logs a department list that cannot be read.
+	 * @param ObjectService         $objectService    Reads departments and agents, writes a switch.
+	 * @param LoggerInterface       $logger           Logs a department list that cannot be read.
+	 * @param AuditTrailMapper|null $auditTrailMapper Records each switch event; null in the read-only
+	 *                                                copy the dispatcher builds.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
+		private readonly ?AuditTrailMapper $auditTrailMapper = null,
 	) {
 	}//end __construct()
 
@@ -187,8 +199,73 @@ final class DepartmentSwitch {
 			_multitenancy: false
 		);
 
+		$this->recordSwitch(department: $saved, data: $data);
+
 		return $saved->getObject();
 	}//end switch()
+
+	/**
+	 * Every marked department.
+	 *
+	 * @return array<int,ObjectEntity>
+	 *
+	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 */
+	public function marked(): array {
+		return $this->departments();
+	}//end marked()
+
+	/**
+	 * The department marked for a group, or null.
+	 *
+	 * @param string $group The group id.
+	 *
+	 * @return ObjectEntity|null
+	 *
+	 * @spec openspec/changes/oversight-switch-ai-off-per-department/specs/human-approval-gate/spec.md#requirement-an-admin-shall-be-able-to-download-evidence-that-ai-was-off-for-a-department
+	 */
+	public function markedFor(string $group): ?ObjectEntity {
+		return $this->department(group: $group);
+	}//end markedFor()
+
+	/**
+	 * Record one switch event in the audit trail of the department's object.
+	 *
+	 * The evidence download reads these entries back. A failed write is logged
+	 * as an error and does not undo the switch: a department that was switched
+	 * off stays off.
+	 *
+	 * @param ObjectEntity        $department The department as stored.
+	 * @param array<string,mixed> $data       The stored fields.
+	 *
+	 * @return void
+	 */
+	private function recordSwitch(ObjectEntity $department, array $data): void {
+		if ($this->auditTrailMapper === null) {
+			return;
+		}
+
+		try {
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $department,
+					action: self::SWITCH_ACTION,
+					context: [
+						'group' => (string)($data['group'] ?? ''),
+						'aiOff' => ($data['aiOff'] === true),
+						'switchedBy' => (string)$data['switchedBy'],
+						'switchedAt' => (string)$data['switchedAt'],
+						'reason' => (string)$data['reason'],
+					]
+				)
+			);
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq could not record the department switch in the audit trail: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
+	}//end recordSwitch()
 
 	/**
 	 * The department marked for a group, or null.
