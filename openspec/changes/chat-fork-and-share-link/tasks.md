@@ -53,7 +53,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **acceptance_criteria**:
   - GIVEN a new share WHEN it is saved THEN the recipient gets the `session_shared` notification linking to `/chat/shared/<uuid>`
   - GIVEN a revoked share WHEN the former recipient opens the link THEN they see "This session is not available"
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users)
 
 ### Task 7: "Copy link" in the share dialog
@@ -61,7 +61,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `src/modals/SessionShareModal.vue`, `l10n/en.json`, `l10n/nl.json`
 - **acceptance_criteria**:
   - GIVEN a shared session WHEN the owner chooses "Copy link" THEN the clipboard holds `/apps/hermiq/chat/shared/<uuid>`, which opens the session for a recipient and shows "This session is not available" to anyone else
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Playwright under `tests/e2e/spec-coverage/session-fork-and-share.spec.ts` with two users)
 
 ## Verification
