@@ -22,8 +22,10 @@ Kind: code. Size L. Rows `hermiq:mo-openai-compat`, `hermiq:dm-responses-api`, `
   - GIVEN a credential set WHEN a call is made THEN it goes through BrokerHttpClient and no key is read by hermiq
   - GIVEN no OpenAI-compatible credential type in OpenRegister WHEN the admin opens the form THEN the credential field is disabled with the stated text
   - GIVEN the Fireworks form WHEN a credential is chosen THEN the host is read-only and the field says API path
-- [ ] Implement
+- [x] Implement
+      > 2026-11-14: the provider modal lists "OpenAI-compatible endpoint" with name, base URL, model, an optional credential and "This is a server on our own network"; the credential field stays disabled with "A key needs OpenRegister's OpenAI-compatible credential type." until a credential of that provider is listed. OpenAI gains an optional base URL. The Fireworks form shows the host read-only and edits only the API path. `src/credentials.json` declares `openai-compatible` and `openai-cli`.
 - [ ] Test (PHPUnit on transport choice; Playwright under tests/e2e/spec-coverage/ on the modal)
+      > PHPUnit on transport choice is in `ProviderFactoryOpenAiCompatibleTest` (Task 1); the modal in `tests/vitest/llm-provider-modal*.spec.js`. Playwright needs a running Nextcloud and is left open.
 
 ### Task 3: Responses API mode
 - **spec_ref**: `openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004`

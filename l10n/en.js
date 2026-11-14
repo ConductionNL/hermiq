@@ -2718,7 +2718,17 @@ OC.L10N.register(
         "The organisation's output filter masked part of the answer.": "The organisation's output filter masked part of the answer.",
         "_Used %n document: %s._::_Used %n documents: %s._": ["Used %n document: %s.","Used %n documents: %s."],
         "_Called %n tool: %s._::_Called %n tools: %s._": ["Called %n tool: %s.","Called %n tools: %s."],
-        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."]
+        "_%n call was refused: %s._::_%n calls were refused: %s._": ["%n call was refused: %s.","%n calls were refused: %s."],
+        "A key needs OpenRegister's OpenAI-compatible credential type.": "A key needs OpenRegister's OpenAI-compatible credential type.",
+        "API path": "API path",
+        "Base URL (optional)": "Base URL (optional)",
+        "Calls go to the host locked to the credential.": "Calls go to the host locked to the credential.",
+        "Enter the base URL of the endpoint first.": "Enter the base URL of the endpoint first.",
+        "Enter the model the endpoint serves first.": "Enter the model the endpoint serves first.",
+        "Host": "Host",
+        "Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.": "Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.",
+        "No key: call the base URL directly": "No key: call the base URL directly",
+        "This is a server on our own network": "This is a server on our own network"
     },
     "nplurals=2; plural=(n != 1);"
 )

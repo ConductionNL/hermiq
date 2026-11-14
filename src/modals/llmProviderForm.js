@@ -12,6 +12,13 @@
 const STORED_FIELDS = [
 	['openaiConfig', 'chatModel', ''],
 	['openaiConfig', 'credentialId', ''],
+	['openaiConfig', 'baseUrl', ''],
+	['openaiConfig', 'ownNetwork', false],
+	['openaiCompatibleConfig', 'label', ''],
+	['openaiCompatibleConfig', 'baseUrl', ''],
+	['openaiCompatibleConfig', 'chatModel', ''],
+	['openaiCompatibleConfig', 'credentialId', ''],
+	['openaiCompatibleConfig', 'ownNetwork', false],
 	['ollamaConfig', 'url', ''],
 	['ollamaConfig', 'chatModel', ''],
 	['fireworksConfig', 'baseUrl', ''],
@@ -34,6 +41,40 @@ const STORED_FIELDS = [
 export function applyStoredConfig(form, config) {
 	for (const [section, field, fallback] of STORED_FIELDS) {
 		form[section][field] = (config[section] && config[section][field]) || fallback
+	}
+}
+
+/**
+ * The settings block a provider's fields live in.
+ *
+ * @param {string} provider The provider id.
+ * @return {string} The block's key, such as `openaiCompatibleConfig`.
+ * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+ */
+export function configKeyOf(provider) {
+	if (provider === 'openai-compatible') {
+		return 'openaiCompatibleConfig'
+	}
+	return `${provider}Config`
+}
+
+/**
+ * The API path of a stored Fireworks base URL: the broker sends every call to
+ * the host locked to the credential, so only the path is the admin's to set.
+ *
+ * @param {string} baseUrl A stored base URL, full or a bare path.
+ * @return {string} The path, or '' when none is stored.
+ * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002
+ */
+export function apiPathOf(baseUrl) {
+	const value = String(baseUrl || '').trim()
+	if (value === '') {
+		return ''
+	}
+	try {
+		return new URL(value).pathname
+	} catch {
+		return value.startsWith('/') ? value : `/${value}`
 	}
 }
 
