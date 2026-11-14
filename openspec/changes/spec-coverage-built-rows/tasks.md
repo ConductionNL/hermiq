@@ -16,4 +16,7 @@
       fail when the guard is removed.
       (`ScheduleTaskTest::testATickNeverStartsWhileTheLastOneRuns`, `ToolLoopTest::testARegisterUpdateNeedsTheSchemasWriteGrant`;
       each seen failing with `setAllowParallelRuns(false)` or the grant resolution removed.)
-- [ ] 1.5 Show chat health on the connections page: one block that says whether chat works, with the AI provider, the default model and each connection's state and check time, read from `GET /api/chat/health` and the connection registry (row `op-health`, scenario "The connections page shows chat health with each dependency"). Verify: a component test with one failing dependency shows that row as not answering and no secret.
+- [x] 1.5 Show chat health on the connections page: one block that says whether chat works, with the AI provider, the default model and each connection's state and check time, read from `GET /api/chat/health` and the connection registry (row `op-health`, scenario "The connections page shows chat health with each dependency"). Verify: a component test with one failing dependency shows that row as not answering and no secret.
+      (`src/widgets/ChatHealthBlock.vue` as the Integrations page's `below-header` slot, view built by
+      `src/services/chatHealth.js`; `tests/vitest/chat-health-block.spec.js`, seen failing with
+      `unavailable` dropped from the not-answering states.)

@@ -2812,7 +2812,18 @@ OC.L10N.register(
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
         "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
         "Fork from here": "Hier afsplitsen",
-        "Could not fork the session.": "De sessie kon niet worden afgesplitst."
+        "Could not fork the session.": "De sessie kon niet worden afgesplitst.",
+        "Chat health": "Chatstatus",
+        "AI provider: {provider}": "AI-aanbieder: {provider}",
+        "Default model: {model}": "Standaardmodel: {model}",
+        "Checked {time}": "Gecontroleerd {time}",
+        "Not checked yet": "Nog niet gecontroleerd",
+        "Chat works.": "Chat werkt.",
+        "Chat does not work: no AI provider is chosen.": "Chat werkt niet: er is geen AI-aanbieder gekozen.",
+        "Chat does not work: its settings could not be read.": "Chat werkt niet: de instellingen konden niet worden gelezen.",
+        "Answers": "Reageert",
+        "Does not answer": "Reageert niet",
+        "Not set up": "Niet ingesteld"
     },
     "nplurals=2; plural=(n != 1);"
 )
