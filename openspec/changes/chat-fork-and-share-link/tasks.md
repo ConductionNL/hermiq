@@ -9,7 +9,7 @@ Kind: code. Size M. Rows `hermiq:dm-fork-chat`, `ch-share-link`.
 - **files**: `tests/integration/hermiq.postman_collection.json`
 - **acceptance_criteria**:
   - GIVEN a session owned by user A WHEN user B of the same organisation reads it through `/apps/openregister/api/objects/hermiq/agentsession/<uuid>` THEN the result is recorded; a 200 stops this change until the schema grant is narrowed
-- [ ] Implement
+- [x] Implement
 - [ ] Test (Newman, two users, result written into the PR body)
 
 ### Task 2: Fork a session at an answer
