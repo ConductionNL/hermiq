@@ -187,9 +187,19 @@ class ScheduleService implements ScheduleServiceInterface {
 	 * Copied onto the run record so a later declaration cannot rewrite it. Null
 	 * when the run never reached a provider. Reset per run, read by writeRunAudit.
 	 *
-	 * @var array<string, string>|null
+	 * @var array<string, mixed>|null
 	 */
 	private ?array $lastRunDisclosure = null;
+
+	/**
+	 * The last run's attempts at a provider: provider, model, outcome, reason and
+	 * duration, in order (models-several-models-per-turn). Reset per run, read by writeRunAudit.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	private array $lastRunProviderAttempts = [];
 
 	/**
 	 * The last (top-level or delegated) run's own fresh run identifier
@@ -947,6 +957,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
 
@@ -1137,6 +1148,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1231,6 +1243,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
 		$this->lastRunAsUser = (string)($schedule->getOwner() ?? '');
 		$this->lastRunId = '';
 
@@ -1822,6 +1835,8 @@ class ScheduleService implements ScheduleServiceInterface {
 				// Models-no-training-guarantee: which provider saw this run, where it
 				// runs and what it declared about training, as it stood at run time.
 				'providerDisclosure' => $this->lastRunDisclosure,
+				// Models-several-models-per-turn: every attempt of the turn at a provider, in order.
+				'providerAttempts' => $this->lastRunProviderAttempts,
 				// Skill-evals: the skill uuids the run-loop seam actually exposed to
 				// this run's context — persisted for EVERY run (not just evals) so
 				// skill-learnings can later attribute run outcomes to skills.
@@ -2275,6 +2290,7 @@ class ScheduleService implements ScheduleServiceInterface {
 		$this->lastRunUsage = [];
 		$this->lastRunSteps = [];
 		$this->lastRunDisclosure = null;
+		$this->lastRunProviderAttempts = [];
 		$this->lastRunAsUser = $owner;
 		$this->lastRunId = '';
 		$this->lastRunSkillsUsed = [];
@@ -2754,6 +2770,7 @@ class ScheduleService implements ScheduleServiceInterface {
 			// contract) only if a future engine swap ever stops accepting `$trace`.
 			$this->lastRunSteps = $trace->toArray();
 			$this->lastRunDisclosure = $trace->providerDisclosure();
+			$this->lastRunProviderAttempts = $trace->providerAttempts();
 			if ($this->lastRunSteps === []) {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				$envelopeSteps = ($result['steps'] ?? []);

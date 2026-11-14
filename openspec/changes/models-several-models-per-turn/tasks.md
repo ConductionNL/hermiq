@@ -37,8 +37,8 @@ Kind: code. Size L. Rows `hermiq:mo-failover`, `hermiq:dm-model-ensemble`, `inte
 - **acceptance_criteria**:
   - GIVEN a 429 with retry-after 30 WHEN a second turn in the same organisation runs within 30 seconds THEN the provider is recorded cooling and skipped
   - GIVEN a run that fell back WHEN a privacy officer opens it THEN both attempts and receivedBy are shown
-- [ ] Implement
-- [ ] Test (PHPUnit with a fake cache and clock; Playwright under tests/e2e/spec-coverage/ on a seeded run record)
+- [x] Implement — `ProviderCooldown` (distributed cache `fallback:{organisation}:{provider}`, retry-after or 60 s, at most 600 s, rate limit and server errors only); a cooling first provider is recorded `cooling` and the turn starts at the next hop; `RunTraceCollector::recordProviderAttempt()` and `receivedBy` on the disclosure; `ScheduleService` writes `providerAttempts` on the run audit entry; `AnalyticsService` hands `providerAttempts` and `receivedBy` to the Runs page, which lists each attempt and "Received the prompt"
+- [ ] Test (PHPUnit with a fake cache and clock; Playwright under tests/e2e/spec-coverage/ on a seeded run record) — PHPUnit done (`ProviderCooldownTest` with a fake cache and clock, `ProviderFallbackLoopTest` cooling cases, `AnalyticsServiceTest::testARunRowShowsItsProviderAttempts`) and vitest `providerAttempts.spec.js`; the Playwright run needs a live instance and is left
 
 ### Task 5: The fallback editor on Tenant operations
 - **spec_ref**: `openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-model-policy-may-name-a-fallback-chain-req-mfail-001`

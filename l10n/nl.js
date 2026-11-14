@@ -2812,7 +2812,15 @@ OC.L10N.register(
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
         "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
         "Fork from here": "Hier afsplitsen",
-        "Could not fork the session.": "De sessie kon niet worden afgesplitst."
+        "Could not fork the session.": "De sessie kon niet worden afgesplitst.",
+        "answered": "beantwoord",
+        "rate limited": "limiet bereikt",
+        "server error": "serverfout",
+        "timed out": "time-out",
+        "could not be reached": "niet bereikbaar",
+        "cooling down, skipped": "koelt af, overgeslagen",
+        "skipped: {step}": "overgeslagen: {step}",
+        "Received the prompt: {providers}": "Kreeg de prompt: {providers}"
     },
     "nplurals=2; plural=(n != 1);"
 )
