@@ -136,7 +136,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Closure;
+use OCA\Hermiq\Mcp\ComputerToolDescriptors;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\ComputerUse\ComputerActionRecord;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -614,7 +616,7 @@ class FacadeToolInvoker {
 	 * @return string JSON-encoded tool result for the follow-up LLM turn.
 	 */
 	private function routeGranted(string $name, array $arguments): string {
-		if ($this->classifyTool(name: $name) === 'confirm' && $this->isWaived(name: $name, arguments: $arguments) === false) {
+		if ($this->classifyTool(name: $name) === 'confirm' && $this->waivable(name: $name, arguments: $arguments) === false) {
 			return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
 		}
 
@@ -632,6 +634,25 @@ class FacadeToolInvoker {
 		return $this->dispatchToFacade(name: $name, call: new FacadeCall(arguments: $arguments));
 
 	}//end routeGranted()
+
+	/**
+	 * Whether an owner's `#noapproval` waiver answers this confirmation. A computer
+	 * action is never waived: every one meets a person (tools-browser-and-computer-use D5).
+	 *
+	 * @param string $name The tool function name the LLM called.
+	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	private function waivable(string $name, array $arguments): bool {
+		if (in_array($this->resolveToolId(name: $name), ComputerToolDescriptors::ACTION_IDS, true) === true) {
+			return false;
+		}
+
+		return $this->isWaived(name: $name, arguments: $arguments);
+	}//end waivable()
 
 	/**
 	 * The argument constraint this call violates, if any (hydra-console-agent-leaves).
@@ -811,15 +832,19 @@ class FacadeToolInvoker {
 	 * @return string One of `auto`, `confirm`, `deny`.
 	 *
 	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
 	 */
 	private function classifyTool(string $name): string {
-		if ($this->toolPolicy === []) {
-			return 'auto';
+		$toolId = $this->resolveToolId(name: $name);
+		$classification = ($this->toolPolicy[$toolId] ?? 'auto');
+
+		// Tools-browser-and-computer-use D5: a computer action is `confirm` whatever
+		// the policy says. A policy may still refuse it outright, never lower it.
+		if (in_array($toolId, ComputerToolDescriptors::ACTION_IDS, true) === true && $classification !== 'deny') {
+			return 'confirm';
 		}
 
-		$toolId = $this->resolveToolId(name: $name);
-
-		return ($this->toolPolicy[$toolId] ?? 'auto');
+		return $classification;
 	}//end classifyTool()
 
 	/**
@@ -895,7 +920,8 @@ class FacadeToolInvoker {
 				name: $name,
 				call: new FacadeCall(
 					arguments: $arguments,
-					outcomeOverride: 'invoked_after_approval'
+					outcomeOverride: 'invoked_after_approval',
+					approvalId: (string)$approvedUnconsumed->getUuid()
 				)
 			);
 		}
@@ -1280,7 +1306,7 @@ class FacadeToolInvoker {
 
 		$reporter->finished(
 			dispatch: $dispatch,
-			traceExtra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $dispatch->envelope['result'])
+			traceExtra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $dispatch->envelope['result'], approvalId: $call->approvalId)
 		);
 
 		return $dispatch->encodedResult();
@@ -1337,13 +1363,28 @@ class FacadeToolInvoker {
 	 *                      `artefact` descriptor is lifted when the tool produced
 	 *                      one (ADR-088) — read from the RESULT because a newly
 	 *                      created artefact has no id until the write returns.
+	 * @param string|null $approvalId The approval the call ran under, if any.
 	 *
 	 * @return array<string, mixed> `['target' => string]` and/or `['artefact' => ...]`, or `[]`.
 	 *
 	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
 	 */
-	private function traceExtraFor(string $name, array $arguments, mixed $result = null): array {
+	private function traceExtraFor(string $name, array $arguments, mixed $result = null, ?string $approvalId = null): array {
 		$toolId = $this->resolveToolId(name: $name);
+
+		// Tools-browser-and-computer-use D6: machine, action, coordinates, redacted
+		// text and approval id; a screenshot only as its hash and size.
+		$computer = ComputerActionRecord::traceExtra(
+			toolId: $toolId,
+			arguments: $arguments,
+			result: $result,
+			approvalId: $approvalId,
+			redact: fn (string $text): string => ($this->redactionService?->redact($text) ?? '«redacted»')
+		);
+		if ($computer !== []) {
+			return array_merge($this->resolveArtefactDescriptor(result: $result), $computer);
+		}
 
 		// ADR-088 §3: a write must be recorded with the identity of the artefact
 		// it produced, or the oversight surface can say a tool succeeded without

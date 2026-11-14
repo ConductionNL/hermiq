@@ -216,4 +216,33 @@ class AnthropicMessageFormatTest extends TestCase {
 			$blocks
 		);
 	}//end testToolResultBlocks()
+
+	/**
+	 * A tool result carrying a screenshot reaches the model as an image block, with the
+	 * rest of the result as text and the bytes sent once; anything else stays text.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-computer-use-is-a-high-risk-ai-feature-that-a-grant-alone-cannot-unlock-req-computer-002
+	 */
+	public function testAScreenshotToolResultIsAnImageBlock(): void {
+		$png = base64_encode('PNG-BYTES');
+		$blocks = $this->format()->buildAnthropicToolResultBlocks(
+			[
+				['tool_use_id' => 'tu_1', 'content' => json_encode(['target' => 'ct-1', 'image' => $png, 'mimeType' => 'image/png', 'width' => 1920])],
+				['tool_use_id' => 'tu_2', 'content' => json_encode(['image' => $png, 'mimeType' => 'application/pdf'])],
+				['tool_use_id' => 'tu_3', 'content' => json_encode(['image' => 'not base64 !!', 'mimeType' => 'image/png'])],
+			]
+		);
+
+		$this->assertSame(
+			[
+				['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => 'image/png', 'data' => $png]],
+				['type' => 'text', 'text' => '{"target":"ct-1","image":"(the screenshot is attached as an image)","mimeType":"image/png","width":1920}'],
+			],
+			$blocks[0]['content']
+		);
+		$this->assertIsString($blocks[1]['content']);
+		$this->assertIsString($blocks[2]['content']);
+	}//end testAScreenshotToolResultIsAnImageBlock()
 }//end class

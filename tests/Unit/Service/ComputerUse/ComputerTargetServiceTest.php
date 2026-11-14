@@ -42,6 +42,13 @@ final class ComputerTargetServiceTest extends TestCase {
 	private array $calls = [];
 
 	/**
+	 * The JSON bodies the calls carried, in order.
+	 *
+	 * @var list<string>
+	 */
+	private array $bodies = [];
+
+	/**
 	 * What the remote-control service answers.
 	 *
 	 * @var array<string, mixed>|RuntimeException
@@ -117,7 +124,7 @@ final class ComputerTargetServiceTest extends TestCase {
 			}
 
 			public function call(object $source, string $endpoint='', string $method='GET', array $config=[]): object {
-				return $this->test->answerCall(source: $source, endpoint: $endpoint, method: $method);
+				return $this->test->answerCall(source: $source, endpoint: $endpoint, method: $method, config: $config);
 			}
 		};
 		$container = $this->createMock(ContainerInterface::class);
@@ -140,11 +147,13 @@ final class ComputerTargetServiceTest extends TestCase {
 	 * @param object $source   The source.
 	 * @param string $endpoint The endpoint.
 	 * @param string $method   The method.
+	 * @param array<string, mixed> $config The call's config.
 	 *
 	 * @return object The call log.
 	 */
-	public function answerCall(object $source, string $endpoint, string $method): object {
+	public function answerCall(object $source, string $endpoint, string $method, array $config=[]): object {
 		$this->calls[] = ['source' => $source->getUuid(), 'endpoint' => $endpoint, 'method' => $method];
+		$this->bodies[] = (string)($config['body'] ?? '');
 		if ($this->answer instanceof RuntimeException) {
 			throw $this->answer;
 		}
@@ -167,6 +176,25 @@ final class ComputerTargetServiceTest extends TestCase {
 		self::assertSame(['image' => base64_encode('PNG-BYTES'), 'mimeType' => 'image/png', 'width' => 1920, 'height' => 1080], $shot);
 		self::assertSame([['source' => 'src-1', 'endpoint' => '/screenshot', 'method' => 'POST']], $this->calls);
 		self::assertSame($before, $this->objects, 'nothing is stored');
+	}
+
+	/**
+	 * An action posts its body to the machine's /action through the same source and
+	 * answers with the new screenshot.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function testAnActionPostsItsBodyToTheMachineAndAnswersWithTheNewScreen(): void {
+		$shot = $this->service()->act(id: 'ct-1', action: ['type' => 'click', 'x' => 120, 'y' => 48]);
+
+		self::assertSame(['image' => base64_encode('PNG-BYTES'), 'mimeType' => 'image/png', 'width' => 1920, 'height' => 1080], $shot);
+		self::assertSame([['source' => 'src-1', 'endpoint' => '/action', 'method' => 'POST']], $this->calls);
+		self::assertSame(['{"type":"click","x":120,"y":48}'], $this->bodies);
+
+		$this->service()->screenshot(id: 'ct-1');
+		self::assertSame('{}', $this->bodies[1], 'a screenshot posts an empty object');
 	}
 
 	public function testAScreenshotThatCannotBeTakenIsRefused(): void {

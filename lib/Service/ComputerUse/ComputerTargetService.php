@@ -183,6 +183,41 @@ class ComputerTargetService {
 	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-an-admin-registers-a-machine-reached-only-through-integriq-req-computer-001
 	 */
 	public function screenshot(string $id): array {
+		return $this->post(id: $id, endpoint: '/screenshot', body: []);
+	}//end screenshot()
+
+	/**
+	 * Perform one action on the target's screen and return the new screenshot.
+	 *
+	 * The remote-control service answers `POST /action` with `{type, x, y, text, keys}`
+	 * by performing it and returning a screenshot (design D3). Hermiq never opens a
+	 * connection to the machine itself: the call goes through integriq's CallService.
+	 *
+	 * @param string               $id     The target's uuid.
+	 * @param array<string, mixed> $action The action: `type` plus `x`/`y`, `text` or `keys`.
+	 *
+	 * @return array{image: string, mimeType: string, width: int, height: int}
+	 *
+	 * @throws ComputerTargetRefusal 404 unknown target, 409 its source is gone or integriq is absent, 502 the machine did not answer with a screenshot.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+	 */
+	public function act(string $id, array $action): array {
+		return $this->post(id: $id, endpoint: '/action', body: $action);
+	}//end act()
+
+	/**
+	 * Post to the target's remote-control service through its integriq source and read the screenshot it answers with.
+	 *
+	 * @param string               $id       The target's uuid.
+	 * @param string               $endpoint `/screenshot` or `/action`.
+	 * @param array<string, mixed> $body     The JSON body.
+	 *
+	 * @return array{image: string, mimeType: string, width: int, height: int}
+	 *
+	 * @throws ComputerTargetRefusal When the target, its source or the machine's answer is missing.
+	 */
+	private function post(string $id, string $endpoint, array $body): array {
 		$target = $this->get(id: $id);
 		$source = $this->source(id: (string)($target['source'] ?? ''));
 		$caller = FleetAppId::getService(container: $this->container, canonical: 'integriq', relative: 'Service\CallService');
@@ -190,12 +225,17 @@ class ComputerTargetService {
 			throw new ComputerTargetRefusal(message: 'The machine cannot be reached: its integriq source is not available.', status: 409);
 		}
 
+		$json = '{}';
+		if ($body !== []) {
+			$json = (string)json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		}
+
 		try {
 			$response = $caller->call(
 				source: $source,
-				endpoint: '/screenshot',
+				endpoint: $endpoint,
 				method: 'POST',
-				config: ['body' => '{}', 'headers' => ['Content-Type' => 'application/json']]
+				config: ['body' => $json, 'headers' => ['Content-Type' => 'application/json']]
 			);
 		} catch (Throwable $e) {
 			throw new ComputerTargetRefusal(message: 'The machine could not be reached: ' . $e->getMessage(), status: 502);
@@ -208,7 +248,7 @@ class ComputerTargetService {
 		}
 
 		return ['image' => $image, 'mimeType' => 'image/png', 'width' => (int)($answer['width'] ?? 0), 'height' => (int)($answer['height'] ?? 0)];
-	}//end screenshot()
+	}//end post()
 
 	/**
 	 * The integriq source with this id, or null when there is none.

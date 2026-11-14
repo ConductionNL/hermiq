@@ -45,12 +45,14 @@ final class FacadeCall {
 	 *                                     from an ordinary `auto` invocation. Null
 	 *                                     (every pre-existing caller) keeps the
 	 *                                     original ok/error derivation unchanged.
+	 * @param string|null $approvalId The approval an `invoked_after_approval` call ran under, for its trace step.
 	 *
 	 * @spec exclude Parameter object, no functional requirement of its own.
 	 */
 	public function __construct(
 		public readonly array $arguments,
 		public readonly ?string $outcomeOverride = null,
+		public readonly ?string $approvalId = null,
 	) {
 	}//end __construct()
 }//end class

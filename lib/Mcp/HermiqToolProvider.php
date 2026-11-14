@@ -95,6 +95,7 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
 use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ComputerUseServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\CourseRecommendationEngineInterface;
 use OCA\Hermiq\Kernel\Contracts\DelegationServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
@@ -708,7 +709,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 			WorkspaceToolDescriptors::ALL,
 			GraphToolDescriptors::ALL,
 			$this->taskDescriptors(),
-			$this->imageDescriptors()
+			$this->imageDescriptors(),
+			ComputerToolDescriptors::ALL
 		);
 	}//end getTools()
 
@@ -811,17 +813,20 @@ class HermiqToolProvider implements IMcpToolProvider {
 	}//end routed()
 
 	/**
-	 * The service that owns a graph, Nextcloud task or image tool, checked in that order.
+	 * The service that owns a graph, Nextcloud task, image or computer tool, checked in that order.
 	 *
 	 * @param string $toolId The namespaced tool id.
 	 *
 	 * @return string|null The owning service's class, or null for any other tool.
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-computer-use-is-a-high-risk-ai-feature-that-a-grant-alone-cannot-unlock-req-computer-002
 	 */
 	private function userScopedServiceFor(string $toolId): ?string {
 		return match (true) {
 			in_array($toolId, GraphToolDescriptors::IDS, true) => GraphToolsInterface::class,
 			in_array($toolId, NcTaskToolDescriptors::IDS, true) => TaskWriteServiceInterface::class,
 			in_array($toolId, ImageToolDescriptors::IDS, true) => ImageGenerationServiceInterface::class,
+			in_array($toolId, ComputerToolDescriptors::IDS, true) => ComputerUseServiceInterface::class,
 			default => null,
 		};
 

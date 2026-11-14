@@ -235,7 +235,7 @@ class HermiqToolProviderTest extends TestCase {
 		$this->assertNotContains('hermiq.completeTask', $ids);
 		$this->assertContains('hermiq.listTasks', $ids);
 		$this->assertContains('hermiq.createTask', $ids);
-		$this->assertCount(42, $ids);
+		$this->assertCount(46, $ids);
 
 	}//end testCompleteTaskIsAbsentWithoutAReplacePath()
 
@@ -416,8 +416,9 @@ class HermiqToolProviderTest extends TestCase {
 		//   (hermiq-runner-git-capability),
 		// + hermiq.graphNeighbors/graphPath (knowledge-graph),
 		// + hermiq.listTasks/createTask/completeTask (tools-nextcloud-tasks),
+		// + hermiq.computerScreenshot/Click/Type/Key (tools-browser-and-computer-use),
 		// all registered through this same provider.
-		$this->assertCount(43, $tools);
+		$this->assertCount(47, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -516,10 +517,15 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.completeTask' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+			// tools-browser-and-computer-use: a screenshot only reads; every action changes the machine.
+			'hermiq.computerScreenshot' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.computerClick' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.computerType' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			'hermiq.computerKey' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(43, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(47, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -609,6 +615,11 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ToolReachResolver::REACH_USER,
 			'hermiq.createTask' => ToolReachResolver::REACH_INSTANCE,
 			'hermiq.completeTask' => ToolReachResolver::REACH_INSTANCE,
+			// `external`: the screen's content goes to the model provider.
+			'hermiq.computerScreenshot' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerClick' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerType' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.computerKey' => ToolReachResolver::REACH_EXTERNAL,
 		];
 
 		$tools = $this->provider('alice')->getTools();
@@ -711,6 +722,10 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listTasks' => ['task', 'list'],
 			'hermiq.createTask' => ['task', 'create'],
 			'hermiq.completeTask' => ['task', 'complete'],
+			'hermiq.computerScreenshot' => ['computer', 'get'],
+			'hermiq.computerClick' => ['computer', 'click'],
+			'hermiq.computerType' => ['computer', 'type'],
+			'hermiq.computerKey' => ['computer', 'key'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
