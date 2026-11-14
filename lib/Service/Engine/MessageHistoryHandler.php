@@ -522,6 +522,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 	 * @param array $attachments The turn's attachments as references (fileId, name, mimeType,
 	 *                           size, origin), resolved as the speaker; never bytes or text.
 	 * @param array|null $provenance How an assistant answer came about: model, sources and step
+	 * @param array|null $retrievalScope The scope an answer was given (memory-retrieval-scope), stored on the turn.
 	 *                               outcomes, never content (chat-how-an-answer-came-about).
 	 *
 	 * @return ObjectEntity The persisted Message object.
@@ -542,6 +543,7 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 		?string $authorDisplayName = null,
 		array $attachments = [],
 		?array $provenance = null,
+		?array $retrievalScope = null,
 	): ObjectEntity {
 		$payload = [
 			'sessionId' => $conversationId,
@@ -563,6 +565,11 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 
 		if ($provenance !== null) {
 			$payload['provenance'] = $provenance;
+		}
+
+		// Memory-retrieval-scope D5: the scope the answer was given.
+		if ($retrievalScope !== null) {
+			$payload['retrievalScope'] = $retrievalScope;
 		}
 
 		$payload = $this->withAuthorship(

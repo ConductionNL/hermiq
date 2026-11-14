@@ -778,6 +778,10 @@ $routes = [
         ],
         ['name' => 'Settings\ReportSimilaritySettings#get',    'url' => '/api/settings/report-similarity', 'verb' => 'GET'],
         ['name' => 'Settings\ReportSimilaritySettings#update', 'url' => '/api/settings/report-similarity', 'verb' => 'PUT'],
+        // memory-retrieval-scope (REQ-RSCOPE-002): the Nextcloud tag that marks a document as validated.
+        ['name' => 'Settings\ValidatedTagSettings#get',    'url' => '/api/settings/validated-tag', 'verb' => 'GET'],
+        ['name' => 'Settings\ValidatedTagSettings#update', 'url' => '/api/settings/validated-tag', 'verb' => 'PUT'],
+        ['name' => 'Settings\ValidatedTagSettings#create', 'url' => '/api/settings/validated-tag', 'verb' => 'POST'],
 
         // A conversational intake that files for the citizen
         // (a-conversational-intake-that-files-for-the-citizen): one conversation per

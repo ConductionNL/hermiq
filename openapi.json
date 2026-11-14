@@ -8223,6 +8223,139 @@
                 }
             }
         },
+        "/settings/validated-tag": {
+            "get": {
+                "operationId": "settings-validated-tag-settings-get",
+                "summary": "The tag that marks a document as validated",
+                "description": "The validated tag's id, name and the groups that may assign it. Admin only.",
+                "tags": [
+                    "settings-validated-tag-settings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "settings-validated-tag-settings-update",
+                "summary": "Name an existing tag as the validated tag",
+                "description": "Name an existing system tag as the validated tag, optionally setting the groups that may assign it. Admin only.",
+                "tags": [
+                    "settings-validated-tag-settings"
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "tagId": {
+                                        "description": "The system tag id."
+                                    },
+                                    "groups": {
+                                        "description": "The groups that may assign the tag; omit to leave them."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "settings-validated-tag-settings-create",
+                "summary": "Create the restricted Validated tag",
+                "description": "Create a restricted system tag (default name Validated) assignable by the given groups, and name it as the validated tag. Admin only.",
+                "tags": [
+                    "settings-validated-tag-settings"
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "description": "The tag name, default Validated."
+                                    },
+                                    "groups": {
+                                        "description": "The groups that may assign the tag."
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/Problem422"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/Problem500"
+                    }
+                }
+            }
+        },
         "/settings/run-retention": {
             "get": {
                 "operationId": "settings-run-retention-settings-get",
