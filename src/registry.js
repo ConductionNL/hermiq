@@ -93,6 +93,9 @@ import SkillLinkPanel from './widgets/SkillLinkPanel.vue'
 // skill-maturity: the SkillDetail page's durable maturity scorecard widget
 // (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
 import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
+// skills-curator-merges-duplicates: the curator's merge proposals on the Skills
+// index page's below-header slot.
+import SkillMergeProposals from './widgets/SkillMergeProposals.vue'
 // skill-install-idempotency: the SkillDetail page's origin + review-status card
 // (where the skill came from, when it was last refreshed, why it is quarantined,
 // and whether local learnings are ahead of the source).
@@ -530,6 +533,24 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'GitHub topic-search + broker-mediated install/publish flow (GitHubTemplateCatalogService/GitHubTemplatePushService) has no OpenRegister object-collection equivalent — object-table/object-list cannot express a third-party REST search or a credential-broker push (ADR-049).',
+	},
+
+	/**
+	 * Skill merge proposals (skills-curator-merges-duplicates) — the curator's
+	 * pending merges of duplicate skills, with Merge and Keep both, resolved via
+	 * the SkillsCatalog index page's `page.slots.below-header`.
+	 *
+	 * @spec openspec/changes/skills-curator-merges-duplicates/specs/skills-marketplace/spec.md#requirement-the-curator-shall-propose-merging-duplicate-skills
+	 */
+	'skill-merge-proposals': {
+		kind: 'widget',
+		component: SkillMergeProposals,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Approving a merge archives the duplicate and moves its agents to the survivor across two objects and the agents that use them, behind the skill.merge-duplicates action (SkillMergeController); a declared object-table/object-op over the skill schema cannot express that two-object decision or its action gate (ADR-049).',
 	},
 
 	/**

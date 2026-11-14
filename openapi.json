@@ -10341,6 +10341,113 @@
                     }
                 }
             }
+        },
+        "/skill-merges": {
+            "get": {
+                "operationId": "skill-merge-index",
+                "summary": "The curator's pending skill merge proposals",
+                "description": "The curator's pending skill merge proposals, newest first: per proposal the skill that goes and the skill that stays (id, name, description, how many agents use it), why the pair was proposed and when. Needs the skill.merge-duplicates action (admins by default). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "skill-merge"
+                ],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/skill-merges/{id}/approve": {
+            "post": {
+                "operationId": "skill-merge-approve",
+                "summary": "Approve a skill merge proposal",
+                "description": "Approve the merge proposed on a duplicate skill: every agent that used it moves to the surviving skill, and the duplicate is archived with a pointer to the survivor. Nothing is deleted. 409 when the skill has no pending proposal or the survivor is gone. Needs the skill.merge-duplicates action (admins by default). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "skill-merge"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The duplicate skill's UUID (the skill the proposal would archive).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
+        },
+        "/skill-merges/{id}/reject": {
+            "post": {
+                "operationId": "skill-merge-reject",
+                "summary": "Reject a skill merge proposal (keep both)",
+                "description": "Reject the merge proposed on a duplicate skill: both skills stay as they are and the curator does not propose the same pair again. 409 when the skill has no pending proposal. Needs the skill.merge-duplicates action (admins by default). Needs a signed-in Nextcloud user.",
+                "tags": [
+                    "skill-merge"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The duplicate skill's UUID (the skill the proposal would archive).",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The request succeeded.",
+                        "headers": {
+                            "API-Version": {
+                                "$ref": "#/components/headers/API-Version"
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Problem401"
+                    }
+                }
+            }
         }
     },
     "components": {
