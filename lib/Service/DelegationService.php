@@ -49,9 +49,11 @@ use OCA\Hermiq\Service\Delegation\DelegatedTurn;
 use OCA\Hermiq\Service\Delegation\DelegationAuditEntry;
 use OCA\Hermiq\Service\Delegation\DelegationPart;
 use OCA\Hermiq\Service\Delegation\DelegationSlots;
+use OCA\Hermiq\Service\Delegation\ParallelDelegation;
 use OCA\Hermiq\Service\Delegation\PassedDelegation;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
+use SplObjectStorage;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -166,6 +168,9 @@ class DelegationService implements DelegationServiceInterface {
 	 *                                         from it (agent-capability-reach). Pure and
 	 *                                         stateless, hence the default instance —
 	 *                                         every existing caller is unchanged.
+	 * @param ParallelDelegation|null $parallel Runs the parts of one delegateAgents call on background
+	 *                                          workers at the same time (delegation-runs-in-parallel);
+	 *                                          without it the parts run one after another.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -179,6 +184,7 @@ class DelegationService implements DelegationServiceInterface {
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 		private readonly ToolGrantResolver $grantResolver = new ToolGrantResolver(),
+		private readonly ?ParallelDelegation $parallel = null,
 	) {
 	}//end __construct()
 
@@ -229,10 +235,10 @@ class DelegationService implements DelegationServiceInterface {
 	 * part's `{targetAgentId, result, effectiveReach}`, or its error envelope
 	 * with the `targetAgentId` it named.
 	 *
-	 * The passing parts run here, one after another, which is what the
-	 * change's REQ-DLGPAR-002 asks for when no background worker picks a part
-	 * up. Running them on workers at the same time is the queued job of the
-	 * same change.
+	 * Two or more passing parts are handed to background workers and run at
+	 * the same time (`ParallelDelegation`); a part no worker picks up in time
+	 * runs here. A single passing part, a `delegation.maxParallel` of 1, or no
+	 * acting user runs the parts here, one after another.
 	 *
 	 * @param string                           $callerAgentId The delegating agent's own UUID (server-injected).
 	 * @param array<int, array<string, mixed>> $parts         One `{targetAgentId, task}` per part (LLM-supplied).
@@ -247,13 +253,203 @@ class DelegationService implements DelegationServiceInterface {
 			$slots->add(slot: $this->gatePart(callerAgentId: $callerAgentId, part: new DelegationPart(part: $part), pending: $slots->passed()));
 		}
 
-		return [
-			'results' => $slots->results(
-				run: fn (PassedDelegation $passed): array => $this->runDelegatedTurn(targetAgent: $passed->targetAgent, turn: $passed->turn)
-			),
-		];
+		$owner = (string)($this->userSession->getUser()?->getUID() ?? '');
+		if ($this->parallel === null || $slots->passed() < 2 || $this->parallel->maxParallel() < 2 || $owner === '') {
+			return [
+				'results' => $slots->results(
+					run: fn (PassedDelegation $passed): array => $this->runDelegatedTurn(targetAgent: $passed->targetAgent, turn: $passed->turn)
+				),
+			];
+		}
+
+		return ['results' => $this->runInParallel(slots: $slots, owner: $owner)];
 
 	}//end delegateMany()
+
+	/**
+	 * Hand the passing parts to background workers and collect their outcomes in call order.
+	 *
+	 * @param DelegationSlots $slots The gated parts.
+	 * @param string          $owner The parent's acting user.
+	 *
+	 * @return array<int, array<string, mixed>> One result per part, in call order.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	private function runInParallel(DelegationSlots $slots, string $owner): array {
+		$frame   = $this->delegationContext->current();
+		$order   = new SplObjectStorage();
+		$records = [];
+		$slots->results(
+			run: function (PassedDelegation $passed) use ($order, &$records, $owner, $frame): array {
+				$order[$passed] = count($records);
+				$records[]      = $this->recordFor(passed: $passed, owner: $owner, frame: $frame);
+				$this->delegationContext->incrementFanOut();
+				return [];
+			}
+		);
+
+		$outcomes = $this->parallel->run(
+			records: $records,
+			runInline: fn (array $claimed): array => $this->runStored(record: $claimed, anchor: $frame?->anchor)
+		);
+
+		return $slots->results(
+			run: function (PassedDelegation $passed) use ($order, $outcomes, $frame): array {
+				$outcome = $outcomes[$order[$passed]];
+				if (($outcome['error']['code'] ?? null) === ParallelDelegation::TIMEOUT_CODE) {
+					$this->writeDelegationAudit(
+						auditTarget: ($frame->anchor ?? $passed->targetAgent),
+						entry: new DelegationAuditEntry(
+							targetAgentId: (string)$passed->targetAgent->getUuid(),
+							status: 'timeout',
+							summary: 'The delegated part did not finish in time.',
+							runId: '',
+							parentRunId: $frame?->runId,
+							startedAt: new DateTimeImmutable('now', new DateTimeZone('UTC'))
+						)
+					);
+				}
+
+				return $outcome;
+			}
+		);
+	}//end runInParallel()
+
+	/**
+	 * The DelegatedRun record of one passing part.
+	 *
+	 * @param PassedDelegation     $passed The part.
+	 * @param string               $owner  The parent's acting user.
+	 * @param DelegationFrame|null $frame  The parent run's frame.
+	 *
+	 * @return array<string, mixed>
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	private function recordFor(PassedDelegation $passed, string $owner, ?DelegationFrame $frame): array {
+		return [
+			'parentRunId' => (string)($frame->runId ?? ''),
+			'parentAgentId' => (string)($frame->agentId ?? ''),
+			'ancestorAgentIds' => ($frame->ancestorAgentIds ?? []),
+			'depth' => ($frame->depth ?? 1),
+			'targetAgentId' => (string)$passed->targetAgent->getUuid(),
+			'task' => $passed->turn->task,
+			'owner' => $owner,
+			'organisation' => $passed->turn->organisation,
+			'anchorId' => $frame?->anchor?->getUuid(),
+			'effectiveReach' => $passed->turn->effectiveReach,
+		];
+	}//end recordFor()
+
+	/**
+	 * Claim and run one stored part of a parallel delegation, as a background
+	 * worker does (REQ-DLGPAR-002: a part runs once, whoever claims it).
+	 *
+	 * The worker takes up the parent run's frame first, so the part runs at the
+	 * parent's own depth and ancestry and its own delegations are bounded as
+	 * the parent's would be.
+	 *
+	 * @param string $delegatedRunId The part's DelegatedRun id.
+	 * @param string $claimant       worker or parent.
+	 *
+	 * @return bool True when this claim won and the part ran.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function runStoredPart(string $delegatedRunId, string $claimant): bool {
+		$claimed = $this->parallel?->store()->claim(id: $delegatedRunId, claimant: $claimant);
+		if ($claimed === null) {
+			return false;
+		}
+
+		$anchor = null;
+		if ((string)($claimed['anchorId'] ?? '') !== '') {
+			$anchor = $this->findObject(id: (string)$claimed['anchorId']);
+		}
+
+		$resumed = (string)($claimed['parentRunId'] ?? '') !== '';
+		if ($resumed === true) {
+			$this->delegationContext->resume(
+				frame: new DelegationFrame(
+					runId: (string)$claimed['parentRunId'],
+					agentId: (string)($claimed['parentAgentId'] ?? ''),
+					organisation: (string)($claimed['organisation'] ?? ''),
+					anchor: $anchor,
+					parentRunId: null,
+					ancestorAgentIds: array_values(array_map('strval', (array)($claimed['ancestorAgentIds'] ?? []))),
+					depth: max(1, (int)($claimed['depth'] ?? 1))
+				)
+			);
+		}
+
+		try {
+			$this->runStored(record: $claimed, anchor: $anchor);
+		} finally {
+			if ($resumed === true) {
+				$this->delegationContext->pop();
+			}
+		}
+
+		return true;
+	}//end runStoredPart()
+
+	/**
+	 * Run a claimed part as the parent's acting user, audit it under the parent
+	 * run and record its outcome on the part.
+	 *
+	 * @param array<string, mixed> $record The claimed DelegatedRun.
+	 * @param ObjectEntity|null    $anchor The parent run's anchor.
+	 *
+	 * @return array<string, mixed> `{result, effectiveReach}`, or a `delegation_failed` envelope.
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+	 */
+	private function runStored(array $record, ?ObjectEntity $anchor): array {
+		$targetAgentId = (string)($record['targetAgentId'] ?? '');
+		$startedAt     = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		$status        = 'ok';
+		try {
+			$result = $this->scheduleService->runAgentAsOwner(
+				owner: (string)($record['owner'] ?? ''),
+				agentId: $targetAgentId,
+				prompt: (string)($record['task'] ?? ''),
+				organisation: (string)($record['organisation'] ?? ''),
+				forceOwner: true,
+				anchor: $anchor
+			);
+		} catch (Throwable $e) {
+			$status = 'error';
+			$result = 'error: ' . $e->getMessage();
+			$this->logger->warning('Hermiq delegated agent run failed: ' . $e->getMessage(), ['exception' => $e]);
+		}
+
+		$runId       = $this->scheduleService->getLastRunId();
+		$auditTarget = ($anchor ?? $this->findAgent(agentId: $targetAgentId));
+		if ($auditTarget !== null) {
+			$this->writeDelegationAudit(
+				auditTarget: $auditTarget,
+				entry: new DelegationAuditEntry(
+					targetAgentId: $targetAgentId,
+					status: $status,
+					summary: $result,
+					runId: $runId,
+					parentRunId: (string)($record['parentRunId'] ?? ''),
+					startedAt: $startedAt
+				)
+			);
+		}
+
+		if ($status === 'error') {
+			$this->parallel?->store()->finish(id: (string)$record['id'], fields: ['state' => 'failed', 'runId' => $runId]);
+			return $this->refuse(code: 'delegation_failed', message: 'The delegated agent run failed.');
+		}
+
+		$this->parallel?->store()->finish(id: (string)$record['id'], fields: ['state' => 'done', 'result' => $result, 'runId' => $runId]);
+
+		return ['result' => $result, 'effectiveReach' => (string)($record['effectiveReach'] ?? '')];
+	}//end runStored()
 
 	/**
 	 * Gate one part of a `delegateMany()` call: its shape, then every gate.
@@ -725,27 +921,46 @@ class DelegationService implements DelegationServiceInterface {
 	 * @return ObjectEntity|null The resolved Agent, or null when unresolvable.
 	 */
 	private function findAgent(string $agentId): ?ObjectEntity {
+		return $this->findObject(id: $agentId, schema: self::AGENT_SCHEMA);
+	}//end findAgent()
+
+	/**
+	 * Resolve an object system-wide, or null: an agent of this register, or a
+	 * run's anchor wherever it lives.
+	 *
+	 * @param string      $id     The object's UUID.
+	 * @param string|null $schema The schema in this register, or null for any object.
+	 *
+	 * @return ObjectEntity|null
+	 */
+	private function findObject(string $id, ?string $schema = null): ?ObjectEntity {
+		$agentId = $id;
 		if ($agentId === '') {
 			return null;
+		}
+
+		$register = null;
+		if ($schema !== null) {
+			$register = self::REGISTER_SLUG;
 		}
 
 		try {
 			return $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				register: $register,
+				schema: $schema,
 				_rbac: false,
 				_multitenancy: false
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
-				sprintf('Hermiq delegation could not resolve agent %s: %s', $agentId, $e->getMessage()),
+				sprintf('Hermiq delegation could not resolve object %s: %s', $agentId, $e->getMessage()),
 				['exception' => $e]
 			);
 			return null;
 		}
 
-	}//end findAgent()
+	}//end findObject()
 
 	/**
 	 * The instance-wide maximum delegation chain depth (`delegation.maxDepth`,
