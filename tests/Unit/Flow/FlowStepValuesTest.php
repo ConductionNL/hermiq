@@ -25,6 +25,7 @@ namespace OCA\Hermiq\Tests\Unit\Flow;
 use OCA\Hermiq\Flow\AgentStepRun;
 use OCA\Hermiq\Flow\FlowItemSlot;
 use OCA\Hermiq\Flow\HermiqAgentNode;
+use OCA\Hermiq\Flow\HermiqCodeStepNode;
 use OCA\Hermiq\Flow\HermiqFlowNodeListener;
 use OCA\Hermiq\Flow\HermiqScheduleDispatchNode;
 use OCA\Hermiq\Flow\HermiqWorkloadCollectNode;
@@ -114,4 +115,34 @@ final class FlowStepValuesTest extends TestCase {
 		$listener->handle($event);
 		self::assertSame([$agent, $workload, $collect, $schedule], $registered);
 	}//end testTheListenerRegistersTheFourNodesOnThePaletteEvent()
+
+	/**
+	 * The code step, when it is wired, is registered after the other four
+	 * (tools-code-sandbox).
+	 *
+	 * @return void
+	 */
+	public function testTheListenerRegistersTheCodeStepLast(): void {
+		$agent = $this->createMock(HermiqAgentNode::class);
+		$workload = $this->createMock(HermiqWorkloadNode::class);
+		$collect = $this->createMock(HermiqWorkloadCollectNode::class);
+		$schedule = $this->createMock(HermiqScheduleDispatchNode::class);
+		$code = $this->createMock(HermiqCodeStepNode::class);
+		$listener = new HermiqFlowNodeListener(
+			agentNode: $agent,
+			workloadNode: $workload,
+			collectNode: $collect,
+			scheduleDispatchNode: $schedule,
+			codeStepNode: $code
+		);
+
+		$registered = [];
+		$event = $this->createMock(RegisterFlowNodesEvent::class);
+		$event->method('registerNode')->willReturnCallback(static function ($node) use (&$registered): void {
+			$registered[] = $node;
+		});
+
+		$listener->handle($event);
+		self::assertSame([$agent, $workload, $collect, $schedule, $code], $registered);
+	}//end testTheListenerRegistersTheCodeStepLast()
 }//end class

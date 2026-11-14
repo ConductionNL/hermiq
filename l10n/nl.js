@@ -2812,7 +2812,9 @@ OC.L10N.register(
         "counterfactualPair: the second request, identical to request A except for the attribute.": "counterfactualPair: het tweede verzoek, gelijk aan verzoek A op het kenmerk na.",
         "counterfactualPair: the second request, snapshotted at run time.": "counterfactualPair: het tweede verzoek, vastgelegd op het moment van uitvoeren.",
         "Fork from here": "Hier afsplitsen",
-        "Could not fork the session.": "De sessie kon niet worden afgesplitst."
+        "Could not fork the session.": "De sessie kon niet worden afgesplitst.",
+        "Code step": "Codestap",
+        "Run a short Python or JavaScript program over each item in the code sandbox; the JSON it prints replaces the item.": "Voer per item een kort Python- of JavaScript-programma uit in de codesandbox; de JSON die het programma afdrukt, vervangt het item."
     },
     "nplurals=2; plural=(n != 1);"
 )

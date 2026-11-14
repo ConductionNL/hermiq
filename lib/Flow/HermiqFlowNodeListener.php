@@ -43,12 +43,15 @@ class HermiqFlowNodeListener implements IEventListener {
 	 * @param HermiqScheduleDispatchNode $scheduleDispatchNode Fires one schedule occurrence
 	 *                                                         through the governed dispatch
 	 *                                                         path (schedules-onto-engine-triggers).
+	 * @param HermiqCodeStepNode|null $codeStepNode Runs code over each item (tools-code-sandbox); added
+	 *                                              last so positional construction keeps binding.
 	 */
 	public function __construct(
 		private readonly HermiqAgentNode $agentNode,
 		private readonly HermiqWorkloadNode $workloadNode,
 		private readonly HermiqWorkloadCollectNode $collectNode,
 		private readonly HermiqScheduleDispatchNode $scheduleDispatchNode,
+		private readonly ?HermiqCodeStepNode $codeStepNode = null,
 	) {
 
 	}//end __construct()
@@ -74,6 +77,10 @@ class HermiqFlowNodeListener implements IEventListener {
 		$event->registerNode(node: $this->workloadNode);
 		$event->registerNode(node: $this->collectNode);
 		$event->registerNode(node: $this->scheduleDispatchNode);
+		// The palette leaves it out while no sandbox can take runs (isAvailableForScope).
+		if ($this->codeStepNode !== null) {
+			$event->registerNode(node: $this->codeStepNode);
+		}
 
 	}//end handle()
 }//end class

@@ -30,8 +30,9 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
 - **acceptance_criteria**:
   - GIVEN the feature disabled WHEN runCode is called THEN nothing is dispatched and the stated message is returned
   - GIVEN each backend and a files argument WHEN the catalogue is built THEN the reach is self, external or at least user as specified
-- [ ] Implement
-- [ ] Test (PHPUnit on the descriptor, the gate and the files read)
+- [x] Implement
+  - `CodeSandboxToolDescriptors` (`hermiq.runCode`, `scope: create`, reach `self` or `external` from the setting, `reachWithArguments.files` at least `user`), `RunCodeTool` (the `agent-code-execution` gate before anything is read or sent, files read from the acting user's own folder, the client's refusals as envelopes), routed from `HermiqToolProvider`; `agent-code-execution` seeded high-risk and disabled.
+- [x] Test (PHPUnit on the descriptor, the gate and the files read)
 
 ### Task 4: The code-step flow node
 - **spec_ref**: `openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-a-flow-can-run-a-code-step-over-each-item-req-sandbox-003`
@@ -40,8 +41,10 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
   - GIVEN an item and code that prints JSON WHEN the node runs THEN the item is replaced
   - GIVEN code that fails WHEN the node runs THEN the item is failed with the stderr tail
   - GIVEN no sandbox WHEN the palette is built THEN the node is absent
-- [ ] Implement
+- [x] Implement
+  - `HermiqCodeStepNode` (item JSON on stdin, the printed JSON object replaces it, a failing, timed-out or unprintable run keeps the item with an `error` and the stderr tail, 1 to 30 seconds, the same AI feature gate, absent from the palette while no sandbox can take runs), registered last by `HermiqFlowNodeListener`.
 - [ ] Test (PHPUnit with the client stubbed; a live flow run with the ExApp)
+  - PHPUnit done (`HermiqCodeStepNodeTest`); the live flow run waits on the ExApp (Task 1).
 
 ### Task 5: The admin section and the run record
 - **spec_ref**: `openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005`
